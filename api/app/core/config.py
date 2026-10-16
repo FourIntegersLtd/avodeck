@@ -49,3 +49,32 @@ def cell_settings(env: Mapping[str, str] | None = None) -> CellSettings:
     if not region:
         raise ConfigError("REGION is not set")
     return CellSettings(region=region)
+
+
+@dataclass(frozen=True)
+class AuthSettings:
+    """Supabase Auth for this cell, called only by FastAPI (rule 4). Keys hidden from repr.
+
+    The service-role key is used only for Auth admin calls (ADR 0013), never for the database.
+    `app_origin` is the web app's origin: the only one allowed to send requests with cookies.
+    """
+
+    url: str
+    anon_key: str = field(repr=False)
+    service_role_key: str = field(repr=False)
+    app_origin: str
+
+
+def auth_settings(env: Mapping[str, str] | None = None) -> AuthSettings:
+    source = os.environ if env is None else env
+    names = ("SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "APP_ORIGIN")
+    values = {name: source.get(name, "").strip() for name in names}
+    missing = [name for name, value in values.items() if not value]
+    if missing:
+        raise ConfigError(f"{', '.join(missing)} not set")
+    return AuthSettings(
+        url=values["SUPABASE_URL"].rstrip("/"),
+        anon_key=values["SUPABASE_ANON_KEY"],
+        service_role_key=values["SUPABASE_SERVICE_ROLE_KEY"],
+        app_origin=values["APP_ORIGIN"].rstrip("/"),
+    )

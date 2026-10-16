@@ -1,0 +1,336 @@
+"""Sign-in, MFA, recovery codes, sign-out and password reset (architecture 5.2, 9 "Login"; S01).
+
+FastAPI is the only caller of Supabase Auth (rule 4). The browser gets an opaque session cookie
+and a CSRF cookie, never an Auth token. Every sign-in needs the password and then a code from an
+authenticator app (enrolled on first sign-in); ten one-use recovery codes cover a lost phone.
+Nothing here logs an address, password, code or token; audit rows name a failed address only by
+its hash.
+"""
+
+from __future__ import annotations
+
+import secrets
+import uuid
+from datetime import UTC, datetime, timedelta
+from typing import Literal
+
+from fastapi import Depends, Request, Response
+from pydantic import BaseModel, Field
+
+from app.core import audit
+from app.core.auth import session as sessions
+from app.core.auth.step_up import require_step_up
+from app.core.auth.supabase import AuthError, AuthTokens, SupabaseAuth
+from app.core.db import Database, RequestScope
+from app.core.email import RECOVERY_CODE_USED, Mail, Mailer
+from app.core.errors import ApiError
+from app.core.http import CurrentSession, DbConn, public_router, router
+
+auth_public = public_router(prefix="/v1/auth", tags=["auth"])
+auth_pending = router(prefix="/v1/auth", tags=["auth"], mfa_pending=True)
+auth_status = router(prefix="/v1/auth", tags=["auth"], mfa_pending=True, touch=False)
+auth_signed_in = router(prefix="/v1/auth", tags=["auth"])
+
+RECOVERY_CODE_COUNT = 10
+_CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
+PASSWORD_MIN = 12
+
+
+# --- helpers ------------------------------------------------------------------------------------
+
+
+def _auth(request: Request) -> SupabaseAuth:
+    auth: SupabaseAuth = request.app.state.auth
+    return auth
+
+
+def _database(request: Request) -> Database:
+    database: Database | None = request.app.state.database
+    if database is None:
+        raise ApiError("unavailable", "The service is not ready.", 503)
+    return database
+
+
+def _mailer(request: Request) -> Mailer:
+    mailer: Mailer = request.app.state.mailer
+    return mailer
+
+
+def scope(person_id: uuid.UUID) -> RequestScope:
+    return RequestScope(person_id=person_id, org_ids=(), request_id=uuid.uuid4().hex)
+
+
+async def audit_apart(database: Database, person_id: uuid.UUID, action: str, target: str) -> None:
+    """An audit row in its own transaction, so it survives the refused request's rollback."""
+    async with database.request(scope(person_id)) as conn:
+        await audit.record(conn, action=action, target=target)
+
+
+async def audit_anonymous(database: Database, action: str, email: str) -> None:
+    async with database.anonymous() as conn:
+        await conn.execute("select app.audit_anonymous(%s, %s)", (action, sessions.email_target(email)))
+
+
+def _normalise_code(code: str) -> str:
+    return "".join(ch for ch in code.lower() if ch.isalnum())
+
+
+def code_hash(person_id: uuid.UUID, code: str) -> str:
+    return sessions.digest(f"{person_id}:{_normalise_code(code)}")
+
+
+def _new_code() -> str:
+    raw = "".join(secrets.choice(_CODE_ALPHABET) for _ in range(10))
+    return f"{raw[:5]}-{raw[5:]}"
+
+
+async def issue_recovery_codes(conn: DbConn, person_id: uuid.UUID) -> list[str]:
+    """Ten new one-use codes; every older code stops working."""
+    await conn.execute("delete from app.mfa_recovery_codes where person_id = app.current_person_id()")
+    codes = [_new_code() for _ in range(RECOVERY_CODE_COUNT)]
+    async with conn.cursor() as cur:
+        await cur.executemany(
+            "insert into app.mfa_recovery_codes (person_id, code_hash) values (app.current_person_id(), %s)",
+            [(code_hash(person_id, c),) for c in codes],
+        )
+    return codes
+
+
+async def fresh_access_token(conn: DbConn, session: sessions.Session, auth: SupabaseAuth) -> str:
+    """The session's Supabase Auth access token, refreshed when it is about to expire."""
+    if not session.auth_access_token or not session.auth_refresh_token:
+        raise ApiError("session_expired", "Your session has ended. Please sign in again.", 401)
+    expires = session.auth_expires_at
+    if expires is not None and expires > datetime.now(UTC) + timedelta(seconds=60):
+        return session.auth_access_token
+    tokens = await auth.refresh(session.auth_refresh_token)
+    await sessions.store_auth_tokens(conn, session.id, tokens)
+    return tokens.access_token
+
+
+async def _start_session(
+    request: Request, response: Response, database: Database, tokens: AuthTokens, action: str
+) -> None:
+    async with database.request(scope(tokens.person_id)) as conn:
+        await conn.execute("select app.ensure_person(%s, %s, %s)", (tokens.email, None, request.app.state.region))
+        session_id, new = await sessions.open_session(conn, tokens, sessions.device_label(request))
+        await audit.record(conn, action=action, target=f"session:{session_id}")
+    sessions.set_cookies(response, new)
+
+
+# --- models -------------------------------------------------------------------------------------
+
+
+class SignIn(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class SignInResult(BaseModel):
+    status: Literal["mfa_required"]
+    mfa_enrolled: bool
+
+
+class Enrolment(BaseModel):
+    qr_code: str
+    secret: str
+    uri: str
+
+
+class Code(BaseModel):
+    code: str = Field(pattern=r"^\d{6}$")
+
+
+class Verified(BaseModel):
+    status: Literal["signed_in"]
+    recovery_codes: list[str] | None
+
+
+class RecoveryCodes(BaseModel):
+    recovery_codes: list[str]
+
+
+class Recover(SignIn):
+    code: str = Field(min_length=6, max_length=32)
+
+
+class SessionStatus(BaseModel):
+    aal: Literal["aal1", "aal2"]
+    mfa_enrolled: bool
+    mfa_complete: bool
+    step_up_until: datetime | None
+    minutes_until_timeout: int
+
+
+class Forgot(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+
+
+class Sent(BaseModel):
+    status: Literal["sent"]
+
+
+class Reset(BaseModel):
+    token: str = Field(min_length=1, max_length=512)
+    new_password: str = Field(min_length=PASSWORD_MIN, max_length=256)
+
+
+class PasswordChanged(BaseModel):
+    status: Literal["password_changed"]
+
+
+# --- signing in ---------------------------------------------------------------------------------
+
+
+@auth_public.post("/sign-in", response_model=SignInResult)
+async def sign_in(body: SignIn, request: Request, response: Response) -> SignInResult:
+    """Password step. Sets the session cookies; the session stays at `mfa_required` until a code is verified."""
+    database = _database(request)
+    try:
+        tokens = await _auth(request).sign_in_with_password(body.email, body.password)
+    except AuthError as exc:
+        if exc.code == "invalid_credentials":
+            await audit_anonymous(database, "auth.sign_in_failed", body.email)
+        raise
+    await _start_session(request, response, database, tokens, "auth.sign_in")
+    return SignInResult(status="mfa_required", mfa_enrolled=tokens.mfa_enrolled)
+
+
+@auth_pending.post("/mfa/enroll", response_model=Enrolment)
+async def enroll(request: Request, response: Response, session: CurrentSession, conn: DbConn) -> Enrolment:
+    """First sign-in: a new authenticator app (QR code and the same secret as text)."""
+    if session.mfa_enrolled:
+        raise ApiError("already_enrolled", "An authenticator app is already set up.", 409)
+    auth = _auth(request)
+    enrolment = await auth.enroll_totp(await fresh_access_token(conn, session, auth))
+    response.headers["cache-control"] = "no-store"
+    return Enrolment(qr_code=enrolment["qr_code"], secret=enrolment["secret"], uri=enrolment["uri"])
+
+
+@auth_pending.post("/mfa/verify", response_model=Verified)
+async def verify(body: Code, request: Request, response: Response, session: CurrentSession, conn: DbConn) -> Verified:
+    """A code from the authenticator app: completes sign-in, or steps up for 10 minutes.
+
+    The session gets new cookies. Finishing enrolment issues the ten recovery codes, shown once.
+    """
+    auth = _auth(request)
+    access = await fresh_access_token(conn, session, auth)
+    wanted = "verified" if session.mfa_enrolled else "unverified"
+    factors = sorted(
+        (f for f in await auth.factors(access) if f.get("status") == wanted),
+        key=lambda f: str(f.get("created_at", "")),
+    )
+    if not factors:
+        raise ApiError("not_enrolled", "Set up your authenticator app first.", 409)
+    try:
+        tokens = await auth.verify_totp(access, str(factors[-1]["id"]), body.code)
+    except AuthError as exc:
+        if exc.code == "invalid_code":
+            await audit_apart(_database(request), session.person_id, "auth.mfa_failed", f"session:{session.id}")
+        raise
+    if tokens.aal != "aal2":
+        raise ApiError("invalid_code", "That code did not work.", 400)
+    new = sessions.new_tokens()
+    await conn.execute(
+        "update app.sessions set token_hash = %s, csrf_hash = %s, aal = 'aal2', mfa_enrolled = true,"
+        " mfa_verified_at = now(), last_seen_at = now() where id = %s",
+        (sessions.digest(new.session), sessions.digest(new.csrf), session.id),
+    )
+    await sessions.store_auth_tokens(conn, session.id, tokens)
+    codes = None if session.mfa_enrolled else await issue_recovery_codes(conn, session.person_id)
+    await audit.record(conn, action="auth.mfa_verified", target=f"session:{session.id}")
+    sessions.set_cookies(response, new)
+    return Verified(status="signed_in", recovery_codes=codes)
+
+
+@auth_signed_in.post("/mfa/recovery-codes", response_model=RecoveryCodes, dependencies=[Depends(require_step_up)])
+async def regenerate_recovery_codes(response: Response, session: CurrentSession, conn: DbConn) -> RecoveryCodes:
+    """🔒 Ten new recovery codes for the signed-in person only; the old set stops working."""
+    codes = await issue_recovery_codes(conn, session.person_id)
+    await audit.record(conn, action="auth.recovery_codes_issued", target=f"person:{session.person_id}")
+    response.headers["cache-control"] = "no-store"
+    return RecoveryCodes(recovery_codes=codes)
+
+
+@auth_public.post("/mfa/recover", response_model=SignInResult)
+async def recover(body: Recover, request: Request, response: Response) -> SignInResult:
+    """Lost phone: password plus one recovery code. The code is used up, the old authenticator is
+    removed and the new session must enrol a new one (which issues a new set of codes)."""
+    database, auth = _database(request), _auth(request)
+    try:
+        tokens = await auth.sign_in_with_password(body.email, body.password)
+    except AuthError as exc:
+        if exc.code == "invalid_credentials":
+            await audit_anonymous(database, "auth.sign_in_failed", body.email)
+        raise
+    person = tokens.person_id
+    async with database.request(scope(person)) as conn:
+        cur = await conn.execute(
+            "update app.mfa_recovery_codes set used_at = now()"
+            " where person_id = app.current_person_id() and code_hash = %s and used_at is null returning id",
+            (code_hash(person, body.code),),
+        )
+        used = await cur.fetchone()
+        if used is not None:
+            await auth.admin_delete_totp_factors(person)
+            await audit.record(conn, action="auth.recovery_code_used", target=f"person:{person}")
+    if used is None:
+        await audit_apart(database, person, "auth.recovery_failed", f"person:{person}")
+        await auth.sign_out(tokens.access_token)
+        raise ApiError("invalid_code", "That recovery code did not work.", 401)
+    await auth.sign_out(tokens.access_token)
+    fresh = await auth.sign_in_with_password(body.email, body.password)
+    await _start_session(request, response, database, fresh, "auth.sign_in")
+    await _mailer(request).send(Mail(to=fresh.email, template=RECOVERY_CODE_USED))
+    return SignInResult(status="mfa_required", mfa_enrolled=False)
+
+
+@auth_pending.post("/sign-out", status_code=204)
+async def sign_out(request: Request, session: CurrentSession, conn: DbConn) -> Response:
+    await sessions.revoke(conn, "signed_out", session_id=session.id)
+    await audit.record(conn, action="auth.sign_out", target=f"session:{session.id}")
+    if session.auth_access_token:
+        await _auth(request).sign_out(session.auth_access_token)
+    response = Response(status_code=204)
+    sessions.clear_cookies(response)
+    return response
+
+
+@auth_status.get("/session", response_model=SessionStatus)
+async def session_status(session: CurrentSession) -> SessionStatus:
+    """Where this session stands; reading it does not count as activity."""
+    left = session.last_seen_at + sessions.IDLE_TIMEOUT - datetime.now(UTC)
+    return SessionStatus(
+        aal="aal2" if session.aal == "aal2" else "aal1",
+        mfa_enrolled=session.mfa_enrolled,
+        mfa_complete=session.mfa_complete,
+        step_up_until=session.step_up_until if session.stepped_up else None,
+        minutes_until_timeout=max(0, int(left.total_seconds() // 60)),
+    )
+
+
+# --- password reset -----------------------------------------------------------------------------
+
+
+@auth_public.post("/password/forgot", response_model=Sent, status_code=202)
+async def forgot_password(body: Forgot, request: Request) -> Sent:
+    """The same answer whether or not the address has an account."""
+    try:
+        await _auth(request).send_password_reset(body.email)
+    except AuthError:
+        pass
+    await audit_anonymous(_database(request), "auth.password_reset_requested", body.email)
+    return Sent(status="sent")
+
+
+@auth_public.post("/password/reset", response_model=PasswordChanged)
+async def reset_password(body: Reset, request: Request) -> PasswordChanged:
+    """The link from the reset email plus a new password. Signs out every device."""
+    database, auth = _database(request), _auth(request)
+    tokens = await auth.verify_recovery(body.token)
+    await auth.admin_set_password(tokens.person_id, body.new_password)
+    await auth.sign_out(tokens.access_token, scope="global")
+    async with database.request(scope(tokens.person_id)) as conn:
+        await sessions.revoke(conn, "password_reset")
+        await audit.record(conn, action="auth.password_reset", target=f"person:{tokens.person_id}")
+    return PasswordChanged(status="password_changed")

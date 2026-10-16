@@ -74,6 +74,14 @@ class Database:
             yield conn
 
     @asynccontextmanager
+    async def anonymous(self, request_id: str = "") -> AsyncIterator[AsyncConnection]:
+        """A transaction acting for nobody: RLS shows no rows. Only the narrow security-definer
+        functions for the signed-out steps (session lookup, email-change links, failed sign-in
+        audit) do anything here."""
+        async with self._transaction({"app.request_id": request_id, "TimeZone": "UTC"}) as conn:
+            yield conn
+
+    @asynccontextmanager
     async def job(self, case_id: uuid.UUID) -> AsyncIterator[AsyncConnection]:
         async with self._transaction({"app.job_case_id": str(case_id), "TimeZone": "UTC"}) as conn:
             yield conn

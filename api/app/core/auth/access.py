@@ -11,9 +11,12 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 
+from fastapi import Request
 from psycopg import AsyncConnection
 
 from app.core.auth.permissions import CASE_ACTIONS, allowed_actions
+from app.core.auth.session import current_session
+from app.core.auth.step_up import check_step_up
 from app.core.errors import ApiError
 from app.core.http import DbConn
 
@@ -46,15 +49,23 @@ async def check_case_access(conn: AsyncConnection, case_id: uuid.UUID, action: s
 
 
 class CaseAccessDependency:
-    """A FastAPI dependency; `case_action` lets the route scanner see which action a route checks."""
+    """A FastAPI dependency; `case_action` and `step_up` let the route scanners see what a route checks.
+
+    For a 🔒 action (rule 10) it also needs MFA completed in the last 10 minutes, checked after
+    access so someone who cannot see the case still gets 404.
+    """
 
     def __init__(self, action: str) -> None:
         if action not in CASE_ACTIONS:
             raise ValueError(f"unknown case action {action!r}: add it to docs/spec/permissions.md first")
         self.case_action = action
+        self.step_up = CASE_ACTIONS[action].step_up
 
-    async def __call__(self, case_id: uuid.UUID, conn: DbConn) -> CaseAccess:
-        return await check_case_access(conn, case_id, self.case_action)
+    async def __call__(self, request: Request, case_id: uuid.UUID, conn: DbConn) -> CaseAccess:
+        access = await check_case_access(conn, case_id, self.case_action)
+        if self.step_up:
+            check_step_up(current_session(request))
+        return access
 
 
 def require_case_access(action: str) -> CaseAccessDependency:

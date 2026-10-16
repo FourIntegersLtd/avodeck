@@ -1,7 +1,11 @@
-"""Signed-in routes: one database transaction per request, Idempotency-Key and If-Match.
+"""Signed-in routes: session, CSRF, MFA, one database transaction per request, Idempotency-Key and If-Match.
 
 Build every signed-in router with `router()`. Each request on it:
-- resolves the identity (401 `not_signed_in` without one);
+- refuses a browser `Origin` other than the web app's (403 `bad_origin`);
+- resolves the device session from its cookie (401 `not_signed_in` or `session_expired`; a request
+  counts as activity unless the router says `touch=False`);
+- on a state-changing method, needs the CSRF token in `X-CSRF-Token` (403 `csrf_required`);
+- needs MFA completed for this session (403 `mfa_required`) unless the router says `mfa_pending=True`;
 - runs inside one `Database.request()` transaction as the restricted role, committed only if
   the response is a success (an error or an exception rolls everything back);
 - with an `Idempotency-Key` on a state-changing method (F27): the first successful answer is
@@ -19,12 +23,13 @@ import json
 import re
 import uuid
 from collections.abc import Callable, Coroutine
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi.routing import APIRoute
 from psycopg import AsyncConnection
 
+from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
 from app.core.db import RequestScope
 from app.core.errors import ApiError
@@ -84,18 +89,39 @@ async def _remember(conn: AsyncConnection, key: str, fingerprint: str, response:
     )
 
 
-class FoundationRoute(APIRoute):
+def check_origin(request: Request) -> None:
+    """A browser sends Origin on state-changing requests; only the web app's own is accepted."""
+    origin = request.headers.get("origin")
+    if origin is not None and origin.rstrip("/") != request.app.state.app_origin:
+        raise ApiError("bad_origin", "Request refused.", 403)
+
+
+def _no_store(response: Response) -> bool:
+    return "no-store" in response.headers.get("cache-control", "")
+
+
+class SessionRoute(APIRoute):
+    """A signed-in route. `router()` makes subclasses with these two switches set."""
+
+    mfa_pending = False  # True: also reachable before MFA is completed (the MFA routes themselves)
+    touch = True  # False: checking the session does not count as activity
+
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
 
         async def run(request: Request) -> Response:
-            provider = request.app.state.identity_provider
-            identity: Identity | None = await provider(request) if provider is not None else None
-            if identity is None:
-                raise ApiError("not_signed_in", "Please sign in.", 401)
+            check_origin(request)
             database = request.app.state.database
             if database is None:
                 raise ApiError("unavailable", "The service is not ready.", 503)
+            session = await sessions.resolve(database, request.cookies.get(sessions.SESSION_COOKIE), touch=self.touch)
+            if request.method not in SAFE_METHODS and not session.csrf_matches(
+                request.headers.get(sessions.CSRF_HEADER)
+            ):
+                raise ApiError("csrf_required", "Reload the page and try again.", 403)
+            if not self.mfa_pending and not session.mfa_complete:
+                raise ApiError("mfa_required", "Enter a code from your authenticator app to continue.", 403)
+            identity = Identity(session.person_id, session.email, session.full_name, session.mfa_enrolled)
             scope = RequestScope(
                 person_id=identity.person_id,
                 org_ids=(),
@@ -107,12 +133,13 @@ class FoundationRoute(APIRoute):
                 async with database.request(scope) as conn:
                     request.state.conn = conn
                     request.state.identity = identity
+                    request.state.session = session
                     if key and (replayed := await _replay(conn, key, fingerprint)) is not None:
                         return replayed
                     response = await handler(request)
                     if response.status_code >= 400:
                         raise _Discard(response)
-                    if key:
+                    if key and not _no_store(response):
                         await _remember(conn, key, fingerprint, response)
                     return response
             except _Discard as discarded:
@@ -121,9 +148,39 @@ class FoundationRoute(APIRoute):
         return run
 
 
-def router(**kwargs: Any) -> APIRouter:
-    """An APIRouter whose routes run signed in, in one transaction, with Idempotency-Key support."""
-    return APIRouter(route_class=FoundationRoute, **kwargs)
+FoundationRoute = SessionRoute  # the step 3 name
+
+
+class PublicRoute(APIRoute):
+    """A route used before anyone is signed in (sign-in, recovery, password reset, email links).
+
+    Only the Origin check runs here; each handler opens its own transactions. The CSRF guard
+    (tests/guards/test_foundation_csrf.py) names every such route.
+    """
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+
+        async def run(request: Request) -> Response:
+            check_origin(request)
+            return await handler(request)
+
+        return run
+
+
+def router(*, mfa_pending: bool = False, touch: bool = True, **kwargs: Any) -> APIRouter:
+    """An APIRouter whose routes run signed in (session, CSRF, MFA), in one transaction, with Idempotency-Key."""
+    route_class: type[SessionRoute] = SessionRoute
+    if mfa_pending or not touch:
+        route_class = cast(
+            "type[SessionRoute]", type("SessionRoute", (SessionRoute,), {"mfa_pending": mfa_pending, "touch": touch})
+        )
+    return APIRouter(route_class=route_class, **kwargs)
+
+
+def public_router(**kwargs: Any) -> APIRouter:
+    """Only for the signed-out steps; adding a route here needs the foundation owner (CSRF guard)."""
+    return APIRouter(route_class=PublicRoute, **kwargs)
 
 
 def _connection(request: Request) -> AsyncConnection:
@@ -140,6 +197,7 @@ def _identity(request: Request) -> Identity:
 
 DbConn = Annotated[AsyncConnection, Depends(_connection)]
 CurrentIdentity = Annotated[Identity, Depends(_identity)]
+CurrentSession = Annotated[sessions.Session, Depends(sessions.current_session)]
 
 
 # --- ETag and If-Match (F26) -----------------------------------------------------------------------

@@ -7,10 +7,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 
-from app.core.auth.identity import IdentityProvider
-from app.core.config import cell_settings, database_settings
+from app.core.auth.supabase import SupabaseAuth
+from app.core.config import auth_settings, cell_settings, database_settings
 from app.core.db import Database
+from app.core.email import Mailer, OutboxMailer
 from app.core.errors import install_error_handlers
+from app.core.routes.account import account_public, account_router
+from app.core.routes.auth import auth_pending, auth_public, auth_signed_in, auth_status
 from app.core.routes.cases import cases_router
 from app.core.routes.me import me_router
 
@@ -18,12 +21,13 @@ from app.core.routes.me import me_router
 def create_app(
     *,
     database: Database | None = None,
-    identity_provider: IdentityProvider | None = None,
     region: str | None = None,
+    auth: SupabaseAuth | None = None,
+    mailer: Mailer | None = None,
 ) -> FastAPI:
-    """Without a database or region they are read from the environment at start-up.
+    """Without a database, region or Supabase Auth they are read from the environment at start-up.
 
-    Without an identity provider every request is signed out (the auth step adds the cookie session).
+    Without a mailer, mail goes to the in-memory stand-in (`OutboxMailer`) until the cell has Resend.
     """
 
     @asynccontextmanager
@@ -31,6 +35,9 @@ def create_app(
         owned: Database | None = None
         if app.state.region is None:
             app.state.region = cell_settings().region
+        if app.state.auth is None:
+            app.state.auth = SupabaseAuth(auth_settings())
+            app.state.app_origin = app.state.auth.settings.app_origin
         if app.state.database is None:
             owned = Database(database_settings().url)
             await owned.open()
@@ -43,10 +50,13 @@ def create_app(
 
     app = FastAPI(title="Avodeck API", lifespan=lifespan)
     app.state.database = database
-    app.state.identity_provider = identity_provider
     app.state.region = region
+    app.state.auth = auth
+    app.state.app_origin = auth.settings.app_origin if auth is not None else None
+    app.state.mailer = mailer if mailer is not None else OutboxMailer()
     install_error_handlers(app)
-    for r in (me_router, cases_router):
+    routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
+    for r in (*routers, me_router, cases_router):
         mount(app, r)
     return app
 
