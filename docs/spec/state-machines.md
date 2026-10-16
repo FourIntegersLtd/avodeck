@@ -91,6 +91,8 @@ served ──correction / change of opinion──▶ new supplementary draft ─
 | served → withdrawn | Step-up; reason; supplementary statement recorded | Stays locked and readable; final checks and new versions refuse to build on it |
 | locked/served → anything else | **Never** (except served → withdrawn above) | Rule 8 |
 
+Enforced by `app.report_versions_guard`: a new row starts `draft`; draft → locked needs `sha256` and sets `locked_at`; any other change to a locked row raises SQLSTATE `AVLCK`, which the API returns as 409 `locked` (`contracts.reports.ensure_unlocked()` refuses before writing). Fact and question statuses are enforced by `app.facts_guard` and `app.questions_guard` (SQLSTATE `AV409`); `version` rises on every change.
+
 ## Job (`jobs.status`)
 
 ```
@@ -108,7 +110,7 @@ open ──complete (all chunks in, sha256 matches)──▶ complete
   └──7 days unfinished──▶ expired
 ```
 
-Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. Enforced by `app.uploads_guard` (SQLSTATE `AV409`).
+Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at`, deletes their chunks from Storage and writes `upload.expired` to the audit log.
 
 ## Finding (`findings.decision`)
 

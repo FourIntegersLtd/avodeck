@@ -35,7 +35,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
 | `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation per state machine | Case deletion; quarantined images deleted earlier |
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
-| `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change | Case deletion |
+| `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion |
 | `fact_verifications` | B | Named expert (append only) | Many per fact | Append only | Case deletion; chain head on certificate |
 | `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
 | `fact_flags` | B | Named expert | Many | Add or remove | Case deletion |
@@ -55,7 +55,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `opinions` | E | Named expert only | One per question | ETag on every save; versions kept | Case deletion |
 | `opinion_versions` | E | System on save | Many | Append only | Case deletion |
 | `lint_issues` | E | Worker; named expert dismisses | Many | Recalculated on save; dismissals kept | Case deletion |
-| `report_versions` | F | Named expert builds, signs, serves | Many per case | Locked after signing; withdrawn never deleted | Case deletion only |
+| `report_versions` | F (table and lock trigger: Foundation) | Named expert builds, signs, serves | Many per case | Locked after signing (database refuses changes, 409 `locked`); withdrawn never deleted | Case deletion only |
 | `report_snapshots` | F | System at signing | Several per signed version | Never change | Case deletion |
 | `report_paragraphs` | F | System at build | Many | Locked with the version | Case deletion |
 | `citations` | F | System at build from opinions | Many | Snapshot of the fact; "changed since cited" check | Case deletion |
@@ -88,7 +88,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
 | `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
 | `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
-| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open | Case deletion |
+| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open; daily sweep expires unfinished uploads after 7 days and deletes their chunks | Case deletion |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |

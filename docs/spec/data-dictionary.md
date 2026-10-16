@@ -227,6 +227,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | kind | Type of question (e.g. breach, causation) from the pack |
 | outside_expertise | Flag that it may be outside the expert's field (they decide) |
 | status / confirmed_text | Whether the expert has confirmed it, and any tidied wording (the original is kept) |
+| version | Goes up each time the question changes |
 
 ### assumptions
 | Field | In plain words |
@@ -438,9 +439,10 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | version_no / type / display_name | Its number; draft, served, supplementary or answers; and the name shown (e.g. "Report 1") |
+| status | Draft, signed and frozen (locked), served, or withdrawn |
 | docx_path / pdf_path | Where the Word and PDF files are |
 | sha256 | Fingerprint proving it hasn't changed |
-| locked_at | When it was signed and frozen |
+| locked_at | When it was signed and frozen; after this nothing in the row can change except serving or withdrawing it |
 | withdrawn_at / withdrawn_reason | If the expert later withdrew it, when and why (it's never deleted) |
 | prev_version_id | The version it follows on from |
 

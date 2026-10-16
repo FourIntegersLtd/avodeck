@@ -59,7 +59,14 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - `core/routes/jobs.py`: `GET /v1/jobs/{id}` and `/events` (SSE: status, step, pct, eta_seconds, error_code only; changes only; ends when finished or after 5 minutes).
   - `core/routes/dictation.py`: `WS /v1/cases/{id}/dictation` (refuses before accepting: 4401, 4403, 4404, 4422; pack locale and phrases; `speech_unavailable` + 1011 when the service cannot answer) and `POST /v1/cases/{id}/transcripts` (encrypted, `transcript.saved` audited). `require_socket_case_access()` in `core/auth/access.py`; guard `test_foundation_websocket_routes.py`.
   - Choices: dictation and transcripts use `comment.write` (no new permission action); 500 MB file limit; one Storage object per chunk; bucket `STORAGE_BUCKET` (default `case-files`); unfinished uploads expire after 7 days; WebSockets require Origin.
-  - Not yet: virus scan and `process_bundle` on complete (slice A), the expiry sweep for old uploads, live Azure Speech (stage 2), the frontend.
+  - Not yet: virus scan and `process_bundle` on complete (slice A), live Azure Speech (stage 2), the frontend.
+- [x] Step 8 (2026-10-17): shared contracts and the OpenAPI export:
+  - Migration `0008_foundation_contracts.sql`: `facts`, `questions`, `report_versions` with state-machine triggers (`AV409`), version bumps, no deletes and RLS (view `case.view_content`; write `fact.verify`, `question.confirm`, `report.build`; worker its job's case only). A locked report version refuses every change except served and withdrawn (SQLSTATE `AVLCK` → 409 `locked`). `app.expire_uploads(run_date)` (worker only, audited).
+  - `core/contracts/`: `Fact`, `citable_facts()`, `Question`, `ReportVersion`, `ensure_unlocked()`, `NeedsYouItem`, `CaseCard`, `needs_you` provider registry, `require_page_read()` (423 `blind_read` per person), `PageReadLog`, `EventBus` (`ReportServed`), pipeline job names, `CASE_TABLES`. Scanned for forbidden words.
+  - `GET /v1/today` (`core/routes/today.py`): open case cards with your role, closed count, your organisations, and registered items for the cases shown, ranked; a failing provider is skipped (type logged only).
+  - `core/housekeeping.py`: daily `expire_uploads` schedule (chunks deleted from Storage; rows only when Storage is not configured). `app.export_openapi` and `make api-client` (web step skipped until the frontend exists); `/openapi.json` committed and tested against the app.
+  - Choices: the read gate uses the `page.read` action and reads are per person; citable = verified or edited on a page the named expert has read; `questions.instruction_version_id` has no foreign key until slice C adds `instruction_versions`.
+  - Not yet (frontend, step 9): CSP and no cloud hosts in the build, no tokens in browser storage, screen copy under the fixture packs, i18n keys, Sign-in/Today axe and canvas checks. Not yet (stage 2): staging deploy in London and real Bedrock, Azure, KMS. Not yet built: `GET /v1/notifications`, `POST /v1/notifications/{id}/read`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/feature-flags` (next API step).
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
@@ -106,9 +113,9 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] Every `/v1/cases/{id}/…` route returns 404 for a person with no access to that case (route table scanned automatically)
 - [x] State-changing routes return 403 without a CSRF token
 - [x] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
-- [ ] `GET /pages/{n}/facts` returns 423 until `POST /pages/{n}/read` (tested against the contract with a stub route)
+- [x] `GET /pages/{n}/facts` returns 423 until `POST /pages/{n}/read` (tested against the contract with a stub route)
 - [x] `provenance.check` rejects a value not present in its cited words; accepts after normalising case, spaces, number formats
-- [ ] Updating a `report_versions` row with `locked_at` set fails (409 via API, error at DB level)
+- [x] Updating a `report_versions` row with `locked_at` set fails (409 via API, error at DB level)
 - [x] `bedrock.py` refuses any model ID that is not a London in-region ID
 - [x] A request containing a made-up NHS number and name produces no log line containing either
 - [x] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
@@ -137,7 +144,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] Job progress streams over SSE and contains no patient text
 - [x] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
 - [x] Audit log hash chain verifies; tampering with a row is detected
-- [ ] Today shows case cards and items registered through `NeedsYouItem`
+- [x] Today shows case cards and items registered through `NeedsYouItem`
 - [ ] Sign-in and Today screens pass axe checks and match their canvas boards
 
 ## Out of scope

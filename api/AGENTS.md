@@ -15,7 +15,9 @@ api/app/
     audit.py              # append-only, hash-chained audit log
     ai/                   # AI kit: pii.py, bedrock.py, ocr.py, provenance.py, cell.py, kit.py, recordings.py
     speech.py             # WebSocket relay to Azure Speech
-    contracts/            # shared Pydantic models: Fact, Question, ReportVersion, NeedsYouItem
+    contracts/            # shared contracts (only grow): Fact + citable_facts, Question, ReportVersion + ensure_unlocked,
+                          # NeedsYouItem + needs_you registry, require_page_read (423 gate), events, case_tables
+    housekeeping.py       # daily schedules owned by foundation (expire_uploads)
     packs.py              # pack loader: merges jurisdiction + case-type + specialty packs for a case
     config.py             # cell config: REGION, endpoints, model IDs, allowed packs
     flags.py              # feature flags
@@ -48,6 +50,9 @@ api/tests/                # grouped by kind; files named test_<feature>_<area>_*
 - Risky routes (sign, send, export, delete, retention) depend on `require_step_up` (403 `step_up_required` without recent `aal2`).
 - State-changing routes depend on `require_csrf`.
 - Long work returns `202` + `{"job_id": ...}` and enqueues a job. Never do OCR, AI or document building inside a request.
+- Page-content routes that show suggestions depend on `require_page_read()` (`core/contracts/reading.py`): 423 `blind_read` until the person has read the page (rule 3). Slice B provides the read log as `app.state.page_reads`.
+- Today items: register a provider with `@needs_you.provider("<name>")` returning `NeedsYouItem`s (`core/contracts/today.py`); it runs as the signed-in person under RLS.
+- A locked `report_versions` row raises SQLSTATE `AVLCK` in the database, returned as 409 `locked`.
 - Errors use `ApiError(code, message, status)`. Codes: `not_found`, `blind_read`, `locked`, `step_up_required`, `conflict`, `invalid`.
 - Files stream through `core/storage.py`. Responses carrying page images or documents set `Cache-Control: private, no-store`.
 - Never return patient text in error messages.
