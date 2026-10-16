@@ -19,6 +19,12 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - The root Makefile targets are `dev`, `test`, `test-core`, `test-slice S=<feature>`, `lint` and `check-spec`.
   - Local Supabase is set up in `supabase/config.toml`.
   - CI uses Poetry: `ci-api.yml` and `ci-web.yml`, plus `eval-nightly.yml`, which stays off until `EVAL_ENABLED` is set.
+- [x] Step 2 (2026-10-16): database base (ADR 0013):
+  - Migration `0000_foundation_base.sql` (down in `supabase/migrations/down/`): the `app` schema, owned by `app_migrator` and not exposed to the Data API; NOLOGIN roles `app_api`, `app_worker`, `app_migrator` (no superuser, no `BYPASSRLS`; runtime roles own nothing); default grants for future `app` tables; `app.current_person_id()`, `app.current_org_ids()`, `app.current_job_case_id()`, which return nothing when unset so RLS fails closed.
+  - `supabase/seed.sql` gives the roles local-only passwords; cells set real ones out of band.
+  - `core/db.py`: psycopg 3 pool; `Database.request(scope)` and `Database.job(case_id)` each run one transaction with transaction-local settings; refuses to start as a role that can bypass RLS. `core/config.py` reads `DATABASE_URL` and `DATABASE_URL_DIRECT`.
+  - Local Supabase ports moved to 553xx (DB on 55322) to avoid clashes with other local projects.
+  - Not yet: `app.can_access_case()` and the tables it reads arrive with the tables step.
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
