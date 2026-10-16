@@ -132,6 +132,7 @@ class SessionRoute(APIRoute):
             try:
                 async with database.request(scope) as conn:
                     request.state.conn = conn
+                    request.state.scope = scope  # for streamed bodies, which run after this transaction
                     request.state.identity = identity
                     request.state.session = session
                     if key and (replayed := await _replay(conn, key, fingerprint)) is not None:
@@ -195,7 +196,15 @@ def _identity(request: Request) -> Identity:
     return identity
 
 
+def _scope(request: Request) -> RequestScope:
+    scope: RequestScope = request.state.scope
+    return scope
+
+
 DbConn = Annotated[AsyncConnection, Depends(_connection)]
+CurrentScope = Annotated[RequestScope, Depends(_scope)]
+"""Who is acting. A streamed response opens its own `database.request(scope)` per read, since the
+request's transaction has ended by the time the body is sent."""
 CurrentIdentity = Annotated[Identity, Depends(_identity)]
 CurrentSession = Annotated[sessions.Session, Depends(sessions.current_session)]
 
