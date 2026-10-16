@@ -18,9 +18,7 @@ def test_restricted_role_exists_without_superuser_or_bypassrls(admin: psycopg.Co
 
 
 def test_app_schema_exists_and_is_owned_by_the_migrator(admin: psycopg.Connection) -> None:
-    row = admin.execute(
-        "select pg_get_userbyid(nspowner) from pg_namespace where nspname = 'app'"
-    ).fetchone()
+    row = admin.execute("select pg_get_userbyid(nspowner) from pg_namespace where nspname = 'app'").fetchone()
     assert row == ("app_migrator",)
 
 
@@ -61,9 +59,7 @@ def test_runtime_roles_are_not_members_of_privileged_roles(admin: psycopg.Connec
 
 
 def test_session_helpers_return_nothing_when_unset(admin: psycopg.Connection) -> None:
-    row = admin.execute(
-        "select app.current_person_id(), app.current_org_ids(), app.current_job_case_id()"
-    ).fetchone()
+    row = admin.execute("select app.current_person_id(), app.current_org_ids(), app.current_job_case_id()").fetchone()
     assert row == (None, [], None)
 
 

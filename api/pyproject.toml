@@ -35,6 +35,9 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
+# tests import shared helpers as `tests.support.*`; map files from api/ so each has one module name
+mypy_path = "."
+explicit_package_bases = true
 
 [tool.coverage.report]
 exclude_also = ['if __name__ == "__main__":']

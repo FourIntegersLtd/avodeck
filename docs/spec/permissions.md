@@ -31,7 +31,8 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `report.sign` 🔒, `report.serve` 🔒, `report.withdraw` 🔒 | ✓ | — | — | — | — | — |
 | `request.draft` (instructing-party emails) | ✓ | — | — | ✓ | — | — |
 | `request.send` 🔒 | ✓ | — | — | — | — | — |
-| `invoice.create`, `invoice.send` 🔒, `credit_note.issue` 🔒 | ✓ | — | — | ✓ (draft only) | — | ✓ (team cases) |
+| `invoice.create` (draft) | ✓ | — | — | ✓ (draft only) | — | ✓ (team cases) |
+| `invoice.send` 🔒, `credit_note.issue` 🔒 | ✓ | — | — | — | — | ✓ (team cases) |
 | `invoice.record_payment` | ✓ | — | — | ✓ | — | ✓ |
 | `case.export` 🔒 | ✓ | — | — | — | — | ✓ (administrative copy: report versions, invoices, logs; no page images) |
 | `case.retention` 🔒 | ✓ (within org policy) | — | — | — | — | ✓ |
