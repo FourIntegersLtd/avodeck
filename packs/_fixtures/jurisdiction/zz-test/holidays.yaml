@@ -1,0 +1,4 @@
+source: fixture
+covers_from: "2026-01-01"
+covers_until: "2027-12-31"
+dates: ["2026-12-24"]

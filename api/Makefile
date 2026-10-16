@@ -1,5 +1,5 @@
 # Avodeck API and worker (one Poetry project, Python 3.12). Run from api/ or via the root Makefile.
-.PHONY: help install start worker test test-unit guards test-feature lint typecheck openapi schemathesis eval ci
+.PHONY: help install start worker test test-unit guards test-feature lint typecheck packs openapi schemathesis eval ci
 
 # pytest on the given paths; no tests collected (exit 5) passes until those tests exist.
 # TODO: once the first rule test lands in tests/guards, make `guards` fail on exit 5.
@@ -37,6 +37,9 @@ lint:
 typecheck:
 	poetry run mypy app tests
 
+packs:          ## schemas, lint and every combination of the launch and fixture packs
+	poetry run python -m app.core.packs ../packs ../packs/_fixtures
+
 openapi:        ## write ../openapi.json
 	poetry run python -m app.export_openapi > ../openapi.json
 
@@ -46,4 +49,4 @@ schemathesis:
 eval:           ## live models against synthetic bundles
 	poetry run python -m app.evals.run --threshold 0.95
 
-ci: lint typecheck guards test
+ci: lint typecheck packs guards test

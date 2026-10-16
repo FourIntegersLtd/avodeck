@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Final checks",
+  "type": "object",
+  "properties": {
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "text_key": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "checks"
+  ]
+}

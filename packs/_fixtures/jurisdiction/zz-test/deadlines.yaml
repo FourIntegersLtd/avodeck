@@ -1,3 +1,9 @@
-written_questions:
-  rule_ref: "Rule Z.4"
-  ask_within: {days: 21, calendar: business_days}
+deadlines:
+  - key: written_questions
+    rule_ref: "Rule Z.4"
+    days: 21
+    calendar: business_days
+    from: report_served
+  - key: hearing
+    rule_ref: "Rule Z.7"
+    set_by: direction

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Expert meeting types",
+  "type": "object",
+  "properties": {
+    "types": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true,
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "types"
+  ]
+}

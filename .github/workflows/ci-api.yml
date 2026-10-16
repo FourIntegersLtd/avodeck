@@ -26,6 +26,8 @@ jobs:
         with: { version: latest }
       - run: supabase start
       - run: make -C api lint typecheck
+      - name: Packs valid (schemas, lint, every combination)
+        run: make -C api packs
       - run: make -C api guards
       - run: make -C api test
       - name: OpenAPI fuzzing (Schemathesis)

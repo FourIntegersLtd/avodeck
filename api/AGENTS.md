@@ -60,7 +60,7 @@ api/tests/                # grouped by kind; files named test_<feature>_<area>_*
 
 ## Country-neutral code
 
-- Get every legal or clinical rule from `pack = packs.for_case(case)`: `pack.deadline("written_questions", served_on)`, `pack.declarations()`, `pack.term("claimant")`, `pack.compliance_checklist()`, `pack.workflow_steps()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.timezone`, `pack.speech()`, `pack.prompt_context()`.
+- Get every legal or clinical rule from `pack = packs.for_case(case)`: `pack.deadline("written_questions", served_on)`, `pack.declarations()`, `pack.term("subject")`, `pack.compliance_checklist()`, `pack.workflow_steps()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.timezone`, `pack.speech()`, `pack.prompt_context()`.
 - Never hard-code the forbidden words in architecture 3.5 (rule names, guidance bodies, declarations, party and instructing-party words, clinician titles, record systems, identifier types), a currency, date order, timezone, holiday rule, retention period, or a fixed list of fact kinds, source types, question types, party roles, lanes, checks, deadline kinds or document kinds.
 - Store times in UTC; compute deadlines with `pack.deadline()` (calendar and timezone aware).
 - Build AI prompts from neutral templates plus `pack.prompt_context()`; generate output schemas from pack registries.

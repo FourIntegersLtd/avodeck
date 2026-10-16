@@ -1,5 +1,5 @@
 # UK GP record systems and document cues, injected into T-07b prompts via pack.prompt_context(). No patient data.
-gp_systems:
+record_systems:
   - name: EMIS Web
     cues: ["Consultation", "Problem:", "History:", "Examination:", "Plan:", "Medication:"]
   - name: SystmOne

@@ -3,3 +3,6 @@ country_words: [NHS, NICE, CPR, PD35, "Part 35", GMC, England, Wales, EMIS, Syst
 specialty_words: [GP, GPs, "general practitioner", "general practice", surgeon, obstetric, orthopaedic]
 specialty_codes_forbidden_in: [jurisdiction, case-type]   # e.g. "general-practice" must not appear there
 professions_are_shared: true   # profession keys (doctor, nurse, midwife, physiotherapist...) may appear in jurisdiction registration_bodies
+# Never in slice code (api/app/features, web/src/capabilities) or prompt templates (architecture 3.5).
+# The country and specialty words above are forbidden there too. All-capital words match case-sensitively.
+slice_code_forbidden: [CPR, PD35, "Part 35", NICE, "statement of truth", claimant, defendant, solicitor, GP, EMIS, SystmOne, "NHS number"]

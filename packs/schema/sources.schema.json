@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Source types",
+  "type": "object",
+  "properties": {
+    "source_types": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "colour": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "source_types"
+  ]
+}

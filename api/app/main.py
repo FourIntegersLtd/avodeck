@@ -12,10 +12,12 @@ from app.core.config import auth_settings, cell_settings, database_settings
 from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer
 from app.core.errors import install_error_handlers
+from app.core.packs import PackLibrary, default_library
 from app.core.routes.account import account_public, account_router
 from app.core.routes.auth import auth_pending, auth_public, auth_signed_in, auth_status
 from app.core.routes.cases import cases_router
 from app.core.routes.me import me_router
+from app.core.routes.packs import case_pack_router, packs_router
 
 
 def create_app(
@@ -24,10 +26,12 @@ def create_app(
     region: str | None = None,
     auth: SupabaseAuth | None = None,
     mailer: Mailer | None = None,
+    packs: PackLibrary | None = None,
 ) -> FastAPI:
     """Without a database, region or Supabase Auth they are read from the environment at start-up.
 
     Without a mailer, mail goes to the in-memory stand-in (`OutboxMailer`) until the cell has Resend.
+    Packs load here, not in the lifespan: an invalid pack stops the app being built at all.
     """
 
     @asynccontextmanager
@@ -54,9 +58,10 @@ def create_app(
     app.state.auth = auth
     app.state.app_origin = auth.settings.app_origin if auth is not None else None
     app.state.mailer = mailer if mailer is not None else OutboxMailer()
+    app.state.packs = packs if packs is not None else default_library()
     install_error_handlers(app)
     routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
-    for r in (*routers, me_router, cases_router):
+    for r in (*routers, me_router, cases_router, packs_router, case_pack_router):
         mount(app, r)
     return app
 

@@ -1,2 +1,7 @@
-source_types: [primary_care_record, hospital, out_of_hours, results, letters]
-source_colours: {primary_care_record: "#1E6B4E", hospital: "#4C6E91", out_of_hours: "#2C8C99", results: "#7A6BA8", letters: "#8C7556"}
+# Record source types for this specialty (local names come from the overlay vocabulary).
+source_types:
+  - {key: primary_care_record, colour: "#1E6B4E"}
+  - {key: hospital, colour: "#4C6E91"}
+  - {key: out_of_hours, colour: "#2C8C99"}
+  - {key: results, colour: "#7A6BA8"}
+  - {key: letters, colour: "#8C7556"}

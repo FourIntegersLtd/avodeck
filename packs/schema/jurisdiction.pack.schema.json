@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Jurisdiction pack metadata",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "extends": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "review",
+        "approved",
+        "retired"
+      ]
+    },
+    "approved_by": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approved_on": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+    "cell": {
+      "type": "string",
+      "minLength": 1
+    },
+    "locale": {
+      "type": "string",
+      "minLength": 1
+    },
+    "language": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timezone": {
+      "type": "string",
+      "minLength": 1
+    },
+    "date_order": {
+      "enum": [
+        "DMY",
+        "MDY",
+        "YMD"
+      ]
+    },
+    "currency": {
+      "type": "string",
+      "pattern": "^[A-Z]{3}$"
+    },
+    "tax": {
+      "type": "string",
+      "minLength": 1
+    },
+    "working_week": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 7
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "holidays": {
+      "type": "object",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "source"
+      ]
+    },
+    "registration_bodies": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "default_retention_years": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "speech": {
+      "type": "object",
+      "properties": {
+        "locale": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "locale"
+      ]
+    },
+    "legal_system": {
+      "type": "string",
+      "minLength": 1
+    },
+    "court_tracks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    },
+    "written_question_classifications": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "name",
+    "version",
+    "cell",
+    "locale",
+    "language",
+    "timezone",
+    "date_order",
+    "currency",
+    "working_week",
+    "holidays",
+    "registration_bodies",
+    "default_retention_years",
+    "speech"
+  ]
+}
