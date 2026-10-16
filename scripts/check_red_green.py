@@ -5,7 +5,8 @@ For each commit in BASE..HEAD (oldest first):
   - a 'feat(...)' commit must be immediately preceded by a 'test(...)' commit;
   - the test files changed in that test commit must FAIL at the test commit
     and PASS at the feat commit.
-Backend test files run with pytest; frontend test files with vitest.
+API test files run with pytest under the interpreter running this script (CI runs it
+via `poetry -P api run`, so the api dependencies are present); web test files with vitest.
 Usage: check_red_green.py <base_ref>
 """
 import re
@@ -35,13 +36,13 @@ def run_tests(sha: str, files: list[str]) -> bool:
             py = [f for f in files if f.startswith("api/") and f.endswith(".py")]
             ts = [f for f in files if f.startswith("web/")]
             if py:
-                ok &= subprocess.run(["python", "-m", "pytest", "-q", *[f.removeprefix("api/") for f in py]],
-                                     cwd=f"{tmp}/backend").returncode == 0
+                ok &= subprocess.run([sys.executable, "-m", "pytest", "-q", *[f.removeprefix("api/") for f in py]],
+                                     cwd=f"{tmp}/api").returncode == 0
             if ts:
                 unit = [f.removeprefix("web/") for f in ts if not f.startswith("web/e2e/")]
                 if unit:
-                    subprocess.run(["pnpm", "install", "--frozen-lockfile"], cwd=f"{tmp}/frontend", check=True)
-                    ok &= subprocess.run(["pnpm", "vitest", "run", *unit], cwd=f"{tmp}/frontend").returncode == 0
+                    subprocess.run(["pnpm", "install", "--frozen-lockfile"], cwd=f"{tmp}/web", check=True)
+                    ok &= subprocess.run(["pnpm", "vitest", "run", *unit], cwd=f"{tmp}/web").returncode == 0
             return ok
         finally:
             git("worktree", "remove", "--force", tmp)
