@@ -34,3 +34,18 @@ def database_settings(env: Mapping[str, str] | None = None) -> DatabaseSettings:
         raise ConfigError("DATABASE_URL is not set")
     direct = source.get("DATABASE_URL_DIRECT", "").strip() or None
     return DatabaseSettings(url=url, url_direct=direct)
+
+
+@dataclass(frozen=True)
+class CellSettings:
+    """The cell this process serves (rule 5): `REGION=uk` first. Stamped on new people and organisations."""
+
+    region: str
+
+
+def cell_settings(env: Mapping[str, str] | None = None) -> CellSettings:
+    source = os.environ if env is None else env
+    region = source.get("REGION", "").strip()
+    if not region:
+        raise ConfigError("REGION is not set")
+    return CellSettings(region=region)

@@ -88,6 +88,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `notifications` | Foundation | System; the person marks read | Many | Read state only | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |
+| `idempotency_keys` | Foundation | System | One per person per key | Replaced only after it expires | Expired after 24 hours |
 | `ai_calls` | Foundation | System | Many | Append only, no content | Metadata kept 13 months |
 | `transcripts` | Foundation (dictation kit) | The speaker | Many | Kept only if the expert keeps them | Case deletion |
 | `may_matter` | G | Worker; named expert marks seen | Many | Seen state only | Case deletion |

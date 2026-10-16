@@ -25,6 +25,12 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - `core/db.py`: psycopg 3 pool; `Database.request(scope)` and `Database.job(case_id)` each run one transaction with transaction-local settings; refuses to start as a role that can bypass RLS. `core/config.py` reads `DATABASE_URL` and `DATABASE_URL_DIRECT`.
   - Local Supabase ports moved to 553xx (DB on 55322) to avoid clashes with other local projects.
   - Not yet: `app.can_access_case()` and the tables it reads arrive with the tables step.
+- [x] Step 3 (2026-10-16): core tables and case access:
+  - Migrations `0001`–`0004` (downs in `supabase/migrations/down/`): the core tables plus `idempotency_keys`, all with RLS for `app_api` (by person) and `app_worker` (by job case); state-machine triggers for `cases`, `jobs`, `memberships` and `pages` (SQLSTATE `AV409` → 409 `conflict`); `app.case_action_allowed()` (the permissions matrix, kept equal to `core/auth/permissions.py` by a test), `app.case_access()`, `app.can_access_case()`, `app.ensure_person()`; hash-chained `audit_log` (sequence + advisory lock; `core/audit.find_breaks()` recomputes it).
+  - `core/auth/access.py` `require_case_access(action)` (404 without view rights, 403 without the action); `core/http.py` `router()` gives each request one transaction, Idempotency-Key replay (F27), `IfMatch`/`etag()` (428, 412 `stale`, F26); `core/errors.py`; `core/state_machines.py`; `core/config.cell_settings()` (`REGION`).
+  - `GET /v1/me` (creates the person, a personal organisation and the owner membership) and `GET`/`PATCH /v1/cases/{case_id}`. Request and job transactions run in UTC.
+  - Routers are added with `main.mount()`, not `include_router()`: FastAPI 0.143 includes routers lazily, which would hide their routes from the rule 9 route scan. Every slice router must be mounted this way.
+  - Not yet: identity comes from a test seam until the auth step; step-up and CSRF arrive with auth; deadline timezones with packs.
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
@@ -45,7 +51,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - `GET /health`
 
 ## Tables owned
-`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `audit_log`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
+`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `audit_log`, `idempotency_keys`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
 
 ## Shared code
 - `core/auth/`: cookie session, Supabase Auth calls, JWKS verification, `require_case_access(action)`, `require_step_up`, `require_csrf`, inactivity timeout
@@ -68,7 +74,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 
 ## Acceptance tests (write first; all must fail before work starts)
 **Non-negotiables (`api/tests/guards/`, `web/src/foundation/guards/`):**
-- [ ] Every `/v1/cases/{id}/…` route returns 404 for a person with no access to that case (route table scanned automatically)
+- [x] Every `/v1/cases/{id}/…` route returns 404 for a person with no access to that case (route table scanned automatically)
 - [ ] State-changing routes return 403 without a CSRF token
 - [ ] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
 - [ ] `GET /pages/{n}/facts` returns 423 until `POST /pages/{n}/read` (tested against the contract with a stub route)
@@ -88,7 +94,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [ ] The AI kit refuses model IDs and endpoints outside the current cell's allow-list
 - [ ] `GET /v1/jurisdictions` returns only `gb-eaw` in the UK cell; `GET /v1/jurisdictions/gb-eaw` returns vocabulary, declarations, checklist and deadline rules
 - [ ] `pack.deadline("written_questions", served_on)` returns served_on + 28 days for `gb-eaw`
-- [ ] A status change not in `docs/spec/state-machines.md` is refused by the service (409) and by the database trigger
+- [x] A status change not in `docs/spec/state-machines.md` is refused by the service (409) and by the database trigger
 - [ ] `crypto.encrypt`/`decrypt` round-trip per case; after key destruction, decrypt fails; KMS unreachable → processing pauses (fail closed)
 - [ ] An invalid pack file fails CI schema validation and stops the app starting
 - [ ] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test
@@ -101,7 +107,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [ ] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256
 - [ ] Job progress streams over SSE and contains no patient text
 - [ ] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
-- [ ] Audit log hash chain verifies; tampering with a row is detected
+- [x] Audit log hash chain verifies; tampering with a row is detected
 - [ ] Today shows case cards and items registered through `NeedsYouItem`
 - [ ] Sign-in and Today screens pass axe checks and match their canvas boards
 
@@ -121,13 +127,13 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Shared code:** `core/auth/require_case_access(action)` is the only access check (it replaces the earlier owner-only check); it reads the matrix in `docs/spec/permissions.md` from one table in code. ETag/If-Match middleware (412 `stale`); `Idempotency-Key` middleware (24 h); per-case job lock; scheduled-job runner keyed by date; notification service (in-app + email, no patient data, bounce banner).
 
-- [ ] Every cell of the permissions matrix has a passing test under the fixture packs
-- [ ] First `GET /me` creates a `people` row and a personal organisation with the person as owner
-- [ ] A person who is named expert on one case and assistant on another gets the right rights on each (S1)
-- [ ] A stale `If-Match` returns 412 and changes nothing (F26)
-- [ ] A repeated `Idempotency-Key` returns the first response and creates one row (F27)
+- [x] Every cell of the permissions matrix has a passing test under the fixture packs
+- [x] First `GET /me` creates a `people` row and a personal organisation with the person as owner
+- [x] A person who is named expert on one case and assistant on another gets the right rights on each (S1)
+- [x] A stale `If-Match` returns 412 and changes nothing (F26)
+- [x] A repeated `Idempotency-Key` returns the first response and creates one row (F27)
 - [ ] A missed daily run catches up each missed date exactly once (F28)
 - [ ] Recovery codes: 10 issued, each works once, regenerate invalidates the old set; admins cannot reset another person's MFA
 - [ ] Email change needs confirmation from both addresses and step-up
-- [ ] Audit rows carry person, organisation, case, action and target
+- [x] Audit rows carry person, organisation, case, action and target
 - [ ] Only one case-changing job runs per case at a time; interactive jobs run before batch

@@ -359,6 +359,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
+| `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, fingerprint, status_code, response_body, created_at, expires_at |
 | `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, at |
 | `transcripts` | Finished dictation text the expert kept. | case_id, person_id, context, text, duration_seconds |
 | `may_matter` | New records after serving that might affect an answer, for the expert to look at. | case_id, fact_id, question_id, why, seen_at |
@@ -981,7 +982,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 
 - **Platform:**
   - Login through FastAPI with the cookie session, MFA (with recovery codes), CSRF and step-up; device sessions.
-  - The `people`, `experts`, `organisations` (personal ones only at launch), `memberships`, `cases`, `case_members`, `documents`, `pages`, `jobs`, `notifications`, `notification_preferences`, `feature_flags` and `audit_log` tables, with RLS.
+  - The `people`, `experts`, `organisations` (personal ones only at launch), `memberships`, `cases`, `case_members`, `documents`, `pages`, `jobs`, `notifications`, `notification_preferences`, `feature_flags`, `audit_log` and `idempotency_keys` tables, with RLS.
   - `require_case_access(action)` and the permissions matrix (`docs/spec/permissions.md`) as one tested table.
   - ETag/If-Match and `Idempotency-Key` middleware; scheduled jobs keyed by date; per-case job lock.
 - **Files:** chunked uploads, file streaming, and the job queue with server-sent progress events.

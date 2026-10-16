@@ -42,6 +42,8 @@ api/tests/                # grouped by kind; files named test_<feature>_<area>_*
 ## Route conventions
 
 - Prefix `/v1`. Case routes are `/v1/cases/{case_id}/…`.
+- Build routers with `app.core.http.router()` (signed in, one transaction per request, Idempotency-Key) and add them in `app/main.py` with `mount(app, router)`, never `include_router()`: FastAPI includes routers lazily, which hides their routes from the rule 9 route scan.
+- Editable resources return `ETag` (`etag(version)`); updates take `IfMatch` (428 without it, 412 `stale`).
 - Every case route depends on `require_case_access("<action>")` (actions in `docs/spec/permissions.md`; 404 if no access, 403 if the role forbids the action). Never write your own access check.
 - Risky routes (sign, send, export, delete, retention) depend on `require_step_up` (403 `step_up_required` without recent `aal2`).
 - State-changing routes depend on `require_csrf`.

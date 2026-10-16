@@ -68,13 +68,14 @@ class Database:
             "app.person_id": str(scope.person_id),
             "app.org_ids": ",".join(str(o) for o in scope.org_ids),
             "app.request_id": scope.request_id,
+            "TimeZone": "UTC",
         }
         async with self._transaction(settings) as conn:
             yield conn
 
     @asynccontextmanager
     async def job(self, case_id: uuid.UUID) -> AsyncIterator[AsyncConnection]:
-        async with self._transaction({"app.job_case_id": str(case_id)}) as conn:
+        async with self._transaction({"app.job_case_id": str(case_id), "TimeZone": "UTC"}) as conn:
             yield conn
 
     @asynccontextmanager

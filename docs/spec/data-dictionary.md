@@ -662,6 +662,14 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | action / target | What they did and to what |
 | prev_hash / hash | Links each entry to the last so tampering shows |
 
+### idempotency_keys
+| Field | In plain words |
+|---|---|
+| person_id / key | Whose request and the key their app sent with it |
+| fingerprint | A checksum of the request, so the same key with a different request is refused |
+| status_code / response_body / response_headers | The first answer, returned again for a repeat; no patient text beyond what that answer held |
+| created_at / expires_at | When it was kept and when it is forgotten (24 hours) |
+
 ### ai_calls
 | Field | In plain words |
 |---|---|
