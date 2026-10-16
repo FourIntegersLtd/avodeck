@@ -17,10 +17,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 
 from app.core import audit
-from app.core.db import Database
 from app.core.errors import ApiError
 from app.core.http import DbConn, router
-from tests.support.identity import PERSON_HEADER, header_identity
+from tests.support.auth import CSRF_HEADER, cookie_header
+from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
@@ -47,15 +47,15 @@ Post = Callable[..., Any]
 
 
 @pytest.fixture
-async def post(api_db: Database) -> AsyncIterator[Callable[..., Any]]:
-    from app.main import create_app
+async def post(app: FastAPI, seed: Seed) -> AsyncIterator[Callable[..., Any]]:
+    from app.main import mount
 
-    app: FastAPI = create_app(database=api_db, identity_provider=header_identity, region="zz")
-    app.include_router(probe_router())
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    mount(app, probe_router())
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as client:
 
         async def call(person: uuid.UUID, key: str | None, body: dict[str, Any]) -> httpx.Response:
-            headers = {PERSON_HEADER: str(person)}
+            session = seed.session(person)
+            headers = {"cookie": cookie_header(session), CSRF_HEADER: session.csrf}
             if key is not None:
                 headers["idempotency-key"] = key
             return await client.post("/v1/test-probe", json=body, headers=headers)

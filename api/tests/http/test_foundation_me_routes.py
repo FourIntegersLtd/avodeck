@@ -23,7 +23,7 @@ async def test_first_call_creates_the_person_and_a_personal_organisation_they_ow
     client_for: ClientFor, admin: psycopg.Connection
 ) -> None:
     person = uuid.uuid4()
-    client = await client_for(person, **{"x-test-email": f"{person.hex[:10]}@Example.test", "x-test-name": "Dr Z"})
+    client = await client_for(person, email=f"{person.hex[:10]}@Example.test", full_name="Dr Z")
     resp = await client.get("/v1/me")
     assert resp.status_code == 200, resp.text
     body = resp.json()
@@ -31,7 +31,7 @@ async def test_first_call_creates_the_person_and_a_personal_organisation_they_ow
     assert body["person"]["email"] == f"{person.hex[:10]}@example.test"
     assert body["person"]["home_region"] == "zz"
     assert body["expert"] is None
-    assert body["mfa_enrolled"] is False
+    assert body["mfa_enrolled"] is True  # nobody reaches /me without completing MFA
     [membership] = body["memberships"]
     assert (membership["kind"], membership["role"]) == ("personal", "owner")
 

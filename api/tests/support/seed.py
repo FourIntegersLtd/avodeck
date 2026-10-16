@@ -7,7 +7,11 @@ clean-up between them (`supabase db reset` clears everything).
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import uuid
+from dataclasses import dataclass
+from datetime import timedelta
 
 import psycopg
 
@@ -137,3 +141,59 @@ class Seed:
             (fid, key, scope, scope_id, enabled),
         )
         return fid
+
+    def session(
+        self,
+        person: uuid.UUID,
+        *,
+        email: str | None = None,
+        full_name: str | None = None,
+        aal: str = "aal2",
+        mfa_age: timedelta | None = timedelta(0),
+        idle: timedelta = timedelta(0),
+        age: timedelta = timedelta(0),
+        device_label: str = "Test browser",
+    ) -> SeededSession:
+        """A device session as sign-in would leave it, without Supabase Auth (no Auth tokens kept).
+
+        The cookie holds `token`; the database keeps only its SHA-256, and the same for the CSRF token.
+        `aal2` with `mfa_age` 0 is a fully signed-in person who has just completed MFA (step-up valid).
+        """
+        token, csrf = secrets.token_urlsafe(32), secrets.token_urlsafe(32)
+        sid = uuid.uuid4()
+        mfa_verified = None if mfa_age is None else f"{int(mfa_age.total_seconds())} seconds"
+        self.admin.execute(
+            """
+            insert into app.sessions (id, person_id, email, full_name, token_hash, csrf_hash, device_label, aal,
+                                      mfa_enrolled, mfa_verified_at, created_at, last_seen_at)
+            values (%(id)s, %(person)s, %(email)s, %(name)s, %(token)s, %(csrf)s, %(label)s, %(aal)s,
+                    %(enrolled)s, now() - %(mfa)s::interval, now() - %(age)s::interval, now() - %(idle)s::interval)
+            """,
+            {
+                "id": sid,
+                "person": person,
+                "email": email or f"{person.hex[:12]}@example.test",
+                "name": full_name,
+                "token": sha256_hex(token),
+                "csrf": sha256_hex(csrf),
+                "label": device_label,
+                "aal": aal,
+                "enrolled": aal == "aal2",
+                "mfa": mfa_verified,
+                "age": f"{int(max(age, idle).total_seconds())} seconds",
+                "idle": f"{int(idle.total_seconds())} seconds",
+            },
+        )
+        return SeededSession(sid, person, token, csrf)
+
+
+@dataclass(frozen=True)
+class SeededSession:
+    id: uuid.UUID
+    person_id: uuid.UUID
+    token: str
+    csrf: str
+
+
+def sha256_hex(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
