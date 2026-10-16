@@ -5,7 +5,7 @@ Checks:
   1. Every table in architecture section 4 is owned by exactly one slice brief (or the foundation).
   2. Every endpoint in architecture section 5.2/5.3 appears in a slice brief (or the foundation brief).
   3. Every status column named in the data model has a section in docs/spec/state-machines.md.
-  4. Every worker job in worker/CLAUDE.md appears in the architecture job list and has a failure-mode row or owner.
+  4. Every worker job in api/AGENTS.md appears in the architecture job list and has a failure-mode row or owner.
   5. Every table has a behaviour entry in docs/spec/behaviour-index.md (who, how many, lifecycle, leaving, views).
   6. permissions.md, scenarios.md and data-dictionary.md exist.
   7. Every table has a plain-English entry in docs/spec/data-dictionary.md.

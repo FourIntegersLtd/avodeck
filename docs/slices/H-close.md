@@ -58,7 +58,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Withdrawn cases follow the same retention as settled ones
 
 ## Rules that apply
-4, 5, 6, 9, 10 from the root `CLAUDE.md`.
+4, 5, 6, 9, 10 from the root `AGENTS.md`.
 
 ## Out of scope
 Producing the content being exported (other slices), invoice generation (F).

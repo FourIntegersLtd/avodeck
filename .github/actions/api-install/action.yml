@@ -1,0 +1,14 @@
+name: API install
+description: Poetry 2.1.4 on Python 3.12, cached on api/poetry.lock, then make -C api install
+runs:
+  using: composite
+  steps:
+    - run: pipx install poetry==2.1.4
+      shell: bash
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+        cache: poetry
+        cache-dependency-path: api/poetry.lock
+    - run: make -C api install
+      shell: bash

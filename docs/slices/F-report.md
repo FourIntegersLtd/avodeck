@@ -102,7 +102,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Invoices come from the case organisation's billing profile with gap-free numbering per issuer; sent invoices never change; corrections are credit notes
 
 ## Rules that apply
-1, 2, 4, 6, 7, 8, 9, 10, 11 from the root `CLAUDE.md`.
+1, 2, 4, 6, 7, 8, 9, 10, 11 from the root `AGENTS.md`.
 
 ## Out of scope
 Writing opinions (E), supplementary reports after serving (G, though it reuses `build_report` with `type = supplementary`), Word round-trip import (Phase 2), e-signature for joint statements (I).

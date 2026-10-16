@@ -11,6 +11,15 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
 
 **Stage 2 (after spikes 1–4 and 8):** real Bedrock client pinned to London IDs; Azure OCR and Speech relay; AWS KMS key provider (ADR 0010); IAM users and policies (architecture 9); staging and production deploys (DigitalOcean App Platform London, Vercel); the acceptance tests that need real services run against staging.
 
+**Stage 1 progress**
+- [x] Step 1 (2026-10-16): project skeleton in the osceguide layout:
+  - `api/` is one Poetry project on Python 3.12, holding the API and the worker (`app/worker/`). Features live in `app/features/<feature>/`; tests are grouped by kind, with the rule tests in `tests/guards/`.
+  - `web/` uses `src/{app,foundation,capabilities}`.
+  - Each package has an `AGENTS.md`, with a `CLAUDE.md` containing `@AGENTS.md`.
+  - The root Makefile targets are `dev`, `test`, `test-core`, `test-slice S=<feature>`, `lint` and `check-spec`.
+  - Local Supabase is set up in `supabase/config.toml`.
+  - CI uses Poetry: `ci-api.yml` and `ci-web.yml`, plus `eval-nightly.yml`, which stays off until `EVAL_ENABLED` is set.
+
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
 ## Screens
@@ -46,13 +55,13 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - Database triggers enforcing `docs/spec/state-machines.md` for cases, facts, questions, report versions and jobs
 - `packs/schema/*.json`: JSON Schema for every pack file; CI fails on an invalid pack; loader refuses to start with one
 - `core/config.py`: cell config (`REGION=uk`), endpoints and model IDs, allowed packs, AI allow-list
-- i18n set-up: `frontend/src/i18n/en-GB.json` and the translation helper; every foundation string uses a key
+- i18n set-up: `web/src/foundation/i18n/en-GB.json` and the translation helper; every foundation string uses a key
 - `core/contracts/`: `Fact`, `FactStatus`, `Question`, `ReportVersion`, `NeedsYouItem`; `facts.citable_facts(case_id)` (signature and core test here, implemented by B); `pipeline.py` (entry point A implements and B/G call); `events.py` (`report_served`, emitted by F, consumed by G); `case_tables.py` registry of every case table (used by deletion in slice H; a core test fails if a case table is missing from it)
 - Frontend: generated API client with CSRF header, design-system components, `DictationBox`, case shell, Today
 - CI, nightly eval workflow, staging + production deploys (DigitalOcean App Platform London: api, worker, scheduled jobs; Vercel: frontend)
 
 ## Acceptance tests (write first; all must fail before work starts)
-**Non-negotiables (`backend/tests/core/`, `frontend/tests/core/`):**
+**Non-negotiables (`api/tests/guards/`, `web/src/foundation/guards/`):**
 - [ ] Every `/v1/cases/{id}/…` route returns 404 for a person with no access to that case (route table scanned automatically)
 - [ ] State-changing routes return 403 without a CSRF token
 - [ ] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
@@ -64,7 +73,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [ ] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
 - [ ] Frontend build contains no Supabase/Azure/AWS hosts or SDKs; CSP allows only the API origin
 - [ ] Frontend never writes tokens to `localStorage` or `sessionStorage`
-- [ ] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `backend/app/slices`, `frontend/src/features`, prompt templates)
+- [ ] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `api/app/features`, `web/src/capabilities`, prompt templates)
 - [ ] **Fixture packs** (`packs/_fixtures/`): core API flows and screen copy run under both the launch packs and the fixture packs; party words, clinician titles, deadlines (business days, timezone), date order, identifiers, workflow steps, lanes and declarations all change accordingly
 - [ ] Pack loader merges four layers (jurisdiction, case type, specialty, overlay) with the rules in architecture 3.2, supports `extends:`, resolves placeholders, and refuses a jurisdiction file containing a specialty word or a specialty file containing a country word
 - [ ] Deadlines respect the pack's calendar rule and public holidays (test: a deadline landing on an England and Wales bank holiday)

@@ -84,7 +84,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Trial packs and offline packages are built per hearing; offline packages carry `format_version` and older apps refuse newer formats
 
 ## Rules that apply
-1, 2, 4 (screen 25 is the allowed exception), 6, 7, 8, 9, 10, 11 from the root `CLAUDE.md`.
+1, 2, 4 (screen 25 is the allowed exception), 6, 7, 8, 9, 10, 11 from the root `AGENTS.md`.
 
 ## Out of scope
 Supplementary reports (G), deletion of packages on close (H calls our revoke), live courtroom features beyond offline search.

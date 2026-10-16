@@ -8,6 +8,7 @@
   "owners": {
     "foundation-owner": {
       "slice": "0",
+      "feature": "foundation",
       "area": "foundation: auth, core, packs, design system, shared contracts",
       "brief": "docs/slices/0-foundation.md",
       "screens": [
@@ -40,6 +41,7 @@
     },
     "pipeline-owner": {
       "slice": "A",
+      "feature": "pipeline",
       "area": "bundle pipeline: OCR, extraction, duplicates, gaps, missing documents",
       "brief": "docs/slices/A-pipeline.md",
       "screens": [
@@ -72,6 +74,7 @@
     },
     "reader-owner": {
       "slice": "B",
+      "feature": "reader",
       "area": "reader: blind read, mark as read, verification, unreadable pages",
       "brief": "docs/slices/B-reader.md",
       "screens": [
@@ -103,6 +106,7 @@
     },
     "setup-owner": {
       "slice": "C",
+      "feature": "setup",
       "area": "case setup: expert profile, new case, conflicts, questions asked",
       "brief": "docs/slices/C-setup.md",
       "screens": [
@@ -136,6 +140,7 @@
     },
     "understand-owner": {
       "slice": "D",
+      "feature": "understand",
       "area": "understand: timeline, one consultation as seen, things to look at",
       "brief": "docs/slices/D-understand.md",
       "screens": [
@@ -166,6 +171,7 @@
     },
     "write-owner": {
       "slice": "E",
+      "feature": "write",
       "area": "write: points against, opinion workspace, citations, lint",
       "brief": "docs/slices/E-write.md",
       "screens": [
@@ -197,6 +203,7 @@
     },
     "report-owner": {
       "slice": "F",
+      "feature": "report",
       "area": "report: build, final check, sign, serve, time and invoice",
       "brief": "docs/slices/F-report.md",
       "screens": [
@@ -230,6 +237,7 @@
     },
     "after-serving-owner": {
       "slice": "G",
+      "feature": "after_serving",
       "area": "after serving: court orders, written questions, new records, opposing report, supplementary report",
       "brief": "docs/slices/G-after-serving.md",
       "screens": [
@@ -264,6 +272,7 @@
     },
     "close-owner": {
       "slice": "H",
+      "feature": "close",
       "area": "close: settle, export, retention, deletion, certificate of deletion",
       "brief": "docs/slices/H-close.md",
       "screens": [
@@ -294,6 +303,7 @@
     },
     "trial-owner": {
       "slice": "I",
+      "feature": "trial",
       "area": "trial: joint statement, trial page numbers, trial pack, witness-box lookup",
       "brief": "docs/slices/I-trial.md",
       "screens": [
@@ -327,6 +337,7 @@
     },
     "organisations-owner": {
       "slice": "O",
+      "feature": "organisations",
       "area": "organisations: members, roles, invites, billing, leaving and closure",
       "brief": "docs/slices/O-organisations.md",
       "screens": [

@@ -46,7 +46,7 @@ Using the fixture packs and two organisations ("Solo practice" and "Agency"):
 - [ ] Screens pass Playwright + axe and match their canvas boards
 
 ## Rules that apply
-4, 6, 9, 10, 11 from the root `CLAUDE.md`.
+4, 6, 9, 10, 11 from the root `AGENTS.md`.
 
 ## Legal checks before release
 Items marked **(legal check)** in architecture 10.1 and ADR 0012: named-expert access after leaving, account closure, custodian, controller and processor roles.

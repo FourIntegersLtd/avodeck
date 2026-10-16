@@ -38,7 +38,7 @@ Answers to the ten behaviour questions below, one short line each.
 - [ ] Plain-sentence behaviours, each mapped to a test file.
 
 ## Non-negotiable rules that apply
-List from root CLAUDE.md.
+List from root AGENTS.md.
 
 ## Out of scope
 What this slice must not touch.

@@ -3,7 +3,7 @@
 The reviewer session (and you) check every pull request against this list before merging. Copy it into the PR description and tick it.
 
 **Rules**
-- [ ] No rule in the root `CLAUDE.md` broken (opinion, provenance, blind read, browser → FastAPI only, home region, no patient text in logs, identifiers stripped, served reports locked, access check, step-up, nothing hard-coded)
+- [ ] No rule in the root `AGENTS.md` broken (opinion, provenance, blind read, browser → FastAPI only, home region, no patient text in logs, identifiers stripped, served reports locked, access check, step-up, nothing hard-coded)
 - [ ] No forbidden word (architecture 3.5) in code, prompts or enums; tests pass under the fixture packs
 
 **Behaviour (the ten questions)**

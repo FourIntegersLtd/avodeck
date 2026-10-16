@@ -73,7 +73,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] A change to a cited guideline's table entry shows a notice on the case; the case records the table version used
 
 ## Rules that apply
-1, 2, 4, 6, 7, 9, 11 from the root `CLAUDE.md`.
+1, 2, 4, 6, 7, 9, 11 from the root `AGENTS.md`.
 
 ## Out of scope
 Fact verification (B), the custom check builder T-13b (later), sorting points for and against (E), causation or condition-and-prognosis views (slice J).

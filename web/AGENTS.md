@@ -1,12 +1,12 @@
-# Frontend
+# Web app
 
-Read the root `CLAUDE.md` first.
+Read the root `AGENTS.md` first. This file covers `web/`.
 
 ## The one rule
 
 The frontend renders screens and sends user actions to FastAPI. Nothing else.
 
-- Call only the generated API client in `src/api/` (from OpenAPI). No `fetch` to any other origin.
+- Call only the generated API client in `src/foundation/platform-client/` (from OpenAPI). No `fetch` to any other origin.
 - No Supabase, Azure or AWS SDKs, keys or URLs. CI fails the build if any appear.
 - No business logic that the server must enforce (blind read, ownership, locking, provenance). The frontend may mirror it for display, never replace it.
 - Auth is a cookie set by FastAPI. Do not store tokens in `localStorage`, `sessionStorage` or JS memory.
@@ -18,7 +18,7 @@ The frontend renders screens and sends user actions to FastAPI. Nothing else.
 
 ## Design system
 
-Components in `src/design-system/` match the design canvas (`docs/spec/design-canvas.md`). Foundation-owned; request changes, don't fork them.
+Components in `src/foundation/ui/` match the design canvas (`docs/spec/design-canvas.md`). Foundation-owned; request changes, don't fork them.
 
 - **Colours:** Forest `#0F3D2C`, Green `#1E6B4E` (primary), Leaf `#2F9E6E`, Mint `#E6F2EC`, Amber `#B45309` / tint `#FDF1E3` / border `#E8C9A6` / text `#8A3F06`, Ink `#16201B`, Slate `#4F5953`, Line `#DDE3DF`, Surface `#F6F7F5`, Stop `#B42318`, Highlighter `#FFF3B0`.
 - **Record source colours:** come from the specialty pack's source types (`sources.yaml`); at launch primary_care_record `#1E6B4E`, hospital `#4C6E91`, out_of_hours `#2C8C99`, results `#7A6BA8`, letters `#8C7556`. Never key colours by name in code.
@@ -29,21 +29,27 @@ Components in `src/design-system/` match the design canvas (`docs/spec/design-ca
 
 ## Copy
 
-Every string uses an i18n key (`src/i18n/en-GB.json` is the base; `en-AU`, `en-NZ`, `en-CA` will be small overrides). Words that change by pack (party roles, instructing party, clinician title, court bundle name, step and screen labels) come from the merged pack vocabulary returned by `GET /cases/{id}/pack` (or `GET /jurisdictions/{code}` outside a case). Dates and deadlines show in the expert's timezone. Dates, numbers and currency use `Intl` with the expert's locale. Use `docs/spec/glossary.md`. Plain words for experienced clinicians who are not confident with computers (launch users: GPs aged 50–60). No jargon.
+Every string uses an i18n key (`src/foundation/i18n/en-GB.json` is the base; `en-AU`, `en-NZ`, `en-CA` will be small overrides). Words that change by pack (party roles, instructing party, clinician title, court bundle name, step and screen labels) come from the merged pack vocabulary returned by `GET /cases/{id}/pack` (or `GET /jurisdictions/{code}` outside a case). Dates and deadlines show in the expert's timezone. Dates, numbers and currency use `Intl` with the expert's locale. Use `docs/spec/glossary.md`. Plain words for experienced clinicians who are not confident with computers (launch users: GPs aged 50–60). No jargon.
 
 ## Structure
 
+Same layering as osceguide's web app. Imports go one way only:
+`app → surfaces → domains → capabilities → foundation`. A capability never imports a domain or a surface.
+
 ```
 src/
-  api/                 # generated client + CSRF wrapper (foundation)
-  design-system/       # shared components (foundation)
-  app/                 # routing, case shell, Today screen (foundation)
-  features/<slice>/    # screens and components for one slice
-tests/
-  core/                # e.g. no forbidden hosts, no token storage (foundation)
-  <slice>/             # Vitest component tests
-  e2e/<slice>/         # Playwright acceptance tests
+  app/                       # routes and layouts; (auth)/ holds S01 sign-in (foundation)
+  foundation/                # foundation-owned
+    ui/                      # design system components
+    platform-client/         # generated API client + CSRF/ETag/Idempotency wrapper
+    i18n/  lib/
+    guards/                  # non-negotiable tests, e.g. no forbidden hosts, no token storage
+  capabilities/<feature>/    # screens and components for one slice, tests beside them (*.test.tsx)
+                             # foundation: account (S28), today (S03)
+e2e/<feature>/               # Playwright acceptance tests
 ```
+
+`domains/` and `surfaces/` come in only when Avodeck has more than one arm (for example the organisation view in slice O). Until then, keep everything in `capabilities/`.
 
 ## Testing
 

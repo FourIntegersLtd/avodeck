@@ -2,7 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 node_modules/
-frontend/dist/
+web/dist/
 .env
 .env.*
 !.env.example

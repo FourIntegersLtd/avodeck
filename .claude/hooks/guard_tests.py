@@ -11,7 +11,7 @@ from pathlib import Path
 
 PROJECT = Path(os.environ.get("CLAUDE_PROJECT_DIR", ".")).resolve()
 PHASE_FILE = PROJECT / ".claude" / "phase"
-PROTECTED_ALWAYS = ["backend/tests/core/", "frontend/tests/core/"]
+PROTECTED_ALWAYS = ["api/tests/guards/", "web/src/foundation/guards/"]
 
 
 def is_test_path(rel: str) -> bool:

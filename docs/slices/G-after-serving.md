@@ -78,7 +78,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] A stay puts the case on hold
 
 ## Rules that apply
-1, 2, 3, 4, 6, 7, 8, 9, 10, 11 from the root `CLAUDE.md`.
+1, 2, 3, 4, 6, 7, 8, 9, 10, 11 from the root `AGENTS.md`.
 
 ## Out of scope
 Expert meetings and joint statements (I), trial bundles (I), Gmail/Outlook sending (separate Phase 2 item in slice A).

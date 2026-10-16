@@ -4,7 +4,7 @@ Records-review engine for expert witnesses (launch: England and Wales, clinical 
 
 ## Start here
 0. Foundation stage 1 runs locally and can start now. Run spikes 1–4 and 8 (`docs/spikes/README.md`) before stage 2, the cloud parts.
-1. Read `CLAUDE.md` (rules and how we work).
+1. Read `AGENTS.md` (rules and how we work).
 2. Read `docs/architecture.md` sections 1–3 (rules, system shape, engine and packs), then the sections your slice brief points to.
 3. Open `docs/slices/0-foundation.md` and run the `tdd-feature` skill in Claude Code.
 
@@ -19,7 +19,7 @@ Open a Claude Code session in each worktree and give it its brief from `docs/sli
 ## What's here
 | Path | What |
 |---|---|
-| `CLAUDE.md`, `backend/CLAUDE.md`, `worker/CLAUDE.md`, `frontend/CLAUDE.md` | Rules and conventions Claude Code reads |
+| `AGENTS.md` (+ `CLAUDE.md` → `@AGENTS.md`), `api/AGENTS.md`, `web/AGENTS.md` | Rules and conventions Claude Code reads |
 | `.claude/skills/` | `tdd-feature`, `add-endpoint`, `add-ai-task`, `add-screen`, `add-migration`, `slice-brief`, `verify-slice` |
 | `.claude/agents/`, `.claude/OWNERS.md`, `.claude/routes.json` | One owner agent per slice, and the paths and keywords that route prompts to it |
 | `.claude/settings.json`, `.claude/hooks/` | Freeze tests during implementation; run slice tests after each edit; suggest the slice owner for each prompt (hint only) |

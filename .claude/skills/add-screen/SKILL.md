@@ -6,8 +6,8 @@ description: Build an Avodeck screen from its design canvas board using the desi
 # Add a screen
 
 1. **Find the board** for the screen in `docs/spec/design-canvas.md` (screen number, file name). Look at `docs/design/images/<File>.png`, then read `docs/design/screens/<File>.dc.html` for exact wording, sizes and colours. Match layout, hierarchy and wording; build with design-system components, never by copying the mock-up markup. Board words like "solicitor" or "GP" come from the pack vocabulary.
-2. **Acceptance test first:** a Playwright test in `frontend/tests/e2e/<slice>/<screen>.spec.ts` describing what the expert can see and do, plus an axe check. Mock the API with MSW fixtures from OpenAPI.
-3. **Build** in `frontend/src/features/<slice>/`:
+2. **Acceptance test first:** a Playwright test in `web/e2e/<feature>/<screen>.spec.ts` describing what the expert can see and do, plus an axe check. Mock the API with MSW fixtures from OpenAPI.
+3. **Build** in `web/src/capabilities/<feature>/`:
    - Use design-system components only (`Button`, `CaseHeader`, `Card`, `Paper`, `PageRef`, `StatusBadge`, `DictationBox`, …). Need a new shared component? Request it from the foundation owner.
    - Data only via the generated client in `src/api/`.
    - One primary action, bottom right. Body text 17px. Buttons at least 52px.

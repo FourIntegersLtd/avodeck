@@ -1,6 +1,6 @@
 # Permissions
 
-The single source of truth for who may do what. `core/auth/require_case_access(action)` implements this table and `backend/tests/core/test_permissions.py` tests every cell. Row-level security mirrors it. If a new endpoint needs an action not listed here, add the row first (foundation approval).
+The single source of truth for who may do what. `core/auth/require_case_access(action)` implements this table and `api/tests/guards/test_permissions.py` tests every cell. Row-level security mirrors it. If a new endpoint needs an action not listed here, add the row first (foundation approval).
 
 ## Two kinds of role
 

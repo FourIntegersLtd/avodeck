@@ -7,7 +7,7 @@ description: Check a finished slice before calling it done. Runs the slice tests
 
 Slice letter `<S>` is the lower-case letter (a, b, ... i, o); for foundation use `make test-core` in place of the slice step.
 
-1. `make test-slice S=<S>` (foundation: `make test-core`).
+1. `make test-slice S=<feature>` (foundation: `make test-core`).
 2. `make test-core` (the rules' tests must stay green).
 3. `make lint`
 4. `make check-spec`

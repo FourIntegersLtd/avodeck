@@ -1,0 +1,40 @@
+[project]
+name = "avodeck-api"
+version = "0.1.0"
+description = "Avodeck API (FastAPI) and background worker, one package"
+requires-python = ">=3.12,<3.13"
+dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)"]
+
+[tool.poetry]
+packages = [{ include = "app" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.1.1"
+pytest-cov = "^7.1.0"
+httpx = "^0.28.1"
+ruff = "^0.17.1"
+mypy = "^2.4.0"
+schemathesis = "^4.31.1"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.pytest.ini_options]
+# "." first so a checkout (or a check_red_green worktree) imports its own `app`
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+
+[tool.coverage.report]
+exclude_also = ['if __name__ == "__main__":']

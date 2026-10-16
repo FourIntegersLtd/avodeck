@@ -74,7 +74,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Points and witness claims become `stale` when an underlying fact changes
 
 ## Rules that apply
-1, 2, 4, 6, 7, 9, 11 from the root `CLAUDE.md`.
+1, 2, 4, 6, 7, 9, 11 from the root `AGENTS.md`.
 
 ## Out of scope
 Report assembly and whole-report lint T-17 (F), changing opinions after serving (G, screen 21b), condition-and-prognosis writing (slice J).

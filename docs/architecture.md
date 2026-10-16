@@ -4,7 +4,7 @@
 
 **Not in here:** research evidence, vendor comparisons, costs, compliance analysis and market notes. Those live in `docs/research/background.md`. You do not need them to build; read them only when making a vendor, cost, legal or market decision.
 
-**Also read:** the root `CLAUDE.md` (rules and how we work), your slice brief in `docs/slices/`, and `docs/decisions/` before changing anything structural.
+**Also read:** the root `AGENTS.md` (rules and how we work), your slice brief in `docs/slices/`, and `docs/decisions/` before changing anything structural.
 
 ---
 
@@ -14,7 +14,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 
 **Launch configuration:** England and Wales · clinical negligence, breach of duty · general practice. Everything else (other specialties, causation and prognosis, personal injury, other countries) is added later as packs, not rewrites (section 3).
 
-**The non-negotiables** (full wording and tests in the root `CLAUDE.md`):
+**The non-negotiables** (full wording and tests in the root `AGENTS.md`):
 1. The AI never writes opinion.
 2. Every fact cites OCR word IDs on a numbered page; the server rejects anything else; only verified facts can be cited.
 3. Blind read is enforced by the server (facts return 423 until the page is read).
@@ -51,7 +51,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 - **Browser → FastAPI only.** Login, uploads (8 MB chunks), page images, downloads, dictation (WebSocket) and progress (server-sent events) all go through FastAPI. No Supabase, Azure or AWS keys or URLs in the frontend. Exceptions: the signature pad and the offline witness-box search.
 - **FastAPI → Postgres** as restricted roles (`app_api`, `app_worker`), never the service role. Each request or job sets who is acting (`SET LOCAL app.person_id` / `app.job_case_id`), so row-level security really repeats the access check (ADR 0013). Tables live in a schema not exposed to Supabase's Data API. The service-role key is used only for Supabase Auth admin calls and Storage.
 - **Long work** (OCR, extraction, report building, matching, export, deletion) is queued; the API returns `202` + `job_id`; the worker processes it page by page, idempotently.
-- **AI calls** go only through the AI kit (`backend/app/core/ai/`), which strips identifiers, enforces the cell's model allow-list, validates structured output, checks provenance and logs metadata (never content).
+- **AI calls** go only through the AI kit (`api/app/core/ai/`), which strips identifiers, enforces the cell's model allow-list, validates structured output, checks provenance and logs metadata (never content).
 
 ### 2.3 Regional cells
 
@@ -116,7 +116,7 @@ packs/
   _fixtures/                 deliberately strange test packs (see 3.6); never allowed in a real cell
 ```
 
-- **One loader:** `backend/app/core/packs.py` validates every pack against a JSON Schema (`packs/schema/`) and refuses incomplete ones.
+- **One loader:** `api/app/core/packs.py` validates every pack against a JSON Schema (`packs/schema/`) and refuses incomplete ones.
 - **Inheritance:** a pack may declare `extends: <code>` in its layer (e.g. `ime-au-nsw-workers-comp` extends `ime`; `gb-sct` could extend a shared `gb-common`). Child files override parent files key by key.
 - **Merge rules:** dictionaries merge by key, later layer wins; lists that are registries (fact kinds, lanes, checks, sections, final checks) are unioned by `key`, and a later layer can disable an entry with `enabled: false`; text files (declarations, legal tests) are replaced whole. A key defined twice in the same layer is an error.
 - **Placeholders, not words:** pack text that needs another layer's word uses placeholders, e.g. `{clinician}`, `{clinicians}`, `{instructing_party}`, `{subject}`, filled at merge time. A jurisdiction file must never contain a specialty word, and a specialty file never a country's word (pack lint in CI).
@@ -173,7 +173,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 
 ### 3.5 How code uses packs
 
-- **One entry point:** `pack = packs.for_case(case)` (in `backend/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
+- **One entry point:** `pack = packs.for_case(case)` (in `api/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
 - **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
 - **Never hard-code** in slice code, prompts, schemas, enums or tests outside fixtures: court or rule names (CPR, PD35, Part 35), guidance bodies (NICE), "statement of truth", party or instructing-party words (claimant, defendant, solicitor), clinician titles (GP), record systems (EMIS, SystmOne), identifier types (NHS number), currencies, date orders, timezones, holiday rules, retention periods or fixed lists of anything in a registry.
 - **Recorded on the report:** `cases.pack_versions` and each served report store the pack versions used, so later wording changes never alter old reports.
@@ -184,7 +184,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 - **Fixture packs:** `packs/_fixtures/` holds a deliberately strange combination: `zz-test` (month-first dates, a different identifier format, 21-day deadlines in business days, a non-London timezone, "petitioner" and "counsel" instead of claimant and solicitor), `zz-case` (different workflow steps and question types) and `zz-specialty` (a non-doctor profession, different fact kinds and lanes).
 - **Core test:** the foundation runs the core API flows and screen copy twice, with the launch packs and with the fixture packs. Any word or rule that comes out the same under both, when it should come from a pack, fails the build. This is the main guard for rule 11.
 - **Pack lint (CI):** every pack validates against `packs/schema/`; jurisdiction files contain no specialty words; specialty files contain no country words; placeholders resolve; every registry key has an i18n label.
-- **Slice code scan (CI):** the forbidden-word list in 3.5 is scanned in `backend/app/slices`, `frontend/src/features` and prompt templates.
+- **Slice code scan (CI):** the forbidden-word list in 3.5 is scanned in `api/app/features`, `web/src/capabilities` and prompt templates.
 
 ### 3.7 What each layer must provide
 

@@ -8,11 +8,13 @@ For each commit in BASE..HEAD (oldest first):
 Backend test files run with pytest; frontend test files with vitest.
 Usage: check_red_green.py <base_ref>
 """
+import re
 import subprocess
 import sys
 import tempfile
 
-TEST_PREFIXES = ("backend/tests/", "frontend/tests/")
+TEST_PREFIXES = ("api/tests/", "web/")
+WEB_TEST_RE = re.compile(r"\.(test|spec)\.tsx?$")
 
 
 def git(*args: str, cwd: str | None = None) -> str:
@@ -21,7 +23,8 @@ def git(*args: str, cwd: str | None = None) -> str:
 
 def changed_tests(sha: str) -> list[str]:
     files = git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).splitlines()
-    return [f for f in files if f.startswith(TEST_PREFIXES) and not f.endswith((".json", ".md"))]
+    return [f for f in files if f.startswith(TEST_PREFIXES) and not f.endswith((".json", ".md"))
+            and (f.startswith("api/") or WEB_TEST_RE.search(f))]
 
 
 def run_tests(sha: str, files: list[str]) -> bool:
@@ -29,13 +32,13 @@ def run_tests(sha: str, files: list[str]) -> bool:
         git("worktree", "add", "--detach", tmp, sha)
         try:
             ok = True
-            py = [f for f in files if f.startswith("backend/") and f.endswith(".py")]
-            ts = [f for f in files if f.startswith("frontend/")]
+            py = [f for f in files if f.startswith("api/") and f.endswith(".py")]
+            ts = [f for f in files if f.startswith("web/")]
             if py:
-                ok &= subprocess.run(["python", "-m", "pytest", "-q", *[f.removeprefix("backend/") for f in py]],
+                ok &= subprocess.run(["python", "-m", "pytest", "-q", *[f.removeprefix("api/") for f in py]],
                                      cwd=f"{tmp}/backend").returncode == 0
             if ts:
-                unit = [f.removeprefix("frontend/") for f in ts if "/e2e/" not in f]
+                unit = [f.removeprefix("web/") for f in ts if not f.startswith("web/e2e/")]
                 if unit:
                     subprocess.run(["pnpm", "install", "--frozen-lockfile"], cwd=f"{tmp}/frontend", check=True)
                     ok &= subprocess.run(["pnpm", "vitest", "run", *unit], cwd=f"{tmp}/frontend").returncode == 0
