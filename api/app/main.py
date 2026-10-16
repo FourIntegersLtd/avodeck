@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 
+from app.core import logs
 from app.core.auth.supabase import SupabaseAuth
 from app.core.config import auth_settings, cell_settings, database_settings
 from app.core.db import Database
@@ -39,6 +41,9 @@ def create_app(
         owned: Database | None = None
         if app.state.region is None:
             app.state.region = cell_settings().region
+        dsn = os.environ.get("SENTRY_DSN", "").strip()
+        if dsn:
+            logs.init_sentry(dsn, environment=os.environ.get("SENTRY_ENVIRONMENT", app.state.region))
         if app.state.auth is None:
             app.state.auth = SupabaseAuth(auth_settings())
             app.state.app_origin = app.state.auth.settings.app_origin
@@ -59,6 +64,8 @@ def create_app(
     app.state.app_origin = auth.settings.app_origin if auth is not None else None
     app.state.mailer = mailer if mailer is not None else OutboxMailer()
     app.state.packs = packs if packs is not None else default_library()
+    logs.configure(app.state.packs.identifier_finders())
+    app.add_middleware(logs.RequestLog)
     install_error_handlers(app)
     routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
     for r in (*routers, me_router, cases_router, packs_router, case_pack_router):

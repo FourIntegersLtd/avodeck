@@ -639,6 +639,13 @@ class PackLibrary:
         """The merged pack for a case row (its `jurisdiction`, `case_type` and `specialty` codes)."""
         return self.combine(str(case["jurisdiction"]), str(case["case_type"]), str(case["specialty"]))
 
+    def identifier_finders(self) -> list[Callable[[str], list[tuple[int, int, str]]]]:
+        """Every loaded jurisdiction's identifier recogniser: the log scrubber removes them all."""
+        return [
+            _identifier_finder(p.files["identifiers.py"], p.rel("identifiers.py"))
+            for _, p in sorted(self._packs["jurisdiction"].items())
+        ]
+
     def jurisdictions_in(self, cell: str) -> list[Pack]:
         return [p for c, p in sorted(self._packs["jurisdiction"].items()) if p.meta["cell"] == cell]
 

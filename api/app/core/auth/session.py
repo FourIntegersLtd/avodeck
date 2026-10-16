@@ -13,13 +13,14 @@ import hashlib
 import hmac
 import secrets
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 
 from fastapi import Request, Response
 from psycopg import AsyncConnection
 
 from app.core.auth.supabase import AuthTokens
+from app.core.crypto import CiphertextInvalid, cell_secret_box
 from app.core.db import Database
 from app.core.errors import ApiError
 
@@ -95,7 +96,28 @@ async def resolve(database: Database, token: str | None, *, touch: bool) -> Sess
         raise ApiError("session_expired", "Your session has ended. Please sign in again.", 401)
     if state != "active":
         raise not_signed_in()
-    return Session(*fields)
+    session = Session(*fields)
+    return replace(
+        session,
+        auth_access_token=_open(session.auth_access_token, "access", session.person_id),
+        auth_refresh_token=_open(session.auth_refresh_token, "refresh", session.person_id),
+    )
+
+
+def _seal(token: str | None, kind: str, person_id: uuid.UUID) -> str | None:
+    """Supabase Auth tokens are stored sealed (core/crypto.py), bound to their kind and person."""
+    if token is None:
+        return None
+    return cell_secret_box().seal(token, purpose=f"session.auth_{kind}", subject=str(person_id))
+
+
+def _open(sealed: str | None, kind: str, person_id: uuid.UUID) -> str | None:
+    if sealed is None:
+        return None
+    try:
+        return cell_secret_box().open(sealed, purpose=f"session.auth_{kind}", subject=str(person_id))
+    except CiphertextInvalid:
+        return None  # sealed under another key: the person signs in again when it is needed
 
 
 def current_session(request: Request) -> Session:
@@ -136,8 +158,8 @@ async def open_session(conn: AsyncConnection, auth: AuthTokens, label: str) -> t
             label,
             auth.mfa_enrolled,
             auth.session_id,
-            auth.access_token,
-            auth.refresh_token,
+            _seal(auth.access_token, "access", auth.person_id),
+            _seal(auth.refresh_token, "refresh", auth.person_id),
             auth.expires_at,
         ),
     )
@@ -150,7 +172,13 @@ async def store_auth_tokens(conn: AsyncConnection, session_id: uuid.UUID, auth: 
     await conn.execute(
         "update app.sessions set auth_session_id = %s, auth_access_token = %s, auth_refresh_token = %s,"
         " auth_expires_at = %s where id = %s",
-        (auth.session_id, auth.access_token, auth.refresh_token, auth.expires_at, session_id),
+        (
+            auth.session_id,
+            _seal(auth.access_token, "access", auth.person_id),
+            _seal(auth.refresh_token, "refresh", auth.person_id),
+            auth.expires_at,
+            session_id,
+        ),
     )
 
 
