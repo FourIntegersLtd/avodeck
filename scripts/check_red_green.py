@@ -23,7 +23,7 @@ def git(*args: str, cwd: str | None = None) -> str:
 
 
 def changed_tests(sha: str) -> list[str]:
-    files = git("diff-tree", "--no-commit-id", "--name-only", "-r", sha).splitlines()
+    files = git("diff-tree", "--no-commit-id", "--name-only", "--diff-filter=d", "-r", sha).splitlines()
     return [f for f in files if f.startswith(TEST_PREFIXES) and not f.endswith((".json", ".md"))
             and (f.startswith("api/") or WEB_TEST_RE.search(f))]
 
