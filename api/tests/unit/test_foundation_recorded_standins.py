@@ -67,7 +67,7 @@ async def test_bedrock_records_and_replays_by_request(tmp_path: Path) -> None:
     other = ModelRequest(model_id=request.model_id, system="Label.", context={"k": "v"}, text="other", schema={})
     with pytest.raises(RecordingMissing):
         await client.invoke(other)
-    assert len(client.requests) == 4
+    assert len(client.requests) == 3, "the client saw three requests; the second client its own one"
     assert client.endpoint == CELL_ENV["BEDROCK_ENDPOINT"]
 
 
