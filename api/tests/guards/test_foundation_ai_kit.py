@@ -13,8 +13,8 @@ import uuid
 import psycopg
 import pytest
 
-from app.core.ai.kit import AiKit, AiTask, InvalidOutput
 from app.core.ai.cell import ModelNotAllowed
+from app.core.ai.kit import AiKit, AiTask, InvalidOutput
 from app.core.db import Database
 from app.core.packs import MergedPack, default_library
 from tests.support.ai import CELL_ENV, NAME, ScriptedBedrock, cell, mod11_number, response, spaced

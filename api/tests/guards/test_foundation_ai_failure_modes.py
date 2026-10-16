@@ -111,7 +111,8 @@ async def test_processing_paused_reaches_the_browser_as_503_with_its_reason(app:
 
 
 def canaries() -> list[dict[str, object]]:
-    return json.loads((FIXTURES / "canary.json").read_text())["canaries"]
+    canaries: list[dict[str, object]] = json.loads((FIXTURES / "canary.json").read_text())["canaries"]
+    return canaries
 
 
 @pytest.mark.parametrize("canary", canaries(), ids=lambda c: str(c["id"]))

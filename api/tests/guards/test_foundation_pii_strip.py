@@ -46,7 +46,7 @@ def test_launch_pack_names_numbers_postcodes_and_dates_of_birth_are_removed(libr
 
 
 def test_a_number_failing_the_check_digit_is_not_an_identifier(library: PackLibrary) -> None:
-    out = pii.strip("Lab batch 123 456 7890 received.", pack=merged(library, LAUNCH))
+    out = pii.strip("Lab batch 123 456 7890 received.", pack=merged(library, LAUNCH))  # noqa: B005
     assert "123 456 7890" in out.text
     assert sum(out.counts.values()) == 0
 

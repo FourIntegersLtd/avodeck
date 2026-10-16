@@ -56,7 +56,11 @@ async def test_bedrock_records_and_replays_by_request(tmp_path: Path) -> None:
     store = FixtureStore(tmp_path)
     client = RecordedBedrock(cell(), store)
     request = ModelRequest(
-        model_id=CELL_ENV["BEDROCK_SONNET_MODEL_ID"], system="Label.", context={"k": "v"}, text="[NAME_1] seen.", schema={}
+        model_id=CELL_ENV["BEDROCK_SONNET_MODEL_ID"],
+        system="Label.",
+        context={"k": "v"},
+        text="[NAME_1] seen.",
+        schema={},
     )
     answer = ModelResponse(output={"labels": ["a"]}, input_tokens=12, output_tokens=3)
     with pytest.raises(RecordingMissing):
