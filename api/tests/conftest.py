@@ -8,6 +8,7 @@ the defaults are the local-only Supabase ports and the local-only role passwords
 
 from __future__ import annotations
 
+import base64
 import os
 import subprocess
 import uuid
@@ -35,6 +36,9 @@ APP_ORIGIN = "https://app.test"
 
 # Test apps load the launch packs and the fixture packs (`packs/_fixtures/`); a real cell loads only its own.
 os.environ.setdefault("PACKS_DIR", os.pathsep.join(str(REPO / p) for p in ("packs", "packs/_fixtures")))
+# Session tokens are sealed with the local key provider in tests; a fresh master key each run (never a real key).
+os.environ.setdefault("KEY_PROVIDER", "local")
+os.environ.setdefault("LOCAL_MASTER_KEY", base64.b64encode(os.urandom(32)).decode())
 SESSION_SHAPE = ("email", "full_name", "aal", "mfa_age", "idle", "age", "device_label")
 
 
