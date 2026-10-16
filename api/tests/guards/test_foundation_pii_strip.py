@@ -61,10 +61,7 @@ def test_known_dates_of_birth_are_removed_in_any_written_form_and_event_dates_st
 
 def test_fixture_pack_identifiers_and_date_order_drive_stripping(library: PackLibrary) -> None:
     """Rule 11: the same code strips the fixture jurisdiction's identifier and reads its dates month first."""
-    text = (
-        f"{NAME} ZZ-ID-123456 Birthdate: 07/04/1950. Known birthday 03/12/1961. "
-        "Seen 12/03/1961 and 04/05/2021."
-    )
+    text = f"{NAME} ZZ-ID-123456 Birthdate: 07/04/1950. Known birthday 03/12/1961. Seen 12/03/1961 and 04/05/2021."
     out = pii.strip(text, pack=merged(library, FIXTURE), names=[NAME], dates_of_birth=[date(1961, 3, 12)])
     assert_gone(out.text, NAME, "ZZ-ID-123456", "07/04/1950", "03/12/1961")
     assert "12/03/1961" in out.text, "read month first, 12/03/1961 is not the date of birth"

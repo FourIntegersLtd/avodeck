@@ -145,7 +145,10 @@ def test_f10_the_log_scanner_reports_where_an_identifier_is_never_what() -> None
 
 
 async def test_f11_the_cost_guard_pauses_a_case_past_three_times_the_expected_use(
-    api_db: Database, seed: Seed, admin: psycopg.Connection, case: tuple[uuid.UUID, uuid.UUID],
+    api_db: Database,
+    seed: Seed,
+    admin: psycopg.Connection,
+    case: tuple[uuid.UUID, uuid.UUID],
     caplog: pytest.LogCaptureFixture,
 ) -> None:
     expert, case_id = case

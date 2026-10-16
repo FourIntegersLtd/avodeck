@@ -67,3 +67,11 @@ def test_the_scan_ignores_innocent_lookalikes(tmp_path: Path, text: str) -> None
     write(tmp_path / LINT_WORDS, (REPO / LINT_WORDS).read_text())
     write(tmp_path / "api/app/features/reader/service.py", text + "\n")
     assert packs.scan_slice_code(tmp_path) == []
+
+
+def test_the_scan_covers_the_shared_contracts(tmp_path: Path) -> None:
+    """Shared contracts are read by every slice, so they are held to the slice-code word list too."""
+    write(tmp_path / LINT_WORDS, (REPO / LINT_WORDS).read_text())
+    write(tmp_path / "api/app/core/contracts/today.py", "KIND = 'neutral'\n")
+    scanned = {p.relative_to(tmp_path).as_posix() for p in packs.slice_code_files(tmp_path)}
+    assert "api/app/core/contracts/today.py" in scanned
