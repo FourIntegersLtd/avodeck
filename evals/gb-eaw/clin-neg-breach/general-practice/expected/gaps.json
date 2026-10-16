@@ -1,0 +1,10 @@
+[
+ {
+  "source": "gp_record",
+  "series": "tasks",
+  "last_entry_month": "2024-01",
+  "gap_from": "2024-02",
+  "gap_to": "2024-12",
+  "planted": "2"
+ }
+]

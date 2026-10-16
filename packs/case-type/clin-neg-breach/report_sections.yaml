@@ -1,0 +1,6 @@
+# Sections assembled into the expert's own Word template (mapped on screen 02).
+sections: [introduction, instructions, documents, background, what_happened, opinion, range_of_opinion, summary, declarations]
+appendices: [cv, glossary, documents_list, methodology, chronology]
+opinion_per: question          # one opinion block per breach question
+uses_points_against: true
+uses_as_clinician_saw_it: true

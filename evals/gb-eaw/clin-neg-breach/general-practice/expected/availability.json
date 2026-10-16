@@ -1,0 +1,1446 @@
+[
+ {
+  "page": 1,
+  "kind": "received",
+  "date": "2024-05-22",
+  "quote": "RECEIVED 22 MAY 2024"
+ },
+ {
+  "page": 1,
+  "kind": "seen",
+  "date": "2024-05-28",
+  "quote": "Seen RP 28/5/24",
+  "handwritten": true
+ },
+ {
+  "page": 3,
+  "kind": "received",
+  "date": "2018-04-30",
+  "quote": "RECEIVED 30 APR 2018"
+ },
+ {
+  "page": 9,
+  "kind": "received",
+  "date": "2012-07-11",
+  "quote": "RECEIVED 11 JUL 2012"
+ },
+ {
+  "page": 12,
+  "kind": "received",
+  "date": "2019-12-04",
+  "quote": "RECEIVED 04 DEC 2019"
+ },
+ {
+  "page": 13,
+  "kind": "received",
+  "date": "2020-08-26",
+  "quote": "RECEIVED 26 AUG 2020"
+ },
+ {
+  "page": 17,
+  "kind": "received",
+  "date": "2009-10-06",
+  "quote": "RECEIVED 06 OCT 2009"
+ },
+ {
+  "page": 54,
+  "kind": "sent_to_gp",
+  "date": "2023-05-09",
+  "quote": "sent to GP practice 09/05/2023"
+ },
+ {
+  "page": 70,
+  "kind": "filed",
+  "date": "2014-10-27",
+  "for": "EP14-300917",
+  "quote": "reviewed by Dr Hannah Lee on 27 Oct 2014"
+ },
+ {
+  "page": 70,
+  "kind": "filed",
+  "date": "2014-11-30",
+  "for": "EP14-303668",
+  "quote": "reviewed by Dr Hannah Lee on 30 Nov 2014"
+ },
+ {
+  "page": 71,
+  "kind": "filed",
+  "date": "2015-01-03",
+  "for": "EP14-306419",
+  "quote": "reviewed by Dr Hannah Lee on 03 Jan 2015"
+ },
+ {
+  "page": 71,
+  "kind": "filed",
+  "date": "2015-02-08",
+  "for": "EP15-309170",
+  "quote": "reviewed by Dr Hannah Lee on 08 Feb 2015"
+ },
+ {
+  "page": 72,
+  "kind": "filed",
+  "date": "2015-03-10",
+  "for": "EP15-311921",
+  "quote": "reviewed by Dr Hannah Lee on 10 Mar 2015"
+ },
+ {
+  "page": 72,
+  "kind": "filed",
+  "date": "2015-04-07",
+  "for": "EP15-314672",
+  "quote": "reviewed by Dr Hannah Lee on 07 Apr 2015"
+ },
+ {
+  "page": 73,
+  "kind": "filed",
+  "date": "2015-05-04",
+  "for": "EP15-317423",
+  "quote": "reviewed by Dr Hannah Lee on 04 May 2015"
+ },
+ {
+  "page": 73,
+  "kind": "filed",
+  "date": "2015-05-28",
+  "for": "EP15-320174",
+  "quote": "reviewed by Dr Hannah Lee on 28 May 2015"
+ },
+ {
+  "page": 74,
+  "kind": "filed",
+  "date": "2015-06-27",
+  "for": "EP15-322925",
+  "quote": "reviewed by Dr Hannah Lee on 27 Jun 2015"
+ },
+ {
+  "page": 74,
+  "kind": "filed",
+  "date": "2015-07-28",
+  "for": "EP15-325676",
+  "quote": "reviewed by Dr Hannah Lee on 28 Jul 2015"
+ },
+ {
+  "page": 75,
+  "kind": "filed",
+  "date": "2015-08-28",
+  "for": "EP15-328427",
+  "quote": "reviewed by Dr Hannah Lee on 28 Aug 2015"
+ },
+ {
+  "page": 75,
+  "kind": "filed",
+  "date": "2015-09-23",
+  "for": "EP15-331178",
+  "quote": "reviewed by Dr Hannah Lee on 23 Sep 2015"
+ },
+ {
+  "page": 75,
+  "kind": "filed",
+  "date": "2015-10-25",
+  "for": "EP15-333929",
+  "quote": "reviewed by Dr Hannah Lee on 25 Oct 2015"
+ },
+ {
+  "page": 76,
+  "kind": "filed",
+  "date": "2015-11-17",
+  "for": "EP15-336680",
+  "quote": "reviewed by Dr Hannah Lee on 17 Nov 2015"
+ },
+ {
+  "page": 76,
+  "kind": "filed",
+  "date": "2015-12-14",
+  "for": "EP15-339431",
+  "quote": "reviewed by Dr Hannah Lee on 14 Dec 2015"
+ },
+ {
+  "page": 77,
+  "kind": "filed",
+  "date": "2016-01-05",
+  "for": "EP16-342182",
+  "quote": "reviewed by Dr Hannah Lee on 05 Jan 2016"
+ },
+ {
+  "page": 77,
+  "kind": "filed",
+  "date": "2016-01-29",
+  "for": "EP16-344933",
+  "quote": "reviewed by Dr Hannah Lee on 29 Jan 2016"
+ },
+ {
+  "page": 78,
+  "kind": "filed",
+  "date": "2016-03-04",
+  "for": "EP16-347684",
+  "quote": "reviewed by Dr Hannah Lee on 04 Mar 2016"
+ },
+ {
+  "page": 78,
+  "kind": "filed",
+  "date": "2016-04-06",
+  "for": "EP16-350435",
+  "quote": "reviewed by Dr Hannah Lee on 06 Apr 2016"
+ },
+ {
+  "page": 79,
+  "kind": "filed",
+  "date": "2016-04-30",
+  "for": "EP16-353186",
+  "quote": "reviewed by Dr Hannah Lee on 30 Apr 2016"
+ },
+ {
+  "page": 79,
+  "kind": "filed",
+  "date": "2016-06-01",
+  "for": "EP16-355937",
+  "quote": "reviewed by Dr Hannah Lee on 01 Jun 2016"
+ },
+ {
+  "page": 80,
+  "kind": "filed",
+  "date": "2016-06-23",
+  "for": "EP16-358688",
+  "quote": "reviewed by Dr Hannah Lee on 23 Jun 2016"
+ },
+ {
+  "page": 80,
+  "kind": "filed",
+  "date": "2016-07-18",
+  "for": "EP16-361439",
+  "quote": "reviewed by Dr Hannah Lee on 18 Jul 2016"
+ },
+ {
+  "page": 81,
+  "kind": "filed",
+  "date": "2016-08-20",
+  "for": "EP16-364190",
+  "quote": "reviewed by Dr Hannah Lee on 20 Aug 2016"
+ },
+ {
+  "page": 110,
+  "kind": "sent_to_gp",
+  "date": "2023-08-19",
+  "quote": "sent to GP practice 19/08/2023"
+ },
+ {
+  "page": 111,
+  "kind": "sent_to_gp",
+  "date": "2024-03-31",
+  "quote": "sent electronically to registered GP: 31/03/2024"
+ },
+ {
+  "page": 115,
+  "kind": "filed",
+  "date": "2024-09-16",
+  "for": "Colorectal clinic letter 12/09/2024",
+  "quote": "Filed by Dr Sola Okafor on 16-Sep-2024"
+ },
+ {
+  "page": 116,
+  "kind": "filed",
+  "date": "2024-09-04",
+  "for": "Gastroenterology appointment letter (dated 30/08/2024)",
+  "quote": "Filed by Jo Moss on 04-Sep-2024"
+ },
+ {
+  "page": 116,
+  "kind": "filed",
+  "date": "2024-08-27",
+  "for": "NP24-266410",
+  "quote": "Filed by Dr Sola Okafor on 27-Aug-2024"
+ },
+ {
+  "page": 117,
+  "kind": "filed",
+  "date": "2024-05-28",
+  "for": "Haematology Advice and Guidance response (letter dated 10/05/2024)",
+  "quote": "Filed by Dr Rakesh Patel on 28-May-2024"
+ },
+ {
+  "page": 118,
+  "kind": "filed",
+  "date": "2024-05-14",
+  "for": "NP24-201977",
+  "quote": "Filed by Dr Sola Okafor on 14-May-2024"
+ },
+ {
+  "page": 118,
+  "kind": "filed",
+  "date": "2024-04-02",
+  "for": "Out of hours case report NUC-24-033187",
+  "quote": "Filed by Dr Rakesh Patel on 02-Apr-2024"
+ },
+ {
+  "page": 119,
+  "kind": "filed",
+  "date": "2024-02-16",
+  "for": "NP24-118734",
+  "quote": "Filed by Dr Rakesh Patel on 16-Feb-2024"
+ },
+ {
+  "page": 119,
+  "kind": "filed",
+  "date": "2024-01-28",
+  "for": "NP24-406302",
+  "quote": "Filed by Dr Rakesh Patel on 28-Jan-2024"
+ },
+ {
+  "page": 120,
+  "kind": "filed",
+  "date": "2023-12-29",
+  "for": "NP23-403112",
+  "quote": "Filed by Dr Sola Okafor on 29-Dec-2023"
+ },
+ {
+  "page": 121,
+  "kind": "filed",
+  "date": "2023-12-04",
+  "for": "Bowel cancer screening - kit not returned",
+  "quote": "Filed by Jo Moss on 04-Dec-2023"
+ },
+ {
+  "page": 121,
+  "kind": "filed",
+  "date": "2023-11-24",
+  "for": "NP23-401044",
+  "quote": "Filed by Dr Rakesh Patel on 24-Nov-2023"
+ },
+ {
+  "page": 121,
+  "kind": "filed",
+  "date": "2023-11-17",
+  "for": "NP23-400337",
+  "quote": "Filed by Dr Rakesh Patel on 17-Nov-2023"
+ },
+ {
+  "page": 122,
+  "kind": "filed",
+  "date": "2023-11-05",
+  "for": "NP23-396367",
+  "quote": "Filed by Dr Rakesh Patel on 05-Nov-2023"
+ },
+ {
+  "page": 122,
+  "kind": "filed",
+  "date": "2023-10-21",
+  "for": "NP23-392494",
+  "quote": "Filed by Dr Sola Okafor on 21-Oct-2023"
+ },
+ {
+  "page": 123,
+  "kind": "filed",
+  "date": "2023-09-06",
+  "for": "NP23-390770",
+  "quote": "Filed by Dr Rakesh Patel on 06-Sep-2023"
+ },
+ {
+  "page": 124,
+  "kind": "filed",
+  "date": "2023-08-18",
+  "for": "NP23-389597",
+  "quote": "Filed by Dr Sola Okafor on 18-Aug-2023"
+ },
+ {
+  "page": 124,
+  "kind": "filed",
+  "date": "2023-08-05",
+  "for": "NP23-388706",
+  "quote": "Filed by Dr Sola Okafor on 05-Aug-2023"
+ },
+ {
+  "page": 125,
+  "kind": "filed",
+  "date": "2023-06-23",
+  "for": "NP23-387258",
+  "quote": "Filed by Dr Rakesh Patel on 23-Jun-2023"
+ },
+ {
+  "page": 126,
+  "kind": "filed",
+  "date": "2023-06-08",
+  "for": "NP23-385250",
+  "quote": "Filed by Dr Sola Okafor on 08-Jun-2023"
+ },
+ {
+  "page": 126,
+  "kind": "filed",
+  "date": "2023-05-20",
+  "for": "NP23-381456",
+  "quote": "Filed by Dr Sola Okafor on 20-May-2023"
+ },
+ {
+  "page": 126,
+  "kind": "filed",
+  "date": "2023-05-11",
+  "for": "NP23-380812",
+  "quote": "Filed by Dr Rakesh Patel on 11-May-2023"
+ },
+ {
+  "page": 127,
+  "kind": "filed",
+  "date": "2023-04-09",
+  "for": "NP23-379668",
+  "quote": "Filed by Dr Rakesh Patel on 09-Apr-2023"
+ },
+ {
+  "page": 128,
+  "kind": "filed",
+  "date": "2023-03-06",
+  "for": "NP23-376295",
+  "quote": "Filed by Dr Rakesh Patel on 06-Mar-2023"
+ },
+ {
+  "page": 129,
+  "kind": "filed",
+  "date": "2023-01-21",
+  "for": "NP23-374526",
+  "quote": "Filed by Dr Rakesh Patel on 21-Jan-2023"
+ },
+ {
+  "page": 130,
+  "kind": "filed",
+  "date": "2022-12-15",
+  "for": "NP22-372303",
+  "quote": "Filed by Dr Sola Okafor on 15-Dec-2022"
+ },
+ {
+  "page": 131,
+  "kind": "filed",
+  "date": "2022-10-31",
+  "for": "NP22-371580",
+  "quote": "Filed by Dr Rakesh Patel on 31-Oct-2022"
+ },
+ {
+  "page": 131,
+  "kind": "filed",
+  "date": "2022-10-20",
+  "for": "NP22-370725",
+  "quote": "Filed by Dr Sola Okafor on 20-Oct-2022"
+ },
+ {
+  "page": 132,
+  "kind": "filed",
+  "date": "2022-09-15",
+  "for": "NP22-367452",
+  "quote": "Filed by Dr Rakesh Patel on 15-Sep-2022"
+ },
+ {
+  "page": 133,
+  "kind": "filed",
+  "date": "2022-08-26",
+  "for": "NP22-364521",
+  "quote": "Filed by Dr Rakesh Patel on 26-Aug-2022"
+ },
+ {
+  "page": 133,
+  "kind": "filed",
+  "date": "2022-08-10",
+  "for": "NP22-363374",
+  "quote": "Filed by Dr Rakesh Patel on 10-Aug-2022"
+ },
+ {
+  "page": 134,
+  "kind": "filed",
+  "date": "2022-07-17",
+  "for": "NP22-360310",
+  "quote": "Filed by Dr Sola Okafor on 17-Jul-2022"
+ },
+ {
+  "page": 135,
+  "kind": "filed",
+  "date": "2022-07-02",
+  "for": "NP22-356341",
+  "quote": "Filed by Dr Sola Okafor on 02-Jul-2022"
+ },
+ {
+  "page": 135,
+  "kind": "filed",
+  "date": "2022-06-21",
+  "for": "NP22-355322",
+  "quote": "Filed by Dr Rakesh Patel on 21-Jun-2022"
+ },
+ {
+  "page": 137,
+  "kind": "filed",
+  "date": "2022-03-23",
+  "for": "NP22-351750",
+  "quote": "Filed by Dr Rakesh Patel on 23-Mar-2022"
+ },
+ {
+  "page": 137,
+  "kind": "filed",
+  "date": "2022-02-26",
+  "for": "NP22-348999",
+  "quote": "Filed by Dr Sola Okafor on 26-Feb-2022"
+ },
+ {
+  "page": 138,
+  "kind": "filed",
+  "date": "2022-02-06",
+  "for": "NP22-348460",
+  "quote": "Filed by Dr Sola Okafor on 06-Feb-2022"
+ },
+ {
+  "page": 139,
+  "kind": "filed",
+  "date": "2021-12-15",
+  "for": "NP21-346247",
+  "quote": "Filed by Dr Rakesh Patel on 15-Dec-2021"
+ },
+ {
+  "page": 140,
+  "kind": "filed",
+  "date": "2021-11-23",
+  "for": "NP21-345628",
+  "quote": "Filed by Dr Sola Okafor on 23-Nov-2021"
+ },
+ {
+  "page": 142,
+  "kind": "filed",
+  "date": "2021-09-20",
+  "for": "NP21-342217",
+  "quote": "Filed by Dr Sola Okafor on 20-Sep-2021"
+ },
+ {
+  "page": 142,
+  "kind": "filed",
+  "date": "2021-09-02",
+  "for": "NP21-339075",
+  "quote": "Filed by Dr Sola Okafor on 02-Sep-2021"
+ },
+ {
+  "page": 143,
+  "kind": "filed",
+  "date": "2021-07-09",
+  "for": "NP21-338128",
+  "quote": "Filed by Dr Rakesh Patel on 09-Jul-2021"
+ },
+ {
+  "page": 143,
+  "kind": "filed",
+  "date": "2021-06-19",
+  "for": "NP21-336770",
+  "quote": "Filed by Dr Rakesh Patel on 19-Jun-2021"
+ },
+ {
+  "page": 145,
+  "kind": "filed",
+  "date": "2021-04-17",
+  "for": "NP21-333424",
+  "quote": "Filed by Dr Rakesh Patel on 17-Apr-2021"
+ },
+ {
+  "page": 145,
+  "kind": "filed",
+  "date": "2021-04-01",
+  "for": "NP21-330905",
+  "quote": "Filed by Dr Rakesh Patel on 01-Apr-2021"
+ },
+ {
+  "page": 146,
+  "kind": "filed",
+  "date": "2021-03-30",
+  "for": "Orthopaedic letter (private)",
+  "quote": "Filed by Dr Rakesh Patel on 30-Mar-2021"
+ },
+ {
+  "page": 146,
+  "kind": "filed",
+  "date": "2021-02-25",
+  "for": "NP21-328956",
+  "quote": "Filed by Dr Sola Okafor on 25-Feb-2021"
+ },
+ {
+  "page": 148,
+  "kind": "filed",
+  "date": "2020-10-23",
+  "for": "NP20-327447",
+  "quote": "Filed by Dr Rakesh Patel on 23-Oct-2020"
+ },
+ {
+  "page": 149,
+  "kind": "filed",
+  "date": "2020-09-12",
+  "for": "NP20-324112",
+  "quote": "Filed by Dr Rakesh Patel on 12-Sep-2020"
+ },
+ {
+  "page": 150,
+  "kind": "filed",
+  "date": "2020-08-22",
+  "for": "NP20-321465",
+  "quote": "Filed by Dr Rakesh Patel on 22-Aug-2020"
+ },
+ {
+  "page": 150,
+  "kind": "filed",
+  "date": "2020-08-02",
+  "for": "NP20-318265",
+  "quote": "Filed by Dr Rakesh Patel on 02-Aug-2020"
+ },
+ {
+  "page": 151,
+  "kind": "filed",
+  "date": "2020-07-06",
+  "for": "NP20-317012",
+  "quote": "Filed by Dr Sola Okafor on 06-Jul-2020"
+ },
+ {
+  "page": 152,
+  "kind": "filed",
+  "date": "2020-06-20",
+  "for": "NP20-314120",
+  "quote": "Filed by Dr Sola Okafor on 20-Jun-2020"
+ },
+ {
+  "page": 153,
+  "kind": "filed",
+  "date": "2020-05-02",
+  "for": "NP20-310531",
+  "quote": "Filed by Dr Sola Okafor on 02-May-2020"
+ },
+ {
+  "page": 154,
+  "kind": "filed",
+  "date": "2020-04-23",
+  "for": "NP20-306553",
+  "quote": "Filed by Dr Sola Okafor on 23-Apr-2020"
+ },
+ {
+  "page": 154,
+  "kind": "filed",
+  "date": "2020-04-03",
+  "for": "NP20-305336",
+  "quote": "Filed by Dr Sola Okafor on 03-Apr-2020"
+ },
+ {
+  "page": 155,
+  "kind": "filed",
+  "date": "2020-03-19",
+  "for": "NP20-304655",
+  "quote": "Filed by Dr Rakesh Patel on 19-Mar-2020"
+ },
+ {
+  "page": 157,
+  "kind": "filed",
+  "date": "2020-01-04",
+  "for": "NP19-302738",
+  "quote": "Filed by Dr Sola Okafor on 04-Jan-2020"
+ },
+ {
+  "page": 158,
+  "kind": "filed",
+  "date": "2019-11-11",
+  "for": "NP19-300827",
+  "quote": "Filed by Dr Sola Okafor on 11-Nov-2019"
+ },
+ {
+  "page": 160,
+  "kind": "filed",
+  "date": "2019-07-14",
+  "for": "NP19-296828",
+  "quote": "Filed by Dr Rakesh Patel on 14-Jul-2019"
+ },
+ {
+  "page": 161,
+  "kind": "filed",
+  "date": "2019-06-16",
+  "for": "NP19-295364",
+  "quote": "Filed by Dr Rakesh Patel on 16-Jun-2019"
+ },
+ {
+  "page": 162,
+  "kind": "filed",
+  "date": "2019-05-01",
+  "for": "NP19-293484",
+  "quote": "Filed by Dr Sola Okafor on 01-May-2019"
+ },
+ {
+  "page": 163,
+  "kind": "filed",
+  "date": "2019-04-04",
+  "for": "NP19-290658",
+  "quote": "Filed by Dr Rakesh Patel on 04-Apr-2019"
+ },
+ {
+  "page": 163,
+  "kind": "filed",
+  "date": "2019-03-20",
+  "for": "Discharge summary - laparoscopic cholecystectomy",
+  "quote": "Filed by Dr Rakesh Patel on 20-Mar-2019"
+ },
+ {
+  "page": 164,
+  "kind": "filed",
+  "date": "2019-03-07",
+  "for": "NP19-288210",
+  "quote": "Filed by Dr Rakesh Patel on 07-Mar-2019"
+ },
+ {
+  "page": 164,
+  "kind": "filed",
+  "date": "2019-02-24",
+  "for": "NP19-285408",
+  "quote": "Filed by Dr Rakesh Patel on 24-Feb-2019"
+ },
+ {
+  "page": 165,
+  "kind": "filed",
+  "date": "2019-01-21",
+  "for": "NP19-281613",
+  "quote": "Filed by Dr Sola Okafor on 21-Jan-2019"
+ },
+ {
+  "page": 166,
+  "kind": "filed",
+  "date": "2018-10-09",
+  "for": "NP18-280192",
+  "quote": "Filed by Dr Rakesh Patel on 09-Oct-2018"
+ },
+ {
+  "page": 167,
+  "kind": "filed",
+  "date": "2018-09-30",
+  "for": "NP18-277637",
+  "quote": "Filed by Dr Sola Okafor on 30-Sep-2018"
+ },
+ {
+  "page": 168,
+  "kind": "filed",
+  "date": "2018-07-02",
+  "for": "NP18-274561",
+  "quote": "Filed by Dr Rakesh Patel on 02-Jul-2018"
+ },
+ {
+  "page": 168,
+  "kind": "filed",
+  "date": "2018-06-17",
+  "for": "NP18-273876",
+  "quote": "Filed by Dr Sola Okafor on 17-Jun-2018"
+ },
+ {
+  "page": 169,
+  "kind": "filed",
+  "date": "2018-05-18",
+  "for": "NP18-271311",
+  "quote": "Filed by Dr Sola Okafor on 18-May-2018"
+ },
+ {
+  "page": 170,
+  "kind": "filed",
+  "date": "2018-05-05",
+  "for": "NP18-268774",
+  "quote": "Filed by Dr Sola Okafor on 05-May-2018"
+ },
+ {
+  "page": 171,
+  "kind": "filed",
+  "date": "2018-03-25",
+  "for": "NP18-265754",
+  "quote": "Filed by Dr Rakesh Patel on 25-Mar-2018"
+ },
+ {
+  "page": 171,
+  "kind": "filed",
+  "date": "2018-03-04",
+  "for": "NP18-263552",
+  "quote": "Filed by Dr Sola Okafor on 04-Mar-2018"
+ },
+ {
+  "page": 172,
+  "kind": "filed",
+  "date": "2018-02-16",
+  "for": "NP18-259601",
+  "quote": "Filed by Dr Rakesh Patel on 16-Feb-2018"
+ },
+ {
+  "page": 172,
+  "kind": "filed",
+  "date": "2018-01-18",
+  "for": "NP18-257780",
+  "quote": "Filed by Dr Rakesh Patel on 18-Jan-2018"
+ },
+ {
+  "page": 173,
+  "kind": "filed",
+  "date": "2017-12-30",
+  "for": "NP17-253885",
+  "quote": "Filed by Dr Sola Okafor on 30-Dec-2017"
+ },
+ {
+  "page": 174,
+  "kind": "filed",
+  "date": "2017-11-07",
+  "for": "NP17-251362",
+  "quote": "Filed by Dr Sola Okafor on 07-Nov-2017"
+ },
+ {
+  "page": 175,
+  "kind": "filed",
+  "date": "2017-10-21",
+  "for": "NP17-250155",
+  "quote": "Filed by Dr Sola Okafor on 21-Oct-2017"
+ },
+ {
+  "page": 175,
+  "kind": "filed",
+  "date": "2017-09-30",
+  "for": "NP17-249173",
+  "quote": "Filed by Dr Sola Okafor on 30-Sep-2017"
+ },
+ {
+  "page": 175,
+  "kind": "filed",
+  "date": "2017-09-19",
+  "for": "NP17-246831",
+  "quote": "Filed by Dr Rakesh Patel on 19-Sep-2017"
+ },
+ {
+  "page": 176,
+  "kind": "filed",
+  "date": "2017-09-03",
+  "for": "NP17-243554",
+  "quote": "Filed by Dr Rakesh Patel on 03-Sep-2017"
+ },
+ {
+  "page": 176,
+  "kind": "filed",
+  "date": "2017-08-18",
+  "for": "NP17-242881",
+  "quote": "Filed by Dr Sola Okafor on 18-Aug-2017"
+ },
+ {
+  "page": 177,
+  "kind": "filed",
+  "date": "2017-07-16",
+  "for": "NP17-242043",
+  "quote": "Filed by Dr Sola Okafor on 16-Jul-2017"
+ },
+ {
+  "page": 177,
+  "kind": "filed",
+  "date": "2017-07-01",
+  "for": "NP17-240081",
+  "quote": "Filed by Dr Sola Okafor on 01-Jul-2017"
+ },
+ {
+  "page": 178,
+  "kind": "filed",
+  "date": "2017-06-18",
+  "for": "NP17-236402",
+  "quote": "Filed by Dr Sola Okafor on 18-Jun-2017"
+ },
+ {
+  "page": 179,
+  "kind": "filed",
+  "date": "2017-05-31",
+  "for": "NP17-233211",
+  "quote": "Filed by Dr Sola Okafor on 31-May-2017"
+ },
+ {
+  "page": 180,
+  "kind": "filed",
+  "date": "2017-04-07",
+  "for": "NP17-232705",
+  "quote": "Filed by Dr Rakesh Patel on 07-Apr-2017"
+ },
+ {
+  "page": 180,
+  "kind": "filed",
+  "date": "2017-03-18",
+  "for": "NP17-230506",
+  "quote": "Filed by Dr Rakesh Patel on 18-Mar-2017"
+ },
+ {
+  "page": 181,
+  "kind": "filed",
+  "date": "2017-02-27",
+  "for": "NP17-229403",
+  "quote": "Filed by Dr Sola Okafor on 27-Feb-2017"
+ },
+ {
+  "page": 182,
+  "kind": "filed",
+  "date": "2017-01-14",
+  "for": "NP17-227879",
+  "quote": "Filed by Dr Sola Okafor on 14-Jan-2017"
+ },
+ {
+  "page": 182,
+  "kind": "filed",
+  "date": "2016-12-15",
+  "for": "NP16-226585",
+  "quote": "Filed by Dr Rakesh Patel on 15-Dec-2016"
+ },
+ {
+  "page": 183,
+  "kind": "filed",
+  "date": "2016-12-02",
+  "for": "NP16-223132",
+  "quote": "Filed by Dr Rakesh Patel on 02-Dec-2016"
+ },
+ {
+  "page": 185,
+  "kind": "filed",
+  "date": "2014-09-02",
+  "for": "NP14-221846",
+  "quote": "Filed by Dr Sola Okafor on 02-Sep-2014"
+ },
+ {
+  "page": 185,
+  "kind": "filed",
+  "date": "2014-08-06",
+  "for": "NP14-218700",
+  "quote": "Filed by Dr Rakesh Patel on 06-Aug-2014"
+ },
+ {
+  "page": 185,
+  "kind": "filed",
+  "date": "2014-06-21",
+  "for": "NP14-215174",
+  "quote": "Filed by Dr Sola Okafor on 21-Jun-2014"
+ },
+ {
+  "page": 186,
+  "kind": "filed",
+  "date": "2014-06-06",
+  "for": "NP14-211268",
+  "quote": "Filed by Dr Rakesh Patel on 06-Jun-2014"
+ },
+ {
+  "page": 186,
+  "kind": "filed",
+  "date": "2014-03-06",
+  "for": "NP14-208182",
+  "quote": "Filed by Dr Rakesh Patel on 06-Mar-2014"
+ },
+ {
+  "page": 188,
+  "kind": "filed",
+  "date": "2013-08-25",
+  "for": "NP13-207056",
+  "quote": "Filed by Dr Sola Okafor on 25-Aug-2013"
+ },
+ {
+  "page": 189,
+  "kind": "filed",
+  "date": "2012-12-20",
+  "for": "NP12-206238",
+  "quote": "Filed by Dr Sola Okafor on 20-Dec-2012"
+ },
+ {
+  "page": 190,
+  "kind": "filed",
+  "date": "2012-07-11",
+  "for": "NP12-205453",
+  "quote": "Filed by Dr Rakesh Patel on 11-Jul-2012"
+ },
+ {
+  "page": 191,
+  "kind": "filed",
+  "date": "2012-06-01",
+  "for": "NP12-201880",
+  "quote": "Filed by Dr Sola Okafor on 01-Jun-2012"
+ },
+ {
+  "page": 192,
+  "kind": "filed",
+  "date": "2011-12-21",
+  "for": "NP11-201031",
+  "quote": "Filed by Dr Sola Okafor on 21-Dec-2011"
+ },
+ {
+  "page": 192,
+  "kind": "filed",
+  "date": "2011-11-12",
+  "for": "NP11-200354",
+  "quote": "Filed by Dr Sola Okafor on 12-Nov-2011"
+ },
+ {
+  "page": 193,
+  "kind": "filed",
+  "date": "2011-08-25",
+  "for": "NP11-198768",
+  "quote": "Filed by Dr Rakesh Patel on 25-Aug-2011"
+ },
+ {
+  "page": 194,
+  "kind": "filed",
+  "date": "2011-07-03",
+  "for": "NP11-194893",
+  "quote": "Filed by Dr Sola Okafor on 03-Jul-2011"
+ },
+ {
+  "page": 195,
+  "kind": "filed",
+  "date": "2011-02-11",
+  "for": "NP11-191872",
+  "quote": "Filed by Dr Rakesh Patel on 11-Feb-2011"
+ },
+ {
+  "page": 195,
+  "kind": "filed",
+  "date": "2010-11-08",
+  "for": "NP10-191114",
+  "quote": "Filed by Dr Sola Okafor on 08-Nov-2010"
+ },
+ {
+  "page": 196,
+  "kind": "filed",
+  "date": "2010-10-14",
+  "for": "NP10-187237",
+  "quote": "Filed by Dr Sola Okafor on 14-Oct-2010"
+ },
+ {
+  "page": 196,
+  "kind": "filed",
+  "date": "2010-09-01",
+  "for": "NP10-185529",
+  "quote": "Filed by Dr Rakesh Patel on 01-Sep-2010"
+ },
+ {
+  "page": 197,
+  "kind": "filed",
+  "date": "2010-05-09",
+  "for": "NP10-183764",
+  "quote": "Filed by Dr Sola Okafor on 09-May-2010"
+ },
+ {
+  "page": 197,
+  "kind": "filed",
+  "date": "2010-03-11",
+  "for": "NP10-180647",
+  "quote": "Filed by Dr Sola Okafor on 11-Mar-2010"
+ },
+ {
+  "page": 198,
+  "kind": "filed",
+  "date": "2010-01-11",
+  "for": "NP10-178612",
+  "quote": "Filed by Dr Rakesh Patel on 11-Jan-2010"
+ },
+ {
+  "page": 199,
+  "kind": "filed",
+  "date": "2009-10-17",
+  "for": "NP09-175927",
+  "quote": "Filed by Dr Rakesh Patel on 17-Oct-2009"
+ },
+ {
+  "page": 199,
+  "kind": "filed",
+  "date": "2009-06-15",
+  "for": "NP09-175016",
+  "quote": "Filed by Dr Rakesh Patel on 15-Jun-2009"
+ },
+ {
+  "page": 200,
+  "kind": "filed",
+  "date": "2009-05-01",
+  "for": "NP09-172141",
+  "quote": "Filed by Dr Sola Okafor on 01-May-2009"
+ },
+ {
+  "page": 201,
+  "kind": "filed",
+  "date": "2009-02-09",
+  "for": "NP09-169186",
+  "quote": "Filed by Dr Rakesh Patel on 09-Feb-2009"
+ },
+ {
+  "page": 201,
+  "kind": "filed",
+  "date": "2008-12-19",
+  "for": "NP08-166125",
+  "quote": "Filed by Dr Sola Okafor on 19-Dec-2008"
+ },
+ {
+  "page": 201,
+  "kind": "filed",
+  "date": "2008-11-14",
+  "for": "NP08-163985",
+  "quote": "Filed by Dr Rakesh Patel on 14-Nov-2008"
+ },
+ {
+  "page": 202,
+  "kind": "filed",
+  "date": "2008-09-04",
+  "for": "NP08-162346",
+  "quote": "Filed by Dr Rakesh Patel on 04-Sep-2008"
+ },
+ {
+  "page": 203,
+  "kind": "filed",
+  "date": "2008-07-04",
+  "for": "NP08-158838",
+  "quote": "Filed by Dr Sola Okafor on 04-Jul-2008"
+ },
+ {
+  "page": 203,
+  "kind": "filed",
+  "date": "2008-04-03",
+  "for": "NP08-156597",
+  "quote": "Filed by Dr Sola Okafor on 03-Apr-2008"
+ },
+ {
+  "page": 204,
+  "kind": "filed",
+  "date": "2007-11-29",
+  "for": "NP07-155454",
+  "quote": "Filed by Dr Rakesh Patel on 29-Nov-2007"
+ },
+ {
+  "page": 204,
+  "kind": "filed",
+  "date": "2007-11-09",
+  "for": "NP07-152998",
+  "quote": "Filed by Dr Rakesh Patel on 09-Nov-2007"
+ },
+ {
+  "page": 205,
+  "kind": "filed",
+  "date": "2007-09-22",
+  "for": "NP07-150147",
+  "quote": "Filed by Dr Rakesh Patel on 22-Sep-2007"
+ },
+ {
+  "page": 207,
+  "kind": "filed",
+  "date": "2007-01-30",
+  "for": "NP07-148761",
+  "quote": "Filed by Dr Sola Okafor on 30-Jan-2007"
+ },
+ {
+  "page": 207,
+  "kind": "filed",
+  "date": "2006-12-17",
+  "for": "NP06-146778",
+  "quote": "Filed by Dr Rakesh Patel on 17-Dec-2006"
+ },
+ {
+  "page": 207,
+  "kind": "filed",
+  "date": "2006-11-05",
+  "for": "NP06-145004",
+  "quote": "Filed by Dr Rakesh Patel on 05-Nov-2006"
+ },
+ {
+  "page": 208,
+  "kind": "filed",
+  "date": "2006-10-18",
+  "for": "NP06-141960",
+  "quote": "Filed by Dr Rakesh Patel on 18-Oct-2006"
+ },
+ {
+  "page": 208,
+  "kind": "filed",
+  "date": "2006-07-23",
+  "for": "NP06-141125",
+  "quote": "Filed by Dr Sola Okafor on 23-Jul-2006"
+ },
+ {
+  "page": 209,
+  "kind": "filed",
+  "date": "2006-06-27",
+  "for": "NP06-138077",
+  "quote": "Filed by Dr Rakesh Patel on 27-Jun-2006"
+ },
+ {
+  "page": 210,
+  "kind": "filed",
+  "date": "2006-02-23",
+  "for": "NP06-135861",
+  "quote": "Filed by Dr Rakesh Patel on 23-Feb-2006"
+ },
+ {
+  "page": 211,
+  "kind": "filed",
+  "date": "2005-11-02",
+  "for": "NP05-133986",
+  "quote": "Filed by Dr Sola Okafor on 02-Nov-2005"
+ },
+ {
+  "page": 211,
+  "kind": "filed",
+  "date": "2005-08-30",
+  "for": "NP05-130012",
+  "quote": "Filed by Dr Rakesh Patel on 30-Aug-2005"
+ },
+ {
+  "page": 211,
+  "kind": "filed",
+  "date": "2005-07-23",
+  "for": "NP05-127155",
+  "quote": "Filed by Dr Sola Okafor on 23-Jul-2005"
+ },
+ {
+  "page": 212,
+  "kind": "filed",
+  "date": "2005-03-09",
+  "for": "NP05-124152",
+  "quote": "Filed by Dr Sola Okafor on 09-Mar-2005"
+ },
+ {
+  "page": 213,
+  "kind": "filed",
+  "date": "2005-02-16",
+  "for": "NP05-123131",
+  "quote": "Filed by Dr Sola Okafor on 16-Feb-2005"
+ },
+ {
+  "page": 213,
+  "kind": "filed",
+  "date": "2005-01-30",
+  "for": "NP05-119728",
+  "quote": "Filed by Dr Rakesh Patel on 30-Jan-2005"
+ },
+ {
+  "page": 214,
+  "kind": "filed",
+  "date": "2004-12-10",
+  "for": "NP04-116601",
+  "quote": "Filed by Dr Rakesh Patel on 10-Dec-2004"
+ },
+ {
+  "page": 215,
+  "kind": "filed",
+  "date": "2004-09-11",
+  "for": "NP04-112876",
+  "quote": "Filed by Dr Rakesh Patel on 11-Sep-2004"
+ },
+ {
+  "page": 215,
+  "kind": "filed",
+  "date": "2004-07-30",
+  "for": "NP04-109546",
+  "quote": "Filed by Dr Rakesh Patel on 30-Jul-2004"
+ },
+ {
+  "page": 216,
+  "kind": "filed",
+  "date": "2004-06-04",
+  "for": "NP04-108668",
+  "quote": "Filed by Dr Rakesh Patel on 04-Jun-2004"
+ },
+ {
+  "page": 216,
+  "kind": "filed",
+  "date": "2004-04-23",
+  "for": "NP04-107744",
+  "quote": "Filed by Dr Rakesh Patel on 23-Apr-2004"
+ },
+ {
+  "page": 216,
+  "kind": "filed",
+  "date": "2004-03-04",
+  "for": "NP04-106244",
+  "quote": "Filed by Dr Rakesh Patel on 04-Mar-2004"
+ },
+ {
+  "page": 217,
+  "kind": "filed",
+  "date": "2004-01-14",
+  "for": "NP04-104657",
+  "quote": "Filed by Dr Rakesh Patel on 14-Jan-2004"
+ },
+ {
+  "page": 217,
+  "kind": "filed",
+  "date": "2003-11-18",
+  "for": "NP03-101982",
+  "quote": "Filed by Dr Rakesh Patel on 18-Nov-2003"
+ },
+ {
+  "page": 218,
+  "kind": "filed",
+  "date": "2003-09-18",
+  "for": "NP03-100808",
+  "quote": "Filed by Dr Rakesh Patel on 18-Sep-2003"
+ },
+ {
+  "page": 239,
+  "kind": "sent_to_gp",
+  "date": "2013-10-02",
+  "quote": "sent to GP practice 02/10/2013"
+ },
+ {
+  "page": 275,
+  "kind": "sent_to_gp",
+  "date": "2023-08-19",
+  "quote": "sent to GP practice 19/08/2023"
+ },
+ {
+  "page": 281,
+  "kind": "received",
+  "date": "2009-10-06",
+  "quote": "RECEIVED 06 OCT 2009"
+ },
+ {
+  "page": 288,
+  "kind": "sent_to_gp",
+  "date": "2020-10-07",
+  "quote": "sent to GP practice 07/10/2020"
+ },
+ {
+  "page": 298,
+  "kind": "sent_to_gp",
+  "date": "2005-12-11",
+  "quote": "sent to GP practice 11/12/2005"
+ },
+ {
+  "page": 301,
+  "kind": "sent_to_gp",
+  "date": "2005-07-10",
+  "quote": "sent to GP practice 10/07/2005"
+ },
+ {
+  "page": 309,
+  "kind": "received",
+  "date": "2012-07-11",
+  "quote": "RECEIVED 11 JUL 2012"
+ },
+ {
+  "page": 329,
+  "kind": "sent_to_gp",
+  "date": "2020-02-11",
+  "quote": "sent to GP practice 11/02/2020"
+ },
+ {
+  "page": 366,
+  "kind": "sent_to_gp",
+  "date": "2013-09-03",
+  "quote": "sent to GP practice 03/09/2013"
+ },
+ {
+  "page": 369,
+  "kind": "sent_to_gp",
+  "date": "2018-12-02",
+  "quote": "sent to GP practice 02/12/2018"
+ },
+ {
+  "page": 381,
+  "kind": "sent_to_gp",
+  "date": "2014-09-10",
+  "quote": "sent to GP practice 10/09/2014"
+ },
+ {
+  "page": 383,
+  "kind": "sent_to_gp",
+  "date": "2013-12-07",
+  "quote": "sent to GP practice 07/12/2013"
+ },
+ {
+  "page": 399,
+  "kind": "received",
+  "date": "2019-12-04",
+  "quote": "RECEIVED 04 DEC 2019"
+ },
+ {
+  "page": 421,
+  "kind": "sent_to_gp",
+  "date": "2013-10-03",
+  "quote": "sent to GP practice 03/10/2013"
+ },
+ {
+  "page": 426,
+  "kind": "sent_to_gp",
+  "date": "2011-06-08",
+  "quote": "sent to GP practice 08/06/2011"
+ },
+ {
+  "page": 454,
+  "kind": "seen",
+  "date": "2024-05-22",
+  "quote": "22/05/2024 11:03 Response viewed by practice"
+ },
+ {
+  "page": 517,
+  "kind": "received",
+  "date": "2019-01-25",
+  "quote": "RECEIVED 25 JAN 2019"
+ },
+ {
+  "page": 527,
+  "kind": "sent_to_gp",
+  "date": "2014-04-02",
+  "quote": "sent to GP practice 02/04/2014"
+ },
+ {
+  "page": 538,
+  "kind": "seen",
+  "date": "2024-05-22",
+  "quote": "22/05/2024 11:03 Response viewed by practice"
+ },
+ {
+  "page": 556,
+  "kind": "received",
+  "date": "2006-09-25",
+  "quote": "RECEIVED 25 SEP 2006"
+ },
+ {
+  "page": 561,
+  "kind": "received",
+  "date": "2008-10-18",
+  "quote": "RECEIVED 18 OCT 2008"
+ },
+ {
+  "page": 562,
+  "kind": "received",
+  "date": "2009-03-21",
+  "quote": "RECEIVED 21 MAR 2009"
+ },
+ {
+  "page": 575,
+  "kind": "sent_to_gp",
+  "date": "2021-09-12",
+  "quote": "sent to GP practice 12/09/2021"
+ },
+ {
+  "page": 625,
+  "kind": "sent_to_gp",
+  "date": "2009-05-03",
+  "quote": "sent to GP practice 03/05/2009"
+ },
+ {
+  "page": 629,
+  "kind": "sent_to_gp",
+  "date": "2013-01-05",
+  "quote": "sent to GP practice 05/01/2013"
+ },
+ {
+  "page": 690,
+  "kind": "sent_to_gp",
+  "date": "2009-05-04",
+  "quote": "sent to GP practice 04/05/2009"
+ },
+ {
+  "page": 714,
+  "kind": "sent_to_gp",
+  "date": "2007-09-06",
+  "quote": "sent to GP practice 06/09/2007"
+ },
+ {
+  "page": 717,
+  "kind": "sent_to_gp",
+  "date": "2007-09-05",
+  "quote": "sent to GP practice 05/09/2007"
+ },
+ {
+  "page": 733,
+  "kind": "sent_to_gp",
+  "date": "2004-12-05",
+  "quote": "sent to GP practice 05/12/2004"
+ },
+ {
+  "page": 824,
+  "kind": "sent_to_gp",
+  "date": "2012-10-05",
+  "quote": "sent to GP practice 05/10/2012"
+ },
+ {
+  "page": 885,
+  "kind": "sent_to_gp",
+  "date": "2021-01-09",
+  "quote": "sent to GP practice 09/01/2021"
+ }
+]

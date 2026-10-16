@@ -1,0 +1,8 @@
+# Replace @OWNER with your GitHub username.
+# Ground truth for evaluations needs a clinician reviewer's sign-off (architecture 10.10).
+/evals/**/expected/   @OWNER
+/packs/               @OWNER
+/CLAUDE.md            @OWNER
+/.claude/             @OWNER
+/.github/             @OWNER
+/backend/app/core/    @OWNER

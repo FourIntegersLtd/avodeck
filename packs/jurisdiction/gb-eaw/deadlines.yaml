@@ -1,0 +1,14 @@
+# Calendar rules: calendar_days or business_days (business days skip weekends and the pack's holidays).
+# Dates are calculated in the pack timezone.
+# Default deadlines. Court directions override these; the expert can edit any date.
+written_questions:
+  rule_ref: "CPR 35.6"
+  ask_within: {days: 28, calendar: calendar_days}     # questions put within 28 days of service of the report
+  answer: as directed or within a reasonable time   # expert enters the due date from directions
+expert_meeting:
+  rule_ref: "PD35 para 9"
+  sign_within: {days: 7, calendar: calendar_days, from: discussion}
+  send_within: {days: 14, calendar: calendar_days, from: signing}
+trial:
+  rule_ref: "court directions"
+# Verify against the current CPR and Practice Direction 35 before launch.

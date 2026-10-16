@@ -1,0 +1,8 @@
+# Jurisdiction-specific final checks, added to the core checks.
+checks:
+  - key: statement_of_truth_exact
+    text: Statement of truth present with exact wording from declarations.md
+  - key: required_contents_present
+    text: Every item in report.yaml required_contents is addressed
+  - key: page_limit
+    text: Page count within the track limit (only if the case track has one)

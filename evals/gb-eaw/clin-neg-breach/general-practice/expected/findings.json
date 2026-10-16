@@ -1,0 +1,32 @@
+[
+ {
+  "check": "abnormal_result_no_action",
+  "should_fire": true,
+  "planted": "11",
+  "evidence_pages": [
+   119,
+   119,
+   119,
+   119,
+   402,
+   402
+  ]
+ },
+ {
+  "check": "referral_acknowledged",
+  "should_fire": true,
+  "planted": "12",
+  "evidence_pages": [
+   2,
+   117
+  ]
+ },
+ {
+  "check": "ooh_reached_gp",
+  "should_fire": false,
+  "planted": "13",
+  "evidence_pages": [
+   111
+  ]
+ }
+]

@@ -1,0 +1,5 @@
+code: general-practice
+name: General practice
+version: 2026.10.1
+profession: doctor
+outside_expertise_question_types: [causation]   # flagged on screen 06 and by the lint; the expert decides

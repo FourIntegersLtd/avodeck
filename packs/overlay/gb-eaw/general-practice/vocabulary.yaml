@@ -1,0 +1,7 @@
+clinician: GP
+clinicians: GPs
+practice: GP surgery
+source_types:
+  primary_care_record: GP record
+lanes:
+  primary_care_visits: GP visits

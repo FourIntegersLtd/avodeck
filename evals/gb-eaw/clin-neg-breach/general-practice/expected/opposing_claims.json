@@ -1,0 +1,86 @@
+[
+ {
+  "number": "5.1",
+  "text_verbatim": "The plan recorded on 15 May 2024 was 'review 3/52 if no better' [p.118].",
+  "cited_page": 118,
+  "cited_value": "review 3/52 if no better",
+  "expected_status": "matches"
+ },
+ {
+  "number": "5.2",
+  "text_verbatim": "A haematology Advice and Guidance response dated 10 May 2024 recommended FIT and GI investigation [p.1].",
+  "cited_page": 1,
+  "cited_value": "Advice and Guidance response",
+  "expected_status": "matches"
+ },
+ {
+  "number": "5.3",
+  "text_verbatim": "The out-of-hours clinician advised review by her own GP [p.111].",
+  "cited_page": 111,
+  "cited_value": "Advised to see own GP",
+  "expected_status": "matches"
+ },
+ {
+  "number": "5.4",
+  "text_verbatim": "A routine gastroenterology referral was made on 24 June 2024 [p.117].",
+  "cited_page": 117,
+  "cited_value": "Routine referral to Gastroenterology",
+  "expected_status": "matches"
+ },
+ {
+  "number": "5.5",
+  "text_verbatim": "The hospital acknowledged the routine referral on 30 August 2024 [p.2].",
+  "cited_page": 2,
+  "cited_value": "Referral received - appointment offered",
+  "expected_status": "matches"
+ },
+ {
+  "number": "5.6",
+  "text_verbatim": "A suspected cancer referral was made on 20 August 2024 [p.112].",
+  "cited_page": 112,
+  "cited_value": "SUSPECTED LOWER GASTROINTESTINAL CANCER REFERRAL",
+  "expected_status": "matches"
+ },
+ {
+  "number": "5.7",
+  "text_verbatim": "Bloods were arranged at the first consultation on 12 February 2024 [p.119].",
+  "cited_page": 119,
+  "cited_value": "Bloods: FBC, ferritin",
+  "expected_status": "matches"
+ },
+ {
+  "number": "5.8",
+  "text_verbatim": "A colonoscopy report dated 2 September 2024 describes the tumour [p.512].",
+  "cited_page": 512,
+  "cited_value": "colonoscopy",
+  "expected_status": "not_on_page"
+ },
+ {
+  "number": "5.9",
+  "text_verbatim": "A gastroenterology clinic letter of October 2024 confirms the referral was triaged routinely [p.603].",
+  "cited_page": 603,
+  "cited_value": "triaged as routine",
+  "expected_status": "not_on_page"
+ },
+ {
+  "number": "5.10",
+  "text_verbatim": "The ferritin in February 2024 was 19 ug/L [p.402].",
+  "cited_page": 402,
+  "cited_value": "19",
+  "expected_status": "wrong_value"
+ },
+ {
+  "number": "5.11",
+  "text_verbatim": "No safety-netting advice was documented after 15 May 2024 [p.117].",
+  "cited_page": 117,
+  "cited_value": "Advised to call back or 111",
+  "expected_status": "contradicted"
+ },
+ {
+  "number": "5.12",
+  "text_verbatim": "At the May consultation the GP noted that the patient had lost weight [p.118].",
+  "cited_page": 118,
+  "cited_value": "Thinks lost a bit of weight",
+  "expected_status": "matches_after_review"
+ }
+]

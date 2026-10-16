@@ -1,0 +1,5 @@
+sections: [introduction, findings, opinion, declarations]
+appendices: [methodology]
+opinion_per: question
+uses_points_against: false
+uses_as_clinician_saw_it: false

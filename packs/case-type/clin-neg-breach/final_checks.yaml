@@ -1,0 +1,7 @@
+checks:
+  - key: questions_answered
+    text: Every question in the letter of instruction has an answer or an explained deferral
+  - key: points_against_considered
+    text: Points against considered for every breach question
+  - key: guidance_in_force
+    text: Guidance cited was in force on the date of the care in question

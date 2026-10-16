@@ -1,0 +1,86 @@
+# Slice C: Case setup
+
+Owner: Claude session, branch `slice/c-setup` · Phase: MVP · Migrations 0300–0399
+
+## Goal
+The expert sets up their profile once, then for each case enters the details, declares conflicts, records oral instructions, and confirms the exact questions they've been asked, pulled from the letter of instruction.
+
+## Screens
+- 02 Your expert profile (`S02-Profile`)
+- 04 New case (`S04-NewCase`): case details and oral instructions (uploads from foundation)
+- 05 Before you start (`S05-Conflicts`)
+- 06 What you've been asked (`S06-Questions`)
+- Today cards: registers "questions to confirm" and "profile incomplete" via `NeedsYouItem`
+
+## Endpoints (architecture 5.2)
+- Profile: `GET/PATCH /v1/me/profile`; `GET/POST /v1/me/roles`, `PATCH/DELETE /v1/me/roles/{id}`; `GET/POST/DELETE /v1/me/training[/{id}]`
+- Template: `POST /v1/me/template/file`; `PATCH /v1/me/template/mapping`
+- `GET/PUT /v1/me/declaration`; `GET /v1/jurisdictions/{code}` (fixed wording from the pack, foundation-owned)
+- Signature: `POST /v1/me/signature`; `GET /v1/me/signature/image`
+- `GET /v1/me/stats/balance?months=12`
+- `POST /v1/cases/{id}/prefill` → 202; `PUT /v1/cases/{id}/oral-instructions`
+- `GET/PUT /v1/cases/{id}/conflicts`
+- `GET /v1/cases/{id}/questions`; `PATCH /v1/cases/{id}/questions/{q_id}`; `PATCH /v1/cases/{id}/assumptions/{a_id}`; `POST /v1/cases/{id}/questions/confirm-all`
+- `POST /v1/cases/{id}/instructing-party-notes/draft`
+
+## Tables owned
+`expert_roles`, `expert_training`, `report_templates`, `declarations`, `signatures`, `case_instructions`, `conflict_answers`, `assumptions`. Fills the `questions` contract table.
+
+## Worker job: `extract_questions`
+OCR the letter of instruction (T-07a kit) → `pii.strip` → **T-06** → exact-substring check → `questions` and `assumptions` rows with status `suggested`.
+
+## AI tasks (architecture 6.3)
+| Task | Model | Output | Check |
+|---|---|---|---|
+| T-02 (optional) | Sonnet 5 | heading → report section map | expert confirms |
+| T-04 (optional) | Azure DI + Sonnet 5 | `{instructing_party_name, instructing_party_type, party_role, due_date, court_track?}` with `word_ids` | expert confirms each field |
+| T-06 | Azure DI + Sonnet 5 | `questions[{number, text_verbatim, word_ids, para_ref, kind, outside_expertise, reason}]`, `assumptions[]` | exact substring of the letter; expert confirms each |
+| T-DICT | Azure Speech (foundation kit) | oral instructions transcript | expert edits |
+
+## Contracts
+- **In:** foundation auth, uploads, jobs, AI kit, dictation kit.
+- **Out:** confirmed `questions` (used by D, E, F, G), expert profile, roles and template (F), signature (F), declaration (F), conflicts text (F).
+
+## Acceptance tests (write first)
+- [ ] Roles store date ranges; conflicts screen warns when no role in the expert's specialty (settings from the specialty pack) covers the case period (Feb–Aug 2024 in the fixture)
+- [ ] Uploading the fixture `.docx` template stores the original unchanged (same SHA-256) and returns its heading map
+- [ ] Declaration can be edited until the expert's first report is served, then returns 409
+- [ ] The statement of truth and declaration wording shown come from the `gb-eaw` pack and cannot be changed by the expert
+- [ ] Drawn signature PNG and photo upload both store; background removed; served only through the API
+- [ ] T-06 on the fixture letter returns 4 questions and 1 assumption whose text is an exact substring of the letter with correct `para_ref`
+- [ ] A recorded T-06 response that paraphrases a question is rejected
+- [ ] Question 4 (causation) is flagged `outside_expertise` because the case-type pack marks causation as usually outside the general-practice specialty
+- [ ] Writing cannot start (409) until `confirm-all` has been called; edits keep the original text
+- [ ] Conflict answers generate the declaration paragraph; "Yes" answers require detail
+- [ ] Balance stats return defendant/claimant/joint counts for the last 12 months
+- [ ] Oral instructions save as a dated record from dictation or typing
+- [ ] Prefill suggestions (T-04) are never applied without the expert confirming
+- [ ] Screens 02, 04, 05, 06 pass Playwright + axe and match their canvas boards
+
+## Behaviour rules this slice must build (architecture 10, 5.4)
+
+These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
+
+**Test inputs:** synthetic files in `bundles/synthetic-mrs-a/inputs/` (built by `make eval-data`), expected results in `evals/gb-eaw/clin-neg-breach/general-practice/expected/inputs.json` under `instruction_version_2`.
+
+**Extra tables owned:** `case_parties`, `case_instructing_parties`, `case_links`, `instruction_versions`. Screens for `case_members` (table from foundation).
+
+**Extra endpoints:** `GET/POST /v1/cases/{id}/members`, `DELETE /v1/cases/{id}/members/{member_id}`, `GET/POST /v1/cases/{id}/parties`, `PATCH/DELETE /v1/cases/{id}/parties/{party_id}`, `GET/POST /v1/cases/{id}/instructing-parties`, `PATCH /v1/cases/{id}/instructing-parties/{ip_id}`, `GET/POST /v1/cases/{id}/instructions`, `GET/POST /v1/cases/{id}/links`, `DELETE /v1/cases/{id}/links/{link_id}`, `POST /v1/cases/{id}/conflicts/declare`, `POST /v1/cases/{id}/withdraw` 🔒, `POST /v1/cases/{id}/hold`, `POST /v1/cases/{id}/resume`, `PATCH /v1/cases/{id}/jurisdiction` 🔒, `POST /v1/cases/duplicate-check`.
+
+- [ ] New case asks "Who is this case for?" and sets `organisation_id` and `named_expert_id`
+- [ ] Any number of parties with pack role keys; a joint expert has two instructing parties and every draft is addressed to both (S4)
+- [ ] A supplementary letter creates an instruction version; a new question reopens a locked set with a warning; links and opinions stay (S7)
+- [ ] A conflict declared mid-case drafts a note; withdrawal sets status `withdrawn`, keeps served reports locked and cancels deadlines (S16)
+- [ ] Duplicate-case warning compares a keyed hash of the subject identifier; the identifier is never stored
+- [ ] Jurisdiction can change only before serving (409 after), with packs re-stamped and changes listed
+- [ ] On hold pauses reminders and queues jobs; resume restores them
+- [ ] Subject status (living, deceased, minor) changes only vocabulary, proven under the fixture packs
+
+## Rules that apply
+1, 2, 4, 5, 6, 7, 9 from the root `CLAUDE.md`.
+
+## Out of scope
+Uploading mechanics (foundation), bundle processing (A), report assembly using the template (F).
+
+## Definition of done
+Root checklist, plus: a test expert can complete the profile and reach confirmed questions on the fixture letter on staging.

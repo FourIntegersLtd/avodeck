@@ -1,0 +1,5 @@
+# Drug monitoring intervals used by the repeat_medicine_monitoring check. To be curated with a clinical adviser
+# against current UK guidance before launch. Illustrative structure only.
+version: 2026.10.1
+reviewed_by: (clinical adviser to confirm)
+drugs: []

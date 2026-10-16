@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sign and send</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Outfit:wght@600&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F5}
+a{color:#1E6B4E}a:hover{color:#0F3D2C}
+</style>
+</helmet>
+<div style="min-height: 1000px; background: #F6F7F5; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #16201B; font-size: 17px; line-height: 1.5; display: flex; flex-direction: column">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #DDE3DF; display: flex; align-items: center; gap: 24px; padding: 12px 40px; min-height: 80px; box-sizing: border-box; flex-wrap: wrap">
+    <a href="S03-Today.dc.html" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #0F3D2C; font-weight: 700; font-size: 19px"><svg width="30.5" height="40" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#0F3D2C"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#E4F3D6"/><circle cx="50" cy="83" r="17" fill="#1E6B4E"/></svg><span style="font-family: 'Outfit', 'Atkinson Hyperlegible', sans-serif; font-weight: 600; font-size: 22px; letter-spacing: -0.025em">Avodeck</span></a>
+    <span style="width: 1px; height: 32px; background: #DDE3DF"></span>
+    <div style="display: flex; flex-direction: column; line-height: 1.3"><span style="font-size: 19px; font-weight: 700">Mrs A</span><span style="font-size: 15px; color: #4F5953">Delayed colorectal referral · due 30 Nov</span></div>
+    <nav aria-label="Case steps" style="margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap">
+      <a href="S08-BundleReady.dc.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #E6F2EC; color: #0F3D2C; font-weight: 700; font-size: 16px; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E6B4E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Prepare</a>
+      <a href="S09-Reader.dc.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #E6F2EC; color: #0F3D2C; font-weight: 700; font-size: 16px; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E6B4E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Read</a>
+      <a href="S11-Timeline.dc.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px; background: #E6F2EC; color: #0F3D2C; font-weight: 700; font-size: 16px; text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E6B4E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Understand</a>
+      <a href="S15-Opinion.dc.html" aria-current="step" style="display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px; background: #1E6B4E; color: #FFFFFF; font-weight: 700; font-size: 16px; text-decoration: none"><span style="width: 22px; height: 22px; border-radius: 50%; background: #FFFFFF; color: #1E6B4E; font-size: 13px; display: inline-flex; align-items: center; justify-content: center">4</span>Write</a>
+      <a href="S19-Served.dc.html" style="display: inline-flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 999px; background: #FFFFFF; color: #4F5953; font-weight: 700; font-size: 16px; text-decoration: none; border: 1.5px solid #DDE3DF"><span style="width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid #B9C3BD; font-size: 13px; display: inline-flex; align-items: center; justify-content: center">5</span>Court</a>
+    </nav>
+    <span style="width: 44px; height: 44px; border-radius: 50%; background: #E6F2EC; color: #0F3D2C; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">JM</span>
+  </header>
+
+  <main style="flex: 1; width: 100%; max-width: 1120px; margin: 0 auto; padding: 36px 40px 40px; box-sizing: border-box; display: flex; flex-direction: column; gap: 24px">
+    <div style="display: flex; align-items: center; gap: 16px">
+      <span style="width: 56px; height: 56px; border-radius: 50%; background: #E6F2EC; display: inline-flex; align-items: center; justify-content: center"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#1E6B4E" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></span>
+      <div style="display: flex; flex-direction: column"><h1 style="margin: 0; font-size: 36px; font-weight: 700">Ready to sign</h1><span style="color: #4F5953; font-size: 18px">All 28 checks passed.</span></div>
+    </div>
+
+    <div style="display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start">
+      <section style="flex: 1 1 360px; background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 18px; padding: 24px; display: flex; gap: 20px; align-items: center">
+        <div style="width: 96px; height: 128px; border-radius: 4px; background: #FFFFFF; box-shadow: 0 1px 2px rgba(15,61,44,0.08), 0 6px 16px rgba(15,61,44,0.12); padding: 12px 10px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; flex-shrink: 0"><span style="height: 6px; width: 60%; background: #16201B; border-radius: 2px"></span><span style="height: 4px; background: #DDE3DF; border-radius: 2px"></span><span style="height: 4px; background: #DDE3DF; border-radius: 2px"></span><span style="height: 4px; width: 80%; background: #DDE3DF; border-radius: 2px"></span><span style="height: 4px; background: #DDE3DF; border-radius: 2px"></span><span style="height: 4px; width: 70%; background: #DDE3DF; border-radius: 2px"></span></div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 20px; font-weight: 700">Breach of duty report: Mrs A</span>
+          <span style="color: #4F5953">31 pages · 4 appendices</span>
+          <span style="color: #4F5953">Version dated 27 November 2026</span>
+        </div>
+      </section>
+      <section style="flex: 1 1 360px; background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 18px; padding: 24px; display: flex; flex-direction: column; gap: 10px">
+        <span style="font-weight: 700">Your signature</span>
+        <div style="height: 80px; border-bottom: 2px solid #16201B; display: flex; align-items: flex-end; padding-bottom: 6px"><svg width="200" height="60" viewBox="0 0 200 60" aria-label="Signature preview" role="img"><path d="M8 44c12-30 22-34 26-20s-6 26 4 14 14-28 22-20-4 22 6 18 12-16 22-12 4 14 14 10 16-14 26-10 10 8 22 2" fill="none" stroke="#16201B" stroke-width="2.25" stroke-linecap="round"/></svg></div>
+        <span style="color: #4F5953; font-size: 15px">Dr James Morgan, GP · GMC [GMC NUMBER]</span>
+      </section>
+    </div>
+
+    <section style="background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 18px; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px">
+      <h2 style="margin: 0; font-size: 21px">Statement of truth</h2>
+      <div style="background: #F6F7F5; border-radius: 12px; padding: 18px 22px; font-family: Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.7; color: #1F2421; display: flex; flex-direction: column; gap: 10px">
+        <p style="margin: 0">I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.</p>
+        <p style="margin: 0">I understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.</p>
+      </div>
+      <label style="display: flex; align-items: flex-start; gap: 14px; font-size: 18px"><input type="checkbox" checked style="width: 26px; height: 26px; accent-color: #1E6B4E; margin-top: 2px; flex-shrink: 0">I have read the whole report and I confirm the statement of truth.</label>
+    </section>
+
+    <section style="background: #E6F2EC; border-radius: 18px; padding: 18px 22px; display: flex; gap: 14px; align-items: flex-start">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1E6B4E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+      <span>Sending to [Instructing solicitor] by email today; we record who it went to and when. Once sent, this version is locked, along with the CV, declaration and signature in it. If anything changes later, you'll write a short supplementary report and we'll tell the solicitor for you.</span>
+    </section>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap">
+      <span style="display: inline-flex; gap: 12px; flex-wrap: wrap">
+        <a href="#docx" style="display: inline-flex; align-items: center; gap: 8px; background: #FFFFFF; color: #1E6B4E; border: 2px solid #1E6B4E; text-decoration: none; font-weight: 700; padding: 13px 20px; border-radius: 12px">Download Word</a>
+        <a href="#pdf" style="display: inline-flex; align-items: center; gap: 8px; background: #FFFFFF; color: #1E6B4E; border: 2px solid #1E6B4E; text-decoration: none; font-weight: 700; padding: 13px 20px; border-radius: 12px">Download PDF</a>
+      </span>
+      <a href="S18b-Invoice.dc.html" style="display: inline-flex; align-items: center; gap: 10px; background: #1E6B4E; color: #FFFFFF; text-decoration: none; font-size: 19px; font-weight: 700; padding: 18px 30px; border-radius: 12px">Sign and send to the solicitor <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

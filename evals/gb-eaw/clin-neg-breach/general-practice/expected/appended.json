@@ -1,0 +1,225 @@
+[
+ {
+  "page": 901,
+  "doc_id": "app-oncology-2025-03",
+  "facts": [],
+  "relevant_new": false
+ },
+ {
+  "page": 902,
+  "doc_id": "app-cea-2025",
+  "facts": [
+   {
+    "kind": "result",
+    "value": "9.4 ug/L",
+    "quote": "CEA 9.4",
+    "event_date": "2025-06-03",
+    "fields": {
+     "test": "CEA",
+     "flag": "H"
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": true
+ },
+ {
+  "page": 903,
+  "doc_id": "fill-ecg-500",
+  "facts": [
+   {
+    "kind": "result",
+    "value": "Sinus rhythm. Normal ECG.",
+    "quote": "Sinus rhythm. Normal ECG.",
+    "event_date": "2009-11-09",
+    "fields": {
+     "test": "ECG",
+     "rate": 69
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 904,
+  "doc_id": "fill-old-501",
+  "facts": [
+   {
+    "kind": "letter",
+    "value": "Margaret Ashworth - ganglion right wrist",
+    "quote": "Margaret Ashworth - ganglion right wrist",
+    "event_date": "2002-07-26",
+    "fields": {
+     "org": "Northam Health Authority"
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 905,
+  "doc_id": "fill-km-502",
+  "facts": [
+   {
+    "kind": "letter",
+    "value": "Orthopaedic Surgeon private consultation",
+    "quote": "Margaret attended for review of her knee",
+    "event_date": "2023-11-01",
+    "fields": {},
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 906,
+  "doc_id": "fill-wvpath2-503",
+  "facts": [
+   {
+    "kind": "result",
+    "value": "2.7 mU/L",
+    "quote": "TSH 2.7",
+    "event_date": "2014-08-03",
+    "fields": {
+     "test": "TSH",
+     "flag": ""
+    },
+    "planted": null
+   },
+   {
+    "kind": "result",
+    "value": "15.4 pmol/L",
+    "quote": "Free T4 15.4",
+    "event_date": "2014-08-03",
+    "fields": {
+     "test": "Free T4",
+     "flag": ""
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 907,
+  "doc_id": "fill-lab-504",
+  "facts": [],
+  "relevant_new": false
+ },
+ {
+  "page": 908,
+  "doc_id": "fill-wvpath-505",
+  "facts": [
+   {
+    "kind": "result",
+    "value": "4.6 mmol/L",
+    "quote": "Cholesterol 4.6",
+    "event_date": "2017-04-09",
+    "fields": {
+     "test": "Cholesterol",
+     "flag": ""
+    },
+    "planted": null
+   },
+   {
+    "kind": "result",
+    "value": "39 mmol/mol",
+    "quote": "HbA1c 39",
+    "event_date": "2017-04-09",
+    "fields": {
+     "test": "HbA1c",
+     "flag": ""
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 909,
+  "doc_id": "fill-pharm-506",
+  "facts": [
+   {
+    "kind": "letter",
+    "value": "Pharmacy consultation: Cold sore",
+    "quote": "Cold sore",
+    "event_date": "2009-09-11",
+    "fields": {},
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 910,
+  "doc_id": "fill-ng-507",
+  "facts": [],
+  "relevant_new": false
+ },
+ {
+  "page": 911,
+  "doc_id": "fill-111-508",
+  "facts": [
+   {
+    "kind": "phone_consultation",
+    "value": "NHS 111: Cough",
+    "quote": "Cough",
+    "event_date": "2019-05-02",
+    "fields": {
+     "disposition": "Self care"
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 912,
+  "doc_id": "fill-rad-509",
+  "facts": [
+   {
+    "kind": "result",
+    "value": "Normal pelvic ultrasound.",
+    "quote": "Normal pelvic ultrasound.",
+    "event_date": "2005-09-20",
+    "fields": {
+     "test": "US Pelvis"
+    },
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 913,
+  "doc_id": "fill-ed-510",
+  "facts": [
+   {
+    "kind": "letter",
+    "value": "ED attendance: Local reaction",
+    "quote": "Local reaction",
+    "event_date": "2013-06-07",
+    "fields": {},
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ },
+ {
+  "page": 914,
+  "doc_id": "fill-rv-511",
+  "facts": [
+   {
+    "kind": "letter",
+    "value": "Podiatry discharge",
+    "quote": "Discharged",
+    "event_date": "2007-11-01",
+    "fields": {},
+    "planted": null
+   }
+  ],
+  "relevant_new": false
+ }
+]

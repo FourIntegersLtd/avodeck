@@ -1,0 +1,5 @@
+question_types:
+  - {key: breach, label_key: question_type.breach}
+  - {key: causation, label_key: question_type.causation}
+  - {key: other, label_key: question_type.other}
+# Which types fall outside an expert's usual expertise is declared by the specialty pack (outside_expertise_question_types).

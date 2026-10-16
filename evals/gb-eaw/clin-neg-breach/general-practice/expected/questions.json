@@ -1,0 +1,38 @@
+{
+ "questions": [
+  {
+   "number": 1,
+   "text_verbatim": "Please set out your view of the standard of care provided by the general practitioners between February and August 2024.",
+   "para_ref": "4(a)",
+   "kind": "breach",
+   "outside_expertise": false
+  },
+  {
+   "number": 2,
+   "text_verbatim": "In particular, did the standard of care provided at the consultation on 15 May 2024 fall below that of a reasonably competent general practitioner, and if so in what respects?",
+   "para_ref": "4(b)",
+   "kind": "breach",
+   "outside_expertise": false
+  },
+  {
+   "number": 3,
+   "text_verbatim": "Would a reasonably competent general practitioner have referred Mrs Ashworth on the urgent suspected cancer pathway, and if so by what date?",
+   "para_ref": "4(c)",
+   "kind": "breach",
+   "outside_expertise": false
+  },
+  {
+   "number": 4,
+   "text_verbatim": "If Mrs Ashworth had been referred earlier, on the balance of probabilities would her cancer have been diagnosed at an earlier stage?",
+   "para_ref": "4(d)",
+   "kind": "causation",
+   "outside_expertise": true
+  }
+ ],
+ "assumptions": [
+  {
+   "text_verbatim": "You should assume that Mrs Ashworth's account of her symptoms in her witness statement is accurate unless the records clearly show otherwise.",
+   "para_ref": "5"
+  }
+ ]
+}

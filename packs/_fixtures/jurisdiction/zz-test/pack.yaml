@@ -1,0 +1,15 @@
+code: zz-test
+name: Testland
+version: 0.0.1
+cell: test
+locale: en-ZZ
+language: en
+timezone: America/Halifax
+date_order: MDY
+currency: XTS                      # ISO test currency
+tax: none
+holidays: {source: fixture, dates: ["2026-12-24"]}
+registration_bodies: {therapist: [ZZ-REG]}
+default_retention_years: 2
+speech: {locale: en-US}
+written_question_classifications: [permitted, not_permitted]

@@ -1,0 +1,2 @@
+source_types: [primary_care_record, hospital, out_of_hours, results, letters]
+source_colours: {primary_care_record: "#1E6B4E", hospital: "#4C6E91", out_of_hours: "#2C8C99", results: "#7A6BA8", letters: "#8C7556"}

@@ -1,0 +1,24 @@
+code: gb-eaw
+name: England and Wales
+version: 2026.10.1
+cell: uk
+locale: en-GB
+language: en
+timezone: Europe/London
+date_order: DMY            # used by the date normaliser; ambiguous dates are flagged, never guessed
+currency: GBP
+tax: VAT
+holidays:
+  source: gov.uk/bank-holidays.json#england-and-wales   # fetched into a cached table; deadlines skip these on business-day rules
+registration_bodies:       # by profession (the specialty pack declares the profession)
+  doctor: [GMC]
+  nurse: [NMC]
+  midwife: [NMC]
+  physiotherapist: [HCPC]
+  psychologist: [HCPC]
+  dentist: [GDC]
+default_retention_years: 6 # expert's default; configurable per case
+speech: {locale: en-GB}
+legal_system: common law
+court_tracks: [small_claims, fast, intermediate, multi]     # optional registry; hidden where a jurisdiction has none
+written_question_classifications: [clarifies, goes_beyond]  # optional registry for written questions

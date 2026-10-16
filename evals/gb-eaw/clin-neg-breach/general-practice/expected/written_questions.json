@@ -1,0 +1,32 @@
+[
+ {
+  "number": 1,
+  "text_verbatim": "Please confirm the page reference for your statement that the ferritin result of February 2024 was not acted upon.",
+  "expected_kind": "clarifies"
+ },
+ {
+  "number": 2,
+  "text_verbatim": "At paragraph 6.3 you refer to the plan of 15 May 2024. Please confirm the exact wording recorded in the notes.",
+  "expected_kind": "clarifies"
+ },
+ {
+  "number": 3,
+  "text_verbatim": "Do you accept that iron replacement was a reasonable initial step on 15 May 2024?",
+  "expected_kind": "clarifies"
+ },
+ {
+  "number": 4,
+  "text_verbatim": "Please clarify whether your opinion on the date by which referral should have been made relies on the haematology letter.",
+  "expected_kind": "clarifies"
+ },
+ {
+  "number": 5,
+  "text_verbatim": "Please explain what you mean by 'safety-netting was inadequate' at paragraph 7.1.",
+  "expected_kind": "clarifies"
+ },
+ {
+  "number": 6,
+  "text_verbatim": "Please now give your opinion on whether, with earlier referral, the tumour would have been at an earlier stage and the Claimant's prognosis better.",
+  "expected_kind": "goes_beyond"
+ }
+]

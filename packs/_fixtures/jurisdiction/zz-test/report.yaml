@@ -1,0 +1,3 @@
+rule_ref: "Rule Z"
+required_contents:
+  - {key: qualifications, text_key: zz.qualifications}

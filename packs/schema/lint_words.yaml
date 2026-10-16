@@ -1,0 +1,5 @@
+# Words that must not appear in the wrong layer. Extend as packs are added. Overlays may use any word.
+country_words: [NHS, NICE, CPR, PD35, "Part 35", GMC, England, Wales, EMIS, SystmOne, solicitor, claimant, "trial bundle", Medicare, AHPRA, RACGP, CPSO, plaintiff, "family physician"]
+specialty_words: [GP, GPs, "general practitioner", "general practice", surgeon, obstetric, orthopaedic]
+specialty_codes_forbidden_in: [jurisdiction, case-type]   # e.g. "general-practice" must not appear there
+professions_are_shared: true   # profession keys (doctor, nurse, midwife, physiotherapist...) may appear in jurisdiction registration_bodies

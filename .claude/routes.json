@@ -1,0 +1,360 @@
+{
+  "board_aliases": {
+    "30": "S30",
+    "31": "S29",
+    "32": "S27",
+    "33": "S28"
+  },
+  "owners": {
+    "foundation-owner": {
+      "slice": "0",
+      "area": "foundation: auth, core, packs, design system, shared contracts",
+      "brief": "docs/slices/0-foundation.md",
+      "screens": [
+        "S01",
+        "S03",
+        "S28"
+      ],
+      "keywords": [
+        "sign in",
+        "sign-in",
+        "mfa",
+        "backup code",
+        "step-up",
+        "csrf",
+        "design system",
+        "pack loader",
+        "fixture packs",
+        "require_case_access",
+        "idempotency",
+        "feature flag",
+        "chunked upload",
+        "provenance.check",
+        "pii.strip",
+        "needs you",
+        "app shell",
+        "today shell",
+        "account and security",
+        "devices"
+      ]
+    },
+    "pipeline-owner": {
+      "slice": "A",
+      "area": "bundle pipeline: OCR, extraction, duplicates, gaps, missing documents",
+      "brief": "docs/slices/A-pipeline.md",
+      "screens": [
+        "S07",
+        "S08",
+        "S08b",
+        "S30"
+      ],
+      "keywords": [
+        "preparing your bundle",
+        "bundle ready",
+        "not this patient",
+        "wrong patient",
+        "ask the solicitor",
+        "instructing party request",
+        "missing documents",
+        "missing items",
+        "record gaps",
+        "duplicates",
+        "duplicate",
+        "t-07a",
+        "t-07c",
+        "process_bundle",
+        "thumbnail",
+        "text layer",
+        "append",
+        "phash",
+        "exhibits"
+      ]
+    },
+    "reader-owner": {
+      "slice": "B",
+      "area": "reader: blind read, mark as read, verification, unreadable pages",
+      "brief": "docs/slices/B-reader.md",
+      "screens": [
+        "S09",
+        "S10"
+      ],
+      "keywords": [
+        "blind read",
+        "423",
+        "mark as read",
+        "couldn't read",
+        "could not read",
+        "transcribe",
+        "transcription",
+        "handwriting",
+        "second reading",
+        "t-10",
+        "reading screen",
+        "dwell",
+        "page reads",
+        "verify fact",
+        "not right",
+        "change a detail",
+        "unreadable",
+        "clearer copy",
+        "pages left to read",
+        "hash-chained"
+      ]
+    },
+    "setup-owner": {
+      "slice": "C",
+      "area": "case setup: expert profile, new case, conflicts, questions asked",
+      "brief": "docs/slices/C-setup.md",
+      "screens": [
+        "S02",
+        "S04",
+        "S05",
+        "S06"
+      ],
+      "keywords": [
+        "expert profile",
+        "new case",
+        "before you start",
+        "conflicts",
+        "what you've been asked",
+        "letter of instruction",
+        "oral instructions",
+        "declaration",
+        "assumptions",
+        "prefill",
+        "extract_questions",
+        "report template",
+        "training",
+        "registration body",
+        "questions to confirm",
+        "profile incomplete",
+        "t-04",
+        "court track",
+        "instruction version",
+        "balance"
+      ]
+    },
+    "understand-owner": {
+      "slice": "D",
+      "area": "understand: timeline, one consultation as seen, things to look at",
+      "brief": "docs/slices/D-understand.md",
+      "screens": [
+        "S11",
+        "S12",
+        "S13"
+      ],
+      "keywords": [
+        "timeline",
+        "consultation",
+        "as the gp saw it",
+        "as seen",
+        "things to look at",
+        "findings",
+        "guidance in force",
+        "guideline",
+        "availability",
+        "available_at",
+        "t-11",
+        "t-13a",
+        "check settings",
+        "lanes",
+        "link events",
+        "show what came later",
+        "checks engine",
+        "rerun"
+      ]
+    },
+    "write-owner": {
+      "slice": "E",
+      "area": "write: points against, opinion workspace, citations, lint",
+      "brief": "docs/slices/E-write.md",
+      "screens": [
+        "S14",
+        "S15"
+      ],
+      "keywords": [
+        "points against",
+        "your opinion",
+        "opinion",
+        "witness statement",
+        "range note",
+        "lint",
+        "loaded language",
+        "citation chip",
+        "fact chips",
+        "t-14a",
+        "t-14b",
+        "t-14c",
+        "conflicting accounts",
+        "dictate",
+        "provisional",
+        "uncited",
+        "outside expertise",
+        "citation_refs",
+        "quote_verbatim",
+        "other reasonable clinicians"
+      ]
+    },
+    "report-owner": {
+      "slice": "F",
+      "area": "report: build, final check, sign, serve, time and invoice",
+      "brief": "docs/slices/F-report.md",
+      "screens": [
+        "S16",
+        "S17",
+        "S18",
+        "S18b"
+      ],
+      "keywords": [
+        "your report",
+        "final check",
+        "sign and send",
+        "time and invoice",
+        "invoice",
+        "invoices",
+        "methodology",
+        "compliance checklist",
+        "spot-check",
+        "spot check",
+        "build_report",
+        "mark served",
+        "report version",
+        "t-17",
+        "word template",
+        "heartbeat",
+        "fingerprint",
+        "credit note",
+        "28 checks",
+        "report settings"
+      ]
+    },
+    "after-serving-owner": {
+      "slice": "G",
+      "area": "after serving: court orders, written questions, new records, opposing report, supplementary report",
+      "brief": "docs/slices/G-after-serving.md",
+      "screens": [
+        "S19",
+        "S20",
+        "S21",
+        "S21b",
+        "S29"
+      ],
+      "keywords": [
+        "after serving",
+        "court orders",
+        "hearing",
+        "deadlines",
+        "written questions",
+        "part 35",
+        "other expert's report",
+        "opposing claims",
+        "opposing report",
+        "new records",
+        "supplementary report",
+        "addendum",
+        "may matter",
+        "t-20a",
+        "t-20b",
+        "t-21a",
+        "t-21b",
+        "t-21c",
+        "t-21d",
+        "t-21e"
+      ]
+    },
+    "close-owner": {
+      "slice": "H",
+      "area": "close: settle, export, retention, deletion, certificate of deletion",
+      "brief": "docs/slices/H-close.md",
+      "screens": [
+        "S26"
+      ],
+      "keywords": [
+        "close the case",
+        "close case",
+        "settle",
+        "retention",
+        "delete_after",
+        "deletion",
+        "deletion certificate",
+        "certificate of deletion",
+        "crypto-shredding",
+        "export case",
+        "record of work",
+        "archive",
+        "reopen",
+        "delete now",
+        "return then delete",
+        "pause deletion",
+        "delete_case",
+        "export_case",
+        "keep default",
+        "backup expiry"
+      ]
+    },
+    "trial-owner": {
+      "slice": "I",
+      "area": "trial: joint statement, trial page numbers, trial pack, witness-box lookup",
+      "brief": "docs/slices/I-trial.md",
+      "screens": [
+        "S22",
+        "S23",
+        "S24",
+        "S25"
+      ],
+      "keywords": [
+        "joint statement",
+        "expert meeting",
+        "agenda",
+        "trial pages",
+        "trial page numbers",
+        "trial bundle",
+        "court bundle",
+        "concordance",
+        "trial pack",
+        "witness box",
+        "offline package",
+        "offline",
+        "large-print",
+        "t-22a",
+        "t-22b",
+        "t-22c",
+        "t-24",
+        "deviation",
+        "match_trial_bundle",
+        "nothing new on the day"
+      ]
+    },
+    "organisations-owner": {
+      "slice": "O",
+      "area": "organisations: members, roles, invites, billing, leaving and closure",
+      "brief": "docs/slices/O-organisations.md",
+      "screens": [
+        "S27",
+        "S28"
+      ],
+      "keywords": [
+        "organisation",
+        "organisations",
+        "members",
+        "invite",
+        "invites",
+        "leave organisation",
+        "named expert",
+        "billing profile",
+        "custodian",
+        "close account",
+        "support access",
+        "stripe",
+        "seats",
+        "chambers",
+        "agency",
+        "who is this case for",
+        "membership",
+        "org policy",
+        "reassign",
+        "records custodian"
+      ]
+    }
+  }
+}

@@ -1,0 +1,12 @@
+# Steps shown in the case header and the screens inside each step.
+steps:
+  - key: prepare
+    screens: [new_case, conflicts, questions, preparing, bundle_ready, ask_instructing_party]
+  - key: read
+    screens: [reader, couldnt_read]
+  - key: understand
+    screens: [timeline, as_clinician_saw_it, things_to_look_at]
+  - key: write
+    screens: [points_against, opinion, report, final_check, sign_send, invoice]
+  - key: court
+    screens: [after_serving, written_questions, new_material, correct_report, expert_meeting, court_bundle_pages, trial_pack, witness_box, close]

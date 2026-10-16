@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+frontend/dist/
+.env
+.env.*
+!.env.example
+.coverage
+coverage/
+playwright-report/
+test-results/
+supabase/.temp/
+.claude/phase
+.DS_Store
+evals/**/bundles/
+evals/**/_tmp/

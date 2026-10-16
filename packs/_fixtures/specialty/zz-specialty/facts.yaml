@@ -1,0 +1,5 @@
+fact_kinds:
+  - {key: session, fields: {duration_minutes: integer}}
+  - {key: measurement, fields: {name: string, value: string, unit: string}}
+source_types: [clinic_notes, letters]
+source_colours: {clinic_notes: "#5A4A9E", letters: "#8C7556"}

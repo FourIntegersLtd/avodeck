@@ -1,0 +1,9 @@
+party_roles: {instructing_side: petitioner, other_side: respondent, joint: neutral}
+instructing_party_types: {lawyer: counsel, insurer: carrier}
+subject: petitioner
+court_bundle: hearing binder
+written_questions: interrogatories
+expert_meeting: expert conference
+expert_meeting_document: conference minute
+report_rules_name: Rule Z
+declaration_name: affirmation

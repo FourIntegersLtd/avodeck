@@ -1,0 +1,2 @@
+# Fact kinds this specialty adds to the core registry.
+fact_kinds: [consultation, phone_consultation, home_visit, result, prescription, referral, letter, examination, safety_netting, missed_appointment, task]

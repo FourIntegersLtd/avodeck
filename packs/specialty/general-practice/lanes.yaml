@@ -1,0 +1,2 @@
+# Timeline lanes, top to bottom (labels from vocabulary and i18n).
+lanes: [primary_care_visits, results, out_of_hours, prescriptions, hospital_and_letters, appointments]

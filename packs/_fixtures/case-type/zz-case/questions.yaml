@@ -1,0 +1,2 @@
+question_types:
+  - {key: capacity, label_key: zz.question_type.capacity}

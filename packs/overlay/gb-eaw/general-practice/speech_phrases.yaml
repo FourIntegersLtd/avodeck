@@ -1,0 +1,2 @@
+# Custom Speech phrase list for dictation (local drug names and abbreviations). No patient data.
+phrases: [amlodipine, levothyroxine, ferrous fumarate, co-amoxiclav, nitrofurantoin, "2WW", "FIT", "NG12", "safety-netted", "TATT", "PR", "O/E"]

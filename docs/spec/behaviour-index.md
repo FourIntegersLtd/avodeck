@@ -1,0 +1,93 @@
+# Behaviour index
+
+One line per table, answering the behaviour questions in plain words: who owns it, who can change it, how many there can be, how it changes over time, and what happens when a person leaves or the case is deleted. `scripts/check_spec.py` fails if a table in `docs/architecture.md` section 4 has no line here. Detail lives in section 10, `permissions.md` and `state-machines.md`.
+
+"Named" = the case's named expert. "Org admin" = owner or admin of the organisation that owns the case. "Case deletion" = removed with the case and its key destroyed (crypto-shredded).
+
+| Table | Owner | Who can change it | How many | Over time | Leaving / deletion |
+|---|---|---|---|---|---|
+| `people` | Foundation | The person | One per person per cell | Email change needs both addresses; closure keeps sign-in for served cases | Closed account: kept while any served case they're named on exists |
+| `experts` | Foundation (C fills) | The person | 0 or 1 per person | Edits never touch signed reports (snapshots) | Kept with the person |
+| `expert_roles` | C | The expert | Many | Edit freely; snapshot at signing | With the person |
+| `expert_training` | C | The expert | Many | Edit freely; snapshot at signing | With the person |
+| `report_templates` | C | Person, or org admin for org templates | Many per owner; `version` rises | Replacing makes a new version; reports keep theirs | Org template stays with the org |
+| `declarations` | C | The expert | One per jurisdiction per kind | Locked after first served report; later edits are new rows | With the person |
+| `signatures` | C | The expert | Many; latest used | New image is a new row; snapshot at signing | With the person |
+| `sessions` | Foundation | The person (revoke) | One per device | Expire on inactivity | All revoked on password reset or closure |
+| `mfa_recovery_codes` | Foundation | The person (regenerate) | 10 at a time | Each used once; regenerate replaces all | Deleted on closure |
+| `organisations` | Foundation (O for teams) | Owner/admin | Personal: one per person; teams: any | Closure only when no open cases | Served cases outlive closure until retention |
+| `memberships` | Foundation (O) | Owner/admin; the person can leave | Many per person; one active per person per org | active → ended; never deleted | Ending removes org access except named cases |
+| `invites` | O | Owner/admin | Many | pending → accepted/cancelled/expired | Expire after 7 days |
+| `billing_profiles` | O (personal ones in F) | Person or org owner | One per issuer | Number sequence never skips; edits don't touch sent invoices | Kept with sent invoices for tax |
+| `notification_preferences` | Foundation | The person | One per person per org | Edit freely | Deleted with the membership |
+| `support_access_grants` | O | Named expert grants or revokes | Any; one active per case | Expire after 24 hours | Audit rows kept |
+| `cases` | Foundation (C fills) | Named expert; org admin for admin fields | Many per org | State machine; on hold flag; named expert fixed after serving | Case deletion; legal hold blocks |
+| `case_members` | C | Named expert or org admin | Many per case | Added and removed with dates, history kept | Removed when membership ends unless named |
+| `case_parties` | C | Named expert or assistant | Many | Editable until served; then additions only | Case deletion |
+| `case_instructing_parties` | C | Named expert or assistant | One or more (joint) | Change of firm = new row with dates | Case deletion |
+| `case_links` | C | Named expert | Many | Add or remove; never shares data | Removed when either case is deleted |
+| `instruction_versions` | C | Named expert or assistant | Many, ordered | Append only | Case deletion |
+| `conflict_answers` | C | Named expert | One per question, plus later declarations | New answers appended; snapshot at signing | Case deletion |
+| `questions` | C | Named expert | Many per instruction version | Locked with the set; reopened by new instructions before serving | Case deletion |
+| `assumptions` | C | Named expert | Many | Lock and reopen with the question set | Case deletion |
+| `documents` | Foundation (A) | Named expert or assistant (upload) | Many; bundle versions | Never edited after hashing; provenance editable | Case deletion |
+| `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
+| `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation per state machine | Case deletion; quarantined images deleted earlier |
+| `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
+| `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change | Case deletion |
+| `fact_verifications` | B | Named expert (append only) | Many per fact | Append only | Case deletion; chain head on certificate |
+| `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
+| `fact_flags` | B | Named expert | Many | Add or remove | Case deletion |
+| `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
+| `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
+| `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited | Case deletion |
+| `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |
+| `check_config` | D | The expert | One per check per expert | Edit freely | With the person |
+| `findings` | D | Worker; named expert decides | Many | Decisions kept across re-runs | Case deletion |
+| `availability_overrides` | D | Named expert | One per fact | Latest wins; history audited | Case deletion |
+| `consultation_notes` | D | Named expert | One per consultation | Edit freely | Case deletion |
+| `guideline_versions` | D | Avodeck clinical reviewer only | Many; table versions | New table version per change; cases record theirs | Shared, never deleted |
+| `comments` | D | Any case member (own comments) | Many | Edit own; resolve | Case deletion; may be disclosable |
+| `points` | E | Named expert | Many | State machine; stale on fact change | Case deletion |
+| `range_notes` | E | Named expert | One per question | Edit freely | Case deletion |
+| `witness_claims` | E | Worker; named expert confirms | Many per statement | State machine | Case deletion |
+| `opinions` | E | Named expert only | One per question | ETag on every save; versions kept | Case deletion |
+| `opinion_versions` | E | System on save | Many | Append only | Case deletion |
+| `lint_issues` | E | Worker; named expert dismisses | Many | Recalculated on save; dismissals kept | Case deletion |
+| `report_versions` | F | Named expert builds, signs, serves | Many per case | Locked after signing; withdrawn never deleted | Case deletion only |
+| `report_snapshots` | F | System at signing | Several per signed version | Never change | Case deletion |
+| `report_paragraphs` | F | System at build | Many | Locked with the version | Case deletion |
+| `citations` | F | System at build from opinions | Many | Snapshot of the fact; "changed since cited" check | Case deletion |
+| `report_servings` | F | Named expert | One per recipient | Never edited; corrections are new rows | Case deletion |
+| `final_check_runs` | F | System | Many | Append only | Case deletion |
+| `spot_checks` | F | Named expert sends; colleague answers | Many | Link expires | Case deletion |
+| `time_entries` | F | Person who worked; named expert adjusts | Many | Editable until invoiced | Case deletion; invoice keeps totals |
+| `invoices` | F | Issuer (named expert or org admin) | Many | Immutable once sent; state machine | Kept for tax beyond case deletion as metadata only (no patient data) |
+| `credit_notes` | F | Issuer | Many per invoice | Immutable | As invoices |
+| `court_directions` | G | Named expert or assistant | Many | Append only | Case deletion |
+| `deadlines` | G | System from pack or direction; named expert edits | Many | Every change in `deadline_changes` | Case deletion |
+| `deadline_changes` | G | System | Many per deadline | Append only | Case deletion |
+| `hearings` | G | Named expert or assistant | Many | State machine; adjournment links the new date | Case deletion |
+| `written_question_rounds` | G | Named expert or assistant | Many | State machine | Case deletion |
+| `written_questions` | G | Named expert answers | Many per round | State machine; locked when served | Case deletion |
+| `opposing_claims` | G | Worker; named expert confirms | Many | State machine | Case deletion |
+| `report_changes` | G | Named expert | Many | Go into a supplementary report | Case deletion |
+| `expert_meetings` | I | Named expert | Many | State machine | Case deletion |
+| `expert_meeting_participants` | I | Named expert | Many per meeting | Add or remove before signing | Case deletion |
+| `agenda_versions` | I | Named expert or assistant | Many per meeting | Append only | Case deletion |
+| `agenda_items` | I | Named expert | Many per agenda version | Own positions editable until signed | Case deletion |
+| `court_bundles` | I | Named expert or assistant | Many versions | State machine; superseded kept | Case deletion |
+| `concordance` | I | Worker; named expert confirms | One set per court bundle version | Recomputed per version | Case deletion |
+| `trial_packs` | I | Named expert | Many per hearing | Stale when new material arrives | Case deletion |
+| `offline_packages` | I | Named expert | One per device per hearing | Expire; revocable | Expire; deleted with the case |
+| `legal_holds` | H | Named expert or org owner | Many; any active blocks deletion | State machine | Released before deletion can run |
+| `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
+| `deletion_ledger` | H | System | One per deleted case | Append only; replayed after restore | Kept |
+| `case_keys` | Foundation | System only | One per case | Re-wrapped on key rotation | Destroyed at deletion |
+| `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
+| `notifications` | Foundation | System; the person marks read | Many | Read state only | Deleted after 1 year; case ones with the case |
+| `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
+| `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |
+| `ai_calls` | Foundation | System | Many | Append only, no content | Metadata kept 13 months |
+| `transcripts` | Foundation (dictation kit) | The speaker | Many | Kept only if the expert keeps them | Case deletion |
+| `may_matter` | G | Worker; named expert marks seen | Many | Seen state only | Case deletion |

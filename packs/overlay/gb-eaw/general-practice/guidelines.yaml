@@ -1,0 +1,9 @@
+sources:
+  - key: NICE
+    name: National Institute for Health and Care Excellence
+    licence: NICE UK Open Content Licence (UK reuse free; AI use needs separate NICE approval)
+    ai_use_approved: false     # keep NICE text out of Claude until approved
+  - key: CKS
+    name: NICE Clinical Knowledge Summaries
+    licence: Excluded from the open content licence; link only
+priority_guidelines: [NG12, NG51]   # extend in guideline_versions; see decision 0005

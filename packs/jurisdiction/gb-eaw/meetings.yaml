@@ -1,0 +1,8 @@
+types:
+  - key: joint_statement
+    label: Joint statement
+    standard_declarations:
+      - We understand our duty to the court and have complied with it.
+      - Neither of us has been instructed to avoid reaching agreement.
+    notes: The parties' lawyers do not see or comment on the draft; the experts sign it between them.
+# Verify wording against current PD35 and any court-specific guidance before launch.

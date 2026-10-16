@@ -1,0 +1,52 @@
+# Frontend
+
+Read the root `CLAUDE.md` first.
+
+## The one rule
+
+The frontend renders screens and sends user actions to FastAPI. Nothing else.
+
+- Call only the generated API client in `src/api/` (from OpenAPI). No `fetch` to any other origin.
+- No Supabase, Azure or AWS SDKs, keys or URLs. CI fails the build if any appear.
+- No business logic that the server must enforce (blind read, ownership, locking, provenance). The frontend may mirror it for display, never replace it.
+- Auth is a cookie set by FastAPI. Do not store tokens in `localStorage`, `sessionStorage` or JS memory.
+- Send the CSRF token header on every state-changing request (the client does this).
+- Every edit sends `If-Match` with the ETag it loaded; a 412 shows the "which version do you want to keep?" prompt, never a silent overwrite. Create, send, sign, serve and pay actions send an `Idempotency-Key` (the client does this), so a double click does one thing.
+- Show what the server allows: the case's permissions for this person come from `GET /cases/{id}` (`allowed_actions`); hide or disable the rest, but the server still decides.
+- Today and lists span every organisation the person belongs to, with an organisation badge and filter.
+- Exceptions: the signature pad (draws on a canvas, then uploads a PNG) and the offline witness-box package (screen 25).
+
+## Design system
+
+Components in `src/design-system/` match the design canvas (`docs/spec/design-canvas.md`). Foundation-owned; request changes, don't fork them.
+
+- **Colours:** Forest `#0F3D2C`, Green `#1E6B4E` (primary), Leaf `#2F9E6E`, Mint `#E6F2EC`, Amber `#B45309` / tint `#FDF1E3` / border `#E8C9A6` / text `#8A3F06`, Ink `#16201B`, Slate `#4F5953`, Line `#DDE3DF`, Surface `#F6F7F5`, Stop `#B42318`, Highlighter `#FFF3B0`.
+- **Record source colours:** come from the specialty pack's source types (`sources.yaml`); at launch primary_care_record `#1E6B4E`, hospital `#4C6E91`, out_of_hours `#2C8C99`, results `#7A6BA8`, letters `#8C7556`. Never key colours by name in code.
+- **Fonts:** Atkinson Hyperlegible (UI), IBM Plex Mono (page numbers and dates), Georgia (report and record text).
+- **Sizes:** body 17px, buttons at least 52px tall, one primary action per screen, bottom right.
+- **Status badges:** "Checked by you" (solid, tick), "Please check" (dashed 2px `#8A948E`), "Not right", "Thing to look at" (amber).
+- Components: `Button`, `CaseHeader` (step pills), `Card`, `Paper`, `PageRef`, `StatusBadge`, `DictationBox`, `Toggle`, `ChoiceCards`, `Countdown`, `AmberNotice`, `Table`.
+
+## Copy
+
+Every string uses an i18n key (`src/i18n/en-GB.json` is the base; `en-AU`, `en-NZ`, `en-CA` will be small overrides). Words that change by pack (party roles, instructing party, clinician title, court bundle name, step and screen labels) come from the merged pack vocabulary returned by `GET /cases/{id}/pack` (or `GET /jurisdictions/{code}` outside a case). Dates and deadlines show in the expert's timezone. Dates, numbers and currency use `Intl` with the expert's locale. Use `docs/spec/glossary.md`. Plain words for experienced clinicians who are not confident with computers (launch users: GPs aged 50–60). No jargon.
+
+## Structure
+
+```
+src/
+  api/                 # generated client + CSRF wrapper (foundation)
+  design-system/       # shared components (foundation)
+  app/                 # routing, case shell, Today screen (foundation)
+  features/<slice>/    # screens and components for one slice
+tests/
+  core/                # e.g. no forbidden hosts, no token storage (foundation)
+  <slice>/             # Vitest component tests
+  e2e/<slice>/         # Playwright acceptance tests
+```
+
+## Testing
+
+- Vitest + Testing Library for components; Playwright for each screen's acceptance tests; axe in Playwright on every screen.
+- Mock the API with MSW using fixtures generated from the OpenAPI schema.
+- Write the Playwright acceptance test from the screen spec before building the screen.

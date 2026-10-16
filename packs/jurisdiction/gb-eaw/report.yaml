@@ -1,0 +1,24 @@
+# Compliance checklist for the expert's report (PD35 para 3.2) and required sections.
+rule_ref: "CPR Part 35 / PD35"
+page_limit:
+  intermediate_track: 20        # CPR 28.14(3)(c); clinical negligence rarely on this track
+required_contents:
+  - key: qualifications
+    text: Details of the expert's qualifications
+  - key: literature
+    text: Details of any literature or other material relied on
+  - key: instructions
+    text: A statement of the substance of all material instructions (written or oral)
+  - key: own_knowledge
+    text: Which facts and matters are within the expert's own knowledge
+  - key: tests
+    text: Who carried out any examination, measurement or test, their qualifications, and whether supervised
+  - key: range_of_opinion
+    text: Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion
+  - key: summary
+    text: A summary of the conclusions reached
+  - key: qualified_opinion
+    text: If an opinion is qualified, a statement of the qualification
+  - key: duty_and_truth
+    text: A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth
+# Verify against the current PD35 before launch.

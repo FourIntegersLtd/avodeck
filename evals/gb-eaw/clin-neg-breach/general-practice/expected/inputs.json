@@ -1,0 +1,126 @@
+{
+ "note": "Behaviour-test inputs. Paths are relative to bundles/synthetic-mrs-a/inputs/. Each case here is a separate small test case.",
+ "wrong_patient": {
+  "file": "mixed-records.pdf",
+  "pages": 20,
+  "misfiled_bundle_pages": [
+   9,
+   10,
+   11,
+   12
+  ],
+  "other_person": {
+   "name": "Joan Fairley",
+   "dob": "1958-11-02",
+   "nhs": "9994471023"
+  },
+  "expect": "pages 9-12 suggested for quarantine (identifiers don't match the case subject); never auto-hidden; after confirmation numbers kept, placeholder shown, facts rejected, excluded from AI/search/citations/exports",
+  "slice": "A",
+  "scenario": "S5",
+  "failure_mode": "F25"
+ },
+ "foreign_language": {
+  "file": "welsh-letter.pdf",
+  "language": "cy",
+  "expect": "flagged as not the pack language; no machine translation; certified-translation request offered",
+  "slice": "A",
+  "failure_mode": "F37"
+ },
+ "rotation": {
+  "file": "rotated-page.pdf",
+  "same_content_as_page": 118,
+  "expect": "detected or rotated by the expert; OCR re-run; page number kept; verified facts re-mapped",
+  "slice": "B"
+ },
+ "photographed_page": {
+  "file": "photographed-page.jpg",
+  "same_content_as_page": 214,
+  "expect": "converted to a PDF page; low confidence; offered as a clearer/alternative copy, never auto-merged",
+  "slice": "A",
+  "scenario": "S6"
+ },
+ "exhibit": {
+  "file": "voicemail.wav",
+  "expect": "stored as an exhibit, listed as not readable, no page number, no AI call",
+  "slice": "A",
+  "failure_mode": "F36"
+ },
+ "word_file": {
+  "file": "referral-letter.docx",
+  "expect": "converted to 1 page; text from the file (born digital)",
+  "slice": "A"
+ },
+ "email": {
+  "file": "further-records.eml",
+  "expect": "email rendered as 1 page; the .docx attachment becomes its own document",
+  "slice": "A"
+ },
+ "zip": {
+  "file": "records-batch.zip",
+  "contains": [
+   "referral-letter.docx",
+   "photographed-page.jpg"
+  ],
+  "expect": "unpacked with a manifest; each file handled as above",
+  "slice": "A"
+ },
+ "instruction_version_2": {
+  "file": "supplementary-letter-of-instruction.pdf",
+  "new_question": "If Mrs Ashworth had been examined on 15 May 2024, what findings would a reasonably competent general practitioner have expected to record?",
+  "para_ref": "1(e)",
+  "expect": "new instruction version; locked question set reopens with a warning; earlier links kept",
+  "slice": "C",
+  "scenario": "S7"
+ },
+ "court_order": {
+  "file": "court-order.pdf",
+  "made_on": "2026-03-10",
+  "sets": [
+   {
+    "kind": "expert_discussion",
+    "due_on": "2026-03-27"
+   },
+   {
+    "kind": "expert_meeting_document",
+    "due_on": "2026-04-10"
+   }
+  ],
+  "hearing": {
+   "from": "2026-05-04",
+   "status": "adjourned",
+   "to_after": "2026-10-01",
+   "days": 3
+  },
+  "expect": "dates suggested from the order, confirmed by the expert; deadline_changes rows; trial pack and offline package marked stale",
+  "slice": "G",
+  "scenario": "S10"
+ },
+ "written_questions_round_2": {
+  "file": "written-questions-round-2.pdf",
+  "questions": [
+   "Please confirm whether your answer to question 3 of our first set of questions relied on the practice task list.",
+   "Please state the page reference for the entry recording that iron was started."
+  ],
+  "expect": "second round with its own deadline and answers document",
+  "slice": "G",
+  "scenario": "S11"
+ },
+ "agenda_v2": {
+  "file": "agenda-v2.pdf",
+  "changed_items": [
+   3
+  ],
+  "new_item_3": "By what date, if at all, would a reasonably competent GP have referred on the suspected cancer pathway?",
+  "expect": "new agenda version; differences shown; out-for-signature returns to draft",
+  "slice": "I"
+ },
+ "court_bundle_v2": {
+  "file": "trial-bundle-v2.pdf",
+  "added_section": "S",
+  "added_pages": 2,
+  "expect": "supersedes version 1; new concordance; trial pack uses the latest confirmed version and old pack goes stale",
+  "slice": "I",
+  "scenario": "S12",
+  "failure_mode": "F35"
+ }
+}
