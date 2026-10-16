@@ -355,13 +355,13 @@ The machinery behind everything: keys, jobs, notifications, logs.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, kms_key_arn, created_at, destroyed_at |
+| `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
 | `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, pct, eta_seconds, code_version, error_code |
 | `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
 | `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, fingerprint, status_code, response_body, created_at, expires_at |
-| `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, at |
+| `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, person_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, outcome, at |
 | `transcripts` | Finished dictation text the expert kept. | case_id, person_id, context, text, duration_seconds |
 | `may_matter` | New records after serving that might affect an answer, for the expert to look at. | case_id, fact_id, question_id, why, seen_at |
 

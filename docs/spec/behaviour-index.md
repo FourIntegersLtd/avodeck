@@ -84,7 +84,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `legal_holds` | H | Named expert or org owner | Many; any active blocks deletion | State machine | Released before deletion can run |
 | `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
 | `deletion_ledger` | H | System | One per deleted case | Append only; replayed after restore | Kept |
-| `case_keys` | Foundation | System only | One per case | Re-wrapped on key rotation | Destroyed at deletion |
+| `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
 | `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |

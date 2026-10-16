@@ -13,7 +13,7 @@ api/app/
     storage.py            # Supabase Storage streaming upload/download
     jobs.py               # Postgres job queue, progress, server-sent events
     audit.py              # append-only, hash-chained audit log
-    ai/                   # AI kit: pii.py, bedrock.py, ocr.py, provenance.py, calls_log.py
+    ai/                   # AI kit: pii.py, bedrock.py, ocr.py, provenance.py, cell.py, kit.py, recordings.py
     speech.py             # WebSocket relay to Azure Speech
     contracts/            # shared Pydantic models: Fact, Question, ReportVersion, NeedsYouItem
     packs.py              # pack loader: merges jurisdiction + case-type + specialty packs for a case
@@ -80,17 +80,20 @@ api/tests/                # grouped by kind; files named test_<feature>_<area>_*
 Always go through `core/ai/`. Never call Bedrock or Azure directly from a slice.
 
 ```python
-result = await ai.extract(
-    task_id="T-07b",
-    model="sonnet",            # resolves to the London in-region model ID
-    schema=PageExtraction,     # Pydantic model; sent as a tool schema
-    payload=stripped_page,     # already through pii.strip()
-    case_id=case_id,
-)
-validated = provenance.check(result, ocr_words)   # rejects values not in cited words
+from app.core.ai import provenance
+from app.core.ai.kit import AiKit, AiTask
+
+TASK = AiTask(task_id="T-07b", prompt_version="2026-10-16.1", model="sonnet",  # cell allow-list resolves the ID
+              system=NEUTRAL_TEMPLATE, schema=schema_from_pack_registries)
+out = await kit.run(conn, TASK, pack=pack, case_id=case_id, text=page_text,
+                    names=case_names, dates_of_birth=case_dobs)   # pii.strip runs inside run()
+accepted, rejected = provenance.check_items(out["items"], ocr_words)  # values not in cited word_ids are rejected
 ```
 
-`ai_calls` logs task, model ID, region, prompt version and token counts. It never logs content.
+- `run()` checks the endpoint and model against the cell allow-list, applies the cost guard (F11), strips identifiers, validates the answer against the schema (`InvalidOutput`), backs off on `ServiceBusy` and raises `ProcessingPaused` (503 `processing_paused` with a `reason`) when the service stays busy, the model is unavailable (F24, no fallback) or the key service is unreachable.
+- Stand-ins: `RecordedBedrock`, `RecordedOcr` (`core/ai/ocr.py`) and `RecordedSpeech` (`core/speech.py`) replay recordings in `tests/fixtures/ai/` keyed by a request hash and refuse anything unrecorded.
+- `ai_calls` logs task, model ID, region, prompt version, token counts and outcome. It never logs content. Logs are scrubbed by `core/logs.py`; scrubbing is a safety net, not permission to log patient values.
+- Per-case data is encrypted with `core/crypto.py` `CaseCrypto` (one key per case, fail closed).
 
 ## Testing
 

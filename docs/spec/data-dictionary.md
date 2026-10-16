@@ -648,7 +648,8 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | wrapped_key | The case's encryption key, locked by the key service |
-| kms_key_arn | Which master key locks it |
+| key_ref | Which master key locks it (a reference, never the key) |
+| created_at | When the key was made (first time anything in the case was encrypted) |
 | destroyed_at | When it was destroyed at deletion (after this nothing in the case can be read) |
 
 ### jobs
@@ -692,6 +693,8 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | task_id / model_id / region | Which AI job, which model, and where it ran |
 | prompt_version | Which version of the instructions was used |
 | input_tokens / output_tokens | How much text went in and out (for cost); never the text itself |
+| case_id / person_id | Which case it was for (empty for work outside a case) and who asked, if anyone |
+| outcome | `ok`, or `invalid_output` when the answer did not fit its schema |
 
 ### transcripts
 | Field | In plain words |

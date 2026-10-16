@@ -44,6 +44,14 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - Pack data: gb-eaw `deadlines.yaml` is now a `deadlines:` registry (written questions 28 calendar days, joint-statement signing and sending, trial and answers set by direction), `working_week` and `holidays.yaml` (England and Wales bank holidays 2026-2028); general-practice `facts.yaml` has fields per fact kind, `sources.yaml` has `{key, colour}`, `checks.yaml` uses `default_on`; overlay `records.yaml` key `record_systems`; fixture packs follow the same shapes (Sunday-Thursday week, 21 business days).
   - Choices: a cell offers a combination when the jurisdiction's `cell` matches, all three packs come from the same pack set and the jurisdiction registers the specialty's profession; the holiday list is a checked-in snapshot (no refresh job yet); the 28-day roll-forward rule is marked verify-before-launch.
   - Not yet: i18n-label and version-bump lint, pack lifecycle approval, screen copy under the fixture packs (frontend step), `make api-client`.
+- [x] Step 6 (2026-10-16): AI kit and encryption (all cloud services are recorded stand-ins):
+  - `core/ai/`: `pii.strip` (Presidio with a blank spaCy tokeniser; case names, the pack's identifier recognisers, postcodes, e-mail addresses and known dates of birth in any written form become `[KIND_n]` placeholders; event dates stay), `provenance.check`/`check_items` (case, spacing and number-format normalised), `cell.py` (model IDs and endpoints only from the cell allow-list; `global.*`, `eu.*` and non-https hosts refused), `RecordedBedrock`, `RecordedOcr` and `core/speech.py` `RecordedSpeech` (recordings keyed by request hash; documents and audio stored only as hashes), `kit.py` `AiKit.run` (allow-list, cost guard, strip, schema check, back-off, one `ai_calls` row per answer).
+  - Failure modes: F5 back-off then `ProcessingPaused` (503 `processing_paused` with `reason`), F10 canaries in `tests/fixtures/ai/canary.json` for launch and fixture packs plus `logs.find_identifiers`, F11 cost guard (`app.ai_budget`: 3 x expected tokens a page x max(pages, minimum); alert logged), F24 fail closed with no fallback.
+  - `core/logs.py`: every log record is scrubbed when made (URL paths, queries, e-mail addresses, pack identifiers, long numbers; exceptions keep type and frames only); requests logged by route template; HTTP client INFO lines off; Sentry options with no PII, bodies, locals or messages (`SENTRY_DSN` empty locally).
+  - `core/crypto.py`: `CaseCrypto` per-case envelope encryption (AES-GCM) with `LocalKeyProvider` behind the `KeyProvider` interface, keys cached at most 5 minutes; key destruction makes decrypt fail; provider unreachable pauses processing. `SecretBox` seals the Supabase Auth tokens on the session row (`av1:` prefix enforced by a check constraint).
+  - Migration `0006_foundation_ai_and_keys.sql`: `ai_calls` and `case_keys` (append only, RLS), `app.ai_budget()`, `app.destroy_case_key()` (worker, own job only, audited), session token constraint (old plaintext tokens cleared).
+  - Choices: `case_keys.key_ref` instead of a KMS ARN column (provider-neutral); sealed tokens bound to purpose and person; date-of-birth matching uses the pack language's month names; Presidio's e-mail recogniser only (no trained NER: names come from the case name list); gb-eaw and zz-test identifier files gained labelled date-of-birth recognisers (pack versions bumped); one test fix commit (the record-and-replay test counted a second client's request on the first).
+  - Not yet: real Bedrock, Azure and KMS clients (stage 2), image masking for vision (T-10), Bedrock batch, F6 (jobs step).
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
@@ -91,11 +99,11 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] State-changing routes return 403 without a CSRF token
 - [x] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
 - [ ] `GET /pages/{n}/facts` returns 423 until `POST /pages/{n}/read` (tested against the contract with a stub route)
-- [ ] `provenance.check` rejects a value not present in its cited words; accepts after normalising case, spaces, number formats
+- [x] `provenance.check` rejects a value not present in its cited words; accepts after normalising case, spaces, number formats
 - [ ] Updating a `report_versions` row with `locked_at` set fails (409 via API, error at DB level)
-- [ ] `bedrock.py` refuses any model ID that is not a London in-region ID
-- [ ] A request containing a made-up NHS number and name produces no log line containing either
-- [ ] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
+- [x] `bedrock.py` refuses any model ID that is not a London in-region ID
+- [x] A request containing a made-up NHS number and name produces no log line containing either
+- [x] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
 - [ ] Frontend build contains no Supabase/Azure/AWS hosts or SDKs; CSP allows only the API origin
 - [ ] Frontend never writes tokens to `localStorage` or `sessionStorage`
 - [x] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `api/app/features`, `web/src/capabilities`, prompt templates)
@@ -104,13 +112,13 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] Deadlines respect the pack's calendar rule and public holidays (test: a deadline landing on an England and Wales bank holiday)
 - [x] All timestamps stored in UTC; deadlines shown in the expert's timezone
 - [ ] Every frontend string comes from an i18n key (no hard-coded user-facing text in components)
-- [ ] The AI kit refuses model IDs and endpoints outside the current cell's allow-list
+- [x] The AI kit refuses model IDs and endpoints outside the current cell's allow-list
 - [x] `GET /v1/jurisdictions` returns only `gb-eaw` in the UK cell; `GET /v1/jurisdictions/gb-eaw` returns vocabulary, declarations, checklist and deadline rules
 - [x] `pack.deadline("written_questions", served_on)` returns served_on + 28 days for `gb-eaw`
 - [x] A status change not in `docs/spec/state-machines.md` is refused by the service (409) and by the database trigger
-- [ ] `crypto.encrypt`/`decrypt` round-trip per case; after key destruction, decrypt fails; KMS unreachable → processing pauses (fail closed)
+- [x] `crypto.encrypt`/`decrypt` round-trip per case; after key destruction, decrypt fails; KMS unreachable → processing pauses (fail closed)
 - [x] An invalid pack file fails CI schema validation and stops the app starting
-- [ ] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test
+- [ ] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test (F5, F10, F11, F24 done in step 6; F6 waits for the jobs step)
 
 **Features:**
 - [x] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
