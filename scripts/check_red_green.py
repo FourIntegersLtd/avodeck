@@ -7,9 +7,14 @@ For each commit in BASE..HEAD (oldest first):
     and PASS at the feat commit.
 API test files run with pytest under the interpreter running this script (CI runs it
 via `poetry -P api run`, so the api dependencies are present); web test files with vitest.
+Each commit's tests run against the database as that commit's migrations build it: when the
+`supabase/` tree differs from the last one loaded, the local Supabase is reset from the commit's
+worktree (and reset back to HEAD at the end). Set RED_GREEN_DB_RESET=0 to skip the resets.
 Usage: check_red_green.py <base_ref>
 """
+import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -28,11 +33,25 @@ def changed_tests(sha: str) -> list[str]:
             and (f.startswith("api/") or WEB_TEST_RE.search(f))]
 
 
+_loaded_db: list[str] = []  # tree hash of the supabase/ folder the local database was last reset from
+
+
+def reset_db(sha: str, workdir: str) -> None:
+    if os.environ.get("RED_GREEN_DB_RESET") == "0" or not shutil.which("supabase"):
+        return
+    tree = git("rev-parse", f"{sha}:supabase")
+    if _loaded_db and _loaded_db[-1] == tree:
+        return
+    subprocess.run(["supabase", "db", "reset", "--workdir", workdir], check=True, capture_output=True)
+    _loaded_db.append(tree)
+
+
 def run_tests(sha: str, files: list[str]) -> bool:
     with tempfile.TemporaryDirectory() as tmp:
         git("worktree", "add", "--detach", tmp, sha)
         try:
             ok = True
+            reset_db(sha, tmp)
             py = [f for f in files if f.startswith("api/") and f.endswith(".py")]
             ts = [f for f in files if f.startswith("web/")]
             if py:
@@ -68,6 +87,10 @@ def main() -> int:
             failures.append(f"{prev[:8]} tests already passed before the feature (not red)")
         if not run_tests(sha, tests):
             failures.append(f"{sha[:8]} tests from {prev[:8]} do not pass (not green)")
+    if _loaded_db:
+        root = git("rev-parse", "--show-toplevel")
+        if _loaded_db[-1] != git("rev-parse", "HEAD:supabase"):
+            subprocess.run(["supabase", "db", "reset", "--workdir", root], check=True, capture_output=True)
     if failures:
         print("Red-then-green check failed:\n- " + "\n- ".join(failures))
         return 1
