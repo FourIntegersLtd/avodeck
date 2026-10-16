@@ -657,8 +657,31 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | kind / status / priority | What the background work is, its state, and how urgent |
 | attempts | How many times it has been tried |
-| pct / eta_seconds | Progress and time left |
-| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed |
+| step / pct / eta_seconds | Which step it is on (a short code), progress and time left |
+| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed (a short code, never text) |
+
+### job_steps
+| Field | In plain words |
+|---|---|
+| job_id / case_id | Which job, on which case |
+| step | A step that finished (a short code), so a retry skips it |
+| created_at | When it finished |
+
+### scheduled_runs
+| Field | In plain words |
+|---|---|
+| name / run_date | Which daily job, for which date; each date runs once |
+| started_at | When that date's run started |
+
+### uploads
+| Field | In plain words |
+|---|---|
+| case_id / person_id | Which case the file is for and who is sending it |
+| kind / filename / size / sha256 | What the file is (a kind from the case's packs), its name, size and checksum |
+| chunk_size / chunk_count / received | The 8 MB parts it is sent in, how many, and which have arrived |
+| status | `open`, `complete` or `expired` |
+| document_id | The document it became when complete |
+| expires_at / completed_at | When an unfinished upload is given up (7 days) and when it finished |
 
 ### notifications
 | Field | In plain words |
@@ -699,7 +722,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 ### transcripts
 | Field | In plain words |
 |---|---|
-| context / text / duration_seconds | What the dictation was for, the final words, and how long |
+| context / text / duration_seconds | What the dictation was for (a short code), the final words (encrypted under the case's key), and how long |
 
 ### may_matter
 | Field | In plain words |

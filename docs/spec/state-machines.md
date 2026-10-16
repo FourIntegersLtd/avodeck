@@ -99,7 +99,16 @@ queued ──▶ running ──▶ done
              └──▶ paused (cost guard K3) ──resume──▶ running
 ```
 
-Every step is idempotent, so retrying from the start is always safe.
+Every step is idempotent, so retrying from the start is always safe. Finished steps are recorded in `job_steps` and skipped on retry; a job whose worker stopped sending heartbeats is put back on the queue (F6).
+
+## Upload (`uploads.status`)
+
+```
+open ──complete (all chunks in, sha256 matches)──▶ complete
+  └──7 days unfinished──▶ expired
+```
+
+Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. Enforced by `app.uploads_guard` (SQLSTATE `AV409`).
 
 ## Finding (`findings.decision`)
 

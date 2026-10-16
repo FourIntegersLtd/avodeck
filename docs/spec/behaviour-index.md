@@ -86,6 +86,9 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `deletion_ledger` | H | System | One per deleted case | Append only; replayed after restore | Kept |
 | `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
 | `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
+| `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
+| `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
+| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open | Case deletion |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |

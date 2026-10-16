@@ -43,4 +43,4 @@ What happens when things go wrong, so the code handles each case on purpose. Pri
 | F37 | Foreign-language page | Language detection | Flag; no machine translation | "This page isn't in English. Ask for a certified translation?" (language from the pack) | A |
 | F38 | Support needs to see a case | Support request | Metadata only unless the named expert grants access | Grant shown on the case and in its audit trail | O |
 
-Each row becomes at least one test in the owning slice. F5, F6, F10, F11 and F24 are tested in `api/tests/guards/`.
+Each row becomes at least one test in the owning slice. F5, F6, F10, F11, F24 and F28 are tested in `api/tests/guards/`.

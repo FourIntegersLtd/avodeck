@@ -52,6 +52,14 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - Migration `0006_foundation_ai_and_keys.sql`: `ai_calls` and `case_keys` (append only, RLS), `app.ai_budget()`, `app.destroy_case_key()` (worker, own job only, audited), session token constraint (old plaintext tokens cleared).
   - Choices: `case_keys.key_ref` instead of a KMS ARN column (provider-neutral); sealed tokens bound to purpose and person; date-of-birth matching uses the pack language's month names; Presidio's e-mail recogniser only (no trained NER: names come from the case name list); gb-eaw and zz-test identifier files gained labelled date-of-birth recognisers (pack versions bumped); one test fix commit (the record-and-replay test counted a second client's request on the first).
   - Not yet: real Bedrock, Azure and KMS clients (stage 2), image masking for vision (T-10), Bedrock batch, F6 (jobs step).
+- [x] Step 7 (2026-10-17): files, jobs and the dictation relay:
+  - Migration `0007_foundation_files_jobs.sql`: Procrastinate 3.10 schema in its own `procrastinate` schema (only `app_worker` may use it); `jobs.step`; `uploads` (state machine trigger), `job_steps`, `scheduled_runs`, `transcripts`, with RLS; `app.enqueue_job()` (checks case access, writes the `jobs` row and queues it with the lock `case:<id>` for case-changing jobs), `app.claim_scheduled_run()` and `app.last_scheduled_run()` (worker only).
+  - `core/jobs.py`: `registry.kind()`/`schedule()`/`enqueue()`, `JobContext.progress()`/`step()`, `JobWorker` (interactive priority before batch, one case-changing job per case, retries then `failed`/`job_error`, `ProcessingPaused` → `paused`, `requeue_stalled()` (F6), `catch_up()` by date (F28)). `app/worker/main.py` `build_worker()` runs it as `app_worker` on `DATABASE_URL_DIRECT`.
+  - `core/storage.py` (local Supabase Storage, service role for Storage only) and `core/routes/uploads.py`: `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{id}/chunks/{n}`, `GET /v1/uploads/{id}`, `POST /v1/uploads/{id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`; chunks encrypted under the case key; whole-file SHA-256 checked on complete; `document.uploaded` audited.
+  - `core/routes/jobs.py`: `GET /v1/jobs/{id}` and `/events` (SSE: status, step, pct, eta_seconds, error_code only; changes only; ends when finished or after 5 minutes).
+  - `core/routes/dictation.py`: `WS /v1/cases/{id}/dictation` (refuses before accepting: 4401, 4403, 4404, 4422; pack locale and phrases; `speech_unavailable` + 1011 when the service cannot answer) and `POST /v1/cases/{id}/transcripts` (encrypted, `transcript.saved` audited). `require_socket_case_access()` in `core/auth/access.py`; guard `test_foundation_websocket_routes.py`.
+  - Choices: dictation and transcripts use `comment.write` (no new permission action); 500 MB file limit; one Storage object per chunk; bucket `STORAGE_BUCKET` (default `case-files`); unfinished uploads expire after 7 days; WebSockets require Origin.
+  - Not yet: virus scan and `process_bundle` on complete (slice A), the expiry sweep for old uploads, live Azure Speech (stage 2), the frontend.
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
@@ -66,13 +74,13 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - `POST /v1/auth/sign-in`, `/auth/mfa/enroll`, `/auth/mfa/verify`, `/auth/sign-out`, `/auth/password/forgot`, `/auth/password/reset`, `GET /auth/session`
 - `GET /v1/me`, `POST /v1/me/sessions/revoke-all` 🔒
 - `POST /v1/cases`, `PATCH /v1/cases/{id}`, `GET /v1/today`
-- `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{upload_id}/chunks/{n}`, `POST /v1/uploads/{upload_id}/complete`
+- `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{upload_id}/chunks/{n}`, `GET /v1/uploads/{upload_id}`, `POST /v1/uploads/{upload_id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`
 - `GET /v1/jobs/{job_id}`, `GET /v1/jobs/{job_id}/events` (SSE)
 - `WS /v1/cases/{id}/dictation`, `POST /v1/cases/{id}/transcripts`
 - `GET /health`
 
 ## Tables owned
-`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `audit_log`, `idempotency_keys`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
+`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `job_steps`, `scheduled_runs`, `uploads`, `audit_log`, `idempotency_keys`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
 
 ## Shared code
 - `core/auth/`: cookie session, Supabase Auth calls, JWKS verification, `require_case_access(action)`, `require_step_up`, `require_csrf`, inactivity timeout
@@ -118,16 +126,16 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] A status change not in `docs/spec/state-machines.md` is refused by the service (409) and by the database trigger
 - [x] `crypto.encrypt`/`decrypt` round-trip per case; after key destruction, decrypt fails; KMS unreachable → processing pauses (fail closed)
 - [x] An invalid pack file fails CI schema validation and stops the app starting
-- [ ] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test (F5, F10, F11, F24 done in step 6; F6 waits for the jobs step)
+- [x] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test (F5, F10, F11, F24 in step 6; F6 in step 7)
 
 **Features:**
 - [x] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
 - [x] First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified
 - [x] Session expires after 30 minutes of inactivity; sign-in success and failure are written to `audit_log`
 - [x] Password reset responds the same whether or not the email exists, and revokes all sessions
-- [ ] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256
-- [ ] Job progress streams over SSE and contains no patient text
-- [ ] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
+- [x] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256
+- [x] Job progress streams over SSE and contains no patient text
+- [x] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
 - [x] Audit log hash chain verifies; tampering with a row is detected
 - [ ] Today shows case cards and items registered through `NeedsYouItem`
 - [ ] Sign-in and Today screens pass axe checks and match their canvas boards
@@ -153,8 +161,8 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] A person who is named expert on one case and assistant on another gets the right rights on each (S1)
 - [x] A stale `If-Match` returns 412 and changes nothing (F26)
 - [x] A repeated `Idempotency-Key` returns the first response and creates one row (F27)
-- [ ] A missed daily run catches up each missed date exactly once (F28)
+- [x] A missed daily run catches up each missed date exactly once (F28)
 - [x] Recovery codes: 10 issued, each works once, regenerate invalidates the old set; admins cannot reset another person's MFA
 - [x] Email change needs confirmation from both addresses and step-up
 - [x] Audit rows carry person, organisation, case, action and target
-- [ ] Only one case-changing job runs per case at a time; interactive jobs run before batch
+- [x] Only one case-changing job runs per case at a time; interactive jobs run before batch

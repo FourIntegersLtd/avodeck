@@ -123,6 +123,21 @@ The worker is part of this package (`app/worker/`, run with `make -C api worker`
 | `export_case` | H | ZIP of the record of work |
 | `delete_case` | H | Scheduled deletion + certificate |
 
+### Registering a job
+
+```python
+from app.core.jobs import JobContext, registry
+
+@registry.kind("process_bundle", interactive=False, changes_case=True)  # changes_case: one at a time per case
+async def process_bundle(ctx: JobContext) -> None:
+    await ctx.step("split", split)              # skipped if it finished on an earlier attempt (F6)
+    await ctx.progress(40, eta_seconds=120, step="ocr")
+
+job_id = await registry.enqueue(conn, case_id, "process_bundle")  # in the request's transaction; 202 + job_id
+```
+
+Daily work uses `@registry.schedule(name)` with a handler taking `(conn, run_date)`; each date runs once (F28). Handlers raise `ProcessingPaused` to pause; any other exception is retried, then `failed` with `job_error`. Log exception types only.
+
 ### Rules
 
 - **Idempotent per step and per page.** A job can be retried safely; every step checks whether its output exists before redoing work.

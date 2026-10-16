@@ -356,13 +356,16 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
-| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, pct, eta_seconds, code_version, error_code |
+| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, code_version, error_code |
+| `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
+| `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
+| `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, expires_at, completed_at |
 | `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
 | `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, fingerprint, status_code, response_body, created_at, expires_at |
 | `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, person_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, outcome, at |
-| `transcripts` | Finished dictation text the expert kept. | case_id, person_id, context, text, duration_seconds |
+| `transcripts` | Finished dictation text the expert kept (encrypted under the case's key). | case_id, person_id, context, text, duration_seconds |
 | `may_matter` | New records after serving that might affect an answer, for the expert to look at. | case_id, fact_id, question_id, why, seen_at |
 
 
@@ -440,7 +443,9 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | PATCH | `/cases/{case_id}` | Update case details | |
 | POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256}` → `upload_id` | |
 | PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk; FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent |
-| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | |
+| GET | `/uploads/{upload_id}` | Which chunks have arrived and which are missing, to resume | |
+| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Virus scan and processing are queued by slice A |
+| GET | `/cases/{case_id}/documents/{document_id}/file` | Stream the stored file back through FastAPI | `Cache-Control: private, no-store` |
 | POST | `/cases/{case_id}/prefill` | T-04 suggest fields from the letter | 202 + job |
 | PUT | `/cases/{case_id}/oral-instructions` | Save oral instructions text | |
 | WS | `/cases/{case_id}/dictation?context=` | Browser streams microphone audio to FastAPI over a WebSocket; FastAPI relays it to Azure Speech (UK South) and streams the text back | Used by every dictation box (T-DICT); no Azure key in the browser; audio not stored |
@@ -697,7 +702,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/health` | Liveness for App Platform | |
 | POST | `/webhooks/stripe` | Subscription and payment events | Signature-verified |
 | POST | `/webhooks/esign` | E-signature status | Signature-verified |
-| GET | `/jobs/{job_id}` | Job status | Owner only |
+| GET | `/jobs/{job_id}` | Job status | Anyone who can see the job's case (`case.view_metadata`), else 404 |
 | | *Scheduled jobs (App Platform or pg_cron)* | Deadline reminders (daily), deletion run (daily), offline package expiry, guideline table review reminder (quarterly) | Call FastAPI with a service token |
 | | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
 
