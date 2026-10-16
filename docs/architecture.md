@@ -108,7 +108,7 @@ Every case carries three codes (jurisdiction, case type, specialty). The loader 
 
 ```
 packs/
-  jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, meetings.yaml,
+  jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, holidays.yaml, meetings.yaml,
                             legal_tests.md, report.yaml (court compliance items), final_checks.yaml, identifiers.py
   case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml, final_checks.yaml
   specialty/general-practice/ pack.yaml (profession), facts.yaml, sources.yaml, lanes.yaml, checks.yaml, final_checks.yaml, vocabulary.yaml
@@ -141,7 +141,7 @@ packs/
 - **Billing:** currency and tax per billing profile (person or organisation); Stripe Tax handles VAT/GST/HST.
 - **Retention:** default retention period from the pack, not a hard-coded six years. Policies are `delete_now`, `keep_default` (years from the pack) and `return_then_delete`.
 - **Time:** all timestamps stored in UTC. Each jurisdiction pack sets its `timezone` (or a list, for countries with several); each expert has a `timezone`. Deadlines are calculated in the court's timezone and shown in the expert's.
-- **Court calendars:** deadline rules state `calendar_days` or `business_days`, and the jurisdiction pack names its public-holiday source (England and Wales: GOV.UK bank holidays). Never assume weekends or holidays in code.
+- **Court calendars:** deadline rules state `calendar_days` or `business_days`, and the jurisdiction pack names its public-holiday source (England and Wales: GOV.UK bank holidays), its `working_week`, and keeps a dated snapshot in `holidays.yaml`; a deadline outside the snapshot's range is refused. Never assume weekends or holidays in code.
 - **Parties and instructing parties:** the case type declares party roles (e.g. `instructing_side`, `other_side`, `joint`) and instructing-party types (solicitor, insurer, coroner, scheme, regulator); the jurisdiction pack labels them (claimant, defendant, plaintiff). Code never says claimant or solicitor.
 - **Professions:** the specialty pack declares the profession (doctor, nurse, physiotherapist, psychologist, dentist); the jurisdiction pack maps each profession to its registration bodies (GMC, NMC, HCPC; AHPRA). Experts can hold more than one specialty.
 - **Court tracks and question rules:** optional jurisdiction registries (e.g. England and Wales tracks; how written questions are classified). A jurisdiction without them simply hides those fields.

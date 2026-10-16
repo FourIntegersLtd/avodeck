@@ -37,6 +37,13 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - Endpoints: `/v1/auth/sign-in`, `/mfa/enroll`, `/mfa/verify` (also step-up), `/mfa/recovery-codes` 🔒, `/mfa/recover`, `/sign-out`, `/session`, `/password/forgot`, `/password/reset`; `/v1/me/sessions` (list, delete, `revoke-all` 🔒), `/v1/me/email-change` 🔒 and `/confirm`. The step 3 identity seam is gone; tests sign in through `client_for()` (seeded sessions) or `sign_in_with_mfa()` (real local Auth).
   - Choices: recovery needs the password too; passwords at least 12 characters; Auth tokens kept on the session row unencrypted until `core/crypto.py`; local Auth rate limits raised in `supabase/config.toml` for tests (cells rate-limit in FastAPI, not built yet); the reset email comes from Supabase Auth's local mailer with a template that links to the web app.
   - Not yet: per-client rate limiting and captcha on sign-in, leaked-password check, `make api-client` (no `app.export_openapi` yet), S01/S28 screens.
+- [x] Step 5 (2026-10-16): packs:
+  - `core/packs.py`: `load_library(*roots)` reads each pack set (`jurisdiction/`, `case-type/`, `specialty/`, `overlay/<j>/<sp>/`), resolves `extends:`, validates every file against `packs/schema/*.schema.json` (23 schemas; a file without one is refused), refuses duplicate YAML keys and duplicate registry keys, lints specialty words and codes out of jurisdiction and case-type files and country words and jurisdiction codes out of specialty files (overlays exempt), then merges every offered combination (3.2 rules; placeholders filled from the merged vocabulary plus `instructing_party`; every party role and instructing-party type needs a label). `MergedPack` gives settings, words, registries, declarations, legal tests, identifier recognisers, prompt context, record hints, speech and `deadline()`.
+  - Deadlines: worked out in the court's timezone (aware datetimes only), `calendar_days` with `if_closed: next_working_day` or `business_days` over the pack's `working_week`, skipping the dates in the new `holidays.yaml`; `due_at` is the end of the due day in UTC and `shown_in(tz)` gives the expert's time. Outside the holiday snapshot's range it refuses (fail closed).
+  - `create_app()` loads `default_library()` (`PACKS_DIR`, else `packs/` only; tests add `packs/_fixtures/`), so an invalid pack stops the app; `make -C api packs` (`python -m app.core.packs`) runs in CI. Endpoints: `GET /v1/jurisdictions`, `/v1/jurisdictions/{code}` (the cell's own only, else 404), `/v1/packs`, `/v1/cases/{case_id}/pack` (`case.view_metadata`). Guard `tests/guards/test_foundation_forbidden_words.py` scans slice code and prompt templates for `lint_words.yaml` `slice_code_forbidden` plus the country and specialty words.
+  - Pack data: gb-eaw `deadlines.yaml` is now a `deadlines:` registry (written questions 28 calendar days, joint-statement signing and sending, trial and answers set by direction), `working_week` and `holidays.yaml` (England and Wales bank holidays 2026-2028); general-practice `facts.yaml` has fields per fact kind, `sources.yaml` has `{key, colour}`, `checks.yaml` uses `default_on`; overlay `records.yaml` key `record_systems`; fixture packs follow the same shapes (Sunday-Thursday week, 21 business days).
+  - Choices: a cell offers a combination when the jurisdiction's `cell` matches, all three packs come from the same pack set and the jurisdiction registers the specialty's profession; the holiday list is a checked-in snapshot (no refresh job yet); the 28-day roll-forward rule is marked verify-before-launch.
+  - Not yet: i18n-label and version-bump lint, pack lifecycle approval, screen copy under the fixture packs (frontend step), `make api-client`.
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
@@ -91,18 +98,18 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [ ] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
 - [ ] Frontend build contains no Supabase/Azure/AWS hosts or SDKs; CSP allows only the API origin
 - [ ] Frontend never writes tokens to `localStorage` or `sessionStorage`
-- [ ] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `api/app/features`, `web/src/capabilities`, prompt templates)
-- [ ] **Fixture packs** (`packs/_fixtures/`): core API flows and screen copy run under both the launch packs and the fixture packs; party words, clinician titles, deadlines (business days, timezone), date order, identifiers, workflow steps, lanes and declarations all change accordingly
-- [ ] Pack loader merges four layers (jurisdiction, case type, specialty, overlay) with the rules in architecture 3.2, supports `extends:`, resolves placeholders, and refuses a jurisdiction file containing a specialty word or a specialty file containing a country word
-- [ ] Deadlines respect the pack's calendar rule and public holidays (test: a deadline landing on an England and Wales bank holiday)
-- [ ] All timestamps stored in UTC; deadlines shown in the expert's timezone
+- [x] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `api/app/features`, `web/src/capabilities`, prompt templates)
+- [ ] **Fixture packs** (`packs/_fixtures/`) (API side done in step 5; screen copy waits for the frontend step): core API flows and screen copy run under both the launch packs and the fixture packs; party words, clinician titles, deadlines (business days, timezone), date order, identifiers, workflow steps, lanes and declarations all change accordingly
+- [x] Pack loader merges four layers (jurisdiction, case type, specialty, overlay) with the rules in architecture 3.2, supports `extends:`, resolves placeholders, and refuses a jurisdiction file containing a specialty word or a specialty file containing a country word
+- [x] Deadlines respect the pack's calendar rule and public holidays (test: a deadline landing on an England and Wales bank holiday)
+- [x] All timestamps stored in UTC; deadlines shown in the expert's timezone
 - [ ] Every frontend string comes from an i18n key (no hard-coded user-facing text in components)
 - [ ] The AI kit refuses model IDs and endpoints outside the current cell's allow-list
-- [ ] `GET /v1/jurisdictions` returns only `gb-eaw` in the UK cell; `GET /v1/jurisdictions/gb-eaw` returns vocabulary, declarations, checklist and deadline rules
-- [ ] `pack.deadline("written_questions", served_on)` returns served_on + 28 days for `gb-eaw`
+- [x] `GET /v1/jurisdictions` returns only `gb-eaw` in the UK cell; `GET /v1/jurisdictions/gb-eaw` returns vocabulary, declarations, checklist and deadline rules
+- [x] `pack.deadline("written_questions", served_on)` returns served_on + 28 days for `gb-eaw`
 - [x] A status change not in `docs/spec/state-machines.md` is refused by the service (409) and by the database trigger
 - [ ] `crypto.encrypt`/`decrypt` round-trip per case; after key destruction, decrypt fails; KMS unreachable → processing pauses (fail closed)
-- [ ] An invalid pack file fails CI schema validation and stops the app starting
+- [x] An invalid pack file fails CI schema validation and stops the app starting
 - [ ] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test
 
 **Features:**
@@ -129,7 +136,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes).
 
-**Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, (The Stripe webhook moved to slice O, Phase 2.)
+**Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, `GET /v1/jurisdictions`, `GET /v1/jurisdictions/{code}`, `GET /v1/cases/{case_id}/pack`, (The Stripe webhook moved to slice O, Phase 2.)
 
 **Shared code:** `core/auth/require_case_access(action)` is the only access check (it replaces the earlier owner-only check); it reads the matrix in `docs/spec/permissions.md` from one table in code. ETag/If-Match middleware (412 `stale`); `Idempotency-Key` middleware (24 h); per-case job lock; scheduled-job runner keyed by date; notification service (in-app + email, no patient data, bounce banner).
 
