@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import get_args
+from typing import Any, get_args
 
 import pytest
 from pydantic import ValidationError
@@ -110,7 +110,7 @@ def test_statuses_match_the_state_machines() -> None:
 
 
 def test_a_fact_always_cites_words() -> None:
-    base = {
+    base: dict[str, Any] = {
         "id": uuid.uuid4(),
         "case_id": uuid.uuid4(),
         "page_id": uuid.uuid4(),
@@ -127,7 +127,7 @@ def test_a_fact_always_cites_words() -> None:
 
 
 def _item(**overrides: object) -> NeedsYouItem:
-    values: dict[str, object] = {
+    values: dict[str, Any] = {
         "kind": "zz_pages_left",
         "case_id": uuid.uuid4(),
         "rank": 10,

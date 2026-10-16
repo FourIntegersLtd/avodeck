@@ -156,7 +156,7 @@ def test_every_page_facts_route_in_the_app_carries_the_blind_read_gate() -> None
         if isinstance(r, APIRoute)
         and r.path.rstrip("/").endswith("/facts")
         and "/pages/" in r.path
-        and "GET" in r.methods
+        and "GET" in (r.methods or set())
     ]
     for route in routes:
         assert _gated(route.dependant), f"{route.path} must depend on require_page_read() (rule 3)"

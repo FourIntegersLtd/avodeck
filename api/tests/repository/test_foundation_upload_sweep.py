@@ -75,7 +75,9 @@ async def test_unfinished_uploads_past_expiry_are_expired_their_chunks_removed_a
     async with worker_db.anonymous() as conn:
         expired = await expire_uploads(conn, date.today(), storage)
     assert old in expired and fresh not in expired
-    statuses = dict(admin.execute("select id, status from app.uploads where id = any(%s)", ([old, fresh],)).fetchall())
+    statuses: dict[uuid.UUID, str] = dict(
+        admin.execute("select id, status from app.uploads where id = any(%s)", ([old, fresh],)).fetchall()
+    )
     assert statuses == {old: "expired", fresh: "open"}
     assert await storage.list(upload_prefix(case, old)) == []
     assert len(await storage.list(upload_prefix(case, fresh))) == 2
