@@ -39,8 +39,18 @@ DATE_OF_BIRTH = "DATE_OF_BIRTH"
 # numeric dates of birth removed.
 MONTHS = {
     "en": (
-        "january", "february", "march", "april", "may", "june",
-        "july", "august", "september", "october", "november", "december",
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
     ),
 }
 
@@ -189,8 +199,12 @@ def strip(
 
     results = _analyzer(language).analyze(text=text, language=language, ad_hoc_recognizers=recognisers)
     spans = [
-        _Span(r.start, r.end, r.entity_type, f"person{person_of[(r.start, r.end)]}" if r.entity_type == NAME
-              else _key(text[r.start : r.end]))
+        _Span(
+            r.start,
+            r.end,
+            r.entity_type,
+            f"person{person_of[(r.start, r.end)]}" if r.entity_type == NAME else _key(text[r.start : r.end]),
+        )
         for r in results
     ]
     chosen: list[_Span] = []

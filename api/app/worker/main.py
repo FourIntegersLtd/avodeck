@@ -11,6 +11,7 @@ import asyncio
 import os
 from collections.abc import Mapping
 
+import app.core.housekeeping  # noqa: F401 - registers the foundation's daily schedules
 from app.core.config import ConfigError, database_settings
 from app.core.db import Database
 from app.core.jobs import JobWorker, registry

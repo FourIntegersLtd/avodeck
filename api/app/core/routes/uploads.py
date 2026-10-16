@@ -28,7 +28,7 @@ from app.core.auth.access import CaseAccess, check_case_access, require_case_acc
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, router
-from app.core.storage import SupabaseStorage
+from app.core.storage import SupabaseStorage, upload_prefix
 
 CHUNK_SIZE = 8 * 1024 * 1024
 MAX_FILE_SIZE = 500 * 1024 * 1024
@@ -85,7 +85,7 @@ Crypto = Annotated[CaseCrypto, Depends(_crypto)]
 
 
 def _prefix(case_id: uuid.UUID, upload_id: uuid.UUID) -> str:
-    return f"cases/{case_id}/uploads/{upload_id}"
+    return upload_prefix(case_id, upload_id)
 
 
 def _chunk_path(prefix: str, n: int) -> str:

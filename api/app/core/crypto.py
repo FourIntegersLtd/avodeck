@@ -183,9 +183,7 @@ class CaseCrypto:
         if cached is not None and cached[1] > now:
             return cached[0]
         self._cache.pop(case_id, None)
-        cur = await conn.execute(
-            "select wrapped_key, destroyed_at from app.case_keys where case_id = %s", (case_id,)
-        )
+        cur = await conn.execute("select wrapped_key, destroyed_at from app.case_keys where case_id = %s", (case_id,))
         row = await cur.fetchone()
         try:
             if row is None:

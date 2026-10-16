@@ -16,6 +16,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Raised by the database's state-machine triggers (migration 0002).
 CONFLICT_SQLSTATE = "AV409"
+# Raised when something tries to change a locked report version (migration 0008, rule 8).
+LOCKED_SQLSTATE = "AVLCK"
 
 logger = logging.getLogger("app.errors")
 
@@ -47,6 +49,10 @@ def conflict() -> ApiError:
     return ApiError("conflict", "That change is not allowed in the current state.", 409)
 
 
+def locked() -> ApiError:
+    return ApiError("locked", "This report version is locked. Changes go in a supplementary report.", 409)
+
+
 def error_response(status: int, code: str, message: str, **extra: object) -> JSONResponse:
     return JSONResponse({"error": {"code": code, "message": message, **extra}}, status_code=status)
 
@@ -72,6 +78,8 @@ async def _database_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, psycopg.Error)
     if exc.sqlstate == CONFLICT_SQLSTATE:
         return await _api_error(request, conflict())
+    if exc.sqlstate == LOCKED_SQLSTATE:
+        return await _api_error(request, locked())
     raise exc
 
 

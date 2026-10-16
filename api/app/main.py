@@ -11,6 +11,9 @@ from fastapi import APIRouter, FastAPI
 from app.core import logs
 from app.core.auth.supabase import SupabaseAuth
 from app.core.config import ConfigError, auth_settings, cell_settings, database_settings
+from app.core.contracts.reading import PageReadLog
+from app.core.contracts.today import NeedsYouRegistry
+from app.core.contracts.today import needs_you as default_needs_you
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer
@@ -23,6 +26,7 @@ from app.core.routes.dictation import dictation_socket, transcripts_router
 from app.core.routes.jobs import jobs_router
 from app.core.routes.me import me_router
 from app.core.routes.packs import case_pack_router, packs_router
+from app.core.routes.today import today_router
 from app.core.routes.uploads import uploads_router
 from app.core.speech import SpeechClient
 from app.core.storage import SupabaseStorage, storage_settings
@@ -38,6 +42,8 @@ def create_app(
     storage: SupabaseStorage | None = None,
     crypto: CaseCrypto | None = None,
     speech: SpeechClient | None = None,
+    needs_you: NeedsYouRegistry | None = None,
+    page_reads: PageReadLog | None = None,
 ) -> FastAPI:
     """Without a database, region or Supabase Auth they are read from the environment at start-up.
 
@@ -46,6 +52,8 @@ def create_app(
     accounts): without one, dictation answers `speech_unavailable` and the expert types.
 
     Without a mailer, mail goes to the in-memory stand-in (`OutboxMailer`) until the cell has Resend.
+    Today lists the "needs you" items registered on `needs_you` (the app's own registry unless a test
+    passes one). Without `page_reads` (slice B's read log) the blind-read gate stays shut (rule 3).
     Packs load here, not in the lifespan: an invalid pack stops the app being built at all.
     """
 
@@ -94,6 +102,8 @@ def create_app(
     app.state.storage = storage
     app.state.crypto = crypto
     app.state.speech = speech
+    app.state.needs_you = needs_you if needs_you is not None else default_needs_you
+    app.state.page_reads = page_reads
     app.state.job_poll_seconds = 1.0  # how often a progress stream looks at its job
     app.state.job_stream_seconds = 300.0  # then the stream ends and the browser reconnects
     logs.configure(app.state.packs.identifier_finders())
@@ -101,7 +111,7 @@ def create_app(
     install_error_handlers(app)
     routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
-    for r in (*routers, me_router, cases_router, packs_router, case_pack_router, *files):
+    for r in (*routers, me_router, today_router, cases_router, packs_router, case_pack_router, *files):
         mount(app, r)
     return app
 

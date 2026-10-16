@@ -38,7 +38,7 @@ test-web:
 
 api-client:     ## regenerate openapi.json and the typed web client
 	$(MAKE) -C api openapi
-	cd web && pnpm exec openapi-typescript ../openapi.json -o src/foundation/platform-client/schema.ts
+	@$(call in_web,pnpm exec openapi-typescript ../openapi.json -o src/foundation/platform-client/schema.ts)
 
 schemathesis:
 	$(MAKE) -C api schemathesis

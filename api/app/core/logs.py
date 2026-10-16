@@ -110,10 +110,7 @@ def find_identifiers(lines: Iterable[str], finders: Finder | Iterable[Finder]) -
     """F10 log scanner: every pack identifier in `lines`."""
     active = [finders] if callable(finders) else list(finders)
     return [
-        Finding(number, kind)
-        for number, line in enumerate(lines)
-        for finder in active
-        for _, _, kind in finder(line)
+        Finding(number, kind) for number, line in enumerate(lines) for finder in active for _, _, kind in finder(line)
     ]
 
 

@@ -8,7 +8,7 @@ Callers store what they put here encrypted under the case's key (`core/crypto.py
 from __future__ import annotations
 
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from urllib.parse import quote
 
@@ -17,6 +17,11 @@ import httpx
 from app.core.config import ConfigError
 
 DEFAULT_BUCKET = "case-files"
+
+
+def upload_prefix(case_id: object, upload_id: object) -> str:
+    """Where an upload's chunks are kept until it completes or expires."""
+    return f"cases/{case_id}/uploads/{upload_id}"
 
 
 class StorageError(RuntimeError):
@@ -89,6 +94,13 @@ class SupabaseStorage:
         )
         self._check(resp)
         return [f"{prefix}/{item['name']}" for item in resp.json() if item.get("id")]
+
+    async def delete(self, paths: Sequence[str]) -> None:
+        """Remove objects by full path. Paths that are already gone are not an error."""
+        if not paths:
+            return
+        resp = await self._client.request("DELETE", f"/object/{self.settings.bucket}", json={"prefixes": list(paths)})
+        self._check(resp)
 
     async def aclose(self) -> None:
         await self._client.aclose()

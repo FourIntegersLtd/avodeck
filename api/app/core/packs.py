@@ -699,7 +699,7 @@ def default_library() -> PackLibrary:
 
 # --- rule 11 guard: forbidden words in slice code and prompt templates (architecture 3.5) -------------------------
 
-SCANNED = ("api/app/features", "web/src/capabilities", "api/app/core/ai/prompts")
+SCANNED = ("api/app/features", "web/src/capabilities", "api/app/core/ai/prompts", "api/app/core/contracts")
 SKIPPED_PARTS = frozenset({"node_modules", "__pycache__", "dist", "build", ".pytest_cache"})
 BINARY = frozenset({".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ico", ".woff", ".woff2", ".pyc", ".zip"})
 
