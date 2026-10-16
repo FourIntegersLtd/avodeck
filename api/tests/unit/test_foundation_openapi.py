@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 
 from app.export_openapi import openapi_json
-
 from app.main import create_app
 
 REPO = Path(__file__).resolve().parents[3]

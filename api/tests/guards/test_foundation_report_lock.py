@@ -12,10 +12,10 @@ import uuid
 import httpx
 import psycopg
 import pytest
-from app.core.contracts.reports import ensure_unlocked, locked
 from fastapi import Depends, FastAPI
 
 from app.core.auth.access import require_case_access
+from app.core.contracts.reports import ensure_unlocked, locked
 from app.core.db import Database
 from app.core.errors import ApiError
 from app.core.http import DbConn, router

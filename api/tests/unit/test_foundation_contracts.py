@@ -12,12 +12,13 @@ from datetime import UTC, datetime
 from typing import get_args
 
 import pytest
+from pydantic import ValidationError
+
 from app.core.contracts import events, pipeline
 from app.core.contracts.facts import CITABLE_STATUSES, Fact, FactStatus
 from app.core.contracts.questions import Question, QuestionStatus
 from app.core.contracts.reports import ReportVersion, ReportVersionStatus
 from app.core.contracts.today import CaseCard, NeedsYouItem, NeedsYouRegistry
-from pydantic import ValidationError
 
 FACT_FIELDS = {
     "id",

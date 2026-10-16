@@ -13,13 +13,13 @@ from collections.abc import Awaitable, Callable
 
 import httpx
 import pytest
-from app.core.contracts.reading import PageReadLog, require_page_read
 from fastapi import APIRouter, Depends, FastAPI
 from fastapi.dependencies.models import Dependant
 from fastapi.routing import APIRoute
 from psycopg import AsyncConnection
 
 from app.core.auth.access import require_case_access
+from app.core.contracts.reading import PageReadLog, require_page_read
 from app.core.db import Database
 from app.core.http import CurrentScope, router
 from app.main import create_app, mount

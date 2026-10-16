@@ -13,9 +13,9 @@ from datetime import date, timedelta
 
 import psycopg
 import pytest
-from app.core.housekeeping import UPLOAD_SWEEP, expire_uploads
 
 from app.core.db import Database
+from app.core.housekeeping import UPLOAD_SWEEP, expire_uploads
 from app.core.storage import SupabaseStorage, upload_prefix
 from tests.support.files import local_storage
 from tests.support.jobs import isolated_registry, open_worker

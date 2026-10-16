@@ -16,8 +16,8 @@ import uuid
 
 import psycopg
 import pytest
-from app.core.contracts.case_tables import CASE_TABLES, KEPT_AFTER_CASE_DELETION
 
+from app.core.contracts.case_tables import CASE_TABLES, KEPT_AFTER_CASE_DELETION
 from tests.support.contracts import add_fact, add_question, add_report_version
 from tests.support.seed import Seed
 
@@ -343,7 +343,6 @@ async def test_only_verified_facts_on_pages_the_named_expert_has_read_are_citabl
     api_db: object, seed: Seed, admin: psycopg.Connection, case_page: dict[str, uuid.UUID]
 ) -> None:
     from app.core.contracts.facts import citable_facts
-
     from app.core.db import Database
     from tests.support.db import scope_for
 

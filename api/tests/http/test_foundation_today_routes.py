@@ -13,10 +13,10 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from app.core.contracts.today import CaseCard, NeedsYouItem, NeedsYouRegistry
 from fastapi import FastAPI
 from psycopg import AsyncConnection
 
+from app.core.contracts.today import CaseCard, NeedsYouItem, NeedsYouRegistry
 from app.core.db import Database
 from tests.support.db import ClientFor
 from tests.support.files import build_app
