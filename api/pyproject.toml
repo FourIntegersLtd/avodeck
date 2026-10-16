@@ -3,7 +3,7 @@ name = "avodeck-api"
 version = "0.1.0"
 description = "Avodeck API (FastAPI) and background worker, one package"
 requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)"]
+dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)", "psycopg[binary] (>=3.2,<4.0)", "psycopg-pool (>=3.2,<4.0)"]
 
 [tool.poetry]
 packages = [{ include = "app" }]
