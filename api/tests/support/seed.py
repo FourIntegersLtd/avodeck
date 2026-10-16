@@ -79,7 +79,9 @@ class Seed:
         *,
         status: str = "draft",
         members: dict[uuid.UUID, str] | None = None,
+        packs: dict[str, str] | None = None,
     ) -> uuid.UUID:
+        """A case under the fixture packs unless `packs` names others (e.g. `tests.support.packs.LAUNCH_CASE`)."""
         cid = uuid.uuid4()
         self.admin.execute(
             """
@@ -88,7 +90,7 @@ class Seed:
             values (%(id)s, %(org)s, %(expert)s, %(jurisdiction)s, %(case_type)s, %(specialty)s, %(expert_role)s,
                     'Case Z')
             """,
-            {"id": cid, "org": org, "expert": named_expert, **FIXTURE_PACKS},
+            {"id": cid, "org": org, "expert": named_expert, **(packs or FIXTURE_PACKS)},
         )
         for step in CASE_PATH[status]:
             self.admin.execute("update app.cases set status = %s where id = %s", (step, cid))

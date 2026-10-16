@@ -32,6 +32,9 @@ if TYPE_CHECKING:
 LOCAL_HOST = "127.0.0.1:55322/postgres"
 REPO = Path(__file__).resolve().parents[2]
 APP_ORIGIN = "https://app.test"
+
+# Test apps load the launch packs and the fixture packs (`packs/_fixtures/`); a real cell loads only its own.
+os.environ.setdefault("PACKS_DIR", os.pathsep.join(str(REPO / p) for p in ("packs", "packs/_fixtures")))
 SESSION_SHAPE = ("email", "full_name", "aal", "mfa_age", "idle", "age", "device_label")
 
 
