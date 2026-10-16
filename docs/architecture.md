@@ -214,8 +214,9 @@ Who signs in, and the professional profile of those who give evidence.
 | `report_templates` | A Word file the expert's reports are built into. Can belong to a person or an organisation. | owner_type (person/organisation), owner_id, storage_path, sha256, style_map, heading_map, version |
 | `declarations` | Any extra declaration wording the expert adds; the court's fixed wording comes from the pack. | expert_id, jurisdiction, kind, text, locked_at |
 | `signatures` | The expert's signature image. | expert_id, storage_path, method, created_at |
-| `sessions` | Each device a person is signed in on, so they can see and sign out devices. | person_id, device_label, created_at, last_seen_at, revoked_at |
+| `sessions` | Each device a person is signed in on, so they can see and sign out devices. The cookie holds a random token; only its scrambled copy is kept, and Supabase Auth's tokens stay here, never in the browser. | person_id, token_hash, csrf_hash, device_label, aal, mfa_verified_at, created_at, last_seen_at, revoked_at, revoked_reason |
 | `mfa_recovery_codes` | One-time backup codes for when someone loses their phone (stored scrambled). | person_id, code_hash, used_at |
+| `email_changes` | A change of sign-in email waiting for both the old and the new address to confirm (links last a day). | person_id, new_email, old_token_hash, new_token_hash, old_confirmed_at, new_confirmed_at, completed_at, cancelled_at, expires_at |
 
 ### 4.2 Organisations
 
@@ -711,7 +712,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET | `/me/sessions` | Devices the person is signed in on | |
 | DELETE | `/me/sessions/{session_id}` | Sign out one device | |
 | POST | `/auth/mfa/recovery-codes` | Make 10 new one-time recovery codes (old ones stop working) | 🔒 shown once |
-| POST | `/auth/mfa/recover` | `{email, code}` signs in with a recovery code and asks to re-enrol MFA | Rate-limited |
+| POST | `/auth/mfa/recover` | `{email, password, code}` signs in with a recovery code, removes the old authenticator and asks to re-enrol MFA | Rate-limited |
 | POST | `/me/email-change` | Start an email change; confirmation sent to old and new address | 🔒 |
 | POST | `/me/email-change/confirm` | `{token}` from each address; changes once both confirm | |
 | GET / PUT | `/me/notification-preferences` | Per organisation: in-app, email, digest, muted kinds | |

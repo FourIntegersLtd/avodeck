@@ -75,15 +75,31 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | person_id | Whose sign-in |
+| token_hash | A scrambled copy of the random token in the browser's cookie (the token itself is never stored) |
+| csrf_hash | A scrambled copy of the second token the web app sends with every change, so another site cannot act for the person |
 | device_label | Which device (e.g. "Chrome on Windows laptop") |
-| last_seen_at | When it was last used |
-| revoked_at | When it was signed out remotely |
+| aal | `aal1` after the password, `aal2` once the authenticator code is entered |
+| mfa_verified_at | When the authenticator code was last entered (risky actions need it within 10 minutes) |
+| auth_access_token, auth_refresh_token | Supabase Auth's own tokens, kept here so they never reach the browser |
+| last_seen_at | When it was last used (30 minutes without use signs it out) |
+| revoked_at | When it was signed out |
+| revoked_reason | Why: signed out, signed out everywhere, idle, too old (12 hours), password reset |
 
 ### mfa_recovery_codes
 | Field | In plain words |
 |---|---|
 | code_hash | A scrambled copy of a one-time backup code (the real code is only shown once) |
 | used_at | When the code was used (each works once) |
+
+### email_changes
+| Field | In plain words |
+|---|---|
+| new_email | The address the person wants to sign in with |
+| old_token_hash, new_token_hash | Scrambled copies of the links sent to the old and the new address |
+| old_confirmed_at, new_confirmed_at | When each link was opened; the email changes once both are |
+| completed_at | When the sign-in email changed |
+| cancelled_at | When a newer request replaced this one |
+| expires_at | Links stop working a day after the request |
 
 ## Organisations
 

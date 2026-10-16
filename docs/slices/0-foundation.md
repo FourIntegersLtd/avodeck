@@ -31,6 +31,12 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - `GET /v1/me` (creates the person, a personal organisation and the owner membership) and `GET`/`PATCH /v1/cases/{case_id}`. Request and job transactions run in UTC.
   - Routers are added with `main.mount()`, not `include_router()`: FastAPI 0.143 includes routers lazily, which would hide their routes from the rule 9 route scan. Every slice router must be mounted this way.
   - Not yet: identity comes from a test seam until the auth step; step-up and CSRF arrive with auth; deadline timezones with packs.
+- [x] Step 4 (2026-10-16): sign-in, MFA, CSRF and step-up:
+  - Migration `0005_foundation_auth.sql` (down in `supabase/migrations/down/`): `sessions`, `mfa_recovery_codes`, `email_changes`, all private to their person under RLS; security-definer `app.session_resolve()` (cookie lookup, 30-minute idle and 12-hour expiry), `app.confirm_email_change()` and `app.audit_anonymous()` (failed sign-in and reset requests, address hashed).
+  - `core/auth/supabase.py` is the only caller of local Supabase Auth (password, TOTP, recovery, admin) and checks every access token (ES256 via JWKS, audience, issuer, expiry, `aal`). `core/auth/session.py`: opaque `av_session` cookie (httpOnly, Secure, SameSite=Strict) and `av_csrf` double-submit token, both stored only as SHA-256. `core/http.py` `router()` now resolves the session, checks Origin, CSRF and MFA; `public_router()` is for the five signed-out routes the CSRF guard names. `require_step_up` and `require_case_access` for 🔒 actions need MFA within 10 minutes. `core/email.py` `OutboxMailer` is the local stand-in for Resend.
+  - Endpoints: `/v1/auth/sign-in`, `/mfa/enroll`, `/mfa/verify` (also step-up), `/mfa/recovery-codes` 🔒, `/mfa/recover`, `/sign-out`, `/session`, `/password/forgot`, `/password/reset`; `/v1/me/sessions` (list, delete, `revoke-all` 🔒), `/v1/me/email-change` 🔒 and `/confirm`. The step 3 identity seam is gone; tests sign in through `client_for()` (seeded sessions) or `sign_in_with_mfa()` (real local Auth).
+  - Choices: recovery needs the password too; passwords at least 12 characters; Auth tokens kept on the session row unencrypted until `core/crypto.py`; local Auth rate limits raised in `supabase/config.toml` for tests (cells rate-limit in FastAPI, not built yet); the reset email comes from Supabase Auth's local mailer with a template that links to the web app.
+  - Not yet: per-client rate limiting and captcha on sign-in, leaked-password check, `make api-client` (no `app.export_openapi` yet), S01/S28 screens.
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
@@ -75,8 +81,8 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 ## Acceptance tests (write first; all must fail before work starts)
 **Non-negotiables (`api/tests/guards/`, `web/src/foundation/guards/`):**
 - [x] Every `/v1/cases/{id}/…` route returns 404 for a person with no access to that case (route table scanned automatically)
-- [ ] State-changing routes return 403 without a CSRF token
-- [ ] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
+- [x] State-changing routes return 403 without a CSRF token
+- [x] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
 - [ ] `GET /pages/{n}/facts` returns 423 until `POST /pages/{n}/read` (tested against the contract with a stub route)
 - [ ] `provenance.check` rejects a value not present in its cited words; accepts after normalising case, spaces, number formats
 - [ ] Updating a `report_versions` row with `locked_at` set fails (409 via API, error at DB level)
@@ -100,10 +106,10 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [ ] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test
 
 **Features:**
-- [ ] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
-- [ ] First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified
-- [ ] Session expires after 30 minutes of inactivity; sign-in success and failure are written to `audit_log`
-- [ ] Password reset responds the same whether or not the email exists, and revokes all sessions
+- [x] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
+- [x] First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified
+- [x] Session expires after 30 minutes of inactivity; sign-in success and failure are written to `audit_log`
+- [x] Password reset responds the same whether or not the email exists, and revokes all sessions
 - [ ] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256
 - [ ] Job progress streams over SSE and contains no patient text
 - [ ] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
@@ -121,7 +127,7 @@ Root checklist, plus: deployed to staging in London; a test expert can sign in w
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes).
+**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes).
 
 **Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, (The Stripe webhook moved to slice O, Phase 2.)
 
@@ -133,7 +139,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] A stale `If-Match` returns 412 and changes nothing (F26)
 - [x] A repeated `Idempotency-Key` returns the first response and creates one row (F27)
 - [ ] A missed daily run catches up each missed date exactly once (F28)
-- [ ] Recovery codes: 10 issued, each works once, regenerate invalidates the old set; admins cannot reset another person's MFA
-- [ ] Email change needs confirmation from both addresses and step-up
+- [x] Recovery codes: 10 issued, each works once, regenerate invalidates the old set; admins cannot reset another person's MFA
+- [x] Email change needs confirmation from both addresses and step-up
 - [x] Audit rows carry person, organisation, case, action and target
 - [ ] Only one case-changing job runs per case at a time; interactive jobs run before batch

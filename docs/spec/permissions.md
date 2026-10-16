@@ -57,7 +57,7 @@ After the named expert leaves the organisation, they keep every named-expert act
 
 ## Person actions (no case)
 
-Only the person themselves: profile, expert profile, signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password.
+Only the person themselves: profile, expert profile, signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password: no route takes another person's id, and recovery needs the person's own password as well as a recovery code.
 
 ## Avodeck staff
 

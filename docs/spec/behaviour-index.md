@@ -15,6 +15,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `signatures` | C | The expert | Many; latest used | New image is a new row; snapshot at signing | With the person |
 | `sessions` | Foundation | The person (revoke) | One per device | Expire on inactivity | All revoked on password reset or closure |
 | `mfa_recovery_codes` | Foundation | The person (regenerate) | 10 at a time | Each used once; regenerate replaces all | Deleted on closure |
+| `email_changes` | Foundation | The person (step-up) | One pending per person; a new request cancels the old | Waiting → completed when both addresses confirm; links expire after a day | Deleted on closure |
 | `organisations` | Foundation (O for teams) | Owner/admin | Personal: one per person; teams: any | Closure only when no open cases | Served cases outlive closure until retention |
 | `memberships` | Foundation (O) | Owner/admin; the person can leave | Many per person; one active per person per org | active → ended; never deleted | Ending removes org access except named cases |
 | `invites` | O | Owner/admin | Many | pending → accepted/cancelled/expired | Expire after 7 days |

@@ -154,6 +154,12 @@ open (received) → answered (every question answered) → served (answers serve
 
 unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited.
 
+## Session (`sessions`)
+`aal1` (password only) → `aal2` (authenticator code entered) → revoked. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.
+
+## Email change (`email_changes`)
+Waiting → one address confirmed → completed (both confirmed). Waiting or half-confirmed → cancelled (a newer request) or expired (after a day). Completed, cancelled and expired are final.
+
 ## Membership (`memberships`)
 
 active (`started_at`) → ended (`ended_at`, by leaving, removal or organisation closure); terminal. Role changes are audited updates on an active membership. Guards: an organisation always keeps at least one owner (the last owner cannot leave or be removed); a person's membership of their personal organisation never ends while the account is open.
