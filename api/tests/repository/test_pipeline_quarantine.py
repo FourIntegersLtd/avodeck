@@ -115,7 +115,7 @@ async def h(
 
 
 def page_id(h: Harness, n: int) -> uuid.UUID:
-    return next(p["id"] for p in h.pages() if p["bundle_page_no"] == n)
+    return next(p["id"] for p in h.pages() if p["bundle_page_no"] == n)  # type: ignore[no-any-return]
 
 
 def quarantine_path(h: Harness, n: int) -> str:

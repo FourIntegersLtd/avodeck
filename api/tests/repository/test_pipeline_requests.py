@@ -170,7 +170,7 @@ async def test_logging_the_request_returns_a_mailto_link_and_moves_its_items_to_
     assert (link.scheme, link.path) == ("mailto", "records@firm.example")
     query = parse_qs(link.query)
     assert query["subject"] == [sent["subject"]] and query["body"] == [sent["body"]]
-    statuses = dict(
+    statuses: dict[Any, Any] = dict(
         h.admin.execute("select id, status from app.missing_items where case_id = %s", (h.case_id,)).fetchall()
     )
     assert statuses == {world["open"][0]: "requested", world["open"][1]: "requested", world["gone"]: "not_available"}

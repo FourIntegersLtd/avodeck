@@ -159,7 +159,7 @@ async def test_a_recording_is_an_exhibit_with_no_page_number_and_no_ai_call(h: H
     await h.drain()
 
     assert h.pages() == [], "a recording was given page numbers"
-    assert h.bedrock.requests == [], "a recording was sent to the model"  # type: ignore[attr-defined]
+    assert h.bedrock.requests == [], "a recording was sent to the model"
     (exhibit,) = await exhibits(h)
     assert {k: exhibit[k] for k in ("document_id", "filename", "media_type", "size", "part_of")} == {
         "document_id": str(document_id),

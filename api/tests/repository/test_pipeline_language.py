@@ -89,7 +89,7 @@ async def test_a_page_in_another_language_is_flagged_and_not_translated(h: Harne
     flagged = (await summary(h))["foreign_language"]
     assert flagged == [{"page_id": str(welsh["id"]), "page_no": 2, "language": "cy"}]
     assert len(t07b_requests(h)) == 3, "a page was sent to the model more than once (or translated)"
-    assert all(r.task_id in ("T-07b", "T-07c") for r in h.bedrock.requests)  # type: ignore[attr-defined]
+    assert all(r.task_id in ("T-07b", "T-07c") for r in h.bedrock.requests)
 
 
 async def test_the_request_draft_offers_a_certified_translation(h: Harness) -> None:
