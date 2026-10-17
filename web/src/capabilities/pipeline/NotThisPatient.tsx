@@ -126,7 +126,7 @@ export function NotThisPatient() {
               <li><p className="pl-strong">{w("quarantine.e_numbers")}</p><p>{w("quarantine.e_numbers_note")}</p></li>
               <li><p className="pl-strong">{w("quarantine.e_unused")}</p><p>{w("quarantine.e_unused_note")}</p></li>
               <li><p className="pl-strong">{party ? w("quarantine.e_told", { party }) : w("quarantine.e_told_anyone")}</p><p>{w("quarantine.e_told_note")}</p></li>
-              <li><p className="pl-strong">{w("quarantine.e_deleted")}</p><p>{w("quarantine.e_deleted_note")}</p></li>
+              <li><p className="pl-strong">{w("quarantine.e_deleted")}</p><p>{wn("quarantine.e_deleted_note", pack.quarantine_purge_days, pack.locale)}</p></li>
             </ul>
           </section>
         </div>

@@ -383,8 +383,12 @@ class MergedPack:
 
     @property
     def quarantine_purge_days(self) -> int:
-        """Days a file that failed the virus scan is kept, set aside, before it is purged."""
+        """Days a quarantined page is kept before its image and text are deleted (if not told sooner)."""
         return int(self._j["quarantine_purge_days"])
+
+    def record_gap_rules(self) -> dict[str, Any]:
+        """Thresholds for where a record source goes quiet (specialty pack `record_gaps`)."""
+        return dict(self._sp["record_gaps"])
 
     @property
     def profession(self) -> str:
@@ -404,6 +408,24 @@ class MergedPack:
         if not isinstance(value, str):
             raise PackError(f"{'+'.join(self.codes)}: no word for '{key}'")
         return value
+
+    def _paragraph(self, key: str, slots: Mapping[str, str]) -> str:
+        notes = self.vocabulary.get("request_notes")
+        template = notes.get(key) if isinstance(notes, dict) else None
+        if not isinstance(template, str):
+            raise PackError(f"{'+'.join(self.codes)}: no request_notes.{key} wording")
+        values = {k: v for k, v in self.vocabulary.items() if isinstance(v, str)}
+        values.setdefault("instructing_party", self.instructing_party_types()[0]["label"])
+        values.update(slots)
+        return str(_fill(template, values, key))
+
+    def quarantine_note(self, **slots: str) -> str:
+        """The paragraph telling the instructing party which pages were set aside (slot: pages)."""
+        return self._paragraph("quarantine", slots)
+
+    def translation_request(self, **slots: str) -> str:
+        """The paragraph asking for a certified translation of foreign-language pages (slot: pages)."""
+        return self._paragraph("translation", slots)
 
     def instructing_party_request(self, **slots: str) -> dict[str, str]:
         """The email draft asking the instructing party for missing records (screen 08b): label, subject, body.
@@ -519,10 +541,14 @@ class MergedPack:
     def record_hints(self) -> dict[str, Any]:
         return copy.deepcopy(self._files.get("records.yaml", {}))
 
+    def _prompt_vocabulary(self) -> dict[str, Any]:
+        """The vocabulary a prompt may see: `request_notes` are email paragraphs, not prompt words."""
+        return {k: copy.deepcopy(v) for k, v in self.vocabulary.items() if k != "request_notes"}
+
     def prompt_context(self, task: str | None = None) -> dict[str, Any]:
         """Pack data injected into neutral prompt templates (no patient data). T-02, T-04 and T-06 get what
         they choose from; every other task gets the default (fact kinds, source types, record hints)."""
-        base = {"language": self.language, "vocabulary": copy.deepcopy(self.vocabulary)}
+        base = {"language": self.language, "vocabulary": self._prompt_vocabulary()}
         if task == "T-06":
             return {
                 **base,
@@ -545,7 +571,7 @@ class MergedPack:
             "language": self.language,
             "fact_kinds": [{"key": f["key"], "fields": f.get("fields", {})} for f in self.fact_kinds()],
             "source_types": [{"key": s["key"]} for s in self.source_types()],
-            "vocabulary": copy.deepcopy(self.vocabulary),
+            "vocabulary": self._prompt_vocabulary(),
             "record_hints": self.record_hints(),
         }
 

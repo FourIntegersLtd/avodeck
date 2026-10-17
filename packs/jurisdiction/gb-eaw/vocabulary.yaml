@@ -42,3 +42,12 @@ instructing_party_request:
 
     Kind regards,
     {expert_name}
+# Screen 08b: paragraphs the draft carries before its sign-off. Slots: {pages} (page numbers, comma
+# separated) and pack words such as {instructing_party}. Patient-free.
+request_notes:
+  quarantine: >-
+    I have set aside these pages because they appear to belong to someone else: {pages}. Please check
+    them and send the right records if any of them are part of this case.
+  translation: >-
+    These pages are not in English and need a certified translation before I can rely on them: {pages}.
+    Please arrange this and send me the translated copies.

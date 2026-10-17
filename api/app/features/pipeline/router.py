@@ -278,7 +278,7 @@ async def change_missing_item(
 
 
 def _document(d: repo.DocumentRow) -> Document:
-    return Document(
+    out = Document(
         id=d.id,
         kind=d.kind,
         filename=d.filename,
@@ -288,9 +288,11 @@ def _document(d: repo.DocumentRow) -> Document:
         received_on=d.received_on,
         obtained_how=d.obtained_how,
         bundle_version=d.bundle_version,
-        media_type=d.media_type,
-        part_of=d.part_of,
     )
+    if d.media_type is not None:  # known once the file has been sniffed (when it is cut into pages)
+        out["media_type"] = d.media_type
+        out["part_of"] = d.part_of
+    return out
 
 
 def _exhibit(e: repo.ExhibitRow) -> Exhibit:
@@ -453,11 +455,20 @@ async def draft_request(
         clearer_copies="\n".join(f"- {n}" for _, n in unreadable) or "-",
         expert_name=expert,
     )
+    notes = []
+    set_aside = [q.page_no for q in await repo.quarantines(conn, case_id) if q.status == "confirmed"]
+    if set_aside:
+        notes.append(pack.quarantine_note(pages=", ".join(str(n) for n in set_aside)))
+    if foreign:
+        notes.append(pack.translation_request(pages=", ".join(str(n) for _, n, _ in foreign)))
+    # The notes sit just before the template's last paragraph (its sign-off).
+    head, _, sign_off = wording["body"].rpartition("\n\n")
+    text = "\n\n".join([head, *notes, sign_off]) if notes and head else wording["body"]
     response.headers["cache-control"] = "private, no-store"
     return RequestDraft(
         label=wording["label"],
         subject=clean(wording["subject"]),
-        body=clean(wording["body"]),
+        body=clean(text),
         missing_item_ids=[i.id for i in items],
         clearer_copy_page_ids=[p for p, _ in unreadable],
         clearer_copy_page_nos=[n for _, n in unreadable],

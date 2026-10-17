@@ -110,7 +110,7 @@
     "quarantine_purge_days": {
       "type": "integer",
       "minimum": 1,
-      "description": "Days a file that failed the virus scan is kept, set aside, before it is purged."
+      "description": "Days a page the expert set aside as another person's record is kept before its image and text are deleted, if the instructing party has not been told sooner."
     },
     "speech": {
       "type": "object",

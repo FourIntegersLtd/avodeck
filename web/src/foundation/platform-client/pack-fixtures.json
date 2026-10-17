@@ -86,6 +86,7 @@
         }
       ],
       "profession": "therapist",
+      "quarantine_purge_days": 9,
       "question_types": [
         {
           "key": "capacity",
@@ -156,6 +157,7 @@
           "other_side": "respondent"
         },
         "practice": "clinic",
+        "quarantine_note": "Withheld as another subject's records: {pages}. {instructing_party} to confirm.",
         "report_rules_name": "Rule Z",
         "subject": "petitioner",
         "subject_representatives": {
@@ -166,6 +168,7 @@
           "dependent": "dependent subject",
           "present": "present subject"
         },
+        "translation_request": "Translate for the file, pages {pages}.",
         "written_questions": "interrogatories"
       },
       "workflow_steps": [
@@ -255,6 +258,7 @@
           "joint": "neutral",
           "other_side": "respondent"
         },
+        "quarantine_note": "Withheld as another subject's records: {pages}. {instructing_party} to confirm.",
         "report_rules_name": "Rule Z",
         "subject": "petitioner",
         "subject_representatives": {
@@ -265,6 +269,7 @@
           "dependent": "dependent subject",
           "present": "present subject"
         },
+        "translation_request": "Translate for the file, pages {pages}.",
         "written_questions": "interrogatories"
       },
       "working_week": [
@@ -602,6 +607,7 @@
         }
       ],
       "profession": "doctor",
+      "quarantine_purge_days": 14,
       "question_types": [
         {
           "key": "breach",
@@ -709,6 +715,7 @@
           "other_side": "defendant"
         },
         "practice": "GP surgery",
+        "quarantine_note": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
         "report_rules_name": "Part 35",
         "source_types": {
           "primary_care_record": "GP record"
@@ -723,6 +730,7 @@
           "living": "living",
           "minor": "under 18"
         },
+        "translation_request": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies.",
         "written_questions": "questions from the other side",
         "written_questions_formal": "Part 35 questions"
       },
@@ -901,6 +909,7 @@
           "joint": "jointly instructed",
           "other_side": "defendant"
         },
+        "quarantine_note": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
         "report_rules_name": "Part 35",
         "subject": "claimant",
         "subject_representatives": {
@@ -912,6 +921,7 @@
           "living": "living",
           "minor": "under 18"
         },
+        "translation_request": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies.",
         "written_questions": "questions from the other side",
         "written_questions_formal": "Part 35 questions"
       },

@@ -81,6 +81,13 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 ## Rules that apply
 1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.
 
+## Pack slots this slice reads (rule 11)
+
+- Jurisdiction vocabulary `request_notes` (`quarantine`, `translation`; a mapping, so it stays out of the setup prompts' string words) (slot `{pages}`, plus pack words): `pack.quarantine_note(pages=...)`, `pack.translation_request(pages=...)`. The request draft (S08b) inserts them just before the template's last paragraph (its sign-off).
+- Specialty `pack.yaml` `record_gaps` (seven thresholds): `pack.record_gap_rules()`, read by `gaps.Rules.from_pack`. `gaps.find(pages, rules)` has no constants of its own.
+- Jurisdiction `quarantine_purge_days` (the delay before a set-aside page's image and text are deleted) is in `CasePack`, so S30 shows the real number of days.
+- `Document` in the bundle summary is a typed OpenAPI schema; the web uses the generated type.
+
 ## Out of scope
 Showing facts to the expert (B), verifying facts (B), Gmail/Outlook sending (Phase 2), the timeline (D).
 

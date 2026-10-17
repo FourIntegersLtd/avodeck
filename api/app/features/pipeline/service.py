@@ -492,7 +492,8 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
 async def _gaps(ctx: JobContext, services: PipelineServices) -> None:
     """Where a record source goes quiet: worked out again from every page each run (code only)."""
     async with ctx.transaction() as conn:
-        await repo.store_gaps(conn, ctx.case_id, gaps.find(await repo.gap_pages(conn, ctx.case_id)))
+        rules = gaps.Rules.from_pack(services.packs.for_case(await repo.case_codes(conn, ctx.case_id)))
+        await repo.store_gaps(conn, ctx.case_id, gaps.find(await repo.gap_pages(conn, ctx.case_id), rules))
 
 
 async def _missing(ctx: JobContext, services: PipelineServices) -> None:

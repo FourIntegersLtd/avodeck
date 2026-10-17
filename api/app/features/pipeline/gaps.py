@@ -16,7 +16,7 @@ Each page brings its source, the dates printed on it and its facts' kinds and da
   month after its last entry to the end of the source's last month. A quiet spell inside a series is
   not a gap: only a series that stops is.
 
-The thresholds are about record keeping in general, not any country's rules (rule 11).
+The thresholds come from the specialty pack's `record_gaps` (`Rules`), never from code (rule 11).
 """
 
 from __future__ import annotations
@@ -28,15 +28,26 @@ from collections import Counter, defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-HEADER_MIN_PAGES = 3
-SOURCE_END_MIN_PAGES = 2
-LIST_MIN_FACTS = 3
-LIST_SHARE = 0.8
-REGULAR_MONTHS = 12
-RECENT_MONTHS = 6
-GAP_MIN_MONTHS = 3
+from app.core.packs import MergedPack
 
 Month = tuple[int, int]
+
+
+@dataclass(frozen=True)
+class Rules:
+    """The thresholds, from the pack's `record_gaps`."""
+
+    header_min_pages: int
+    source_end_min_pages: int
+    list_min_facts: int
+    list_share: float
+    regular_months: int
+    recent_months: int
+    gap_min_months: int
+
+    @classmethod
+    def from_pack(cls, pack: MergedPack) -> Rules:
+        return cls(**pack.record_gap_rules())
 
 
 @dataclass(frozen=True)
@@ -69,9 +80,9 @@ def _from_index(n: int) -> Month:
     return (n // 12, n % 12 + 1)
 
 
-def _headers(pages: Sequence[Page]) -> set[dt.date]:
+def _headers(pages: Sequence[Page], rules: Rules) -> set[dt.date]:
     counts = Counter(day for p in pages for day in set(p.printed))
-    return {day for day, n in counts.items() if n >= HEADER_MIN_PAGES and n * 2 >= len(pages)}
+    return {day for day, n in counts.items() if n >= rules.header_min_pages and n * 2 >= len(pages)}
 
 
 def _months(page: Page, headers: set[dt.date]) -> set[Month]:
@@ -79,61 +90,61 @@ def _months(page: Page, headers: set[dt.date]) -> set[Month]:
     return {_month(d) for d in days}
 
 
-def _end(months: Iterable[set[Month]]) -> Month | None:
+def _end(months: Iterable[set[Month]], rules: Rules) -> Month | None:
     counts = Counter(m for page in months for m in page)
-    dated = [m for m, n in counts.items() if n >= SOURCE_END_MIN_PAGES]
+    dated = [m for m, n in counts.items() if n >= rules.source_end_min_pages]
     return max(dated) if dated else None
 
 
-def _list_kind(page: Page) -> str | None:
+def _list_kind(page: Page, rules: Rules) -> str | None:
     counts = Counter(kind for kind, _ in page.facts)
     total = sum(counts.values())
-    if total < LIST_MIN_FACTS:
+    if total < rules.list_min_facts:
         return None
     kind, n = counts.most_common(1)[0]
-    return kind if n >= LIST_SHARE * total else None
+    return kind if n >= rules.list_share * total else None
 
 
 def _continues(page: Page, series: dict[str, list[Page]]) -> str | None:
     return next((kind for kind, pages in series.items() if pages and pages[-1] is page), None)
 
 
-def _regular(months: set[Month]) -> bool:
-    if len(months) < REGULAR_MONTHS:
+def _regular(months: set[Month], rules: Rules) -> bool:
+    if len(months) < rules.regular_months:
         return False
     last = _index(max(months))
-    return sum(1 for m in months if 0 <= last - _index(m) < 12) >= RECENT_MONTHS
+    return sum(1 for m in months if 0 <= last - _index(m) < 12) >= rules.recent_months
 
 
-def find(pages: Sequence[Page]) -> list[Gap]:
+def find(pages: Sequence[Page], rules: Rules) -> list[Gap]:
     by_source: dict[str, list[Page]] = defaultdict(list)
     for page in pages:
         if page.source_type:
             by_source[page.source_type].append(page)
     found: list[Gap] = []
     for source, own in sorted(by_source.items()):
-        headers = _headers(own)
+        headers = _headers(own, rules)
         months = {p.page_id: _months(p, headers) for p in own}
-        end = _end(months.values())
+        end = _end(months.values(), rules)
         if end is None:
             continue
         series: dict[str, list[Page]] = defaultdict(list)
         previous: Page | None = None
         for page in sorted(own, key=lambda p: p.page_no):
-            kind = _list_kind(page)
+            kind = _list_kind(page, rules)
             if kind is None and previous is not None and previous.page_no == page.page_no - 1:
                 kinds = {k for k, _ in page.facts}
-                listed_before = _list_kind(previous) or _continues(previous, series)
+                listed_before = _list_kind(previous, rules) or _continues(previous, series)
                 kind = listed_before if kinds == {listed_before} else None
             if kind is not None:
                 series[kind].append(page)
             previous = page
         for kind, listed in sorted(series.items()):
             covered = set().union(*(months[p.page_id] for p in listed))
-            if not covered or not _regular(covered):
+            if not covered or not _regular(covered, rules):
                 continue
             last = max(covered)
-            if _index(end) - _index(last) < GAP_MIN_MONTHS:
+            if _index(end) - _index(last) < rules.gap_min_months:
                 continue
             holder = max((p for p in listed if last in months[p.page_id]), key=lambda p: p.page_no)
             start = _from_index(_index(last) + 1)

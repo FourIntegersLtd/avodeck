@@ -1,23 +1,8 @@
 // What slice A's screens read from the API, beyond the generated types.
 import type { Schemas } from "../../foundation/platform-client";
 
-/** `BundleSummary.documents` items (the OpenAPI schema leaves them open because the API omits
- * `media_type`/`part_of` until a file has been sniffed). */
-export interface BundleDocument {
-  id: string;
-  kind: string;
-  filename: string;
-  pages: number | null;
-  first_page_no: number | null;
-  last_page_no: number | null;
-  received_on: string | null;
-  obtained_how: string | null;
-  bundle_version: number;
-  media_type?: string;
-  part_of?: string | null;
-}
-
-export const documentsOf = (s: Schemas["BundleSummary"]) => s.documents as unknown as BundleDocument[];
+/** The bundle's files (`media_type` and `part_of` appear once a file has been sniffed). */
+export const documentsOf = (s: Schemas["BundleSummary"]): Schemas["Document"][] => s.documents;
 
 export const casePath = (caseId: string) => ({ params: { path: { case_id: caseId } } });
 
