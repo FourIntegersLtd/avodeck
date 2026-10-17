@@ -71,7 +71,9 @@ from app.features.pipeline.schemas import (
     MissingItemChange,
     MissingItems,
     PageReplacement,
+    Processing,
     ProcessingCancelled,
+    ProcessingJob,
     ProvenanceChange,
     QuarantineAsk,
     QuarantinePage,
@@ -82,7 +84,7 @@ from app.features.pipeline.schemas import (
     RequestSent,
     SourceCount,
 )
-from app.features.pipeline.service import REPROCESS_CASE
+from app.features.pipeline.service import REPROCESS_CASE, SCAN_DOCUMENT
 
 pipeline_router = router(prefix="/v1/cases", tags=["pipeline"])
 
@@ -495,6 +497,18 @@ async def log_request(
     )
     response.headers["cache-control"] = "private, no-store"
     return RequestLogged(id=request_id, mailto=_mailto(body.to, body.subject, body.body))
+
+
+@pipeline_router.get("/{case_id}/process", response_model=Processing)
+async def processing(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_metadata"))],
+    conn: DbConn,
+) -> Processing:
+    """The latest processing job, so screen 07 can follow it after an upload (architecture 5.3). An upload
+    is scanned first and the scan queues the bundle job, so the screen follows the newest until it ends."""
+    row = await repo.latest_processing(conn, case_id, (SCAN_DOCUMENT, PROCESS_BUNDLE, PROCESS_PAGES, REPROCESS_CASE))
+    return Processing(job=None if row is None else ProcessingJob(**row))  # type: ignore[arg-type]
 
 
 @pipeline_router.post("/{case_id}/process", status_code=202, response_model=JobQueued)

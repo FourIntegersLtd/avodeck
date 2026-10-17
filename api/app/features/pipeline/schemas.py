@@ -194,6 +194,22 @@ class JobQueued(BaseModel):
     job_id: uuid.UUID
 
 
+class ProcessingJob(BaseModel):
+    """A processing job's progress: status, step code, percentage, time left, error code (rule 6)."""
+
+    id: uuid.UUID
+    kind: str
+    status: str
+    step: str | None
+    pct: int | None
+    eta_seconds: int | None
+    error_code: str | None
+
+
+class Processing(BaseModel):
+    job: ProcessingJob | None  # the case's latest processing job; none before the first upload
+
+
 class ProcessingCancelled(BaseModel):
     cancelled: bool  # false when nothing was processing (or a stop was already asked for)
 
