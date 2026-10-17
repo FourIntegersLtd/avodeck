@@ -7,6 +7,7 @@ shows its own words for each `code` through i18n keys.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 import psycopg
 from fastapi import FastAPI, Request
@@ -53,8 +54,10 @@ def locked() -> ApiError:
     return ApiError("locked", "This report version is locked. Changes go in a supplementary report.", 409)
 
 
-def error_response(status: int, code: str, message: str, **extra: object) -> JSONResponse:
-    return JSONResponse({"error": {"code": code, "message": message, **extra}}, status_code=status)
+def error_response(
+    status: int, code: str, message: str, headers: dict[str, str] | None = None, **extra: object
+) -> JSONResponse:
+    return JSONResponse({"error": {"code": code, "message": message, **extra}}, status_code=status, headers=headers)
 
 
 async def _api_error(_: Request, exc: Exception) -> JSONResponse:
@@ -71,7 +74,8 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
 
 async def _http_error(_: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
-    return error_response(exc.status_code, _HTTP_CODES.get(exc.status_code, "error"), "Request refused.")
+    code = _HTTP_CODES.get(exc.status_code, "error")
+    return error_response(exc.status_code, code, "Request refused.", headers=dict(exc.headers or {}))
 
 
 async def _database_error(request: Request, exc: Exception) -> JSONResponse:
@@ -90,7 +94,49 @@ async def _unexpected_error(request: Request, exc: Exception) -> JSONResponse:
     return error_response(500, "server_error", "Something went wrong. Please try again.")
 
 
+ERROR_SCHEMAS: dict[str, Any] = {
+    "ApiErrorDetail": {
+        "title": "ApiErrorDetail",
+        "type": "object",
+        "properties": {"code": {"type": "string"}, "message": {"type": "string"}},
+        "required": ["code", "message"],
+        "additionalProperties": True,
+    },
+    "ApiError": {
+        "title": "ApiError",
+        "type": "object",
+        "properties": {"error": {"$ref": "#/components/schemas/ApiErrorDetail"}},
+        "required": ["error"],
+    },
+}
+_DEFAULT_ERROR = {
+    "description": "Error: the `code` says which (architecture 5.1)",
+    "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiError"}}},
+}
+_METHODS = {"get", "put", "post", "patch", "delete"}
+
+
+def document_errors(app: FastAPI) -> None:
+    """Give every operation the shared error body as its `default` response, so clients know it."""
+    build = app.openapi
+
+    def openapi() -> dict[str, Any]:
+        if app.openapi_schema is not None:
+            return app.openapi_schema
+        doc = build()
+        doc.setdefault("components", {}).setdefault("schemas", {}).update(ERROR_SCHEMAS)
+        for item in doc.get("paths", {}).values():
+            for method, op in item.items():
+                if method in _METHODS:
+                    op.setdefault("responses", {}).setdefault("default", _DEFAULT_ERROR)
+        app.openapi_schema = doc
+        return doc
+
+    app.openapi = openapi  # type: ignore[method-assign]
+
+
 def install_error_handlers(app: FastAPI) -> None:
+    document_errors(app)
     app.add_exception_handler(ApiError, _api_error)
     app.add_exception_handler(RequestValidationError, _validation_error)
     app.add_exception_handler(StarletteHTTPException, _http_error)
