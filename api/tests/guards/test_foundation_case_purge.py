@@ -199,6 +199,8 @@ def test_a_case_under_an_active_legal_hold_is_not_purged(admin: psycopg.Connecti
         held = ""
     with admin.transaction():
         if not held:
+            # Made as the owner of the app tables, as slice H's migration will make it.
+            admin.execute("set local role app_migrator")
             admin.execute(
                 "create table app.legal_holds (id uuid primary key default gen_random_uuid(), case_id uuid not null,"
                 " reason text not null, set_by uuid not null, until date, released_at timestamptz)"

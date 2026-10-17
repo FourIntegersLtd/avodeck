@@ -132,3 +132,19 @@ def test_only_a_deleted_case_may_lose_its_label(
     case = case_for(seed, team, "active")
     with pytest.raises(psycopg.errors.CheckViolation):
         admin.execute("update app.cases set label = null where id = %s", (case,))
+
+
+def test_the_daily_sweep_lists_the_cases_due_for_deletion_and_which_are_held(
+    worker_dsn: str, api_dsn: str, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    due, held, later, gone = (case_for(seed, team, s) for s in ("settled", "archived", "settled", "draft"))
+    admin.execute("update app.cases set delete_after = '2030-12-31' where id = any(%s)", ([due, held, gone],))
+    admin.execute("update app.cases set delete_after = '2031-01-02' where id = %s", (later,))
+    admin.execute("update app.cases set on_hold = true where id = %s", (held,))
+    admin.execute("update app.cases set status = 'deleted' where id = %s", (gone,))
+    with psycopg.connect(worker_dsn) as conn:
+        rows = conn.execute("select case_id, held from app.cases_due_for_deletion('2031-01-01')").fetchall()
+    found = {case: is_held for case, is_held in rows if case in (due, held, later, gone)}
+    assert found == {due: False, held: True}
+    with psycopg.connect(api_dsn) as conn, pytest.raises(Refused):
+        conn.execute("select * from app.cases_due_for_deletion('2031-01-01')")
