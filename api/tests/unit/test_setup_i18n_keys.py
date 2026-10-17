@@ -34,7 +34,8 @@ EXPANSIONS: dict[str, list[str]] = {
 
 
 def _messages() -> dict[str, str]:
-    return json.loads(MESSAGES.read_text(encoding="utf-8"))
+    messages: dict[str, str] = json.loads(MESSAGES.read_text(encoding="utf-8"))
+    return messages
 
 
 def _has(messages: dict[str, str], key: str) -> bool:
