@@ -1258,16 +1258,34 @@
   "quote": "Filed by Dr Rakesh Patel on 18-Sep-2003"
  },
  {
-  "page": 239,
+  "page": 232,
   "kind": "sent_to_gp",
-  "date": "2013-10-02",
-  "quote": "sent to GP practice 02/10/2013"
+  "date": "2020-10-07",
+  "quote": "sent to GP practice 07/10/2020"
  },
  {
-  "page": 275,
+  "page": 251,
   "kind": "sent_to_gp",
-  "date": "2023-08-19",
-  "quote": "sent to GP practice 19/08/2023"
+  "date": "2013-12-07",
+  "quote": "sent to GP practice 07/12/2013"
+ },
+ {
+  "page": 254,
+  "kind": "sent_to_gp",
+  "date": "2018-12-02",
+  "quote": "sent to GP practice 02/12/2018"
+ },
+ {
+  "page": 271,
+  "kind": "sent_to_gp",
+  "date": "2005-07-10",
+  "quote": "sent to GP practice 10/07/2005"
+ },
+ {
+  "page": 274,
+  "kind": "sent_to_gp",
+  "date": "2005-12-11",
+  "quote": "sent to GP practice 11/12/2005"
  },
  {
   "page": 281,
@@ -1276,22 +1294,16 @@
   "quote": "RECEIVED 06 OCT 2009"
  },
  {
-  "page": 288,
+  "page": 306,
   "kind": "sent_to_gp",
-  "date": "2020-10-07",
-  "quote": "sent to GP practice 07/10/2020"
+  "date": "2014-09-10",
+  "quote": "sent to GP practice 10/09/2014"
  },
  {
-  "page": 298,
+  "page": 308,
   "kind": "sent_to_gp",
-  "date": "2005-12-11",
-  "quote": "sent to GP practice 11/12/2005"
- },
- {
-  "page": 301,
-  "kind": "sent_to_gp",
-  "date": "2005-07-10",
-  "quote": "sent to GP practice 10/07/2005"
+  "date": "2023-08-19",
+  "quote": "sent to GP practice 19/08/2023"
  },
  {
   "page": 309,
@@ -1300,49 +1312,37 @@
   "quote": "RECEIVED 11 JUL 2012"
  },
  {
-  "page": 329,
-  "kind": "sent_to_gp",
-  "date": "2020-02-11",
-  "quote": "sent to GP practice 11/02/2020"
- },
- {
-  "page": 366,
+  "page": 334,
   "kind": "sent_to_gp",
   "date": "2013-09-03",
   "quote": "sent to GP practice 03/09/2013"
  },
  {
-  "page": 369,
+  "page": 367,
   "kind": "sent_to_gp",
-  "date": "2018-12-02",
-  "quote": "sent to GP practice 02/12/2018"
+  "date": "2020-02-11",
+  "quote": "sent to GP practice 11/02/2020"
  },
  {
-  "page": 381,
+  "page": 374,
   "kind": "sent_to_gp",
-  "date": "2014-09-10",
-  "quote": "sent to GP practice 10/09/2014"
+  "date": "2013-10-02",
+  "quote": "sent to GP practice 02/10/2013"
  },
  {
-  "page": 383,
-  "kind": "sent_to_gp",
-  "date": "2013-12-07",
-  "quote": "sent to GP practice 07/12/2013"
- },
- {
-  "page": 399,
+  "page": 387,
   "kind": "received",
   "date": "2019-12-04",
   "quote": "RECEIVED 04 DEC 2019"
  },
  {
-  "page": 421,
+  "page": 414,
   "kind": "sent_to_gp",
   "date": "2013-10-03",
   "quote": "sent to GP practice 03/10/2013"
  },
  {
-  "page": 426,
+  "page": 441,
   "kind": "sent_to_gp",
   "date": "2011-06-08",
   "quote": "sent to GP practice 08/06/2011"
@@ -1352,6 +1352,12 @@
   "kind": "seen",
   "date": "2024-05-22",
   "quote": "22/05/2024 11:03 Response viewed by practice"
+ },
+ {
+  "page": 480,
+  "kind": "sent_to_gp",
+  "date": "2018-12-02",
+  "quote": "sent to GP practice 02/12/2018"
  },
  {
   "page": 517,
@@ -1364,12 +1370,6 @@
   "kind": "sent_to_gp",
   "date": "2014-04-02",
   "quote": "sent to GP practice 02/04/2014"
- },
- {
-  "page": 538,
-  "kind": "seen",
-  "date": "2024-05-22",
-  "quote": "22/05/2024 11:03 Response viewed by practice"
  },
  {
   "page": 556,
@@ -1394,6 +1394,12 @@
   "kind": "sent_to_gp",
   "date": "2021-09-12",
   "quote": "sent to GP practice 12/09/2021"
+ },
+ {
+  "page": 597,
+  "kind": "received",
+  "date": "2008-10-18",
+  "quote": "RECEIVED 18 OCT 2008"
  },
  {
   "page": 625,
@@ -1432,13 +1438,25 @@
   "quote": "sent to GP practice 05/12/2004"
  },
  {
+  "page": 769,
+  "kind": "sent_to_gp",
+  "date": "2020-02-11",
+  "quote": "sent to GP practice 11/02/2020"
+ },
+ {
+  "page": 823,
+  "kind": "received",
+  "date": "2006-09-25",
+  "quote": "RECEIVED 25 SEP 2006"
+ },
+ {
   "page": 824,
   "kind": "sent_to_gp",
   "date": "2012-10-05",
   "quote": "sent to GP practice 05/10/2012"
  },
  {
-  "page": 885,
+  "page": 884,
   "kind": "sent_to_gp",
   "date": "2021-01-09",
   "quote": "sent to GP practice 09/01/2021"

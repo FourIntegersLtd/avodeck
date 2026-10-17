@@ -1,0 +1,111 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "b303d6df526123428d8e60a2fcf627d17cffb2499302cfe1af1b2ceb5e67e77a",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 698,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2024-10-22"
+              },
+              "kind": "consultation",
+              "value": "Settled night. Pain 2/10. Obs stable NEWS 1.",
+              "word_ids": [
+                "p1w76",
+                "p1w77",
+                "p1w78",
+                "p1w79",
+                "p1w80",
+                "p1w81",
+                "p1w82",
+                "p1w83"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2024-10-22"
+              },
+              "kind": "consultation",
+              "value": "Settled night. Pain 2/10. Obs stable NEWS 1.",
+              "word_ids": [
+                "p1w76",
+                "p1w77",
+                "p1w78",
+                "p1w79",
+                "p1w80",
+                "p1w81",
+                "p1w82",
+                "p1w83"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2024-10-23"
+              },
+              "kind": "consultation",
+              "value": "Nauseated overnight, ondansetron given with effect.",
+              "word_ids": [
+                "p1w127",
+                "p1w128",
+                "p1w129",
+                "p1w130",
+                "p1w131",
+                "p1w132"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2024-10-23"
+              },
+              "kind": "consultation",
+              "value": "Nauseated overnight, ondansetron given with effect.",
+              "word_ids": [
+                "p1w127",
+                "p1w128",
+                "p1w129",
+                "p1w130",
+                "p1w131",
+                "p1w132"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {},
+              "kind": "consultation",
+              "value": "IV co-amoxiclav 1.2g tds",
+              "word_ids": [
+                "p1w99",
+                "p1w100",
+                "p1w101",
+                "p1w102"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2024-10-21",
+            "2024-10-21",
+            "2024-10-22",
+            "2024-10-22",
+            "2024-10-23",
+            "2024-10-23"
+          ],
+          "references_out": [],
+          "source_type": "hospital_notes"
+        },
+        "output_tokens": 323
+      }
+    ]
+  }
+}

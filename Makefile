@@ -59,6 +59,8 @@ eval-data:      ## synthetic bundles (not committed) and slice C's committed set
 	poetry -P api run python evals/generator/build.py evals/gb-eaw/clin-neg-breach/general-practice
 	poetry -P api run python evals/generator/extras.py evals/gb-eaw/clin-neg-breach/general-practice
 	poetry -P api run python evals/generator/inputs.py evals/gb-eaw/clin-neg-breach/general-practice
+	cd api && poetry run python ../evals/generator/recordings.py ../evals/gb-eaw/clin-neg-breach/general-practice \
+		--fixtures tests/fixtures/ai/pipeline
 	$(MAKE) setup-fixtures
 
 setup-fixtures: ## letter-of-instruction.pdf and template.docx for slice C tests (api/tests/fixtures/setup/)

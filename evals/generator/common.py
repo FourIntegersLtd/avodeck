@@ -23,6 +23,8 @@ from reportlab import rl_config
 
 rl_config.invariant = 1  # no creation time or random document ID: the same input gives the same bytes
 
+from fontdirs import font_dir
+
 W, H = A4
 _FONT_DIRS = [
     os.environ.get("AVODECK_FONT_DIR", ""),

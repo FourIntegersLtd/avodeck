@@ -1,0 +1,20 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "69d2e831cc346260c6a43432c12f313042066611f2342fe9bcf9b7bead55ccba",
+    "task_id": "T-07c"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 212,
+        "output": {
+          "confidence": 0.9,
+          "matched_page": 450,
+          "reference_id": "p390-r2"
+        },
+        "output_tokens": 17
+      }
+    ]
+  }
+}

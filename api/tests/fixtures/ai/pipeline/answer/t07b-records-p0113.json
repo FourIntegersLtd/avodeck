@@ -1,0 +1,153 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "2f20faea44495b9898212a2235812038409e6198a7d740d554e0fa1469475e51",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 827,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet once a day",
+                "quantity": "28 tablet"
+              },
+              "kind": "prescription",
+              "value": "Amlodipine 8mg tablets",
+              "word_ids": [
+                "p1w97",
+                "p1w98",
+                "p1w99"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet once a day",
+                "quantity": "28 tablet"
+              },
+              "kind": "prescription",
+              "value": "Levothyroxine sodium 75microgram tablets",
+              "word_ids": [
+                "p1w109",
+                "p1w110",
+                "p1w111",
+                "p1w112"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet three times a day",
+                "quantity": "84 tablet"
+              },
+              "kind": "prescription",
+              "value": "Ferrous fumarate 210mg tablets",
+              "word_ids": [
+                "p1w122",
+                "p1w123",
+                "p1w124",
+                "p1w125"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet twice a day when required",
+                "quantity": "20 tablet"
+              },
+              "kind": "prescription",
+              "value": "Ondansetron 4mg tablets",
+              "word_ids": [
+                "p1w136",
+                "p1w137",
+                "p1w138"
+              ]
+            }
+          ],
+          "printed_dates": [],
+          "references_out": [],
+          "source_type": "gp_record"
+        },
+        "output_tokens": 253
+      },
+      {
+        "input_tokens": 827,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet once a day",
+                "quantity": "28 tablet"
+              },
+              "kind": "prescription",
+              "value": "Amlodipine 5mg tablets",
+              "word_ids": [
+                "p1w97",
+                "p1w98",
+                "p1w99"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet once a day",
+                "quantity": "28 tablet"
+              },
+              "kind": "prescription",
+              "value": "Levothyroxine sodium 75microgram tablets",
+              "word_ids": [
+                "p1w109",
+                "p1w110",
+                "p1w111",
+                "p1w112"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet three times a day",
+                "quantity": "84 tablet"
+              },
+              "kind": "prescription",
+              "value": "Ferrous fumarate 210mg tablets",
+              "word_ids": [
+                "p1w122",
+                "p1w123",
+                "p1w124",
+                "p1w125"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "dose": "One tablet twice a day when required",
+                "quantity": "20 tablet"
+              },
+              "kind": "prescription",
+              "value": "Ondansetron 4mg tablets",
+              "word_ids": [
+                "p1w136",
+                "p1w137",
+                "p1w138"
+              ]
+            }
+          ],
+          "printed_dates": [],
+          "references_out": [],
+          "source_type": "gp_record"
+        },
+        "output_tokens": 253
+      }
+    ]
+  }
+}

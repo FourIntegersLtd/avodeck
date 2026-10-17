@@ -1,0 +1,25 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "0a4cfdb51d65b8215e6c17d7f4b64cacb92e53a2fa8c297b298bdd2df4b68a87",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 497,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [],
+          "printed_dates": [
+            "2012-07-02"
+          ],
+          "references_out": [],
+          "source_type": "hospital_letter"
+        },
+        "output_tokens": 43
+      }
+    ]
+  }
+}

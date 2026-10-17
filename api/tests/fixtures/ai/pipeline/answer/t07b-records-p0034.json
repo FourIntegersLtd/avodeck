@@ -1,0 +1,118 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "0f591e524191bf42e872a65ed2462c1af216f499ce20d52bd54d00f73b7902d9",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 449,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1986-05-12"
+              },
+              "kind": "consultation",
+              "value": "c/o sore throat 3/7. T 37.8",
+              "word_ids": [
+                "p1w9",
+                "p1w10",
+                "p1w11",
+                "p1w12",
+                "p1w13",
+                "p1w14"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1986-09-19"
+              },
+              "kind": "consultation",
+              "value": "BP check 142/88",
+              "word_ids": [
+                "p1w26",
+                "p1w27",
+                "p1w28"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1986-11-29"
+              },
+              "kind": "consultation",
+              "value": "L knee pain after fall",
+              "word_ids": [
+                "p1w35",
+                "p1w36",
+                "p1w37",
+                "p1w38",
+                "p1w39"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1987-03-14"
+              },
+              "kind": "consultation",
+              "value": "Pill check. BP 118/74",
+              "word_ids": [
+                "p1w49",
+                "p1w50",
+                "p1w51",
+                "p1w52"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1987-06-16"
+              },
+              "kind": "consultation",
+              "value": "tired ++. ?anaemia",
+              "word_ids": [
+                "p1w57",
+                "p1w58",
+                "p1w59"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "1987-10-26"
+              },
+              "kind": "consultation",
+              "value": "FBC nad. TFT TSH 8.9",
+              "word_ids": [
+                "p1w64",
+                "p1w65",
+                "p1w66",
+                "p1w67",
+                "p1w68"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "1986-05-12",
+            "1986-09-19",
+            "1986-11-29",
+            "1987-03-14",
+            "1987-06-16",
+            "1987-10-26",
+            "1988-01-18"
+          ],
+          "references_out": [],
+          "source_type": "gp_record"
+        },
+        "output_tokens": 317
+      }
+    ]
+  }
+}

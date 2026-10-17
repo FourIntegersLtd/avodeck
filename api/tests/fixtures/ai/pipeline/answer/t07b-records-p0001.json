@@ -1,0 +1,50 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "3e8e304eb1f9fe88a52ed8c606f0aca6a5f281bf5c7d40c8dc4a4f274e35e191",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 788,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [
+            {
+              "date": "2024-05-28",
+              "kind": "seen",
+              "word_ids": [
+                "p1w183",
+                "p1w184",
+                "p1w185"
+              ]
+            }
+          ],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2024-05-10"
+              },
+              "kind": "letter",
+              "value": "Advice and Guidance response",
+              "word_ids": [
+                "p1w59",
+                "p1w60",
+                "p1w61",
+                "p1w62"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2024-05-10"
+          ],
+          "references_out": [],
+          "source_type": "hospital_letter"
+        },
+        "output_tokens": 105
+      }
+    ]
+  }
+}

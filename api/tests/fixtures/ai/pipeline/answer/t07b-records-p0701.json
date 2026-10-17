@@ -1,0 +1,153 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "746ccf15187377c224270dc0890a7800cba1e9138de76f08c62f6e1350d77e2b",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 485,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "Haemoglobin"
+              },
+              "kind": "result",
+              "value": "433 g/L",
+              "word_ids": [
+                "p1w28",
+                "p1w29"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "White cell count"
+              },
+              "kind": "result",
+              "value": "5.6 10*9/L",
+              "word_ids": [
+                "p1w36",
+                "p1w37"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "Platelets"
+              },
+              "kind": "result",
+              "value": "285 10*9/L",
+              "word_ids": [
+                "p1w42",
+                "p1w43"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "Red cell count"
+              },
+              "kind": "result",
+              "value": "4.78 10*12/L",
+              "word_ids": [
+                "p1w50",
+                "p1w51"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "Haematocrit"
+              },
+              "kind": "result",
+              "value": "0.41 L/L",
+              "word_ids": [
+                "p1w56",
+                "p1w57"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "MCV"
+              },
+              "kind": "result",
+              "value": "88 fL",
+              "word_ids": [
+                "p1w62",
+                "p1w63"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "MCH"
+              },
+              "kind": "result",
+              "value": "30.9 pg",
+              "word_ids": [
+                "p1w68",
+                "p1w69"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "Neutrophils"
+              },
+              "kind": "result",
+              "value": "5.1 10*9/L",
+              "word_ids": [
+                "p1w74",
+                "p1w75"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2007-09-20",
+                "flag": "",
+                "test": "Lymphocytes"
+              },
+              "kind": "result",
+              "value": "1.7 10*9/L",
+              "word_ids": [
+                "p1w80",
+                "p1w81"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2007-09-18",
+            "2007-09-20"
+          ],
+          "references_out": [],
+          "source_type": "result"
+        },
+        "output_tokens": 416
+      }
+    ]
+  }
+}

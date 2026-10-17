@@ -1,0 +1,37 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "0d8dc3db494e5982054dabd06421d2dded827b802e8d6a801a302dcfbce51df6",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 500,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2024-02-14",
+                "test": "Ferritin"
+              },
+              "kind": "result",
+              "value": "9 ug/L",
+              "word_ids": [
+                "p1w61",
+                "p1w62"
+              ]
+            }
+          ],
+          "printed_dates": [],
+          "references_out": [],
+          "source_type": "referral"
+        },
+        "output_tokens": 75
+      }
+    ]
+  }
+}

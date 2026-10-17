@@ -1,0 +1,20 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "46a0dcc5f59fc318e4673ca86e88f3c67a90f86ff165d62084e53f253077f5f0",
+    "task_id": "T-07c"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 224,
+        "output": {
+          "confidence": 0.9,
+          "matched_page": 24,
+          "reference_id": "p23-r1"
+        },
+        "output_tokens": 17
+      }
+    ]
+  }
+}

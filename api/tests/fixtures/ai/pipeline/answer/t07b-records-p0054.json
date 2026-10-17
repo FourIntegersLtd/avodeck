@@ -1,0 +1,49 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "ab2ba59e48aa55ed650581d91c7f5c7dd7d5978fb4fbf41c059207c1bee2a32b",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 383,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [
+            {
+              "date": "2023-05-09",
+              "kind": "sent_to_clinician",
+              "word_ids": [
+                "p1w46",
+                "p1w47",
+                "p1w48",
+                "p1w49",
+                "p1w50"
+              ]
+            }
+          ],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2023-05-09"
+              },
+              "kind": "phone_consultation",
+              "value": "Cough",
+              "word_ids": [
+                "p1w29"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2023-05-09"
+          ],
+          "references_out": [],
+          "source_type": "ooh"
+        },
+        "output_tokens": 100
+      }
+    ]
+  }
+}
