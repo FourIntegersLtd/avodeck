@@ -23,6 +23,7 @@ from app.core.storage import SupabaseStorage
 from tests.repository.test_pipeline_support import (
     BUNDLE,
     Harness,
+    date_score,
     expected,
     facts_of,
     from_struck_text,
@@ -190,3 +191,13 @@ def test_planted_wrong_answers_are_retried_and_then_need_a_person(
     assert rows[701] is True and rows[113] is False
     needing = sorted(n for n, flag in rows.items() if flag)
     assert len(needing) <= 9, f"pages needing a person: {needing}"
+
+
+def test_dates_are_read_in_the_pack_date_order(bundle: Harness) -> None:
+    rows = [(int(f["bundle_page_no"]), f["value"], f["event_date"], f["date_basis"]) for f in facts_of(bundle)]
+    score = date_score(rows)
+    assert score.accuracy >= 0.9, f"printed dates right on {score.accuracy:.3f} of {score.printed} facts"
+    assert score.coverage >= 0.75, f"dates right on {score.coverage:.3f} of {score.wanted} dated facts"
+    planted = [(when, basis) for n, _, when, basis in rows if n == 82]  # printed 03/04/2024: 3 April
+    assert (dt.date(2024, 4, 3), "printed") in planted, "page 82: 03/04/2024 was not read as 3 April"
+    assert all((when is not None) == (basis == "printed") for _, _, when, basis in rows)

@@ -457,3 +457,45 @@ def schema_enums(schema: Any) -> list[set[str]]:
         for value in schema:
             found.extend(schema_enums(value))
     return found
+
+
+def expected_dates() -> dict[tuple[int, str], str | None]:
+    """Each expected fact's date, keyed by (page, value) and (page, quote): the date a person reads."""
+    out: dict[tuple[int, str], str | None] = {}
+    for row in expected("facts.json"):
+        for text in (row["quote"], row["value"]):
+            out.setdefault((int(row["page"]), str(text)), row["event_date"])
+    return out
+
+
+@dataclass(frozen=True)
+class DateScore:
+    printed: int  # facts given a printed date, among those with an expected date
+    right: int  # of those, the date a person reads
+    flagged: int  # facts marked please check
+    wanted: int  # facts found that have an expected date
+
+    @property
+    def accuracy(self) -> float:
+        return self.right / self.printed if self.printed else 0.0
+
+    @property
+    def coverage(self) -> float:
+        return self.right / self.wanted if self.wanted else 0.0
+
+
+def date_score(found: Iterable[tuple[int, str, Any, str | None]]) -> DateScore:
+    """Score (page, value, event_date, date_basis) rows against the expected facts' dates."""
+    want = expected_dates()
+    printed = right = flagged = wanted = 0
+    for page, value, event_date, basis in found:
+        key = (page, value)
+        if key not in want or want[key] is None:
+            continue
+        wanted += 1
+        if basis == "please_check":
+            flagged += 1
+        elif basis == "printed":
+            printed += 1
+            right += event_date is not None and event_date.isoformat() == want[key]
+    return DateScore(printed=printed, right=right, flagged=flagged, wanted=wanted)
