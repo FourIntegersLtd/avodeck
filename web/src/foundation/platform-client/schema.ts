@@ -1144,6 +1144,28 @@ export interface paths {
         patch: operations["update_mapping_v1_me_template_mapping_patch"];
         trace?: never;
     };
+    "/v1/me/template/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Sections
+         * @description T-02 runs here, not as a job: it reads a few heading lines (no case, no patient data) and answers in
+         *     seconds. It does not wait out a busy model service; the expert can try again or map the headings
+         *     themselves.
+         */
+        post: operations["suggest_sections_v1_me_template_suggestions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/training": {
         parameters: {
             query?: never;
@@ -2752,6 +2774,25 @@ export interface components {
              * @default 0001-01-01
              */
             started_on: string;
+        };
+        /** SectionSuggestion */
+        SectionSuggestion: {
+            /** Index */
+            index: number;
+            /** Reason */
+            reason: string;
+            /** Section */
+            section: string;
+        };
+        /**
+         * SectionSuggestions
+         * @description T-02's suggestions (never saved); the expert confirms them with `PATCH /v1/me/template/mapping`.
+         */
+        SectionSuggestions: {
+            /** Rejected */
+            rejected: number;
+            /** Suggestions */
+            suggestions: components["schemas"]["SectionSuggestion"][];
         };
         /** Sent */
         Sent: {
@@ -6121,6 +6162,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    suggest_sections_v1_me_template_suggestions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SectionSuggestions"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

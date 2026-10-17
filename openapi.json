@@ -4208,6 +4208,51 @@
         "title": "RoleUpdate",
         "type": "object"
       },
+      "SectionSuggestion": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "section",
+          "reason"
+        ],
+        "title": "SectionSuggestion",
+        "type": "object"
+      },
+      "SectionSuggestions": {
+        "description": "T-02's suggestions (never saved); the expert confirms them with `PATCH /v1/me/template/mapping`.",
+        "properties": {
+          "rejected": {
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/SectionSuggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions",
+          "rejected"
+        ],
+        "title": "SectionSuggestions",
+        "type": "object"
+      },
       "Sent": {
         "properties": {
           "status": {
@@ -9169,6 +9214,38 @@
           }
         },
         "summary": "Update Mapping",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/me/template/suggestions": {
+      "post": {
+        "description": "T-02 runs here, not as a job: it reads a few heading lines (no case, no patient data) and answers in\nseconds. It does not wait out a busy model service; the expert can try again or map the headings\nthemselves.",
+        "operationId": "suggest_sections_v1_me_template_suggestions_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SectionSuggestions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Suggest Sections",
         "tags": [
           "setup"
         ]
