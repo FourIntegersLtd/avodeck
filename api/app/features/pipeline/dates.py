@@ -18,7 +18,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from functools import lru_cache
 
-import dateparser  # type: ignore[import-untyped]
+import dateparser
 
 from app.core.packs import MergedPack
 

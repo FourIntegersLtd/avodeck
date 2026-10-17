@@ -24,7 +24,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import imagehash
-from datasketch import MinHash, MinHashLSH  # type: ignore[import-untyped]
+from datasketch import MinHash, MinHashLSH
 from PIL import Image
 from rapidfuzz import fuzz
 

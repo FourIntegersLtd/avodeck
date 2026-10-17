@@ -24,6 +24,7 @@ build-backend = "poetry.core.masonry.api"
 # "." first so a checkout (or a check_red_green worktree) imports its own `app`
 pythonpath = ["."]
 testpaths = ["tests"]
+markers = ["slow: the whole-bundle acceptance run; set RUN_SLOW=1 to include it"]
 
 [tool.ruff]
 target-version = "py312"
@@ -40,7 +41,7 @@ mypy_path = "."
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = ["pypdfium2", "pypdfium2.*"]
+module = ["pypdfium2", "pypdfium2.*", "dateparser", "dateparser.*", "datasketch", "datasketch.*"]
 ignore_missing_imports = true
 
 [tool.coverage.report]
