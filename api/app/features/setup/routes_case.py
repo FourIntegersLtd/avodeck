@@ -502,20 +502,23 @@ class OralInstruction(BaseModel):
 _ORAL = "oral_instruction"
 
 
-async def _next_version(conn: DbConn, case_id: uuid.UUID) -> tuple[int, bool]:
+async def _next_version(conn: DbConn, case_id: uuid.UUID, kind: str) -> tuple[int, bool]:
+    """The next version number, and whether this version reopens the questions: a letter (any kind but oral,
+    with or without its file) after a locked letter. Oral instructions carry no questions and reopen nothing."""
     cur = await conn.execute(
-        "select version_no, locked_at is not null from app.instruction_versions where case_id = %s"
-        " order by version_no desc limit 1",
-        (case_id,),
+        "select coalesce(max(version_no), 0) + 1, (select locked_at is not null from app.instruction_versions"
+        " where case_id = %s and kind <> 'oral' order by version_no desc limit 1)"
+        " from app.instruction_versions where case_id = %s",
+        (case_id, case_id),
     )
-    row = await cur.fetchone()
-    return (1, False) if row is None else (int(row[0]) + 1, bool(row[1]))
+    row = await cur.fetchone() or (1, None)
+    return int(row[0]), kind != "oral" and bool(row[1])
 
 
 async def _new_version(
     conn: DbConn, case_id: uuid.UUID, kind: str, document_id: uuid.UUID | None, received_on: date | None
 ) -> tuple[uuid.UUID, int, bool]:
-    number, reopens = await _next_version(conn, case_id)
+    number, reopens = await _next_version(conn, case_id, kind)
     version_id = uuid.uuid4()
     await conn.execute(
         "insert into app.instruction_versions (id, case_id, version_no, kind, document_id, received_on)"

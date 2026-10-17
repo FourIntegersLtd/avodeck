@@ -1,19 +1,21 @@
 """Slice C's worker jobs: `extract_questions` (T-06) and `prefill_case` (T-04).
 
-`extract_questions` reads the case's latest letter: OCR, identifiers out (`pii.strip`, rule 7), T-06
-through the AI kit, then the word check (rule 2). Each kept question or assumption stores the original
-words of the run it cites, so the stored wording is always an exact piece of the letter; anything the
-model rewrote is refused and counted. The paragraph reference is read from the letter's layout and the
-"usually outside the expertise" flag from the pack, both in code. Rows start `suggested`, tied to the
-instruction version. A newer letter on a case never served moves the earlier questions to the new
-version: if it adds a question, a confirmed set reopens (they return to suggested, with a warning on
-screen 06); if it adds none, the confirmed set stays confirmed.
+`extract_questions` reads every letter of the case not yet read, oldest first (a second letter queued before
+the first was read is not skipped): OCR, identifiers out (`pii.strip`, rule 7), T-06 through the AI kit,
+then the word check (rule 2). Each kept question or assumption stores the original words of the run it
+cites, so the stored wording is always an exact piece of the letter; anything the model rewrote is refused
+and counted. The paragraph reference is read from the letter's layout and the "usually outside the
+expertise" flag from the pack, both in code. Rows start `suggested`, tied to the instruction version. A
+newer letter on a case never served moves the earlier questions to the new version: if it adds a question,
+a set confirmed on the previous letter reopens (they return to suggested, with a warning on screen 06); if
+it adds none, the confirmed set stays confirmed. Oral instructions carry no questions and are skipped when
+finding the previous letter, so they never hide its lock.
 
-`prefill_case` reads the same letter and asks T-04 for case details. A name is stored as the cited words
+`prefill_case` reads the latest letter and asks T-04 for case details. A name is stored as the cited words
 of the letter, never the model's value, and a run hidden by the identifier strip is refused; a key must be
 one of the pack's and the cited words must carry the pack's word for it; a due date must be written out in
-the cited words (read with the pack's date order and language). Kept suggestions are stored encrypted, waiting for the expert; nothing is
-applied to the case.
+the cited words (read with the pack's date order and language). Kept suggestions are stored encrypted,
+waiting for the expert; nothing is applied to the case.
 
 No text reaches a log or a job row (rule 6).
 """
@@ -73,17 +75,31 @@ async def read_letter(ctx: JobContext, pack: MergedPack, document_prefix: str, n
     return letter
 
 
+# A version that can carry questions: a letter (any kind but oral) with its file.
+_LETTERS = "app.instruction_versions v join app.documents d on d.id = v.document_id where v.kind <> 'oral'"
+
+
 async def _latest_letter(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[uuid.UUID, int, str] | None:
     cur = await conn.execute(
-        "select v.id, v.version_no, d.storage_path from app.instruction_versions v"
-        " join app.documents d on d.id = v.document_id"
-        " where v.case_id = %s and v.kind in ('letter', 'supplementary') order by v.version_no desc limit 1",
+        f"select v.id, v.version_no, d.storage_path from {_LETTERS} and v.case_id = %s"  # noqa: S608
+        " order by v.version_no desc limit 1",
         (case_id,),
     )
     row = await cur.fetchone()
     if row is None or row[2] is None:
         return None
     return row[0], int(row[1]), str(row[2])
+
+
+async def unread_letters(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int, str]]:
+    """The case's letters not read yet, oldest first."""
+    cur = await conn.execute(
+        f"select v.id, v.version_no, d.storage_path from {_LETTERS} and v.case_id = %s"  # noqa: S608
+        " and d.storage_path is not null and not exists (select 1 from app.instruction_extractions e"
+        " where e.instruction_version_id = v.id) order by v.version_no",
+        (case_id,),
+    )
+    return [(r[0], int(r[1]), str(r[2])) for r in await cur.fetchall()]
 
 
 async def _case_pack(conn: AsyncConnection, case_id: uuid.UUID) -> MergedPack:
@@ -98,19 +114,17 @@ async def _case_pack(conn: AsyncConnection, case_id: uuid.UUID) -> MergedPack:
 
 @registry.kind("extract_questions", interactive=True, changes_case=True)
 async def extract_questions(ctx: JobContext) -> None:
+    async with ctx.transaction() as conn:
+        letters = await unread_letters(conn, ctx.case_id)
+    for version_id, version_no, prefix in letters:
+        await _extract_one(ctx, version_id, version_no, prefix)
+
+
+async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, prefix: str) -> None:
     services = current()
     kit, _ = services.ai()
     _, crypto = services.files()
     async with ctx.transaction() as conn:
-        latest = await _latest_letter(conn, ctx.case_id)
-        if latest is None:
-            return
-        version_id, version_no, prefix = latest
-        cur = await conn.execute(
-            "select 1 from app.instruction_extractions where instruction_version_id = %s", (version_id,)
-        )
-        if await cur.fetchone() is not None:
-            return
         pack = await _case_pack(conn, ctx.case_id)
         names = await case_names(conn, crypto, ctx.case_id)
     await ctx.progress(10, step="ocr")
@@ -124,14 +138,20 @@ async def extract_questions(ctx: JobContext) -> None:
     outside = set(pack.outside_expertise_question_types())
 
     async def save(conn: AsyncConnection) -> None:
+        cur = await conn.execute(
+            "select 1 from app.instruction_extractions where instruction_version_id = %s", (version_id,)
+        )
+        if await cur.fetchone() is not None:
+            return
         served = await _ever_served(conn, ctx.case_id)
         known_q = await _known(conn, "questions", ctx.case_id)
         known_a = await _known(conn, "assumptions", ctx.case_id)
         new_q = [(i, f) for i, f in questions if f.text not in known_q]
         new_a = [(i, f) for i, f in assumptions if f.text not in known_a]
+        # the previous version that can carry questions (oral instructions are skipped)
         cur = await conn.execute(
             "select locked_at is not null from app.instruction_versions where case_id = %s and version_no < %s"
-            " order by version_no desc limit 1",
+            " and kind <> 'oral' order by version_no desc limit 1",
             (ctx.case_id, version_no),
         )
         prev = await cur.fetchone()
@@ -189,7 +209,7 @@ async def extract_questions(ctx: JobContext) -> None:
             ),
         )
 
-    await ctx.step("save_questions", save)
+    await ctx.step(f"save_questions_{version_no}", save)
     if rejected_q or rejected_a:
         logger.info("T-06 refused %d suggestions on case %s", len(rejected_q) + len(rejected_a), ctx.case_id)
 

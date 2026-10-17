@@ -4,8 +4,10 @@ The questions and assumptions found in the letter (`extract_questions`), each wi
 Only the named expert confirms, edits or locks them (`question.confirm`). An edit keeps the exact
 words and adds the expert's own (`confirmed_text`). "Confirm all" locks the set; D, E and F wait for
 that lock through `require_questions_locked` (409 `questions_not_confirmed` until then). A newer letter
-with a new question reopens a confirmed set and says so. Notes to the instructing parties are drafted
-for every current one (S4).
+with a new question reopens a confirmed set and says so; so does a letter recorded without its file.
+Oral instructions carry no questions: they never reopen or hide the set. When reading a letter fails the
+screen says so and `read-again` queues it again (an expert or an assistant, `case.upload`). Notes to the
+instructing parties are drafted for every current one (S4).
 """
 
 from __future__ import annotations
@@ -21,6 +23,8 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.http import DbConn, IfMatch, etag, stale
+from app.core.jobs import registry
+from app.core.errors import ApiError
 from app.features.setup.common import CODE, invalid, not_found
 from app.features.setup.notes import NoteDraft, NoteItem, NoteTopic, draft
 from app.features.setup.router import router
@@ -28,6 +32,7 @@ from app.features.setup.routes_case import ViewContent, _pack, conflict
 
 Confirm = Annotated[CaseAccess, Depends(require_case_access("question.confirm"))]
 Draft = Annotated[CaseAccess, Depends(require_case_access("request.draft"))]
+Upload = Annotated[CaseAccess, Depends(require_case_access("case.upload"))]
 
 
 class QuestionOut(BaseModel):
@@ -60,7 +65,8 @@ class Questions(BaseModel):
     instruction_version_id: uuid.UUID | None
     version_no: int | None
     locked: bool
-    reading: bool = Field(description="The latest letter is still being read.")
+    reading: bool = Field(description="A letter is still being read.")
+    read_failed: bool = Field(default=False, description="Reading a letter failed; it can be read again.")
     reopened: bool = Field(description="A new letter added a question to a confirmed set; confirm again.")
     rejected: int = Field(description="Suggestions refused because their words were not in the letter.")
     warnings: list[str] = Field(description="i18n keys.")
@@ -79,14 +85,24 @@ _A = (
 
 
 async def _latest(conn: DbConn, case_id: uuid.UUID) -> dict[str, Any] | None:
+    """The latest version that can carry questions (oral instructions carry none), with how its reading went.
+
+    `unread`: some letter with its file has not been read yet; `failed`: the case's latest reading job failed.
+    """
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
             "select v.id, v.version_no, v.locked_at is not null as locked, v.document_id,"
             " e.instruction_version_id is not null as read, coalesce(e.reopened, false) as reopened,"
-            " coalesce(e.rejected, 0) as rejected"
+            " coalesce(e.rejected, 0) as rejected,"
+            " exists (select 1 from app.instruction_versions u where u.case_id = v.case_id and u.kind <> 'oral'"
+            "   and u.document_id is not null and not exists (select 1 from app.instruction_extractions x"
+            "   where x.instruction_version_id = u.id)) as unread,"
+            " coalesce((select j.status = 'failed' from app.jobs j where j.case_id = v.case_id"
+            "   and j.kind = 'extract_questions' order by j.created_at desc, j.updated_at desc limit 1), false)"
+            "   as failed"
             " from app.instruction_versions v"
             " left join app.instruction_extractions e on e.instruction_version_id = v.id"
-            " where v.case_id = %s order by v.version_no desc limit 1",
+            " where v.case_id = %s and v.kind <> 'oral' order by v.version_no desc limit 1",
             (case_id,),
         )
         return await cur.fetchone()
@@ -101,11 +117,17 @@ async def list_questions(case_id: uuid.UUID, access: ViewContent, conn: DbConn) 
         await cur.execute(f"{_A} where case_id = %s order by number, id", (case_id,))  # noqa: S608
         assumptions = [AssumptionOut(**r) for r in await cur.fetchall()]
     locked = bool(latest and latest["locked"])
-    reading = bool(latest and latest["document_id"] is not None and not latest["read"])
+    unread = bool(latest and latest["unread"])
+    read_failed = unread and bool(latest and latest["failed"])
+    reading = unread and not read_failed
     reopened = bool(latest and latest["reopened"] and not locked)
     warnings = []
+    if read_failed:
+        warnings.append("setup.questions.warning.read_failed")
     if reopened:
         warnings.append("setup.questions.warning.reopened")
+    if latest and latest["document_id"] is None and not locked:
+        warnings.append("setup.questions.warning.letter_without_file")
     if latest and latest["rejected"]:
         warnings.append("setup.questions.warning.rejected")
     if any(q.outside_expertise for q in questions):
@@ -115,6 +137,7 @@ async def list_questions(case_id: uuid.UUID, access: ViewContent, conn: DbConn) 
         version_no=latest["version_no"] if latest else None,
         locked=locked,
         reading=reading,
+        read_failed=read_failed,
         reopened=reopened,
         rejected=int(latest["rejected"]) if latest else 0,
         warnings=warnings,
@@ -262,7 +285,9 @@ async def confirm_all(case_id: uuid.UUID, access: Confirm, conn: DbConn) -> Conf
         raise conflict("There are no instructions yet.")
     if latest["locked"]:
         raise conflict("The questions are already confirmed.")
-    if latest["document_id"] is not None and not latest["read"]:
+    if latest["unread"]:
+        if latest["failed"]:
+            raise ApiError("letter_not_read", "The letter could not be read. Ask for it to be read again.", 409)
         raise conflict("The letter is still being read.")
     counts = []
     for table in ("questions", "assumptions"):
@@ -278,6 +303,23 @@ async def confirm_all(case_id: uuid.UUID, access: Confirm, conn: DbConn) -> Conf
     await conn.execute("update app.instruction_versions set locked_at = now() where id = %s", (latest["id"],))
     await audit.record(conn, action="questions.locked", target=f"instruction_version:{latest['id']}", case_id=case_id)
     return Confirmed(instruction_version_id=latest["id"], locked=True, questions=counts[0], assumptions=counts[1])
+
+
+class ReadAgain(BaseModel):
+    job_id: uuid.UUID
+
+
+@router.post("/cases/{case_id}/questions/read-again", status_code=202, response_model=ReadAgain)
+async def read_again(case_id: uuid.UUID, access: Upload, conn: DbConn) -> ReadAgain:
+    """Queue the reading again after it failed; 409 while a reading is under way or nothing is left to read."""
+    latest = await _latest(conn, case_id)
+    if latest is None or not latest["unread"]:
+        raise conflict("Every letter has been read.")
+    if not latest["failed"]:
+        raise conflict("The letter is still being read.")
+    job_id = await registry.enqueue(conn, case_id, "extract_questions")
+    await audit.record(conn, action="questions.read_again", target=f"job:{job_id}", case_id=case_id)
+    return ReadAgain(job_id=job_id)
 
 
 class NoteRequest(BaseModel):
