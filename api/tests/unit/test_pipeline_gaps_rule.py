@@ -14,13 +14,15 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from dataclasses import replace
 
 import pytest
 
 from app.core.packs import MergedPack, default_library
 from app.features.pipeline import gaps
-from tests.support.packs import BOTH, Combo
+from tests.support.packs import BOTH, LAUNCH, Combo
 
+rules = gaps.Rules.from_pack(default_library().combine(*LAUNCH.codes))
 HEADER_DATES = (dt.date(1961, 5, 17), dt.date(2025, 3, 1))  # on every page: a birth date and a print date
 
 
@@ -75,11 +77,12 @@ def keys(combo: Combo) -> tuple[MergedPack, str, str, str]:
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
 def test_a_series_that_stops_before_its_source_ends_is_a_gap(combo: Combo) -> None:
-    _, source, listed, other = keys(combo)
+    pack, source, listed, other = keys(combo)
+    rules = gaps.Rules.from_pack(pack)
     b = Bundle()
     pages = b.series(source, listed, months(dt.date(2021, 1, 1), dt.date(2024, 1, 1)))
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
-    found = gaps.find(b.pages)
+    found = gaps.find(b.pages, rules)
     assert found == [
         gaps.Gap(
             source_type=source,
@@ -93,11 +96,12 @@ def test_a_series_that_stops_before_its_source_ends_is_a_gap(combo: Combo) -> No
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
 def test_a_series_that_runs_to_the_end_is_not_a_gap(combo: Combo) -> None:
-    _, source, listed, other = keys(combo)
+    pack, source, listed, other = keys(combo)
+    rules = gaps.Rules.from_pack(pack)
     b = Bundle()
     b.series(source, listed, months(dt.date(2021, 1, 1), dt.date(2024, 11, 1)))
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
-    assert gaps.find(b.pages) == []
+    assert gaps.find(b.pages, rules) == []
 
 
 def test_dates_on_most_pages_of_a_source_do_not_move_its_end() -> None:
@@ -105,7 +109,7 @@ def test_dates_on_most_pages_of_a_source_do_not_move_its_end() -> None:
     b = Bundle()
     b.series(source, listed, months(dt.date(2021, 1, 1), dt.date(2024, 1, 1)))
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
-    (gap,) = gaps.find(b.pages)
+    (gap,) = gaps.find(b.pages, rules)
     assert gap.gap_end == dt.date(2024, 12, 31), "a date printed on every page was taken as an entry"
 
 
@@ -115,7 +119,7 @@ def test_one_stray_date_does_not_move_a_sources_end() -> None:
     b.series(source, listed, months(dt.date(2021, 1, 1), dt.date(2024, 1, 1)))
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
     b.page(source, [(other, dt.date(2025, 9, 14))], [dt.date(2025, 9, 14)])
-    (gap,) = gaps.find(b.pages)
+    (gap,) = gaps.find(b.pages, rules)
     assert gap.gap_end == dt.date(2024, 12, 31)
 
 
@@ -125,7 +129,7 @@ def test_a_source_ends_on_its_own_pages_not_another_sources() -> None:
     b = Bundle()
     b.series(first, listed, months(dt.date(2021, 1, 1), dt.date(2024, 1, 1)))
     b.letters(second, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
-    assert gaps.find(b.pages) == []
+    assert gaps.find(b.pages, rules) == []
 
 
 def test_pages_of_mixed_kinds_make_no_series() -> None:
@@ -136,7 +140,7 @@ def test_pages_of_mixed_kinds_make_no_series() -> None:
         chunk = dates[i : i + 4]
         b.page(source, [(listed, None), (listed, None), (other, None), (other, None)][: len(chunk)], chunk)  # type: ignore[arg-type]
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
-    assert all(g.fact_kind != listed for g in gaps.find(b.pages))
+    assert all(g.fact_kind != listed for g in gaps.find(b.pages, rules))
 
 
 def test_a_quiet_spell_in_the_middle_of_a_series_is_not_a_gap() -> None:
@@ -149,7 +153,7 @@ def test_a_quiet_spell_in_the_middle_of_a_series_is_not_a_gap() -> None:
     ]
     b.series(source, listed, quiet)
     b.letters(source, other, months(dt.date(2024, 6, 1), dt.date(2024, 12, 1)))
-    assert gaps.find(b.pages) == []
+    assert gaps.find(b.pages, rules) == []
 
 
 def test_a_series_with_few_entries_is_not_regular_enough_to_go_quiet() -> None:
@@ -157,7 +161,7 @@ def test_a_series_with_few_entries_is_not_regular_enough_to_go_quiet() -> None:
     b = Bundle()
     b.series(source, listed, months(dt.date(2023, 5, 1), dt.date(2024, 1, 1)))  # nine months
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
-    assert gaps.find(b.pages) == []
+    assert gaps.find(b.pages, rules) == []
 
 
 def test_the_last_entry_is_on_the_latest_page_that_holds_it() -> None:
@@ -167,5 +171,15 @@ def test_the_last_entry_is_on_the_latest_page_that_holds_it() -> None:
     b.series(source, listed, dates)
     again = b.series(source, listed, dates[-12:])  # the last year printed again on a later page
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
-    (gap,) = gaps.find(b.pages)
+    (gap,) = gaps.find(b.pages, rules)
     assert gap.last_page_id == again[-1].page_id
+
+
+def test_the_thresholds_come_from_the_rules_not_the_code() -> None:
+    """A series that stops two months before the end is a gap only where the rules say two months is enough."""
+    _, source, listed, other = keys(LAUNCH)
+    b = Bundle()
+    b.series(source, listed, months(dt.date(2021, 1, 1), dt.date(2024, 10, 1)))
+    b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
+    assert gaps.find(b.pages, replace(rules, gap_min_months=3)) == []
+    assert len(gaps.find(b.pages, replace(rules, gap_min_months=2))) == 1

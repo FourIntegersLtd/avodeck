@@ -144,6 +144,33 @@ async def test_the_draft_uses_the_pack_wording_and_lists_open_items_and_clearer_
     assert not h.bedrock.requests, "the draft called a model"
 
 
+async def test_the_draft_carries_the_packs_notes_for_set_aside_and_foreign_pages(
+    world: dict[str, Any], admin: psycopg.Connection
+) -> None:
+    h: Harness = world["h"]
+    pack = world["pack"]
+    set_aside, foreign = (
+        admin.execute(
+            "select id from app.pages where case_id = %s and bundle_page_no = %s", (h.case_id, n)
+        ).fetchone()[0]  # type: ignore[index]
+        for n in (1, 3)
+    )
+    admin.execute(
+        "insert into app.page_quarantines (case_id, page_id, reason, status) values (%s, %s, 'identifiers_differ',"
+        " 'confirmed')",
+        (h.case_id, set_aside),
+    )
+    admin.execute("update app.pages set quarantined = true where id = %s", (set_aside,))
+    admin.execute("update app.pages set language = 'qq' where id = %s", (foreign,))
+    body = (await h.client.post(draft_path(h), json={})).json()["body"]
+    note, translation = pack.quarantine_note(pages="1"), pack.translation_request(pages="3")
+    assert note in body and translation in body
+    assert body.index(note) < body.index(translation)
+    assert body.rsplit("\n\n", 1)[0].endswith(translation), "the notes come just before the sign-off"
+    plain = (await h.client.post(draft_path(h), json={})).json()
+    assert plain["translation_page_nos"] == [3]
+
+
 async def test_the_draft_holds_no_name_date_of_birth_or_identifier(world: dict[str, Any]) -> None:
     h: Harness = world["h"]
     draft = (await h.client.post(draft_path(h), json={})).json()
