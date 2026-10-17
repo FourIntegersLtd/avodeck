@@ -15,9 +15,11 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, register_
 from app.features.pipeline import repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
+    PURGE_QUARANTINED,
     REPROCESS_CASE,
     SCAN_DOCUMENT,
     process_bundle,
+    purge_quarantined,
     queue_pages,
     reprocess_case,
     scan_document,
@@ -31,6 +33,7 @@ def register(registry: jobs.JobRegistry) -> None:
     registry.kind(PROCESS_BUNDLE)(process_bundle)
     registry.kind(PROCESS_PAGES)(process_bundle)
     registry.kind(REPROCESS_CASE)(reprocess_case)
+    registry.schedule(PURGE_QUARANTINED)(purge_quarantined)
 
 
 def mount_on(app: FastAPI) -> None:

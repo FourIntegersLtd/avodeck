@@ -773,11 +773,23 @@ async def log_request(
     body: bytes,
     follow_up_on: dt.date | None,
     person_id: uuid.UUID,
+    quarantined_page_ids: list[uuid.UUID] | None = None,
 ) -> None:
     await conn.execute(
         "insert into app.instructing_party_requests (id, case_id, missing_item_ids, page_ids, subject, body_text,"
-        " sent_via, follow_up_on, created_by) values (%s, %s, %s, %s, %s, %s, 'mailto', %s, %s)",
-        (request_id, case_id, missing_item_ids, page_ids, subject, body, follow_up_on, person_id),
+        " sent_via, follow_up_on, created_by, quarantined_page_ids)"
+        " values (%s, %s, %s, %s, %s, %s, 'mailto', %s, %s, %s)",
+        (
+            request_id,
+            case_id,
+            missing_item_ids,
+            page_ids,
+            subject,
+            body,
+            follow_up_on,
+            person_id,
+            quarantined_page_ids or [],
+        ),
     )
 
 
@@ -891,9 +903,10 @@ _QUARANTINE = (
 
 
 async def quarantines(conn: AsyncConnection, case_id: uuid.UUID) -> list[Quarantine]:
-    """The case's open suggestions and confirmed quarantines, in page order."""
+    """The case's open suggestions and confirmed quarantines (deleted or not), in page order."""
     cur = await conn.execute(
-        _QUARANTINE + " where q.case_id = %s and q.status in ('suggested', 'confirmed') order by p.bundle_page_no",
+        _QUARANTINE + " where q.case_id = %s and q.status in ('suggested', 'confirmed', 'purged')"
+        " order by p.bundle_page_no",
         (case_id,),
     )
     return [Quarantine(*r) for r in await cur.fetchall()]
@@ -983,3 +996,45 @@ async def reset_undone(conn: AsyncConnection, case_id: uuid.UUID) -> None:
         " where q.page_id = a.page_id and a.case_id = %s and q.status = 'undone' and q.closed_at > a.extracted_at",
         (case_id,),
     )
+
+
+async def count_quarantined(conn: AsyncConnection, case_id: uuid.UUID, page_ids: list[uuid.UUID]) -> int:
+    """How many of `page_ids` are the case's confirmed (or already deleted) quarantines."""
+    cur = await conn.execute(
+        "select count(distinct page_id) from app.page_quarantines"
+        " where case_id = %s and page_id = any(%s) and status in ('confirmed', 'purged')",
+        (case_id, page_ids),
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def was_purged(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> bool:
+    cur = await conn.execute(
+        "select 1 from app.page_quarantines where case_id = %s and page_id = %s and status = 'purged'",
+        (case_id, page_id),
+    )
+    return await cur.fetchone() is not None
+
+
+@dataclass(frozen=True)
+class PurgeCandidate:
+    quarantine_id: uuid.UUID
+    case_id: uuid.UUID
+    page_id: uuid.UUID
+    codes: dict[str, str]
+    confirmed_on: dt.date
+    told: bool
+
+
+async def quarantines_to_purge(conn: AsyncConnection, run_date: dt.date) -> list[PurgeCandidate]:
+    """Every confirmed quarantine, across cases (the worker's daily schedule only)."""
+    cur = await conn.execute("select * from app.quarantines_to_purge(%s)", (run_date,))
+    return [
+        PurgeCandidate(r[0], r[1], r[2], {"jurisdiction": r[3], "case_type": r[4], "specialty": r[5]}, r[6], bool(r[7]))
+        for r in await cur.fetchall()
+    ]
+
+
+async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID) -> None:
+    await conn.execute("select app.purge_quarantined_page(%s)", (quarantine_id,))

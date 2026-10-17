@@ -22,6 +22,7 @@ import asyncio
 import json
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from datetime import date, timedelta
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -43,6 +44,7 @@ from app.features.pipeline.words import assess, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
+PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
 CONCURRENCY = 3  # pages read or sent to a model at once
 STEPS = ("split", "ocr", "sort", "duplicates", "missing")  # the steps the Preparing screen shows
 READY = "bundle_ready"  # the notification kind sent when new pages are ready
@@ -566,3 +568,17 @@ async def queue_pages(conn: AsyncConnection, case_id: uuid.UUID, page_ids: objec
     from app.features.pipeline.wiring import registry
 
     return await registry().enqueue(conn, case_id, PROCESS_PAGES)
+
+
+async def purge_quarantined(conn: AsyncConnection, run_date: date) -> None:
+    """Deletes the image and text of each confirmed quarantine that is due by `run_date`: the
+    instructing party has been told, or the pack's `quarantine_purge_days` have passed since it was
+    confirmed. Files go first, then the rows, in one transaction, so a failed run is simply run
+    again."""
+    services = current()
+    for q in await repo.quarantines_to_purge(conn, run_date):
+        days = services.packs.for_case(q.codes).quarantine_purge_days
+        if not (q.told or q.confirmed_on + timedelta(days=days) <= run_date):
+            continue
+        await services.storage.delete(await services.storage.list(paths.page_prefix(q.case_id, q.page_id)))
+        await repo.purge_quarantined_page(conn, q.quarantine_id)

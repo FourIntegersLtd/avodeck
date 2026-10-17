@@ -144,6 +144,7 @@ class RequestSent(BaseModel):
     body: str = Field(min_length=1, max_length=20000)
     missing_item_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
     clearer_copy_page_ids: list[uuid.UUID] = Field(default_factory=list, max_length=5000)
+    quarantined_page_ids: list[uuid.UUID] = Field(default_factory=list, max_length=5000)  # pages it tells them about
     follow_up_on: dt.date | None = None
 
 

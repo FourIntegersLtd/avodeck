@@ -297,7 +297,7 @@ async def bundle_summary(
         documents=[_document(d) for d in docs],
         versions=[BundleVersion(**v) for v in repo.versions_of(docs)],
         quarantine_suggestions=[_quarantine(q) for q in held if q.status == "suggested"],
-        quarantined=[_quarantine(q) for q in held if q.status == "confirmed"],
+        quarantined=[_quarantine(q) for q in held if q.status in ("confirmed", "purged")],
     )
 
 
@@ -417,6 +417,9 @@ async def log_request(
         raise _not_found()
     if await repo.count_known(conn, "pages", case_id, pages) != len(pages):
         raise _not_found()
+    told = list(dict.fromkeys(body.quarantined_page_ids))
+    if await repo.count_quarantined(conn, case_id, told) != len(told):
+        raise _not_found()
     request_id = uuid.uuid4()
     subject = await crypto.encrypt(
         conn, case_id, body.subject.encode(), purpose=paths.request_subject_purpose(request_id)
@@ -432,6 +435,7 @@ async def log_request(
         body=text,
         follow_up_on=body.follow_up_on,
         person_id=scope.person_id,
+        quarantined_page_ids=told,
     )
     await repo.mark_requested(conn, case_id, items, scope.person_id)
     await audit.record(
@@ -522,6 +526,8 @@ async def release_page(
         raise ApiError("forbidden", "You cannot do that on this case.", 403)
     live = await repo.live_quarantine(conn, case_id, page_id)
     if live is None:
+        if await repo.was_purged(conn, case_id, page_id):
+            raise ApiError("conflict", "This page's image and text have been deleted, so it cannot be put back.", 409)
         raise _not_found()
     status = await repo.close_quarantine(conn, live, scope.person_id)
     job_id = None
