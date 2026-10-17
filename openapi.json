@@ -24,6 +24,62 @@
         "title": "Addition",
         "type": "object"
       },
+      "Answer": {
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "enum": [
+              "yes",
+              "no"
+            ],
+            "title": "Answer",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "key": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "answer"
+        ],
+        "title": "Answer",
+        "type": "object"
+      },
+      "AnswersIn": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/Answer"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "answers"
+        ],
+        "title": "AnswersIn",
+        "type": "object"
+      },
       "ApiError": {
         "properties": {
           "error": {
@@ -51,6 +107,116 @@
           "message"
         ],
         "title": "ApiErrorDetail",
+        "type": "object"
+      },
+      "AssumptionOut": {
+        "properties": {
+          "confirmed_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Text"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instruction_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction Version Id"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "source_word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Word Ids",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "instruction_version_id",
+          "number",
+          "text_verbatim",
+          "confirmed_text",
+          "source_word_ids",
+          "para_ref",
+          "status",
+          "version"
+        ],
+        "title": "AssumptionOut",
+        "type": "object"
+      },
+      "AssumptionUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 3000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "title": "AssumptionUpdate",
         "type": "object"
       },
       "Balance": {
@@ -931,6 +1097,224 @@
         "title": "ConfirmationSent",
         "type": "object"
       },
+      "Confirmed": {
+        "properties": {
+          "assumptions": {
+            "title": "Assumptions",
+            "type": "integer"
+          },
+          "instruction_version_id": {
+            "format": "uuid",
+            "title": "Instruction Version Id",
+            "type": "string"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "questions": {
+            "title": "Questions",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "instruction_version_id",
+          "locked",
+          "questions",
+          "assumptions"
+        ],
+        "title": "Confirmed",
+        "type": "object"
+      },
+      "ConflictQuestion": {
+        "properties": {
+          "answer": {
+            "anyOf": [
+              {
+                "enum": [
+                  "yes",
+                  "no"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "detail_required": {
+            "title": "Detail Required",
+            "type": "boolean"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "text": {
+            "description": "The pack's question, with its words filled in.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "text",
+          "detail_required",
+          "answer",
+          "detail"
+        ],
+        "title": "ConflictQuestion",
+        "type": "object"
+      },
+      "Conflicts": {
+        "properties": {
+          "complete": {
+            "title": "Complete",
+            "type": "boolean"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/Coverage"
+          },
+          "declared_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Declared At"
+          },
+          "outcome": {
+            "anyOf": [
+              {
+                "enum": [
+                  "none",
+                  "disclosed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outcome"
+          },
+          "paragraph": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The conflicts paragraph of the report, once every question is answered.",
+            "title": "Paragraph"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/ConflictQuestion"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "warnings": {
+            "description": "i18n keys.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions",
+          "complete",
+          "paragraph",
+          "coverage",
+          "warnings",
+          "declared_at",
+          "outcome"
+        ],
+        "title": "Conflicts",
+        "type": "object"
+      },
+      "Coverage": {
+        "properties": {
+          "period_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "status": {
+            "enum": [
+              "covered",
+              "partial",
+              "none",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "period_start",
+          "period_end"
+        ],
+        "title": "Coverage",
+        "type": "object"
+      },
+      "DecisionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "decision": {
+            "enum": [
+              "accepted",
+              "dismissed"
+            ],
+            "title": "Decision",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision"
+        ],
+        "title": "DecisionIn",
+        "type": "object"
+      },
       "Declaration": {
         "properties": {
           "additions": {
@@ -988,6 +1372,33 @@
           "additions"
         ],
         "title": "DeclarationUpdate",
+        "type": "object"
+      },
+      "Declared": {
+        "properties": {
+          "declared_at": {
+            "format": "date-time",
+            "title": "Declared At",
+            "type": "string"
+          },
+          "note": {
+            "$ref": "#/components/schemas/NoteDraft"
+          },
+          "outcome": {
+            "enum": [
+              "none",
+              "disclosed"
+            ],
+            "title": "Outcome",
+            "type": "string"
+          }
+        },
+        "required": [
+          "declared_at",
+          "outcome",
+          "note"
+        ],
+        "title": "Declared",
         "type": "object"
       },
       "Device": {
@@ -1674,6 +2085,19 @@
             "title": "Id",
             "type": "string"
           },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The job reading the letter for questions.",
+            "title": "Job Id"
+          },
           "kind": {
             "title": "Kind",
             "type": "string"
@@ -2321,6 +2745,149 @@
         "title": "NeedsYouItem",
         "type": "object"
       },
+      "NoteDraft": {
+        "properties": {
+          "body_key": {
+            "title": "Body Key",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NoteItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "joint": {
+            "title": "Joint",
+            "type": "boolean"
+          },
+          "recipients": {
+            "items": {
+              "$ref": "#/components/schemas/Recipient"
+            },
+            "title": "Recipients",
+            "type": "array"
+          },
+          "subject_key": {
+            "title": "Subject Key",
+            "type": "string"
+          },
+          "topic": {
+            "enum": [
+              "outside_expertise",
+              "questions_reopened",
+              "conflict_declared",
+              "withdrawal"
+            ],
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "subject_key",
+          "body_key",
+          "joint",
+          "recipients",
+          "items"
+        ],
+        "title": "NoteDraft",
+        "type": "object"
+      },
+      "NoteItem": {
+        "properties": {
+          "label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "i18n key for an item that is not a question.",
+            "title": "Label Key"
+          },
+          "number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Number"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The question's exact words, or the expert's own detail.",
+            "title": "Text"
+          }
+        },
+        "title": "NoteItem",
+        "type": "object"
+      },
+      "NoteRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "question_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 60,
+            "title": "Question Ids",
+            "type": "array"
+          },
+          "topic": {
+            "enum": [
+              "outside_expertise",
+              "questions_reopened",
+              "conflict_declared",
+              "withdrawal"
+            ],
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic"
+        ],
+        "title": "NoteRequest",
+        "type": "object"
+      },
       "Notification": {
         "properties": {
           "case_id": {
@@ -2874,6 +3441,48 @@
         "title": "Person",
         "type": "object"
       },
+      "Prefill": {
+        "properties": {
+          "reading": {
+            "description": "The letter is still being read for suggestions.",
+            "title": "Reading",
+            "type": "boolean"
+          },
+          "rejected": {
+            "description": "Suggestions refused by the last run because the letter did not say them.",
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/Suggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "suggestions",
+          "reading",
+          "rejected"
+        ],
+        "title": "Prefill",
+        "type": "object"
+      },
+      "PrefillStarted": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "PrefillStarted",
+        "type": "object"
+      },
       "Profile": {
         "properties": {
           "currency": {
@@ -3108,6 +3717,272 @@
           }
         },
         "title": "ProfileUpdate",
+        "type": "object"
+      },
+      "QuestionOut": {
+        "properties": {
+          "confirmed_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Text"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instruction_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction Version Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "outside_expertise": {
+            "title": "Outside Expertise",
+            "type": "boolean"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "source_word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Word Ids",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "instruction_version_id",
+          "number",
+          "text_verbatim",
+          "confirmed_text",
+          "source_word_ids",
+          "para_ref",
+          "kind",
+          "outside_expertise",
+          "status",
+          "version"
+        ],
+        "title": "QuestionOut",
+        "type": "object"
+      },
+      "QuestionUpdate": {
+        "additionalProperties": false,
+        "description": "`text` is the expert's own wording (the exact words stay); `confirm` accepts the exact words.",
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "outside_expertise": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outside Expertise"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 3000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "title": "QuestionUpdate",
+        "type": "object"
+      },
+      "Questions": {
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/AssumptionOut"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "instruction_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction Version Id"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "reading": {
+            "description": "The latest letter is still being read.",
+            "title": "Reading",
+            "type": "boolean"
+          },
+          "rejected": {
+            "description": "Suggestions refused because their words were not in the letter.",
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "reopened": {
+            "description": "A new letter added a question to a confirmed set; confirm again.",
+            "title": "Reopened",
+            "type": "boolean"
+          },
+          "version_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version No"
+          },
+          "warnings": {
+            "description": "i18n keys.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instruction_version_id",
+          "version_no",
+          "locked",
+          "reading",
+          "reopened",
+          "rejected",
+          "warnings",
+          "questions",
+          "assumptions"
+        ],
+        "title": "Questions",
+        "type": "object"
+      },
+      "Recipient": {
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "firm": {
+            "title": "Firm",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "type_key": {
+            "title": "Type Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type_key",
+          "name",
+          "firm",
+          "email"
+        ],
+        "title": "Recipient",
         "type": "object"
       },
       "Recover": {
@@ -3525,6 +4400,75 @@
           "identifier"
         ],
         "title": "SubjectKeyIn",
+        "type": "object"
+      },
+      "Suggestion": {
+        "properties": {
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "field": {
+            "enum": [
+              "instructing_party_name",
+              "instructing_party_type",
+              "party_role",
+              "due_date",
+              "court_track"
+            ],
+            "title": "Field",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instruction_version_id": {
+            "format": "uuid",
+            "title": "Instruction Version Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "suggested",
+              "accepted",
+              "dismissed"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "description": "Words from the letter, a pack key or a date (YYYY-MM-DD).",
+            "title": "Value",
+            "type": "string"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "instruction_version_id",
+          "field",
+          "value",
+          "word_ids",
+          "status",
+          "decided_at"
+        ],
+        "title": "Suggestion",
         "type": "object"
       },
       "Template": {
@@ -3953,6 +4897,46 @@
           "recovery_codes"
         ],
         "title": "Verified",
+        "type": "object"
+      },
+      "WithdrawIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "WithdrawIn",
+        "type": "object"
+      },
+      "Withdrawn": {
+        "properties": {
+          "deadlines_cancelled": {
+            "description": "Deadlines stop through the case status; nothing is cancelled here.",
+            "title": "Deadlines Cancelled",
+            "type": "integer"
+          },
+          "note": {
+            "$ref": "#/components/schemas/NoteDraft"
+          },
+          "status": {
+            "const": "withdrawn",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "deadlines_cancelled",
+          "note"
+        ],
+        "title": "Withdrawn",
         "type": "object"
       },
       "Wording": {
@@ -4616,6 +5600,262 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/assumptions/{assumption_id}": {
+      "patch": {
+        "operationId": "update_assumption_v1_cases__case_id__assumptions__assumption_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "assumption_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Assumption Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssumptionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssumptionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Update Assumption",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/conflicts": {
+      "get": {
+        "operationId": "get_conflicts_v1_cases__case_id__conflicts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conflicts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Conflicts",
+        "tags": [
+          "setup"
+        ]
+      },
+      "put": {
+        "operationId": "put_conflicts_v1_cases__case_id__conflicts_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnswersIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Conflicts"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Put Conflicts",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/conflicts/declare": {
+      "post": {
+        "operationId": "declare_v1_cases__case_id__conflicts_declare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Declared"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Declare",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/documents/{document_id}/file": {
       "get": {
         "operationId": "download_document_v1_cases__case_id__documents__document_id__file_get",
@@ -4923,6 +6163,69 @@
           }
         },
         "summary": "Update Instructing Party",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/instructing-party-notes/draft": {
+      "post": {
+        "operationId": "draft_note_v1_cases__case_id__instructing_party_notes_draft_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteDraft"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Draft Note",
         "tags": [
           "setup"
         ]
@@ -5852,6 +7155,378 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/prefill": {
+      "get": {
+        "operationId": "get_prefill_v1_cases__case_id__prefill_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prefill"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Prefill",
+        "tags": [
+          "setup"
+        ]
+      },
+      "post": {
+        "operationId": "start_prefill_v1_cases__case_id__prefill_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrefillStarted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Start Prefill",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/prefill/{suggestion_id}": {
+      "patch": {
+        "operationId": "decide_prefill_v1_cases__case_id__prefill__suggestion_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "suggestion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Suggestion Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecisionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Suggestion"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Decide Prefill",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions": {
+      "get": {
+        "operationId": "list_questions_v1_cases__case_id__questions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Questions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Questions",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/confirm-all": {
+      "post": {
+        "operationId": "confirm_all_v1_cases__case_id__questions_confirm_all_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Confirmed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Confirm All",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/{question_id}": {
+      "patch": {
+        "operationId": "update_question_v1_cases__case_id__questions__question_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuestionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Update Question",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/resume": {
       "post": {
         "operationId": "resume_case_v1_cases__case_id__resume_post",
@@ -6138,6 +7813,69 @@
         "summary": "Start Upload",
         "tags": [
           "uploads"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/withdraw": {
+      "post": {
+        "operationId": "withdraw_v1_cases__case_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WithdrawIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Withdrawn"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Withdraw",
+        "tags": [
+          "setup"
         ]
       }
     },
