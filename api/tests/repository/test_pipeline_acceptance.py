@@ -18,8 +18,21 @@ import pytest
 
 from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
+from app.core.packs import default_library
 from app.core.storage import SupabaseStorage
-from tests.repository.test_pipeline_support import BUNDLE, Harness, expected, harness, recorded_book
+from tests.repository.test_pipeline_support import (
+    BUNDLE,
+    Harness,
+    expected,
+    facts_of,
+    from_struck_text,
+    harness,
+    identifier_leaked,
+    page_words,
+    precision,
+    recorded_book,
+    t07b_requests,
+)
 from tests.support.files import local_storage
 from tests.support.packs import LAUNCH
 from tests.support.seed import Seed
@@ -33,11 +46,13 @@ pytestmark = [
 
 @pytest.fixture(scope="module")
 def anyio_backend() -> str:
+    """Module scope, so the bundle is processed once; every async fixture here asks for it, so the
+    plugin runs them even for the plain tests below."""
     return "asyncio"
 
 
 @pytest.fixture(scope="module")
-async def bundle_storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def bundle_storage(anyio_backend: str, auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -46,7 +61,7 @@ async def bundle_storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStor
 
 
 @pytest.fixture(scope="module")
-async def bundle_api_db(api_dsn: str) -> AsyncIterator[Database]:
+async def bundle_api_db(anyio_backend: str, api_dsn: str) -> AsyncIterator[Database]:
     database = Database(api_dsn, max_size=4)
     await database.open()
     try:
@@ -57,6 +72,7 @@ async def bundle_api_db(api_dsn: str) -> AsyncIterator[Database]:
 
 @pytest.fixture(scope="module")
 async def bundle(
+    anyio_backend: str,
     admin: psycopg.Connection,
     bundle_api_db: Database,
     worker_dsn: str,
@@ -118,3 +134,58 @@ def test_low_confidence_pages_are_queued_as_unreadable(pages: dict[int, dict[str
     wanted = set(expected("unreadable.json"))
     found = {n for n, p in pages.items() if p["unreadable"]}
     assert found == wanted, f"missing {sorted(wanted - found)}, extra {sorted(found - wanted)}"
+
+
+def test_no_identifier_reaches_the_model(bundle: Harness) -> None:
+    sent = t07b_requests(bundle)
+    assert len({r.subject for r in sent}) == 900, "every page is sent for extraction once"
+    recognise = default_library().combine(*LAUNCH.codes).identifier_recognisers()
+    assert not identifier_leaked([r.text for r in sent], expected("case.json"), recognise)
+
+
+def test_source_types_are_right_on_at_least_98_percent_of_pages(pages: dict[int, dict[str, Any]]) -> None:
+    wanted = {int(r["page"]): r["source_type"] for r in expected("sources.json")}
+    right = sum(1 for n, source in wanted.items() if pages[n]["source_type"] == source)
+    assert right / len(wanted) >= 0.98, f"{right} of {len(wanted)} pages have the right source"
+
+
+def test_fact_precision_is_at_least_095(bundle: Harness, pages: dict[int, dict[str, Any]]) -> None:
+    copies = {int(d["page"]) for d in expected("duplicates.json")}
+    found = [(int(f["bundle_page_no"]), f["kind"], f["value"]) for f in facts_of(bundle)]
+    found = [f for f in found if f[0] not in copies]
+    wanted = [(int(f["page"]), f["kind"], f["value"]) for f in expected("facts.json")]
+    score, count = precision(found, wanted)
+    assert count >= 0.9 * len(wanted), f"only {count} facts found of {len(wanted)} expected"
+    assert score >= 0.95, f"precision {score:.3f} over {count} facts"
+
+
+async def test_no_fact_comes_from_crossed_out_text(bundle: Harness, pages: dict[int, dict[str, Any]]) -> None:
+    struck_text: dict[int, list[str]] = {}
+    for row in expected("struck_out.json"):
+        struck_text.setdefault(int(row["page"]), []).extend(row["struck_out"])
+    bad: set[int] = set()
+    for fact in facts_of(bundle):
+        n = int(fact["bundle_page_no"])
+        if from_struck_text(fact["value"] or "", struck_text.get(n, [])):
+            bad.add(n)
+    for n in sorted({int(f["bundle_page_no"]) for f in facts_of(bundle)} & set(struck_text)):
+        words = await page_words(bundle, pages[n]["id"])
+        struck = {w for w, (_, s) in words.items() if s}
+        if any(set(f["word_ids"]) & struck for f in facts_of(bundle) if int(f["bundle_page_no"]) == n):
+            bad.add(n)
+    assert not bad, f"facts from crossed-out text on pages {sorted(bad)}"
+
+
+def test_planted_wrong_answers_are_retried_and_then_need_a_person(
+    bundle: Harness, pages: dict[int, dict[str, Any]]
+) -> None:
+    rows: dict[int, bool] = dict(
+        bundle.admin.execute(
+            "select p.bundle_page_no, a.needs_human from app.page_analysis a join app.pages p on p.id = a.page_id"
+            " where a.case_id = %s",
+            (bundle.case_id,),
+        ).fetchall()
+    )
+    assert rows[701] is True and rows[113] is False
+    needing = sorted(n for n, flag in rows.items() if flag)
+    assert len(needing) <= 9, f"pages needing a person: {needing}"

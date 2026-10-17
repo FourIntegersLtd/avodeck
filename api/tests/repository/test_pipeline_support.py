@@ -375,3 +375,76 @@ def precision(found: Iterable[tuple[int, str, str]], wanted: Iterable[tuple[int,
             pool[key] -= 1
             hits += 1
     return (hits / len(found) if found else 0.0), len(found)
+
+
+# --- extraction (T-07b) ----------------------------------------------------------------------------
+
+
+def t07b_requests(h: Harness) -> list[ModelRequest]:
+    return [r for r in h.bedrock.requests if r.task_id == "T-07b"]
+
+
+def facts_of(h: Harness) -> list[dict[str, Any]]:
+    """The case's facts with their page numbers."""
+    cur = h.admin.cursor(row_factory=psycopg.rows.dict_row)
+    return cur.execute(
+        "select f.*, p.bundle_page_no from app.facts f join app.pages p on p.id = f.page_id"
+        " where f.case_id = %s order by p.bundle_page_no, f.created_at",
+        (h.case_id,),
+    ).fetchall()
+
+
+async def page_words(h: Harness, page_id: uuid.UUID) -> dict[str, tuple[str, bool]]:
+    """A page's words (opened) with whether each is struck through, in reading order."""
+    from app.features.pipeline.paths import word_purpose
+
+    rows = h.admin.execute(
+        "select word_id, text, struck from app.ocr_words where page_id = %s order by n", (page_id,)
+    ).fetchall()
+    out: dict[str, tuple[str, bool]] = {}
+    for word_id, sealed, struck in rows:
+        out[word_id] = ((await h.decrypt(bytes(sealed), word_purpose(page_id, word_id))).decode(), bool(struck))
+    return out
+
+
+def from_struck_text(value: str, phrases: Iterable[str]) -> bool:
+    """Whether a value is (part of) a crossed-out phrase, or holds one."""
+    found = atoms(value)
+    for phrase in phrases:
+        crossed = atoms(phrase)
+        if not found or not crossed:
+            continue
+        small, large = sorted((found, crossed), key=len)
+        if any(large[i : i + len(small)] == small for i in range(len(large) - len(small) + 1)):
+            return True
+    return False
+
+
+def identifier_leaked(texts: Iterable[str], case: Mapping[str, Any], recognise: Any) -> bool:
+    """Whether any text sent to a model holds a case name, the case's identifier numbers or postcode,
+    or anything the pack's recognisers find. A bool, so nothing is printed."""
+    singles = [str(case[k]) for k in ("nhs_number", "postcode") if case.get(k)]
+    for text in texts:
+        folded = text.casefold()
+        squashed = "".join(folded.split())
+        if any(name.casefold() in folded for name in case.get("case_names", [])):
+            return True
+        if any("".join(s.casefold().split()) in squashed for s in singles):
+            return True
+        if recognise(text):
+            return True
+    return False
+
+
+def schema_enums(schema: Any) -> list[set[str]]:
+    """Every `enum` list (and `const` value) in a JSON schema, as sets."""
+    found: list[set[str]] = []
+    if isinstance(schema, Mapping):
+        if isinstance(schema.get("enum"), list):
+            found.append({str(v) for v in schema["enum"] if v is not None})
+        for value in schema.values():
+            found.extend(schema_enums(value))
+    elif isinstance(schema, list):
+        for value in schema:
+            found.extend(schema_enums(value))
+    return found
