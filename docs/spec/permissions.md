@@ -43,6 +43,15 @@ A person's rights on a case are the **union** of their case role and the adminis
 
 After the named expert leaves the organisation, they keep every named-expert action on their named cases; the organisation keeps its "not on case" column.
 
+## Checks the database repeats (rule 9, ADR 0013)
+
+Row-level security lets a person update a row; triggers then check each change against the action it is, for the person `app.person_id` names:
+- `report_versions.status`: → locked needs `report.sign`, → served `report.serve`, → withdrawn `report.withdraw`; any other edit `report.build`.
+- `cases.named_expert_id`: `case.reassign_named_expert`, and only while the case has never been served (no served or withdrawn report version, status not served or settled).
+- `cases.retention_policy`, `delete_after`, `on_hold`: `case.retention`.
+- `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`; any other move and every other column `case.edit_setup`.
+- `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one.
+
 ## Organisation actions
 
 | Action | Owner | Admin | Expert | Assistant | Viewer |

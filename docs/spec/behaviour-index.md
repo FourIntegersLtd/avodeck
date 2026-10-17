@@ -15,6 +15,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `signatures` | C | The expert | Many; latest used | New image is a new row; snapshot at signing | With the person |
 | `sessions` | Foundation | The person (revoke) | One per device | Expire on inactivity | All revoked on password reset or closure |
 | `mfa_recovery_codes` | Foundation | The person (regenerate) | 10 at a time | Each used once; regenerate replaces all | Deleted on closure |
+| `mfa_attempts` | Foundation | System (verify and recovery routes) | One per person | Failures counted in a 15-minute window; reset on success; last accepted code kept 90 seconds | Deleted on closure |
 | `email_changes` | Foundation | The person (step-up) | One pending per person; a new request cancels the old | Waiting → completed when both addresses confirm; links expire after a day | Deleted on closure |
 | `organisations` | Foundation (O for teams) | Owner/admin | Personal: one per person; teams: any | Closure only when no open cases | Served cases outlive closure until retention |
 | `memberships` | Foundation (O) | Owner/admin; the person can leave | Many per person; one active per person per org | active → ended; never deleted | Ending removes org access except named cases |
@@ -86,6 +87,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `deletion_ledger` | H | System | One per deleted case | Append only; replayed after restore | Kept |
 | `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
 | `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
+| `job_kind_actions` | Foundation | Migrations only | One per job kind | Read-only reference | Kept (no patient data) |
 | `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
 | `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
 | `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open; daily sweep expires unfinished uploads after 7 days and deletes their chunks | Case deletion |

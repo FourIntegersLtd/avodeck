@@ -216,6 +216,7 @@ Who signs in, and the professional profile of those who give evidence.
 | `signatures` | The expert's signature image. | expert_id, storage_path, method, created_at |
 | `sessions` | Each device a person is signed in on, so they can see and sign out devices. The cookie holds a random token; only its scrambled copy is kept, and Supabase Auth's tokens stay here, never in the browser. | person_id, token_hash, csrf_hash, device_label, aal, mfa_verified_at, created_at, last_seen_at, revoked_at, revoked_reason |
 | `mfa_recovery_codes` | One-time backup codes for when someone loses their phone (stored scrambled). | person_id, code_hash, used_at |
+| `mfa_attempts` | Wrong authenticator codes in the last 15 minutes (5 lock MFA for the rest of the window) and the last code accepted, so it cannot be used twice. | person_id, failures, window_started_at, last_code_hash, last_code_at |
 | `email_changes` | A change of sign-in email waiting for both the old and the new address to confirm (links last a day). | person_id, new_email, old_token_hash, new_token_hash, old_confirmed_at, new_confirmed_at, completed_at, cancelled_at, expires_at |
 
 ### 4.2 Organisations
@@ -358,12 +359,13 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
 | `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, code_version, error_code |
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
+| `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
 | `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, expires_at, completed_at |
 | `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, in_app, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
-| `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, fingerprint, status_code, response_body, created_at, expires_at |
+| `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, case_id, fingerprint, status_code, response_body (sealed), created_at, expires_at |
 | `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, person_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, outcome, at |
 | `transcripts` | Finished dictation text the expert kept (encrypted under the case's key). | case_id, person_id, context, text, duration_seconds |
 | `may_matter` | New records after serving that might affect an answer, for the expert to look at. | case_id, fact_id, question_id, why, seen_at |

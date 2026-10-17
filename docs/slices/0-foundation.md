@@ -176,7 +176,7 @@ Root checklist, plus: deployed to staging in London; a test expert can sign in w
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes).
+**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes), `mfa_attempts`, `job_kind_actions`.
 
 **Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, `GET /v1/jurisdictions`, `GET /v1/jurisdictions/{code}`, `GET /v1/cases/{case_id}/pack`, (The Stripe webhook moved to slice O, Phase 2.)
 

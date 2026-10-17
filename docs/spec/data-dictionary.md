@@ -92,6 +92,12 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | code_hash | A scrambled copy of a one-time backup code (the real code is only shown once) |
 | used_at | When the code was used (each works once) |
 
+### mfa_attempts
+| Field | In plain words |
+|---|---|
+| failures / window_started_at | How many wrong authenticator codes in the current 15 minutes (5 lock MFA until the window ends) |
+| last_code_hash / last_code_at | A scrambled copy of the last code accepted and when, so the same code cannot be used twice |
+
 ### email_changes
 | Field | In plain words |
 |---|---|
@@ -664,6 +670,11 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | step / pct / eta_seconds | Which step it is on (a short code), progress and time left |
 | code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed (a short code, never text) |
 
+### job_kind_actions
+| Field | In plain words |
+|---|---|
+| kind / action | A kind of background job and the case action a person needs to start it |
+
 ### job_steps
 | Field | In plain words |
 |---|---|
@@ -711,8 +722,9 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | person_id / key | Whose request and the key their app sent with it |
+| case_id | The case the request was about (a repeat on another case is refused; removed with the case) |
 | fingerprint | A checksum of the request, so the same key with a different request is refused |
-| status_code / response_body / response_headers | The first answer, returned again for a repeat; no patient text beyond what that answer held |
+| status_code / response_body / response_headers | The first answer (body sealed with the cell key), returned again for a repeat only after the route's access and step-up checks pass |
 | created_at / expires_at | When it was kept and when it is forgotten (24 hours) |
 
 ### ai_calls
