@@ -170,13 +170,15 @@ class StoredWord:
     sealed: bytes
     polygon: list[float]
     struck: bool
+    handwritten: bool = False
 
 
 async def words_of(conn: AsyncConnection, page_id: uuid.UUID) -> list[StoredWord]:
     cur = await conn.execute(
-        "select word_id, text, polygon, struck from app.ocr_words where page_id = %s order by n", (page_id,)
+        "select word_id, text, polygon, struck, handwritten from app.ocr_words where page_id = %s order by n",
+        (page_id,),
     )
-    return [StoredWord(r[0], bytes(r[1]), list(r[2]), bool(r[3])) for r in await cur.fetchall()]
+    return [StoredWord(r[0], bytes(r[1]), list(r[2]), bool(r[3]), bool(r[4])) for r in await cur.fetchall()]
 
 
 async def page_size(conn: AsyncConnection, page_id: uuid.UUID) -> tuple[float, float] | None:
@@ -243,3 +245,134 @@ async def store_extraction(
         " printed_dates = excluded.printed_dates, extracted_at = excluded.extracted_at, updated_at = now()",
         (page_id, case_id, sealed, needs_human, reason, model_id, printed_dates or []),
     )
+
+
+# Copies set aside (increment 5) -----------------------------------------------------------------
+
+
+async def pages_to_hash(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
+    """Pages with their words read and no picture or word hash yet."""
+    cur = await conn.execute(
+        "select a.page_id from app.page_analysis a join app.pages p on p.id = a.page_id"
+        " where a.case_id = %s and a.word_count is not null and a.phash is null order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [r[0] for r in await cur.fetchall()]
+
+
+async def store_hashes(
+    conn: AsyncConnection, page_id: uuid.UUID, picture: int, words: list[int], typed_words: int
+) -> None:
+    await conn.execute(
+        "update app.page_analysis set phash = %s, minhash = %s, typed_words = %s, updated_at = now()"
+        " where page_id = %s",
+        (picture, words, typed_words, page_id),
+    )
+
+
+@dataclass(frozen=True)
+class CopyState:
+    page_id: uuid.UUID
+    page_no: int
+    picture: int | None
+    words: list[int] | None
+    typed_words: int
+    checked: bool
+    copy_of: uuid.UUID | None
+    status: str | None
+
+
+async def copy_states(conn: AsyncConnection, case_id: uuid.UUID) -> list[CopyState]:
+    cur = await conn.execute(
+        "select p.id, p.bundle_page_no, a.phash, a.minhash, coalesce(a.typed_words, 0),"
+        " a.duplicate_checked_at is not null, p.duplicate_of_page_id, a.duplicate_status"
+        " from app.pages p join app.page_analysis a on a.page_id = p.id"
+        " where p.case_id = %s order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [
+        CopyState(r[0], r[1], r[2], list(r[3]) if r[3] is not None else None, r[4], r[5], r[6], r[7])
+        for r in await cur.fetchall()
+    ]
+
+
+async def set_aside(conn: AsyncConnection, copies: dict[uuid.UUID, uuid.UUID]) -> None:
+    """Each copy points at the page it copies; nothing on it is removed."""
+    for page_id, original in copies.items():
+        await conn.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (original, page_id))
+        await conn.execute(
+            "update app.page_analysis set duplicate_status = 'suggested', updated_at = now() where page_id = %s",
+            (page_id,),
+        )
+
+
+async def mark_checked(conn: AsyncConnection, page_ids: list[uuid.UUID]) -> None:
+    await conn.execute(
+        "update app.page_analysis set duplicate_checked_at = now(), updated_at = now()"
+        " where page_id = any(%s) and duplicate_checked_at is null",
+        (page_ids,),
+    )
+
+
+@dataclass(frozen=True)
+class Copy:
+    page_id: uuid.UUID
+    page_no: int
+    copy_of_page_id: uuid.UUID | None
+    copy_of_page_no: int | None
+    status: str
+    version: int
+
+
+_COPY = (
+    "select p.id, p.bundle_page_no, o.id, o.bundle_page_no, coalesce(a.duplicate_status, 'suggested'),"
+    " coalesce(a.duplicate_version, 0)"
+    " from app.pages p left join app.pages o on o.id = p.duplicate_of_page_id"
+    " left join app.page_analysis a on a.page_id = p.id"
+)
+
+
+async def copies(conn: AsyncConnection, case_id: uuid.UUID) -> list[Copy]:
+    cur = await conn.execute(
+        _COPY + " where p.case_id = %s and p.duplicate_of_page_id is not null order by p.bundle_page_no", (case_id,)
+    )
+    return [Copy(*r) for r in await cur.fetchall()]
+
+
+async def copy_review(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> Copy | None:
+    """The page's review state; a page never set aside has status `kept` or none (see `review_copy`)."""
+    cur = await conn.execute(
+        "select p.id, p.bundle_page_no, o.id, o.bundle_page_no, a.duplicate_status, coalesce(a.duplicate_version, 0)"
+        " from app.pages p left join app.pages o on o.id = p.duplicate_of_page_id"
+        " left join app.page_analysis a on a.page_id = p.id where p.id = %s and p.case_id = %s",
+        (page_id, case_id),
+    )
+    row = await cur.fetchone()
+    return Copy(row[0], row[1], row[2], row[3], row[4] or "", row[5]) if row else None
+
+
+async def review_copy(
+    conn: AsyncConnection, page_id: uuid.UUID, status: str, person_id: uuid.UUID, version: int
+) -> int | None:
+    """Record the review if `version` is still current; the new version, or None if it moved on."""
+    cur = await conn.execute(
+        "update app.page_analysis set duplicate_status = %s, duplicate_by = %s, duplicate_at = now(),"
+        " duplicate_version = duplicate_version + 1, updated_at = now()"
+        " where page_id = %s and duplicate_version = %s returning duplicate_version",
+        (status, person_id, page_id, version),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return None
+    if status == "kept":
+        await conn.execute("update app.pages set duplicate_of_page_id = null where id = %s", (page_id,))
+    return int(row[0])
+
+
+async def page_id_of(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
+    cur = await conn.execute(
+        "select id from app.pages where case_id = %s and bundle_page_no = %s and image_path is not null",
+        (case_id, page_no),
+    )
+    row = await cur.fetchone()
+    return row[0] if row else None

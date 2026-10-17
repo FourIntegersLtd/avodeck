@@ -8,7 +8,9 @@
   model (T-07b) with identifiers stripped. Facts not found in their cited words are refused and the
   page is asked once more, then marked `needs_human`; facts citing crossed-out words are dropped.
   Each fact's date is the printed date the model points at, read by code in the pack's date order;
-  one that is not printed in full is marked `please_check` and never guessed.
+  one that is not printed in full is marked `please_check` and never guessed. Then each new page is
+  compared with the case's pages (picture and word hashes, then word by word) and a copy is set
+  aside pointing at the earliest page it copies; it keeps its number, pictures and facts (F13).
 
 Every step checks what already exists, so a retried or repeated job changes nothing. Job rows and
 logs carry numbers and step codes only (rule 6).
@@ -34,14 +36,14 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import dates, extract, paths, repo
+from app.features.pipeline import dates, duplicates, extract, paths, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 CONCURRENCY = 3  # pages read or sent to a model at once
-STEPS = ("split", "ocr", "duplicates", "extract", "sort", "gaps", "missing")
+STEPS = ("split", "ocr", "extract", "sort", "duplicates", "gaps", "missing")
 
 
 async def _noop(conn: AsyncConnection) -> None:
@@ -297,7 +299,72 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> None:
     await bounded(waiting, one)
 
 
-STAGES: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {"extract": _extract}
+async def _compared_words(
+    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, page_id: uuid.UUID
+) -> list[duplicates.Word]:
+    stored = await repo.words_of(conn, page_id)
+    texts = [
+        (
+            await services.crypto.decrypt(conn, case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id))
+        ).decode()
+        for w in stored
+    ]
+    return duplicates.tokens([(t, w.handwritten, w.struck) for t, w in zip(texts, stored, strict=True)])
+
+
+async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
+    async with ctx.transaction() as conn:
+        unhashed = await repo.pages_to_hash(conn, ctx.case_id)
+        pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+
+    async def hash_one(page_id: uuid.UUID) -> None:
+        async with ctx.transaction() as conn:
+            words = await _compared_words(conn, services, ctx.case_id, page_id)
+            path = paths.thumbnail_path(ctx.case_id, page_id)
+            thumbnail = await services.crypto.decrypt(conn, ctx.case_id, await services.storage.get(path), purpose=path)
+            typed = sum(1 for w in words if not w.handwritten)
+            await repo.store_hashes(
+                conn, page_id, duplicates.picture_hash(thumbnail), duplicates.word_hash(words), typed
+            )
+
+    await bounded(unhashed, hash_one)
+    async with ctx.transaction() as conn:
+        states = await repo.copy_states(conn, ctx.case_id)
+    new: set[object] = {s.page_id for s in states if not s.checked}
+    if not new:
+        return
+    signatures = [
+        duplicates.Signature(s.page_id, s.page_no, s.picture, s.words, s.typed_words)
+        for s in states
+        if s.picture is not None and s.words is not None
+    ]
+    pairs = duplicates.likely_pairs(signatures, new=new)
+    words: dict[object, list[duplicates.Word]] = {}
+
+    async def load(page_id: uuid.UUID) -> None:
+        async with ctx.transaction() as conn:
+            words[page_id] = await _compared_words(conn, services, ctx.case_id, page_id)
+
+    await bounded(sorted({p.page_id for pair in pairs for p in pair}, key=str), load)  # type: ignore[arg-type]
+    same = [
+        (a.page_id, b.page_id) for a, b in pairs if duplicates.same_content(words[a.page_id], words[b.page_id], pack)
+    ]
+    found = duplicates.originals(
+        same,
+        {s.page_id: s.page_no for s in states},
+        copy_of={s.page_id: s.copy_of for s in states},
+        new=new,
+        kept={s.page_id for s in states if s.status == "kept"},
+    )
+    async with ctx.transaction() as conn:
+        await repo.set_aside(conn, {uuid.UUID(str(k)): uuid.UUID(str(v)) for k, v in found.items()})
+        await repo.mark_checked(conn, [uuid.UUID(str(p)) for p in new])
+
+
+STAGES: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {
+    "extract": _extract,
+    "duplicates": _duplicates,
+}
 
 
 async def process_bundle(ctx: JobContext) -> None:
