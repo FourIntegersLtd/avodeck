@@ -1,0 +1,25 @@
+-- 0350 setup (slice C): a case link needs a right to the linked case too (rule 9; review finding 6).
+-- Adding a link checks `case.edit_setup` on the case, as before, and now also that the linked case is one
+-- the person can see (`case.view_metadata`) or one in the same organisation as the case. A case in another
+-- organisation that the person cannot see can never be linked, so no one learns of it through a link.
+
+set role app_migrator;
+
+create function app.cases_share_organisation(p_case uuid, p_other uuid) returns boolean
+  language sql stable
+  security definer
+  set search_path = ''
+as $$
+  select exists (select 1 from app.cases a join app.cases b on b.organisation_id = a.organisation_id
+                 where a.id = p_case and b.id = p_other)
+$$;
+revoke all on function app.cases_share_organisation(uuid, uuid) from public;
+grant execute on function app.cases_share_organisation(uuid, uuid) to app_api;
+
+drop policy case_links_add on app.case_links;
+create policy case_links_add on app.case_links for insert to app_api
+  with check (app.can_access_case(case_id, 'case.edit_setup')
+              and (app.can_access_case(linked_case_id, 'case.view_metadata')
+                   or app.cases_share_organisation(case_id, linked_case_id)));
+
+reset role;

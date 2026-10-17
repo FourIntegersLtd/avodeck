@@ -3,7 +3,7 @@ name = "avodeck-api"
 version = "0.1.0"
 description = "Avodeck API (FastAPI) and background worker, one package"
 requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)", "psycopg[binary] (>=3.2,<4.0)", "psycopg-pool (>=3.2,<4.0)", "httpx (>=0.28.1,<0.29.0)", "pyjwt[crypto] (>=2.10,<3.0)", "pyyaml (>=6.0,<7.0)", "jsonschema-rs (>=0.58,<0.59)", "tzdata (>=2025.2)", "presidio-analyzer (>=2.2.364,<3.0.0)", "cryptography (>=44)", "sentry-sdk[fastapi] (>=2.72.0,<3.0.0)", "procrastinate (>=3.5,<4.0)"]
+dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)", "psycopg[binary] (>=3.2,<4.0)", "psycopg-pool (>=3.2,<4.0)", "httpx (>=0.28.1,<0.29.0)", "pyjwt[crypto] (>=2.10,<3.0)", "pyyaml (>=6.0,<7.0)", "jsonschema-rs (>=0.58,<0.59)", "tzdata (>=2025.2)", "presidio-analyzer (>=2.2.364,<3.0.0)", "cryptography (>=44)", "sentry-sdk[fastapi] (>=2.72.0,<3.0.0)", "procrastinate (>=3.5,<4.0)", "python-docx (>=1.2,<2.0)", "pillow (>=11)"]
 
 [tool.poetry]
 packages = [{ include = "app" }]
@@ -15,6 +15,12 @@ ruff = "^0.17.1"
 mypy = "^2.4.0"
 schemathesis = "^4.31.1"
 types-pyyaml = "^6.0.12.20260906"
+
+
+[tool.poetry.group.evals.dependencies]
+reportlab = "^5.0.1"
+pypdf = "^6.21.0"
+scipy = "^1.18.1"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

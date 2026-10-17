@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink } from "react-router-dom";
 import { t } from "../i18n";
 import { useMessages } from "../lib/messages";
+import { screenPath } from "../lib/screens";
 import { Logo } from "./Logo";
 import { Notice } from "./Notice";
 
@@ -21,6 +22,12 @@ function initials(name: string | null | undefined): string {
 export function AppShell({ children, name }: AppShellProps) {
   const messages = useMessages();
   const unread = messages?.unread ?? 0;
+  // Places slices register (screen keys "cases", "profile", "help"); hidden until a slice provides them.
+  const places = (["cases", "profile"] as const).flatMap((key) => {
+    const to = screenPath(key);
+    return to ? [[key, to] as const] : [];
+  });
+  const help = screenPath("help");
   return (
     <>
       <a className="av-skip" href="#main">
@@ -37,10 +44,20 @@ export function AppShell({ children, name }: AppShellProps) {
                 <li>
                   <NavLink to="/today">{t("app.nav.today")}</NavLink>
                 </li>
+                {places.map(([key, to]) => (
+                  <li key={key}>
+                    <NavLink to={to}>{t(`app.nav.${key}`)}</NavLink>
+                  </li>
+                ))}
               </ul>
             </nav>
           </div>
           <div className="av-shell__right">
+            {help && (
+              <Link to={help} className="av-shell__help">
+                {t("app.nav.help")}
+              </Link>
+            )}
             <Link to="/messages" className="av-shell__bell" aria-label={unread ? t("app.nav.messages_unread", { count: unread }) : t("app.nav.messages")}>
               <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />

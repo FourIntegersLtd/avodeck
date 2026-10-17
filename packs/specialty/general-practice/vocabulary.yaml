@@ -2,3 +2,4 @@
 clinician: general practitioner
 clinicians: general practitioners
 practice: general practice
+coverage_roles: {partner: partner, salaried: salaried general practitioner, locum: locum}

@@ -65,6 +65,16 @@
         "type": "string",
         "pattern": "^[a-z][a-z0-9_]*$"
       }
+    },
+    "subject_statuses": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "The states the subject of the case can be in (e.g. living). Labels and representative words come from the jurisdiction vocabulary (subject_statuses, subject_representatives)."
     }
   },
   "additionalProperties": false,

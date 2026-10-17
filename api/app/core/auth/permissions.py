@@ -1,6 +1,6 @@
 """The case permissions matrix from docs/spec/permissions.md, as one table.
 
-`app.case_action_allowed()` in migration 0003 mirrors this table; the guard test
+`app.case_action_allowed()` (migration 0003, redefined in 0017 and 0019) mirrors this table; the guard test
 `tests/guards/test_permissions.py` checks both against the document, cell by cell.
 """
 
@@ -38,6 +38,9 @@ CASE_ACTIONS: dict[str, ActionRule] = {
     "case.upload": ActionRule(_HELPERS),
     "case.manage_members": ActionRule(_NAMED, "admin"),
     "case.reassign_named_expert": ActionRule(_NOBODY, "admin", step_up=True),
+    "case.hold": ActionRule(_HELPERS),
+    "case.change_jurisdiction": ActionRule(_NAMED, step_up=True),
+    "conflict.declare": ActionRule(_NAMED),
     "page.read": ActionRule(_READERS),
     "page.quarantine": ActionRule(_HELPERS),
     "page.replace": ActionRule(_HELPERS),

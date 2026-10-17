@@ -1,0 +1,173 @@
+{
+  "kind": "bedrock",
+  "request": {
+    "context": {
+      "language": "en",
+      "report_sections": [
+        "introduction",
+        "instructions",
+        "documents",
+        "background",
+        "what_happened",
+        "opinion",
+        "range_of_opinion",
+        "summary",
+        "declarations",
+        "other"
+      ],
+      "vocabulary": {
+        "clinician": "GP",
+        "clinicians": "GPs",
+        "court_bundle": "trial bundle",
+        "coverage_roles": {
+          "locum": "locum",
+          "partner": "partner",
+          "salaried": "salaried general practitioner"
+        },
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "lanes": {
+          "primary_care_visits": "GP visits"
+        },
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "practice": "GP surgery",
+        "report_rules_name": "Part 35",
+        "source_types": {
+          "primary_care_record": "GP record"
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      }
+    },
+    "max_tokens": 4096,
+    "model_id": "anthropic.claude-sonnet-5-test-v1:0",
+    "schema": {
+      "additionalProperties": false,
+      "properties": {
+        "suggestions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "index": {
+                "minimum": 0,
+                "type": "integer"
+              },
+              "reason": {
+                "maxLength": 80,
+                "type": "string"
+              },
+              "section": {
+                "enum": [
+                  "introduction",
+                  "instructions",
+                  "documents",
+                  "background",
+                  "what_happened",
+                  "opinion",
+                  "range_of_opinion",
+                  "summary",
+                  "declarations",
+                  "other"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "index",
+              "section",
+              "reason"
+            ],
+            "type": "object"
+          },
+          "maxItems": 200,
+          "type": "array"
+        }
+      },
+      "required": [
+        "suggestions"
+      ],
+      "type": "object"
+    },
+    "system": "You suggest where each heading of an expert's report template belongs, so the expert can confirm it. You never write or change any heading; the expert decides.\n\nThe headings follow the context, one per line, each as its index, a tab, then the heading's words.\n\nFor each heading give:\n- index: the heading's index, exactly as given.\n- section: the key from report_sections in the context that the heading most likely starts, or \"other\" when none fits.\n- reason: a short label, a few words.\n\nGive at most one suggestion for each heading. Never invent an index.",
+    "temperature": 0.0,
+    "text": "0\tDr A Expert MBBS FRCGP - Medico-legal reports\n1\tIntroduction\n3\tMy instructions\n5\tDocuments I have read\n7\tBackground\n9\tWhat happened\n11\tMy opinion\n13\tRange of reasonable opinion\n15\tSummary of conclusions\n17\tDeclaration and statement of truth"
+  },
+  "response": {
+    "input_tokens": 400,
+    "output": {
+      "suggestions": [
+        {
+          "index": 0,
+          "reason": "no matching section",
+          "section": "other"
+        },
+        {
+          "index": 1,
+          "reason": "heading wording",
+          "section": "introduction"
+        },
+        {
+          "index": 3,
+          "reason": "heading wording",
+          "section": "instructions"
+        },
+        {
+          "index": 5,
+          "reason": "heading wording",
+          "section": "documents"
+        },
+        {
+          "index": 7,
+          "reason": "heading wording",
+          "section": "background"
+        },
+        {
+          "index": 9,
+          "reason": "heading wording",
+          "section": "what_happened"
+        },
+        {
+          "index": 11,
+          "reason": "heading wording",
+          "section": "opinion"
+        },
+        {
+          "index": 13,
+          "reason": "heading wording",
+          "section": "range_of_opinion"
+        },
+        {
+          "index": 15,
+          "reason": "heading wording",
+          "section": "summary"
+        },
+        {
+          "index": 17,
+          "reason": "heading wording",
+          "section": "declarations"
+        }
+      ]
+    },
+    "output_tokens": 300
+  }
+}

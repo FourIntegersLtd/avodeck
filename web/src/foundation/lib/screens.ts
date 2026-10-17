@@ -22,3 +22,8 @@ export function screenPath(key: string, target: ScreenTarget = {}): string | nul
   const build = screens.get(key);
   return build ? build({ caseId: target.caseId ?? "", params: target.params ?? {} }) : null;
 }
+
+/** Forget every registered screen. Tests of the shell use it to prove the shell with no slice registered. */
+export function resetScreens(): void {
+  screens.clear();
+}

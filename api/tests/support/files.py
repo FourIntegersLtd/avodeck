@@ -12,10 +12,10 @@ from collections.abc import Iterator
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from app.core.storage import SupabaseStorage
     from fastapi import FastAPI
 
     from app.core.db import Database
+    from app.core.storage import SupabaseStorage
 
 MB = 1024 * 1024
 CHUNK = 8 * MB

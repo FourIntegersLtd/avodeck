@@ -28,10 +28,18 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `case_parties` | C | Named expert or assistant | Many | Editable until served; then additions only | Case deletion |
 | `case_instructing_parties` | C | Named expert or assistant | One or more (joint) | Change of firm = new row with dates | Case deletion |
 | `case_links` | C | Named expert | Many | Add or remove; never shares data | Removed when either case is deleted |
-| `instruction_versions` | C | Named expert or assistant | Many, ordered | Append only | Case deletion |
-| `conflict_answers` | C | Named expert | One per question, plus later declarations | New answers appended; snapshot at signing | Case deletion |
+| `instruction_versions` | Foundation table (0019), C fills | Named expert or assistant | Many, ordered | Append only | Case deletion |
+| `case_instructions` | C | Named expert or assistant | One per oral instruction version | Words replaced while the version is unlocked; never deleted | Case deletion |
+| `case_subject_keys` | C | Named expert or assistant | One per case | Replaced when the identifier changes; keyed hash only | Case deletion |
+| `conflict_answers` | C | Named expert | One per question | Changed in place (version rises); snapshot at signing | Case deletion |
+| `conflict_answer_history` | C | Database trigger on `conflict_answers` (no direct writes) | One per answer given or changed | Append only; same answer again adds nothing | Case deletion |
+| `conflict_declarations` | C | Named expert | Many; latest is current | Append only | Case deletion |
+| `case_withdrawals` | C | Named expert (step-up) | One per case | Append only | Case deletion |
 | `questions` | C | Named expert | Many per instruction version | Locked with the set; reopened by new instructions before serving | Case deletion |
 | `assumptions` | C | Named expert | Many | Lock and reopen with the question set | Case deletion |
+| `instruction_extractions` | C | Worker (`extract_questions`) | One per letter version | Append only; counts only | Case deletion |
+| `prefill_suggestions` | C | Worker (T-04); named expert or assistant decide | Many per letter version | Decided once (accepted/dismissed); never applied by the server | Case deletion |
+| `prefill_runs` | C | Worker (`prefill_case`) | One per run | Append only; counts only | Case deletion |
 | `documents` | Foundation (A) | Named expert or assistant (upload) | Many; bundle versions | Never edited after hashing; provenance editable | Case deletion |
 | `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
 | `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation per state machine | Case deletion; quarantined images deleted earlier |

@@ -7,3 +7,5 @@ expert_meeting: expert conference
 expert_meeting_document: conference minute
 report_rules_name: Rule Z
 declaration_name: affirmation
+subject_statuses: {present: present subject, absent: absent subject, dependent: dependent subject}
+subject_representatives: {dependent: guardian ad item}

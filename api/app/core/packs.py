@@ -47,7 +47,7 @@ REQUIRED: dict[str, frozenset[str]] = {
     "overlay": frozenset({"pack.yaml"}),
 }
 OPTIONAL: dict[str, frozenset[str]] = {
-    "jurisdiction": frozenset({"meetings.yaml", "legal_tests.md", "final_checks.yaml"}),
+    "jurisdiction": frozenset({"meetings.yaml", "legal_tests.md", "final_checks.yaml", "conflicts.yaml"}),
     "case-type": frozenset({"final_checks.yaml", "declarations.md"}),
     "specialty": frozenset({"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}),
     "overlay": frozenset(
@@ -279,12 +279,18 @@ def _validate(pack: Pack, schema_dir: Path) -> None:
 
 
 @cache
-def _identifier_finder(path: Path, rel: str) -> Callable[[str], list[tuple[int, int, str]]]:
+def _identifier_module(path: Path, rel: str) -> Any:
     spec = importlib.util.spec_from_file_location(f"_avodeck_pack_identifiers_{abs(hash(path))}", path)
     if spec is None or spec.loader is None:
         raise PackError(f"{rel}: cannot be loaded")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    return module
+
+
+@cache
+def _identifier_finder(path: Path, rel: str) -> Callable[[str], list[tuple[int, int, str]]]:
+    module = _identifier_module(path, rel)
     finder = getattr(module, "find_identifiers", None)
     if not callable(finder):
         raise PackError(f"{rel}: must define find_identifiers(text)")
@@ -338,6 +344,14 @@ class MergedPack:
             for key in self._ct[kind]:
                 if not isinstance(labels, dict) or not isinstance(labels.get(key), str):
                     raise PackError(f"{label}: {kind} '{key}' has no label in the {jurisdiction.code} vocabulary")
+        statuses = self.vocabulary.get("subject_statuses", {})
+        for key in self._ct.get("subject_statuses", []):
+            if not isinstance(statuses, dict) or not isinstance(statuses.get(key), str):
+                raise PackError(f"{label}: subject_statuses '{key}' has no label in the {jurisdiction.code} vocabulary")
+        roles = self.vocabulary.get("coverage_roles", {})
+        for key in self._sp.get("coverage_roles", []):
+            if not isinstance(roles, dict) or not isinstance(roles.get(key), str):
+                raise PackError(f"{label}: coverage_roles '{key}' has no label in the vocabulary")
         values = {k: v for k, v in self.vocabulary.items() if isinstance(v, str)}
         values.setdefault("instructing_party", self.instructing_party_types()[0]["label"])
         self._files = {name: _fill(content, values, f"{label}: {name}") for name, content in files.items()}
@@ -393,6 +407,33 @@ class MergedPack:
         labels = self.vocabulary["instructing_party_types"]
         return [{"key": k, "label": labels[k]} for k in self._ct["instructing_party_types"]]
 
+    def subject_statuses(self) -> list[dict[str, str | None]]:
+        """The states the subject can be in (case type), with the jurisdiction's label and, where one
+        acts for the subject in that state, the representative's word. Empty when the case type has none."""
+        labels = self.vocabulary.get("subject_statuses", {})
+        reps = self.vocabulary.get("subject_representatives", {})
+        reps = reps if isinstance(reps, dict) else {}
+        return [
+            {"key": k, "label": labels[k], "representative": reps.get(k)} for k in self._ct.get("subject_statuses", [])
+        ]
+
+    def coverage_roles(self) -> list[dict[str, str]]:
+        """Kinds of role in the specialty that count when checking the expert practised during the case period."""
+        labels = self.vocabulary.get("coverage_roles", {})
+        return [{"key": k, "label": labels[k]} for k in self._sp.get("coverage_roles", [])]
+
+    def outside_expertise_question_types(self) -> list[str]:
+        """Question types (of this case type) the specialty marks as usually outside its expertise."""
+        known = {q["key"] for q in self.question_types()}
+        return [k for k in self._sp.get("outside_expertise_question_types", []) if k in known]
+
+    def conflicts(self) -> dict[str, Any]:
+        """The jurisdiction's conflict-of-interest questions and the statement wording their answers produce."""
+        data = self._files.get("conflicts.yaml")
+        if not data:
+            return {"questions": [], "statement": {}}
+        return copy.deepcopy({"questions": data["questions"], "statement": data["statement"]})
+
     def expert_roles(self) -> list[str]:
         return list(self._ct["expert_roles"])
 
@@ -445,11 +486,40 @@ class MergedPack:
     def identifier_recognisers(self) -> Callable[[str], list[tuple[int, int, str]]]:
         return _identifier_finder(self._files["identifiers.py"], "identifiers.py")
 
+    def normalise_identifier(self, value: str) -> str | None:
+        """The jurisdiction's canonical form of a subject identifier, or None if `value` is not one (or the
+        jurisdiction defines no normaliser). Used for the duplicate-case check, never stored in plain text."""
+        module = _identifier_module(self._files["identifiers.py"], "identifiers.py")
+        normalise = getattr(module, "normalise_identifier", None)
+        if not callable(normalise):
+            return None
+        result = normalise(value)
+        return result if isinstance(result, str) and result else None
+
     def record_hints(self) -> dict[str, Any]:
         return copy.deepcopy(self._files.get("records.yaml", {}))
 
-    def prompt_context(self) -> dict[str, Any]:
-        """Pack data injected into neutral prompt templates (no patient data)."""
+    def prompt_context(self, task: str | None = None) -> dict[str, Any]:
+        """Pack data injected into neutral prompt templates (no patient data). T-02, T-04 and T-06 get what
+        they choose from; every other task gets the default (fact kinds, source types, record hints)."""
+        base = {"language": self.language, "vocabulary": copy.deepcopy(self.vocabulary)}
+        if task == "T-06":
+            return {
+                **base,
+                "question_types": [q["key"] for q in self.question_types()],
+                "outside_expertise_question_types": self.outside_expertise_question_types(),
+            }
+        if task == "T-04":
+            return {
+                **base,
+                "date_order": self.date_order,
+                "instructing_party_types": self.instructing_party_types(),
+                "party_roles": self.party_roles(),
+                "court_tracks": list(self._j.get("court_tracks", [])),
+            }
+        if task == "T-02":
+            sections = [s["key"] for s in self.report_sections()]
+            return {**base, "report_sections": [*sections, *([] if "other" in sections else ["other"])]}
         return {
             "date_order": self.date_order,
             "language": self.language,

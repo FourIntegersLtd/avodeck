@@ -15,10 +15,10 @@ from datetime import date, timedelta
 
 import psycopg
 import pytest
-from app.core.jobs import JobContext
 from psycopg import AsyncConnection
 
 from app.core.db import Database
+from app.core.jobs import JobContext
 from tests.support.db import scope_for
 from tests.support.jobs import isolated_registry, open_worker, run_until_finished
 from tests.support.seed import Seed

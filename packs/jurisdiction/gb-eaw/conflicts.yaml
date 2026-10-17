@@ -1,0 +1,22 @@
+# Conflict-of-interest questions the expert answers on every case (screen 05). A "yes" to a question with
+# detail_required needs a short explanation. The answers produce the conflicts paragraph of the report:
+# `statement.none` when every answer is "no", otherwise `statement.disclosed` followed by the expert's details.
+questions:
+  - key: knows_parties
+    text: Do you know, or have you worked with, any of the parties or their legal representatives?
+    detail_required: true
+  - key: involved_in_care
+    text: Have you ever been involved in the care of the {subject}?
+    detail_required: true
+  - key: knows_clinicians
+    text: Do you know, or have you worked with, any of the {clinicians} whose care is in question?
+    detail_required: true
+  - key: financial_interest
+    text: Do you have any financial or other interest in the outcome of this case?
+    detail_required: true
+  - key: anything_else
+    text: Is there anything else that might reasonably be thought to affect your independence?
+    detail_required: true
+statement:
+  none: I confirm that I have no conflict of interest in this case.
+  disclosed: "I disclose the following matters. I do not consider that they affect my independence or my duty to the court:"

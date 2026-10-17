@@ -249,3 +249,21 @@ async def test_nobody_signed_in_can_access_nothing(api_dsn: str, world: World) -
     async with await psycopg.AsyncConnection.connect(api_dsn) as conn:
         cur = await conn.execute("select app.can_access_case(%s, 'case.view_metadata')", (world.case,))
         assert await cur.fetchone() == (False,)
+
+
+# --- the actions slice C needs (founder-approved, docs/slices/0-foundation.md "Changes for slice C") ---------
+
+
+@pytest.mark.parametrize(
+    ("action", "roles", "step_up"),
+    [
+        ("case.hold", {"named_expert", "assistant"}, False),
+        ("conflict.declare", {"named_expert"}, False),
+        ("case.change_jurisdiction", {"named_expert"}, True),
+    ],
+)
+def test_the_setup_actions_are_in_the_matrix(action: str, roles: set[str], step_up: bool) -> None:
+    rule = CASE_ACTIONS[action]
+    assert (set(rule.case_roles), rule.org, rule.step_up) == (roles, "none", step_up)
+    assert {r for r in CASE_ROLES if expected(action, r, None, "team")} == roles
+    assert DOC[action].step_up is step_up

@@ -7,7 +7,7 @@ S ?= $(SLICE)
 in_web = if [ -f web/package.json ]; then cd web && $(1); else echo "web: not set up yet, skipped"; fi
 
 .PHONY: install dev test test-core test-slice test-api test-web api-client schemathesis eval \
-	lint lint-api lint-web eval-data check-spec
+	lint lint-api lint-web eval-data setup-fixtures check-spec
 
 install:        ## Poetry env for api/ (and pnpm for web/ once it exists)
 	$(MAKE) -C api install
@@ -55,10 +55,14 @@ lint-web:
 	@$(call in_web,pnpm lint && pnpm typecheck)
 
 # Synthetic evaluation data (deterministic; PDFs are not committed)
-eval-data:
-	python3 evals/generator/build.py evals/gb-eaw/clin-neg-breach/general-practice
-	python3 evals/generator/extras.py evals/gb-eaw/clin-neg-breach/general-practice
-	python3 evals/generator/inputs.py evals/gb-eaw/clin-neg-breach/general-practice
+eval-data:      ## synthetic bundles (not committed) and slice C's committed setup fixtures; deterministic
+	poetry -P api run python evals/generator/build.py evals/gb-eaw/clin-neg-breach/general-practice
+	poetry -P api run python evals/generator/extras.py evals/gb-eaw/clin-neg-breach/general-practice
+	poetry -P api run python evals/generator/inputs.py evals/gb-eaw/clin-neg-breach/general-practice
+	$(MAKE) setup-fixtures
+
+setup-fixtures: ## letter-of-instruction.pdf and template.docx for slice C tests (api/tests/fixtures/setup/)
+	poetry -P api run python evals/generator/extras.py --setup-fixtures api/tests/fixtures/setup evals/gb-eaw/clin-neg-breach/general-practice
 
 check-spec:     ## documents agree with each other
 	python3 scripts/check_spec.py

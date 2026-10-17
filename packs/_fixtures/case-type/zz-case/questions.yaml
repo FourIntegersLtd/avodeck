@@ -1,2 +1,3 @@
 question_types:
   - {key: capacity, label_key: zz.question_type.capacity}
+  - {key: liability, label_key: zz.question_type.liability}

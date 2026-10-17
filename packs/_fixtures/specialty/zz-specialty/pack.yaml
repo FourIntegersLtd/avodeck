@@ -1,4 +1,6 @@
 code: zz-specialty
 name: Test specialty
-version: 0.0.1
+version: 0.0.2
 profession: therapist
+coverage_roles: [practitioner, supervisor]
+outside_expertise_question_types: [liability]

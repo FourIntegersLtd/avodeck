@@ -15,11 +15,11 @@ from collections.abc import AsyncIterator
 import httpx
 import psycopg
 import pytest
-from app.core.storage import SupabaseStorage
 from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
+from app.core.storage import SupabaseStorage
 from tests.support.db import ClientFor
 from tests.support.files import CHUNK, MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed

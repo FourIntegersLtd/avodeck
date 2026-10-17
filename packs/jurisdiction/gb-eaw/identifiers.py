@@ -1,4 +1,6 @@
 """Patient identifier recognisers for England and Wales (used by core/ai/pii.py)."""
+from __future__ import annotations
+
 import re
 
 UK_POSTCODE = re.compile(r"\b[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}\b", re.I)
@@ -30,3 +32,9 @@ def find_identifiers(text: str) -> list[tuple[int, int, str]]:
     for m in DOB_LABELLED.finditer(text):
         spans.append((m.start(1), m.end(1), "DATE_OF_BIRTH"))
     return spans
+
+
+def normalise_identifier(value: str) -> str | None:
+    """The subject's NHS number as 10 digits (spaces and hyphens dropped), or None if it is not a valid one."""
+    digits = re.sub(r"[\s-]", "", value)
+    return digits if valid_nhs_number(digits) else None

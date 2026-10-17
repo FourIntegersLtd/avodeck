@@ -148,6 +148,7 @@ a { color: var(--green); }
 .av-shell__bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: var(--button-min-height); height: var(--button-min-height); border-radius: 50%; color: var(--ink); }
 .av-shell__count { position: absolute; top: 4px; right: 2px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; background: var(--red); color: #FFFFFF; font-size: 14px; font-weight: 700; line-height: 22px; text-align: center; }
 .av-shell__avatar { display: inline-flex; align-items: center; justify-content: center; width: var(--button-min-height); height: var(--button-min-height); border-radius: 50%; background: var(--green-tint); color: var(--green-dark); font-weight: 700; text-decoration: none; }
+.av-shell__help { display: inline-flex; align-items: center; min-height: var(--button-min-height); padding: 0 12px; font-weight: 700; color: var(--green-dark); text-decoration: none; }
 .av-shell__banner { padding-bottom: 0; }
 
 /* Today: date above greeting, case cards with a step ring */

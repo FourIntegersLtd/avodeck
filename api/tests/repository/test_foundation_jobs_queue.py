@@ -16,10 +16,10 @@ from collections.abc import AsyncIterator
 
 import psycopg
 import pytest
-from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY, JobContext
 
 from app.core.db import Database
 from app.core.errors import ProcessingPaused
+from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY, JobContext
 from tests.support.db import scope_for
 from tests.support.jobs import isolated_registry, open_worker, run_until_finished
 from tests.support.seed import Seed

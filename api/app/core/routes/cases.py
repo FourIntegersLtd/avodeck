@@ -24,7 +24,8 @@ cases_router = router(prefix="/v1/cases", tags=["cases"])
 
 _COLUMNS = (
     "id, organisation_id, named_expert_id, jurisdiction, case_type, specialty, expert_role, label,"
-    " party_role, instructing_party_type, court_track, due_date, status, on_hold, version, created_at, updated_at"
+    " party_role, instructing_party_type, court_track, due_date, subject_status, period_start, period_end, status,"
+    " on_hold, version, created_at, updated_at"
 )
 
 
@@ -41,6 +42,9 @@ class Case(BaseModel):
     instructing_party_type: str | None
     court_track: str | None
     due_date: date | None
+    subject_status: str | None = None
+    period_start: date | None = None
+    period_end: date | None = None
     status: str
     on_hold: bool
     created_at: datetime
@@ -58,6 +62,9 @@ class CaseUpdate(BaseModel):
     party_role: str | None = Field(default=None, max_length=100)
     instructing_party_type: str | None = Field(default=None, max_length=100)
     court_track: str | None = Field(default=None, max_length=100)
+    subject_status: str | None = Field(default=None, max_length=100)
+    period_start: date | None = None
+    period_end: date | None = None
 
 
 class CaseCreate(BaseModel):
@@ -75,9 +82,18 @@ class CaseCreate(BaseModel):
     instructing_party_type: str | None = Field(default=None, max_length=100)
     court_track: str | None = Field(default=None, max_length=100)
     due_date: date | None = None
+    subject_status: str | None = Field(default=None, max_length=100)
+    period_start: date | None = None
+    period_end: date | None = None
+    named_expert_id: uuid.UUID | None = Field(
+        default=None,
+        description="Who the case is named to. Defaults to you; an assistant must name an owner, admin or expert"
+        " member of the organisation, and joins the case as its assistant.",
+    )
 
 
 _CREATORS = ("owner", "admin", "expert")
+_NAMEABLE = ("owner", "admin", "expert")
 
 
 def _invalid(field: str) -> ApiError:
@@ -95,8 +111,15 @@ def _checked(request: Request, body: CaseCreate) -> dict[str, object]:
     expert_role = body.expert_role or roles[0]
     if expert_role not in roles:
         raise _invalid("expert_role")
-    _check_pack_values(request, (body.jurisdiction, body.case_type, body.specialty), body.model_dump())
-    return {**body.model_dump(), "expert_role": expert_role, "pack_versions": Jsonb(pack.versions)}
+    values = body.model_dump(exclude={"named_expert_id"})
+    _check_pack_values(request, (body.jurisdiction, body.case_type, body.specialty), values)
+    _check_period(values.get("period_start"), values.get("period_end"))
+    return {**values, "expert_role": expert_role, "pack_versions": Jsonb(pack.versions)}
+
+
+def _check_period(start: date | None, end: date | None) -> None:
+    if start is not None and end is not None and start > end:
+        raise _invalid("period_end")
 
 
 def _check_pack_values(request: Request, packs: tuple[str, str, str], values: dict[str, object]) -> None:
@@ -107,6 +130,7 @@ def _check_pack_values(request: Request, packs: tuple[str, str, str], values: di
         "party_role": [p["key"] for p in pack.party_roles()],
         "instructing_party_type": [p["key"] for p in pack.instructing_party_types()],
         "court_track": library.jurisdiction_summary(packs[0])["court_tracks"],
+        "subject_status": [s["key"] for s in pack.subject_statuses()],
     }
     for field, allowed in offered.items():
         value = values.get(field)
@@ -117,20 +141,27 @@ def _check_pack_values(request: Request, packs: tuple[str, str, str], values: di
 @cases_router.post("", status_code=201, response_model=Case)
 async def create_case(body: CaseCreate, request: Request, conn: DbConn, response: Response) -> Case:
     row = _checked(request, body)
+    me = request.state.scope.person_id
     cur = await conn.execute(
-        "select 1 from app.memberships where organisation_id = %s and person_id = app.current_person_id()"
-        " and ended_at is null and role = any(%s)",
-        (body.organisation_id, list(_CREATORS)),
+        "select role from app.memberships where organisation_id = %s and person_id = app.current_person_id()"
+        " and ended_at is null",
+        (body.organisation_id,),
     )
-    if await cur.fetchone() is None:
+    found = await cur.fetchone()
+    role = found[0] if found else None
+    named = body.named_expert_id or me
+    if role == "assistant" and named != me:
+        if not await _is_nameable(conn, body.organisation_id, named):
+            raise _invalid("named_expert_id")
+    elif role not in _CREATORS or named != me:
         raise ApiError("forbidden", "You cannot create a case for this organisation.", 403)
     case_id = uuid.uuid4()  # no RETURNING: the select policy cannot see a row in the statement that inserts it
     columns = ["id", "named_expert_id", *row]
     await conn.execute(
-        sql.SQL("insert into app.cases ({}) values (%s, app.current_person_id(), {})").format(
+        sql.SQL("insert into app.cases ({}) values (%s, %s, {})").format(
             sql.SQL(", ").join(map(sql.Identifier, columns)), sql.SQL(", ").join(sql.Placeholder() * len(row))
         ),
-        (case_id, *row.values()),
+        (case_id, named, *row.values()),
     )
     await audit.record(
         conn, action="case.created", target=f"case:{case_id}", case_id=case_id, organisation_id=body.organisation_id
@@ -141,6 +172,13 @@ async def create_case(body: CaseCreate, request: Request, conn: DbConn, response
         created = await cur2.fetchone()
     assert created is not None
     return _case(created, access, response)
+
+
+async def _is_nameable(conn: DbConn, organisation_id: uuid.UUID, person_id: uuid.UUID) -> bool:
+    """Whether the person is an active owner, admin or expert of the organisation (migration 0019)."""
+    cur = await conn.execute("select app.is_expert_member(%s, %s)", (organisation_id, person_id))
+    found = await cur.fetchone()
+    return bool(found and found[0])
 
 
 def _case(row: dict[str, object], access: CaseAccess, response: Response) -> Case:
@@ -173,11 +211,16 @@ async def update_case(
     response: Response,
 ) -> Case:
     changes = body.model_dump(exclude_unset=True)
-    if any(changes.get(f) is not None for f in ("party_role", "instructing_party_type", "court_track")):
-        cur0 = await conn.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
-        packs = await cur0.fetchone()
-        assert packs is not None  # require_case_access has already answered 404
-        _check_pack_values(request, (packs[0], packs[1], packs[2]), changes)
+    pack_fields = ("party_role", "instructing_party_type", "court_track", "subject_status")
+    if any(changes.get(f) is not None for f in pack_fields) or {"period_start", "period_end"} & set(changes):
+        cur0 = await conn.execute(
+            "select jurisdiction, case_type, specialty, period_start, period_end from app.cases where id = %s",
+            (case_id,),
+        )
+        current = await cur0.fetchone()
+        assert current is not None  # require_case_access has already answered 404
+        _check_pack_values(request, (current[0], current[1], current[2]), changes)
+        _check_period(changes.get("period_start", current[3]), changes.get("period_end", current[4]))
     assignments = sql.SQL(", ").join(sql.SQL("{} = %s").format(sql.Identifier(k)) for k in changes)
     query = (
         sql.SQL("update app.cases set {} where id = %s and version = %s returning {}").format(

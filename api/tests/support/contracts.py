@@ -40,13 +40,18 @@ def add_fact(
 
 
 def add_question(
-    admin: psycopg.Connection, case: uuid.UUID, *, number: int = 1, status: str = "suggested"
+    admin: psycopg.Connection,
+    case: uuid.UUID,
+    *,
+    number: int = 1,
+    status: str = "suggested",
+    instruction_version_id: uuid.UUID | None = None,
 ) -> uuid.UUID:
     qid = uuid.uuid4()
     admin.execute(
-        "insert into app.questions (id, case_id, number, text_verbatim, source_word_ids, kind)"
-        " values (%s, %s, %s, 'Was the standard met?', %s, 'zz_question')",
-        (qid, case, number, ["w1"]),
+        "insert into app.questions (id, case_id, instruction_version_id, number, text_verbatim, source_word_ids, kind)"
+        " values (%s, %s, %s, %s, 'Was the standard met?', %s, 'zz_question')",
+        (qid, case, instruction_version_id, number, ["w1"]),
     )
     for step in QUESTION_PATH[status]:
         admin.execute("update app.questions set status = %s where id = %s", (step, qid))
@@ -72,3 +77,16 @@ def add_report_version(
             (rid,),
         )
     return rid
+
+
+def add_instruction_version(
+    admin: psycopg.Connection, case: uuid.UUID, *, version_no: int = 1, kind: str = "letter"
+) -> uuid.UUID:
+    """An unlocked instruction version (slice C fills the contract table `instruction_versions`)."""
+    vid = uuid.uuid4()
+    admin.execute(
+        "insert into app.instruction_versions (id, case_id, version_no, kind, received_on)"
+        " values (%s, %s, %s, %s, '2026-01-05')",
+        (vid, case, version_no, kind),
+    )
+    return vid

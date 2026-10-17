@@ -4,11 +4,13 @@ Usage: python evals/generator/extras.py OUT_DIR   (OUT_DIR as used by build.py)
 """
 from __future__ import annotations
 
+import io
 import json
 import os
 import random
 import sys
-from datetime import date
+import zipfile
+from datetime import date, datetime
 
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.units import mm
@@ -44,7 +46,7 @@ QUESTIONS = [
 ASSUMPTION = "You should assume that Mrs Ashworth's account of her symptoms in her witness statement is accurate unless the records clearly show otherwise."
 
 
-def letter_of_instruction(out):
+def letter_of_instruction(out, exp=None):
     d = Doc("letter-of-instruction", "loi", margin_l=24 * mm, margin_r=24 * mm)
     letterhead(d)
     for ln in ["Dr A Expert", "Expert Witness (General Practice)", "By secure email"]:
@@ -83,7 +85,7 @@ def letter_of_instruction(out):
                               "kind": "causation" if i == 4 else "breach", "outside_expertise": i == 4}
                              for i, q in enumerate(QUESTIONS, 1)],
                "assumptions": [{"text_verbatim": ASSUMPTION, "para_ref": "5"}]},
-              open(os.path.join(EXP, "questions.json"), "w"), indent=1)
+              open(os.path.join(exp or EXP, "questions.json"), "w"), indent=1)
     return p
 
 
@@ -239,9 +241,28 @@ def template_docx(out):
               "My opinion", "Range of reasonable opinion", "Summary of conclusions", "Declaration and statement of truth"]:
         doc.add_paragraph(h, style="AE Heading")
         doc.add_paragraph("[text]", style="AE Body")
+    fixed = datetime(2026, 1, 5, 9, 0, 0)
+    props = doc.core_properties
+    props.author = props.last_modified_by = "Dr A Expert"
+    props.created = props.modified = fixed
+    props.revision = 1
+    os.makedirs(out, exist_ok=True)
     p = os.path.join(out, "template.docx")
-    doc.save(p)
+    buf = io.BytesIO()
+    doc.save(buf)
+    _stable_zip(buf.getvalue(), p, fixed)
     return p
+
+
+def _stable_zip(data: bytes, path: str, when: datetime) -> None:
+    """Rewrite a zip (docx) with fixed entry times and order, so the same input gives the same bytes."""
+    src = zipfile.ZipFile(io.BytesIO(data))
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as dst:
+        for name in sorted(src.namelist(), key=lambda n: (n != "[Content_Types].xml", n)):
+            info = zipfile.ZipInfo(name, date_time=when.timetuple()[:6])
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            dst.writestr(info, src.read(name))
 
 
 def trial_bundle(out, records_pdf, pages):
@@ -292,6 +313,13 @@ def trial_bundle(out, records_pdf, pages):
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--setup-fixtures"]:
+        # Slice C's committed test inputs: python evals/generator/extras.py --setup-fixtures OUT EVAL_ROOT
+        dest, root = sys.argv[2], sys.argv[3]
+        EXP = os.path.join(root, "expected")
+        print(letter_of_instruction(dest, exp=EXP))
+        print(template_docx(dest))
+        sys.exit(0)
     root = sys.argv[1] if len(sys.argv) > 1 else "out"
     OUT = os.path.join(root, "bundles", "synthetic-mrs-a")
     EXP = os.path.join(root, "expected")

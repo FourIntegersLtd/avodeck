@@ -200,9 +200,12 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | type_key | What sort of instructing party (solicitor, insurer, coroner…) from the pack |
-| name / firm / email | Who they are and where to send things |
-| is_joint | Whether the expert is jointly instructed (both sides) |
+| name / firm / email | Who they are and where to send things (plain text, not encrypted under the case key; see the slice C brief) |
+| reference | Their own reference for the case, if given |
 | effective_from / effective_to | When this party took over or stopped (e.g. a change of firm) |
+| replaces_id | The earlier row this one took over from, after a change of firm |
+
+A joint expert is one with two or more current instructing parties; no separate flag is stored.
 
 ### case_links
 | Field | In plain words |
@@ -213,17 +216,51 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 ### instruction_versions
 | Field | In plain words |
 |---|---|
+| version_no | 1 for the first instructions, then 2, 3… in the order they arrived |
 | kind | Original letter, supplementary letter, or oral instructions |
 | document_id | The letter itself (if written) |
 | received_on | When the instructions were received |
-| text | The typed or dictated wording of oral instructions |
+| locked_at / locked_by | When and by whom the questions in this version were locked; never undone |
+
+### case_instructions
+| Field | In plain words |
+|---|---|
+| instruction_version_id | The oral instruction version these words belong to |
+| text | The words of the oral instructions, encrypted under the case key |
+| source | Typed, or dictated (from a saved transcript) |
+| transcript_id | The dictation they came from, if dictated |
+| received_on | The date the instructions were given |
+
+### case_subject_keys
+| Field | In plain words |
+|---|---|
+| key_hash | A keyed fingerprint of the subject's identifier, used only to warn about duplicate cases; the identifier itself is never kept |
 
 ### conflict_answers
 | Field | In plain words |
 |---|---|
-| question_key | Which conflict question (e.g. "have you treated this person?") |
-| answer / detail | Yes or no, and any explanation |
-| answered_at | When answered (conflicts can be declared later too) |
+| question_key | Which conflict question (e.g. "have you treated this person?"), from the jurisdiction pack |
+| answer / detail | Yes or no, and the expert's explanation (kept encrypted; only with a yes, and required where the pack says so) |
+| answered_by | Who answered (the named expert) |
+| version / created_at / updated_at | Goes up on each change; when first and last answered (conflicts can be declared later too) |
+
+### conflict_answer_history
+| Field | In plain words |
+|---|---|
+| question_key / answer / detail | One answer exactly as it was given or changed (the detail stays encrypted) |
+| answered_by / created_at / recorded_at | Who gave it and when (`recorded_at` is the exact moment, for order); the answers behind a declaration are the latest ones before it |
+
+### conflict_declarations
+| Field | In plain words |
+|---|---|
+| outcome | No conflicts, or conflicts disclosed |
+| declared_by / created_at | Who declared and when; the latest one is the current declaration |
+
+### case_withdrawals
+| Field | In plain words |
+|---|---|
+| reason | Why the expert withdrew (kept encrypted) |
+| withdrawn_by / created_at | Who withdrew and when |
 
 ### questions
 | Field | In plain words |
@@ -241,8 +278,32 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 ### assumptions
 | Field | In plain words |
 |---|---|
-| text_verbatim / source_word_ids[] | The exact words the expert is told to assume, and where they are |
-| status | Confirmed or not |
+| number / para_ref | Its order and the paragraph of the letter |
+| text_verbatim / source_word_ids[] | The exact words the expert is told to assume, and where they are (plain text, not encrypted under the case key; see the slice C brief) |
+| status / confirmed_text | Suggested, confirmed or edited, and any tidied wording (the original is kept) |
+
+### instruction_extractions
+| Field | In plain words |
+|---|---|
+| instruction_version_id / job_id | Which letter was read, by which job |
+| questions / assumptions / rejected | How many were kept, and how many suggestions were refused because the letter did not say them |
+| reopened | Whether this letter reopened a confirmed set of questions |
+| model_task / prompt_version | Which AI task and prompt version read it |
+
+### prefill_suggestions
+| Field | In plain words |
+|---|---|
+| field | Which case detail: instructing party's name or type, the side they act for, due date, court track |
+| value | The suggestion (kept encrypted): words from the letter, a pack key, or a date |
+| word_ids[] | Where in the letter it comes from, as proof |
+| status / decided_by / decided_at | Waiting, accepted or dismissed, by whom and when (decided once) |
+| model_task / prompt_version | Which AI task and prompt version suggested it |
+
+### prefill_runs
+| Field | In plain words |
+|---|---|
+| job_id | The job that read the letter |
+| kept / rejected | How many suggestions were kept, and how many refused |
 
 ## Bundle
 

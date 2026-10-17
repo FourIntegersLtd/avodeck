@@ -1,0 +1,1554 @@
+{
+  "kind": "ocr",
+  "request": {
+    "document_sha256": "622f9380ddaf0ed1a4656822cfbb6e61022b2e25fcaad35cfc21944c8d938684",
+    "model": "layout"
+  },
+  "response": {
+    "pages": [
+      {
+        "height": 11.69,
+        "number": 1,
+        "width": 8.27,
+        "words": [
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w1",
+            "polygon": [
+              0.5,
+              0.4,
+              0.75,
+              0.4,
+              0.75,
+              0.52,
+              0.5,
+              0.52
+            ],
+            "text": "Harland"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w2",
+            "polygon": [
+              0.8,
+              0.4,
+              1.05,
+              0.4,
+              1.05,
+              0.52,
+              0.8,
+              0.52
+            ],
+            "text": "&"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w3",
+            "polygon": [
+              1.1,
+              0.4,
+              1.35,
+              0.4,
+              1.35,
+              0.52,
+              1.1,
+              0.52
+            ],
+            "text": "Price"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w4",
+            "polygon": [
+              1.4,
+              0.4,
+              1.65,
+              0.4,
+              1.65,
+              0.52,
+              1.4,
+              0.52
+            ],
+            "text": "LLP"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w5",
+            "polygon": [
+              0.5,
+              0.6000000000000001,
+              0.75,
+              0.6000000000000001,
+              0.75,
+              0.7200000000000001,
+              0.5,
+              0.7200000000000001
+            ],
+            "text": "Solicitors"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w6",
+            "polygon": [
+              0.5,
+              0.8,
+              0.75,
+              0.8,
+              0.75,
+              0.92,
+              0.5,
+              0.92
+            ],
+            "text": "9"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w7",
+            "polygon": [
+              0.8,
+              0.8,
+              1.05,
+              0.8,
+              1.05,
+              0.92,
+              0.8,
+              0.92
+            ],
+            "text": "Cathedral"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w8",
+            "polygon": [
+              1.1,
+              0.8,
+              1.35,
+              0.8,
+              1.35,
+              0.92,
+              1.1,
+              0.92
+            ],
+            "text": "Walk"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w9",
+            "polygon": [
+              0.5,
+              1.0,
+              0.75,
+              1.0,
+              0.75,
+              1.12,
+              0.5,
+              1.12
+            ],
+            "text": "Northam"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w10",
+            "polygon": [
+              0.8,
+              1.0,
+              1.05,
+              1.0,
+              1.05,
+              1.12,
+              0.8,
+              1.12
+            ],
+            "text": "NM1"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w11",
+            "polygon": [
+              1.1,
+              1.0,
+              1.35,
+              1.0,
+              1.35,
+              1.12,
+              1.1,
+              1.12
+            ],
+            "text": "1RP"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w12",
+            "polygon": [
+              0.5,
+              1.2000000000000002,
+              0.75,
+              1.2000000000000002,
+              0.75,
+              1.3200000000000003,
+              0.5,
+              1.3200000000000003
+            ],
+            "text": "Ref:"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w13",
+            "polygon": [
+              0.8,
+              1.2000000000000002,
+              1.05,
+              1.2000000000000002,
+              1.05,
+              1.3200000000000003,
+              0.8,
+              1.3200000000000003
+            ],
+            "text": "HP/CN/2291/RT"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w14",
+            "polygon": [
+              0.5,
+              1.4,
+              0.75,
+              1.4,
+              0.75,
+              1.52,
+              0.5,
+              1.52
+            ],
+            "text": "20"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w15",
+            "polygon": [
+              0.8,
+              1.4,
+              1.05,
+              1.4,
+              1.05,
+              1.52,
+              0.8,
+              1.52
+            ],
+            "text": "November"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w16",
+            "polygon": [
+              1.1,
+              1.4,
+              1.35,
+              1.4,
+              1.35,
+              1.52,
+              1.1,
+              1.52
+            ],
+            "text": "2025"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w17",
+            "polygon": [
+              0.5,
+              1.6,
+              0.75,
+              1.6,
+              0.75,
+              1.7200000000000002,
+              0.5,
+              1.7200000000000002
+            ],
+            "text": "Dear"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w18",
+            "polygon": [
+              0.8,
+              1.6,
+              1.05,
+              1.6,
+              1.05,
+              1.7200000000000002,
+              0.8,
+              1.7200000000000002
+            ],
+            "text": "Dr"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w19",
+            "polygon": [
+              1.1,
+              1.6,
+              1.35,
+              1.6,
+              1.35,
+              1.7200000000000002,
+              1.1,
+              1.7200000000000002
+            ],
+            "text": "Expert"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w20",
+            "polygon": [
+              0.5,
+              1.8000000000000003,
+              0.75,
+              1.8000000000000003,
+              0.75,
+              1.9200000000000004,
+              0.5,
+              1.9200000000000004
+            ],
+            "text": "Margaret"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w21",
+            "polygon": [
+              0.8,
+              1.8000000000000003,
+              1.05,
+              1.8000000000000003,
+              1.05,
+              1.9200000000000004,
+              0.8,
+              1.9200000000000004
+            ],
+            "text": "Ashworth"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w22",
+            "polygon": [
+              1.1,
+              1.8000000000000003,
+              1.35,
+              1.8000000000000003,
+              1.35,
+              1.9200000000000004,
+              1.1,
+              1.9200000000000004
+            ],
+            "text": "v"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w23",
+            "polygon": [
+              1.4,
+              1.8000000000000003,
+              1.65,
+              1.8000000000000003,
+              1.65,
+              1.9200000000000004,
+              1.4,
+              1.9200000000000004
+            ],
+            "text": "Brookvale"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w24",
+            "polygon": [
+              1.7,
+              1.8000000000000003,
+              1.95,
+              1.8000000000000003,
+              1.95,
+              1.9200000000000004,
+              1.7,
+              1.9200000000000004
+            ],
+            "text": "Surgery:"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w25",
+            "polygon": [
+              2.0,
+              1.8000000000000003,
+              2.25,
+              1.8000000000000003,
+              2.25,
+              1.9200000000000004,
+              2.0,
+              1.9200000000000004
+            ],
+            "text": "supplementary"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w26",
+            "polygon": [
+              2.3,
+              1.8000000000000003,
+              2.55,
+              1.8000000000000003,
+              2.55,
+              1.9200000000000004,
+              2.3,
+              1.9200000000000004
+            ],
+            "text": "instructions"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w27",
+            "polygon": [
+              0.5,
+              2.0,
+              0.75,
+              2.0,
+              0.75,
+              2.12,
+              0.5,
+              2.12
+            ],
+            "text": "1."
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w28",
+            "polygon": [
+              0.8,
+              2.0,
+              1.05,
+              2.0,
+              1.05,
+              2.12,
+              0.8,
+              2.12
+            ],
+            "text": "Further"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w29",
+            "polygon": [
+              1.1,
+              2.0,
+              1.35,
+              2.0,
+              1.35,
+              2.12,
+              1.1,
+              2.12
+            ],
+            "text": "to"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w30",
+            "polygon": [
+              1.4,
+              2.0,
+              1.65,
+              2.0,
+              1.65,
+              2.12,
+              1.4,
+              2.12
+            ],
+            "text": "our"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w31",
+            "polygon": [
+              1.7,
+              2.0,
+              1.95,
+              2.0,
+              1.95,
+              2.12,
+              1.7,
+              2.12
+            ],
+            "text": "letter"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w32",
+            "polygon": [
+              2.0,
+              2.0,
+              2.25,
+              2.0,
+              2.25,
+              2.12,
+              2.0,
+              2.12
+            ],
+            "text": "of"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w33",
+            "polygon": [
+              2.3,
+              2.0,
+              2.55,
+              2.0,
+              2.55,
+              2.12,
+              2.3,
+              2.12
+            ],
+            "text": "9"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w34",
+            "polygon": [
+              2.6,
+              2.0,
+              2.85,
+              2.0,
+              2.85,
+              2.12,
+              2.6,
+              2.12
+            ],
+            "text": "October"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w35",
+            "polygon": [
+              2.9,
+              2.0,
+              3.15,
+              2.0,
+              3.15,
+              2.12,
+              2.9,
+              2.12
+            ],
+            "text": "2025,"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w36",
+            "polygon": [
+              3.1999999999999997,
+              2.0,
+              3.4499999999999997,
+              2.0,
+              3.4499999999999997,
+              2.12,
+              3.1999999999999997,
+              2.12
+            ],
+            "text": "we"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w37",
+            "polygon": [
+              3.5,
+              2.0,
+              3.75,
+              2.0,
+              3.75,
+              2.12,
+              3.5,
+              2.12
+            ],
+            "text": "should"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w38",
+            "polygon": [
+              3.8,
+              2.0,
+              4.05,
+              2.0,
+              4.05,
+              2.12,
+              3.8,
+              2.12
+            ],
+            "text": "be"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w39",
+            "polygon": [
+              4.1,
+              2.0,
+              4.35,
+              2.0,
+              4.35,
+              2.12,
+              4.1,
+              2.12
+            ],
+            "text": "grateful"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w40",
+            "polygon": [
+              4.4,
+              2.0,
+              4.65,
+              2.0,
+              4.65,
+              2.12,
+              4.4,
+              2.12
+            ],
+            "text": "if"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w41",
+            "polygon": [
+              4.7,
+              2.0,
+              4.95,
+              2.0,
+              4.95,
+              2.12,
+              4.7,
+              2.12
+            ],
+            "text": "you"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w42",
+            "polygon": [
+              5.0,
+              2.0,
+              5.25,
+              2.0,
+              5.25,
+              2.12,
+              5.0,
+              2.12
+            ],
+            "text": "would"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w43",
+            "polygon": [
+              5.3,
+              2.0,
+              5.55,
+              2.0,
+              5.55,
+              2.12,
+              5.3,
+              2.12
+            ],
+            "text": "also"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w44",
+            "polygon": [
+              5.6,
+              2.0,
+              5.85,
+              2.0,
+              5.85,
+              2.12,
+              5.6,
+              2.12
+            ],
+            "text": "answer"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w45",
+            "polygon": [
+              5.8999999999999995,
+              2.0,
+              6.1499999999999995,
+              2.0,
+              6.1499999999999995,
+              2.12,
+              5.8999999999999995,
+              2.12
+            ],
+            "text": "the"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w46",
+            "polygon": [
+              6.2,
+              2.0,
+              6.45,
+              2.0,
+              6.45,
+              2.12,
+              6.2,
+              2.12
+            ],
+            "text": "following"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w47",
+            "polygon": [
+              0.5,
+              2.2,
+              0.75,
+              2.2,
+              0.75,
+              2.3200000000000003,
+              0.5,
+              2.3200000000000003
+            ],
+            "text": "question:"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w48",
+            "polygon": [
+              0.5,
+              2.4,
+              0.75,
+              2.4,
+              0.75,
+              2.52,
+              0.5,
+              2.52
+            ],
+            "text": "(e)"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w49",
+            "polygon": [
+              0.8,
+              2.4,
+              1.05,
+              2.4,
+              1.05,
+              2.52,
+              0.8,
+              2.52
+            ],
+            "text": "If"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w50",
+            "polygon": [
+              1.1,
+              2.4,
+              1.35,
+              2.4,
+              1.35,
+              2.52,
+              1.1,
+              2.52
+            ],
+            "text": "Mrs"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w51",
+            "polygon": [
+              1.4,
+              2.4,
+              1.65,
+              2.4,
+              1.65,
+              2.52,
+              1.4,
+              2.52
+            ],
+            "text": "Ashworth"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w52",
+            "polygon": [
+              1.7,
+              2.4,
+              1.95,
+              2.4,
+              1.95,
+              2.52,
+              1.7,
+              2.52
+            ],
+            "text": "had"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w53",
+            "polygon": [
+              2.0,
+              2.4,
+              2.25,
+              2.4,
+              2.25,
+              2.52,
+              2.0,
+              2.52
+            ],
+            "text": "been"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w54",
+            "polygon": [
+              2.3,
+              2.4,
+              2.55,
+              2.4,
+              2.55,
+              2.52,
+              2.3,
+              2.52
+            ],
+            "text": "examined"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w55",
+            "polygon": [
+              2.6,
+              2.4,
+              2.85,
+              2.4,
+              2.85,
+              2.52,
+              2.6,
+              2.52
+            ],
+            "text": "on"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w56",
+            "polygon": [
+              2.9,
+              2.4,
+              3.15,
+              2.4,
+              3.15,
+              2.52,
+              2.9,
+              2.52
+            ],
+            "text": "15"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w57",
+            "polygon": [
+              3.1999999999999997,
+              2.4,
+              3.4499999999999997,
+              2.4,
+              3.4499999999999997,
+              2.52,
+              3.1999999999999997,
+              2.52
+            ],
+            "text": "May"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w58",
+            "polygon": [
+              3.5,
+              2.4,
+              3.75,
+              2.4,
+              3.75,
+              2.52,
+              3.5,
+              2.52
+            ],
+            "text": "2024,"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w59",
+            "polygon": [
+              3.8,
+              2.4,
+              4.05,
+              2.4,
+              4.05,
+              2.52,
+              3.8,
+              2.52
+            ],
+            "text": "what"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w60",
+            "polygon": [
+              4.1,
+              2.4,
+              4.35,
+              2.4,
+              4.35,
+              2.52,
+              4.1,
+              2.52
+            ],
+            "text": "findings"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w61",
+            "polygon": [
+              4.4,
+              2.4,
+              4.65,
+              2.4,
+              4.65,
+              2.52,
+              4.4,
+              2.52
+            ],
+            "text": "would"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w62",
+            "polygon": [
+              4.7,
+              2.4,
+              4.95,
+              2.4,
+              4.95,
+              2.52,
+              4.7,
+              2.52
+            ],
+            "text": "a"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w63",
+            "polygon": [
+              5.0,
+              2.4,
+              5.25,
+              2.4,
+              5.25,
+              2.52,
+              5.0,
+              2.52
+            ],
+            "text": "reasonably"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w64",
+            "polygon": [
+              5.3,
+              2.4,
+              5.55,
+              2.4,
+              5.55,
+              2.52,
+              5.3,
+              2.52
+            ],
+            "text": "competent"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w65",
+            "polygon": [
+              0.5,
+              2.6,
+              0.75,
+              2.6,
+              0.75,
+              2.72,
+              0.5,
+              2.72
+            ],
+            "text": "general"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w66",
+            "polygon": [
+              0.8,
+              2.6,
+              1.05,
+              2.6,
+              1.05,
+              2.72,
+              0.8,
+              2.72
+            ],
+            "text": "practitioner"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w67",
+            "polygon": [
+              1.1,
+              2.6,
+              1.35,
+              2.6,
+              1.35,
+              2.72,
+              1.1,
+              2.72
+            ],
+            "text": "have"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w68",
+            "polygon": [
+              1.4,
+              2.6,
+              1.65,
+              2.6,
+              1.65,
+              2.72,
+              1.4,
+              2.72
+            ],
+            "text": "expected"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w69",
+            "polygon": [
+              1.7,
+              2.6,
+              1.95,
+              2.6,
+              1.95,
+              2.72,
+              1.7,
+              2.72
+            ],
+            "text": "to"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w70",
+            "polygon": [
+              2.0,
+              2.6,
+              2.25,
+              2.6,
+              2.25,
+              2.72,
+              2.0,
+              2.72
+            ],
+            "text": "record?"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w71",
+            "polygon": [
+              0.5,
+              2.8000000000000003,
+              0.75,
+              2.8000000000000003,
+              0.75,
+              2.9200000000000004,
+              0.5,
+              2.9200000000000004
+            ],
+            "text": "2."
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w72",
+            "polygon": [
+              0.8,
+              2.8000000000000003,
+              1.05,
+              2.8000000000000003,
+              1.05,
+              2.9200000000000004,
+              0.8,
+              2.9200000000000004
+            ],
+            "text": "All"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w73",
+            "polygon": [
+              1.1,
+              2.8000000000000003,
+              1.35,
+              2.8000000000000003,
+              1.35,
+              2.9200000000000004,
+              1.1,
+              2.9200000000000004
+            ],
+            "text": "other"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w74",
+            "polygon": [
+              1.4,
+              2.8000000000000003,
+              1.65,
+              2.8000000000000003,
+              1.65,
+              2.9200000000000004,
+              1.4,
+              2.9200000000000004
+            ],
+            "text": "instructions"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w75",
+            "polygon": [
+              1.7,
+              2.8000000000000003,
+              1.95,
+              2.8000000000000003,
+              1.95,
+              2.9200000000000004,
+              1.7,
+              2.9200000000000004
+            ],
+            "text": "are"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w76",
+            "polygon": [
+              2.0,
+              2.8000000000000003,
+              2.25,
+              2.8000000000000003,
+              2.25,
+              2.9200000000000004,
+              2.0,
+              2.9200000000000004
+            ],
+            "text": "unchanged."
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w77",
+            "polygon": [
+              0.5,
+              3.0,
+              0.75,
+              3.0,
+              0.75,
+              3.12,
+              0.5,
+              3.12
+            ],
+            "text": "Yours"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w78",
+            "polygon": [
+              0.8,
+              3.0,
+              1.05,
+              3.0,
+              1.05,
+              3.12,
+              0.8,
+              3.12
+            ],
+            "text": "sincerely"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w79",
+            "polygon": [
+              0.5,
+              3.2,
+              0.75,
+              3.2,
+              0.75,
+              3.3200000000000003,
+              0.5,
+              3.3200000000000003
+            ],
+            "text": "R."
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w80",
+            "polygon": [
+              0.8,
+              3.2,
+              1.05,
+              3.2,
+              1.05,
+              3.3200000000000003,
+              0.8,
+              3.3200000000000003
+            ],
+            "text": "Tennant,"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w81",
+            "polygon": [
+              1.1,
+              3.2,
+              1.35,
+              3.2,
+              1.35,
+              3.3200000000000003,
+              1.1,
+              3.3200000000000003
+            ],
+            "text": "Partner,"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w82",
+            "polygon": [
+              1.4,
+              3.2,
+              1.65,
+              3.2,
+              1.65,
+              3.3200000000000003,
+              1.4,
+              3.3200000000000003
+            ],
+            "text": "Harland"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w83",
+            "polygon": [
+              1.7,
+              3.2,
+              1.95,
+              3.2,
+              1.95,
+              3.3200000000000003,
+              1.7,
+              3.3200000000000003
+            ],
+            "text": "&"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w84",
+            "polygon": [
+              2.0,
+              3.2,
+              2.25,
+              3.2,
+              2.25,
+              3.3200000000000003,
+              2.0,
+              3.3200000000000003
+            ],
+            "text": "Price"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w85",
+            "polygon": [
+              2.3,
+              3.2,
+              2.55,
+              3.2,
+              2.55,
+              3.3200000000000003,
+              2.3,
+              3.3200000000000003
+            ],
+            "text": "LLP"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w86",
+            "polygon": [
+              0.5,
+              3.4,
+              0.75,
+              3.4,
+              0.75,
+              3.52,
+              0.5,
+              3.52
+            ],
+            "text": "Synthetic"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w87",
+            "polygon": [
+              0.8,
+              3.4,
+              1.05,
+              3.4,
+              1.05,
+              3.52,
+              0.8,
+              3.52
+            ],
+            "text": "test"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w88",
+            "polygon": [
+              1.1,
+              3.4,
+              1.35,
+              3.4,
+              1.35,
+              3.52,
+              1.1,
+              3.52
+            ],
+            "text": "record"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w89",
+            "polygon": [
+              1.4,
+              3.4,
+              1.65,
+              3.4,
+              1.65,
+              3.52,
+              1.4,
+              3.52
+            ],
+            "text": "-"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w90",
+            "polygon": [
+              1.7,
+              3.4,
+              1.95,
+              3.4,
+              1.95,
+              3.52,
+              1.7,
+              3.52
+            ],
+            "text": "invented"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w91",
+            "polygon": [
+              2.0,
+              3.4,
+              2.25,
+              3.4,
+              2.25,
+              3.52,
+              2.0,
+              3.52
+            ],
+            "text": "patient"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w92",
+            "polygon": [
+              2.3,
+              3.4,
+              2.55,
+              3.4,
+              2.55,
+              3.52,
+              2.3,
+              3.52
+            ],
+            "text": "-"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w93",
+            "polygon": [
+              2.6,
+              3.4,
+              2.85,
+              3.4,
+              2.85,
+              3.52,
+              2.6,
+              3.52
+            ],
+            "text": "not"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w94",
+            "polygon": [
+              2.9,
+              3.4,
+              3.15,
+              3.4,
+              3.15,
+              3.52,
+              2.9,
+              3.52
+            ],
+            "text": "real"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w95",
+            "polygon": [
+              3.1999999999999997,
+              3.4,
+              3.4499999999999997,
+              3.4,
+              3.4499999999999997,
+              3.52,
+              3.1999999999999997,
+              3.52
+            ],
+            "text": "clinical"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w96",
+            "polygon": [
+              3.5,
+              3.4,
+              3.75,
+              3.4,
+              3.75,
+              3.52,
+              3.5,
+              3.52
+            ],
+            "text": "data"
+          }
+        ]
+      }
+    ]
+  }
+}

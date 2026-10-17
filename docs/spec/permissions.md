@@ -17,10 +17,13 @@ A person's rights on a case are the **union** of their case role and the adminis
 |---|---|---|---|---|---|---|
 | `case.view_metadata` (label, dates, status) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `case.view_content` (pages, facts, opinions) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| `case.edit_setup` (parties, instructing parties, links, hearings, directions) | ✓ | — | — | ✓ | — | — |
+| `case.edit_setup` (parties, instructing parties, links, hearings, directions, prefill suggestions) | ✓ | — | — | ✓ | — | — |
 | `case.upload` (records, instructions, exhibits) | ✓ | — | — | ✓ | — | — |
 | `case.manage_members` | ✓ | — | — | — | — | ✓ |
 | `case.reassign_named_expert` (before serving) 🔒 | — | — | — | — | — | ✓ |
+| `case.hold` (put on hold, resume) | ✓ | — | — | ✓ | — | — |
+| `case.change_jurisdiction` (jurisdiction, case type, specialty; before serving) 🔒 | ✓ | — | — | — | — | — |
+| `conflict.declare` (conflict answers and declarations) | ✓ | — | — | — | — | — |
 | `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — |
 | `page.quarantine`, `page.replace`, `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — |
 | `fact.verify` | ✓ | — | — | — | — | — |
@@ -52,7 +55,11 @@ A deleted case (status `deleted`, the tombstone `app.purge_case()` leaves) answe
 Row-level security lets a person update a row; triggers then check each change against the action it is, for the person `app.person_id` names:
 - `report_versions.status`: → locked needs `report.sign`, → served `report.serve`, → withdrawn `report.withdraw`; any other edit `report.build`.
 - `cases.named_expert_id`: `case.reassign_named_expert`, and only while the case has never been served (no served or withdrawn report version, status not served or settled).
-- `cases.retention_policy`, `delete_after`, `on_hold`: `case.retention`.
+- `cases.retention_policy`, `delete_after`: `case.retention`.
+- `cases.on_hold`: `case.hold`.
+- `cases.jurisdiction`, `case_type`, `specialty`, `pack_versions`: `case.change_jurisdiction`, and only while the case has never been served.
+- `instruction_versions.locked_at` (locking the questions): `question.confirm`; a lock is never undone (a new instruction version reopens the questions).
+- Creating a case: the creator is an owner, admin or expert of the organisation and names themselves, or an assistant naming an owner, admin or expert member; an assistant who creates a case joins it as its assistant.
 - `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`, → settled `case.settle`, → archived `case.archive`, settled or archived → active `case.reopen`; any other move and every other column `case.edit_setup`.
 - `app.purge_case()`: only the worker, inside the case's own job (`app.job_case_id`); refused while the case is on hold or under an active legal hold.
 - `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one.

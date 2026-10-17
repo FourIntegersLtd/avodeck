@@ -1,0 +1,16 @@
+/* Slice C's layout helpers. Colours, sizes and type come from the design tokens (foundation/ui/tokens.css). */
+.av-setup-choice { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.av-setup-choice__options { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.av-setup-option { min-height: var(--button-min-height); align-items: center; }
+.av-setup-textarea { min-height: 6em; }
+.av-setup-plain { list-style: none; margin: 0; padding: 0; }
+.av-setup-balance { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-5); }
+.av-setup-balance li { display: flex; flex-direction: column; }
+.av-setup-balance__count { font-size: 2rem; line-height: 1.1; }
+.av-setup-quote { font-family: Georgia, serif; border-left: 3px solid var(--line); padding-left: var(--space-3); margin: 0; }
+.av-setup-wording { gap: var(--space-2); }
+.av-setup-file__label { display: inline-flex; align-items: center; min-height: var(--button-min-height); cursor: pointer; }
+.av-setup-file input:focus-visible + label, .av-setup-file:focus-within .av-setup-file__label { outline: 3px solid var(--focus); outline-offset: 2px; }
+.av-setup-signature { width: 100%; max-width: 600px; height: auto; aspect-ratio: 3 / 1; border: 2px dashed var(--line); border-radius: var(--radius); background: var(--surface); touch-action: none; }
+.av-setup-actions { justify-content: flex-end; }
+.av-setup-confirmed { color: var(--green); }
