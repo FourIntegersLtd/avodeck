@@ -4,6 +4,9 @@
   is recorded and audited and never becomes pages; if a clean one is waiting, `process_bundle` is queued.
 - `process_bundle` / `process_pages`: clean documents are cut into pages, numbered once after the
   case's last page in upload order, and each page's PDF, image and thumbnail are sealed and stored.
+  Each page's words come from its text layer or OCR (T-07a); then each page is sent once to the
+  model (T-07b) with identifiers stripped. Facts not found in their cited words are refused and the
+  page is asked once more, then marked `needs_human`; facts citing crossed-out words are dropped.
 
 Every step checks what already exists, so a retried or repeated job changes nothing. Job rows and
 logs carry numbers and step codes only (rule 6).
@@ -12,18 +15,24 @@ logs carry numbers and step codes only (rule 6).
 from __future__ import annotations
 
 import asyncio
+import json
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from typing import Any
 
 from psycopg import AsyncConnection
 
 from app.core import audit
+from app.core.ai import pii
+from app.core.ai.answers import page_subject
+from app.core.ai.cell import model_for
+from app.core.ai.kit import InvalidOutput
 from app.core.ai.ocr import OcrPage
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import paths, repo
+from app.features.pipeline import extract, paths, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
@@ -167,9 +176,118 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 confidence=reading.confidence,
                 handwriting=reading.handwriting,
                 unreadable=reading.unreadable,
+                size=(page.width, page.height),
             )
 
     await bounded(waiting, read)
+
+
+async def _ask(
+    ctx: JobContext, services: PipelineServices, task: Any, pack: Any, who: Any, text: str, subject: str
+) -> dict[str, Any] | None:
+    """One T-07b call in its own transaction, so its `ai_calls` rows stay even if the page fails."""
+    assert services.kit is not None
+    async with ctx.transaction() as conn:
+        try:
+            return await services.kit.run(
+                conn,
+                task,
+                pack=pack,
+                text=text,
+                case_id=ctx.case_id,
+                names=who.names,
+                dates_of_birth=who.dates_of_birth,
+                subject=subject,
+            )
+        except InvalidOutput:
+            return None
+
+
+async def _extract(ctx: JobContext, services: PipelineServices) -> None:
+    async with ctx.transaction() as conn:
+        waiting = await repo.pages_to_extract(conn, ctx.case_id)
+        if not waiting:
+            return
+        pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        who = await services.identity(conn, ctx.case_id)
+    if services.kit is None:
+        raise ProcessingPaused("model_unavailable")
+    task = extract.task_for(pack)
+    model_id = model_for(services.kit.settings, task.model)
+    done = 0
+
+    async def one(page_id: uuid.UUID) -> None:
+        nonlocal done
+        async with ctx.transaction() as conn:
+            stored = await repo.words_of(conn, page_id)
+            size = await repo.page_size(conn, page_id)
+            texts = {
+                w.word_id: (
+                    await services.crypto.decrypt(
+                        conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                    )
+                ).decode()
+                for w in stored
+            }
+        ordered = [(w.word_id, texts[w.word_id]) for w in stored]
+        struck = {w.word_id for w in stored if w.struck}
+        stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+        text = extract.page_text(ordered, stripped.text)
+        subject = page_subject(ordered)
+        output: dict[str, Any] | None = None
+        kept: list[Any] = []
+        reason: str | None = None
+        for _ in range(2):
+            output = await _ask(ctx, services, task, pack, who, text, subject)
+            if output is None:
+                kept, reason = [], "invalid_output"
+                break
+            result = extract.sort_facts(output, texts, struck)
+            kept, reason = result.kept, ("not_in_words" if result.refused else None)
+            if reason is None:
+                break
+        polygons = {w.word_id: w.polygon for w in stored}
+        width, height = size or (
+            max((x for w in stored for x in w.polygon[0::2]), default=1.0) or 1.0,
+            max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
+        )
+        facts = [
+            repo.NewFact(
+                kind=str(f["kind"]),
+                fields=dict(f.get("fields") or {}),
+                value=str(f["value"]),
+                word_ids=list(f["word_ids"]),
+                bbox=extract.box(f["word_ids"], polygons, width, height),
+            )
+            for f in kept
+        ]
+        async with ctx.transaction() as conn:
+            sealed = None
+            if output is not None:
+                sealed = await services.crypto.encrypt(
+                    conn, ctx.case_id, json.dumps(output).encode(), purpose=paths.extraction_purpose(page_id)
+                )
+            await repo.store_extraction(
+                conn,
+                ctx.case_id,
+                page_id,
+                source_type=output.get("source_type") if output else None,
+                facts=facts,
+                sealed=sealed,
+                needs_human=reason is not None,
+                reason=reason,
+                task=task.task_id,
+                model_id=model_id,
+                prompt_version=task.prompt_version,
+            )
+        done += 1
+        if done % 25 == 0:
+            await ctx.progress(min(90, 40 + 50 * done // len(waiting)), step="extract")
+
+    await bounded(waiting, one)
+
+
+STAGES: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {"extract": _extract}
 
 
 async def process_bundle(ctx: JobContext) -> None:
@@ -179,6 +297,8 @@ async def process_bundle(ctx: JobContext) -> None:
     await ctx.progress(30, step="ocr")
     await _read_words(ctx, services)
     for n, step in enumerate(STEPS, start=1):
+        if step in STAGES:
+            await STAGES[step](ctx, services)
         await ctx.step(step, _noop)
         await ctx.progress(100 * n // len(STEPS), step=step)
 
