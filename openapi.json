@@ -775,6 +775,7 @@
           "email": {
             "maxLength": 320,
             "minLength": 3,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "Email",
             "type": "string"
           }
@@ -1512,18 +1513,21 @@
           "code": {
             "maxLength": 32,
             "minLength": 6,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "Code",
             "type": "string"
           },
           "email": {
             "maxLength": 320,
             "minLength": 3,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "Email",
             "type": "string"
           },
           "password": {
             "maxLength": 256,
             "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "Password",
             "type": "string"
           }
@@ -1557,12 +1561,14 @@
           "new_password": {
             "maxLength": 256,
             "minLength": 12,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "New Password",
             "type": "string"
           },
           "token": {
             "maxLength": 512,
             "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "Token",
             "type": "string"
           }
@@ -1638,12 +1644,14 @@
           "email": {
             "maxLength": 320,
             "minLength": 3,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "Email",
             "type": "string"
           },
           "password": {
             "maxLength": 256,
             "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
             "title": "Password",
             "type": "string"
           }

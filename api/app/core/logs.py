@@ -85,12 +85,15 @@ def _scrubbing_factory(*args: Any, **kwargs: Any) -> logging.LogRecord:
 def configure(finders: Sequence[Finder] | None = None) -> None:
     """Install the scrubbing record factory for the whole process (idempotent).
 
-    HTTP client libraries log every URL they call at INFO; those lines are switched off (FastAPI's
-    own requests are logged by `RequestLog`), and any URL that still reaches a line loses its path.
+    HTTP client libraries log every URL they call at INFO; those lines and the server's access log are
+    switched off (FastAPI's own requests are logged by `RequestLog`), and any URL that still reaches a
+    line loses its path.
     """
     global _base_factory, _finders
     for name in ("httpx", "httpcore", "hpack"):
         logging.getLogger(name).setLevel(logging.WARNING)
+    # The server's access lines carry raw paths and queries; `RequestLog` logs by route template.
+    logging.getLogger("uvicorn.access").disabled = True
     if finders is not None:
         _finders = list(finders)
     if _base_factory is None:

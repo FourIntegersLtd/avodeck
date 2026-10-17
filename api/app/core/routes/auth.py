@@ -121,9 +121,14 @@ async def _start_session(
 # --- models -------------------------------------------------------------------------------------
 
 
+# No control characters: they cannot be part of an address, password, code or link token, and Auth
+# would refuse them as an outage (found by Schemathesis).
+PLAIN = r"^[^\x00-\x1f\x7f]*$"
+
+
 class SignIn(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
-    password: str = Field(min_length=1, max_length=256)
+    email: str = Field(min_length=3, max_length=320, pattern=PLAIN)
+    password: str = Field(min_length=1, max_length=256, pattern=PLAIN)
 
 
 class SignInResult(BaseModel):
@@ -151,7 +156,7 @@ class RecoveryCodes(BaseModel):
 
 
 class Recover(SignIn):
-    code: str = Field(min_length=6, max_length=32)
+    code: str = Field(min_length=6, max_length=32, pattern=PLAIN)
 
 
 class SessionStatus(BaseModel):
@@ -163,7 +168,7 @@ class SessionStatus(BaseModel):
 
 
 class Forgot(BaseModel):
-    email: str = Field(min_length=3, max_length=320)
+    email: str = Field(min_length=3, max_length=320, pattern=PLAIN)
 
 
 class Sent(BaseModel):
@@ -171,8 +176,8 @@ class Sent(BaseModel):
 
 
 class Reset(BaseModel):
-    token: str = Field(min_length=1, max_length=512)
-    new_password: str = Field(min_length=PASSWORD_MIN, max_length=256)
+    token: str = Field(min_length=1, max_length=512, pattern=PLAIN)
+    new_password: str = Field(min_length=PASSWORD_MIN, max_length=256, pattern=PLAIN)
 
 
 class PasswordChanged(BaseModel):
