@@ -97,19 +97,22 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
         </div>
         <Button type="submit" wide disabled={busy}>
           {t("sign_in.submit")}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+            <path d="M5 12h14M13 6l6 6-6 6" />
+          </svg>
         </Button>
       </form>
       <div className="av-sign-in__note" role="note">
         <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="4" y="11" width="16" height="10" rx="2" />
-          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+          <rect x="5" y="10" width="14" height="10" rx="2" />
+          <path d="M8 10V7a4 4 0 0 1 8 0v3" />
         </svg>
         <p>
           {t("sign_in.note.code")} {t("sign_in.note.lost")}{" "}
           <Button variant="quiet" onClick={() => go("recover")}>
             {t("sign_in.use_backup")}
-          </Button>{" "}
-          {t("sign_in.note.private")}
+          </Button>
+          {t("sign_in.note.link_end")} {t("sign_in.note.private")}
         </p>
       </div>
     </>

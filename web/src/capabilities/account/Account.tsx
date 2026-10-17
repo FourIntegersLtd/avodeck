@@ -29,15 +29,17 @@ export function Account() {
   };
 
   return (
-    <div className="av-page av-stack">
-      <h1>{t("account.title")}</h1>
+    <div className="av-page av-page--narrow av-stack">
+      <div>
+        <h1>{t("account.title")}</h1>
+        <p className="av-muted">{t("account.intro")}</p>
+      </div>
       {message && (
         <Notice tone={message.tone}>
           <p>{message.text}</p>
         </Notice>
       )}
       <SigningIn email={me.person.email} act={act} />
-      <BackupCodes act={act} />
       <Devices act={act} locale={me.person.locale} />
       <HowWeTellYou />
       <div>
@@ -78,7 +80,7 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
         <div className="av-row-item">
           <div>
             <p className="av-field__label">{t("account.email.label")}</p>
-            <p>{email}</p>
+            <p className="av-muted">{email}</p>
           </div>
           {!changing && (
             <Button variant="secondary" onClick={() => setChanging(true)}>
@@ -105,12 +107,14 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
         </div>
         <div className="av-row-item">
           <div>
-            <p className="av-field__label">{t("account.code.label")}</p>
-            <p>{t("account.code.value")}</p>
+            <p className="av-field__label">{t("account.code.value")}</p>
             <p className="av-muted">{t("account.code.always_on")}</p>
           </div>
+          <span className="av-badge av-badge--on">{t("account.code.on")}</span>
         </div>
+        <BackupCodes act={act} />
       </div>
+      <p className="av-muted av-small">{t("account.sign_in.note")}</p>
     </section>
   );
 }
@@ -118,9 +122,11 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
 function BackupCodes({ act }: { act: Act }) {
   const [codes, setCodes] = useState<string[] | null>(null);
   return (
-    <section aria-labelledby="backup-codes" className="av-card av-stack">
-      <h2 id="backup-codes">{t("account.backup.title")}</h2>
-      <p>{t("account.backup.intro")}</p>
+    <div className="av-row-item">
+      <div className="av-row-item__text">
+        <p className="av-field__label">{t("account.backup.title")}</p>
+        <p className="av-muted">{t("account.backup.intro")}</p>
+      </div>
       {codes && (
         <Notice tone="success">
           <p>{t("account.backup.made")}</p>
@@ -131,8 +137,7 @@ function BackupCodes({ act }: { act: Act }) {
           </ul>
         </Notice>
       )}
-      <div>
-        <Button
+      <Button
           variant="secondary"
           onClick={() =>
             void act(async () => {
@@ -144,8 +149,7 @@ function BackupCodes({ act }: { act: Act }) {
         >
           {t("account.backup.make")}
         </Button>
-      </div>
-    </section>
+    </div>
   );
 }
 
@@ -163,7 +167,14 @@ function Devices({ act, locale }: { act: Act; locale: string | null | undefined 
     }, "account.devices.signed_out_others");
   return (
     <section aria-labelledby="devices" className="av-card av-stack">
-      <h2 id="devices">{t("account.devices.title")}</h2>
+      <div className="av-row-item av-row-item--head">
+        <h2 id="devices">{t("account.devices.title")}</h2>
+        {devices.data && devices.data.some((d) => !d.current) && (
+          <Button variant="secondary" onClick={() => void signOutOthers()}>
+            {t("account.devices.sign_out_others")}
+          </Button>
+        )}
+      </div>
       {devices.error && <LoadError onRetry={devices.reload} />}
       {!devices.data && !devices.error && <Loading />}
       {devices.data && (
@@ -182,13 +193,6 @@ function Devices({ act, locale }: { act: Act; locale: string | null | undefined 
             </li>
           ))}
         </ul>
-      )}
-      {devices.data && devices.data.some((d) => !d.current) && (
-        <div>
-          <Button variant="danger" onClick={() => void signOutOthers()}>
-            {t("account.devices.sign_out_others")}
-          </Button>
-        </div>
       )}
     </section>
   );
@@ -235,7 +239,7 @@ function HowWeTellYou() {
         const choice = saved[original.organisation_id] ?? original;
         const name = choice.organisation_kind === "personal" ? t("today.filter.personal") : choice.organisation_name;
         return (
-          <fieldset key={choice.organisation_id} className="av-choices">
+          <fieldset key={choice.organisation_id} className="av-choices av-row-item">
             <legend className="av-field__label">{name}</legend>
             <div className="av-row">
               {CHANNELS.map(([channel, label]) => (

@@ -48,7 +48,7 @@ export function Today() {
           <p className="av-muted av-today__date" data-testid="today-date">
             {formatDay(new Date(), locale ?? undefined, me.person.timezone)}
           </p>
-          <h1>{t(greetingKey(hourIn(me.person.timezone)), { name })}</h1>
+          <h1 className="av-today__title">{t(greetingKey(hourIn(me.person.timezone)), { name })}</h1>
         </div>
         {hasScreen("new_case") && <LinkButton to={screenPath("new_case")!}>{t("today.cases.new")}</LinkButton>}
       </div>
@@ -68,7 +68,7 @@ function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: C
   const ranked = [...items].sort((a, b) => a.rank - b.rank);
   const label = (id: string) => cases.find((c) => c.case_id === id)?.label ?? "";
   return (
-    <section aria-labelledby="needs-you" className="av-section">
+    <section aria-labelledby="needs-you" className={ranked.length ? "av-section av-card av-needs-card" : "av-section"}>
       <h2 id="needs-you">{ranked.length ? t("today.needs_you.heading", { count: ranked.length }) : t("today.needs_you.none")}</h2>
       {ranked.length > 0 && (
         <ol className="av-needs">
@@ -80,8 +80,8 @@ function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: C
             const path = screenPath(item.screen, { caseId: item.case_id, params: item.params as Record<string, unknown> });
             const target = path && hasMessage(item.action_key) ? { to: path, text: t(item.action_key, params) } : item.case_id ? { to: `/cases/${item.case_id}`, text: t("today.needs_you.open") } : null;
             return (
-              <li key={`${item.kind}-${item.case_id ?? ""}-${item.rank}`} className="av-card av-needs__item">
-                <div>
+              <li key={`${item.kind}-${item.case_id ?? ""}-${item.rank}`} className="av-needs__item">
+                <div className="av-needs__text">
                   <p className="av-case-card__title">{known ? t(item.label_key, params) : t("today.needs_you.fallback", { case: caseLabel })}</p>
                   {known && detailKey !== item.label_key && hasMessage(detailKey) && <p className="av-muted">{t(detailKey, params)}</p>}
                 </div>
@@ -110,20 +110,20 @@ function Cases({ data, packs, locale, org, setOrg }: CasesProps) {
     <section aria-labelledby="your-cases" className="av-section">
       <div className="av-today__head">
         <h2 id="your-cases">{t("today.cases.title")}</h2>
+        {data.organisations.length > 1 && (
+          <div className="av-filter" role="group" aria-label={t("today.filter.label")}>
+            <button type="button" className="av-button av-button--secondary" aria-pressed={org === null} onClick={() => setOrg(null)}>
+              {t("today.filter.option", { name: t("today.filter.all"), count: data.cases.length })}
+            </button>
+            {data.organisations.map((o) => (
+              <button key={o.id} type="button" className="av-button av-button--secondary" aria-pressed={org === o.id} onClick={() => setOrg(o.id)}>
+                {t("today.filter.option", { name: orgName(o), count: data.cases.filter((c) => c.organisation_id === o.id).length })}
+              </button>
+            ))}
+          </div>
+        )}
         <p className="av-muted">{t("today.cases.counts", { open: shown.length, closed: data.closed_count })}</p>
       </div>
-      {data.organisations.length > 1 && (
-        <div className="av-filter" role="group" aria-label={t("today.filter.label")}>
-          <button type="button" className="av-button av-button--secondary" aria-pressed={org === null} onClick={() => setOrg(null)}>
-            {t("today.filter.option", { name: t("today.filter.all"), count: data.cases.length })}
-          </button>
-          {data.organisations.map((o) => (
-            <button key={o.id} type="button" className="av-button av-button--secondary" aria-pressed={org === o.id} onClick={() => setOrg(o.id)}>
-              {t("today.filter.option", { name: orgName(o), count: data.cases.filter((c) => c.organisation_id === o.id).length })}
-            </button>
-          ))}
-        </div>
-      )}
       {shown.length === 0 ? (
         <p>{t("today.cases.none")}</p>
       ) : (
@@ -154,7 +154,7 @@ function CaseCardView({ card, pack, locale }: { card: CaseCard; pack: CasePack |
           {card.on_hold && <span className="av-badge av-badge--look">{t("case.on_hold")}</span>}
         </span>
         <span className="av-case-card__foot">
-          <span>{party}</span>
+          <span className="av-case-card__party">{party}</span>
           {card.due_date && pack && <span>{t("case.due", { date: formatDue(card.due_date, dateLocale) })}</span>}
         </span>
       </div>
@@ -175,7 +175,7 @@ function StepRing({ step, number, total }: { step: string; number: number; total
           cy="40"
           r={r}
           fill="none"
-          stroke="var(--green)"
+          stroke="var(--green-bright)"
           strokeWidth="6"
           strokeLinecap="round"
           strokeDasharray={`${(length * number) / total} ${length}`}

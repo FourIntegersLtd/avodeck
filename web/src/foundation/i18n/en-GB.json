@@ -36,8 +36,9 @@
   "step_up.submit": "Carry on",
   "step_up.cancel": "Cancel",
   "sign_in.brand.tagline": "Every page read. Every fact traced.",
-  "sign_in.brand.point_pages": "Every page numbered and read, so nothing is missed.",
+  "sign_in.brand.point_pages": "Your records sorted and numbered, nothing thrown away.",
   "sign_in.brand.point_visits": "See any visit exactly as it was seen on the day.",
+  "sign_in.brand.point_court": "Walk into court with page numbers that match.",
   "sign_in.brand.point_opinion": "Your opinion is always your own. We never write it.",
   "sign_in.password.title": "Welcome back",
   "sign_in.password.intro": "Sign in to carry on where you left off.",
@@ -103,6 +104,9 @@
   "case.on_hold": "On hold",
   "case.step": "Step {{number}} of {{total}}",
   "account.title": "Account and security",
+  "account.intro": "One sign-in for all your work, in your own practice and in any team.",
+  "account.sign_in.note": "Changing your email needs a click from both your old and new address. No one else, including a team admin, can reset your code for you.",
+  "account.code.on": "On",
   "account.sign_in.title": "Signing in",
   "account.email.label": "Email address",
   "account.email.change": "Change email",
@@ -144,5 +148,6 @@
   "case.step_ring": "{{step}}, step {{number}} of {{total}}",
   "sign_in.note.code": "Next, we'll send a 6-digit code to your phone.",
   "sign_in.note.lost": "Lost your phone?",
+  "sign_in.note.link_end": ".",
   "sign_in.note.private": "Your records stay private and are never used to train AI."
 }
