@@ -292,6 +292,7 @@ async def harness(
     bedrock: Any = None,
     names: Sequence[str] = (),
     dates_of_birth: Sequence[Any] = (),
+    embedder: Any = None,
 ) -> AsyncIterator[Harness]:
     """The pipeline wired to stand-ins, its job kinds on a registry of their own."""
     from app.core.packs import default_library
@@ -317,6 +318,7 @@ async def harness(
         packs=default_library(),
         registry=registry,
         identity=identity,
+        **({"embedder": embedder} if embedder is not None else {}),
     )
     app = build_app(api_db, auth_env, storage=storage, crypto=crypto)
     pipeline.mount_on(app)

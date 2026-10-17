@@ -177,6 +177,11 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
     )
     admin.execute("insert into app.page_analysis (page_id, case_id) values (%s, %s)", (page, w.case))
     admin.execute(
+        "insert into app.page_embeddings (page_id, case_id, model, embedding)"
+        " values (%s, %s, 'zz-model', array_fill(0.0::real, array[384])::extensions.vector)",
+        (page, w.case),
+    )
+    admin.execute(
         "insert into app.page_quarantines (case_id, page_id, reason) values (%s, %s, 'zz_reason')", (w.case, page)
     )
     admin.execute(
@@ -216,6 +221,7 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         "case_processing": 1,
         "ocr_words": 1,
         "page_analysis": 1,
+        "page_embeddings": 1,
         "page_quarantines": 1,
         "page_replacements": 1,
         "missing_items": 1,

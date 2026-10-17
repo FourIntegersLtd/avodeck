@@ -274,3 +274,22 @@ async def test_the_preparing_screen_finds_the_case_s_latest_processing_job(
     seed.case_member(h.case_id, viewer, "viewer", added_by=h.expert)
     assert (await (await client_for(viewer)).get(url)).json()["job"]["id"] == str(latest)
     assert (await (await client_for(seed.person())).get(url)).status_code == 404
+
+
+async def test_reprocessed_suggestions_carry_the_model_id_that_made_them(h: Harness) -> None:
+    """Brief: reprocess suggestions carry their model ID (and the task and prompt version) by name."""
+    from app.features.pipeline import extract
+
+    await h.upload(text_pdf(PAGES[:2]))
+    await h.drain()
+    first = {f["id"] for f in facts_of(h)}
+    assert (await h.client.post(f"/v1/cases/{h.case_id}/reprocess")).status_code == 202
+    await h.drain()
+    new = [f for f in facts_of(h) if f["id"] not in first]
+    assert len(new) == 2
+    task = extract.task_for(h.pack)  # type: ignore[attr-defined]
+    model = model_for(cell(), task.model)
+    for fact in new:
+        assert fact["model_id"] == model
+        assert fact["model_task"] == task.task_id
+        assert fact["prompt_version"] == task.prompt_version

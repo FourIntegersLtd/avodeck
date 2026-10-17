@@ -243,3 +243,30 @@ async def test_a_typed_file_makes_no_ocr_call_under_either_pack(
         for page in h.pages():
             assert page["text_source"] == "embedded", f"page {page['bundle_page_no']}"
             assert len(words_of(h, page["id"])) >= 4, f"page {page['bundle_page_no']}"
+
+
+async def test_low_confidence_handwriting_is_never_auto_corrected(subset: Harness, recordings: FixtureStore) -> None:
+    """Brief: handwriting is never auto-corrected. Every word on a handwritten or unreadable page is
+    stored exactly as OCR read it, with OCR's own confidence, and the page waits for a person."""
+    from app.features.pipeline.paths import word_purpose
+
+    pages = by_number(subset)
+    cut = split_pages(subset_document())
+    checked = 0
+    for i, entry in enumerate(subset_entries()):
+        n = int(entry["page"])
+        page = pages[n]
+        if entry["text_source"] == "embedded" or not (page["handwriting"] or page["unreadable"]):
+            continue
+        recorded = recordings.lookup("ocr", RecordedOcr.request(cut[i], "layout"))["pages"][0]["words"]
+        stored = words_of(subset, page["id"])
+        assert [r["word_id"] for r in stored] == [w["id"] for w in recorded], f"page {n}"
+        for row, word in zip(stored, recorded, strict=True):
+            assert row["source"] == "ocr", f"page {n}"
+            opened = await subset.decrypt(bytes(row["text"]), word_purpose(page["id"], word["id"]))
+            assert digest(opened.decode()) == digest(word["text"]), f"page {n}: a handwritten word was changed"
+            assert abs(row["confidence"] - word["confidence"]) < 1e-4, f"page {n}"
+        if page["unreadable"]:
+            assert page["transcribed_by_expert_text"] is None, f"page {n}: text was filled in for a person"
+        checked += 1
+    assert checked >= 2, "the subset has no handwritten or unreadable page to check"
