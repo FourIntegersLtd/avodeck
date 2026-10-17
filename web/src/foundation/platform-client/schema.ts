@@ -239,6 +239,23 @@ export interface paths {
         patch: operations["update_case_v1_cases__case_id__patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Archive */
+        post: operations["archive_v1_cases__case_id__archive_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/assumptions/{assumption_id}": {
         parameters: {
             query?: never;
@@ -254,6 +271,40 @@ export interface paths {
         head?: never;
         /** Update Assumption */
         patch: operations["update_assumption_v1_cases__case_id__assumptions__assumption_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Audit Trail */
+        get: operations["audit_trail_v1_cases__case_id__audit_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Close Summary */
+        get: operations["close_summary_v1_cases__case_id__close_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/cases/{case_id}/conflicts": {
@@ -291,6 +342,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/deletion-certificate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Deletion Certificate */
+        get: operations["deletion_certificate_v1_cases__case_id__deletion_certificate_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/documents/{document_id}/file": {
         parameters: {
             query?: never;
@@ -300,6 +368,40 @@ export interface paths {
         };
         /** Download Document */
         get: operations["download_document_v1_cases__case_id__documents__document_id__file_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Request Export */
+        post: operations["request_export_v1_cases__case_id__export_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/export/{job_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Export */
+        get: operations["download_export_v1_cases__case_id__export__job_id__download_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -414,6 +516,40 @@ export interface paths {
          *     including keys on other tables the new packs lack (kept, `held`) and dismissed waiting suggestions.
          */
         patch: operations["change_jurisdiction_v1_cases__case_id__jurisdiction_patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/legal-holds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Legal Hold */
+        post: operations["set_legal_hold_v1_cases__case_id__legal_holds_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/legal-holds/{hold_id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Release Legal Hold */
+        post: operations["release_legal_hold_v1_cases__case_id__legal_holds__hold_id__release_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/cases/{case_id}/links": {
@@ -665,6 +801,23 @@ export interface paths {
         patch: operations["update_question_v1_cases__case_id__questions__question_id__patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reopen */
+        post: operations["reopen_v1_cases__case_id__reopen_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/resume": {
         parameters: {
             query?: never;
@@ -676,6 +829,40 @@ export interface paths {
         put?: never;
         /** Resume Case */
         post: operations["resume_case_v1_cases__case_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change Retention */
+        put: operations["change_retention_v1_cases__case_id__retention_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/settle": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Settle */
+        post: operations["settle_v1_cases__case_id__settle_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1414,6 +1601,27 @@ export interface components {
             /** Text */
             text?: string | null;
         };
+        /** AuditEntry */
+        AuditEntry: {
+            /** Action */
+            action: string;
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Person Id */
+            person_id: string | null;
+            /** Seq */
+            seq: number;
+            /** Target */
+            target: string;
+        };
+        /** AuditTrail */
+        AuditTrail: {
+            /** Entries */
+            entries: components["schemas"]["AuditEntry"][];
+        };
         /** Balance */
         Balance: {
             /**
@@ -1707,10 +1915,75 @@ export interface components {
             /** Subject Status */
             subject_status?: string | null;
         };
+        /**
+         * Certificate
+         * @description Proof of deletion (rule 6): counts, hashes and dates, never patient text or names.
+         */
+        Certificate: {
+            /** Backup Expiry On */
+            backup_expiry_on: string | null;
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Counts */
+            counts: {
+                [key: string]: unknown;
+            };
+            /**
+             * Deleted At
+             * Format: date-time
+             */
+            deleted_at: string;
+            /** Hashes */
+            hashes: {
+                [key: string]: unknown;
+            };
+            /** Log Chain Heads */
+            log_chain_heads: {
+                [key: string]: unknown;
+            };
+            /** Sent To */
+            sent_to: string[];
+        };
         /** ChunkReceived */
         ChunkReceived: {
             /** Received */
             received: number[];
+        };
+        /**
+         * CloseSummary
+         * @description What screen 26 shows: where the case is, when it will be deleted, and what is holding it.
+         */
+        CloseSummary: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Delete After */
+            delete_after: string | null;
+            /** Deleted At */
+            deleted_at: string | null;
+            /** Deletion Started */
+            deletion_started: boolean;
+            /** Ever Served */
+            ever_served: boolean;
+            /** Held */
+            held: boolean;
+            /** Holds */
+            holds: components["schemas"]["app__features__close__schemas__Hold"][];
+            /** Job Id */
+            job_id?: string | null;
+            /** Retention Policy */
+            retention_policy: string | null;
+            /** Retention Years */
+            retention_years: number;
+            /** Settled At */
+            settled_at: string | null;
+            /** Status */
+            status: string;
         };
         /** Code */
         Code: {
@@ -1964,10 +2237,15 @@ export interface components {
             /** Text */
             text: string;
         };
-        /** Hold */
-        Hold: {
-            /** On Hold */
-            on_hold: boolean;
+        /**
+         * HoldCreate
+         * @description A short reason code (never free text) and an optional end date, today or later.
+         */
+        HoldCreate: {
+            /** Reason */
+            reason: string;
+            /** Until */
+            until?: string | null;
         };
         /** InstructingParties */
         InstructingParties: {
@@ -2155,6 +2433,14 @@ export interface components {
             status: string;
             /** Step */
             step: string | null;
+        };
+        /** JobQueued */
+        JobQueued: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
         };
         /** JurisdictionChanged */
         JurisdictionChanged: {
@@ -2348,6 +2634,11 @@ export interface components {
         };
         /** NoteItem */
         NoteItem: {
+            /**
+             * Label
+             * @description The pack's words for what the item is about (a conflict question).
+             */
+            label?: string | null;
             /**
              * Label Key
              * @description i18n key for an item that is not a question.
@@ -2767,6 +3058,14 @@ export interface components {
             /** Token */
             token: string;
         };
+        /** RetentionChange */
+        RetentionChange: {
+            /**
+             * Policy
+             * @enum {string}
+             */
+            policy: "keep_default" | "return_then_delete" | "delete_now";
+        };
         /** Role */
         Role: {
             /** Ended On */
@@ -3149,6 +3448,35 @@ export interface components {
             text: string;
             /** Version */
             version?: string | null;
+        };
+        /** Hold */
+        app__features__close__schemas__Hold: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Released At */
+            released_at: string | null;
+            /**
+             * Set By
+             * Format: uuid
+             */
+            set_by: string;
+            /** Until */
+            until: string | null;
+        };
+        /** Hold */
+        app__features__setup__routes_case__Hold: {
+            /** On Hold */
+            on_hold: boolean;
         };
     };
     responses: never;
@@ -3653,6 +3981,46 @@ export interface operations {
             };
         };
     };
+    archive_v1_cases__case_id__archive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     update_assumption_v1_cases__case_id__assumptions__assumption_id__patch: {
         parameters: {
             query?: never;
@@ -3678,6 +4046,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AssumptionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    audit_trail_v1_cases__case_id__audit_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditTrail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    close_summary_v1_cases__case_id__close_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseSummary"];
                 };
             };
             /** @description Validation Error */
@@ -3824,6 +4272,46 @@ export interface operations {
             };
         };
     };
+    deletion_certificate_v1_cases__case_id__deletion_certificate_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Certificate"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     download_document_v1_cases__case_id__documents__document_id__file_get: {
         parameters: {
             query?: never;
@@ -3863,6 +4351,87 @@ export interface operations {
             };
         };
     };
+    request_export_v1_cases__case_id__export_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobQueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    download_export_v1_cases__case_id__export__job_id__download_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The export, once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     hold_case_v1_cases__case_id__hold_post: {
         parameters: {
             query?: never;
@@ -3880,7 +4449,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Hold"];
+                    "application/json": components["schemas"]["app__features__setup__routes_case__Hold"];
                 };
             };
             /** @description Validation Error */
@@ -4186,6 +4755,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JurisdictionChanged"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    set_legal_hold_v1_cases__case_id__legal_holds_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__features__close__schemas__Hold"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    release_legal_hold_v1_cases__case_id__legal_holds__hold_id__release_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                hold_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__features__close__schemas__Hold"];
                 };
             };
             /** @description Validation Error */
@@ -5000,6 +5654,46 @@ export interface operations {
             };
         };
     };
+    reopen_v1_cases__case_id__reopen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     resume_case_v1_cases__case_id__resume_post: {
         parameters: {
             query?: never;
@@ -5017,7 +5711,91 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Hold"];
+                    "application/json": components["schemas"]["app__features__setup__routes_case__Hold"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    change_retention_v1_cases__case_id__retention_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetentionChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    settle_v1_cases__case_id__settle_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseSummary"];
                 };
             };
             /** @description Validation Error */

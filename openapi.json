@@ -219,6 +219,64 @@
         "title": "AssumptionUpdate",
         "type": "object"
       },
+      "AuditEntry": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "person_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Person Id"
+          },
+          "seq": {
+            "title": "Seq",
+            "type": "integer"
+          },
+          "target": {
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "seq",
+          "at",
+          "action",
+          "target",
+          "person_id"
+        ],
+        "title": "AuditEntry",
+        "type": "object"
+      },
+      "AuditTrail": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entries"
+        ],
+        "title": "AuditTrail",
+        "type": "object"
+      },
       "Balance": {
         "properties": {
           "counts": {
@@ -1053,6 +1111,66 @@
         "title": "CaseUpdate",
         "type": "object"
       },
+      "Certificate": {
+        "description": "Proof of deletion (rule 6): counts, hashes and dates, never patient text or names.",
+        "properties": {
+          "backup_expiry_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Backup Expiry On"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "counts": {
+            "additionalProperties": true,
+            "title": "Counts",
+            "type": "object"
+          },
+          "deleted_at": {
+            "format": "date-time",
+            "title": "Deleted At",
+            "type": "string"
+          },
+          "hashes": {
+            "additionalProperties": true,
+            "title": "Hashes",
+            "type": "object"
+          },
+          "log_chain_heads": {
+            "additionalProperties": true,
+            "title": "Log Chain Heads",
+            "type": "object"
+          },
+          "sent_to": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sent To",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case_id",
+          "deleted_at",
+          "counts",
+          "hashes",
+          "log_chain_heads",
+          "backup_expiry_on",
+          "sent_to"
+        ],
+        "title": "Certificate",
+        "type": "object"
+      },
       "ChunkReceived": {
         "properties": {
           "received": {
@@ -1067,6 +1185,117 @@
           "received"
         ],
         "title": "ChunkReceived",
+        "type": "object"
+      },
+      "CloseSummary": {
+        "description": "What screen 26 shows: where the case is, when it will be deleted, and what is holding it.",
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "delete_after": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delete After"
+          },
+          "deleted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deleted At"
+          },
+          "deletion_started": {
+            "title": "Deletion Started",
+            "type": "boolean"
+          },
+          "ever_served": {
+            "title": "Ever Served",
+            "type": "boolean"
+          },
+          "held": {
+            "title": "Held",
+            "type": "boolean"
+          },
+          "holds": {
+            "items": {
+              "$ref": "#/components/schemas/app__features__close__schemas__Hold"
+            },
+            "title": "Holds",
+            "type": "array"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "retention_policy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retention Policy"
+          },
+          "retention_years": {
+            "title": "Retention Years",
+            "type": "integer"
+          },
+          "settled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settled At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "status",
+          "settled_at",
+          "retention_policy",
+          "delete_after",
+          "retention_years",
+          "ever_served",
+          "holds",
+          "held",
+          "deletion_started",
+          "deleted_at"
+        ],
+        "title": "CloseSummary",
         "type": "object"
       },
       "Code": {
@@ -1731,17 +1960,32 @@
         "title": "Heading",
         "type": "object"
       },
-      "Hold": {
+      "HoldCreate": {
+        "additionalProperties": false,
+        "description": "A short reason code (never free text) and an optional end date, today or later.",
         "properties": {
-          "on_hold": {
-            "title": "On Hold",
-            "type": "boolean"
+          "reason": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Reason",
+            "type": "string"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
           }
         },
         "required": [
-          "on_hold"
+          "reason"
         ],
-        "title": "Hold",
+        "title": "HoldCreate",
         "type": "object"
       },
       "InstructingParties": {
@@ -2336,6 +2580,20 @@
         "title": "Job",
         "type": "object"
       },
+      "JobQueued": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "JobQueued",
+        "type": "object"
+      },
       "JurisdictionChanged": {
         "properties": {
           "changes": {
@@ -2816,6 +3074,18 @@
       },
       "NoteItem": {
         "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The pack's words for what the item is about (a conflict question).",
+            "title": "Label"
+          },
           "label_key": {
             "anyOf": [
               {
@@ -4099,6 +4369,25 @@
         "title": "Reset",
         "type": "object"
       },
+      "RetentionChange": {
+        "additionalProperties": false,
+        "properties": {
+          "policy": {
+            "enum": [
+              "keep_default",
+              "return_then_delete",
+              "delete_now"
+            ],
+            "title": "Policy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "policy"
+        ],
+        "title": "RetentionChange",
+        "type": "object"
+      },
       "Role": {
         "properties": {
           "ended_on": {
@@ -5074,6 +5363,76 @@
         ],
         "title": "Wording",
         "type": "object"
+      },
+      "app__features__close__schemas__Hold": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "released_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Released At"
+          },
+          "set_by": {
+            "format": "uuid",
+            "title": "Set By",
+            "type": "string"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "required": [
+          "id",
+          "reason",
+          "until",
+          "set_by",
+          "created_at",
+          "released_at"
+        ],
+        "title": "Hold",
+        "type": "object"
+      },
+      "app__features__setup__routes_case__Hold": {
+        "properties": {
+          "on_hold": {
+            "title": "On Hold",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "on_hold"
+        ],
+        "title": "Hold",
+        "type": "object"
       }
     }
   },
@@ -5696,6 +6055,59 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/archive": {
+      "post": {
+        "operationId": "archive_v1_cases__case_id__archive_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Archive",
+        "tags": [
+          "close"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/assumptions/{assumption_id}": {
       "patch": {
         "operationId": "update_assumption_v1_cases__case_id__assumptions__assumption_id__patch",
@@ -5782,6 +6194,112 @@
         "summary": "Update Assumption",
         "tags": [
           "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/audit": {
+      "get": {
+        "operationId": "audit_trail_v1_cases__case_id__audit_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditTrail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Audit Trail",
+        "tags": [
+          "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/close": {
+      "get": {
+        "operationId": "close_summary_v1_cases__case_id__close_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Close Summary",
+        "tags": [
+          "close"
         ]
       }
     },
@@ -5952,6 +6470,59 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/deletion-certificate": {
+      "get": {
+        "operationId": "deletion_certificate_v1_cases__case_id__deletion_certificate_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Certificate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Deletion Certificate",
+        "tags": [
+          "close"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/documents/{document_id}/file": {
       "get": {
         "operationId": "download_document_v1_cases__case_id__documents__document_id__file_get",
@@ -6008,6 +6579,118 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/export": {
+      "post": {
+        "operationId": "request_export_v1_cases__case_id__export_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Request Export",
+        "tags": [
+          "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/export/{job_id}/download": {
+      "get": {
+        "operationId": "download_export_v1_cases__case_id__export__job_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/zip": {}
+            },
+            "description": "The export, once."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Download Export",
+        "tags": [
+          "close"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/hold": {
       "post": {
         "operationId": "hold_case_v1_cases__case_id__hold_post",
@@ -6028,7 +6711,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Hold"
+                  "$ref": "#/components/schemas/app__features__setup__routes_case__Hold"
                 }
               }
             },
@@ -6522,6 +7205,132 @@
         "summary": "Change Jurisdiction",
         "tags": [
           "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/legal-holds": {
+      "post": {
+        "operationId": "set_legal_hold_v1_cases__case_id__legal_holds_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HoldCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__features__close__schemas__Hold"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Set Legal Hold",
+        "tags": [
+          "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/legal-holds/{hold_id}/release": {
+      "post": {
+        "operationId": "release_legal_hold_v1_cases__case_id__legal_holds__hold_id__release_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "hold_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Hold Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__features__close__schemas__Hold"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Release Legal Hold",
+        "tags": [
+          "close"
         ]
       }
     },
@@ -7677,6 +8486,59 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/reopen": {
+      "post": {
+        "operationId": "reopen_v1_cases__case_id__reopen_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Reopen",
+        "tags": [
+          "close"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/resume": {
       "post": {
         "operationId": "resume_case_v1_cases__case_id__resume_post",
@@ -7697,7 +8559,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Hold"
+                  "$ref": "#/components/schemas/app__features__setup__routes_case__Hold"
                 }
               }
             },
@@ -7727,6 +8589,122 @@
         "summary": "Resume Case",
         "tags": [
           "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/retention": {
+      "put": {
+        "operationId": "change_retention_v1_cases__case_id__retention_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Retention",
+        "tags": [
+          "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/settle": {
+      "post": {
+        "operationId": "settle_v1_cases__case_id__settle_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Settle",
+        "tags": [
+          "close"
         ]
       }
     },
