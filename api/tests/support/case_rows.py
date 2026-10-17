@@ -98,6 +98,71 @@ def _deletion_certificates(admin: psycopg.Connection, seed: Seed, w: CaseWorld) 
     return {"deletion_certificates": 1}
 
 
+def _setup_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice C's case tables (migrations 0019, 0310-0370)."""
+    version = admin.execute(
+        "insert into app.instruction_versions (case_id, version_no, kind) values (%s, 1, 'letter') returning id",
+        (w.case,),
+    ).fetchone()
+    assert version is not None
+    v = version[0]
+    admin.execute(
+        "insert into app.assumptions (case_id, instruction_version_id, number, text_verbatim)"
+        " values (%s, %s, 1, 'zz assumption')",
+        (w.case, v),
+    )
+    admin.execute(
+        "insert into app.case_instructions (case_id, instruction_version_id, text, received_on)"
+        " values (%s, %s, %s, current_date)",
+        (w.case, v, b"sealed"),
+    )
+    admin.execute(
+        "insert into app.instruction_extractions (instruction_version_id, case_id, questions, assumptions, rejected,"
+        " model_task, prompt_version) values (%s, %s, 1, 1, 0, 'T-06', 'v1')",
+        (v, w.case),
+    )
+    admin.execute(
+        "insert into app.prefill_suggestions (case_id, instruction_version_id, field, value, word_ids, model_task,"
+        " prompt_version) values (%s, %s, 'court_track', %s, '{w1}', 'T-04', 'v1')",
+        (w.case, v, b"sealed"),
+    )
+    admin.execute("insert into app.prefill_runs (case_id, kept, rejected) values (%s, 1, 0)", (w.case,))
+    admin.execute(
+        "insert into app.case_parties (case_id, role_key, name) values (%s, 'zz_party', %s)", (w.case, b"sealed")
+    )
+    admin.execute(
+        "insert into app.case_instructing_parties (case_id, type_key, name, firm, email)"
+        " values (%s, 'zz_firm', 'Zed', 'Zed Firm', 'zed@example.test')",
+        (w.case,),
+    )
+    other = seed.case(w.org, w.expert)
+    admin.execute(
+        "insert into app.case_links (case_id, linked_case_id, kind) values (%s, %s, 'related')", (w.case, other)
+    )
+    admin.execute("insert into app.case_subject_keys (case_id, key_hash) values (%s, %s)", (w.case, "a" * 64))
+    admin.execute("insert into app.case_withdrawals (case_id, reason) values (%s, %s)", (w.case, b"sealed"))
+    admin.execute(
+        "insert into app.conflict_answers (case_id, question_key, answer) values (%s, 'zz_known', 'no')", (w.case,)
+    )
+    admin.execute("insert into app.conflict_declarations (case_id, outcome) values (%s, 'none')", (w.case,))
+    return {
+        "instruction_versions": 1,
+        "assumptions": 1,
+        "case_instructions": 1,
+        "instruction_extractions": 1,
+        "prefill_suggestions": 1,
+        "prefill_runs": 1,
+        "case_parties": 1,
+        "case_instructing_parties": 1,
+        "case_links": 1,
+        "case_subject_keys": 1,
+        "case_withdrawals": 1,
+        "conflict_answers": 1,
+        "conflict_answer_history": 1,
+        "conflict_declarations": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -106,6 +171,7 @@ SEEDERS = (
     _people_rows,
     _legal_holds,
     _deletion_certificates,
+    _setup_rows,
 )
 
 
