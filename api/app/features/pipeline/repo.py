@@ -108,6 +108,14 @@ async def set_language(conn: AsyncConnection, page_id: uuid.UUID, code: str | No
     await conn.execute("update app.pages set language = %s where id = %s", (code, page_id))
 
 
+async def has_page_languages(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    cur = await conn.execute(
+        "select exists (select 1 from app.pages where case_id = %s and language is not null)", (case_id,)
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
 async def foreign_pages(conn: AsyncConnection, case_id: uuid.UUID, spoken: str) -> list[tuple[uuid.UUID, int, str]]:
     """Pages whose language is known and is not the pack's, in page order."""
     cur = await conn.execute(

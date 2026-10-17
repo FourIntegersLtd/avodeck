@@ -298,6 +298,14 @@ def _exhibit(e: repo.ExhibitRow) -> Exhibit:
     )
 
 
+async def _foreign(conn: DbConn, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int, str]]:
+    """Pages not in the pack's language; the packs are read only when a page has a language."""
+    if not await repo.has_page_languages(conn, case_id):
+        return []
+    spoken = wiring.current().packs.for_case(await repo.case_codes(conn, case_id)).language
+    return await repo.foreign_pages(conn, case_id, spoken)
+
+
 @pipeline_router.get("/{case_id}/bundle/summary", response_model=BundleSummary)
 async def bundle_summary(
     case_id: uuid.UUID,
@@ -309,7 +317,7 @@ async def bundle_summary(
     copies, unreadable, gaps, open_items = await repo.summary_counts(conn, case_id)
     docs = await repo.documents(conn, case_id)
     held = await repo.quarantines(conn, case_id)
-    spoken = wiring.current().packs.for_case(await repo.case_codes(conn, case_id)).language
+    foreign = await _foreign(conn, case_id)
     response.headers["cache-control"] = "private, no-store"
     return BundleSummary(
         pages=sum(n for _, n in sources),
@@ -323,10 +331,7 @@ async def bundle_summary(
         quarantine_suggestions=[_quarantine(q) for q in held if q.status == "suggested"],
         quarantined=[_quarantine(q) for q in held if q.status in ("confirmed", "purged")],
         exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
-        foreign_language=[
-            ForeignPage(page_id=p, page_no=n, language=code)
-            for p, n, code in await repo.foreign_pages(conn, case_id, spoken)
-        ],
+        foreign_language=[ForeignPage(page_id=p, page_no=n, language=code) for p, n, code in foreign],
     )
 
 
