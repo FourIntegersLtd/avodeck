@@ -15,6 +15,7 @@ CASE_TABLES: frozenset[str] = frozenset(
         "documents",
         "facts",
         "idempotency_keys",
+        "instruction_versions",
         "job_steps",
         "jobs",
         "legal_holds",

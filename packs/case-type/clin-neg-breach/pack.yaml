@@ -1,7 +1,8 @@
 code: clin-neg-breach
 name: Clinical negligence, breach of duty
-version: 2026.10.1
+version: 2026.10.2
 expert_roles: [breach]
 party_roles: [instructing_side, other_side, joint]
 instructing_party_types: [lawyer]
+subject_statuses: [living, deceased, minor]   # labels and representative words: jurisdiction vocabulary
 document_kinds: []          # core kinds are enough for this case type

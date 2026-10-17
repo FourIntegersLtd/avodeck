@@ -182,6 +182,30 @@
             ],
             "title": "Party Role"
           },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
           "specialty": {
             "title": "Specialty",
             "type": "string"
@@ -189,6 +213,17 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "subject_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Status"
           },
           "updated_at": {
             "format": "date-time",
@@ -409,6 +444,19 @@
             "title": "Label",
             "type": "string"
           },
+          "named_expert_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who the case is named to. Defaults to you; an assistant must name an owner, admin or expert member of the organisation, and joins the case as its assistant.",
+            "title": "Named Expert Id"
+          },
           "organisation_id": {
             "format": "uuid",
             "title": "Organisation Id",
@@ -426,10 +474,46 @@
             ],
             "title": "Party Role"
           },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
           "specialty": {
             "maxLength": 100,
             "title": "Specialty",
             "type": "string"
+          },
+          "subject_status": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Status"
           }
         },
         "required": [
@@ -705,6 +789,42 @@
               }
             ],
             "title": "Party Role"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "subject_status": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject Status"
           }
         },
         "title": "CaseUpdate",

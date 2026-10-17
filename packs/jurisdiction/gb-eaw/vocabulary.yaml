@@ -16,3 +16,10 @@ expert_meeting: experts' discussion
 expert_meeting_document: joint statement
 report_rules_name: Part 35
 declaration_name: statement of truth
+subject_statuses:
+  living: living
+  deceased: has died
+  minor: under 18
+subject_representatives:
+  deceased: personal representative
+  minor: litigation friend

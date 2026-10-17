@@ -891,10 +891,16 @@ export interface components {
             organisation_id: string;
             /** Party Role */
             party_role: string | null;
+            /** Period End */
+            period_end?: string | null;
+            /** Period Start */
+            period_start?: string | null;
             /** Specialty */
             specialty: string;
             /** Status */
             status: string;
+            /** Subject Status */
+            subject_status?: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -958,14 +964,25 @@ export interface components {
             /** Label */
             label: string;
             /**
+             * Named Expert Id
+             * @description Who the case is named to. Defaults to you; an assistant must name an owner, admin or expert member of the organisation, and joins the case as its assistant.
+             */
+            named_expert_id?: string | null;
+            /**
              * Organisation Id
              * Format: uuid
              */
             organisation_id: string;
             /** Party Role */
             party_role?: string | null;
+            /** Period End */
+            period_end?: string | null;
+            /** Period Start */
+            period_start?: string | null;
             /** Specialty */
             specialty: string;
+            /** Subject Status */
+            subject_status?: string | null;
         };
         /** CasePack */
         CasePack: {
@@ -1068,6 +1085,12 @@ export interface components {
             label: string;
             /** Party Role */
             party_role?: string | null;
+            /** Period End */
+            period_end?: string | null;
+            /** Period Start */
+            period_start?: string | null;
+            /** Subject Status */
+            subject_status?: string | null;
         };
         /**
          * Certificate

@@ -122,8 +122,8 @@
       ],
       "timezone": "America/Halifax",
       "versions": {
-        "case_type": "zz-case@0.0.1",
-        "jurisdiction": "zz-test@0.0.2",
+        "case_type": "zz-case@0.0.2",
+        "jurisdiction": "zz-test@0.0.3",
         "specialty": "zz-specialty@0.0.1"
       },
       "vocabulary": {
@@ -145,6 +145,14 @@
         "practice": "clinic",
         "report_rules_name": "Rule Z",
         "subject": "petitioner",
+        "subject_representatives": {
+          "dependent": "guardian ad item"
+        },
+        "subject_statuses": {
+          "absent": "absent subject",
+          "dependent": "dependent subject",
+          "present": "present subject"
+        },
         "written_questions": "interrogatories"
       },
       "workflow_steps": [
@@ -214,7 +222,7 @@
       "locale": "en-ZZ",
       "name": "Testland",
       "timezone": "America/Halifax",
-      "version": "0.0.2",
+      "version": "0.0.3",
       "vocabulary": {
         "court_bundle": "hearing binder",
         "declaration_name": "affirmation",
@@ -231,6 +239,14 @@
         },
         "report_rules_name": "Rule Z",
         "subject": "petitioner",
+        "subject_representatives": {
+          "dependent": "guardian ad item"
+        },
+        "subject_statuses": {
+          "absent": "absent subject",
+          "dependent": "dependent subject",
+          "present": "present subject"
+        },
         "written_questions": "interrogatories"
       },
       "working_week": [
@@ -639,8 +655,8 @@
       ],
       "timezone": "Europe/London",
       "versions": {
-        "case_type": "clin-neg-breach@2026.10.1",
-        "jurisdiction": "gb-eaw@2026.10.2",
+        "case_type": "clin-neg-breach@2026.10.2",
+        "jurisdiction": "gb-eaw@2026.10.3",
         "overlay": "gb-eaw/general-practice@2026.10.1",
         "specialty": "general-practice@2026.10.1"
       },
@@ -670,6 +686,15 @@
           "primary_care_record": "GP record"
         },
         "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
         "written_questions": "questions from the other side",
         "written_questions_formal": "Part 35 questions"
       },
@@ -827,7 +852,7 @@
       "locale": "en-GB",
       "name": "England and Wales",
       "timezone": "Europe/London",
-      "version": "2026.10.2",
+      "version": "2026.10.3",
       "vocabulary": {
         "court_bundle": "trial bundle",
         "declaration_name": "statement of truth",
@@ -845,6 +870,15 @@
         },
         "report_rules_name": "Part 35",
         "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
         "written_questions": "questions from the other side",
         "written_questions_formal": "Part 35 questions"
       },

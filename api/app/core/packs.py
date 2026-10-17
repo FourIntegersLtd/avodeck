@@ -338,6 +338,10 @@ class MergedPack:
             for key in self._ct[kind]:
                 if not isinstance(labels, dict) or not isinstance(labels.get(key), str):
                     raise PackError(f"{label}: {kind} '{key}' has no label in the {jurisdiction.code} vocabulary")
+        statuses = self.vocabulary.get("subject_statuses", {})
+        for key in self._ct.get("subject_statuses", []):
+            if not isinstance(statuses, dict) or not isinstance(statuses.get(key), str):
+                raise PackError(f"{label}: subject_statuses '{key}' has no label in the {jurisdiction.code} vocabulary")
         values = {k: v for k, v in self.vocabulary.items() if isinstance(v, str)}
         values.setdefault("instructing_party", self.instructing_party_types()[0]["label"])
         self._files = {name: _fill(content, values, f"{label}: {name}") for name, content in files.items()}
@@ -392,6 +396,16 @@ class MergedPack:
     def instructing_party_types(self) -> list[dict[str, str]]:
         labels = self.vocabulary["instructing_party_types"]
         return [{"key": k, "label": labels[k]} for k in self._ct["instructing_party_types"]]
+
+    def subject_statuses(self) -> list[dict[str, str | None]]:
+        """The states the subject can be in (case type), with the jurisdiction's label and, where one
+        acts for the subject in that state, the representative's word. Empty when the case type has none."""
+        labels = self.vocabulary.get("subject_statuses", {})
+        reps = self.vocabulary.get("subject_representatives", {})
+        reps = reps if isinstance(reps, dict) else {}
+        return [
+            {"key": k, "label": labels[k], "representative": reps.get(k)} for k in self._ct.get("subject_statuses", [])
+        ]
 
     def expert_roles(self) -> list[str]:
         return list(self._ct["expert_roles"])

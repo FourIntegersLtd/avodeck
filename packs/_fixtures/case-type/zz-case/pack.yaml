@@ -1,6 +1,7 @@
 code: zz-case
 name: Test case type
-version: 0.0.1
+version: 0.0.2
 expert_roles: [assessor]
 party_roles: [instructing_side, other_side]
 instructing_party_types: [insurer]
+subject_statuses: [present, absent, dependent]
