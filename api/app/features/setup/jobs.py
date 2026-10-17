@@ -9,9 +9,10 @@ instruction version. A newer letter on a case never served moves the earlier que
 version: if it adds a question, a confirmed set reopens (they return to suggested, with a warning on
 screen 06); if it adds none, the confirmed set stays confirmed.
 
-`prefill_case` reads the same letter and asks T-04 for case details. A name must be exactly the cited
-words; a key must be one of the pack's; a due date must be written out in the cited words (read with the
-pack's date order and language). Kept suggestions are stored encrypted, waiting for the expert; nothing is
+`prefill_case` reads the same letter and asks T-04 for case details. A name is stored as the cited words
+of the letter, never the model's value, and a run hidden by the identifier strip is refused; a key must be
+one of the pack's and the cited words must carry the pack's word for it; a due date must be written out in
+the cited words (read with the pack's date order and language). Kept suggestions are stored encrypted, waiting for the expert; nothing is
 applied to the case.
 
 No text reaches a log or a job row (rule 6).
@@ -28,7 +29,7 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from app.core.ai import pii
+from app.core.ai import pii, provenance
 from app.core.crypto import CaseCrypto
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
@@ -213,17 +214,61 @@ async def _next_number(conn: AsyncConnection, table: str, case_id: uuid.UUID) ->
 # --- prefill_case (T-04) -------------------------------------------------------------------------------
 
 
-def _check_suggestion(letter: Letter, pack: MergedPack, item: Mapping[str, Any]) -> list[str] | None:
-    """The cited word ids when a suggestion passes (rule 2; keys from the pack, rule 11), else None."""
+_PLACEHOLDER = re.compile(r"\[[A-Z][A-Z0-9_]*_\d+\]")
+
+
+def _labels(pack: MergedPack, field: str) -> dict[str, list[str]]:
+    """Each key the pack offers for `field`, with the pack's words for it (rule 11)."""
+    if field == "instructing_party_type":
+        return {p["key"]: [p["label"]] for p in pack.instructing_party_types()}
+    if field == "party_role":
+        return {p["key"]: [p["label"]] for p in pack.party_roles()}
+    if field == "court_track":
+        words = pack.vocabulary.get("court_tracks")
+        words = words if isinstance(words, dict) else {}
+        return {
+            str(k): [str(words.get(k) or str(k).replace("_", " "))]
+            for k in pack.prompt_context("T-04").get("court_tracks", [])
+        }
+    return {}
+
+
+def _same_word(cited: str, label: str) -> bool:
+    """The pack's word, or that word with a short ending (a plural on a letterhead)."""
+    return cited == label or (cited.startswith(label) and len(cited) - len(label) <= 2)
+
+
+def _names_key(cited: list[str], label: list[str]) -> bool:
+    size = len(label)
+    return bool(label) and any(
+        all(_same_word(c, w) for c, w in zip(cited[i : i + size], label, strict=True))
+        for i in range(len(cited) - size + 1)
+    )
+
+
+def check_suggestion(letter: Letter, pack: MergedPack, item: Mapping[str, Any]) -> tuple[list[str], str] | None:
+    """The cited word ids and the value to store when a suggestion passes, else None.
+
+    Rule 2: a name is stored as the letter's own words (the cited run), never the model's value, and a
+    run the identifier strip replaced (a placeholder) is refused. A key must be one of the pack's keys and
+    the cited words must carry the pack's word for that key (rule 11). A due date must be written out.
+    """
     field, value, word_ids = str(item["field"]), str(item["value"]), [str(w) for w in item["word_ids"]]
     if field == "instructing_party_name":
+        if _PLACEHOLDER.search(value):
+            return None
         found = letter.verify(value, word_ids)
-        return found.word_ids if isinstance(found, Found) else None
+        if not isinstance(found, Found):
+            return None
+        if any(letter.masked[w] != letter.words[letter.index[w]].text for w in found.word_ids):
+            return None
+        return found.word_ids, found.text
     if any(w not in letter.index for w in word_ids):
         return None
     positions = sorted({letter.index[w] for w in word_ids})
     if positions[-1] - positions[0] != len(positions) - 1:
         return None
+    cited = " ".join(letter.words[i].text for i in range(positions[0], positions[-1] + 1))
     if field == "due_date":
         m = _ISO.match(value)
         if m is None:
@@ -232,16 +277,15 @@ def _check_suggestion(letter: Letter, pack: MergedPack, item: Mapping[str, Any])
             day = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
         except ValueError:
             return None
-        cited = " ".join(letter.words[i].text for i in range(positions[0], positions[-1] + 1))
         written = list(pii._known_dates(cited, [day], pack.date_order, pack.language))
-        return word_ids if written else None
-    context = pack.prompt_context("T-04")
-    keys = {
-        "instructing_party_type": {p["key"] for p in pack.instructing_party_types()},
-        "party_role": {p["key"] for p in pack.party_roles()},
-        "court_track": set(context.get("court_tracks", [])),
-    }
-    return word_ids if value in keys.get(field, set()) else None
+        return (word_ids, value) if written else None
+    labels = _labels(pack, field).get(value)
+    if labels is None:
+        return None
+    cited_atoms = provenance.atoms(cited)
+    if not any(_names_key(cited_atoms, provenance.atoms(label)) for label in labels):
+        return None
+    return word_ids, value
 
 
 @registry.kind("prefill_case", interactive=True, changes_case=False)
@@ -262,16 +306,16 @@ async def prefill_case(ctx: JobContext) -> None:
     task = ai_tasks.t04(pack)
     async with ctx.transaction() as conn:
         out = await kit.run(conn, task, pack=pack, text=letter.prompt_text(), case_id=ctx.case_id, names=names)
-    kept: list[tuple[Mapping[str, Any], list[str]]] = []
+    kept: list[tuple[Mapping[str, Any], list[str], str]] = []
     for item in out["suggestions"]:
-        cited = _check_suggestion(letter, pack, item)
-        if cited is not None:
-            kept.append((item, cited))
+        checked = check_suggestion(letter, pack, item)
+        if checked is not None:
+            kept.append((item, *checked))
     rejected = len(out["suggestions"]) - len(kept)
 
     async def save(conn: AsyncConnection) -> None:
-        for item, cited in kept:
-            sealed = await crypto.encrypt(conn, ctx.case_id, str(item["value"]).encode(), purpose=PREFILL_VALUE)
+        for item, cited, value in kept:
+            sealed = await crypto.encrypt(conn, ctx.case_id, value.encode(), purpose=PREFILL_VALUE)
             await conn.execute(
                 "insert into app.prefill_suggestions (case_id, instruction_version_id, field, value, word_ids,"
                 " model_task, prompt_version) values (%s, %s, %s, %s, %s, %s, %s) on conflict do nothing",
