@@ -84,7 +84,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `offline_packages` | I | Named expert | One per device per hearing | Expire; revocable | Expire; deleted with the case |
 | `legal_holds` | H | Named expert or org owner | Many; any active blocks deletion | State machine | Released before deletion can run |
 | `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
-| `deletion_ledger` | H | System | One per deleted case | Append only; replayed after restore | Kept |
+| `deletion_ledger` | Foundation (H writes, through `app.purge_case`) | System | One per deleted case | Append only; replayed after restore (`app.replay_deletion_ledger`) | Kept |
 | `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
 | `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
 | `job_kind_actions` | Foundation | Migrations only | One per job kind | Read-only reference | Kept (no patient data) |

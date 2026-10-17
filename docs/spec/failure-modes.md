@@ -32,7 +32,7 @@ What happens when things go wrong, so the code handles each case on purpose. Pri
 | F26 | Stale write (someone else saved first) | `If-Match` ETag mismatch | 412; nothing overwritten | "This changed in another window. Which version do you want to keep?" | Foundation, all |
 | F27 | Repeated request (double click, retry after timeout) | Same `Idempotency-Key` | Return the first result | Nothing (one invoice, one serving) | Foundation |
 | F28 | Scheduled job missed (deploy, outage) | Run key for that date absent | Next run catches up each missed date once | Reminders arrive late, never twice | Foundation |
-| F29 | Backup restored after deletions | Restore runbook step | Replay `deletion_ledger` before reopening | Nothing | H |
+| F29 | Backup restored after deletions | Restore runbook step | Replay `deletion_ledger` before reopening (`select app.replay_deletion_ledger()`, operators only: removes each case again and destroys its key again) | Nothing | Foundation (ledger, replay); H (runbook) |
 | F30 | Deletion due while a legal hold is active | Hold check in deletion job | Skip the case; notify | "Deletion paused: legal hold until …" | H |
 | F31 | Named expert leaves the organisation | Membership ended | Keep named-case access; remove all other access | Their Today shows only their named cases from that organisation | O |
 | F32 | Last owner tries to leave | Membership guard | 409 | "Make someone else an owner first." | O |
