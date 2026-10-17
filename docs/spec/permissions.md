@@ -17,7 +17,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 |---|---|---|---|---|---|---|
 | `case.view_metadata` (label, dates, status) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `case.view_content` (pages, facts, opinions) | ✓ | ✓ | ✓ | ✓ | ✓ | — |
-| `case.edit_setup` (parties, instructing parties, links, hearings, directions, prefill suggestions) | ✓ | — | — | ✓ | — | — |
+| `case.edit_setup` (parties, instructing parties, links (also needs `case.view_metadata` on the linked case), hearings, directions, prefill suggestions) | ✓ | — | — | ✓ | — | — |
 | `case.upload` (records, instructions, exhibits) | ✓ | — | — | ✓ | — | — |
 | `case.manage_members` | ✓ | — | — | — | — | ✓ |
 | `case.reassign_named_expert` (before serving) 🔒 | — | — | — | — | — | ✓ |
