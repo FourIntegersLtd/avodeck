@@ -3,7 +3,8 @@
 Row-level security lets `case.edit_setup` or `case.manage_members` update a case; the database then
 checks each change against the action it is, for the person the restricted role acts for:
 - `named_expert_id`: `case.reassign_named_expert` (organisation owner/admin), before serving only;
-- `retention_policy`, `delete_after`, `on_hold`: `case.retention`;
+- `retention_policy`, `delete_after`: `case.retention`; `on_hold`: `case.hold` (tests in
+  test_foundation_case_hold_db.py);
 - status → `deleted`: `case.delete_now` (unserved only); → `withdrawn`: `case.withdraw`;
   → `served`: `report.serve`; any other move: `case.edit_setup`;
 - every other column: `case.edit_setup`.
@@ -59,7 +60,6 @@ def update_as(api_dsn: str, person: uuid.UUID, case: uuid.UUID, assignment: str,
         ("status = 'served'", None),
         ("retention_policy = 'zz_policy'", None),
         ("delete_after = '2031-01-01'", None),
-        ("on_hold = true", None),
     ],
 )
 def test_an_assistant_cannot_change_the_sensitive_columns(
@@ -114,7 +114,6 @@ def test_retention_is_for_the_named_expert_or_an_organisation_admin(
 ) -> None:
     case = case_for(seed, team)
     assert update_as(api_dsn, team[person], case, "retention_policy = 'zz_policy', delete_after = '2031-01-01'") == 1
-    assert update_as(api_dsn, team[person], case, "on_hold = true") == 1
 
 
 @pytest.mark.parametrize("person", ["expert", "owner"])
