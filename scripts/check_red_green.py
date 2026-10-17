@@ -55,8 +55,11 @@ def run_tests(sha: str, files: list[str]) -> bool:
             py = [f for f in files if f.startswith("api/") and f.endswith(".py")]
             ts = [f for f in files if f.startswith("web/")]
             if py:
+                # An inherited PACKS_DIR (e.g. from scripts/local_api_env.sh) points at the current
+                # checkout's packs, not this commit's; drop it so each commit tests its own packs.
+                env = {k: v for k, v in os.environ.items() if k != "PACKS_DIR"}
                 ok &= subprocess.run([sys.executable, "-m", "pytest", "-q", *[f.removeprefix("api/") for f in py]],
-                                     cwd=f"{tmp}/api").returncode == 0
+                                     cwd=f"{tmp}/api", env=env).returncode == 0
             if ts:
                 unit = [f.removeprefix("web/") for f in ts if not f.startswith("web/e2e/")]
                 if unit:
