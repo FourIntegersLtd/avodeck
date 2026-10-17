@@ -70,6 +70,11 @@ Producing the content being exported (other slices), invoice generation (F).
 - The export marks four files `not_built_yet` (methodology, page reads, invoices, requests) until their slices expose a source.
 - The deleted case's tombstone returns 404 to `deletion-certificate` until foundation lets `case.view_certificate` reach a deleted case (strict xfail in the route tests).
 - The certificate email goes to the named expert only, until instructing-party contacts and org-admin recipients exist.
+- A withdrawn case's retention counts from the day it was withdrawn: H's trigger records a `case.withdrawn` audit row when a case moves to withdrawn (`app.close_withdrawn_on`); a `closed_at` column on `cases` (foundation) would be cleaner.
+- Reopening is refused (409) once `delete_after` has come. Exports are refused once deletion has started; the export job holds a share lock on the case so a deletion run starts either before it (nothing written) or after it (its Storage sweep removes the copies).
+- Export copies nobody downloaded are removed by the daily run `EXPORT_KEEP_DAYS` (7) days after they were made. Both copies (`full`, `admin`) are still built for every request (the route tests expect the expert's copy to survive an admin's download); building only the requester's copy needs the requester on the job (foundation).
+- The download streams in 1 MB pieces; `CaseCrypto` opens a file whole, so the decrypted ZIP is held in memory once. The worker builds each ZIP in a temporary file.
+- `GET /close` shows `deletion_started` to every case member (`app.close_deletion_started`); the certificate itself stays `case.view_certificate`.
 - S26 is reachable once foundation adds `closeRoutes` to `app/routes.tsx`; its words are registered by the capability (`words.ts`).
 
 ## Definition of done
