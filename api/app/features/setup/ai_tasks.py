@@ -1,4 +1,5 @@
-"""Slice C's AI tasks (architecture 6.3): T-06 questions and assumptions, T-04 prefill suggestions.
+"""Slice C's AI tasks (architecture 6.3): T-06 questions and assumptions, T-04 prefill suggestions, T-02
+template heading sections.
 
 Prompts are neutral templates in `prompts/*.md` (first line `version: ...`); the pack's prompt context
 and the output schemas (built from the pack's registries) carry everything country- or specialty-
@@ -19,6 +20,7 @@ PROMPTS = Path(__file__).resolve().parent / "prompts"
 REASON = {"type": "string", "maxLength": 80}
 WORD_IDS = {"type": "array", "minItems": 1, "maxItems": 400, "items": {"type": "string", "maxLength": 40}}
 PARA_REF = {"type": ["string", "null"], "maxLength": 20}
+OTHER_SECTION = "other"
 PREFILL_FIELDS = ("instructing_party_name", "instructing_party_type", "party_role", "due_date", "court_track")
 
 
@@ -85,3 +87,31 @@ def t04(pack: MergedPack) -> AiTask:
         "properties": {"suggestions": {"type": "array", "maxItems": 20, "items": suggestion}},
     }
     return AiTask(task_id="T-04", prompt_version=version, model="sonnet", system=system, schema=schema)
+
+
+def t02(pack: MergedPack) -> AiTask:
+    """Suggest a report section (the pack's keys plus `other`) for each template heading."""
+    version, system = prompt("t02")
+    sections = [*(s["key"] for s in pack.report_sections()), OTHER_SECTION]
+    suggestion = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["index", "section", "reason"],
+        "properties": {
+            "index": {"type": "integer", "minimum": 0},
+            "section": {"type": "string", "enum": sections},
+            "reason": REASON,
+        },
+    }
+    schema: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["suggestions"],
+        "properties": {"suggestions": {"type": "array", "maxItems": 200, "items": suggestion}},
+    }
+    return AiTask(task_id="T-02", prompt_version=version, model="sonnet", system=system, schema=schema)
+
+
+def t02_text(headings: list[dict[str, Any]]) -> str:
+    """What T-02 reads: one heading per line, its paragraph index, a tab, then its words."""
+    return "\n".join(f"{h['index']}\t{' '.join(str(h['text']).split())}" for h in headings)

@@ -21,10 +21,13 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.ai.kit import AiKit, InvalidOutput
 from app.core.crypto import SecretBox
-from app.core.errors import ApiError
+from app.core.errors import ApiError, ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
+from app.core.packs import MergedPack
 from app.core.storage import SupabaseStorage
+from app.features.setup import ai_tasks, services
 from app.features.setup.common import cell, invalid, library, not_found, registry_keys
 from app.features.setup.router import router
 
@@ -219,6 +222,62 @@ async def update_mapping(
         (json.dumps([m.model_dump() for m in body.mapping]), row["id"]),
     )
     return _template_out(await _latest_template(conn), response)
+
+
+class SectionSuggestion(BaseModel):
+    index: int
+    section: str
+    reason: str
+
+
+class SectionSuggestions(BaseModel):
+    """T-02's suggestions (never saved); the expert confirms them with `PATCH /v1/me/template/mapping`."""
+
+    suggestions: list[SectionSuggestion]
+    rejected: int
+
+
+async def _profile_pack(request: Request, conn: DbConn) -> MergedPack:
+    """The cell combination that fits the profile's jurisdiction and specialties, else the cell's first."""
+    cur = await conn.execute(
+        "select default_jurisdiction, coalesce(specialties, '{}') from app.experts"
+        " where person_id = app.current_person_id()"
+    )
+    row = await cur.fetchone()
+    jurisdiction, specialties = (row[0], list(row[1])) if row else (None, [])
+    packs = library(request)
+    combos = [tuple(p.code for p in c) for c in packs.combinations_in(cell(request))]
+    if not combos:
+        raise ProcessingPaused("model_unavailable")
+    fits = [c for c in combos if c[0] == jurisdiction and c[2] in specialties]
+    return packs.combine(*(fits or combos)[0])
+
+
+@router.post("/me/template/suggestions", response_model=SectionSuggestions)
+async def suggest_sections(request: Request, conn: DbConn) -> SectionSuggestions:
+    """T-02 runs here, not as a job: it reads a few heading lines (no case, no patient data) and answers in
+    seconds. It does not wait out a busy model service; the expert can try again or map the headings
+    themselves."""
+    row = await _latest_template(conn)
+    kit = services.current().kit
+    if kit is None:
+        raise ProcessingPaused("model_unavailable")
+    pack = await _profile_pack(request, conn)
+    task = ai_tasks.t02(pack)
+    quick = AiKit(kit.settings, kit.bedrock, retries=0)
+    try:
+        out = await quick.run(conn, task, pack=pack, text=ai_tasks.t02_text(row["headings"]))
+    except InvalidOutput:
+        return SectionSuggestions(suggestions=[], rejected=0)  # nothing usable: the expert maps them
+    headings = {h["index"] for h in row["headings"]}
+    kept: dict[int, SectionSuggestion] = {}
+    rejected = 0
+    for s in out["suggestions"]:
+        if s["index"] not in headings or s["index"] in kept:
+            rejected += 1
+            continue
+        kept[s["index"]] = SectionSuggestion(**s)
+    return SectionSuggestions(suggestions=list(kept.values()), rejected=rejected)
 
 
 # --- signature -----------------------------------------------------------------------------------------
