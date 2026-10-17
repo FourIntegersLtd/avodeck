@@ -128,6 +128,17 @@ class ForeignPage(BaseModel):
     language: str  # a language code; the screen shows its name
 
 
+class SortedPage(BaseModel):
+    page_id: uuid.UUID
+    page_no: int  # the page's own number; sorting never changes it
+    source_type: str | None
+    date: dt.date | None
+
+
+class SortedPages(BaseModel):
+    pages: list[SortedPage]
+
+
 class BundleSummary(BaseModel):
     pages: int
     by_source: list[SourceCount]

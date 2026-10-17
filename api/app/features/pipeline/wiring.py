@@ -17,6 +17,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from app.core import jobs
+from app.core.ai.embed import Embedder, RecordedEmbedder
 from app.core.ai.kit import AiKit
 from app.core.ai.ocr import OcrClient
 from app.core.crypto import CaseCrypto
@@ -50,6 +51,7 @@ class PipelineServices:
     registry: jobs.JobRegistry
     identity: IdentityFor = no_identity
     mailer: Mailer = field(default_factory=lambda: _default_mailer())
+    embedder: Embedder = field(default_factory=RecordedEmbedder)
 
 
 def _default_mailer() -> Mailer:
@@ -73,6 +75,7 @@ def use(services: PipelineServices) -> Iterator[PipelineServices]:
 
 def from_env() -> PipelineServices:
     """The cell's own services. OCR and the model client arrive with the cloud cell (none yet)."""
+    from app.core.ai.embed import embedder_from_env
     from app.core.crypto import key_provider_from_env
     from app.core.packs import default_library
     from app.core.scan import scanner_from_env
@@ -86,6 +89,7 @@ def from_env() -> PipelineServices:
         kit=None,
         packs=default_library(),
         registry=jobs.registry,
+        embedder=embedder_from_env(),
     )
 
 

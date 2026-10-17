@@ -574,6 +574,39 @@ async def _missing_step(ctx: JobContext, services: PipelineServices) -> None:
     await _missing(ctx, services)
 
 
+async def _embed(ctx: JobContext, services: PipelineServices) -> None:
+    """Embeds each page not yet embedded by the cell's embedder, from its text with identifiers
+    stripped (rule 7). A page embedded by an older model is embedded again."""
+    embedder = services.embedder
+    async with ctx.transaction() as conn:
+        waiting = await repo.pages_to_embed(conn, ctx.case_id, embedder.model)
+        if not waiting:
+            return
+        pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        who = await services.identity(conn, ctx.case_id)
+
+    async def one(page_id: uuid.UUID) -> None:
+        async with ctx.transaction() as conn:
+            stored = await repo.words_of(conn, page_id)
+            ordered = [
+                (
+                    w.word_id,
+                    (
+                        await services.crypto.decrypt(
+                            conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                        )
+                    ).decode(),
+                )
+                for w in stored
+            ]
+        stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+        [vector] = embedder.embed([stripped])
+        async with ctx.transaction() as conn:
+            await repo.store_embedding(conn, ctx.case_id, page_id, embedder.model, vector)
+
+    await bounded(waiting, one, stop=_stop(ctx))
+
+
 async def _ready(ctx: JobContext, services: PipelineServices) -> None:
     """Pages split in this job are ready: the case leaves `processing` and the named expert is told
     once (the kind only, never case text)."""
@@ -601,6 +634,7 @@ async def process_bundle(ctx: JobContext) -> None:
         await ctx.progress(starts[step], step=step)
         await stages[step](ctx, services)
         await ctx.step(step, _noop)
+    await _embed(ctx, services)
     await _ready(ctx, services)
     await ctx.progress(100, step=STEPS[-1])
 

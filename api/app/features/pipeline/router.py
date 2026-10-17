@@ -2,6 +2,8 @@
 
 - `GET /v1/cases/{id}/bundle/summary`: page counts by source, copies, unreadable pages, gaps, open
   missing items, each document's provenance and what each bundle version added.
+- `GET /v1/cases/{id}/bundle/sorted`: pages grouped by the pack's sources, then by date, each with
+  its own unchanged number; pages set aside as not this person's are left out.
 - `PATCH /v1/cases/{id}/documents/{doc_id}`: how the records were obtained and when they arrived.
 - `GET /v1/cases/{id}/bundle/versions`: what each delivery of records added.
 - `POST /v1/cases/{id}/documents/append`: appended files form one new bundle version and their
@@ -82,6 +84,8 @@ from app.features.pipeline.schemas import (
     RequestDraftAsk,
     RequestLogged,
     RequestSent,
+    SortedPage,
+    SortedPages,
     SourceCount,
 )
 from app.features.pipeline.service import REPROCESS_CASE, SCAN_DOCUMENT
@@ -306,6 +310,21 @@ async def _foreign(conn: DbConn, case_id: uuid.UUID) -> list[tuple[uuid.UUID, in
         return []
     spoken = wiring.current().packs.for_case(await repo.case_codes(conn, case_id)).language
     return await repo.foreign_pages(conn, case_id, spoken)
+
+
+@pipeline_router.get("/{case_id}/bundle/sorted", response_model=SortedPages)
+async def bundle_sorted(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_content"))],
+    conn: DbConn,
+    response: Response,
+) -> SortedPages:
+    pack = wiring.current().packs.for_case(await repo.case_codes(conn, case_id))
+    order = {s["key"]: i for i, s in enumerate(pack.source_types())}
+    rows = await repo.sorted_pages(conn, case_id)
+    rows.sort(key=lambda r: (order.get(r[2], len(order)) if r[2] else len(order) + 1, r[3] is None, r[3] or 0, r[1]))
+    response.headers["cache-control"] = "private, no-store"
+    return SortedPages(pages=[SortedPage(page_id=r[0], page_no=r[1], source_type=r[2], date=r[3]) for r in rows])
 
 
 @pipeline_router.get("/{case_id}/bundle/summary", response_model=BundleSummary)

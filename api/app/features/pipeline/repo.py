@@ -713,6 +713,50 @@ async def case_people(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[uuid.U
     return row[0], row[1]
 
 
+# --- embeddings ----------------------------------------------------------------------------------
+
+
+async def pages_to_embed(conn: AsyncConnection, case_id: uuid.UUID, model: str) -> list[uuid.UUID]:
+    """Pages with no embedding from the current model (none yet, or one from an older model)."""
+    cur = await conn.execute(
+        "select p.id from app.pages p left join app.page_embeddings e on e.page_id = p.id"
+        " where p.case_id = %s and not p.quarantined and (e.page_id is null or e.model <> %s)"
+        " order by p.bundle_page_no",
+        (case_id, model),
+    )
+    return [r[0] for r in await cur.fetchall()]
+
+
+async def store_embedding(
+    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, model: str, vector: tuple[float, ...]
+) -> None:
+    literal = "[" + ",".join(repr(float(v)) for v in vector) + "]"
+    await conn.execute(
+        "insert into app.page_embeddings (page_id, case_id, model, embedding)"
+        " values (%s, %s, %s, %s::extensions.vector)"
+        " on conflict (page_id) do update set model = excluded.model, embedding = excluded.embedding,"
+        " updated_at = now()",
+        (page_id, case_id, model, literal),
+    )
+
+
+# --- sorted view -----------------------------------------------------------------------------------
+
+
+async def sorted_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int, str | None, Any]]:
+    """Each page kept in the reading set: id, number, source and its date (the earliest date of a fact
+    not rejected, else the earliest printed date). The caller orders by the pack's sources."""
+    cur = await conn.execute(
+        "select p.id, p.bundle_page_no, p.source_type,"
+        " coalesce((select min(f.event_date) from app.facts f"
+        "           where f.page_id = p.id and f.status <> 'rejected'),"
+        "          (select min(d) from app.page_analysis a, unnest(a.printed_dates) d where a.page_id = p.id))"
+        " from app.pages p where p.case_id = %s and not p.quarantined",
+        (case_id,),
+    )
+    return [(r[0], int(r[1]), r[2], r[3]) for r in await cur.fetchall()]
+
+
 # --- bundle summary --------------------------------------------------------------------------------
 
 
