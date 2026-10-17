@@ -34,7 +34,8 @@ def library_with_other_keys(tmp_path: Path) -> PackLibrary:
     """A second jurisdiction without the second conflict question, and a second case type with other keys."""
     launch_root, fixture_root = copy_packs(tmp_path)
     j_target = fixture_root / "jurisdiction" / ALT
-    shutil.copytree(fixture_root / "jurisdiction" / FIXTURE.jurisdiction, j_target, ignore=shutil.ignore_patterns("__pycache__"))
+    source = fixture_root / "jurisdiction" / FIXTURE.jurisdiction
+    shutil.copytree(source, j_target, ignore=shutil.ignore_patterns("__pycache__"))
     meta = yaml.safe_load((j_target / "pack.yaml").read_text())
     meta.update(code=ALT, name="Otherland", version="0.0.9")
     (j_target / "pack.yaml").write_text(yaml.safe_dump(meta, sort_keys=False))
@@ -113,9 +114,10 @@ async def test_keys_the_new_packs_lack_are_kept_and_listed(
     assert admin.execute("select kind from app.questions where case_id = %s", (world["case"],)).fetchone() == (
         keys["kind"],
     )
-    statuses = dict(
-        admin.execute("select field, status from app.prefill_suggestions where case_id = %s", (world["case"],))
-        .fetchall()
+    statuses: dict[str, str] = dict(
+        admin.execute(
+            "select field, status from app.prefill_suggestions where case_id = %s", (world["case"],)
+        ).fetchall()
     )
     assert statuses == {"party_role": "dismissed", "instructing_party_name": "suggested"}
 

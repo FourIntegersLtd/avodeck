@@ -22,9 +22,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
-from app.core.errors import ApiError
 from app.features.setup.common import CODE, invalid, not_found
 from app.features.setup.notes import NoteDraft, NoteItem, NoteTopic, draft
 from app.features.setup.router import router

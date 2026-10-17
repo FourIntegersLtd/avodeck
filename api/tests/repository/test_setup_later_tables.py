@@ -11,6 +11,8 @@ and a suggestion's content.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
+from typing import Any
 
 import psycopg
 import pytest
@@ -49,17 +51,25 @@ def world(seed: Seed, admin: psycopg.Connection) -> dict[str, uuid.UUID]:
         (case,),
     ).fetchone()
     assert row is not None
-    return {"expert": expert, "assistant": assistant, "viewer": viewer, "outsider": outsider, "case": case,
-            "version": row[0]}
+    return {
+        "expert": expert,
+        "assistant": assistant,
+        "viewer": viewer,
+        "outsider": outsider,
+        "case": case,
+        "version": row[0],
+    }
 
 
 def params(world: dict[str, uuid.UUID]) -> dict[str, uuid.UUID]:
     return {"c": world["case"], "v": world["version"]}
 
 
-async def run_as(api_db: Database, person: uuid.UUID, sql: str, args: object = None) -> list[tuple[object, ...]]:
+async def run_as(
+    api_db: Database, person: uuid.UUID, sql: str, args: Mapping[str, Any] | None = None
+) -> list[tuple[object, ...]]:
     async with api_db.request(scope_for(person)) as conn:
-        cur = await conn.execute(sql, args)  # type: ignore[arg-type]
+        cur = await conn.execute(sql, args)
         return await cur.fetchall() if cur.description else []
 
 
@@ -138,7 +148,8 @@ async def test_a_suggestion_is_decided_once_and_keeps_what_it_said(
     with pytest.raises(psycopg.Error) as twice:
         await run_as(api_db, world["expert"], "update app.prefill_suggestions set status = 'accepted'")
     assert twice.value.sqlstate == "AV409"
-    viewer = await run_as(api_db, world["viewer"], "update app.prefill_suggestions set status = 'accepted' returning id")
+    accept = "update app.prefill_suggestions set status = 'accepted' returning id"
+    viewer = await run_as(api_db, world["viewer"], accept)
     assert viewer == []  # a viewer's update matches no row
 
 
@@ -153,7 +164,8 @@ async def test_answer_history_is_seen_like_the_answers_and_never_changed(
     for sql in (
         "update app.conflict_answer_history set answer = 'no'",
         "delete from app.conflict_answer_history",
-        f"insert into app.conflict_answer_history (case_id, question_key, answer) values ('{world['case']}', 'k', 'no')",
+        "insert into app.conflict_answer_history (case_id, question_key, answer)"
+        f" values ('{world['case']}', 'k', 'no')",
     ):
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
             await run_as(api_db, world["expert"], sql)

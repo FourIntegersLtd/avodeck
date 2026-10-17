@@ -7,8 +7,6 @@ so learn of) a case in another organisation that they cannot see.
 
 from __future__ import annotations
 
-import uuid
-
 import psycopg
 import pytest
 

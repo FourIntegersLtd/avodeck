@@ -121,8 +121,11 @@ async def test_a_failed_reading_is_shown_and_can_be_tried_again(
     client = await client_for(world["expert"])
     assert (await client.post(url(world, "parties"), json={"role_key": PARTY_ROLE, "name": PARTY})).status_code == 201
     added = await add_letter(client, world)
-    for status in ("running", "failed"):  # the job's attempts are spent (the guard allows only queued -> running -> failed)
-        admin.execute("update app.jobs set status = %s, error_code = 'job_error' where id = %s", (status, added["job_id"]))
+    # the job's attempts are spent (the guard allows only queued -> running -> failed)
+    for status in ("running", "failed"):
+        admin.execute(
+            "update app.jobs set status = %s, error_code = 'job_error' where id = %s", (status, added["job_id"])
+        )
 
     got = (await client.get(url(world, "questions"))).json()
     assert got["reading"] is False and got["read_failed"] is True
