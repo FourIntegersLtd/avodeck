@@ -18,14 +18,13 @@ export const setupCaseRoutes: RouteObject[] = [
   { path: "questions", element: <Questions /> },
 ];
 
-// "profile" (the header's Your profile link) is not registered yet: app/ShellLinks.test.tsx expects no
-// slice to have registered it when the app loads. Foundation is asked to reset the registry in that test.
 const profile = () => "/profile";
 const details = ({ caseId }: { caseId: string }) => `/cases/${caseId}/details`;
 const conflicts = ({ caseId }: { caseId: string }) => `/cases/${caseId}/conflicts`;
 const questions = ({ caseId }: { caseId: string }) => `/cases/${caseId}/questions`;
 
 registerScreen("S02", profile);
+registerScreen("profile", profile);
 registerScreen("new_case", () => "/cases/new");
 registerScreen("S04", details);
 registerScreen("case_details", details);
