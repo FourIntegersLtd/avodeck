@@ -66,3 +66,23 @@ def test_the_offline_recordings_hold_a_dated_page_of_the_gap_series() -> None:
     entries = [f for answer in recorded_page_answers() for f in answer["facts"] if f["kind"] == kind]
     assert len(entries) >= 3, "no page of the gap series is in the offline recordings"
     assert all(f["fields"].get("date") for f in entries), "a recorded entry has no date"
+
+
+def test_handwriting_does_not_depend_on_where_the_repository_is_checked_out() -> None:
+    """The bundle is regenerated in worktrees and on CI; a writer's hand must come out the same."""
+    import importlib.util
+    import sys
+
+    generator = REPO / "evals" / "generator"
+    sys.path.insert(0, str(generator))
+    try:
+        spec = importlib.util.spec_from_file_location("eval_hand", generator / "hand.py")
+        assert spec and spec.loader
+        hand = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hand)
+    finally:
+        sys.path.remove(str(generator))
+    font = hand.SCRAWL[0]
+    here = hand.writer_for(f"/one/checkout/fonts/{font}", 0.7, (30, 35, 80))
+    there = hand.writer_for(f"/another/checkout/fonts/{font}", 0.7, (30, 35, 80))
+    assert (here.slant, here.size, here.spacing, here.climb) == (there.slant, there.size, there.spacing, there.climb)
