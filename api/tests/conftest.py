@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import base64
 import os
+import subprocess
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 from contextlib import AsyncExitStack
@@ -108,10 +109,13 @@ def auth_env() -> dict[str, str]:
     names = ("SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY")
     env = {k: os.environ[k] for k in names if k in os.environ}
     if len(env) < 3:
-        status = _supabase_status()
-        env.setdefault("SUPABASE_URL", status.get("API_URL", "http://127.0.0.1:55321"))
-        env.setdefault("SUPABASE_ANON_KEY", status.get("ANON_KEY", ""))
-        env.setdefault("SUPABASE_SERVICE_ROLE_KEY", status.get("SERVICE_ROLE_KEY", ""))
+        out = subprocess.run(
+            ["supabase", "status", "-o", "env"], cwd=REPO, capture_output=True, text=True, check=False
+        ).stdout
+        status = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+        env.setdefault("SUPABASE_URL", status.get("API_URL", "http://127.0.0.1:55321").strip('"'))
+        env.setdefault("SUPABASE_ANON_KEY", status.get("ANON_KEY", "").strip('"'))
+        env.setdefault("SUPABASE_SERVICE_ROLE_KEY", status.get("SERVICE_ROLE_KEY", "").strip('"'))
     if not env["SUPABASE_SERVICE_ROLE_KEY"]:  # pragma: no cover - environment problem
         pytest.fail("local Supabase Auth not reachable; run `supabase start`")
     return {**env, "APP_ORIGIN": APP_ORIGIN}

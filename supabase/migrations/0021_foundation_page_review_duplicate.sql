@@ -1,4 +1,4 @@
--- 0018 foundation: `page.review_duplicate`, setting a page aside as a copy or bringing it back (S07).
+-- 0020 foundation (was 0018 on slice A): `page.review_duplicate`, setting a page aside as a copy or bringing it back (S07).
 -- Same people as `page.rotate`. The matrix function is replaced whole (it is one table).
 -- The duplicate review policy moves to the new action in 0105 (its table arrives in 0100).
 
@@ -49,7 +49,12 @@ as $$
     ('legal_hold.release',        '{named_expert}', 'owner'),
     ('case.withdraw',             '{named_expert}', 'none'),
     ('support_access.grant',      '{named_expert}', 'none'),
-    ('case.delete_now',           '{named_expert}', 'owner')
+    ('case.delete_now',           '{named_expert}', 'owner'),
+    ('case.settle',               '{named_expert}', 'none'),
+    ('case.archive',              '{named_expert}', 'none'),
+    ('case.reopen',               '{named_expert}', 'none'),
+    ('case.view_audit',           '{named_expert}', 'admin'),
+    ('case.view_certificate',     '{named_expert}', 'admin')
   ) as r (action, case_roles, org_grant)
   where r.action = case_action_allowed.action
 $$;
