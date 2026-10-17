@@ -744,13 +744,12 @@ async def store_embedding(
 
 
 async def sorted_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int, str | None, Any]]:
-    """Each page kept in the reading set: id, number, source and its date (the earliest date of a fact
-    not rejected, else the earliest printed date). The caller orders by the pack's sources."""
+    """Each page kept in the reading set: id, number, source and the earliest date printed on it.
+    Page-level data only, so an unread page reveals nothing from a suggestion (rule 3). The caller
+    orders by the pack's sources."""
     cur = await conn.execute(
         "select p.id, p.bundle_page_no, p.source_type,"
-        " coalesce((select min(f.event_date) from app.facts f"
-        "           where f.page_id = p.id and f.status <> 'rejected'),"
-        "          (select min(d) from app.page_analysis a, unnest(a.printed_dates) d where a.page_id = p.id))"
+        " (select min(d) from app.page_analysis a, unnest(a.printed_dates) d where a.page_id = p.id)"
         " from app.pages p where p.case_id = %s and not p.quarantined",
         (case_id,),
     )

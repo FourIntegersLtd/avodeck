@@ -504,7 +504,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/bundle/summary` | Page counts by source, duplicates, unreadable count, missing items, gaps, provenance |
-| GET | `/cases/{case_id}/bundle/sorted` | Pages grouped by the pack's sources, then by date; every page keeps its own number; quarantined pages left out |
+| GET | `/cases/{case_id}/bundle/sorted` | Pages grouped by the pack's sources, then by the date printed on each page (never from facts); every page keeps its own number; quarantined pages left out |
 | GET | `/cases/{case_id}/duplicates` | Pairs to review; thumbnails via `/pages/{page_no}/thumbnail` |
 | PATCH | `/cases/{case_id}/pages/{page_id}/duplicate` | Confirm or undo "copy of page X" |
 | PATCH | `/cases/{case_id}/documents/{doc_id}` | Edit provenance (how obtained, received date) |

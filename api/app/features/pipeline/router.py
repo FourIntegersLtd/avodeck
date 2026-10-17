@@ -2,8 +2,9 @@
 
 - `GET /v1/cases/{id}/bundle/summary`: page counts by source, copies, unreadable pages, gaps, open
   missing items, each document's provenance and what each bundle version added.
-- `GET /v1/cases/{id}/bundle/sorted`: pages grouped by the pack's sources, then by date, each with
-  its own unchanged number; pages set aside as not this person's are left out.
+- `GET /v1/cases/{id}/bundle/sorted`: pages grouped by the pack's sources, then by printed date
+  (never from facts), each with its own unchanged number; pages set aside as not this person's are
+  left out.
 - `PATCH /v1/cases/{id}/documents/{doc_id}`: how the records were obtained and when they arrived.
 - `GET /v1/cases/{id}/bundle/versions`: what each delivery of records added.
 - `POST /v1/cases/{id}/documents/append`: appended files form one new bundle version and their
