@@ -10,7 +10,9 @@ Build every signed-in router with `router()`. Each request on it:
   the response is a success (an error or an exception rolls everything back);
 - with an `Idempotency-Key` on a state-changing method (F27): the first successful answer is
   kept for 24 hours and a repeat returns it with `Idempotent-Replayed: true`; the same key with
-  a different request is 422 `idempotency_key_reused`. Keys belong to one person.
+  a different request is 422 `idempotency_key_reused`. Keys belong to one person. A repeat runs the
+  route's dependencies first (case access, step-up), so it is refused exactly as a first request
+  would be; the kept answer is sealed at rest (`SecretBox`) and names its case.
 
 Editable resources send `ETag: "<version>"`; updates take `IfMatch` (428 without it, 412 `stale`
 when it is not the current version, F26).
@@ -18,19 +20,25 @@ when it is not the current version, F26).
 
 from __future__ import annotations
 
+import base64
+import dataclasses
 import hashlib
+import inspect
 import json
 import re
 import uuid
 from collections.abc import Callable, Coroutine
+from contextvars import ContextVar
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, Header, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.routing import APIRoute
 from psycopg import AsyncConnection
 
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
+from app.core.crypto import cell_secret_box
 from app.core.db import RequestScope
 from app.core.errors import ApiError
 
@@ -52,41 +60,95 @@ async def _fingerprint(request: Request) -> str:
     return digest.hexdigest()
 
 
-async def _replay(conn: AsyncConnection, key: str, fingerprint: str) -> Response | None:
+def _seal_purpose() -> str:
+    return "idempotency.response"
+
+
+def _subject(person_id: uuid.UUID, key: str) -> str:
+    return f"{person_id}:{key}"
+
+
+async def _replay(conn: AsyncConnection, pending: _Pending) -> Response | None:
     # Serialise requests with the same key, so a double click waits for the first and replays it.
     await conn.execute(
-        "select pg_advisory_xact_lock(hashtextextended(app.current_person_id()::text || ':' || %s, 0))", (key,)
+        "select pg_advisory_xact_lock(hashtextextended(app.current_person_id()::text || ':' || %s, 0))",
+        (pending.key,),
     )
     cur = await conn.execute(
-        "select fingerprint, status_code, response_body, response_headers from app.idempotency_keys"
+        "select fingerprint, status_code, response_body, response_headers, case_id from app.idempotency_keys"
         " where person_id = app.current_person_id() and key = %s and expires_at > now()",
-        (key,),
+        (pending.key,),
     )
     row = await cur.fetchone()
     if row is None:
         return None
-    stored_fingerprint, status, body, headers = row
-    if stored_fingerprint != fingerprint:
+    stored_fingerprint, status, sealed, headers, case_id = row
+    if stored_fingerprint != pending.fingerprint or case_id != pending.case_id:
         raise ApiError("idempotency_key_reused", "This Idempotency-Key was used for a different request.", 422)
-    return Response(content=bytes(body), status_code=status, headers={**headers, "idempotent-replayed": "true"})
+    text = cell_secret_box().open(
+        bytes(sealed).decode(), purpose=_seal_purpose(), subject=_subject(pending.person_id, pending.key)
+    )
+    body = base64.b64decode(text)
+    return Response(content=body, status_code=status, headers={**headers, "idempotent-replayed": "true"})
 
 
-async def _remember(conn: AsyncConnection, key: str, fingerprint: str, response: Response) -> None:
+async def _remember(conn: AsyncConnection, pending: _Pending, response: Response) -> None:
     body = getattr(response, "body", None)
     if not isinstance(body, bytes):
         return  # streamed responses are not kept
     headers = {h: response.headers[h] for h in _KEPT_HEADERS if h in response.headers}
+    sealed = cell_secret_box().seal(
+        base64.b64encode(body).decode(), purpose=_seal_purpose(), subject=_subject(pending.person_id, pending.key)
+    )
     await conn.execute(
         """
-        insert into app.idempotency_keys (person_id, key, fingerprint, status_code, response_body, response_headers)
-        values (app.current_person_id(), %s, %s, %s, %s, %s)
+        insert into app.idempotency_keys
+          (person_id, key, fingerprint, status_code, response_body, response_headers, case_id)
+        values (app.current_person_id(), %s, %s, %s, %s, %s, %s)
         on conflict (person_id, key) do update
           set fingerprint = excluded.fingerprint, status_code = excluded.status_code,
               response_body = excluded.response_body, response_headers = excluded.response_headers,
-              created_at = now(), expires_at = now() + interval '24 hours'
+              case_id = excluded.case_id, created_at = now(), expires_at = now() + interval '24 hours'
         """,
-        (key, fingerprint, response.status_code, body, json.dumps(headers)),
+        (pending.key, pending.fingerprint, response.status_code, sealed.encode(), json.dumps(headers), pending.case_id),
     )
+
+
+@dataclasses.dataclass(frozen=True)
+class _Pending:
+    """An Idempotency-Key request waiting for its dependencies to pass before any replay."""
+
+    conn: AsyncConnection
+    person_id: uuid.UUID
+    key: str
+    fingerprint: str
+    case_id: uuid.UUID | None
+
+
+_PENDING: ContextVar[_Pending | None] = ContextVar("idempotency_pending", default=None)
+
+
+def _case_id(request: Request) -> uuid.UUID | None:
+    raw = request.path_params.get("case_id")
+    try:
+        return uuid.UUID(str(raw)) if raw is not None else None
+    except ValueError:
+        return None
+
+
+def _replaying(endpoint: Callable[..., Any]) -> Callable[..., Any]:
+    """The endpoint, preceded by the replay check: it runs after FastAPI has solved every dependency."""
+    is_coroutine = inspect.iscoroutinefunction(endpoint)
+
+    async def call(**values: Any) -> Any:
+        pending = _PENDING.get()
+        if pending is not None and (replayed := await _replay(pending.conn, pending)) is not None:
+            return replayed
+        if is_coroutine:
+            return await endpoint(**values)
+        return await run_in_threadpool(endpoint, **values)
+
+    return call
 
 
 def check_origin(request: Request) -> None:
@@ -107,7 +169,16 @@ class SessionRoute(APIRoute):
     touch = True  # False: checking the session does not count as activity
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
-        handler = super().get_route_handler()
+        endpoint = self.dependant.call
+        if endpoint is None or inspect.isgeneratorfunction(endpoint) or inspect.isasyncgenfunction(endpoint):
+            handler = super().get_route_handler()
+        else:
+            plain = self.dependant
+            self.dependant = dataclasses.replace(plain, call=_replaying(endpoint))
+            try:
+                handler = super().get_route_handler()
+            finally:
+                self.dependant = plain
 
         async def run(request: Request) -> Response:
             check_origin(request)
@@ -135,13 +206,17 @@ class SessionRoute(APIRoute):
                     request.state.scope = scope  # for streamed bodies, which run after this transaction
                     request.state.identity = identity
                     request.state.session = session
-                    if key and (replayed := await _replay(conn, key, fingerprint)) is not None:
-                        return replayed
-                    response = await handler(request)
+                    pending = _Pending(conn, identity.person_id, key, fingerprint, _case_id(request)) if key else None
+                    token = _PENDING.set(pending)
+                    try:
+                        response = await handler(request)
+                    finally:
+                        _PENDING.reset(token)
                     if response.status_code >= 400:
                         raise _Discard(response)
-                    if key and not _no_store(response):
-                        await _remember(conn, key, fingerprint, response)
+                    if pending is not None and response.headers.get("idempotent-replayed") is None:
+                        if not _no_store(response):
+                            await _remember(conn, pending, response)
                     return response
             except _Discard as discarded:
                 return discarded.response
