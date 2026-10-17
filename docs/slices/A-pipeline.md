@@ -41,17 +41,17 @@ split (pikepdf) → render 150–200 dpi (pypdfium2) → hashes → text-layer c
 ## Acceptance tests (write first)
 Using `evals/gb-eaw/clin-neg-breach/general-practice/bundles/synthetic-mrs-a/` (synthetic, 900 pages; planted items listed in `evals/README.md`) with recorded OCR and Claude responses:
 - [x] Every page gets a permanent `bundle_page_no`, 1..N in upload order (the same numbers the instructing party and other experts see); the sorted view groups pages by source then date without renumbering; re-running the job changes nothing (idempotent)
-- [ ] Each page's `source_type` matches `evals/gb-eaw/clin-neg-breach/general-practice/expected/sources.json` (≥ 98% on the synthetic bundle)
-- [ ] Extracted facts match `evals/gb-eaw/clin-neg-breach/general-practice/expected/facts.json`: precision ≥ 0.95, every fact has `word_ids` and a `bbox` inside the page
+- [x] Each page's `source_type` matches `evals/gb-eaw/clin-neg-breach/general-practice/expected/sources.json` (≥ 98% on the synthetic bundle)
+- [x] Extracted facts match `evals/gb-eaw/clin-neg-breach/general-practice/expected/facts.json`: precision ≥ 0.95, every fact has `word_ids` and a `bbox` inside the page
 - [x] A recorded response containing a value not in its cited words is rejected and retried once, then marked `needs_human`
-- [ ] No identifier from the case name list, and no identifier matched by the pack's recognisers (NHS number and postcode under gb-eaw), appears in any recorded Claude request
+- [x] No identifier from the case name list, and no identifier matched by the pack's recognisers (NHS number and postcode under gb-eaw), appears in any recorded Claude request
 - [x] Under `gb-eaw` (DMY), dates printed as `03/04/2024` are read as 3 April 2024; under the `zz-test` fixture pack (MDY) the same text is read as 4 March
-- [ ] The 82 planted duplicates are set aside (not deleted), still numbered, and listed for review; no false duplicates among pages with different dates or values
-- [ ] Planted gap (task list stops in January) appears in `record_gaps`
-- [ ] Planted missing document (colonoscopy report mentioned on a letter page) appears in `missing_items` with its citing page
+- [x] The 82 planted duplicates are set aside (not deleted), still numbered, and listed for review; no false duplicates among pages with different dates or values
+- [x] Planted gap (task list stops in January) appears in `record_gaps`
+- [x] Planted missing document (colonoscopy report mentioned on a letter page) appears in `missing_items` with its citing page
 - [x] Low-confidence handwriting pages are queued for screen 10 and never auto-corrected
-- [ ] No fact is extracted from text listed in `expected/struck_out.json` (crossed-out entries, wrong-patient blocks)
-- [ ] The 148 born-digital pages in the synthetic bundle take their words from the embedded text layer (`text_source = 'embedded'`), make no Azure call, and still produce facts with `word_ids` and boxes; the planted scan with a typed header but a scanned body goes to OCR
+- [x] No fact is extracted from text listed in `expected/struck_out.json` (crossed-out entries, wrong-patient blocks)
+- [x] The 148 born-digital pages in the synthetic bundle take their words from the embedded text layer (`text_source = 'embedded'`), make no Azure call, and still produce facts with `word_ids` and boxes; the planted scan with a typed header but a scanned body goes to OCR
 - [x] Job progress reaches 100% with steps split/ocr/sort/duplicates/missing; no patient text in `jobs` or logs
 - [x] Appending 14 pages numbers them 901–914 and processes only those pages
 - [x] The instructing-party email draft lists the open missing items and clearer-copy pages, contains no patient name or NHS number, and returns a valid `mailto:` link; the request is logged
