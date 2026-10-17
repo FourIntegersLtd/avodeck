@@ -240,3 +240,37 @@ async def test_processing_controls_are_kept_per_case_for_people_who_upload(
     async with api_db.request(scope_for(stranger)) as conn:
         cur = await conn.execute("select count(*) from app.case_processing where case_id = %s", (case_id,))
         assert await cur.fetchone() == (0,)
+
+
+async def test_the_preparing_screen_finds_the_case_s_latest_processing_job(
+    h: Harness, seed: Seed, client_for: ClientFor
+) -> None:
+    """`GET /v1/cases/{id}/process` (case.view_metadata) names the latest processing job, or none,
+    so screen 07 can follow it after an upload without being handed its id. Numbers and codes only."""
+    url = f"/v1/cases/{h.case_id}/process"
+    nothing = await h.client.get(url)
+    assert nothing.status_code == 200, nothing.status_code
+    assert nothing.json() == {"job": None}
+
+    await h.upload(text_pdf(PAGES[:2]))
+    queued = (await h.client.get(url)).json()["job"]
+    (first,) = h.admin.execute(
+        "select id from app.jobs where case_id = %s order by created_at desc limit 1", (h.case_id,)
+    ).fetchone()  # type: ignore[misc]
+    assert queued["id"] == str(first), "the upload's first job (the scan) is not followed"
+    assert queued["status"] in ("queued", "running")
+    assert set(queued) == {"id", "kind", "status", "step", "pct", "eta_seconds", "error_code"}
+
+    await h.drain()
+    (latest,) = h.admin.execute(
+        "select id from app.jobs where case_id = %s and kind = 'process_bundle' order by created_at desc limit 1",
+        (h.case_id,),
+    ).fetchone()  # type: ignore[misc]
+    done = (await h.client.get(url)).json()["job"]
+    assert done["id"] == str(latest), "the bundle job queued after the scan is not the one named"
+    assert (done["kind"], done["status"], done["pct"]) == ("process_bundle", "done", 100)
+
+    viewer = seed.person()
+    seed.case_member(h.case_id, viewer, "viewer", added_by=h.expert)
+    assert (await (await client_for(viewer)).get(url)).json()["job"]["id"] == str(latest)
+    assert (await (await client_for(seed.person())).get(url)).status_code == 404
