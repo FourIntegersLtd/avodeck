@@ -44,7 +44,7 @@ class UploadStart(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     size: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
-    append: bool = Field(default=False, description="Later records added to a case that already has a bundle.")
+    append: bool | None = Field(default=None, description="Later records added to a case that already has a bundle.")
 
 
 class Upload(BaseModel):
@@ -143,7 +143,7 @@ async def start_upload(
             " (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, append)"
             " values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s, %s)"
             " returning id, case_id, status, size, chunk_size, chunk_count, received, document_id",
-            (case_id, body.kind, body.filename, body.size, body.sha256, CHUNK_SIZE, count, body.append),
+            (case_id, body.kind, body.filename, body.size, body.sha256, CHUNK_SIZE, count, bool(body.append)),
         )
         row = await cur.fetchone()
     assert row is not None

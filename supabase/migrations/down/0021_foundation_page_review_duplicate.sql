@@ -1,4 +1,4 @@
--- 0018 down: back to `page.rotate` for the duplicate review.
+-- 0021 down: back to the 0019 matrix (`page.rotate` for the duplicate review).
 
 set role app_migrator;
 
@@ -46,7 +46,15 @@ as $$
     ('legal_hold.release',        '{named_expert}', 'owner'),
     ('case.withdraw',             '{named_expert}', 'none'),
     ('support_access.grant',      '{named_expert}', 'none'),
-    ('case.delete_now',           '{named_expert}', 'owner')
+    ('case.delete_now',           '{named_expert}', 'owner'),
+    ('case.settle',               '{named_expert}', 'none'),
+    ('case.archive',              '{named_expert}', 'none'),
+    ('case.reopen',               '{named_expert}', 'none'),
+    ('case.view_audit',           '{named_expert}', 'admin'),
+    ('case.view_certificate',     '{named_expert}', 'admin'),
+    ('case.hold',                 '{named_expert,assistant}', 'none'),
+    ('case.change_jurisdiction',  '{named_expert}', 'none'),
+    ('conflict.declare',          '{named_expert}', 'none')
   ) as r (action, case_roles, org_grant)
   where r.action = case_action_allowed.action
 $$;

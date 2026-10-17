@@ -1,4 +1,4 @@
--- 0017 foundation: what the bundle pipeline (slice A) needs from core tables (architecture 4.1, 5.3, 7).
+-- 0020 foundation: what the bundle pipeline (slice A) needs from core tables (architecture 4.1, 5.3, 7).
 --
 -- * `job_kind_actions`: the virus scan of one document and the reprocessing of a whole case are
 --   queued by whoever may upload to the case (`case.upload`).

@@ -16,6 +16,12 @@ mypy = "^2.4.0"
 schemathesis = "^4.31.1"
 types-pyyaml = "^6.0.12.20260906"
 
+
+[tool.poetry.group.evals.dependencies]
+reportlab = "^5.0.1"
+pypdf = "^6.21.0"
+scipy = "^1.18.1"
+
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"

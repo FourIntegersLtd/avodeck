@@ -9,7 +9,6 @@ import { CaseHeader, LinkButton, LoadError, Loading, Notice } from "../foundatio
  * get the case and pack from `useCaseFrame()`, and name their screen key in the route's handle. */
 export function CaseLayout() {
   const { caseId = "" } = useParams();
-  const outlet = useOutlet();
   const found = useResource(
     async () => {
       const path = { params: { path: { case_id: caseId } } };
