@@ -66,6 +66,26 @@ async def audit_apart(database: Database, person_id: uuid.UUID, action: str, tar
         await audit.record(conn, action=action, target=target)
 
 
+MFA_MAX_FAILURES = 5
+MFA_WINDOW = timedelta(minutes=15)
+MFA_CODE_LIFE = timedelta(seconds=90)  # a code stays valid for its 30 seconds plus one step either side
+
+
+async def _mfa_failed(database: Database, person_id: uuid.UUID, target: str) -> None:
+    """Counts a wrong code (a new window after 15 minutes) and audits it, apart from the refused request."""
+    async with database.request(scope(person_id)) as conn:
+        await conn.execute(
+            "insert into app.mfa_attempts (person_id, failures) values (app.current_person_id(), 1)"
+            " on conflict (person_id) do update set"
+            " failures = case when app.mfa_attempts.window_started_at > now() - %s"
+            "   then app.mfa_attempts.failures + 1 else 1 end,"
+            " window_started_at = case when app.mfa_attempts.window_started_at > now() - %s"
+            "   then app.mfa_attempts.window_started_at else now() end",
+            (MFA_WINDOW, MFA_WINDOW),
+        )
+        await audit.record(conn, action="auth.mfa_failed", target=target)
+
+
 async def audit_anonymous(database: Database, action: str, email: str) -> None:
     async with database.anonymous() as conn:
         await conn.execute("select app.audit_anonymous(%s, %s)", (action, sessions.email_target(email)))
@@ -227,11 +247,23 @@ async def verify(body: Code, request: Request, response: Response, session: Curr
     )
     if not factors:
         raise ApiError("not_enrolled", "Set up your authenticator app first.", 409)
+    database, digest = _database(request), code_hash(session.person_id, body.code)
+    cur = await conn.execute(
+        "select failures >= %s and window_started_at > now() - %s, last_code_hash = %s and last_code_at > now() - %s"
+        " from app.mfa_attempts where person_id = app.current_person_id()",
+        (MFA_MAX_FAILURES, MFA_WINDOW, digest, MFA_CODE_LIFE),
+    )
+    row = await cur.fetchone()
+    locked, reused = (bool(row[0]), bool(row[1])) if row else (False, False)
+    if locked:
+        raise ApiError("too_many_attempts", "Too many codes tried. Wait 15 minutes and try again.", 429)
     try:
+        if reused:
+            raise AuthError("invalid_code", "That code did not work. Wait for the next code and try again.", 400)
         tokens = await auth.verify_totp(access, str(factors[-1]["id"]), body.code)
     except AuthError as exc:
         if exc.code == "invalid_code":
-            await audit_apart(_database(request), session.person_id, "auth.mfa_failed", f"session:{session.id}")
+            await _mfa_failed(database, session.person_id, f"session:{session.id}")
         raise
     if tokens.aal != "aal2":
         raise ApiError("invalid_code", "That code did not work.", 400)
@@ -242,6 +274,13 @@ async def verify(body: Code, request: Request, response: Response, session: Curr
         (sessions.digest(new.session), sessions.digest(new.csrf), session.id),
     )
     await sessions.store_auth_tokens(conn, session.id, tokens)
+    await conn.execute(
+        "insert into app.mfa_attempts (person_id, last_code_hash, last_code_at)"
+        " values (app.current_person_id(), %s, now()) on conflict (person_id) do update"
+        " set failures = 0, window_started_at = now(), last_code_hash = excluded.last_code_hash,"
+        " last_code_at = excluded.last_code_at",
+        (digest,),
+    )
     codes = None if session.mfa_enrolled else await issue_recovery_codes(conn, session.person_id)
     await audit.record(conn, action="auth.mfa_verified", target=f"session:{session.id}")
     sessions.set_cookies(response, new)
@@ -278,12 +317,13 @@ async def recover(body: Recover, request: Request, response: Response) -> SignIn
         used = await cur.fetchone()
         if used is not None:
             await auth.admin_delete_totp_factors(person)
+            await sessions.revoke(conn, "recovery")  # whoever has the lost phone's sessions is signed out
             await audit.record(conn, action="auth.recovery_code_used", target=f"person:{person}")
     if used is None:
         await audit_apart(database, person, "auth.recovery_failed", f"person:{person}")
         await auth.sign_out(tokens.access_token)
         raise ApiError("invalid_code", "That recovery code did not work.", 401)
-    await auth.sign_out(tokens.access_token)
+    await auth.sign_out(tokens.access_token, scope="global")
     fresh = await auth.sign_in_with_password(body.email, body.password)
     await _start_session(request, response, database, fresh, "auth.sign_in")
     await _mailer(request).send(Mail(to=fresh.email, template=RECOVERY_CODE_USED))
