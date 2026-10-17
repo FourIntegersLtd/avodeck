@@ -1393,6 +1393,21 @@ bench = ["fastjsonschema (>=2.20.0)", "jsonschema (>=4.23.0)", "pytest-benchmark
 tests = ["flask (>=2.2.5)", "hypothesis (>=6.79.4)", "pytest (>=7.4.4)"]
 
 [[package]]
+name = "langdetect"
+version = "1.0.9"
+description = "Language detection library ported from Google's language-detection."
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "langdetect-1.0.9-py2-none-any.whl", hash = "sha256:7cbc0746252f19e76f77c0b1690aadf01963be835ef0cd4b56dddf2a8f1dfc2a"},
+    {file = "langdetect-1.0.9.tar.gz", hash = "sha256:cbc1fef89f8d062739774bd51eda3da3274006b3661d199c2655f6b3f6d605a0"},
+]
+
+[package.dependencies]
+six = "*"
+
+[[package]]
 name = "librt"
 version = "0.16.0"
 description = "Mypyc runtime library"
@@ -4706,4 +4721,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "db6f791d41be37f2a2e8eb017091595b01d354c0172443c95a6ffc68e80e041b"
+content-hash = "568c508018254c7d169582d61ca84884d72a5a0110c23d3f6ccb8ec9ab9e4a6a"
