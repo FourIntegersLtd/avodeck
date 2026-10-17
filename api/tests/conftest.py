@@ -2,8 +2,9 @@
 
 Database and auth tests run against local Supabase (`supabase start`, then `supabase db reset`).
 Connection strings come from the environment so CI and other cells can point elsewhere;
-the defaults are this checkout's own local Supabase (its port from `supabase status`, so parallel
-worktrees never share a database) and the local-only role passwords set in `supabase/seed.sql`. No real credentials ever appear here.
+the defaults are this checkout's own local Supabase (its port from `supabase status`, so
+parallel worktrees never share a database) and the local-only role passwords set in
+`supabase/seed.sql`. No real credentials ever appear here.
 """
 
 from __future__ import annotations
@@ -21,9 +22,9 @@ import httpx
 import psycopg
 import pytest
 
-from tests.support.local_supabase import local_db_port, test_dsns
 from tests.support.auth import CSRF_HEADER, AuthAdmin, add_csrf, cookie_header
 from tests.support.db import ClientFor
+from tests.support.local_supabase import local_db_port, test_dsns
 from tests.support.seed import Seed, SeededSession
 
 if TYPE_CHECKING:
