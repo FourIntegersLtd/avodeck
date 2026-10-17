@@ -15,6 +15,7 @@ from app.features.setup import (  # noqa: E402, F401
     routes_prefill,
     routes_profile,
     routes_questions,
+    today,
 )
 
 __all__ = ["router"]
