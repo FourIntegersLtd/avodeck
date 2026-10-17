@@ -207,6 +207,40 @@ async def test_a_declared_note_names_each_question_in_the_packs_words(
     assert [(i["label"], i["text"], i["label_key"]) for i in items] == [(shown[DETAIL_REQUIRED], DETAIL, None)]
 
 
+async def test_a_joint_experts_every_draft_is_addressed_to_both_instructing_parties(
+    client_for: ClientFor, world: dict[str, uuid.UUID], admin: psycopg.Connection
+) -> None:
+    """Scenario S4: instructed by both sides, every note slice C drafts goes to both current parties."""
+    from typing import get_args
+
+    from app.features.setup.notes import NoteTopic
+
+    client = await client_for(world["expert"])
+    for firm in ("North Firm", "South Firm", "Old Firm"):
+        body = {"type_key": IP_TYPE, "name": "A Person", "firm": firm, "email": "a@example.test"}
+        assert (await client.post(url(world, "instructing-parties"), json=body)).status_code == 201
+    admin.execute(
+        "update app.case_instructing_parties set effective_to = current_date where case_id = %s and firm = 'Old Firm'",
+        (world["case"],),
+    )
+    notes = []
+    for topic in get_args(NoteTopic):
+        if topic in ("conflict_declared", "withdrawal"):
+            continue
+        drafted = await client.post(url(world, "instructing-party-notes/draft"), json={"topic": topic})
+        assert drafted.status_code == 200, (topic, drafted.status_code)
+        notes.append(drafted.json())
+    assert (await client.put(url(world, "conflicts"), json=all_no())).status_code == 200
+    notes.append((await client.post(url(world, "conflicts/declare"))).json()["note"])
+    withdrawn = await client.post(url(world, "withdraw"), json={"reason": "I have been discharged."})
+    notes.append(withdrawn.json()["note"])
+
+    assert sorted(n["topic"] for n in notes) == sorted(get_args(NoteTopic))
+    for note in notes:
+        assert note["joint"] is True, note["topic"]
+        assert sorted(r["firm"] for r in note["recipients"]) == ["North Firm", "South Firm"], note["topic"]
+
+
 # --- withdrawing -----------------------------------------------------------------------------------
 
 
