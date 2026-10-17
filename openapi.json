@@ -283,6 +283,107 @@
         "title": "CaseCard",
         "type": "object"
       },
+      "CaseCreate": {
+        "additionalProperties": false,
+        "description": "A draft case. Every pack value is a key of a combination this cell offers (rule 11).",
+        "properties": {
+          "case_type": {
+            "maxLength": 100,
+            "title": "Case Type",
+            "type": "string"
+          },
+          "court_track": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Track"
+          },
+          "due_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due Date"
+          },
+          "expert_role": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Role"
+          },
+          "instructing_party_type": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructing Party Type"
+          },
+          "jurisdiction": {
+            "maxLength": 100,
+            "title": "Jurisdiction",
+            "type": "string"
+          },
+          "label": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "organisation_id": {
+            "format": "uuid",
+            "title": "Organisation Id",
+            "type": "string"
+          },
+          "party_role": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Party Role"
+          },
+          "specialty": {
+            "maxLength": 100,
+            "title": "Specialty",
+            "type": "string"
+          }
+        },
+        "required": [
+          "organisation_id",
+          "jurisdiction",
+          "case_type",
+          "specialty",
+          "label"
+        ],
+        "title": "CaseCreate",
+        "type": "object"
+      },
       "CasePack": {
         "properties": {
           "checks": {
@@ -2367,6 +2468,57 @@
         "summary": "Sign Out",
         "tags": [
           "auth"
+        ]
+      }
+    },
+    "/v1/cases": {
+      "post": {
+        "operationId": "create_case_v1_cases_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CaseCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Case"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Create Case",
+        "tags": [
+          "cases"
         ]
       }
     },

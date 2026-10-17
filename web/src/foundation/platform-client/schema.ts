@@ -184,6 +184,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Case */
+        post: operations["create_case_v1_cases_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}": {
         parameters: {
             query?: never;
@@ -712,6 +729,35 @@ export interface components {
             status: string;
             /** Your Role */
             your_role: string | null;
+        };
+        /**
+         * CaseCreate
+         * @description A draft case. Every pack value is a key of a combination this cell offers (rule 11).
+         */
+        CaseCreate: {
+            /** Case Type */
+            case_type: string;
+            /** Court Track */
+            court_track?: string | null;
+            /** Due Date */
+            due_date?: string | null;
+            /** Expert Role */
+            expert_role?: string | null;
+            /** Instructing Party Type */
+            instructing_party_type?: string | null;
+            /** Jurisdiction */
+            jurisdiction: string;
+            /** Label */
+            label: string;
+            /**
+             * Organisation Id
+             * Format: uuid
+             */
+            organisation_id: string;
+            /** Party Role */
+            party_role?: string | null;
+            /** Specialty */
+            specialty: string;
         };
         /** CasePack */
         CasePack: {
@@ -1671,6 +1717,48 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_case_v1_cases_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CaseCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
             default: {
