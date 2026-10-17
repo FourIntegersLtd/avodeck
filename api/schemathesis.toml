@@ -1,0 +1,12 @@
+# Schemathesis settings for `make -C api schemathesis` (CI starts the API on the local Supabase first).
+
+# Random one-time tokens (password reset, email change) are never valid, so schema-valid input is
+# not expected to be accepted.
+[checks]
+positive_data_acceptance.enabled = false
+
+# DELETE /v1/me/sessions/revoke-all reaches DELETE /v1/me/sessions/{session_id} (the path template
+# matches any word) and is refused there (401 signed out, 422 not a session id), not with 405.
+[[operations]]
+include-path = "/v1/me/sessions/revoke-all"
+checks.unsupported_method.enabled = false
