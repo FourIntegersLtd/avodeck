@@ -243,7 +243,7 @@ One instruction: who it's for, who's involved, what was asked.
 | `case_parties` | The people and organisations on each side of the claim (e.g. the claimant, a GP and a hospital trust). | case_id, role_key, name, representative |
 | `case_instructing_parties` | Who instructed the expert (usually one firm; two for a joint expert), with dates if the firm changes. | case_id, type_key, name, firm, email, is_joint, effective_from, effective_to |
 | `case_links` | Connections between cases (a related inquest, a previous instruction, a case this one replaces). Links never share data. | case_id, linked_case_id, kind |
-| `instruction_versions` | Each letter of instruction or set of oral instructions, in order. Questions belong to one of these. | case_id, kind (letter/supplementary/oral), document_id, received_on, text |
+| `instruction_versions` | Each letter of instruction or set of oral instructions, in order. Questions belong to one of these. Foundation creates the table (migration 0017); slice C fills it. | case_id, version_no, kind (pack key: letter/supplementary/oral), document_id, received_on, locked_at, locked_by, text (slice C) |
 | `conflict_answers` | The expert's answers to the conflict-of-interest questions, which feed their declaration. | case_id, question_key, answer, detail, answered_at |
 | `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, kind, outside_expertise, status, confirmed_text |
 | `assumptions` | Things the instructions tell the expert to assume. | case_id, instruction_version_id, text_verbatim, source_word_ids[], status |

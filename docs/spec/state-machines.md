@@ -29,7 +29,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | withdrawn → archived | Expert or 30 days after | — | Read-only |
 | any → deleted | **Blocked** while an active `legal_holds` row exists | — | Deletion job skips the case and notifies the named expert |
 
-**On hold** is a flag, not a status: `on_hold` true/false on draft, active or served cases. While on hold, reminders and deadline alerts pause and processing jobs queue; nothing is deleted. Cleared by `…/resume`.
+**On hold** is a flag, not a status: `on_hold` true/false on draft, active or served cases. While on hold, reminders and deadline alerts pause and processing jobs queue; nothing is deleted. Cleared by `…/resume`. Setting or clearing it needs `case.hold` (named expert or assistant; the database checks the column, migration 0019).
 | any → deleted | Daily deletion job or `delete_now` 🔒 | `delete_after ≤ today`; `delete_now` (`case.delete_now`) only on a case never served, checked by `app.cases_actor` | `app.purge_case` removes every row (served reports too) and leaves the case row as a tombstone; crypto-shred, certificate, `deletion_ledger`; terminal |
 
 ## Page (`pages`)
@@ -72,7 +72,7 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 |---|---|---|
 | suggested → confirmed / edited | Expert, screen 06 | Edited questions keep `text_verbatim` |
 | question set: open → locked | `confirm-all` | Every question confirmed or edited |
-| locked → open | Expert "Change the questions" | Not yet served; drafts keep their links; warning shown |
+| locked → open | Expert "Change the questions": a new `instruction_versions` row (the old lock is never undone) | Not yet served; questions moved to the new version return to suggested; drafts keep their links; warning shown |
 
 Writing (screens 14 and 15) requires a locked question set (409 otherwise).
 

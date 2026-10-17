@@ -28,7 +28,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `case_parties` | C | Named expert or assistant | Many | Editable until served; then additions only | Case deletion |
 | `case_instructing_parties` | C | Named expert or assistant | One or more (joint) | Change of firm = new row with dates | Case deletion |
 | `case_links` | C | Named expert | Many | Add or remove; never shares data | Removed when either case is deleted |
-| `instruction_versions` | C | Named expert or assistant | Many, ordered | Append only | Case deletion |
+| `instruction_versions` | Foundation table (0017), C fills | Named expert or assistant | Many, ordered | Append only | Case deletion |
 | `conflict_answers` | C | Named expert | One per question, plus later declarations | New answers appended; snapshot at signing | Case deletion |
 | `questions` | C | Named expert | Many per instruction version | Locked with the set; reopened by new instructions before serving | Case deletion |
 | `assumptions` | C | Named expert | Many | Lock and reopen with the question set | Case deletion |

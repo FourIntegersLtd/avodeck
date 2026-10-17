@@ -213,10 +213,12 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 ### instruction_versions
 | Field | In plain words |
 |---|---|
+| version_no | 1 for the first instructions, then 2, 3… in the order they arrived |
 | kind | Original letter, supplementary letter, or oral instructions |
 | document_id | The letter itself (if written) |
 | received_on | When the instructions were received |
-| text | The typed or dictated wording of oral instructions |
+| text | The typed or dictated wording of oral instructions (slice C; not in the foundation table) |
+| locked_at / locked_by | When and by whom the questions in this version were locked; never undone |
 
 ### conflict_answers
 | Field | In plain words |
