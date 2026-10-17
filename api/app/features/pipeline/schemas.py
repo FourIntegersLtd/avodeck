@@ -48,3 +48,49 @@ class MissingItemChange(BaseModel):
     status: Literal["open", "not_available", "received"]
     reason: str | None = Field(default=None, max_length=500)
     page_id: uuid.UUID | None = None
+
+
+class SourceCount(BaseModel):
+    source_type: str | None
+    pages: int
+
+
+class Document(BaseModel):
+    id: uuid.UUID
+    kind: str
+    filename: str
+    pages: int | None
+    first_page_no: int | None
+    last_page_no: int | None
+    received_on: dt.date | None
+    obtained_how: str | None
+    bundle_version: int
+
+
+class BundleVersion(BaseModel):
+    bundle_version: int
+    documents: int
+    pages: int
+    first_page_no: int | None
+    last_page_no: int | None
+    added_at: dt.datetime
+
+
+class BundleVersions(BaseModel):
+    versions: list[BundleVersion]
+
+
+class BundleSummary(BaseModel):
+    pages: int
+    by_source: list[SourceCount]
+    duplicates: int
+    unreadable: int
+    gaps: int
+    missing_items: int
+    documents: list[Document]
+    versions: list[BundleVersion]
+
+
+class ProvenanceChange(BaseModel):
+    received_on: dt.date | None = None
+    obtained_how: str | None = Field(default=None, max_length=200)

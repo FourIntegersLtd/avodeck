@@ -1,5 +1,10 @@
 """Slice A's routes (architecture 5.2): bundle summary, duplicates, thumbnails, missing items.
 
+- `GET /v1/cases/{id}/bundle/summary`: page counts by source, copies, unreadable pages, gaps, open
+  missing items, each document's provenance and what each bundle version added.
+- `PATCH /v1/cases/{id}/documents/{doc_id}`: how the records were obtained and when they arrived.
+- `GET /v1/cases/{id}/bundle/versions`: what each delivery of records added.
+
 - `GET /v1/cases/{id}/duplicates`: each page set aside as a copy, the page it copies and its review.
 - `PATCH /v1/cases/{id}/pages/{page_id}/duplicate` (If-Match): `confirm` keeps it set aside; `undo`
   restores the page with everything found on it, and it is never set aside again (F13).
@@ -25,12 +30,18 @@ from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
 from app.core.storage import SupabaseStorage
 from app.features.pipeline import missing, paths, repo
 from app.features.pipeline.schemas import (
+    BundleSummary,
+    BundleVersion,
+    BundleVersions,
+    Document,
     DuplicatePage,
     DuplicateReview,
     Duplicates,
     MissingItem,
     MissingItemChange,
     MissingItems,
+    ProvenanceChange,
+    SourceCount,
 )
 
 pipeline_router = router(prefix="/v1/cases", tags=["pipeline"])
@@ -213,3 +224,72 @@ async def change_missing_item(
     response.headers["etag"] = etag(moved)
     response.headers["cache-control"] = "private, no-store"
     return await _missing_item(conn, crypto, case_id, after)
+
+
+def _document(d: repo.DocumentRow) -> Document:
+    return Document(
+        id=d.id,
+        kind=d.kind,
+        filename=d.filename,
+        pages=d.pages,
+        first_page_no=d.first_page_no,
+        last_page_no=d.last_page_no,
+        received_on=d.received_on,
+        obtained_how=d.obtained_how,
+        bundle_version=d.bundle_version,
+    )
+
+
+@pipeline_router.get("/{case_id}/bundle/summary", response_model=BundleSummary)
+async def bundle_summary(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_content"))],
+    conn: DbConn,
+    response: Response,
+) -> BundleSummary:
+    sources = await repo.source_counts(conn, case_id)
+    copies, unreadable, gaps, open_items = await repo.summary_counts(conn, case_id)
+    docs = await repo.documents(conn, case_id)
+    response.headers["cache-control"] = "private, no-store"
+    return BundleSummary(
+        pages=sum(n for _, n in sources),
+        by_source=[SourceCount(source_type=k, pages=n) for k, n in sources],
+        duplicates=copies,
+        unreadable=unreadable,
+        gaps=gaps,
+        missing_items=open_items,
+        documents=[_document(d) for d in docs],
+        versions=[BundleVersion(**v) for v in repo.versions_of(docs)],
+    )
+
+
+@pipeline_router.get("/{case_id}/bundle/versions", response_model=BundleVersions)
+async def bundle_versions(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_content"))],
+    conn: DbConn,
+) -> BundleVersions:
+    return BundleVersions(versions=[BundleVersion(**v) for v in repo.versions_of(await repo.documents(conn, case_id))])
+
+
+@pipeline_router.patch("/{case_id}/documents/{document_id}", response_model=Document)
+async def change_provenance(
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    body: ProvenanceChange,
+    conn: DbConn,
+    response: Response,
+) -> Document:
+    if await repo.document(conn, case_id, document_id) is None:
+        raise _not_found()
+    changes = body.model_dump(exclude_unset=True)
+    if changes:
+        await repo.change_provenance(conn, document_id, changes)
+        await audit.record(
+            conn, action="document.provenance_changed", target=f"document:{document_id}", case_id=case_id
+        )
+    after = await repo.document(conn, case_id, document_id)
+    assert after is not None
+    response.headers["cache-control"] = "private, no-store"
+    return _document(after)

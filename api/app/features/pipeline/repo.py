@@ -585,3 +585,100 @@ async def case_people(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[uuid.U
     row = await cur.fetchone()
     assert row is not None
     return row[0], row[1]
+
+
+# --- bundle summary --------------------------------------------------------------------------------
+
+
+async def source_counts(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[str | None, int]]:
+    cur = await conn.execute(
+        "select source_type, count(*) from app.pages where case_id = %s and not quarantined"
+        " group by source_type order by count(*) desc, source_type nulls last",
+        (case_id,),
+    )
+    return [(r[0], int(r[1])) for r in await cur.fetchall()]
+
+
+async def summary_counts(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[int, int, int, int]:
+    """Pages set aside as copies, unreadable pages, gaps not dismissed and open missing items."""
+    cur = await conn.execute(
+        "select"
+        " (select count(*) from app.pages p join app.page_analysis a on a.page_id = p.id"
+        "   where p.case_id = %(c)s and p.duplicate_of_page_id is not null"
+        "   and a.duplicate_status in ('suggested', 'confirmed')),"
+        " (select count(*) from app.pages where case_id = %(c)s and unreadable and not quarantined),"
+        " (select count(*) from app.record_gaps where case_id = %(c)s and confirmed is distinct from false),"
+        " (select count(*) from app.missing_items where case_id = %(c)s and status = 'open')",
+        {"c": case_id},
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return int(row[0]), int(row[1]), int(row[2]), int(row[3])
+
+
+@dataclass(frozen=True)
+class DocumentRow:
+    id: uuid.UUID
+    kind: str
+    filename: str
+    pages: int | None
+    first_page_no: int | None
+    last_page_no: int | None
+    received_on: Any
+    obtained_how: str | None
+    bundle_version: int
+    created_at: Any
+
+
+_DOCUMENT = (
+    "select d.id, d.kind, d.filename, d.pages, min(p.bundle_page_no), max(p.bundle_page_no), d.received_on,"
+    " d.obtained_how, d.bundle_version, d.created_at"
+    " from app.documents d left join app.pages p on p.document_id = d.id"
+)
+
+
+async def documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[DocumentRow]:
+    cur = await conn.execute(
+        _DOCUMENT + " where d.case_id = %s group by d.id order by min(p.bundle_page_no) nulls last, d.created_at",
+        (case_id,),
+    )
+    return [DocumentRow(*r) for r in await cur.fetchall()]
+
+
+async def document(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> DocumentRow | None:
+    cur = await conn.execute(_DOCUMENT + " where d.case_id = %s and d.id = %s group by d.id", (case_id, document_id))
+    row = await cur.fetchone()
+    return DocumentRow(*row) if row else None
+
+
+async def change_provenance(conn: AsyncConnection, document_id: uuid.UUID, changes: dict[str, Any]) -> None:
+    allowed = {"received_on", "obtained_how"}
+    cols = [c for c in changes if c in allowed]
+    if not cols:
+        return
+    sets = ", ".join(f"{c} = %({c})s" for c in cols)
+    await conn.execute(f"update app.documents set {sets} where id = %(id)s", {**changes, "id": document_id})  # noqa: S608
+
+
+def versions_of(rows: list[DocumentRow]) -> list[dict[str, Any]]:
+    """What each delivery of records added, from the case's documents."""
+    found: dict[int, dict[str, Any]] = {}
+    for d in rows:
+        v = found.setdefault(
+            d.bundle_version,
+            {
+                "bundle_version": d.bundle_version,
+                "documents": 0,
+                "pages": 0,
+                "first_page_no": None,
+                "last_page_no": None,
+                "added_at": d.created_at,
+            },
+        )
+        v["documents"] += 1
+        v["pages"] += d.pages or 0
+        if d.first_page_no is not None:
+            v["first_page_no"] = min(x for x in (v["first_page_no"], d.first_page_no) if x is not None)
+            v["last_page_no"] = max(x for x in (v["last_page_no"], d.last_page_no) if x is not None)
+        v["added_at"] = min(v["added_at"], d.created_at)
+    return [found[k] for k in sorted(found)]
