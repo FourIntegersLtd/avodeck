@@ -82,7 +82,31 @@ def _people_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[st
     return {"case_members": 1, "notifications": 1, "transcripts": 1, "ai_calls": 1, "idempotency_keys": 1}
 
 
-SEEDERS = (_documents_pages_facts, _jobs, _reports, _questions, _people_rows)
+def _legal_holds(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """A hold that has ended (an active one would stop the purge)."""
+    admin.execute(
+        "insert into app.legal_holds (case_id, reason, set_by, until, released_at, released_by)"
+        " values (%s, 'zz_appeal', %s, current_date - 1, now(), %s)",
+        (w.case, w.expert, w.expert),
+    )
+    return {"legal_holds": 1}
+
+
+def _deletion_certificates(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Kept after the purge (KEPT_AFTER_CASE_DELETION): counts only, no patient text."""
+    admin.execute("insert into app.deletion_certificates (case_id, counts) values (%s, '{\"pages\": 2}')", (w.case,))
+    return {"deletion_certificates": 1}
+
+
+SEEDERS = (
+    _documents_pages_facts,
+    _jobs,
+    _reports,
+    _questions,
+    _people_rows,
+    _legal_holds,
+    _deletion_certificates,
+)
 
 
 def fill_every_case_table(admin: psycopg.Connection, seed: Seed, world: CaseWorld) -> dict[str, int]:

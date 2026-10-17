@@ -22,7 +22,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | active → served | `POST …/report/versions/{v}/serve` 🔒 | A locked report version exists | `report_served` event; deadlines (G) |
 | served → served | New material, questions, supplementary report | — | Stays served; new versions link via `prev_version_id` |
 | served/active → settled | Expert (`case.settle`) | — | Retention clock starts: `settled_at` set by the database |
-| settled → archived | Expert (`case.archive`) or 30 days after settled | — | Read-only; `settled_at` kept |
+| settled → archived | Expert (`case.archive`) or 30 days after settled (daily close run) | — | Read-only; `settled_at` kept |
 | archived → active | Expert "Reopen" (`case.reopen`) | Before `delete_after`; no legal hold needed | Audit; `settled_at` cleared |
 | settled → active | Expert "Reopen" (`case.reopen`; settlement fell through, new questions) | Before `delete_after` | Retention clock stops (`settled_at` cleared); restarts from the latest settlement |
 | draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties |

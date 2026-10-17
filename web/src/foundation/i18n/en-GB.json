@@ -31,6 +31,7 @@
   "ui.dialog.close": "Close",
   "ui.show_password": "Show password",
   "ui.code_label": "6-digit code",
+  "dev.skip_code": "Skip (local only)",
   "step_up.title": "Please enter your code",
   "step_up.body": "For your safety, we ask for the code from your phone again before this.",
   "step_up.submit": "Carry on",

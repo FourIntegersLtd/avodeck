@@ -638,7 +638,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | reason / set_by | Why deletion is paused (e.g. appeal) and who paused it |
-| until / released_at | Until when, and when it was lifted |
+| until / released_at / released_by | Until when, when it was lifted and by whom (expired holds are lifted by the daily run). Lifted once, at the moment and in the name of the person lifting it; never put back |
 
 ### deletion_certificates
 | Field | In plain words |
@@ -646,7 +646,8 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | deleted_at / counts / hashes | When the case was deleted, how many items, and their fingerprints |
 | log_chain_heads | The final fingerprints of the reading and checking logs, proving they existed |
 | backup_expiry_on | The date the last backup copy disappears |
-| pdf_path / sent_to | The certificate file and who received it |
+| sent_to | Who received it, as role codes (never addresses); each is recorded as its email goes, so a retried deletion never sends twice. Nothing changes once `deleted_at` is set |
+| created_at | When the deletion started; `deleted_at` stays empty until it finishes |
 
 ### deletion_ledger
 | Field | In plain words |
