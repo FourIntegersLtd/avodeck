@@ -12,6 +12,7 @@ export function DevSkipCode({ onVerified }: { onVerified: (r: Schemas["Verified"
   const skip = async () => {
     setBusy(true);
     try {
+      // eslint-disable-next-line no-restricted-globals -- the Vite dev server itself (web/devMfa.ts), never in a build
       const res = await fetch("/__dev/mfa-code");
       if (res.ok) onVerified(await unwrap(api.POST("/v1/auth/mfa/verify", { body: { code: await res.text() } })));
     } finally {
