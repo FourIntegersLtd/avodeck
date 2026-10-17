@@ -65,7 +65,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Test inputs:** synthetic files in `bundles/synthetic-mrs-a/inputs/` (built by `make eval-data`), expected results in `evals/gb-eaw/clin-neg-breach/general-practice/expected/inputs.json` under `instruction_version_2`.
 
-**Extra tables owned:** `case_parties`, `case_instructing_parties`, `case_links`, `case_instructions` (oral wording), `case_subject_keys` (migration 0310). `instruction_versions` is a foundation table (0017) that this slice fills. Screens for `case_members` (table from foundation).
+**Extra tables owned:** `case_parties`, `case_instructing_parties`, `case_links`, `case_instructions` (oral wording), `case_subject_keys` (migration 0310). `instruction_versions` is a foundation table (0019) that this slice fills. Screens for `case_members` (table from foundation).
 
 **Extra endpoints:** `GET/POST /v1/cases/{id}/members`, `DELETE /v1/cases/{id}/members/{member_id}`, `GET/POST /v1/cases/{id}/parties`, `PATCH/DELETE /v1/cases/{id}/parties/{party_id}`, `GET/POST /v1/cases/{id}/instructing-parties`, `PATCH /v1/cases/{id}/instructing-parties/{ip_id}`, `GET/POST /v1/cases/{id}/instructions`, `GET/POST /v1/cases/{id}/links`, `DELETE /v1/cases/{id}/links/{link_id}`, `POST /v1/cases/{id}/conflicts/declare`, `POST /v1/cases/{id}/withdraw` 🔒, `POST /v1/cases/{id}/hold`, `POST /v1/cases/{id}/resume`, `PATCH /v1/cases/{id}/jurisdiction` 🔒, `POST /v1/cases/duplicate-check`; added in chunk A: `PUT /v1/cases/{id}/subject-key` (stores the keyed hash the duplicate check compares) and `GET /v1/cases/{id}/subject` (the subject's words for the current status).
 

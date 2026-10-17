@@ -1,6 +1,6 @@
 """The case permissions matrix from docs/spec/permissions.md, as one table.
 
-`app.case_action_allowed()` (migration 0003, redefined in 0017) mirrors this table; the guard test
+`app.case_action_allowed()` (migration 0003, redefined in 0017 and 0019) mirrors this table; the guard test
 `tests/guards/test_permissions.py` checks both against the document, cell by cell.
 """
 

@@ -1,5 +1,6 @@
--- 0017 foundation: what slice C needs from the foundation (docs/slices/0-foundation.md "Changes for slice C").
--- * Three case actions join the matrix (permissions.md): `case.hold` (named expert, assistant),
+-- 0019 foundation (renumbered from 0017 after the close-support migrations): what slice C needs from the foundation (docs/slices/0-foundation.md "Changes for slice C").
+-- * Three case actions join the matrix (kept with the 0017 close actions: settle, archive, reopen,
+--   view_audit, view_certificate, and the settled_at column) (permissions.md): `case.hold` (named expert, assistant),
 --   `case.change_jurisdiction` (named expert, step-up in the API) and `conflict.declare` (named expert).
 -- * `cases_actor` checks `on_hold` against `case.hold` (it was `case.retention`) and the pack columns
 --   (jurisdiction, case_type, specialty, pack_versions) against `case.change_jurisdiction`, before
@@ -60,6 +61,11 @@ as $$
     ('case.withdraw',             '{named_expert}', 'none'),
     ('support_access.grant',      '{named_expert}', 'none'),
     ('case.delete_now',           '{named_expert}', 'owner'),
+    ('case.settle',               '{named_expert}', 'none'),
+    ('case.archive',              '{named_expert}', 'none'),
+    ('case.reopen',               '{named_expert}', 'none'),
+    ('case.view_audit',           '{named_expert}', 'admin'),
+    ('case.view_certificate',     '{named_expert}', 'admin'),
     ('case.hold',                 '{named_expert,assistant}', 'none'),
     ('case.change_jurisdiction',  '{named_expert}', 'none'),
     ('conflict.declare',          '{named_expert}', 'none')
@@ -74,7 +80,8 @@ create or replace function app.cases_actor() returns trigger
 as $$
 declare
   own constant text[] := array['named_expert_id', 'retention_policy', 'delete_after', 'on_hold', 'status',
-                               'jurisdiction', 'case_type', 'specialty', 'pack_versions', 'version', 'updated_at'];
+                               'jurisdiction', 'case_type', 'specialty', 'pack_versions', 'version', 'updated_at',
+                               'settled_at'];
   needed text[] := '{}';
   action text;
 begin
@@ -104,10 +111,13 @@ begin
     if new.status = 'deleted' and app.case_ever_served(old.id) then
       raise exception using errcode = '42501', message = 'a served case is deleted only by its retention';
     end if;
-    needed := array_append(needed, case new.status
-      when 'deleted' then 'case.delete_now'
-      when 'withdrawn' then 'case.withdraw'
-      when 'served' then 'report.serve'
+    needed := array_append(needed, case
+      when new.status = 'deleted' then 'case.delete_now'
+      when new.status = 'withdrawn' then 'case.withdraw'
+      when new.status = 'served' then 'report.serve'
+      when new.status = 'settled' then 'case.settle'
+      when new.status = 'archived' then 'case.archive'
+      when new.status = 'active' and old.status in ('settled', 'archived') then 'case.reopen'
       else 'case.edit_setup' end);
   end if;
   if (to_jsonb(new) - own) is distinct from (to_jsonb(old) - own) then

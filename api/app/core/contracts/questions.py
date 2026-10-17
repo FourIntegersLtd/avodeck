@@ -4,7 +4,7 @@
 `confirmed_text` (state-machines.md "Question").
 
 The set is locked when the case's latest `instruction_versions` row that can carry questions (any kind
-but `oral`) has `locked_at` (migration 0017):
+but `oral`) has `locked_at` (migration 0019):
 `questions_locked()` answers that, and `require_questions_locked()` is the route dependency that
 answers 409 `questions_not_confirmed` until then.
 """

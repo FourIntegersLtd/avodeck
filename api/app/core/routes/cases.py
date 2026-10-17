@@ -175,7 +175,7 @@ async def create_case(body: CaseCreate, request: Request, conn: DbConn, response
 
 
 async def _is_nameable(conn: DbConn, organisation_id: uuid.UUID, person_id: uuid.UUID) -> bool:
-    """Whether the person is an active owner, admin or expert of the organisation (migration 0017)."""
+    """Whether the person is an active owner, admin or expert of the organisation (migration 0019)."""
     cur = await conn.execute("select app.is_expert_member(%s, %s)", (organisation_id, person_id))
     found = await cur.fetchone()
     return bool(found and found[0])

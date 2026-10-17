@@ -1,4 +1,5 @@
--- Down for 0017 foundation: slice C's contracts. Restores the 0003, 0008, 0010 and 0012 definitions.
+-- Down for 0019 foundation: slice C's contracts. Restores the 0017 (close support) matrix and cases_actor
+-- and the 0003, 0008 and 0010 definitions.
 set role app_migrator;
 
 create or replace function app.questions_guard() returns trigger
@@ -53,7 +54,7 @@ create or replace function app.cases_actor() returns trigger
 as $$
 declare
   own constant text[] := array['named_expert_id', 'retention_policy', 'delete_after', 'on_hold', 'status',
-                               'version', 'updated_at'];
+                               'version', 'updated_at', 'settled_at'];
   needed text[] := '{}';
   action text;
 begin
@@ -74,10 +75,13 @@ begin
     if new.status = 'deleted' and app.case_ever_served(old.id) then
       raise exception using errcode = '42501', message = 'a served case is deleted only by its retention';
     end if;
-    needed := array_append(needed, case new.status
-      when 'deleted' then 'case.delete_now'
-      when 'withdrawn' then 'case.withdraw'
-      when 'served' then 'report.serve'
+    needed := array_append(needed, case
+      when new.status = 'deleted' then 'case.delete_now'
+      when new.status = 'withdrawn' then 'case.withdraw'
+      when new.status = 'served' then 'report.serve'
+      when new.status = 'settled' then 'case.settle'
+      when new.status = 'archived' then 'case.archive'
+      when new.status = 'active' and old.status in ('settled', 'archived') then 'case.reopen'
       else 'case.edit_setup' end);
   end if;
   if (to_jsonb(new) - own) is distinct from (to_jsonb(old) - own) then
@@ -136,7 +140,12 @@ as $$
     ('legal_hold.release',        '{named_expert}', 'owner'),
     ('case.withdraw',             '{named_expert}', 'none'),
     ('support_access.grant',      '{named_expert}', 'none'),
-    ('case.delete_now',           '{named_expert}', 'owner')
+    ('case.delete_now',           '{named_expert}', 'owner'),
+    ('case.settle',               '{named_expert}', 'none'),
+    ('case.archive',              '{named_expert}', 'none'),
+    ('case.reopen',               '{named_expert}', 'none'),
+    ('case.view_audit',           '{named_expert}', 'admin'),
+    ('case.view_certificate',     '{named_expert}', 'admin')
   ) as r (action, case_roles, org_grant)
   where r.action = case_action_allowed.action
 $$;
