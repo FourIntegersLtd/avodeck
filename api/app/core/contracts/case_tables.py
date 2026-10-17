@@ -8,6 +8,7 @@ from __future__ import annotations
 
 CASE_TABLES: frozenset[str] = frozenset(
     {
+        "case_processing",
         "cases",
         "ai_calls",
         "assumptions",
