@@ -201,3 +201,44 @@ def test_dates_are_read_in_the_pack_date_order(bundle: Harness) -> None:
     planted = [(when, basis) for n, _, when, basis in rows if n == 82]  # printed 03/04/2024: 3 April
     assert (dt.date(2024, 4, 3), "printed") in planted, "page 82: 03/04/2024 was not read as 3 April"
     assert all((when is not None) == (basis == "printed") for _, _, when, basis in rows)
+
+
+def planted_groups() -> dict[int, int]:
+    """Each page's planted group: the page a copy was made from, or the page itself."""
+    group = {n: n for n in range(1, 901)}
+    for row in expected("duplicates.json"):
+        group[int(row["page"])] = int(row["copy_of_page"])
+    return group
+
+
+def test_the_planted_copies_are_set_aside_and_no_other_page_is(pages: dict[int, dict[str, Any]]) -> None:
+    group = planted_groups()
+    number = {p["id"]: n for n, p in pages.items()}
+    set_aside = {n: number[p["duplicate_of_page_id"]] for n, p in pages.items() if p["duplicate_of_page_id"]}
+    false = sorted(n for n, original in set_aside.items() if group[n] != group[original])
+    assert false == [], f"pages set aside that are not copies: {false}"
+    assert len(set_aside) == len(expected("duplicates.json")), f"{len(set_aside)} pages set aside"
+    members: dict[int, set[int]] = {}
+    for n, g in group.items():
+        members.setdefault(g, set()).add(n)
+    for g, pages_in in members.items():
+        kept = pages_in - set(set_aside)
+        assert len(kept) == 1, f"group of page {g}: {len(kept)} pages kept"
+    for n, original in set_aside.items():
+        assert original < n and original not in set_aside, f"page {n} points at a page that is not the first copy"
+
+
+def test_a_lab_copy_of_a_result_is_not_set_aside(pages: dict[int, dict[str, Any]]) -> None:
+    assert pages[119]["duplicate_of_page_id"] is None and pages[402]["duplicate_of_page_id"] is None
+
+
+def test_copies_keep_their_pictures_and_are_read_like_any_page(
+    bundle: Harness, pages: dict[int, dict[str, Any]]
+) -> None:
+    copies = {p["id"] for p in pages.values() if p["duplicate_of_page_id"]}
+    assert copies and all(pages[n]["image_path"] for n, p in pages.items() if p["id"] in copies)
+    unread = bundle.admin.execute(
+        "select count(*) from app.page_analysis where case_id = %s and page_id = any(%s) and extracted_at is null",
+        (bundle.case_id, list(copies)),
+    ).fetchone()
+    assert unread == (0,), "a copy was not read"
