@@ -174,11 +174,14 @@ async def test_no_identifier_reaches_the_model(subset: Harness) -> None:
 async def test_each_page_is_asked_once_and_a_wrong_value_once_more(subset: Harness) -> None:
     pages = by_number(subset)
     asked = Counter(r.subject for r in t07b_requests(subset))
+    wanted: Counter[str] = Counter()  # a copy set aside is not asked; an exact copy not yet set aside shares words
+    for n, page in pages.items():
+        if page["duplicate_of_page_id"] is None:
+            wanted[subject_of(await page_words(subset, page["id"]))] += 2 if n in (RETRIED, WRONG_TWICE) else 1
     for n, page in pages.items():
         subject = subject_of(await page_words(subset, page["id"]))
-        times = 2 if n in (RETRIED, WRONG_TWICE) else 1
-        assert asked[subject] == times, f"page {n} was asked {asked[subject]} times"
-    assert sum(asked.values()) == len(pages) + 2
+        assert asked[subject] == wanted[subject], f"page {n} was asked {asked[subject]} times"
+    assert sum(asked.values()) == sum(wanted.values())
 
 
 async def test_each_call_leaves_one_ai_calls_row_and_no_content(subset: Harness) -> None:
@@ -221,7 +224,7 @@ async def test_facts_match_the_expected_facts(subset: Harness) -> None:
     copies = {int(d["page"]) for d in expected("duplicates.json")}
     numbers = {int(e["page"]) for e in subset_entries()} - copies
     found = [(n, f["kind"], f["value"]) for n, facts in facts_by_number(subset).items() for f in facts if n in numbers]
-    wanted = [(int(f["page"]), f["kind"], f["value"]) for f in expected("facts.json") if int(f["page"]) in numbers]
+    wanted = [f for f in expected("facts.json") if int(f["page"]) in numbers]
     score, count = precision(found, wanted)
     assert count > 0
     assert score >= 0.95, f"precision {score:.3f} over {count} facts"

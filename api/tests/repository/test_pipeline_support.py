@@ -16,7 +16,6 @@ import io
 import json
 import shutil
 import uuid
-from collections import Counter
 from collections.abc import AsyncIterator, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -364,16 +363,26 @@ def fact_key(page: int, kind: str, value: str) -> tuple[int, str, tuple[str, ...
     return (page, kind, tuple(atoms(value)))
 
 
-def precision(found: Iterable[tuple[int, str, str]], wanted: Iterable[tuple[int, str, str]]) -> tuple[float, int]:
-    """Share of found facts that match an expected fact on the same page (each expected fact once)."""
-    pool = Counter(fact_key(*w) for w in wanted)
+def precision(found: Iterable[tuple[int, str, str]], wanted: Iterable[Mapping[str, Any]]) -> tuple[float, int]:
+    """Share of found facts that match an expected fact (`expected/facts.json` rows) of the same kind on
+    the same page, each expected fact once. A found value is copied from the page's words (rule 2), so
+    it may match the expected fact's `quote` (the words as printed) or its `value` (a reading of them)."""
+    wanted = list(wanted)
     found = list(found)
+    used = [False] * len(wanted)
+    index: dict[tuple[int, str, tuple[str, ...]], list[int]] = {}
+    for i, w in enumerate(wanted):
+        for text in {str(w.get("value") or ""), str(w.get("quote") or "")}:
+            key = fact_key(int(w["page"]), str(w["kind"]), text)
+            if key[2]:
+                index.setdefault(key, []).append(i)
     hits = 0
     for f in found:
-        key = fact_key(*f)
-        if pool[key] > 0:
-            pool[key] -= 1
-            hits += 1
+        for i in index.get(fact_key(*f), []):
+            if not used[i]:
+                used[i] = True
+                hits += 1
+                break
     return (hits / len(found) if found else 0.0), len(found)
 
 

@@ -138,7 +138,8 @@ def test_low_confidence_pages_are_queued_as_unreadable(pages: dict[int, dict[str
 
 def test_no_identifier_reaches_the_model(bundle: Harness) -> None:
     sent = t07b_requests(bundle)
-    assert len({r.subject for r in sent}) == 900, "every page is sent for extraction once"
+    copies = len(expected("duplicates.json"))  # exact copies share their words, so their subject
+    assert len({r.subject for r in sent}) >= 900 - copies, "a page was not sent for extraction"
     recognise = default_library().combine(*LAUNCH.codes).identifier_recognisers()
     assert not identifier_leaked([r.text for r in sent], expected("case.json"), recognise)
 
@@ -153,7 +154,7 @@ def test_fact_precision_is_at_least_095(bundle: Harness, pages: dict[int, dict[s
     copies = {int(d["page"]) for d in expected("duplicates.json")}
     found = [(int(f["bundle_page_no"]), f["kind"], f["value"]) for f in facts_of(bundle)]
     found = [f for f in found if f[0] not in copies]
-    wanted = [(int(f["page"]), f["kind"], f["value"]) for f in expected("facts.json")]
+    wanted = expected("facts.json")
     score, count = precision(found, wanted)
     assert count >= 0.9 * len(wanted), f"only {count} facts found of {len(wanted)} expected"
     assert score >= 0.95, f"precision {score:.3f} over {count} facts"
