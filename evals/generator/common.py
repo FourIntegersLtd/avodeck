@@ -19,22 +19,40 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+from reportlab import rl_config
+
+rl_config.invariant = 1  # no creation time or random document ID: the same input gives the same bytes
 
 W, H = A4
-LIB = "/usr/share/fonts/truetype/liberation"
-DJV = "/usr/share/fonts/truetype/dejavu"
+_FONT_DIRS = [
+    os.environ.get("AVODECK_FONT_DIR", ""),
+    "/usr/share/fonts/truetype/liberation",
+    "/usr/share/fonts/truetype/dejavu",
+    os.path.expanduser("~/Library/Fonts"),
+    "/Library/Fonts",
+]
+
+
+def _font(file: str) -> str:
+    """Find a font file in the Linux (CI) or macOS font folders; set AVODECK_FONT_DIR to override."""
+    for d in _FONT_DIRS:
+        if d and os.path.exists(os.path.join(d, file)):
+            return os.path.join(d, file)
+    raise FileNotFoundError(f"font {file} not found; install Liberation and DejaVu fonts or set AVODECK_FONT_DIR")
+
+
 
 _FONTS = {
-    "Sans": f"{LIB}/LiberationSans-Regular.ttf",
-    "Sans-B": f"{LIB}/LiberationSans-Bold.ttf",
-    "Sans-I": f"{LIB}/LiberationSans-Italic.ttf",
-    "Serif": f"{LIB}/LiberationSerif-Regular.ttf",
-    "Serif-B": f"{LIB}/LiberationSerif-Bold.ttf",
-    "Serif-I": f"{LIB}/LiberationSerif-Italic.ttf",
-    "Mono": f"{LIB}/LiberationMono-Regular.ttf",
-    "Mono-B": f"{LIB}/LiberationMono-Bold.ttf",
-    "Cond": f"{DJV}/DejaVuSansCondensed.ttf",
-    "Cond-B": f"{DJV}/DejaVuSansCondensed-Bold.ttf",
+    "Sans": _font("LiberationSans-Regular.ttf"),
+    "Sans-B": _font("LiberationSans-Bold.ttf"),
+    "Sans-I": _font("LiberationSans-Italic.ttf"),
+    "Serif": _font("LiberationSerif-Regular.ttf"),
+    "Serif-B": _font("LiberationSerif-Bold.ttf"),
+    "Serif-I": _font("LiberationSerif-Italic.ttf"),
+    "Mono": _font("LiberationMono-Regular.ttf"),
+    "Mono-B": _font("LiberationMono-Bold.ttf"),
+    "Cond": _font("DejaVuSansCondensed.ttf"),
+    "Cond-B": _font("DejaVuSansCondensed-Bold.ttf"),
 }
 for _name, _path in _FONTS.items():
     if _name not in pdfmetrics.getRegisteredFontNames():

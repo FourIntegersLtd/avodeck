@@ -1,13 +1,13 @@
 # Owners
 
-Each slice has one owner agent in `.claude/agents/`. An owner changes only the paths listed for it here. Paths owned by `foundation-owner` change only with approval: other owners ask foundation-owner (or the founder) rather than editing them. Contracts only grow. Keywords that route prompts to an owner are in `.claude/routes.json`.
+Each slice has one owner agent in `.claude/agents/`. An owner changes only the paths listed for it here. Paths owned by `foundation-owner` change only with approval: other owners ask foundation-owner (or the founder) rather than editing them. Contracts only grow. Where a slice is granted a path inside a foundation-owned folder (for example its own recordings in `api/tests/fixtures/`), the more specific grant wins for that path. Keywords that route prompts to an owner are in `.claude/routes.json`.
 
 | Paths | Owner |
 |---|---|
 | `api/*`, `api/app/*.py`, `api/app/core/**`, `api/app/evals/**`, `api/app/worker/**`, `api/app/features/*.py`, `api/tests/*`, `api/tests/{guards,fixtures,support}/**`, `api/tests/*/test_foundation_*`, `api/tests/*/test_app_*`, `api/tests/*/test_worker_*`, `web/*`, `web/src/*`, `web/src/{app,foundation}/**`, `web/src/capabilities/*`, `web/src/capabilities/{account,today}/**`, `web/e2e/*`, `web/e2e/foundation/**`, `supabase/*`, `supabase/migrations/**/00??_*.sql`, `packs/**`, `evals/**`, `scripts/**`, `.claude/**`, `.github/**`, AGENTS.md and CLAUDE.md files (root and area) | foundation-owner |
 | `api/app/features/pipeline/**`, `web/src/capabilities/pipeline/**`, `api/tests/*/test_pipeline_*`, `web/src/capabilities/pipeline/**/*.test.tsx`, `web/e2e/pipeline/**`, `supabase/migrations/**/01??_*.sql` | pipeline-owner |
 | `api/app/features/reader/**`, `web/src/capabilities/reader/**`, `api/tests/*/test_reader_*`, `web/src/capabilities/reader/**/*.test.tsx`, `web/e2e/reader/**`, `supabase/migrations/**/02??_*.sql` | reader-owner |
-| `api/app/features/setup/**`, `web/src/capabilities/setup/**`, `api/tests/*/test_setup_*`, `web/src/capabilities/setup/**/*.test.tsx`, `web/e2e/setup/**`, `supabase/migrations/**/03??_*.sql` | setup-owner |
+| `api/app/features/setup/**`, `web/src/capabilities/setup/**`, `api/tests/*/test_setup_*`, `web/src/capabilities/setup/**/*.test.tsx`, `web/e2e/setup/**`, `supabase/migrations/**/03??_*.sql`, `api/tests/fixtures/setup/**`, `api/tests/fixtures/ai/**/setup-*`, `evals/gb-eaw/clin-neg-breach/general-practice/expected/setup-*.json` | setup-owner |
 | `api/app/features/understand/**`, `web/src/capabilities/understand/**`, `api/tests/*/test_understand_*`, `web/src/capabilities/understand/**/*.test.tsx`, `web/e2e/understand/**`, `supabase/migrations/**/04??_*.sql` | understand-owner |
 | `api/app/features/write/**`, `web/src/capabilities/write/**`, `api/tests/*/test_write_*`, `web/src/capabilities/write/**/*.test.tsx`, `web/e2e/write/**`, `supabase/migrations/**/05??_*.sql` | write-owner |
 | `api/app/features/report/**`, `web/src/capabilities/report/**`, `api/tests/*/test_report_*`, `web/src/capabilities/report/**/*.test.tsx`, `web/e2e/report/**`, `supabase/migrations/**/06??_*.sql` | report-owner |
