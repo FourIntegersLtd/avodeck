@@ -3,7 +3,8 @@
 Answers from `app.case_access()` in the database (the person's case role, organisation role and
 the organisation's kind) and the matrix in `permissions.py`. Someone who cannot see the case at
 all gets 404, exactly as if it did not exist; someone who can see it but may not do this, 403.
-Row-level security repeats the check on every row.
+Row-level security repeats the check on every row. A deleted case answers only
+`DELETED_CASE_ACTIONS` (its certificate of deletion); everything else on it is 404.
 """
 
 from __future__ import annotations
@@ -33,6 +34,10 @@ class CaseAccess:
     allowed_actions: tuple[str, ...]
 
 
+# The only actions a deleted case still answers, for the people the matrix allows; anything else is 404.
+DELETED_CASE_ACTIONS = frozenset({"case.view_certificate"})
+
+
 def not_found() -> ApiError:
     return ApiError("not_found", "Not found.", 404)
 
@@ -40,10 +45,17 @@ def not_found() -> ApiError:
 async def check_case_access(conn: AsyncConnection, case_id: uuid.UUID, action: str) -> CaseAccess:
     if action not in CASE_ACTIONS:
         raise ValueError(f"unknown case action {action!r}: add it to docs/spec/permissions.md first")
-    cur = await conn.execute("select case_role, org_role, org_kind from app.case_access(%s)", (case_id,))
+    cur = await conn.execute(
+        "select case_role, org_role, org_kind, deleted from app.case_access(%s, %s)", (case_id, action)
+    )
     row = await cur.fetchone()
-    case_role, org_role, org_kind = row if row is not None else (None, None, None)
+    case_role, org_role, org_kind, deleted = row if row is not None else (None, None, None, False)
     actions = tuple(allowed_actions(case_role, org_role, org_kind))
+    if deleted:
+        # A deleted case (the tombstone purge_case leaves) answers its certificate and nothing else.
+        if action not in DELETED_CASE_ACTIONS or action not in actions:
+            raise not_found()
+        return CaseAccess(case_id, case_role, org_role, org_kind, (action,))
     if "case.view_metadata" not in actions:
         raise not_found()
     if action not in actions:

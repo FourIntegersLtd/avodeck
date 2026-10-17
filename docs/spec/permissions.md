@@ -38,10 +38,14 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `case.retention` 🔒 | ✓ (within org policy) | — | — | — | — | ✓ |
 | `legal_hold.set` 🔒, `legal_hold.release` 🔒 | ✓ | — | — | — | — | owner only |
 | `case.withdraw` 🔒 | ✓ | — | — | — | — | — |
+| `case.settle`, `case.archive`, `case.reopen` | ✓ | — | — | — | — | — |
+| `case.view_audit`, `case.view_certificate` | ✓ | — | — | — | — | ✓ |
 | `support_access.grant` 🔒 | ✓ | — | — | — | — | — |
 | `case.delete_now` 🔒 | ✓ (unserved only) | — | — | — | — | owner only (unserved only) |
 
 After the named expert leaves the organisation, they keep every named-expert action on their named cases; the organisation keeps its "not on case" column.
+
+A deleted case (status `deleted`, the tombstone `app.purge_case()` leaves) answers only `case.view_certificate`, for the same people as above (the named expert and organisation owners/admins). Every other action on it, and the certificate for anyone else, is 404, exactly as for a case that never existed (`DELETED_CASE_ACTIONS` in `core/auth/access.py`; `app.case_access(case_id, action)` and `app.can_access_case()` in migration 0018). Lists and Today never show it.
 
 ## Checks the database repeats (rule 9, ADR 0013)
 
@@ -49,7 +53,8 @@ Row-level security lets a person update a row; triggers then check each change a
 - `report_versions.status`: → locked needs `report.sign`, → served `report.serve`, → withdrawn `report.withdraw`; any other edit `report.build`.
 - `cases.named_expert_id`: `case.reassign_named_expert`, and only while the case has never been served (no served or withdrawn report version, status not served or settled).
 - `cases.retention_policy`, `delete_after`, `on_hold`: `case.retention`.
-- `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`; any other move and every other column `case.edit_setup`.
+- `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`, → settled `case.settle`, → archived `case.archive`, settled or archived → active `case.reopen`; any other move and every other column `case.edit_setup`.
+- `app.purge_case()`: only the worker, inside the case's own job (`app.job_case_id`); refused while the case is on hold or under an active legal hold.
 - `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one.
 
 ## Organisation actions

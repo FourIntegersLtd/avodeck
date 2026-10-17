@@ -238,7 +238,7 @@ One instruction: who it's for, who's involved, what was asked.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `cases` | One instruction to give expert evidence. Belongs to one organisation and has one named expert whose evidence it is. Everything else in a case hangs off this. | organisation_id, named_expert_id, jurisdiction, case_type, specialty, expert_role, pack_versions, label ("Mrs A"), subject_status (living/deceased/minor), party_role, court_track, due_date, period_start, period_end, stage, status, on_hold, retention_policy, delete_after |
+| `cases` | One instruction to give expert evidence. Belongs to one organisation and has one named expert whose evidence it is. Everything else in a case hangs off this. | organisation_id, named_expert_id, jurisdiction, case_type, specialty, expert_role, pack_versions, label ("Mrs A"), subject_status (living/deceased/minor), party_role, court_track, due_date, period_start, period_end, stage, status, on_hold, retention_policy, delete_after, settled_at |
 | `case_members` | Other people added to a case (assistant, supervisor, co-expert, viewer). They can help or view; only the named expert signs and verifies. | case_id, person_id, case_role, added_by, added_at, removed_at |
 | `case_parties` | The people and organisations on each side of the claim (e.g. the claimant, a GP and a hospital trust). | case_id, role_key, name, representative |
 | `case_instructing_parties` | Who instructed the expert (usually one firm; two for a joint expert), with dates if the firm changes. | case_id, type_key, name, firm, email, is_joint, effective_from, effective_to |
@@ -348,7 +348,7 @@ Stopping and proving deletion.
 |---|---|---|
 | `legal_holds` | A stop on deletion while litigation or an appeal continues. | case_id, reason, set_by, until, released_at |
 | `deletion_certificates` | Proof of what was deleted and when, sent to the expert and instructing party. | case_id, deleted_at, counts, hashes, log_chain_heads, backup_expiry_on, pdf_path, sent_to |
-| `deletion_ledger` | A list of deleted case IDs, replayed after any backup restore so deleted cases never come back. | case_id, deleted_at |
+| `deletion_ledger` | A list of deleted case IDs, replayed after any backup restore so deleted cases never come back. | case_id, deleted_at, created_at |
 
 ### 4.11 System
 
@@ -1221,7 +1221,7 @@ Section 4 says what is stored; this section says how it behaves: who can do what
   - its content goes, and its audit rows are kept as pseudonymised metadata (IDs and hashes, no content) for 6 years for security;
   - `page_reads` and `fact_verifications` are deleted with the case, but the final hash of each chain is written on the deletion certificate.
 - **Legal hold.** `legal_holds` (case, reason, set by, until) blocks deletion; the retention job skips held cases and notifies the expert. Holds are set by the named expert or an organisation owner (step-up).
-- **Deletion ledger.** Every deleted case ID is kept in `deletion_ledger`. After any backup restore, the ledger is re-applied before the service reopens, so restored backups cannot bring deleted cases back.
+- **Deletion ledger.** Every deleted case ID is kept in `deletion_ledger`. After any backup restore, the ledger is re-applied before the service reopens, so restored backups cannot bring deleted cases back. The deletion job removes rows through `app.purge_case(case_id)` (in `PURGE_ORDER`, `api/app/core/contracts/case_tables.py`), which keeps the case row as a tombstone and the audit rows unchanged: they hold IDs and short codes only, and the hash chain covers every column, so rewriting them would break it.
 - **Keys.** KMS keys rotate yearly (automatic); data keys are re-wrapped when next used.
 - **Monitoring data retention:** logs 30 days, metrics 13 months, error reports 30 days.
 - **API and package versions.** The API is `/v1`; breaking changes go to `/v2` with an overlap period. The frontend and API stay compatible one release apart. The offline package format is versioned; older apps refuse newer formats with a clear message.

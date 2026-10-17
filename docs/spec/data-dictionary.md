@@ -179,7 +179,8 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | stage | Where the case is in the workflow (prepare, read, understand, write, court) |
 | status | Its state: draft, processing, active, served, settled, withdrawn, archived, deleted |
 | on_hold | Paused (e.g. court stay); reminders stop |
-| retention_policy / delete_after | How long to keep the case after it ends, and the resulting deletion date |
+| retention_policy / delete_after | How long to keep the case after it ends (a short code), and the resulting deletion date |
+| settled_at | When the case was last settled; set by the system, kept when archived, cleared when reopened. The retention clock runs from it |
 
 ### case_members
 | Field | In plain words |
@@ -651,6 +652,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | case_id / deleted_at | A deleted case, replayed after any backup restore so it stays deleted |
+| created_at | When the line was written |
 
 ## System
 
