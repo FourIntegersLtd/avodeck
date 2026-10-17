@@ -58,6 +58,9 @@ const WORDS = {
   "proof.backups": "Last backup copy gone by {{date}}",
   "proof.removed": "Items removed: {{count}}",
   "proof.files": "Files removed: {{count}}",
+  "proof.when": "Deleted on",
+  "proof.items": "Items removed",
+  "proof.stored_files": "Files removed",
 
   "hold.lead": "Is there an appeal or a related claim? Pause deletion until a date you choose. Nothing is deleted while it's paused.",
   "hold.pause": "Pause deletion",
