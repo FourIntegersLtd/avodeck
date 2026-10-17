@@ -174,10 +174,9 @@ async def test_no_identifier_reaches_the_model(subset: Harness) -> None:
 async def test_each_page_is_asked_once_and_a_wrong_value_once_more(subset: Harness) -> None:
     pages = by_number(subset)
     asked = Counter(r.subject for r in t07b_requests(subset))
-    wanted: Counter[str] = Counter()  # a copy set aside is not asked; an exact copy not yet set aside shares words
+    wanted: Counter[str] = Counter()  # copies are set aside after extraction: every page is asked
     for n, page in pages.items():
-        if page["duplicate_of_page_id"] is None:
-            wanted[subject_of(await page_words(subset, page["id"]))] += 2 if n in (RETRIED, WRONG_TWICE) else 1
+        wanted[subject_of(await page_words(subset, page["id"]))] += 2 if n in (RETRIED, WRONG_TWICE) else 1
     for n, page in pages.items():
         subject = subject_of(await page_words(subset, page["id"]))
         assert asked[subject] == wanted[subject], f"page {n} was asked {asked[subject]} times"
