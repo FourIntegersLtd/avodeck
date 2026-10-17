@@ -1457,6 +1457,19 @@
         "additionalProperties": false,
         "description": "The identifier is hashed and compared, never stored or logged.",
         "properties": {
+          "case_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The case being set up, left out of the matches.",
+            "title": "Case Id"
+          },
           "identifier": {
             "maxLength": 100,
             "minLength": 1,
@@ -3169,12 +3182,15 @@
             "type": "string"
           },
           "what": {
+            "description": "`held`: a key kept on another table that the new packs lack, for the expert to change; `dismissed`: waiting suggestions from the letter, checked against the old packs' words.",
             "enum": [
               "pack",
               "version",
               "word",
               "declaration",
-              "field"
+              "field",
+              "held",
+              "dismissed"
             ],
             "title": "What",
             "type": "string"
@@ -3895,8 +3911,14 @@
             "title": "Questions",
             "type": "array"
           },
+          "read_failed": {
+            "default": false,
+            "description": "Reading a letter failed; it can be read again.",
+            "title": "Read Failed",
+            "type": "boolean"
+          },
           "reading": {
-            "description": "The latest letter is still being read.",
+            "description": "A letter is still being read.",
             "title": "Reading",
             "type": "boolean"
           },
@@ -3942,6 +3964,20 @@
           "assumptions"
         ],
         "title": "Questions",
+        "type": "object"
+      },
+      "ReadAgain": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "ReadAgain",
         "type": "object"
       },
       "Recipient": {
@@ -6405,7 +6441,7 @@
     },
     "/v1/cases/{case_id}/jurisdiction": {
       "patch": {
-        "description": "Before the first served report only. The packs are stamped again and every difference is listed.",
+        "description": "Before the first served report only. The packs are stamped again and every difference is listed,\nincluding keys on other tables the new packs lack (kept, `held`) and dismissed waiting suggestions.",
         "operationId": "change_jurisdiction_v1_cases__case_id__jurisdiction_patch",
         "parameters": [
           {
@@ -7487,6 +7523,60 @@
           }
         },
         "summary": "Confirm All",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/read-again": {
+      "post": {
+        "description": "Queue the reading again after it failed; 409 while a reading is under way or nothing is left to read.",
+        "operationId": "read_again_v1_cases__case_id__questions_read_again_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadAgain"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Read Again",
         "tags": [
           "setup"
         ]

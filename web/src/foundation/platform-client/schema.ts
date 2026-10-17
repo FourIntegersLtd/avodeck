@@ -410,7 +410,8 @@ export interface paths {
         head?: never;
         /**
          * Change Jurisdiction
-         * @description Before the first served report only. The packs are stamped again and every difference is listed.
+         * @description Before the first served report only. The packs are stamped again and every difference is listed,
+         *     including keys on other tables the new packs lack (kept, `held`) and dismissed waiting suggestions.
          */
         patch: operations["change_jurisdiction_v1_cases__case_id__jurisdiction_patch"];
         trace?: never;
@@ -621,6 +622,26 @@ export interface paths {
         put?: never;
         /** Confirm All */
         post: operations["confirm_all_v1_cases__case_id__questions_confirm_all_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/read-again": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Read Again
+         * @description Queue the reading again after it failed; 409 while a reading is under way or nothing is left to read.
+         */
+        post: operations["read_again_v1_cases__case_id__questions_read_again_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1843,6 +1864,11 @@ export interface components {
          * @description The identifier is hashed and compared, never stored or logged.
          */
         DuplicateCheckIn: {
+            /**
+             * Case Id
+             * @description The case being set up, left out of the matches.
+             */
+            case_id?: string | null;
             /** Identifier */
             identifier: string;
             /** Instructing Firm */
@@ -2456,9 +2482,10 @@ export interface components {
             key: string;
             /**
              * What
+             * @description `held`: a key kept on another table that the new packs lack, for the expert to change; `dismissed`: waiting suggestions from the letter, checked against the old packs' words.
              * @enum {string}
              */
-            what: "pack" | "version" | "word" | "declaration" | "field";
+            what: "pack" | "version" | "word" | "declaration" | "field" | "held" | "dismissed";
         };
         /** PackCombination */
         PackCombination: {
@@ -2661,8 +2688,14 @@ export interface components {
             /** Questions */
             questions: components["schemas"]["QuestionOut"][];
             /**
+             * Read Failed
+             * @description Reading a letter failed; it can be read again.
+             * @default false
+             */
+            read_failed: boolean;
+            /**
              * Reading
-             * @description The latest letter is still being read.
+             * @description A letter is still being read.
              */
             reading: boolean;
             /**
@@ -2682,6 +2715,14 @@ export interface components {
              * @description i18n keys.
              */
             warnings: string[];
+        };
+        /** ReadAgain */
+        ReadAgain: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
         };
         /** Recipient */
         Recipient: {
@@ -4844,6 +4885,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Confirmed"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    read_again_v1_cases__case_id__questions_read_again_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadAgain"];
                 };
             };
             /** @description Validation Error */

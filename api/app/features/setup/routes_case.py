@@ -708,6 +708,7 @@ class DuplicateCheckIn(BaseModel):
     jurisdiction: str = Field(max_length=100)
     identifier: str = Field(min_length=1, max_length=100)
     instructing_firm: str | None = Field(default=None, max_length=200)
+    case_id: uuid.UUID | None = Field(default=None, description="The case being set up, left out of the matches.")
 
 
 class DuplicateMatch(BaseModel):
@@ -764,8 +765,9 @@ async def duplicate_check(body: DuplicateCheckIn, request: Request, conn: DbConn
             " and lower(btrim(p.firm)) = %(firm)s) end as same_instructing_party"
             " from app.case_subject_keys k join app.cases c on c.id = k.case_id"
             " where k.key_hash = %(key)s and c.jurisdiction = %(j)s and c.status <> 'deleted'"
+            " and (%(case)s::uuid is null or c.id <> %(case)s::uuid)"
             " order by c.created_at, c.id",
-            {"firm": firm, "key": key, "j": body.jurisdiction},
+            {"firm": firm, "key": key, "j": body.jurisdiction, "case": body.case_id},
         )
         rows = await cur.fetchall()
     return DuplicateCheck(matches=[DuplicateMatch(**r) for r in rows])

@@ -446,7 +446,7 @@ function SamePerson({ caseId, jurisdiction }: { caseId: string; jurisdiction: st
     setError(null);
     try {
       const value = identifier.trim();
-      setResult(await unwrap(api.POST("/v1/cases/duplicate-check", { body: { identifier: value, jurisdiction } })));
+      setResult(await unwrap(api.POST("/v1/cases/duplicate-check", { body: { identifier: value, jurisdiction, case_id: caseId } })));
       await unwrap(api.PUT("/v1/cases/{case_id}/subject-key", { params: { path: { case_id: caseId } }, body: { identifier: value } }));
     } catch (err) {
       setError(errorMessage(err, { invalid: "setup.same_person.invalid" }));
