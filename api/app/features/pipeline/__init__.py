@@ -12,7 +12,7 @@ from psycopg import AsyncConnection
 from app.core import jobs
 from app.core.contracts.events import DocumentUploaded, events
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, register_process_pages
-from app.features.pipeline import wiring
+from app.features.pipeline import repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import SCAN_DOCUMENT, process_bundle, queue_pages, scan_document
 
@@ -33,7 +33,10 @@ def mount_on(app: FastAPI) -> None:
 
 @events.subscribe_in_transaction(DocumentUploaded)
 async def queue_scan(conn: AsyncConnection, event: DocumentUploaded) -> None:
-    """Completing an upload queues its virus scan in the same transaction."""
+    """Completing an upload queues its virus scan in the same transaction; later records join the
+    next bundle version (shared by every file appended before processing reaches them)."""
+    if event.appended:
+        await repo.join_next_version(conn, event.case_id, event.document_id)
     await wiring.registry().enqueue(conn, event.case_id, SCAN_DOCUMENT)
 
 

@@ -4,6 +4,8 @@
   missing items, each document's provenance and what each bundle version added.
 - `PATCH /v1/cases/{id}/documents/{doc_id}`: how the records were obtained and when they arrived.
 - `GET /v1/cases/{id}/bundle/versions`: what each delivery of records added.
+- `POST /v1/cases/{id}/documents/append`: appended files form one new bundle version and their
+  pages are processed (202 + job); files already cut into pages cannot be regrouped (409).
 
 - `GET /v1/cases/{id}/duplicates`: each page set aside as a copy, the page it copies and its review.
 - `PATCH /v1/cases/{id}/pages/{page_id}/duplicate` (If-Match): `confirm` keeps it set aside; `undo`
@@ -24,12 +26,15 @@ from fastapi import Depends, Request, Response
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts.pipeline import PROCESS_PAGES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
 from app.core.storage import SupabaseStorage
-from app.features.pipeline import missing, paths, repo
+from app.features.pipeline import missing, paths, repo, wiring
 from app.features.pipeline.schemas import (
+    Appended,
+    AppendRecords,
     BundleSummary,
     BundleVersion,
     BundleVersions,
@@ -293,3 +298,22 @@ async def change_provenance(
     assert after is not None
     response.headers["cache-control"] = "private, no-store"
     return _document(after)
+
+
+@pipeline_router.post("/{case_id}/documents/append", status_code=202, response_model=Appended)
+async def append_records(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    body: AppendRecords,
+    conn: DbConn,
+) -> Appended:
+    ids = sorted(set(body.document_ids))
+    found, split = await repo.appendable(conn, case_id, ids)
+    if found != len(ids):
+        raise _not_found()
+    if split:
+        raise ApiError("conflict", "These records are already in the bundle.", 409)
+    version = await repo.group_version(conn, case_id, ids)
+    job_id = await wiring.registry().enqueue(conn, case_id, PROCESS_PAGES)
+    await audit.record(conn, action="bundle.appended", target=f"case:{case_id}", case_id=case_id)
+    return Appended(job_id=job_id, bundle_version=version)

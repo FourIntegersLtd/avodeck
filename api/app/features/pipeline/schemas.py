@@ -94,3 +94,12 @@ class BundleSummary(BaseModel):
 class ProvenanceChange(BaseModel):
     received_on: dt.date | None = None
     obtained_how: str | None = Field(default=None, max_length=200)
+
+
+class AppendRecords(BaseModel):
+    document_ids: list[uuid.UUID] = Field(min_length=1, max_length=200)
+
+
+class Appended(BaseModel):
+    job_id: uuid.UUID
+    bundle_version: int

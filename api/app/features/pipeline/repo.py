@@ -682,3 +682,42 @@ def versions_of(rows: list[DocumentRow]) -> list[dict[str, Any]]:
             v["last_page_no"] = max(x for x in (v["last_page_no"], d.last_page_no) if x is not None)
         v["added_at"] = min(v["added_at"], d.created_at)
     return [found[k] for k in sorted(found)]
+
+
+# --- later records ---------------------------------------------------------------------------------
+
+
+async def join_next_version(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> None:
+    """The version after the newest one already cut into pages."""
+    await conn.execute(
+        "update app.documents set bundle_version = (select coalesce(max(d.bundle_version), 0) + 1"
+        " from app.documents d where d.case_id = %(c)s and d.id <> %(d)s"
+        " and exists (select 1 from app.pages p where p.document_id = d.id))"
+        " where id = %(d)s and case_id = %(c)s",
+        {"c": case_id, "d": document_id},
+    )
+
+
+async def appendable(conn: AsyncConnection, case_id: uuid.UUID, document_ids: list[uuid.UUID]) -> tuple[int, int]:
+    """How many of the documents are the case's, and how many of those are already cut into pages."""
+    cur = await conn.execute(
+        "select count(*), count(*) filter (where exists (select 1 from app.pages p where p.document_id = d.id))"
+        " from app.documents d where d.case_id = %s and d.id = any(%s)",
+        (case_id, document_ids),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return int(row[0]), int(row[1])
+
+
+async def group_version(conn: AsyncConnection, case_id: uuid.UUID, document_ids: list[uuid.UUID]) -> int:
+    """Put the documents in one new version, after every other document's; returns it."""
+    cur = await conn.execute(
+        "update app.documents set bundle_version = (select coalesce(max(bundle_version), 0) + 1"
+        " from app.documents where case_id = %(c)s and not (id = any(%(ids)s)))"
+        " where case_id = %(c)s and id = any(%(ids)s) returning bundle_version",
+        {"c": case_id, "ids": document_ids},
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return int(row[0])
