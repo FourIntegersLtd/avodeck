@@ -40,7 +40,7 @@ archived ──reopen──▶ active (if not past delete_after)
 |---|---|---|
 | `bundle_page_no` | Set once, never changes (also through quarantine, replacement and rotation) | Worker at split |
 | `quarantined` | false → true (expert, or expert accepting a suggestion) → false (undo, only until the image is deleted) | A |
-| quarantined image and text | kept → deleted (after the note to the instructing parties is sent or 14 days pass); terminal | A |
+| quarantined image and text | kept → deleted (after a logged request lists the page, or the pack's `quarantine_purge_days` pass after confirming); terminal | A |
 | `superseded_by_page_id` | null → page (a clearer copy was uploaded); never back | A |
 | `rotation` | any → any (expert); re-runs OCR, keeps verified facts (boxes re-mapped or flagged) | B |
 | `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
@@ -135,6 +135,17 @@ A case in `deleted` is terminal. The certificate row is the only remaining recor
 ## Assumption (`assumptions.status`)
 
 suggested → confirmed / edited (expert, screen 06; `text_verbatim` kept) → suggested only if a new instruction version replaces it. Assumptions belong to the question set: they lock and reopen with it.
+
+## Page quarantine (`page_quarantines.status`)
+
+| From → to | Trigger | Guard |
+|---|---|---|
+| suggested → confirmed | Named expert (S30) | `fact.verify`; sets `pages.quarantined` and sets the page's suggestions aside |
+| suggested → dismissed | Named expert | — |
+| confirmed → undone | Named expert | Only before purging; restores the suggestions set aside |
+| confirmed → purged | Daily `purge_quarantined_pages` (worker) | A logged request lists the page, or the pack's `quarantine_purge_days` have passed |
+
+Rows start `suggested` (worker or a case member with `page.quarantine`). dismissed, undone and purged are terminal; after purging, undo is 409. Any other change is refused by the database.
 
 ## Missing item (`missing_items.status`)
 

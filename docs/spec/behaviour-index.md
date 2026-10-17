@@ -41,8 +41,13 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `prefill_suggestions` | C | Worker (T-04); named expert or assistant decide | Many per letter version | Decided once (accepted/dismissed); never applied by the server | Case deletion |
 | `prefill_runs` | C | Worker (`prefill_case`) | One per run | Append only; counts only | Case deletion |
 | `documents` | Foundation (A) | Named expert or assistant (upload) | Many; bundle versions | Never edited after hashing; provenance editable | Case deletion |
+| `document_scans` | A | Worker | One per document | Scan result set once; split time set once | Case deletion |
+| `document_parts` | A | Worker | Many per email or zip | Insert only | Case deletion |
 | `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
 | `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation per state machine | Case deletion; quarantined images deleted earlier |
+| `page_analysis` | A | Worker; named expert or assistant for duplicate review | One per page | Worker notes; duplicate review with If-Match; cleared when a quarantined page is deleted | Case deletion |
+| `page_quarantines` | A | Worker or case member suggests; only named expert confirms or undoes | Many per page; one open | State machine in the database; image and text deleted once told or after the pack's days | Case deletion |
+| `page_replacements` | A | Named expert or assistant (page.replace) | One per page; one per copy | Link set once; nothing moves by itself | Case deletion |
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
 | `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion |
 | `fact_verifications` | B | Named expert (append only) | Many per fact | Append only | Case deletion; chain head on certificate |
@@ -50,7 +55,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `fact_flags` | B | Named expert | Many | Add or remove | Case deletion |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
-| `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited | Case deletion |
+| `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
+| `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |
 | `check_config` | D | The expert | One per check per expert | Edit freely | With the person |
 | `findings` | D | Worker; named expert decides | Many | Decisions kept across re-runs | Case deletion |

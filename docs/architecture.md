@@ -263,8 +263,13 @@ The records received, every page and word, and the facts found on them.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `documents` | Each file received (records, instructions, witness statements, court bundles…), with who sent it and when. Split into pages. | case_id, kind, filename, storage_path, sha256, pages, received_on, obtained_how, bundle_version |
-| `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, storage_path, sha256, note |
+| `document_scans` | The safety scan of each received file, what kind of file it turned out to be, and when it was split into pages. | document_id, case_id, clean, signature, media_type, scanned_at, split_at |
+| `document_parts` | Which files came inside another file (an email's attachments, a zip's files), in order. Each part is a document of its own. | case_id, parent_document_id, document_id, part_no, media_type |
+| `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, size, storage_path, sha256, note |
 | `pages` | Every page of every document, with its permanent page number. Facts and reads point at pages. | case_id, document_id, bundle_page_no, source_type, image_path, text_source, ocr_confidence, handwriting, rotation, duplicate_of_page_id, superseded_by_page_id, quarantined (reason, by, at), unreadable, relevance, language, transcribed_by_expert_text |
+| `page_analysis` | The worker's working notes on each page: how far it got, the fingerprints used to find duplicates, printed dates, the sealed extraction and whether a person must check it. | page_id, case_id, stage, word_count, typed_words, phash, minhash, printed_dates, extraction (sealed), needs_human, reason, model_id, duplicate_status, duplicate_version, references_checked_at |
+| `page_quarantines` | Pages that may belong to someone else: suggested, confirmed by the named expert or undone; once the instructing party is told or the pack's days pass, the page's image and text are deleted and it keeps its number. | case_id, page_id, status, reason, suggested_by, confirmed_by, confirmed_at, closed_by, closed_at, purged_at, prior_facts, version |
+| `page_replacements` | A clearer copy of a page: the later document that replaces it and, once split, the new page that supersedes it. | case_id, page_id, document_id, new_page_id, requested_by, linked_at |
 | `ocr_words` | Every word read on a page, with where it sits. Facts cite these words, which is how every fact points to its exact place. | page_id, word_index, text, polygon, confidence, source (ocr/embedded/expert) |
 | `facts` | A single thing found on a page (a consultation, a result, a prescription…), linked to the exact words it came from. Suggested by the computer, then checked by the expert. | case_id, page_id, kind, fields, value, word_ids[], bbox, event_date, date_basis, available_at, availability_basis, status, version, model_task, model_id, prompt_version |
 | `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | fact_id, person_id, action, old_value, new_value, reason, at |
@@ -272,7 +277,8 @@ The records received, every page and word, and the facts found on them.
 | `fact_flags` | Facts the expert marked to come back to under "points against". | case_id, fact_id, person_id, flagged_for, at |
 | `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description (sealed), citing_page_id, reference_key, word_ids, reference_date, status, reason (sealed), received_page_id, version |
 | `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
-| `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on |
+| `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on, quarantined_page_ids |
+| `case_processing` | The expert's controls over reading the bundle: a request to stop at the next page, and the opt-in to read it again with a newer model. | case_id, cancel_requested_at, cancel_requested_by, reprocess_opted_at, reprocess_opted_by |
 
 ### 4.5 Understand
 

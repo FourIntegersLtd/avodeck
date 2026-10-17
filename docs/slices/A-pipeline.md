@@ -65,18 +65,18 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Test inputs:** synthetic files in `bundles/synthetic-mrs-a/inputs/` (built by `make eval-data`), expected results in `evals/gb-eaw/clin-neg-breach/general-practice/expected/inputs.json` under `wrong_patient`, `foreign_language`, `photographed_page`, `exhibit`, `word_file`, `email`, `zip`.
 
-**Extra tables owned:** `exhibits`. Writes `pages.quarantined`, `pages.superseded_by_page_id`, `pages.language`, `documents.bundle_version`.
+**Extra tables owned:** `exhibits`, `document_parts`, `page_quarantines`, `page_replacements`, `case_processing`, and the worker's own `document_scans` and `page_analysis` (with `document_scans.media_type`, `instructing_party_requests.quarantined_page_ids`). Writes `pages.quarantined`, `pages.superseded_by_page_id`, `pages.language`, `documents.bundle_version`.
 
-**Extra endpoints:** `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `GET/POST /v1/cases/{id}/exhibits`, `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/reprocess`.
+**Extra endpoints:** `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `GET /v1/cases/{id}/exhibits` (POST deferred: exhibits arrive through uploads), `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/reprocess`.
 
-- [ ] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)
-- [ ] Quarantined images and text are deleted after the note is sent or 14 days; undo works only before that
-- [ ] A clearer copy gets the next number; the old page is superseded and still readable; no fact moves automatically (S6)
-- [ ] Images, emails (with attachments), Word and zip files become pages; audio, video and DICOM become exhibits without page numbers (F36)
-- [ ] A non-English page is flagged, never machine-translated (F37)
-- [ ] Appended records form a new bundle version; the summary says what each version added
-- [ ] Cancelling processing stops at a page boundary and keeps finished pages
-- [ ] Reprocessing is opt-in per case; verified facts never change; new suggestions carry their model ID
+- [x] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)
+- [x] Quarantined images and text are deleted after the note is sent or 14 days; undo works only before that
+- [x] A clearer copy gets the next number; the old page is superseded and still readable; no fact moves automatically (S6)
+- [x] Images, emails (with attachments), Word and zip files become pages; audio, video and DICOM become exhibits without page numbers (F36)
+- [x] A non-English page is flagged, never machine-translated (F37)
+- [x] Appended records form a new bundle version; the summary says what each version added
+- [x] Cancelling processing stops at a page boundary and keeps finished pages
+- [x] Reprocessing is opt-in per case; verified facts never change; new suggestions carry their model ID
 
 ## Rules that apply
 1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.
