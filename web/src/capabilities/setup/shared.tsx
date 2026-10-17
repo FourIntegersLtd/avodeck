@@ -173,7 +173,7 @@ export function NoteView({ note }: { note: Schemas["NoteDraft"] }) {
             <li key={item.question_id ?? i}>
               {item.number != null
                 ? t("setup.notes.item", { number: item.number, text: item.text ?? "" })
-                : [item.label_key && hasMessage(item.label_key) ? t(item.label_key) : null, item.text].filter(Boolean).join(": ")}
+                : [item.label ?? (item.label_key && hasMessage(item.label_key) ? t(item.label_key) : null), item.text].filter(Boolean).join(": ")}
             </li>
           ))}
         </ul>

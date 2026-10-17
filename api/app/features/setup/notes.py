@@ -32,6 +32,7 @@ class NoteItem(BaseModel):
     number: int | None = None
     para_ref: str | None = None
     text: str | None = Field(default=None, description="The question's exact words, or the expert's own detail.")
+    label: str | None = Field(default=None, description="The pack's words for what the item is about (a conflict question).")
     label_key: str | None = Field(default=None, description="i18n key for an item that is not a question.")
 
 

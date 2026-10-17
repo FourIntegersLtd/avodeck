@@ -217,7 +217,7 @@ async def declare(case_id: uuid.UUID, access: Declare, request: Request, conn: D
     assert row is not None
     await audit.record(conn, action="case.conflicts_declared", target=f"case:{case_id}", case_id=case_id)
     items = [
-        NoteItem(text=q.detail, label_key=f"setup.conflicts.question.{q.key}")
+        NoteItem(text=q.detail, label=q.text)
         for q in state.questions
         if q.answer == "yes" and q.detail
     ]
