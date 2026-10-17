@@ -783,7 +783,10 @@ class JurisdictionIn(BaseModel):
 
 
 class PackChange(BaseModel):
-    what: Literal["pack", "version", "word", "declaration", "field"]
+    what: Literal["pack", "version", "word", "declaration", "field", "held", "dismissed"] = Field(
+        description="`held`: a key kept on another table that the new packs lack, for the expert to change;"
+        " `dismissed`: waiting suggestions from the letter, checked against the old packs' words."
+    )
     key: str
     before: str | None
     after: str | None
@@ -816,6 +819,40 @@ def _differences(old: MergedPack, new: MergedPack, codes: tuple[tuple[str, str, 
     return changes
 
 
+# Keys stored outside the case row, each with the new packs' keys it must be one of.
+_KEY_FIELDS = ["party_role", "instructing_party_type", "court_track"]  # prefill fields holding a pack key
+
+
+async def _held_keys(conn: DbConn, case_id: uuid.UUID, new: MergedPack) -> list[PackChange]:
+    """Keys the new packs lack are kept (refusing would leave the expert no way forward, since every key is
+    checked against the current packs) and listed for the expert; waiting key suggestions are dismissed."""
+    checks = (
+        ("case_parties.role_key", "select distinct role_key from app.case_parties where case_id = %s",
+         {p["key"] for p in new.party_roles()}),
+        ("case_instructing_parties.type_key",
+         "select distinct type_key from app.case_instructing_parties where case_id = %s and effective_to is null",
+         {p["key"] for p in new.instructing_party_types()}),
+        ("questions.kind", "select distinct kind from app.questions where case_id = %s",
+         {str(q["key"]) for q in new.question_types()}),
+        ("conflict_answers.question_key", "select distinct question_key from app.conflict_answers where case_id = %s",
+         {str(q["key"]) for q in new.conflicts()["questions"]}),
+    )
+    out: list[PackChange] = []
+    for key, sql, allowed in checks:
+        cur = await conn.execute(sql, (case_id,))
+        for value in sorted(str(r[0]) for r in await cur.fetchall()):
+            if value not in allowed:
+                out.append(PackChange(what="held", key=key, before=value, after=None))
+    cur = await conn.execute(
+        "update app.prefill_suggestions set status = 'dismissed' where case_id = %s and status = 'suggested'"
+        " and field = any(%s) returning field",
+        (case_id, _KEY_FIELDS),
+    )
+    for field in sorted({str(r[0]) for r in await cur.fetchall()}):
+        out.append(PackChange(what="dismissed", key=f"prefill_suggestions.{field}", before=None, after=None))
+    return out
+
+
 @router.patch("/cases/{case_id}/jurisdiction", response_model=JurisdictionChanged)
 async def change_jurisdiction(
     case_id: uuid.UUID,
@@ -826,7 +863,8 @@ async def change_jurisdiction(
     conn: DbConn,
     response: Response,
 ) -> JurisdictionChanged:
-    """Before the first served report only. The packs are stamped again and every difference is listed."""
+    """Before the first served report only. The packs are stamped again and every difference is listed,
+    including keys on other tables the new packs lack (kept, `held`) and dismissed waiting suggestions."""
     if await _served(conn, case_id):
         raise conflict("The jurisdiction is fixed once the case is served.")
     packs = library(request)
@@ -861,6 +899,8 @@ async def change_jurisdiction(
         if current[field] is not None and current[field] not in allowed:
             values[field] = None
             changes.append(PackChange(what="field", key=field, before=current[field], after=None))
+    if wanted != tuple(current[n] for n in names):
+        changes += await _held_keys(conn, case_id, new)
     sets = ", ".join(f"{k} = %({k})s" for k in values)
     cur2 = await conn.execute(
         f"update app.cases set {sets}, pack_versions = %(pv)s where id = %(id)s and version = %(v)s"  # noqa: S608
