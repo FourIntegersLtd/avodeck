@@ -242,3 +242,48 @@ def test_copies_keep_their_pictures_and_are_read_like_any_page(
         (bundle.case_id, list(copies)),
     ).fetchone()
     assert unread == (0,), "a copy was not read"
+
+
+def test_the_planted_record_gap_is_found_and_no_other(bundle: Harness, pages: dict[int, dict[str, Any]]) -> None:
+    """The task list stops in January 2024 while the record runs to December (planted item 2)."""
+    from collections import Counter
+
+    from tests.repository.test_pipeline_support import recorded_source_keys
+
+    (planted,) = expected("gaps.json")
+    cur = bundle.admin.cursor(row_factory=psycopg.rows.dict_row)
+    found = cur.execute("select * from app.record_gaps where case_id = %s", (bundle.case_id,)).fetchall()
+    assert len(found) == 1, f"{len(found)} record gaps"
+    (gap,) = found
+    number = {p["id"]: n for n, p in pages.items()}
+    last = number[gap["last_page_id"]]
+    kinds = Counter(str(f["kind"]) for f in expected("facts.json") if int(f["page"]) == last)
+    assert gap["source_type"] == recorded_source_keys()[planted["source"]]
+    assert gap["fact_kind"] == kinds.most_common(1)[0][0], f"page {last}"
+    assert gap["gap_start"].strftime("%Y-%m") == planted["gap_from"]
+    assert gap["gap_end"].strftime("%Y-%m") == planted["gap_to"]
+    assert gap["confirmed"] is None
+
+
+async def test_the_planted_missing_document_is_listed_and_found_references_are_not(
+    bundle: Harness, pages: dict[int, dict[str, Any]]
+) -> None:
+    """The colonoscopy report mentioned on page 390 is in no page (planted item 3); the other
+    references in the bundle are matched to their pages."""
+    from app.features.pipeline import paths
+
+    number = {p["id"]: n for n, p in pages.items()}
+    rows = bundle.admin.execute(
+        "select id, citing_page_id, description, status from app.missing_items where case_id = %s",
+        (bundle.case_id,),
+    ).fetchall()
+    found = []
+    for item, citing, sealed, status in rows:
+        text = (await bundle.decrypt(bytes(sealed), paths.missing_description_purpose(item))).decode()
+        assert status == "open"
+        found.append((number[citing], text))
+    wanted = [(int(m["page"]), str(m["described_document"])) for m in expected("missing.json")]
+    same = sorted(found) == sorted(wanted)
+    assert same, f"missing items cite pages {sorted(n for n, _ in found)}"
+    asked = [r for r in bundle.bedrock.requests if r.task_id == "T-07c"]
+    assert len(asked) == len(expected("references.json")), f"{len(asked)} references asked"
