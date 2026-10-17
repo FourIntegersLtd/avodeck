@@ -47,7 +47,7 @@ def store() -> FixtureStore:
 
 
 def page_bytes(entry: dict[str, Any]) -> bytes:
-    return (ROOT / entry["file"]).read_bytes()
+    return (ROOT / str(entry["file"])).read_bytes()
 
 
 async def page_words(entry: dict[str, Any], store: FixtureStore) -> OcrPage:
