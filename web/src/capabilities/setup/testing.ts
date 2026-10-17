@@ -125,6 +125,7 @@ export function questions(over: Partial<Schemas["Questions"]> = {}): Schemas["Qu
     assumptions: [assumption()],
     locked: false,
     reading: false,
+    read_failed: false,
     reopened: false,
     rejected: 0,
     warnings: [],

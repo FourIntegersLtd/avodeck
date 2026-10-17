@@ -98,6 +98,8 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
 - `core/contracts/case_tables.py`: slice C's case tables (migration 0310) are registered for case deletion: `case_parties`, `case_instructing_parties`, `case_links`, `case_instructions`, `case_subject_keys` (test 47145cf).
 - `core/contracts/case_tables.py`: slice C's later case tables (migrations 0320-0340) are registered: `conflict_answers`, `conflict_declarations`, `case_withdrawals`, `assumptions`, `instruction_extractions`, `prefill_suggestions`, `prefill_runs` (test 26119a0).
 - `web/src/foundation/i18n/en-GB.json`: slice C added its `setup.*` keys (screens S02, S04, S05, S06, the Today items and the notes) in its feat commit 02138a5.
+- `core/contracts/case_tables.py`: `conflict_answer_history` (slice C migration 0370, review finding 7) is registered for case deletion (test commit before this one).
+- `web/src/foundation/i18n/en-GB.json`: slice C added `setup.questions.warning.read_failed`, `setup.questions.warning.letter_without_file`, `setup.questions.read_again`, `setup.questions.letter_not_read` and `setup.conflicts.warning.declare_again` (review findings 4, 5 and 7).
 - `core/contracts/questions.py`: `questions_locked()` skips oral instructions (kind `oral`): they carry no questions, so they never reopen a confirmed set nor hide its lock from the next letter (slice C review finding 4; test commit before this one).
 - Request (done): tests under `web/src/app/` now start with an empty screen registry (`resetScreens` in `foundation/lib/screens.ts`, called from `web/src/test/setup.ts`), so slice C registers the `profile` screen key without breaking `ShellLinks.test.tsx`.
 

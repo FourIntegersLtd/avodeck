@@ -52,7 +52,16 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
       await unwrap(api.POST("/v1/cases/{case_id}/questions/confirm-all", path));
       reload();
     } catch (err) {
-      setError(errorMessage(err, { stale: "setup.stale" }));
+      setError(errorMessage(err, { stale: "setup.stale", letter_not_read: "setup.questions.letter_not_read" }));
+    }
+  };
+  const readAgain = async () => {
+    setError(null);
+    try {
+      await unwrap(api.POST("/v1/cases/{case_id}/questions/read-again", path));
+      reload();
+    } catch (err) {
+      setError(errorMessage(err));
     }
   };
   const draft = async (questionId: string) => {
@@ -80,6 +89,11 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           <p>{t(key)}</p>
         </Notice>
       ))}
+      {asked.read_failed && (
+        <div>
+          <Button onClick={() => void readAgain()}>{t("setup.questions.read_again")}</Button>
+        </div>
+      )}
       {asked.reading && (
         <Notice>
           <p>{t("setup.questions.reading")}</p>
