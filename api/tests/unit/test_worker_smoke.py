@@ -11,7 +11,6 @@ def test_worker_entrypoint_needs_the_direct_database_url() -> None:
 
 def test_worker_entrypoint_runs_the_apps_job_registry_on_the_jobs_queue() -> None:
     from app.core.jobs import registry
-
     from app.worker.main import build_worker
 
     worker = build_worker(

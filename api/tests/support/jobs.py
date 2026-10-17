@@ -12,9 +12,8 @@ from typing import TYPE_CHECKING, Any
 import psycopg
 
 if TYPE_CHECKING:
-    from app.core.jobs import JobRegistry, JobWorker
-
     from app.core.db import Database
+    from app.core.jobs import JobRegistry, JobWorker
 
 FINISHED = ("done", "failed", "paused")
 

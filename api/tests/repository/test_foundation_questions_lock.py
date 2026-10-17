@@ -33,7 +33,9 @@ Refused = psycopg.errors.InsufficientPrivilege
 def team(seed: Seed) -> dict[str, uuid.UUID]:
     p = {n: seed.person() for n in ("expert", "assistant", "viewer")}
     org = seed.org(kind="team", members={p["expert"]: "expert", p["assistant"]: "assistant", p["viewer"]: "viewer"})
-    p["case"] = seed.case(org, p["expert"], status="active", members={p["assistant"]: "assistant", p["viewer"]: "viewer"})
+    p["case"] = seed.case(
+        org, p["expert"], status="active", members={p["assistant"]: "assistant", p["viewer"]: "viewer"}
+    )
     return p
 
 
@@ -97,7 +99,8 @@ def test_an_assistant_records_a_new_instruction_version(api_dsn: str, team: dict
     with psycopg.connect(api_dsn) as conn, conn.transaction():
         conn.execute("select set_config('app.person_id', %s, true)", (str(team["assistant"]),))
         cur = conn.execute(
-            "insert into app.instruction_versions (case_id, version_no, kind, received_on) values (%s, 1, 'letter', '2026-01-05')",
+            "insert into app.instruction_versions (case_id, version_no, kind, received_on)"
+            " values (%s, 1, 'letter', '2026-01-05')",
             (team["case"],),
         )
         assert cur.rowcount == 1
@@ -106,7 +109,8 @@ def test_an_assistant_records_a_new_instruction_version(api_dsn: str, team: dict
 def test_a_new_version_cannot_start_locked(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
     with pytest.raises(psycopg.Error) as err:
         admin.execute(
-            "insert into app.instruction_versions (case_id, version_no, kind, locked_at) values (%s, 1, 'letter', now())",
+            "insert into app.instruction_versions (case_id, version_no, kind, locked_at)"
+            " values (%s, 1, 'letter', now())",
             (team["case"],),
         )
     assert err.value.sqlstate == "AV409"
@@ -161,7 +165,9 @@ async def test_the_gate_refuses_until_the_questions_are_locked(
     assert "question.confirm" in access.allowed_actions
 
 
-async def test_the_gate_answers_404_to_someone_who_cannot_see_the_case(api_db: Database, seed: Seed, team: dict[str, uuid.UUID]) -> None:
+async def test_the_gate_answers_404_to_someone_who_cannot_see_the_case(
+    api_db: Database, seed: Seed, team: dict[str, uuid.UUID]
+) -> None:
     from app.core.contracts.questions import require_questions_locked
 
     async with api_db.request(scope_for(seed.person())) as conn:
