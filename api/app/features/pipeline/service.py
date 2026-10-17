@@ -38,7 +38,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import convert, dates, duplicates, extract, gaps, missing, paths, quarantine, repo
+from app.features.pipeline import convert, dates, duplicates, extract, gaps, language, missing, paths, quarantine, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
@@ -223,6 +223,7 @@ async def _page_pdf(conn: AsyncConnection, services: PipelineServices, case_id: 
 async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_words(conn, ctx.case_id)
+        spoken = services.packs.for_case(await repo.case_codes(conn, ctx.case_id)).language
 
     async def read(page_id: uuid.UUID) -> None:
         async with ctx.transaction() as conn:
@@ -266,6 +267,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 unreadable=reading.unreadable,
                 size=(page.width, page.height),
             )
+            await repo.set_language(conn, page_id, language.detect(" ".join(w.text for w in page.words), spoken))
 
     await bounded(waiting, read, stop=_stop(ctx))
 

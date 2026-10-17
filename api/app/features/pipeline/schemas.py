@@ -122,6 +122,12 @@ class QuarantineAsk(BaseModel):
     reason: str = Field(pattern=r"^[a-z_]{1,40}$")
 
 
+class ForeignPage(BaseModel):
+    page_id: uuid.UUID
+    page_no: int
+    language: str  # a language code; the screen shows its name
+
+
 class BundleSummary(BaseModel):
     pages: int
     by_source: list[SourceCount]
@@ -134,6 +140,7 @@ class BundleSummary(BaseModel):
     quarantine_suggestions: list[QuarantinePage] = []  # pages that may be someone else's, never hidden
     quarantined: list[QuarantinePage] = []  # pages the named expert removed; they keep their numbers
     exhibits: list[Exhibit] = []  # files kept but not readable by Avodeck
+    foreign_language: list[ForeignPage] = []  # pages not in the pack's language; never translated
 
 
 class ProvenanceChange(BaseModel):
@@ -161,6 +168,8 @@ class RequestDraft(BaseModel):
     missing_item_ids: list[uuid.UUID]
     clearer_copy_page_ids: list[uuid.UUID]
     clearer_copy_page_nos: list[int]
+    translation_page_ids: list[uuid.UUID] = []  # pages to ask a certified translation of (F37)
+    translation_page_nos: list[int] = []
 
 
 _ADDRESS = r"^[^@\s,;?&]+@[^@\s,;?&]+\.[^@\s,;?&]+$"

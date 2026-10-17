@@ -65,6 +65,7 @@ from app.features.pipeline.schemas import (
     Duplicates,
     Exhibit,
     Exhibits,
+    ForeignPage,
     JobQueued,
     MissingItem,
     MissingItemChange,
@@ -308,6 +309,7 @@ async def bundle_summary(
     copies, unreadable, gaps, open_items = await repo.summary_counts(conn, case_id)
     docs = await repo.documents(conn, case_id)
     held = await repo.quarantines(conn, case_id)
+    spoken = wiring.current().packs.for_case(await repo.case_codes(conn, case_id)).language
     response.headers["cache-control"] = "private, no-store"
     return BundleSummary(
         pages=sum(n for _, n in sources),
@@ -321,6 +323,10 @@ async def bundle_summary(
         quarantine_suggestions=[_quarantine(q) for q in held if q.status == "suggested"],
         quarantined=[_quarantine(q) for q in held if q.status in ("confirmed", "purged")],
         exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
+        foreign_language=[
+            ForeignPage(page_id=p, page_no=n, language=code)
+            for p, n, code in await repo.foreign_pages(conn, case_id, spoken)
+        ],
     )
 
 
@@ -412,6 +418,7 @@ async def draft_request(
         )
         lines.append(f"- {clean(words.decode())} ({item.citing_page_no})")
     unreadable = await repo.clearer_copy_pages(conn, case_id)
+    foreign = await repo.foreign_pages(conn, case_id, pack.language)
     label, expert = await repo.request_wording_facts(conn, case_id)
     wording = pack.instructing_party_request(
         case_reference=clean(label),
@@ -427,6 +434,8 @@ async def draft_request(
         missing_item_ids=[i.id for i in items],
         clearer_copy_page_ids=[p for p, _ in unreadable],
         clearer_copy_page_nos=[n for _, n in unreadable],
+        translation_page_ids=[p for p, _, _ in foreign],
+        translation_page_nos=[n for _, n, _ in foreign],
     )
 
 

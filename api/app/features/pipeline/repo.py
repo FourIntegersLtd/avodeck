@@ -101,6 +101,23 @@ async def document_file(conn: AsyncConnection, document_id: uuid.UUID) -> tuple[
     return str(row[0]), str(row[1])
 
 
+# --- pages in another language (F37) --------------------------------------------------------------
+
+
+async def set_language(conn: AsyncConnection, page_id: uuid.UUID, code: str | None) -> None:
+    await conn.execute("update app.pages set language = %s where id = %s", (code, page_id))
+
+
+async def foreign_pages(conn: AsyncConnection, case_id: uuid.UUID, spoken: str) -> list[tuple[uuid.UUID, int, str]]:
+    """Pages whose language is known and is not the pack's, in page order."""
+    cur = await conn.execute(
+        "select id, bundle_page_no, language from app.pages"
+        " where case_id = %s and language is not null and language <> %s order by bundle_page_no",
+        (case_id, spoken),
+    )
+    return [(r[0], r[1], r[2]) for r in await cur.fetchall()]
+
+
 # --- files that are not PDFs (F36) -----------------------------------------------------------------
 
 
