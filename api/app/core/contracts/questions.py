@@ -3,7 +3,8 @@
 `text_verbatim` is the exact wording and never changes; an edited question keeps it and carries
 `confirmed_text` (state-machines.md "Question").
 
-The set is locked when the case's latest `instruction_versions` row has `locked_at` (migration 0017):
+The set is locked when the case's latest `instruction_versions` row that can carry questions (any kind
+but `oral`) has `locked_at` (migration 0017):
 `questions_locked()` answers that, and `require_questions_locked()` is the route dependency that
 answers 409 `questions_not_confirmed` until then.
 """
@@ -51,13 +52,14 @@ class Question(BaseModel):
 
 
 async def questions_locked(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
-    """Whether the case's questions are locked: its latest instruction version has `locked_at` set.
+    """Whether the case's questions are locked: its latest instruction version that can carry questions
+    has `locked_at` set. Oral instructions (kind `oral`) carry no questions and are skipped.
 
-    No instruction version yet, or a newer unlocked one (new instructions reopen the questions): False.
+    No such version yet, or a newer unlocked one (new instructions reopen the questions): False.
     Runs as the caller under row-level security, so someone who cannot see the content gets False.
     """
     cur = await conn.execute(
-        "select locked_at is not null from app.instruction_versions where case_id = %s"
+        "select locked_at is not null from app.instruction_versions where case_id = %s and kind <> 'oral'"
         " order by version_no desc limit 1",
         (case_id,),
     )
