@@ -346,8 +346,8 @@ Stopping and proving deletion.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `legal_holds` | A stop on deletion while litigation or an appeal continues. | case_id, reason, set_by, until, released_at |
-| `deletion_certificates` | Proof of what was deleted and when, sent to the expert and instructing party. | case_id, deleted_at, counts, hashes, log_chain_heads, backup_expiry_on, pdf_path, sent_to |
+| `legal_holds` | A stop on deletion while litigation or an appeal continues. | case_id, reason, set_by, until, released_at, released_by |
+| `deletion_certificates` | Proof of what was deleted and when, sent to the expert and instructing party. Counts, hashes and dates only (rule 6). | case_id, deleted_at, counts, hashes, log_chain_heads, backup_expiry_on, sent_to |
 | `deletion_ledger` | A list of deleted case IDs, replayed after any backup restore so deleted cases never come back. | case_id, deleted_at, created_at |
 
 ### 4.11 System
@@ -689,12 +689,13 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| POST | `/cases/{case_id}/settle` | Mark settled `{on}` | |
+| GET | `/cases/{case_id}/close` | What screen 26 shows: status, `settled_at`, retention policy, `delete_after`, the pack's retention years, holds, whether deletion has started | |
+| POST | `/cases/{case_id}/settle` | Mark settled (no body; the database sets `settled_at`) | |
 | POST | `/cases/{case_id}/export` | ZIP of report versions + hashes, methodology, page-read log, invoice, requests (202 + job) | 🔒 |
 | GET | `/cases/{case_id}/export/{job_id}/download` | ZIP streamed once by the API | 🔒 |
 | PUT | `/cases/{case_id}/retention` | `{policy: delete_now|keep_default|return_then_delete}` → sets `delete_after` (years from the pack) | 🔒 |
 | POST | `/cases/{case_id}/archive`, `/cases/{case_id}/reopen` | Archive / reopen | |
-| GET | `/cases/{case_id}/deletion-certificate` | Certificate PDF once deleted, streamed by the API | |
+| GET | `/cases/{case_id}/deletion-certificate` | The certificate (JSON: counts, hashes, log chain heads, dates, recipient role codes) once deleted; a PDF rendering waits for a PDF library | |
 | | *(scheduled job, daily)* | Finds `delete_after <= today` → deletes Storage objects, rows, embeddings, OCR files, packages; destroys case key; writes certificate; emails expert + instructing party | |
 
 ### 5.3 Internal and system endpoints

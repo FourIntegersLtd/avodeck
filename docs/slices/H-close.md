@@ -63,5 +63,14 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 ## Out of scope
 Producing the content being exported (other slices), invoice generation (F).
 
+## As built (scope notes)
+- `POST /settle` takes no body; the database sets `settled_at`. `GET /close` returns the screen's summary.
+- The certificate is JSON (counts, hashes, log chain heads, dates, recipient role codes); a PDF waits for a PDF library (foundation).
+- Backups are assumed gone 30 days after deletion (`BACKUP_RETENTION_DAYS` in `features/close/jobs.py`); settled or withdrawn cases archive after 30 days.
+- The export marks four files `not_built_yet` (methodology, page reads, invoices, requests) until their slices expose a source.
+- The deleted case's tombstone returns 404 to `deletion-certificate` until foundation lets `case.view_certificate` reach a deleted case (strict xfail in the route tests).
+- The certificate email goes to the named expert only, until instructing-party contacts and org-admin recipients exist.
+- S26 is reachable once foundation adds `closeRoutes` to `app/routes.tsx`; its words are registered by the capability (`words.ts`).
+
 ## Definition of done
 Root checklist, plus: a synthetic case can be exported and fully deleted on staging with a certificate produced.
