@@ -24,15 +24,25 @@ jobs:
       - uses: ./.github/actions/api-install
       - uses: supabase/setup-cli@v1
         with: { version: latest }
-      - run: supabase start
+      # Postgres with every migration and supabase/seed.sql, plus Auth, Storage and the mailer the tests use.
+      - run: supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy
+      # Node and pnpm: the red-then-green check runs web test commits with vitest.
+      - uses: pnpm/action-setup@v4
+        with: { package_json_file: web/package.json }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
       - run: make -C api lint typecheck
       - name: Packs valid (schemas, lint, every combination)
         run: make -C api packs
       - run: make -C api guards
       - run: make -C api test
-      - name: OpenAPI fuzzing (Schemathesis)
+      - name: OpenAPI fuzzing (Schemathesis) against the API on the local Supabase
         if: hashFiles('openapi.json') != ''
-        run: make -C api schemathesis
+        run: |
+          set -a; eval "$(scripts/local_api_env.sh)"; set +a
+          (cd api && poetry run uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &)
+          for i in $(seq 1 60); do curl -sf http://localhost:8000/health > /dev/null && break; sleep 1; done
+          make -C api schemathesis API_URL=http://localhost:8000
       - name: Red-then-green check
         if: github.event_name == 'pull_request'
         run: poetry -P api run python scripts/check_red_green.py origin/${{ github.base_ref }}

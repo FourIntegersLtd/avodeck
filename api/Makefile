@@ -44,8 +44,11 @@ openapi:        ## write ../openapi.json and the pack data the web tests use
 	poetry run python -m app.export_openapi > ../openapi.json
 	poetry run python -m app.export_openapi --pack-fixtures > ../web/src/foundation/platform-client/pack-fixtures.json
 
+# The API must be running (CI starts it with scripts/local_api_env.sh). Random one-time tokens are
+# never valid, so `positive_data_acceptance` (expects schema-valid input to be accepted) is off.
+API_URL ?= http://localhost:8000
 schemathesis:
-	poetry run schemathesis run ../openapi.json --url http://localhost:8000 --checks all
+	poetry run schemathesis run ../openapi.json --url $(API_URL) --checks all --exclude-checks positive_data_acceptance
 
 eval:           ## live models against synthetic bundles
 	poetry run python -m app.evals.run --threshold 0.95
