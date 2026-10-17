@@ -10,8 +10,13 @@ CASE_TABLES: frozenset[str] = frozenset(
     {
         "cases",
         "ai_calls",
+        "case_instructing_parties",
+        "case_instructions",
         "case_keys",
+        "case_links",
         "case_members",
+        "case_parties",
+        "case_subject_keys",
         "documents",
         "facts",
         "idempotency_keys",
