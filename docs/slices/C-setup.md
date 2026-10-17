@@ -92,7 +92,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - Screens built: S02 at `/profile`; S04 at `/cases/new` (new case) and `/cases/{id}/details` (letter upload and prefill, case details, who instructed you, same person check, oral instructions); S05 at `/cases/{id}/conflicts` (including declaring a change and stepping back with step-up); S06 at `/cases/{id}/questions`. Vitest under the launch and fixture packs; Playwright with axe, buttons at least 52px and text at least 17px in `web/e2e/setup/`.
 - `GET /v1/me/template` gains `sections` (the pack report sections across the cell, plus `other`), because a heading is mapped outside any case.
 - Prefill "Use this" only fills the form; the case changes when the expert saves. A second letter is sent as kind `supplementary`.
-- Screen keys registered: `S02`, `new_case`, `S04`, `case_details`, `S05`, `conflicts`, `S06`, `questions`. **Gap:** `profile` is not registered, because foundation's `web/src/app/ShellLinks.test.tsx` expects no Profile link while no slice registers it and does not reset the registry; foundation is asked to reset it so slice C can register `profile`.
+- Screen keys registered: `S02`, `profile`, `new_case`, `S04`, `case_details`, `S05`, `conflicts`, `S06`, `questions`. The header's Your profile link now shows (foundation reset the registry for the shell's own tests).
 - **Gap, i18n:** `setup.conflicts.question.<key>` keys are not added; the screen shows the pack's own question text.
 - **Gap:** the drawn-signature path is tested only in the browser build (jsdom has no canvas); board fidelity was checked by eye against the PNGs.
 
