@@ -1,9 +1,8 @@
 import { Navigate, type RouteObject } from "react-router-dom";
-import { accountRoutes } from "../capabilities/account";
-import { todayRoutes } from "../capabilities/today";
 import { ConfirmEmail } from "./auth/ConfirmEmail";
 import { ResetPassword } from "./auth/ResetPassword";
 import { SignIn } from "./auth/SignIn";
+import { capabilityRoutes } from "./capabilityRoutes";
 import { CaseLayout } from "./CaseLayout";
 import { NotFound } from "./NotFound";
 import { RequireSession } from "./RequireSession";
@@ -20,7 +19,8 @@ export const routes: RouteObject[] = [
       { path: "account/email/confirm", element: <ConfirmEmail /> },
       {
         element: <RequireSession />,
-        children: [...todayRoutes, ...accountRoutes, { path: "cases/:caseId", element: <CaseLayout /> }],
+        // Capability routes come from each src/capabilities/<feature>/index.tsx (capabilityRoutes.ts).
+        children: [...capabilityRoutes, { path: "cases/:caseId", element: <CaseLayout /> }],
       },
       { path: "*", element: <NotFound /> },
     ],
