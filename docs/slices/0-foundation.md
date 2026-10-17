@@ -11,6 +11,81 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
 
 **Stage 2 (after spikes 1–4 and 8):** real Bedrock client pinned to London IDs; Azure OCR and Speech relay; AWS KMS key provider (ADR 0010); IAM users and policies (architecture 9); staging and production deploys (DigitalOcean App Platform London, Vercel); the acceptance tests that need real services run against staging.
 
+**Stage 1 progress**
+- [x] Step 1 (2026-10-16): project skeleton in the osceguide layout:
+  - `api/` is one Poetry project on Python 3.12, holding the API and the worker (`app/worker/`). Features live in `app/features/<feature>/`; tests are grouped by kind, with the rule tests in `tests/guards/`.
+  - `web/` uses `src/{app,foundation,capabilities}`.
+  - Each package has an `AGENTS.md`, with a `CLAUDE.md` containing `@AGENTS.md`.
+  - The root Makefile targets are `dev`, `test`, `test-core`, `test-slice S=<feature>`, `lint` and `check-spec`.
+  - Local Supabase is set up in `supabase/config.toml`.
+  - CI uses Poetry: `ci-api.yml` and `ci-web.yml`, plus `eval-nightly.yml`, which stays off until `EVAL_ENABLED` is set.
+- [x] Step 2 (2026-10-16): database base (ADR 0013):
+  - Migration `0000_foundation_base.sql` (down in `supabase/migrations/down/`): the `app` schema, owned by `app_migrator` and not exposed to the Data API; NOLOGIN roles `app_api`, `app_worker`, `app_migrator` (no superuser, no `BYPASSRLS`; runtime roles own nothing); default grants for future `app` tables; `app.current_person_id()`, `app.current_org_ids()`, `app.current_job_case_id()`, which return nothing when unset so RLS fails closed.
+  - `supabase/seed.sql` gives the roles local-only passwords; cells set real ones out of band.
+  - `core/db.py`: psycopg 3 pool; `Database.request(scope)` and `Database.job(case_id)` each run one transaction with transaction-local settings; refuses to start as a role that can bypass RLS. `core/config.py` reads `DATABASE_URL` and `DATABASE_URL_DIRECT`.
+  - Local Supabase ports moved to 553xx (DB on 55322) to avoid clashes with other local projects.
+  - Not yet: `app.can_access_case()` and the tables it reads arrive with the tables step.
+- [x] Step 3 (2026-10-16): core tables and case access:
+  - Migrations `0001`–`0004` (downs in `supabase/migrations/down/`): the core tables plus `idempotency_keys`, all with RLS for `app_api` (by person) and `app_worker` (by job case); state-machine triggers for `cases`, `jobs`, `memberships` and `pages` (SQLSTATE `AV409` → 409 `conflict`); `app.case_action_allowed()` (the permissions matrix, kept equal to `core/auth/permissions.py` by a test), `app.case_access()`, `app.can_access_case()`, `app.ensure_person()`; hash-chained `audit_log` (sequence + advisory lock; `core/audit.find_breaks()` recomputes it).
+  - `core/auth/access.py` `require_case_access(action)` (404 without view rights, 403 without the action); `core/http.py` `router()` gives each request one transaction, Idempotency-Key replay (F27), `IfMatch`/`etag()` (428, 412 `stale`, F26); `core/errors.py`; `core/state_machines.py`; `core/config.cell_settings()` (`REGION`).
+  - `GET /v1/me` (creates the person, a personal organisation and the owner membership) and `GET`/`PATCH /v1/cases/{case_id}`. Request and job transactions run in UTC.
+  - Routers are added with `main.mount()`, not `include_router()`: FastAPI 0.143 includes routers lazily, which would hide their routes from the rule 9 route scan. Every slice router must be mounted this way.
+  - Not yet: identity comes from a test seam until the auth step; step-up and CSRF arrive with auth; deadline timezones with packs.
+- [x] Step 4 (2026-10-16): sign-in, MFA, CSRF and step-up:
+  - Migration `0005_foundation_auth.sql` (down in `supabase/migrations/down/`): `sessions`, `mfa_recovery_codes`, `email_changes`, all private to their person under RLS; security-definer `app.session_resolve()` (cookie lookup, 30-minute idle and 12-hour expiry), `app.confirm_email_change()` and `app.audit_anonymous()` (failed sign-in and reset requests, address hashed).
+  - `core/auth/supabase.py` is the only caller of local Supabase Auth (password, TOTP, recovery, admin) and checks every access token (ES256 via JWKS, audience, issuer, expiry, `aal`). `core/auth/session.py`: opaque `av_session` cookie (httpOnly, Secure, SameSite=Strict) and `av_csrf` double-submit token, both stored only as SHA-256. `core/http.py` `router()` now resolves the session, checks Origin, CSRF and MFA; `public_router()` is for the five signed-out routes the CSRF guard names. `require_step_up` and `require_case_access` for 🔒 actions need MFA within 10 minutes. `core/email.py` `OutboxMailer` is the local stand-in for Resend.
+  - Endpoints: `/v1/auth/sign-in`, `/mfa/enroll`, `/mfa/verify` (also step-up), `/mfa/recovery-codes` 🔒, `/mfa/recover`, `/sign-out`, `/session`, `/password/forgot`, `/password/reset`; `/v1/me/sessions` (list, delete, `revoke-all` 🔒), `/v1/me/email-change` 🔒 and `/confirm`. The step 3 identity seam is gone; tests sign in through `client_for()` (seeded sessions) or `sign_in_with_mfa()` (real local Auth).
+  - Choices: recovery needs the password too; passwords at least 12 characters; Auth tokens kept on the session row unencrypted until `core/crypto.py`; local Auth rate limits raised in `supabase/config.toml` for tests (cells rate-limit in FastAPI, not built yet); the reset email comes from Supabase Auth's local mailer with a template that links to the web app.
+  - Not yet: per-client rate limiting and captcha on sign-in, leaked-password check, `make api-client` (no `app.export_openapi` yet), S01/S28 screens.
+- [x] Step 5 (2026-10-16): packs:
+  - `core/packs.py`: `load_library(*roots)` reads each pack set (`jurisdiction/`, `case-type/`, `specialty/`, `overlay/<j>/<sp>/`), resolves `extends:`, validates every file against `packs/schema/*.schema.json` (23 schemas; a file without one is refused), refuses duplicate YAML keys and duplicate registry keys, lints specialty words and codes out of jurisdiction and case-type files and country words and jurisdiction codes out of specialty files (overlays exempt), then merges every offered combination (3.2 rules; placeholders filled from the merged vocabulary plus `instructing_party`; every party role and instructing-party type needs a label). `MergedPack` gives settings, words, registries, declarations, legal tests, identifier recognisers, prompt context, record hints, speech and `deadline()`.
+  - Deadlines: worked out in the court's timezone (aware datetimes only), `calendar_days` with `if_closed: next_working_day` or `business_days` over the pack's `working_week`, skipping the dates in the new `holidays.yaml`; `due_at` is the end of the due day in UTC and `shown_in(tz)` gives the expert's time. Outside the holiday snapshot's range it refuses (fail closed).
+  - `create_app()` loads `default_library()` (`PACKS_DIR`, else `packs/` only; tests add `packs/_fixtures/`), so an invalid pack stops the app; `make -C api packs` (`python -m app.core.packs`) runs in CI. Endpoints: `GET /v1/jurisdictions`, `/v1/jurisdictions/{code}` (the cell's own only, else 404), `/v1/packs`, `/v1/cases/{case_id}/pack` (`case.view_metadata`). Guard `tests/guards/test_foundation_forbidden_words.py` scans slice code and prompt templates for `lint_words.yaml` `slice_code_forbidden` plus the country and specialty words.
+  - Pack data: gb-eaw `deadlines.yaml` is now a `deadlines:` registry (written questions 28 calendar days, joint-statement signing and sending, trial and answers set by direction), `working_week` and `holidays.yaml` (England and Wales bank holidays 2026-2028); general-practice `facts.yaml` has fields per fact kind, `sources.yaml` has `{key, colour}`, `checks.yaml` uses `default_on`; overlay `records.yaml` key `record_systems`; fixture packs follow the same shapes (Sunday-Thursday week, 21 business days).
+  - Choices: a cell offers a combination when the jurisdiction's `cell` matches, all three packs come from the same pack set and the jurisdiction registers the specialty's profession; the holiday list is a checked-in snapshot (no refresh job yet); the 28-day roll-forward rule is marked verify-before-launch.
+  - Not yet: i18n-label and version-bump lint, pack lifecycle approval, screen copy under the fixture packs (frontend step), `make api-client`.
+- [x] Step 6 (2026-10-16): AI kit and encryption (all cloud services are recorded stand-ins):
+  - `core/ai/`: `pii.strip` (Presidio with a blank spaCy tokeniser; case names, the pack's identifier recognisers, postcodes, e-mail addresses and known dates of birth in any written form become `[KIND_n]` placeholders; event dates stay), `provenance.check`/`check_items` (case, spacing and number-format normalised), `cell.py` (model IDs and endpoints only from the cell allow-list; `global.*`, `eu.*` and non-https hosts refused), `RecordedBedrock`, `RecordedOcr` and `core/speech.py` `RecordedSpeech` (recordings keyed by request hash; documents and audio stored only as hashes), `kit.py` `AiKit.run` (allow-list, cost guard, strip, schema check, back-off, one `ai_calls` row per answer).
+  - Failure modes: F5 back-off then `ProcessingPaused` (503 `processing_paused` with `reason`), F10 canaries in `tests/fixtures/ai/canary.json` for launch and fixture packs plus `logs.find_identifiers`, F11 cost guard (`app.ai_budget`: 3 x expected tokens a page x max(pages, minimum); alert logged), F24 fail closed with no fallback.
+  - `core/logs.py`: every log record is scrubbed when made (URL paths, queries, e-mail addresses, pack identifiers, long numbers; exceptions keep type and frames only); requests logged by route template; HTTP client INFO lines off; Sentry options with no PII, bodies, locals or messages (`SENTRY_DSN` empty locally).
+  - `core/crypto.py`: `CaseCrypto` per-case envelope encryption (AES-GCM) with `LocalKeyProvider` behind the `KeyProvider` interface, keys cached at most 5 minutes; key destruction makes decrypt fail; provider unreachable pauses processing. `SecretBox` seals the Supabase Auth tokens on the session row (`av1:` prefix enforced by a check constraint).
+  - Migration `0006_foundation_ai_and_keys.sql`: `ai_calls` and `case_keys` (append only, RLS), `app.ai_budget()`, `app.destroy_case_key()` (worker, own job only, audited), session token constraint (old plaintext tokens cleared).
+  - Choices: `case_keys.key_ref` instead of a KMS ARN column (provider-neutral); sealed tokens bound to purpose and person; date-of-birth matching uses the pack language's month names; Presidio's e-mail recogniser only (no trained NER: names come from the case name list); gb-eaw and zz-test identifier files gained labelled date-of-birth recognisers (pack versions bumped); one test fix commit (the record-and-replay test counted a second client's request on the first).
+  - Not yet: real Bedrock, Azure and KMS clients (stage 2), image masking for vision (T-10), Bedrock batch, F6 (jobs step).
+- [x] Step 7 (2026-10-17): files, jobs and the dictation relay:
+  - Migration `0007_foundation_files_jobs.sql`: Procrastinate 3.10 schema in its own `procrastinate` schema (only `app_worker` may use it); `jobs.step`; `uploads` (state machine trigger), `job_steps`, `scheduled_runs`, `transcripts`, with RLS; `app.enqueue_job()` (checks case access, writes the `jobs` row and queues it with the lock `case:<id>` for case-changing jobs), `app.claim_scheduled_run()` and `app.last_scheduled_run()` (worker only).
+  - `core/jobs.py`: `registry.kind()`/`schedule()`/`enqueue()`, `JobContext.progress()`/`step()`, `JobWorker` (interactive priority before batch, one case-changing job per case, retries then `failed`/`job_error`, `ProcessingPaused` → `paused`, `requeue_stalled()` (F6), `catch_up()` by date (F28)). `app/worker/main.py` `build_worker()` runs it as `app_worker` on `DATABASE_URL_DIRECT`.
+  - `core/storage.py` (local Supabase Storage, service role for Storage only) and `core/routes/uploads.py`: `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{id}/chunks/{n}`, `GET /v1/uploads/{id}`, `POST /v1/uploads/{id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`; chunks encrypted under the case key; whole-file SHA-256 checked on complete; `document.uploaded` audited.
+  - `core/routes/jobs.py`: `GET /v1/jobs/{id}` and `/events` (SSE: status, step, pct, eta_seconds, error_code only; changes only; ends when finished or after 5 minutes).
+  - `core/routes/dictation.py`: `WS /v1/cases/{id}/dictation` (refuses before accepting: 4401, 4403, 4404, 4422; pack locale and phrases; `speech_unavailable` + 1011 when the service cannot answer) and `POST /v1/cases/{id}/transcripts` (encrypted, `transcript.saved` audited). `require_socket_case_access()` in `core/auth/access.py`; guard `test_foundation_websocket_routes.py`.
+  - Choices: dictation and transcripts use `comment.write` (no new permission action); 500 MB file limit; one Storage object per chunk; bucket `STORAGE_BUCKET` (default `case-files`); unfinished uploads expire after 7 days; WebSockets require Origin.
+  - Not yet: virus scan and `process_bundle` on complete (slice A), live Azure Speech (stage 2), the frontend.
+- [x] Step 8 (2026-10-17): shared contracts and the OpenAPI export:
+  - Migration `0008_foundation_contracts.sql`: `facts`, `questions`, `report_versions` with state-machine triggers (`AV409`), version bumps, no deletes and RLS (view `case.view_content`; write `fact.verify`, `question.confirm`, `report.build`; worker its job's case only). A locked report version refuses every change except served and withdrawn (SQLSTATE `AVLCK` → 409 `locked`). `app.expire_uploads(run_date)` (worker only, audited).
+  - `core/contracts/`: `Fact`, `citable_facts()`, `Question`, `ReportVersion`, `ensure_unlocked()`, `NeedsYouItem`, `CaseCard`, `needs_you` provider registry, `require_page_read()` (423 `blind_read` per person), `PageReadLog`, `EventBus` (`ReportServed`), pipeline job names, `CASE_TABLES`. Scanned for forbidden words.
+  - `GET /v1/today` (`core/routes/today.py`): open case cards with your role, closed count, your organisations, and registered items for the cases shown, ranked; a failing provider is skipped (type logged only).
+  - `core/housekeeping.py`: daily `expire_uploads` schedule (chunks deleted from Storage; rows only when Storage is not configured). `app.export_openapi` and `make api-client` (web step skipped until the frontend exists); `/openapi.json` committed and tested against the app.
+  - Choices: the read gate uses the `page.read` action and reads are per person; citable = verified or edited on a page the named expert has read; `questions.instruction_version_id` has no foreign key until slice C adds `instruction_versions`.
+  - Not yet (frontend, step 9): CSP and no cloud hosts in the build, no tokens in browser storage, screen copy under the fixture packs, i18n keys, Sign-in/Today axe and canvas checks. Not yet (stage 2): staging deploy in London and real Bedrock, Azure, KMS. Not yet built: `GET /v1/notifications`, `POST /v1/notifications/{id}/read`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/feature-flags` (next API step).
+- [x] Step 9 (2026-10-17): the frontend shell (`web/`, Vite + React + TypeScript, pnpm):
+  - `foundation/platform-client`: client generated from `openapi.json` (`make api-client`), `unwrap()`/`ApiError`, CSRF header from the `av_csrf` cookie, `onSignedOut`, `idempotencyKey`, `ifMatch`, `websocketUrl`. `make api-client` also writes `pack-fixtures.json` (launch and fixture packs as the API returns them; `case_pack()` builder in `core/routes/packs.py`), tested up to date.
+  - `foundation/ui`: tokens (body 18px, buttons 52px, canvas colours), `Button`/`LinkButton`, `TextField`/`CodeField`, `Checkbox`, `Notice`, `StatusBadge`, `CaseHeader` (pack steps, tick when done, `aria-current="step"`), `Dialog`, `DictationBox` (WebSocket to the API; type-instead messages), `AppShell`, `Logo`. `foundation/lib`: screen registry, step-up dialog (rule 10), session, errors, pack party words. `foundation/i18n`: `en-GB.json`, plurals, `registerMessages`, `Intl` dates.
+  - Screens: S01 sign in (password, code, first set-up with QR and key, backup codes shown once, backup-code recovery then re-set-up, forgotten password), reset-password and email-confirm link pages, S03 Today (greeting in the person's timezone, ranked needs-you items with registered words and screens, case cards with pack party word, step and due date, organisation filter, counts), S28 security part (email change, password link, code, new backup codes, devices, sign out one or everywhere else with step-up, sign out). A minimal case frame at `/cases/{id}` (name and pack steps).
+  - Guards (`web/src/foundation/guards/`): no cloud host or SDK in source or build; build-time CSP (`web/csp.ts`) allows only `'self'` and the API origin; no browser storage or cookie writes (static and during sign-in); no hard-coded JSX text; i18n keys exist; forbidden words in `capabilities`, `app`, `foundation/{ui,i18n,lib}`; Today and the case header under launch and fixture packs. Playwright: sign in to Today, Today axe with colour contrast, 52px/17px.
+  - Choices: same-origin `/v1` through the Vite proxy in development, `VITE_API_ORIGIN` in production (a cross-origin API needs CORS and the CSRF cookie domain: stage 2); password change on S28 sends the reset link (no change-password endpoint); step names come from `steps.<key>` keys or the pack key; organisations, notifications and closing the account stay with slice O.
+  - Not yet: side-by-side canvas review, notifications and feature flags (API not built), stage 2 hosting (Vercel headers).
+
+- [x] Step 10 (2026-10-17): notifications, flags, CI and the canvas review:
+  - Migration `0009_foundation_notifications.sql`: `notification_preferences.enabled`, `notifications.in_app`, `people.email_bounced_at`. `core/notifications.py` `notify()` (in-app row and/or a patient-free email per the person's choices for that organisation), daily `notifications_daily` digest schedule, `mark_bounced()`. `core/flags.py` `evaluate()`, `is_enabled()`, `require_flag()` (per cell, organisation or person; off when unknown).
+  - Endpoints: `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET`/`PUT /v1/me/notification-preferences`, `GET /v1/feature-flags`. Web: messages page, header bell with the unread count, bounce banner, "How we tell you things" on S28.
+  - `POST /v1/cases` (`core/routes/cases.py`): a draft case named to the caller, who must be an owner, admin or expert of the organisation (403 otherwise); jurisdiction, case type and specialty must be a combination the cell offers, and expert role, party role, instructing party type and court track must be keys of that merged pack (422 `invalid`); expert role defaults to the case type's first; pack versions are stamped and `case.created` audited. Migration `0010_foundation_case_create.sql` adds the `cases_create` RLS policy repeating that check. An assistant naming another expert waits for slice C/O.
+  - Every operation documents the shared `ApiError` body as its `default` response; a 405 carries `Allow` with every method the path offers; sign-in, recover, forgot and reset refuse control characters (422 `invalid`); the server's own access log is off (`RequestLog` logs by route template). All found by Schemathesis.
+  - CI: `scripts/local_api_env.sh` gives the API its local settings; `ci-api.yml` starts Supabase without the unused services, starts the API and runs Schemathesis (`api/schemathesis.toml`), and has Node and pnpm for the red-then-green check; `ci-web.yml` takes the pnpm version from `web/package.json`. Run locally: lint, types, packs, guards, tests, Schemathesis, red-then-green, every web step and Playwright.
+  - Canvas: S01 (brand panel, avocado logo, promise points, note), S03 (needs-you card, organisation filter in the cases header, card grid, progress ring) and S28 security part (one "Signing in" list with code and backup codes, devices with "Sign out everywhere else" in the header, message choices) match their boards. Playwright axe with colour contrast on S01, S03 and S28.
+  - Choices: no support phone number on S01 (none decided); the logo word uses the UI font (Outfit is not bundled); the S01 promise stays neutral where the board names the clinician (no pack is known before sign-in); the greeting uses the full name; Cases, profile, help and New case links wait for slice C; organisations, records custodian and closing the account stay with slice O. Schemathesis runs signed out, so 30 operations are fuzzed only up to the sign-in check.
+
+**Stage 1 status (2026-10-17):** stage 1 is complete. The API (auth with MFA, CSRF and step-up, restricted roles with RLS, case access, ETag and Idempotency-Key, chunked encrypted uploads, jobs with progress events, the audit hash chain, packs, the AI kit with recorded stand-ins, local key provider, contracts, Today, notifications and flags) and the web shell (S01, S03, S28 security part, design system, typed client, i18n) run against local Supabase with 764 API tests (95% coverage), 80 web tests and Playwright with axe, all green; CI runs the same commands. What is left is stage 2 and needs cloud accounts: real Bedrock (London in-region IDs), Azure OCR and Speech, the AWS KMS key provider, IAM, Resend, Sentry, the staging and production deploys in London (DigitalOcean App Platform, Vercel headers, CORS and the CSRF cookie domain for a cross-origin API), the acceptance tests re-run against those services, and the definition-of-done item "deployed to staging in London; a test expert can sign in with MFA, create a case and upload a bundle" (the API part, `POST /v1/cases`, is built and tested; the new-case screen is slice C's S04).
+
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
 ## Screens
@@ -24,13 +99,14 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - `POST /v1/auth/sign-in`, `/auth/mfa/enroll`, `/auth/mfa/verify`, `/auth/sign-out`, `/auth/password/forgot`, `/auth/password/reset`, `GET /auth/session`
 - `GET /v1/me`, `POST /v1/me/sessions/revoke-all` 🔒
 - `POST /v1/cases`, `PATCH /v1/cases/{id}`, `GET /v1/today`
-- `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{upload_id}/chunks/{n}`, `POST /v1/uploads/{upload_id}/complete`
+- `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{upload_id}/chunks/{n}`, `GET /v1/uploads/{upload_id}`, `POST /v1/uploads/{upload_id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`
 - `GET /v1/jobs/{job_id}`, `GET /v1/jobs/{job_id}/events` (SSE)
+- `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET`/`PUT /v1/me/notification-preferences`, `GET /v1/feature-flags`
 - `WS /v1/cases/{id}/dictation`, `POST /v1/cases/{id}/transcripts`
 - `GET /health`
 
 ## Tables owned
-`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `audit_log`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
+`experts` (with `profession`, `specialties[]`, `registration_body`, `home_region`, `locale`, `timezone`, `currency`), `cases` (with `jurisdiction`, `party_role`, `instructing_party_type`, `court_track`), `documents`, `pages` (columns used by all, including `text_source`; slice A fills OCR and source fields), `jobs`, `job_steps`, `scheduled_runs`, `uploads`, `audit_log`, `idempotency_keys`, `ai_calls`, `transcripts`, `feature_flags`. Contract tables created empty for slices to fill: `facts`, `questions`, `report_versions`.
 
 ## Shared code
 - `core/auth/`: cookie session, Supabase Auth calls, JWKS verification, `require_case_access(action)`, `require_step_up`, `require_csrf`, inactivity timeout
@@ -46,73 +122,73 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - Database triggers enforcing `docs/spec/state-machines.md` for cases, facts, questions, report versions and jobs
 - `packs/schema/*.json`: JSON Schema for every pack file; CI fails on an invalid pack; loader refuses to start with one
 - `core/config.py`: cell config (`REGION=uk`), endpoints and model IDs, allowed packs, AI allow-list
-- i18n set-up: `frontend/src/i18n/en-GB.json` and the translation helper; every foundation string uses a key
+- i18n set-up: `web/src/foundation/i18n/en-GB.json` and the translation helper; every foundation string uses a key
 - `core/contracts/`: `Fact`, `FactStatus`, `Question`, `ReportVersion`, `NeedsYouItem`; `facts.citable_facts(case_id)` (signature and core test here, implemented by B); `pipeline.py` (entry point A implements and B/G call); `events.py` (`report_served`, emitted by F, consumed by G); `case_tables.py` registry of every case table (used by deletion in slice H; a core test fails if a case table is missing from it)
 - Frontend: generated API client with CSRF header, design-system components, `DictationBox`, case shell, Today
 - CI, nightly eval workflow, staging + production deploys (DigitalOcean App Platform London: api, worker, scheduled jobs; Vercel: frontend)
 
 ## Acceptance tests (write first; all must fail before work starts)
-**Non-negotiables (`backend/tests/core/`, `frontend/tests/core/`):**
-- [ ] Every `/v1/cases/{id}/…` route returns 404 for a person with no access to that case (route table scanned automatically)
-- [ ] State-changing routes return 403 without a CSRF token
-- [ ] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
-- [ ] `GET /pages/{n}/facts` returns 423 until `POST /pages/{n}/read` (tested against the contract with a stub route)
-- [ ] `provenance.check` rejects a value not present in its cited words; accepts after normalising case, spaces, number formats
-- [ ] Updating a `report_versions` row with `locked_at` set fails (409 via API, error at DB level)
-- [ ] `bedrock.py` refuses any model ID that is not a London in-region ID
-- [ ] A request containing a made-up NHS number and name produces no log line containing either
-- [ ] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
-- [ ] Frontend build contains no Supabase/Azure/AWS hosts or SDKs; CSP allows only the API origin
-- [ ] Frontend never writes tokens to `localStorage` or `sessionStorage`
-- [ ] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `backend/app/slices`, `frontend/src/features`, prompt templates)
-- [ ] **Fixture packs** (`packs/_fixtures/`): core API flows and screen copy run under both the launch packs and the fixture packs; party words, clinician titles, deadlines (business days, timezone), date order, identifiers, workflow steps, lanes and declarations all change accordingly
-- [ ] Pack loader merges four layers (jurisdiction, case type, specialty, overlay) with the rules in architecture 3.2, supports `extends:`, resolves placeholders, and refuses a jurisdiction file containing a specialty word or a specialty file containing a country word
-- [ ] Deadlines respect the pack's calendar rule and public holidays (test: a deadline landing on an England and Wales bank holiday)
-- [ ] All timestamps stored in UTC; deadlines shown in the expert's timezone
-- [ ] Every frontend string comes from an i18n key (no hard-coded user-facing text in components)
-- [ ] The AI kit refuses model IDs and endpoints outside the current cell's allow-list
-- [ ] `GET /v1/jurisdictions` returns only `gb-eaw` in the UK cell; `GET /v1/jurisdictions/gb-eaw` returns vocabulary, declarations, checklist and deadline rules
-- [ ] `pack.deadline("written_questions", served_on)` returns served_on + 28 days for `gb-eaw`
-- [ ] A status change not in `docs/spec/state-machines.md` is refused by the service (409) and by the database trigger
-- [ ] `crypto.encrypt`/`decrypt` round-trip per case; after key destruction, decrypt fails; KMS unreachable → processing pauses (fail closed)
-- [ ] An invalid pack file fails CI schema validation and stops the app starting
-- [ ] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test
+**Non-negotiables (`api/tests/guards/`, `web/src/foundation/guards/`):**
+- [x] Every `/v1/cases/{id}/…` route returns 404 for a person with no access to that case (route table scanned automatically)
+- [x] State-changing routes return 403 without a CSRF token
+- [x] 🔒 routes return 403 `step_up_required` without `aal2` in the last 10 minutes
+- [x] `GET /pages/{n}/facts` returns 423 until `POST /pages/{n}/read` (tested against the contract with a stub route)
+- [x] `provenance.check` rejects a value not present in its cited words; accepts after normalising case, spaces, number formats
+- [x] Updating a `report_versions` row with `locked_at` set fails (409 via API, error at DB level)
+- [x] `bedrock.py` refuses any model ID that is not a London in-region ID
+- [x] A request containing a made-up NHS number and name produces no log line containing either
+- [x] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
+- [x] Frontend build contains no Supabase/Azure/AWS hosts or SDKs; CSP allows only the API origin
+- [x] Frontend never writes tokens to `localStorage` or `sessionStorage`
+- [x] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `api/app/features`, `web/src/capabilities`, prompt templates)
+- [x] **Fixture packs** (`packs/_fixtures/`) (API side step 5, screen copy step 9): core API flows and screen copy run under both the launch packs and the fixture packs; party words, clinician titles, deadlines (business days, timezone), date order, identifiers, workflow steps, lanes and declarations all change accordingly
+- [x] Pack loader merges four layers (jurisdiction, case type, specialty, overlay) with the rules in architecture 3.2, supports `extends:`, resolves placeholders, and refuses a jurisdiction file containing a specialty word or a specialty file containing a country word
+- [x] Deadlines respect the pack's calendar rule and public holidays (test: a deadline landing on an England and Wales bank holiday)
+- [x] All timestamps stored in UTC; deadlines shown in the expert's timezone
+- [x] Every frontend string comes from an i18n key (no hard-coded user-facing text in components)
+- [x] The AI kit refuses model IDs and endpoints outside the current cell's allow-list
+- [x] `GET /v1/jurisdictions` returns only `gb-eaw` in the UK cell; `GET /v1/jurisdictions/gb-eaw` returns vocabulary, declarations, checklist and deadline rules
+- [x] `pack.deadline("written_questions", served_on)` returns served_on + 28 days for `gb-eaw`
+- [x] A status change not in `docs/spec/state-machines.md` is refused by the service (409) and by the database trigger
+- [x] `crypto.encrypt`/`decrypt` round-trip per case; after key destruction, decrypt fails; KMS unreachable → processing pauses (fail closed)
+- [x] An invalid pack file fails CI schema validation and stops the app starting
+- [x] Failure modes F5, F6, F10, F11 and F24 (`docs/spec/failure-modes.md`) each have a passing test (F5, F10, F11, F24 in step 6; F6 in step 7)
 
 **Features:**
-- [ ] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
-- [ ] First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified
-- [ ] Session expires after 30 minutes of inactivity; sign-in success and failure are written to `audit_log`
-- [ ] Password reset responds the same whether or not the email exists, and revokes all sessions
-- [ ] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256
-- [ ] Job progress streams over SSE and contains no patient text
-- [ ] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
-- [ ] Audit log hash chain verifies; tampering with a row is detected
-- [ ] Today shows case cards and items registered through `NeedsYouItem`
-- [ ] Sign-in and Today screens pass axe checks and match their canvas boards
+- [x] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
+- [x] First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified
+- [x] Session expires after 30 minutes of inactivity; sign-in success and failure are written to `audit_log`
+- [x] Password reset responds the same whether or not the email exists, and revokes all sessions
+- [x] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256
+- [x] Job progress streams over SSE and contains no patient text
+- [x] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
+- [x] Audit log hash chain verifies; tampering with a row is detected
+- [x] Today shows case cards and items registered through `NeedsYouItem`
+- [x] Sign-in and Today screens pass axe checks and match their canvas boards (axe in Vitest and in Playwright with colour contrast for S01, S03 and S28; side-by-side review against `docs/design/images/` done in step 10)
 
 ## Out of scope
 Bundle processing (A), reader (B), profile and questions (C), everything after.
 
 ## Definition of done
-Root checklist, plus: deployed to staging in London; a test expert can sign in with MFA, create a case and upload a bundle; all core tests green.
+Root checklist, plus: deployed to staging in London; a test expert can sign in with MFA, create a case and upload a bundle; all core tests green. (Stage 2: the staging deploy needs cloud accounts; core tests are green in stage 1.)
 
 ## Behaviour rules this slice must build (architecture 10, 5.4)
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes).
+**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes), `mfa_attempts`, `job_kind_actions`.
 
-**Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, (The Stripe webhook moved to slice O, Phase 2.)
+**Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, `GET /v1/jurisdictions`, `GET /v1/jurisdictions/{code}`, `GET /v1/cases/{case_id}/pack`, (The Stripe webhook moved to slice O, Phase 2.)
 
 **Shared code:** `core/auth/require_case_access(action)` is the only access check (it replaces the earlier owner-only check); it reads the matrix in `docs/spec/permissions.md` from one table in code. ETag/If-Match middleware (412 `stale`); `Idempotency-Key` middleware (24 h); per-case job lock; scheduled-job runner keyed by date; notification service (in-app + email, no patient data, bounce banner).
 
-- [ ] Every cell of the permissions matrix has a passing test under the fixture packs
-- [ ] First `GET /me` creates a `people` row and a personal organisation with the person as owner
-- [ ] A person who is named expert on one case and assistant on another gets the right rights on each (S1)
-- [ ] A stale `If-Match` returns 412 and changes nothing (F26)
-- [ ] A repeated `Idempotency-Key` returns the first response and creates one row (F27)
-- [ ] A missed daily run catches up each missed date exactly once (F28)
-- [ ] Recovery codes: 10 issued, each works once, regenerate invalidates the old set; admins cannot reset another person's MFA
-- [ ] Email change needs confirmation from both addresses and step-up
-- [ ] Audit rows carry person, organisation, case, action and target
-- [ ] Only one case-changing job runs per case at a time; interactive jobs run before batch
+- [x] Every cell of the permissions matrix has a passing test under the fixture packs
+- [x] First `GET /me` creates a `people` row and a personal organisation with the person as owner
+- [x] A person who is named expert on one case and assistant on another gets the right rights on each (S1)
+- [x] A stale `If-Match` returns 412 and changes nothing (F26)
+- [x] A repeated `Idempotency-Key` returns the first response and creates one row (F27)
+- [x] A missed daily run catches up each missed date exactly once (F28)
+- [x] Recovery codes: 10 issued, each works once, regenerate invalidates the old set; admins cannot reset another person's MFA
+- [x] Email change needs confirmation from both addresses and step-up
+- [x] Audit rows carry person, organisation, case, action and target
+- [x] Only one case-changing job runs per case at a time; interactive jobs run before batch

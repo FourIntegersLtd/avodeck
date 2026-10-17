@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Deadline rules",
+  "type": "object",
+  "properties": {
+    "deadlines": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "rule_ref": {
+            "type": "string",
+            "minLength": 1
+          },
+          "days": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "calendar": {
+            "enum": [
+              "calendar_days",
+              "business_days"
+            ]
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "if_closed": {
+            "enum": [
+              "next_working_day"
+            ]
+          },
+          "set_by": {
+            "enum": [
+              "direction"
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "deadlines"
+  ]
+}

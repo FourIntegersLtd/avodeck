@@ -1,0 +1,262 @@
+"""Chunked uploads and file downloads, through FastAPI only (rule 4; architecture 5.3, screen 04).
+
+- POST /v1/cases/{case_id}/uploads starts an upload: 8 MB chunks, the whole file's SHA-256 up front.
+- PUT /v1/uploads/{upload_id}/chunks/{n} stores chunk n encrypted under the case's key. A dropped
+  chunk is sent again; an optional `X-Chunk-SHA256` catches one damaged on the way.
+- GET /v1/uploads/{upload_id} says which chunks are in and which are missing, to resume.
+- POST /v1/uploads/{upload_id}/complete checks the whole file's SHA-256 and registers the document.
+- GET /v1/cases/{case_id}/documents/{document_id}/file streams the file back, decrypted.
+
+Storage paths and keys never leave the server. Scanning and processing start in slice A.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import uuid
+from collections.abc import AsyncIterator
+from typing import Annotated
+
+from fastapi import Depends, Request, Response
+from fastapi.responses import StreamingResponse
+from psycopg import AsyncConnection
+from psycopg.rows import dict_row
+from pydantic import BaseModel, Field
+
+from app.core import audit
+from app.core.auth.access import CaseAccess, check_case_access, require_case_access
+from app.core.crypto import CaseCrypto, StoredFileChanged
+from app.core.errors import ApiError
+from app.core.http import CurrentScope, DbConn, router
+from app.core.storage import SupabaseStorage, upload_prefix
+
+CHUNK_SIZE = 8 * 1024 * 1024
+MAX_FILE_SIZE = 500 * 1024 * 1024
+CODE = r"^[a-z][a-z0-9_]{0,39}$"
+
+uploads_router = router(tags=["uploads"])
+
+
+class UploadStart(BaseModel):
+    kind: str = Field(pattern=CODE, description="A document kind from the case's packs.")
+    filename: str = Field(min_length=1, max_length=255)
+    size: int = Field(gt=0)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class Upload(BaseModel):
+    upload_id: uuid.UUID
+    case_id: uuid.UUID
+    status: str
+    size: int
+    chunk_size: int
+    chunk_count: int
+    received: list[int]
+    missing: list[int]
+    document_id: uuid.UUID | None
+
+
+class ChunkReceived(BaseModel):
+    received: list[int]
+
+
+class UploadedDocument(BaseModel):
+    document_id: uuid.UUID
+    sha256: str
+    size: int
+
+
+def _storage(request: Request) -> SupabaseStorage:
+    storage: SupabaseStorage | None = request.app.state.storage
+    if storage is None:
+        raise ApiError("unavailable", "File storage is not ready.", 503)
+    return storage
+
+
+def _crypto(request: Request) -> CaseCrypto:
+    crypto: CaseCrypto | None = request.app.state.crypto
+    if crypto is None:
+        raise ApiError("unavailable", "File storage is not ready.", 503)
+    return crypto
+
+
+Storage = Annotated[SupabaseStorage, Depends(_storage)]
+Crypto = Annotated[CaseCrypto, Depends(_crypto)]
+
+
+def _prefix(case_id: uuid.UUID, upload_id: uuid.UUID) -> str:
+    return upload_prefix(case_id, upload_id)
+
+
+def _chunk_path(prefix: str, n: int) -> str:
+    return f"{prefix}/{n:05d}"
+
+
+def _upload(row: dict[str, object]) -> Upload:
+    received: list[int] = sorted(row["received"])  # type: ignore[call-overload]
+    count = int(row["chunk_count"])  # type: ignore[call-overload]
+    return Upload(
+        upload_id=row["id"],  # type: ignore[arg-type]
+        case_id=row["case_id"],  # type: ignore[arg-type]
+        status=row["status"],  # type: ignore[arg-type]
+        size=row["size"],  # type: ignore[arg-type]
+        chunk_size=row["chunk_size"],  # type: ignore[arg-type]
+        chunk_count=count,
+        received=received,
+        missing=sorted(set(range(1, count + 1)) - set(received)),
+        document_id=row["document_id"],  # type: ignore[arg-type]
+    )
+
+
+async def _load(conn: AsyncConnection, upload_id: uuid.UUID, *, lock: bool = False) -> dict[str, object]:
+    """The upload, if the person may upload to its case; 404 otherwise (as for any case resource)."""
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "select id, case_id, status, size, sha256, chunk_size, chunk_count, received, document_id, kind,"
+            " filename, expires_at < now() as expired from app.uploads where id = %s" + (" for update" if lock else ""),
+            (upload_id,),
+        )
+        row = await cur.fetchone()
+    if row is None:
+        raise ApiError("not_found", "Not found.", 404)
+    await check_case_access(conn, row["case_id"], "case.upload")
+    return row
+
+
+@uploads_router.post("/v1/cases/{case_id}/uploads", status_code=201, response_model=Upload)
+async def start_upload(
+    case_id: uuid.UUID,
+    body: UploadStart,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    conn: DbConn,
+) -> Upload:
+    if body.size > MAX_FILE_SIZE:
+        raise ApiError("file_too_large", "This file is too large. Split it into smaller files.", 422)
+    count = -(-body.size // CHUNK_SIZE)
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
+            " values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s)"
+            " returning id, case_id, status, size, chunk_size, chunk_count, received, document_id",
+            (case_id, body.kind, body.filename, body.size, body.sha256, CHUNK_SIZE, count),
+        )
+        row = await cur.fetchone()
+    assert row is not None
+    return _upload(row)
+
+
+@uploads_router.get("/v1/uploads/{upload_id}", response_model=Upload)
+async def get_upload(upload_id: uuid.UUID, conn: DbConn) -> Upload:
+    return _upload(await _load(conn, upload_id))
+
+
+def _open(row: dict[str, object]) -> None:
+    if row["status"] != "open" or row["expired"]:
+        raise ApiError("upload_closed", "This upload has finished. Start the upload again.", 409)
+
+
+@uploads_router.put("/v1/uploads/{upload_id}/chunks/{n}", response_model=ChunkReceived)
+async def put_chunk(
+    upload_id: uuid.UUID, n: int, request: Request, conn: DbConn, storage: Storage, crypto: Crypto
+) -> ChunkReceived:
+    row = await _load(conn, upload_id)
+    _open(row)
+    count, size, chunk = int(row["chunk_count"]), int(row["size"]), int(row["chunk_size"])  # type: ignore[call-overload]
+    if not 1 <= n <= count:
+        raise ApiError("chunk_out_of_range", "This part is not in the file.", 422)
+    data = await request.body()
+    expected = min(chunk, size - (n - 1) * chunk)
+    if len(data) != expected:
+        raise ApiError("chunk_size_wrong", "This part did not arrive whole. Send it again.", 422, expected=expected)
+    sent_sha = request.headers.get("x-chunk-sha256")
+    if sent_sha is not None and hashlib.sha256(data).hexdigest() != sent_sha.lower():
+        raise ApiError("chunk_corrupted", "This part was damaged on the way. Send it again.", 422)
+    case_id: uuid.UUID = row["case_id"]  # type: ignore[assignment]
+    path = _chunk_path(_prefix(case_id, upload_id), n)
+    await storage.put(path, await crypto.encrypt(conn, case_id, data, purpose=path))
+    cur = await conn.execute(
+        "update app.uploads set received = array(select distinct unnest(received || %s::int) order by 1)"
+        " where id = %s returning received",
+        (n, upload_id),
+    )
+    updated = await cur.fetchone()
+    assert updated is not None
+    return ChunkReceived(received=list(updated[0]))
+
+
+@uploads_router.post("/v1/uploads/{upload_id}/complete", status_code=201, response_model=UploadedDocument)
+async def complete_upload(
+    upload_id: uuid.UUID, response: Response, conn: DbConn, storage: Storage, crypto: Crypto
+) -> UploadedDocument:
+    row = await _load(conn, upload_id, lock=True)
+    if row["status"] == "complete":
+        response.status_code = 200
+        return UploadedDocument(document_id=row["document_id"], sha256=row["sha256"], size=row["size"])  # type: ignore[arg-type]
+    _open(row)
+    upload = _upload(row)
+    if upload.missing:
+        raise ApiError("chunks_missing", "Some parts have not arrived yet.", 409, missing=upload.missing)
+    case_id = upload.case_id
+    prefix = _prefix(case_id, upload_id)
+    digest = hashlib.sha256()
+    for n in range(1, upload.chunk_count + 1):
+        path = _chunk_path(prefix, n)
+        digest.update(await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path))
+    if digest.hexdigest() != row["sha256"]:
+        raise ApiError("sha256_mismatch", "The file changed on the way. Upload it again.", 422)
+    cur = await conn.execute(
+        "insert into app.documents (case_id, kind, filename, storage_path, sha256, uploaded_by)"
+        " values (%s, %s, %s, %s, %s, app.current_person_id()) returning id",
+        (case_id, row["kind"], row["filename"], prefix, row["sha256"]),
+    )
+    created = await cur.fetchone()
+    assert created is not None
+    document_id: uuid.UUID = created[0]
+    await conn.execute(
+        "update app.uploads set status = 'complete', document_id = %s, completed_at = now() where id = %s",
+        (document_id, upload_id),
+    )
+    await audit.record(conn, action="document.uploaded", target=f"document:{document_id}", case_id=case_id)
+    return UploadedDocument(document_id=document_id, sha256=row["sha256"], size=upload.size)
+
+
+@uploads_router.get("/v1/cases/{case_id}/documents/{document_id}/file", response_class=StreamingResponse)
+async def download_document(
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_content"))],
+    request: Request,
+    conn: DbConn,
+    scope: CurrentScope,
+    storage: Storage,
+    crypto: Crypto,
+) -> StreamingResponse:
+    cur = await conn.execute(
+        "select storage_path, sha256 from app.documents where id = %s and case_id = %s", (document_id, case_id)
+    )
+    row = await cur.fetchone()
+    if row is None or not row[0]:
+        raise ApiError("not_found", "Not found.", 404)
+    expected: str = row[1]
+    paths = sorted(await storage.list(row[0]))
+    if not paths:
+        raise ApiError("not_found", "Not found.", 404)
+    database = request.app.state.database
+
+    async def body() -> AsyncIterator[bytes]:
+        # The request's transaction has closed by now: each part is read in its own, as the same person.
+        # Each part opens only at its own path; the whole file must still match its SHA-256, or the
+        # stream stops with an error instead of finishing as a file that is not the one uploaded.
+        digest = hashlib.sha256()
+        for path in paths:
+            blob = await storage.get(path)
+            async with database.request(scope) as part_conn:
+                data = await crypto.decrypt(part_conn, case_id, blob, purpose=path)
+            digest.update(data)
+            yield data
+        if digest.hexdigest() != expected:
+            raise StoredFileChanged("stored file does not match its checksum")
+
+    return StreamingResponse(
+        body(), media_type="application/octet-stream", headers={"cache-control": "private, no-store"}
+    )

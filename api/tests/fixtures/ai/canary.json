@@ -1,0 +1,21 @@
+{
+  "about": "F10 synthetic canary. Every value is made up; numbers carry valid check digits but belong to no one.",
+  "canaries": [
+    {
+      "id": "launch-letter",
+      "packs": "launch",
+      "names": ["Ada Pemberton-Vale"],
+      "text": "Re: Ada Pemberton-Vale, DOB 12/03/1961, number 943 476 5919, 12 High Street, ZZ9 9ZZ.\nSeen 14/03/2020 by the practice. Mrs Pemberton-Vale reported chest pain for 2 days.\nReferred 21/03/2020. Ref 9434765919.",
+      "remove": ["Ada", "Pemberton-Vale", "12/03/1961", "943 476 5919", "9434765919", "ZZ9 9ZZ"],
+      "keep": ["14/03/2020", "21/03/2020", "chest pain", "2 days"]
+    },
+    {
+      "id": "fixture-note",
+      "packs": "fixture",
+      "names": ["Ada Pemberton-Vale"],
+      "text": "Ada Pemberton-Vale ZZ-ID-654321 Birthdate: 07/04/1950. Seen 04/05/2021 with a sore throat.",
+      "remove": ["Ada", "Pemberton-Vale", "ZZ-ID-654321", "07/04/1950"],
+      "keep": ["04/05/2021", "sore throat"]
+    }
+  ]
+}

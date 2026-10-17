@@ -1,43 +1,58 @@
-# Avodeck developer commands. Targets are stubs until the foundation slice fills them in.
-S ?= core
+# Avodeck developer commands. The API and worker live in api/ (Poetry, Python 3.12); the web app in web/.
+# make test-slice S=pipeline  (SLICE=pipeline also works; names are in .claude/routes.json)
+SLICE ?=
+S ?= $(SLICE)
 
-dev:            ## API, worker, frontend and local Supabase
+# Run a command in web/ only once the web app has been set up.
+in_web = if [ -f web/package.json ]; then cd web && $(1); else echo "web: not set up yet, skipped"; fi
+
+.PHONY: install dev test test-core test-slice test-api test-web api-client schemathesis eval \
+	lint lint-api lint-web eval-data check-spec
+
+install:        ## Poetry env for api/ (and pnpm for web/ once it exists)
+	$(MAKE) -C api install
+	@$(call in_web,pnpm install --frozen-lockfile)
+
+dev:            ## local Supabase, API, worker and web app
 	supabase start
-	cd backend && uvicorn app.main:app --reload --port 8000 & \
-	cd backend && python -m app.worker & \
-	cd frontend && pnpm dev
+	$(MAKE) -C api start & \
+	if [ -f api/app/worker/handlers.py ]; then $(MAKE) -C api worker & fi; \
+	if [ -f web/package.json ]; then cd web && pnpm dev; else wait; fi
 
-test: test-backend test-frontend
+test: test-api test-web
 
-test-core:
-	cd backend && python -m pytest -q tests/core
-	cd frontend && pnpm vitest run tests/core
+test-core:      ## the non-negotiable rules' tests
+	@$(MAKE) -s -C api guards
+	@$(call in_web,pnpm vitest run src/foundation/guards --passWithNoTests)
 
-test-slice:     ## make test-slice S=a
-	cd backend && python -m pytest -q tests/$(S)
-	cd frontend && pnpm vitest run tests/$(S) --passWithNoTests
+test-slice:     ## make test-slice S=pipeline
+	@test -n "$(S)" || { echo "usage: make test-slice S=<feature>"; exit 2; }
+	@$(MAKE) -s -C api test-feature F=$(S)
+	@$(call in_web,pnpm vitest run src/capabilities/$(subst _,-,$(S)) --passWithNoTests)
 
-test-backend:
-	cd backend && python -m pytest -q --cov=app --cov-fail-under=85
+test-api:
+	$(MAKE) -C api test
 
-test-frontend:
-	cd frontend && pnpm vitest run --coverage
+test-web:
+	@$(call in_web,pnpm vitest run --coverage)
 
-api-client:     ## regenerate openapi.json and the typed frontend client
-	cd backend && python -m app.export_openapi > ../openapi.json
-	cd frontend && pnpm exec openapi-typescript ../openapi.json -o src/api/schema.ts
+api-client:     ## regenerate openapi.json and the typed web client
+	$(MAKE) -C api openapi
+	@$(call in_web,pnpm exec openapi-typescript ../openapi.json -o src/foundation/platform-client/schema.ts)
 
 schemathesis:
-	schemathesis run openapi.json --base-url http://localhost:8000 --checks all
+	$(MAKE) -C api schemathesis
 
 eval:           ## live models against synthetic bundles
-	cd backend && python -m app.evals.run --threshold 0.95
+	$(MAKE) -C api eval
 
-lint: lint-backend
-	cd frontend && pnpm lint && pnpm typecheck
+lint: lint-api lint-web
 
-lint-backend:
-	cd backend && ruff check . && mypy app
+lint-api:
+	$(MAKE) -C api lint typecheck
+
+lint-web:
+	@$(call in_web,pnpm lint && pnpm typecheck)
 
 # Synthetic evaluation data (deterministic; PDFs are not committed)
 eval-data:

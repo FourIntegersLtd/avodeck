@@ -77,7 +77,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Subject status (living, deceased, minor) changes only vocabulary, proven under the fixture packs
 
 ## Rules that apply
-1, 2, 4, 5, 6, 7, 9 from the root `CLAUDE.md`.
+1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.
 
 ## Out of scope
 Uploading mechanics (foundation), bundle processing (A), report assembly using the template (F).

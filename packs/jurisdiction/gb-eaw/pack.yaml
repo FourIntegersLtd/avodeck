@@ -1,6 +1,6 @@
 code: gb-eaw
 name: England and Wales
-version: 2026.10.1
+version: 2026.10.2
 cell: uk
 locale: en-GB
 language: en
@@ -8,8 +8,9 @@ timezone: Europe/London
 date_order: DMY            # used by the date normaliser; ambiguous dates are flagged, never guessed
 currency: GBP
 tax: VAT
+working_week: [1, 2, 3, 4, 5]   # ISO weekdays the court office is open (Monday to Friday)
 holidays:
-  source: gov.uk/bank-holidays.json#england-and-wales   # fetched into a cached table; deadlines skip these on business-day rules
+  source: gov.uk/bank-holidays.json#england-and-wales   # snapshot in holidays.yaml; deadlines skip these days
 registration_bodies:       # by profession (the specialty pack declares the profession)
   doctor: [GMC]
   nurse: [NMC]

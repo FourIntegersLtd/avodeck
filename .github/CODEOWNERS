@@ -2,7 +2,8 @@
 # Ground truth for evaluations needs a clinician reviewer's sign-off (architecture 10.10).
 /evals/**/expected/   @OWNER
 /packs/               @OWNER
-/CLAUDE.md            @OWNER
+/AGENTS.md            @OWNER
+**/AGENTS.md          @OWNER
 /.claude/             @OWNER
 /.github/             @OWNER
-/backend/app/core/    @OWNER
+/api/app/core/        @OWNER

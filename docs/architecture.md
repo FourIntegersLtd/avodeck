@@ -4,7 +4,7 @@
 
 **Not in here:** research evidence, vendor comparisons, costs, compliance analysis and market notes. Those live in `docs/research/background.md`. You do not need them to build; read them only when making a vendor, cost, legal or market decision.
 
-**Also read:** the root `CLAUDE.md` (rules and how we work), your slice brief in `docs/slices/`, and `docs/decisions/` before changing anything structural.
+**Also read:** the root `AGENTS.md` (rules and how we work), your slice brief in `docs/slices/`, and `docs/decisions/` before changing anything structural.
 
 ---
 
@@ -14,7 +14,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 
 **Launch configuration:** England and Wales · clinical negligence, breach of duty · general practice. Everything else (other specialties, causation and prognosis, personal injury, other countries) is added later as packs, not rewrites (section 3).
 
-**The non-negotiables** (full wording and tests in the root `CLAUDE.md`):
+**The non-negotiables** (full wording and tests in the root `AGENTS.md`):
 1. The AI never writes opinion.
 2. Every fact cites OCR word IDs on a numbered page; the server rejects anything else; only verified facts can be cited.
 3. Blind read is enforced by the server (facts return 423 until the page is read).
@@ -51,7 +51,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 - **Browser → FastAPI only.** Login, uploads (8 MB chunks), page images, downloads, dictation (WebSocket) and progress (server-sent events) all go through FastAPI. No Supabase, Azure or AWS keys or URLs in the frontend. Exceptions: the signature pad and the offline witness-box search.
 - **FastAPI → Postgres** as restricted roles (`app_api`, `app_worker`), never the service role. Each request or job sets who is acting (`SET LOCAL app.person_id` / `app.job_case_id`), so row-level security really repeats the access check (ADR 0013). Tables live in a schema not exposed to Supabase's Data API. The service-role key is used only for Supabase Auth admin calls and Storage.
 - **Long work** (OCR, extraction, report building, matching, export, deletion) is queued; the API returns `202` + `job_id`; the worker processes it page by page, idempotently.
-- **AI calls** go only through the AI kit (`backend/app/core/ai/`), which strips identifiers, enforces the cell's model allow-list, validates structured output, checks provenance and logs metadata (never content).
+- **AI calls** go only through the AI kit (`api/app/core/ai/`), which strips identifiers, enforces the cell's model allow-list, validates structured output, checks provenance and logs metadata (never content).
 
 ### 2.3 Regional cells
 
@@ -108,7 +108,7 @@ Every case carries three codes (jurisdiction, case type, specialty). The loader 
 
 ```
 packs/
-  jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, meetings.yaml,
+  jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, holidays.yaml, meetings.yaml,
                             legal_tests.md, report.yaml (court compliance items), final_checks.yaml, identifiers.py
   case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml, final_checks.yaml
   specialty/general-practice/ pack.yaml (profession), facts.yaml, sources.yaml, lanes.yaml, checks.yaml, final_checks.yaml, vocabulary.yaml
@@ -116,7 +116,7 @@ packs/
   _fixtures/                 deliberately strange test packs (see 3.6); never allowed in a real cell
 ```
 
-- **One loader:** `backend/app/core/packs.py` validates every pack against a JSON Schema (`packs/schema/`) and refuses incomplete ones.
+- **One loader:** `api/app/core/packs.py` validates every pack against a JSON Schema (`packs/schema/`) and refuses incomplete ones.
 - **Inheritance:** a pack may declare `extends: <code>` in its layer (e.g. `ime-au-nsw-workers-comp` extends `ime`; `gb-sct` could extend a shared `gb-common`). Child files override parent files key by key.
 - **Merge rules:** dictionaries merge by key, later layer wins; lists that are registries (fact kinds, lanes, checks, sections, final checks) are unioned by `key`, and a later layer can disable an entry with `enabled: false`; text files (declarations, legal tests) are replaced whole. A key defined twice in the same layer is an error.
 - **Placeholders, not words:** pack text that needs another layer's word uses placeholders, e.g. `{clinician}`, `{clinicians}`, `{instructing_party}`, `{subject}`, filled at merge time. A jurisdiction file must never contain a specialty word, and a specialty file never a country's word (pack lint in CI).
@@ -141,7 +141,7 @@ packs/
 - **Billing:** currency and tax per billing profile (person or organisation); Stripe Tax handles VAT/GST/HST.
 - **Retention:** default retention period from the pack, not a hard-coded six years. Policies are `delete_now`, `keep_default` (years from the pack) and `return_then_delete`.
 - **Time:** all timestamps stored in UTC. Each jurisdiction pack sets its `timezone` (or a list, for countries with several); each expert has a `timezone`. Deadlines are calculated in the court's timezone and shown in the expert's.
-- **Court calendars:** deadline rules state `calendar_days` or `business_days`, and the jurisdiction pack names its public-holiday source (England and Wales: GOV.UK bank holidays). Never assume weekends or holidays in code.
+- **Court calendars:** deadline rules state `calendar_days` or `business_days`, and the jurisdiction pack names its public-holiday source (England and Wales: GOV.UK bank holidays), its `working_week`, and keeps a dated snapshot in `holidays.yaml`; a deadline outside the snapshot's range is refused. Never assume weekends or holidays in code.
 - **Parties and instructing parties:** the case type declares party roles (e.g. `instructing_side`, `other_side`, `joint`) and instructing-party types (solicitor, insurer, coroner, scheme, regulator); the jurisdiction pack labels them (claimant, defendant, plaintiff). Code never says claimant or solicitor.
 - **Professions:** the specialty pack declares the profession (doctor, nurse, physiotherapist, psychologist, dentist); the jurisdiction pack maps each profession to its registration bodies (GMC, NMC, HCPC; AHPRA). Experts can hold more than one specialty.
 - **Court tracks and question rules:** optional jurisdiction registries (e.g. England and Wales tracks; how written questions are classified). A jurisdiction without them simply hides those fields.
@@ -173,7 +173,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 
 ### 3.5 How code uses packs
 
-- **One entry point:** `pack = packs.for_case(case)` (in `backend/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
+- **One entry point:** `pack = packs.for_case(case)` (in `api/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
 - **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
 - **Never hard-code** in slice code, prompts, schemas, enums or tests outside fixtures: court or rule names (CPR, PD35, Part 35), guidance bodies (NICE), "statement of truth", party or instructing-party words (claimant, defendant, solicitor), clinician titles (GP), record systems (EMIS, SystmOne), identifier types (NHS number), currencies, date orders, timezones, holiday rules, retention periods or fixed lists of anything in a registry.
 - **Recorded on the report:** `cases.pack_versions` and each served report store the pack versions used, so later wording changes never alter old reports.
@@ -184,7 +184,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 - **Fixture packs:** `packs/_fixtures/` holds a deliberately strange combination: `zz-test` (month-first dates, a different identifier format, 21-day deadlines in business days, a non-London timezone, "petitioner" and "counsel" instead of claimant and solicitor), `zz-case` (different workflow steps and question types) and `zz-specialty` (a non-doctor profession, different fact kinds and lanes).
 - **Core test:** the foundation runs the core API flows and screen copy twice, with the launch packs and with the fixture packs. Any word or rule that comes out the same under both, when it should come from a pack, fails the build. This is the main guard for rule 11.
 - **Pack lint (CI):** every pack validates against `packs/schema/`; jurisdiction files contain no specialty words; specialty files contain no country words; placeholders resolve; every registry key has an i18n label.
-- **Slice code scan (CI):** the forbidden-word list in 3.5 is scanned in `backend/app/slices`, `frontend/src/features` and prompt templates.
+- **Slice code scan (CI):** the forbidden-word list in 3.5 is scanned in `api/app/features`, `web/src/capabilities` and prompt templates.
 
 ### 3.7 What each layer must provide
 
@@ -207,15 +207,17 @@ Who signs in, and the professional profile of those who give evidence.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `people` | One row per person who can sign in (an expert, an assistant, an agency admin). Their login lives in Supabase Auth; this is their Avodeck profile. | id (= auth user id), full_name, email, locale, timezone, home_region, records_custodian (name, email), created_at, closed_at |
+| `people` | One row per person who can sign in (an expert, an assistant, an agency admin). Their login lives in Supabase Auth; this is their Avodeck profile. | id (= auth user id), full_name, email, locale, timezone, home_region, records_custodian (name, email), created_at, closed_at, email_bounced_at |
 | `experts` | The professional side of a person who gives expert evidence: profession, specialties and registration. Not every person is an expert (assistants are not). One per person. | person_id, profession, specialties[], registration_body, registration_number, hourly_rate, currency, default_retention, default_jurisdiction |
 | `expert_roles` | The clinical jobs an expert has held and when (e.g. GP partner 2005–now). Used to check they practised in the relevant setting and period. | expert_id, specialty, role_title, setting, period |
 | `expert_training` | Courses and qualifications listed on the expert's CV. | expert_id, title, year |
 | `report_templates` | A Word file the expert's reports are built into. Can belong to a person or an organisation. | owner_type (person/organisation), owner_id, storage_path, sha256, style_map, heading_map, version |
 | `declarations` | Any extra declaration wording the expert adds; the court's fixed wording comes from the pack. | expert_id, jurisdiction, kind, text, locked_at |
 | `signatures` | The expert's signature image. | expert_id, storage_path, method, created_at |
-| `sessions` | Each device a person is signed in on, so they can see and sign out devices. | person_id, device_label, created_at, last_seen_at, revoked_at |
+| `sessions` | Each device a person is signed in on, so they can see and sign out devices. The cookie holds a random token; only its scrambled copy is kept, and Supabase Auth's tokens stay here, never in the browser. | person_id, token_hash, csrf_hash, device_label, aal, mfa_verified_at, created_at, last_seen_at, revoked_at, revoked_reason |
 | `mfa_recovery_codes` | One-time backup codes for when someone loses their phone (stored scrambled). | person_id, code_hash, used_at |
+| `mfa_attempts` | Wrong authenticator codes in the last 15 minutes (5 lock MFA for the rest of the window) and the last code accepted, so it cannot be used twice. | person_id, failures, window_started_at, last_code_hash, last_code_at |
+| `email_changes` | A change of sign-in email waiting for both the old and the new address to confirm (links last a day). | person_id, new_email, old_token_hash, new_token_hash, old_confirmed_at, new_confirmed_at, completed_at, cancelled_at, expires_at |
 
 ### 4.2 Organisations
 
@@ -227,7 +229,7 @@ Who owns cases and pays, who belongs, and how they want to be told about things.
 | `memberships` | Who belongs to which organisation and in what role. One person can be in several organisations; leaving ends the membership but keeps the history. | organisation_id, person_id, role (owner/admin/expert/assistant/viewer), started_at, ended_at |
 | `invites` | An invitation to join an organisation, sent by email, valid for 7 days. | organisation_id, email, role, invited_by, expires_at, accepted_at |
 | `billing_profiles` | Who an invoice is from: name, address and tax number of the organisation or expert issuing it, with their own invoice numbering. | owner_type, owner_id, legal_name, address, tax_number, currency, next_invoice_no |
-| `notification_preferences` | How a person wants to be told about things, per organisation (in-app, email, daily digest). | person_id, organisation_id, channel, digest, muted_kinds[] |
+| `notification_preferences` | How a person wants to be told about things, per organisation (in-app, email, daily digest). | person_id, organisation_id, channel, enabled, digest, muted_kinds[] |
 | `support_access_grants` | A time-limited permission the named expert gives Avodeck support to look at one case. | case_id, granted_by, granted_to, reason, expires_at, revoked_at |
 
 ### 4.3 Case
@@ -354,13 +356,18 @@ The machinery behind everything: keys, jobs, notifications, logs.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, kms_key_arn, created_at, destroyed_at |
-| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, pct, eta_seconds, code_version, error_code |
-| `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, created_at, read_at, emailed_at |
+| `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
+| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, code_version, error_code |
+| `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
+| `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
+| `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
+| `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, expires_at, completed_at |
+| `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, in_app, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
-| `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, at |
-| `transcripts` | Finished dictation text the expert kept. | case_id, person_id, context, text, duration_seconds |
+| `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, case_id, fingerprint, status_code, response_body (sealed), created_at, expires_at |
+| `ai_calls` | A record of each AI call (which model, which prompt version, how many tokens), never the content. | case_id, person_id, task_id, model_id, region, prompt_version, input_tokens, output_tokens, outcome, at |
+| `transcripts` | Finished dictation text the expert kept (encrypted under the case's key). | case_id, person_id, context, text, duration_seconds |
 | `may_matter` | New records after serving that might affect an answer, for the expert to look at. | case_id, fact_id, question_id, why, seen_at |
 
 
@@ -438,7 +445,9 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | PATCH | `/cases/{case_id}` | Update case details | |
 | POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256}` → `upload_id` | |
 | PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk; FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent |
-| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | |
+| GET | `/uploads/{upload_id}` | Which chunks have arrived and which are missing, to resume | |
+| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Virus scan and processing are queued by slice A |
+| GET | `/cases/{case_id}/documents/{document_id}/file` | Stream the stored file back through FastAPI | `Cache-Control: private, no-store` |
 | POST | `/cases/{case_id}/prefill` | T-04 suggest fields from the letter | 202 + job |
 | PUT | `/cases/{case_id}/oral-instructions` | Save oral instructions text | |
 | WS | `/cases/{case_id}/dictation?context=` | Browser streams microphone audio to FastAPI over a WebSocket; FastAPI relays it to Azure Speech (UK South) and streams the text back | Used by every dictation box (T-DICT); no Azure key in the browser; audio not stored |
@@ -695,7 +704,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/health` | Liveness for App Platform | |
 | POST | `/webhooks/stripe` | Subscription and payment events | Signature-verified |
 | POST | `/webhooks/esign` | E-signature status | Signature-verified |
-| GET | `/jobs/{job_id}` | Job status | Owner only |
+| GET | `/jobs/{job_id}` | Job status | Anyone who can see the job's case (`case.view_metadata`), else 404 |
 | | *Scheduled jobs (App Platform or pg_cron)* | Deadline reminders (daily), deletion run (daily), offline package expiry, guideline table review reminder (quarterly) | Call FastAPI with a service token |
 | | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
 
@@ -710,7 +719,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET | `/me/sessions` | Devices the person is signed in on | |
 | DELETE | `/me/sessions/{session_id}` | Sign out one device | |
 | POST | `/auth/mfa/recovery-codes` | Make 10 new one-time recovery codes (old ones stop working) | 🔒 shown once |
-| POST | `/auth/mfa/recover` | `{email, code}` signs in with a recovery code and asks to re-enrol MFA | Rate-limited |
+| POST | `/auth/mfa/recover` | `{email, password, code}` signs in with a recovery code, removes the old authenticator and asks to re-enrol MFA | Rate-limited |
 | POST | `/me/email-change` | Start an email change; confirmation sent to old and new address | 🔒 |
 | POST | `/me/email-change/confirm` | `{token}` from each address; changes once both confirm | |
 | GET / PUT | `/me/notification-preferences` | Per organisation: in-app, email, digest, muted kinds | |
@@ -981,7 +990,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 
 - **Platform:**
   - Login through FastAPI with the cookie session, MFA (with recovery codes), CSRF and step-up; device sessions.
-  - The `people`, `experts`, `organisations` (personal ones only at launch), `memberships`, `cases`, `case_members`, `documents`, `pages`, `jobs`, `notifications`, `notification_preferences`, `feature_flags` and `audit_log` tables, with RLS.
+  - The `people`, `experts`, `organisations` (personal ones only at launch), `memberships`, `cases`, `case_members`, `documents`, `pages`, `jobs`, `notifications`, `notification_preferences`, `feature_flags`, `audit_log` and `idempotency_keys` tables, with RLS.
   - `require_case_access(action)` and the permissions matrix (`docs/spec/permissions.md`) as one tested table.
   - ETag/If-Match and `Idempotency-Key` middleware; scheduled jobs keyed by date; per-case job lock.
 - **Files:** chunked uploads, file streaming, and the job queue with server-sent progress events.

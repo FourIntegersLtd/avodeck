@@ -90,7 +90,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Facts on a duplicate page appear only on the original
 
 ## Rules that apply
-1, 2, 3, 4, 6, 7, 9 from the root `CLAUDE.md`.
+1, 2, 3, 4, 6, 7, 9 from the root `AGENTS.md`.
 
 ## Out of scope
 OCR and extraction (A), the timeline and links (D), points against (E), Gmail sending (Phase 2).

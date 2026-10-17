@@ -20,6 +20,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | home_region | Which country's system they belong to (UK, Australia, Canada) |
 | records_custodian | Someone they nominate to look after their served cases if they die or can't work |
 | closed_at | When they closed their account (empty if active) |
+| email_bounced_at | When an email to them bounced; no more emails until the address changes |
 
 ### experts (the professional side of a person who gives evidence)
 | Field | In plain words |
@@ -75,15 +76,37 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | person_id | Whose sign-in |
+| token_hash | A scrambled copy of the random token in the browser's cookie (the token itself is never stored) |
+| csrf_hash | A scrambled copy of the second token the web app sends with every change, so another site cannot act for the person |
 | device_label | Which device (e.g. "Chrome on Windows laptop") |
-| last_seen_at | When it was last used |
-| revoked_at | When it was signed out remotely |
+| aal | `aal1` after the password, `aal2` once the authenticator code is entered |
+| mfa_verified_at | When the authenticator code was last entered (risky actions need it within 10 minutes) |
+| auth_access_token, auth_refresh_token | Supabase Auth's own tokens, kept here so they never reach the browser |
+| last_seen_at | When it was last used (30 minutes without use signs it out) |
+| revoked_at | When it was signed out |
+| revoked_reason | Why: signed out, signed out everywhere, idle, too old (12 hours), password reset |
 
 ### mfa_recovery_codes
 | Field | In plain words |
 |---|---|
 | code_hash | A scrambled copy of a one-time backup code (the real code is only shown once) |
 | used_at | When the code was used (each works once) |
+
+### mfa_attempts
+| Field | In plain words |
+|---|---|
+| failures / window_started_at | How many wrong authenticator codes in the current 15 minutes (5 lock MFA until the window ends) |
+| last_code_hash / last_code_at | A scrambled copy of the last code accepted and when, so the same code cannot be used twice |
+
+### email_changes
+| Field | In plain words |
+|---|---|
+| new_email | The address the person wants to sign in with |
+| old_token_hash, new_token_hash | Scrambled copies of the links sent to the old and the new address |
+| old_confirmed_at, new_confirmed_at | When each link was opened; the email changes once both are |
+| completed_at | When the sign-in email changed |
+| cancelled_at | When a newer request replaced this one |
+| expires_at | Links stop working a day after the request |
 
 ## Organisations
 
@@ -126,6 +149,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | person_id / organisation_id | Whose preferences, for which organisation's cases |
 | channel | In the app, by email, or both |
+| enabled | Whether messages go this way at all |
 | digest | Whether to bundle emails into one a day |
 | muted_kinds[] | Types of message they don't want |
 
@@ -211,6 +235,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | kind | Type of question (e.g. breach, causation) from the pack |
 | outside_expertise | Flag that it may be outside the expert's field (they decide) |
 | status / confirmed_text | Whether the expert has confirmed it, and any tidied wording (the original is kept) |
+| version | Goes up each time the question changes |
 
 ### assumptions
 | Field | In plain words |
@@ -422,9 +447,10 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | version_no / type / display_name | Its number; draft, served, supplementary or answers; and the name shown (e.g. "Report 1") |
+| status | Draft, signed and frozen (locked), served, or withdrawn |
 | docx_path / pdf_path | Where the Word and PDF files are |
 | sha256 | Fingerprint proving it hasn't changed |
-| locked_at | When it was signed and frozen |
+| locked_at | When it was signed and frozen; after this nothing in the row can change except serving or withdrawing it |
 | withdrawn_at / withdrawn_reason | If the expert later withdrew it, when and why (it's never deleted) |
 | prev_version_id | The version it follows on from |
 
@@ -632,7 +658,8 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | wrapped_key | The case's encryption key, locked by the key service |
-| kms_key_arn | Which master key locks it |
+| key_ref | Which master key locks it (a reference, never the key) |
+| created_at | When the key was made (first time anything in the case was encrypted) |
 | destroyed_at | When it was destroyed at deletion (after this nothing in the case can be read) |
 
 ### jobs
@@ -640,14 +667,43 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | kind / status / priority | What the background work is, its state, and how urgent |
 | attempts | How many times it has been tried |
-| pct / eta_seconds | Progress and time left |
-| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed |
+| step / pct / eta_seconds | Which step it is on (a short code), progress and time left |
+| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed (a short code, never text) |
+
+### job_kind_actions
+| Field | In plain words |
+|---|---|
+| kind / action | A kind of background job and the case action a person needs to start it |
+
+### job_steps
+| Field | In plain words |
+|---|---|
+| job_id / case_id | Which job, on which case |
+| step | A step that finished (a short code), so a retry skips it |
+| created_at | When it finished |
+
+### scheduled_runs
+| Field | In plain words |
+|---|---|
+| name / run_date | Which daily job, for which date; each date runs once |
+| started_at | When that date's run started |
+
+### uploads
+| Field | In plain words |
+|---|---|
+| case_id / person_id | Which case the file is for and who is sending it |
+| kind / filename / size / sha256 | What the file is (a kind from the case's packs), its name, size and checksum |
+| chunk_size / chunk_count / received | The 8 MB parts it is sent in, how many, and which have arrived |
+| status | `open`, `complete` or `expired` |
+| document_id | The document it became when complete |
+| expires_at / completed_at | When an unfinished upload is given up (7 days) and when it finished |
 
 ### notifications
 | Field | In plain words |
 |---|---|
 | person_id / organisation_id / case_id | Who it's for, about which organisation and case |
-| kind | What happened (e.g. bundle ready) |
+| kind | What happened (e.g. bundle ready), as a short code the app turns into words |
+| in_app | Whether it shows in the app (false when the person only wants email) |
 | read_at / emailed_at | When seen and when emailed |
 
 ### feature_flags
@@ -662,17 +718,28 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | action / target | What they did and to what |
 | prev_hash / hash | Links each entry to the last so tampering shows |
 
+### idempotency_keys
+| Field | In plain words |
+|---|---|
+| person_id / key | Whose request and the key their app sent with it |
+| case_id | The case the request was about (a repeat on another case is refused; removed with the case) |
+| fingerprint | A checksum of the request, so the same key with a different request is refused |
+| status_code / response_body / response_headers | The first answer (body sealed with the cell key), returned again for a repeat only after the route's access and step-up checks pass |
+| created_at / expires_at | When it was kept and when it is forgotten (24 hours) |
+
 ### ai_calls
 | Field | In plain words |
 |---|---|
 | task_id / model_id / region | Which AI job, which model, and where it ran |
 | prompt_version | Which version of the instructions was used |
 | input_tokens / output_tokens | How much text went in and out (for cost); never the text itself |
+| case_id / person_id | Which case it was for (empty for work outside a case) and who asked, if anyone |
+| outcome | `ok`, or `invalid_output` when the answer did not fit its schema |
 
 ### transcripts
 | Field | In plain words |
 |---|---|
-| context / text / duration_seconds | What the dictation was for, the final words, and how long |
+| context / text / duration_seconds | What the dictation was for (a short code), the final words (encrypted under the case's key), and how long |
 
 ### may_matter
 | Field | In plain words |

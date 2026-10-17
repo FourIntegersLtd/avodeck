@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fact kinds",
+  "type": "object",
+  "properties": {
+    "fact_kinds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "fields": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "minProperties": 1,
+            "additionalProperties": {
+              "enum": [
+                "string",
+                "integer",
+                "number",
+                "date",
+                "boolean"
+              ]
+            }
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "key"
+        ]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "fact_kinds"
+  ]
+}

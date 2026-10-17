@@ -1,0 +1,23 @@
+{
+  "kind": "ocr",
+  "note": "Synthetic page, no patient data. Recorded shape of a Layout reading: words with IDs, polygons, confidence and a handwriting flag.",
+  "request": {
+    "model": "layout",
+    "document_sha256": "76a4e9ff097837b018c6cc2a3f0cb1e998749dc69f2bd606e3a5ccdd8967ad0d"
+  },
+  "response": {
+    "pages": [
+      {
+        "number": 1,
+        "width": 8.5,
+        "height": 11.0,
+        "words": [
+          {"id": "p1w1", "text": "Seen", "polygon": [1.0, 1.0, 1.4, 1.0, 1.4, 1.2, 1.0, 1.2], "confidence": 0.99, "handwritten": false},
+          {"id": "p1w2", "text": "14/03/2020", "polygon": [1.5, 1.0, 2.4, 1.0, 2.4, 1.2, 1.5, 1.2], "confidence": 0.97, "handwritten": false},
+          {"id": "p1w3", "text": "Amoxicillin", "polygon": [1.0, 1.4, 2.0, 1.4, 2.0, 1.6, 1.0, 1.6], "confidence": 0.95, "handwritten": false},
+          {"id": "p1w4", "text": "500mg", "polygon": [2.1, 1.4, 2.6, 1.4, 2.6, 1.6, 2.1, 1.6], "confidence": 0.62, "handwritten": true}
+        ]
+      }
+    ]
+  }
+}

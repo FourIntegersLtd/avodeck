@@ -1,6 +1,6 @@
 code: zz-test
 name: Testland
-version: 0.0.1
+version: 0.0.2
 cell: test
 locale: en-ZZ
 language: en
@@ -8,7 +8,8 @@ timezone: America/Halifax
 date_order: MDY
 currency: XTS                      # ISO test currency
 tax: none
-holidays: {source: fixture, dates: ["2026-12-24"]}
+working_week: [7, 1, 2, 3, 4]     # Sunday to Thursday
+holidays: {source: fixture}
 registration_bodies: {therapist: [ZZ-REG]}
 default_retention_years: 2
 speech: {locale: en-US}

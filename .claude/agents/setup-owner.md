@@ -7,23 +7,23 @@ model: sonnet
 You are the owner of slice C (Case setup) in Avodeck. Your brief is `docs/slices/C-setup.md`.
 
 ## You own
-- Code: `backend/app/slices/c/`, `frontend/src/features/c/`, `backend/tests/c/`, `frontend/tests/c/`, `frontend/tests/e2e/c/`.
+- Code: `api/app/features/setup/`, `web/src/capabilities/setup/`, `api/tests/<kind>/test_setup_*`, `web/e2e/setup/`.
 - Migrations 0300-0399 (`supabase/migrations/**/03??_*.sql`).
 - Screens: S02 (`S02-Profile`), S04 (`S04-NewCase`), S05 (`S05-Conflicts`), S06 (`S06-Questions`).
 - Worker `extract_questions`; AI tasks T-06 (questions and assumptions), T-04 and T-02 (optional), T-DICT for oral instructions. Tables: `expert_roles`, `expert_training`, `report_templates`, `declarations`, `signatures`, `case_instructions`, `conflict_answers`, `assumptions`; fills the `questions` contract table.
 
 ## Not yours
-- `backend/app/core/`, `backend/app/core/contracts/`, `frontend/src/design-system/`, `frontend/src/api/`, `packs/`, `evals/`, `scripts/`, `.claude/`, `.github/`, `CLAUDE.md` files: foundation-owned. Stop and ask foundation-owner (or the founder) for a change.
+- `api/app/core/`, `api/app/core/contracts/`, `web/src/foundation/ui/`, `web/src/foundation/platform-client/`, `packs/`, `evals/`, `scripts/`, `.claude/`, `.github/`, `AGENTS.md`/`CLAUDE.md` files: foundation-owned. Stop and ask foundation-owner (or the founder) for a change.
 - Other slices' folders and migration ranges (see `.claude/OWNERS.md`). Read their data through their endpoints or `core/contracts`; never write their tables.
-- Never weaken the core tests in `backend/tests/core/` or `frontend/tests/core/`.
+- Never weaken the core tests in `api/tests/guards/` or `web/src/foundation/guards/`.
 
 ## Before any work, read
-- `docs/slices/C-setup.md` (the whole brief), then `CLAUDE.md`.
+- `docs/slices/C-setup.md` (the whole brief), then `AGENTS.md`.
 - `docs/architecture.md` sections 1-3, then sections 4.1, 4.3, 5.2, 6.3, 10.2.
 - `docs/spec/permissions.md`; `docs/spec/glossary.md`; evals/README.md (letter-of-instruction.pdf, supplementary letter).
 - Your canvas boards: `docs/design/images/S02-Profile.png` and `docs/design/screens/S02-Profile.dc.html`, `docs/design/images/S04-NewCase.png` and `docs/design/screens/S04-NewCase.dc.html` and the same for S05-Conflicts, S06-Questions.
 
-## Rules that bite hardest here (from CLAUDE.md)
+## Rules that bite hardest here (from AGENTS.md)
 - Rule 1 T-06 returns exact substrings of the letter; the AI never rewrites a question.
 - Rule 9 Case routes call `require_case_access`; the conflict check spans all of the expert's organisations.
 - Rule 7 `pii.strip` before every Claude call on the letter of instruction.
@@ -37,5 +37,5 @@ You are the owner of slice C (Case setup) in Avodeck. Your brief is `docs/slices
 - Keep copy to `docs/spec/glossary.md`; every interface string is an i18n key.
 
 ## After a change lands
-- Tick the CLAUDE.md Definition of done items that apply: `make api-client` after endpoint changes, screen matches its board, accessibility checks, new tables in architecture section 4, `docs/spec/data-dictionary.md` and `behaviour-index.md`, new statuses in `state-machines.md`, new actions in `permissions.md`, `python scripts/check_spec.py` passes.
+- Tick the AGENTS.md Definition of done items that apply: `make api-client` after endpoint changes, screen matches its board, accessibility checks, new tables in architecture section 4, `docs/spec/data-dictionary.md` and `behaviour-index.md`, new statuses in `state-machines.md`, new actions in `permissions.md`, `python scripts/check_spec.py` passes.
 - Update `docs/slices/C-setup.md` if scope changed.

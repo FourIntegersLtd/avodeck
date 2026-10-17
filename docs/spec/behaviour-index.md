@@ -15,6 +15,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `signatures` | C | The expert | Many; latest used | New image is a new row; snapshot at signing | With the person |
 | `sessions` | Foundation | The person (revoke) | One per device | Expire on inactivity | All revoked on password reset or closure |
 | `mfa_recovery_codes` | Foundation | The person (regenerate) | 10 at a time | Each used once; regenerate replaces all | Deleted on closure |
+| `mfa_attempts` | Foundation | System (verify and recovery routes) | One per person | Failures counted in a 15-minute window; reset on success; last accepted code kept 90 seconds | Deleted on closure |
+| `email_changes` | Foundation | The person (step-up) | One pending per person; a new request cancels the old | Waiting → completed when both addresses confirm; links expire after a day | Deleted on closure |
 | `organisations` | Foundation (O for teams) | Owner/admin | Personal: one per person; teams: any | Closure only when no open cases | Served cases outlive closure until retention |
 | `memberships` | Foundation (O) | Owner/admin; the person can leave | Many per person; one active per person per org | active → ended; never deleted | Ending removes org access except named cases |
 | `invites` | O | Owner/admin | Many | pending → accepted/cancelled/expired | Expire after 7 days |
@@ -34,7 +36,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
 | `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation per state machine | Case deletion; quarantined images deleted earlier |
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
-| `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change | Case deletion |
+| `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion |
 | `fact_verifications` | B | Named expert (append only) | Many per fact | Append only | Case deletion; chain head on certificate |
 | `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
 | `fact_flags` | B | Named expert | Many | Add or remove | Case deletion |
@@ -54,7 +56,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `opinions` | E | Named expert only | One per question | ETag on every save; versions kept | Case deletion |
 | `opinion_versions` | E | System on save | Many | Append only | Case deletion |
 | `lint_issues` | E | Worker; named expert dismisses | Many | Recalculated on save; dismissals kept | Case deletion |
-| `report_versions` | F | Named expert builds, signs, serves | Many per case | Locked after signing; withdrawn never deleted | Case deletion only |
+| `report_versions` | F (table and lock trigger: Foundation) | Named expert builds, signs, serves | Many per case | Locked after signing (database refuses changes, 409 `locked`); withdrawn never deleted | Case deletion only |
 | `report_snapshots` | F | System at signing | Several per signed version | Never change | Case deletion |
 | `report_paragraphs` | F | System at build | Many | Locked with the version | Case deletion |
 | `citations` | F | System at build from opinions | Many | Snapshot of the fact; "changed since cited" check | Case deletion |
@@ -83,11 +85,16 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `legal_holds` | H | Named expert or org owner | Many; any active blocks deletion | State machine | Released before deletion can run |
 | `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
 | `deletion_ledger` | H | System | One per deleted case | Append only; replayed after restore | Kept |
-| `case_keys` | Foundation | System only | One per case | Re-wrapped on key rotation | Destroyed at deletion |
+| `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
 | `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
+| `job_kind_actions` | Foundation | Migrations only | One per job kind | Read-only reference | Kept (no patient data) |
+| `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
+| `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
+| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open; daily sweep expires unfinished uploads after 7 days and deletes their chunks | Case deletion |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |
+| `idempotency_keys` | Foundation | System | One per person per key | Replaced only after it expires | Expired after 24 hours |
 | `ai_calls` | Foundation | System | Many | Append only, no content | Metadata kept 13 months |
 | `transcripts` | Foundation (dictation kit) | The speaker | Many | Kept only if the expert keeps them | Case deletion |
 | `may_matter` | G | Worker; named expert marks seen | Many | Seen state only | Case deletion |

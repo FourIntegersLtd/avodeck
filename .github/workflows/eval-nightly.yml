@@ -7,11 +7,11 @@ on:
 
 jobs:
   eval:
+    # Off until the Bedrock (London) and Azure (UK South) accounts exist: set the repo variable EVAL_ENABLED=true.
+    if: vars.EVAL_ENABLED == 'true'
     runs-on: ubuntu-latest
     environment: eval      # holds Bedrock (London) and Azure (UK South) credentials
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install -r backend/requirements-dev.txt
+      - uses: ./.github/actions/api-install
       - run: make eval     # fails if precision < 0.95 or manual-reading share rises > 5 points

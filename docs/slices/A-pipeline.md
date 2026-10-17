@@ -79,7 +79,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Reprocessing is opt-in per case; verified facts never change; new suggestions carry their model ID
 
 ## Rules that apply
-1, 2, 4, 5, 6, 7, 9 from the root `CLAUDE.md`.
+1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.
 
 ## Out of scope
 Showing facts to the expert (B), verifying facts (B), Gmail/Outlook sending (Phase 2), the timeline (D).

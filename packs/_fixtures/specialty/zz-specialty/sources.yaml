@@ -1,0 +1,3 @@
+source_types:
+  - {key: clinic_notes, colour: "#5A4A9E"}
+  - {key: letters, colour: "#8C7556"}

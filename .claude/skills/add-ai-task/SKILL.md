@@ -9,13 +9,13 @@ AI suggests; the expert decides. The AI never writes opinion.
 
 1. **Spec:** find the task in `docs/architecture.md` section 6.3 (task ID, model, input, output fields, check). New tasks need a task ID and a row added there first.
 2. **Fixture first (red):**
-   - Add the synthetic input to `backend/tests/fixtures/<task_id>/input.json` (OCR words with IDs).
+   - Add the synthetic input to `api/tests/fixtures/<task_id>/input.json` (OCR words with IDs).
    - Add the expected output to `.../expected.json`, including `word_ids` for every value.
    - Record or hand-write the model response to `.../response.json`.
    - Write tests: correct mapping; values not in cited words are rejected; malformed output triggers one retry and then `needs_human`; no identifiers reach the model.
 3. **Schema:** a Pydantic model for the output. Every extracted value has `word_ids: list[str]`. Only short `reason` strings as free text; no prose, summaries or opinions.
 4. **Jurisdiction hints:** record-system examples and terminology come from the case's specialty pack (`records.yaml`, `facts.yaml`, `vocabulary.yaml`), injected into the prompt; never hard-code EMIS/SystmOne or UK terms.
-5. **Prompt:** add it under `backend/app/core/ai/prompts/<task_id>.md` with a version line (`version: 2026-10-15.1`). Keep a stable system prompt at the top so it is cached.
+5. **Prompt:** add it under `api/app/core/ai/prompts/<task_id>.md` with a version line (`version: 2026-10-15.1`). Keep a stable system prompt at the top so it is cached.
 6. **Call through the AI kit only:**
    ```python
    stripped = pii.strip(payload, case_names=case.name_list)

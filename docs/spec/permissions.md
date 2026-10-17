@@ -1,6 +1,6 @@
 # Permissions
 
-The single source of truth for who may do what. `core/auth/require_case_access(action)` implements this table and `backend/tests/core/test_permissions.py` tests every cell. Row-level security mirrors it. If a new endpoint needs an action not listed here, add the row first (foundation approval).
+The single source of truth for who may do what. `core/auth/require_case_access(action)` implements this table and `api/tests/guards/test_permissions.py` tests every cell. Row-level security mirrors it. If a new endpoint needs an action not listed here, add the row first (foundation approval).
 
 ## Two kinds of role
 
@@ -31,7 +31,8 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `report.sign` 🔒, `report.serve` 🔒, `report.withdraw` 🔒 | ✓ | — | — | — | — | — |
 | `request.draft` (instructing-party emails) | ✓ | — | — | ✓ | — | — |
 | `request.send` 🔒 | ✓ | — | — | — | — | — |
-| `invoice.create`, `invoice.send` 🔒, `credit_note.issue` 🔒 | ✓ | — | — | ✓ (draft only) | — | ✓ (team cases) |
+| `invoice.create` (draft) | ✓ | — | — | ✓ (draft only) | — | ✓ (team cases) |
+| `invoice.send` 🔒, `credit_note.issue` 🔒 | ✓ | — | — | — | — | ✓ (team cases) |
 | `invoice.record_payment` | ✓ | — | — | ✓ | — | ✓ |
 | `case.export` 🔒 | ✓ | — | — | — | — | ✓ (administrative copy: report versions, invoices, logs; no page images) |
 | `case.retention` 🔒 | ✓ (within org policy) | — | — | — | — | ✓ |
@@ -41,6 +42,15 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `case.delete_now` 🔒 | ✓ (unserved only) | — | — | — | — | owner only (unserved only) |
 
 After the named expert leaves the organisation, they keep every named-expert action on their named cases; the organisation keeps its "not on case" column.
+
+## Checks the database repeats (rule 9, ADR 0013)
+
+Row-level security lets a person update a row; triggers then check each change against the action it is, for the person `app.person_id` names:
+- `report_versions.status`: → locked needs `report.sign`, → served `report.serve`, → withdrawn `report.withdraw`; any other edit `report.build`.
+- `cases.named_expert_id`: `case.reassign_named_expert`, and only while the case has never been served (no served or withdrawn report version, status not served or settled).
+- `cases.retention_policy`, `delete_after`, `on_hold`: `case.retention`.
+- `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`; any other move and every other column `case.edit_setup`.
+- `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one.
 
 ## Organisation actions
 
@@ -56,7 +66,7 @@ After the named expert leaves the organisation, they keep every named-expert act
 
 ## Person actions (no case)
 
-Only the person themselves: profile, expert profile, signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password.
+Only the person themselves: profile, expert profile, signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password: no route takes another person's id, and recovery needs the person's own password as well as a recovery code.
 
 ## Avodeck staff
 

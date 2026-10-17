@@ -1,0 +1,53 @@
+name: CI web
+
+on:
+  pull_request:
+    paths: ["web/**", "openapi.json", "scripts/check_frontend_hosts.sh", ".github/workflows/ci-web.yml"]
+  push:
+    branches: [main]
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.check.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: check
+        run: echo "web=$([ -f web/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  web:
+    needs: detect
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { package_json_file: web/package.json }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+        working-directory: web
+      - run: pnpm lint && pnpm typecheck && pnpm vitest run --coverage
+        working-directory: web
+      - run: pnpm build
+        working-directory: web
+      - run: scripts/check_frontend_hosts.sh web/dist
+      - uses: ./.github/actions/api-install
+      - name: Check generated API client is up to date
+        run: make api-client && git diff --exit-code web/src/foundation/platform-client openapi.json
+
+  e2e:
+    needs: [detect, web]
+    if: needs.detect.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { package_json_file: web/package.json }
+      - uses: actions/setup-node@v4
+        with: { node-version: "20", cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile && pnpm exec playwright install --with-deps chromium
+        working-directory: web
+      - run: pnpm exec playwright test   # includes axe accessibility checks
+        working-directory: web

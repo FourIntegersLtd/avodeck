@@ -1,2 +1,25 @@
-# Fact kinds this specialty adds to the core registry.
-fact_kinds: [consultation, phone_consultation, home_visit, result, prescription, referral, letter, examination, safety_netting, missed_appointment, task]
+# Fact kinds this specialty adds, with the fields extracted for each (values are copied words from
+# the page, never prose). Field types: string, integer, number, date, boolean.
+fact_kinds:
+  - key: consultation
+    fields: {date: date, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
+  - key: phone_consultation
+    fields: {date: date, clinician_name: string, reason: string, history: string, plan: string, safety_netting: string}
+  - key: home_visit
+    fields: {date: date, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
+  - key: result
+    fields: {date: date, test: string, value: string, unit: string, reference_range: string, flag: string, received_on: date, actioned_on: date}
+  - key: prescription
+    fields: {date: date, drug: string, dose: string, quantity: string, repeat: boolean}
+  - key: referral
+    fields: {date: date, to: string, reason: string, urgency: string, acknowledged_on: date}
+  - key: letter
+    fields: {date: date, from: string, to: string, received_on: date, actions_requested: string}
+  - key: examination
+    fields: {date: date, finding: string, value: string, unit: string}
+  - key: safety_netting
+    fields: {date: date, advice: string}
+  - key: missed_appointment
+    fields: {date: date, appointment_type: string}
+  - key: task
+    fields: {date: date, description: string, done_on: date}

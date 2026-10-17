@@ -42,5 +42,7 @@ What happens when things go wrong, so the code handles each case on purpose. Pri
 | F36 | Non-PDF file uploaded (email, image, Word, audio) | File type sniffing | Convert to pages; audio, video and imaging become exhibits | "This recording is stored but Avodeck can't read it." | A |
 | F37 | Foreign-language page | Language detection | Flag; no machine translation | "This page isn't in English. Ask for a certified translation?" (language from the pack) | A |
 | F38 | Support needs to see a case | Support request | Metadata only unless the named expert grants access | Grant shown on the case and in its audit trail | O |
+| F39 | Someone guesses or replays authenticator codes | `mfa_attempts` | 5 wrong codes in 15 minutes lock MFA (429) on every device; a code already accepted is refused; a recovery code signs out every other device | "Too many tries. Wait 15 minutes and try again." | Foundation |
+| F40 | A stored file part is missing, moved or changed | Chunk sealed to its own path; whole-file SHA-256 re-checked while downloading | Download stops with an error; never sends a different file | "We couldn't open this file. Please contact support." | Foundation |
 
-Each row becomes at least one test in the owning slice. F5, F6, F10, F11 and F24 are tested in `backend/tests/core/`.
+Each row becomes at least one test in the owning slice. F5, F6, F10, F11, F24 and F28 are tested in `api/tests/guards/`.

@@ -1,0 +1,254 @@
+// S28 Account and security (foundation part): email, password, the code, backup codes and devices.
+// "How we tell you things" is the foundation's too; organisations and closing the account belong to slice O.
+import { useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
+import { formatRelative, t } from "../../foundation/i18n";
+import { errorMessage } from "../../foundation/lib/errors";
+import { useSession } from "../../foundation/lib/session";
+import { useStepUp } from "../../foundation/lib/stepUp";
+import { useResource } from "../../foundation/lib/useResource";
+import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { Button, Checkbox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+
+export function Account() {
+  const { me } = useSession();
+  const stepUp = useStepUp();
+  const navigate = useNavigate();
+  const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+
+  const act = async (action: () => Promise<unknown>, success?: string) => {
+    setMessage(null);
+    try {
+      const result = await stepUp(action);
+      if (result !== undefined || success) setMessage(success ? { tone: "success", text: t(success) } : null);
+      return result;
+    } catch (err) {
+      setMessage({ tone: "error", text: errorMessage(err) });
+      return undefined;
+    }
+  };
+
+  return (
+    <div className="av-page av-page--narrow av-stack">
+      <div>
+        <h1>{t("account.title")}</h1>
+        <p className="av-muted">{t("account.intro")}</p>
+      </div>
+      {message && (
+        <Notice tone={message.tone}>
+          <p>{message.text}</p>
+        </Notice>
+      )}
+      <SigningIn email={me.person.email} act={act} />
+      <Devices act={act} locale={me.person.locale} />
+      <HowWeTellYou />
+      <div>
+        <Button
+          variant="secondary"
+          onClick={() =>
+            void act(async () => {
+              await unwrap(api.POST("/v1/auth/sign-out"));
+              navigate("/sign-in", { replace: true });
+            })
+          }
+        >
+          {t("account.sign_out")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+type Act = (action: () => Promise<unknown>, success?: string) => Promise<unknown>;
+
+function SigningIn({ email, act }: { email: string; act: Act }) {
+  const [changing, setChanging] = useState(false);
+  const [newEmail, setNewEmail] = useState("");
+  const [sent, setSent] = useState(false);
+  const send = async (e: FormEvent) => {
+    e.preventDefault();
+    await act(async () => {
+      await unwrap(api.POST("/v1/me/email-change", { body: { new_email: newEmail } }));
+      setSent(true);
+      setChanging(false);
+    });
+  };
+  return (
+    <section aria-labelledby="signing-in" className="av-card">
+      <h2 id="signing-in">{t("account.sign_in.title")}</h2>
+      <div className="av-rows">
+        <div className="av-row-item">
+          <div>
+            <p className="av-field__label">{t("account.email.label")}</p>
+            <p className="av-muted">{email}</p>
+          </div>
+          {!changing && (
+            <Button variant="secondary" onClick={() => setChanging(true)}>
+              {t("account.email.change")}
+            </Button>
+          )}
+        </div>
+        {changing && (
+          <form className="av-stack" onSubmit={(e) => void send(e)} noValidate>
+            <TextField label={t("account.email.new")} name="new_email" type="email" autoComplete="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+            <Button type="submit">{t("account.email.send")}</Button>
+          </form>
+        )}
+        {sent && (
+          <Notice tone="success">
+            <p>{t("account.email.sent")}</p>
+          </Notice>
+        )}
+        <div className="av-row-item">
+          <p className="av-field__label">{t("account.password.label")}</p>
+          <Button variant="secondary" onClick={() => void act(() => unwrap(api.POST("/v1/auth/password/forgot", { body: { email } })), "account.password.sent")}>
+            {t("account.password.change")}
+          </Button>
+        </div>
+        <div className="av-row-item">
+          <div>
+            <p className="av-field__label">{t("account.code.value")}</p>
+            <p className="av-muted">{t("account.code.always_on")}</p>
+          </div>
+          <span className="av-badge av-badge--on">{t("account.code.on")}</span>
+        </div>
+        <BackupCodes act={act} />
+      </div>
+      <p className="av-muted av-small">{t("account.sign_in.note")}</p>
+    </section>
+  );
+}
+
+function BackupCodes({ act }: { act: Act }) {
+  const [codes, setCodes] = useState<string[] | null>(null);
+  return (
+    <div className="av-row-item">
+      <div className="av-row-item__text">
+        <p className="av-field__label">{t("account.backup.title")}</p>
+        <p className="av-muted">{t("account.backup.intro")}</p>
+      </div>
+      {codes && (
+        <Notice tone="success">
+          <p>{t("account.backup.made")}</p>
+          <ul className="av-codes">
+            {codes.map((code) => (
+              <li key={code}>{code}</li>
+            ))}
+          </ul>
+        </Notice>
+      )}
+      <Button
+          variant="secondary"
+          onClick={() =>
+            void act(async () => {
+              const made = await unwrap(api.POST("/v1/auth/mfa/recovery-codes"));
+              setCodes(made.recovery_codes);
+              return made;
+            })
+          }
+        >
+          {t("account.backup.make")}
+        </Button>
+    </div>
+  );
+}
+
+function Devices({ act, locale }: { act: Act; locale: string | null | undefined }) {
+  const devices = useResource(() => unwrap(api.GET("/v1/me/sessions")), []);
+  const signOut = (id: string) =>
+    act(async () => {
+      await unwrap(api.DELETE("/v1/me/sessions/{session_id}", { params: { path: { session_id: id } } }));
+      devices.reload();
+    });
+  const signOutOthers = () =>
+    act(async () => {
+      await unwrap(api.POST("/v1/me/sessions/revoke-all"));
+      devices.reload();
+    }, "account.devices.signed_out_others");
+  return (
+    <section aria-labelledby="devices" className="av-card av-stack">
+      <div className="av-row-item av-row-item--head">
+        <h2 id="devices">{t("account.devices.title")}</h2>
+        {devices.data && devices.data.some((d) => !d.current) && (
+          <Button variant="secondary" onClick={() => void signOutOthers()}>
+            {t("account.devices.sign_out_others")}
+          </Button>
+        )}
+      </div>
+      {devices.error && <LoadError onRetry={devices.reload} />}
+      {!devices.data && !devices.error && <Loading />}
+      {devices.data && (
+        <ul className="av-rows" role="list">
+          {devices.data.map((d) => (
+            <li key={d.id} className="av-row-item">
+              <div>
+                <p className="av-field__label">{d.device_label}</p>
+                <p className="av-muted">{d.current ? t("account.devices.this_device") : formatRelative(new Date(d.last_seen_at), locale)}</p>
+              </div>
+              {!d.current && (
+                <Button variant="secondary" onClick={() => void signOut(d.id)}>
+                  {t("account.devices.sign_out_one", { device: d.device_label })}
+                </Button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+type Choice = Schemas["NotificationPreference"];
+const CHANNELS = [
+  ["in_app", "account.notify.in_app"],
+  ["email", "account.notify.email"],
+  ["digest", "account.notify.digest"],
+] as const;
+
+function HowWeTellYou() {
+  const found = useResource(() => unwrap(api.GET("/v1/me/notification-preferences")), []);
+  const [saved, setSaved] = useState<Record<string, Choice>>({});
+  const [failed, setFailed] = useState<string | null>(null);
+  const change = async (choice: Choice, channel: (typeof CHANNELS)[number][0], on: boolean) => {
+    const next = { ...choice, [channel]: on };
+    setFailed(null);
+    setSaved((s) => ({ ...s, [choice.organisation_id]: next }));
+    try {
+      await unwrap(
+        api.PUT("/v1/me/notification-preferences", {
+          body: [{ organisation_id: next.organisation_id, in_app: next.in_app, email: next.email, digest: next.digest, muted_kinds: next.muted_kinds }],
+        }),
+      );
+    } catch (err) {
+      setSaved((s) => ({ ...s, [choice.organisation_id]: choice }));
+      setFailed(errorMessage(err));
+    }
+  };
+  return (
+    <section aria-labelledby="how-we-tell-you" className="av-card av-stack">
+      <h2 id="how-we-tell-you">{t("account.notify.title")}</h2>
+      <p className="av-muted">{t("account.notify.intro")}</p>
+      {failed && (
+        <Notice tone="error">
+          <p>{failed}</p>
+        </Notice>
+      )}
+      {found.error && <LoadError onRetry={found.reload} />}
+      {!found.data && !found.error && <Loading />}
+      {found.data?.map((original) => {
+        const choice = saved[original.organisation_id] ?? original;
+        const name = choice.organisation_kind === "personal" ? t("today.filter.personal") : choice.organisation_name;
+        return (
+          <fieldset key={choice.organisation_id} className="av-choices av-row-item">
+            <legend className="av-field__label">{name}</legend>
+            <div className="av-row">
+              {CHANNELS.map(([channel, label]) => (
+                <Checkbox key={channel} label={t(label)} checked={choice[channel]} onChange={(e) => void change(choice, channel, e.target.checked)} />
+              ))}
+            </div>
+          </fieldset>
+        );
+      })}
+    </section>
+  );
+}

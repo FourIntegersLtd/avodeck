@@ -1,14 +1,15 @@
 # "Things to look at" checks for this specialty. Experts can switch any off or add their own.
+# default_on: false means the check is offered but starts switched off.
 # Each entry is an instance of a rule type implemented once in the engine; packs only choose and parameterise.
 # Rule types: no_action_within, not_acknowledged_within, monitoring_overdue, not_reached_clinician,
 #             actions_not_done, field_missing, not_followed_up
 checks:
-  - {key: abnormal_result_no_action, rule: no_action_within, applies_to: result, flag: abnormal, window_days: 14, enabled: true}
-  - {key: referral_acknowledged, rule: not_acknowledged_within, applies_to: referral, window_days: 42, enabled: true}
-  - {key: repeat_medicine_monitoring, rule: monitoring_overdue, applies_to: prescription, table: drug_monitoring, enabled: true}
-  - {key: ooh_reached_clinician, rule: not_reached_clinician, applies_to: out_of_hours, window_days: 2, enabled: true}
-  - {key: hospital_letter_actions, rule: actions_not_done, applies_to: letter, enabled: true}
-  - {key: examination_recorded, rule: field_missing, applies_to: consultation, field: examination, enabled: true, gentle: true}
-  - {key: safety_netting_recorded, rule: field_missing, applies_to: consultation, field: safety_netting, enabled: true, gentle: true}
-  - {key: missed_appointment_followed_up, rule: not_followed_up, applies_to: missed_appointment, window_days: 14, enabled: false}
+  - {key: abnormal_result_no_action, rule: no_action_within, applies_to: result, flag: abnormal, window_days: 14}
+  - {key: referral_acknowledged, rule: not_acknowledged_within, applies_to: referral, window_days: 42}
+  - {key: repeat_medicine_monitoring, rule: monitoring_overdue, applies_to: prescription, table: drug_monitoring}
+  - {key: ooh_reached_clinician, rule: not_reached_clinician, applies_to: out_of_hours, window_days: 2}
+  - {key: hospital_letter_actions, rule: actions_not_done, applies_to: letter}
+  - {key: examination_recorded, rule: field_missing, applies_to: consultation, field: examination, gentle: true}
+  - {key: safety_netting_recorded, rule: field_missing, applies_to: consultation, field: safety_netting, gentle: true}
+  - {key: missed_appointment_followed_up, rule: not_followed_up, applies_to: missed_appointment, window_days: 14, default_on: false}
 # The drug monitoring table is country-specific and comes from the overlay pack (drug_monitoring.yaml).

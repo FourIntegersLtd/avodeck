@@ -30,7 +30,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | any → deleted | **Blocked** while an active `legal_holds` row exists | — | Deletion job skips the case and notifies the named expert |
 
 **On hold** is a flag, not a status: `on_hold` true/false on draft, active or served cases. While on hold, reminders and deadline alerts pause and processing jobs queue; nothing is deleted. Cleared by `…/resume`.
-| any → deleted | Daily deletion job or `delete_now` 🔒 | `delete_after ≤ today` | Crypto-shred, certificate; terminal |
+| any → deleted | Daily deletion job or `delete_now` 🔒 | `delete_after ≤ today`; `delete_now` (`case.delete_now`) only on a case never served, checked by `app.cases_actor` | Crypto-shred, certificate; terminal |
 
 ## Page (`pages`)
 
@@ -91,6 +91,8 @@ served ──correction / change of opinion──▶ new supplementary draft ─
 | served → withdrawn | Step-up; reason; supplementary statement recorded | Stays locked and readable; final checks and new versions refuse to build on it |
 | locked/served → anything else | **Never** (except served → withdrawn above) | Rule 8 |
 
+Enforced by `app.report_versions_guard` and `app.report_versions_actor` (who: → locked needs `report.sign`, → served `report.serve`, → withdrawn `report.withdraw`, `docs/spec/permissions.md`): a new row starts `draft`; draft → locked needs `sha256` and sets `locked_at`; any other change to a locked row raises SQLSTATE `AVLCK`, which the API returns as 409 `locked` (`contracts.reports.ensure_unlocked()` refuses before writing). Fact and question statuses are enforced by `app.facts_guard` and `app.questions_guard` (SQLSTATE `AV409`); `version` rises on every change.
+
 ## Job (`jobs.status`)
 
 ```
@@ -99,7 +101,16 @@ queued ──▶ running ──▶ done
              └──▶ paused (cost guard K3) ──resume──▶ running
 ```
 
-Every step is idempotent, so retrying from the start is always safe.
+Every step is idempotent, so retrying from the start is always safe. Finished steps are recorded in `job_steps` and skipped on retry; a job whose worker stopped sending heartbeats is put back on the queue (F6).
+
+## Upload (`uploads.status`)
+
+```
+open ──complete (all chunks in, sha256 matches)──▶ complete
+  └──7 days unfinished──▶ expired
+```
+
+Chunks can be sent (and re-sent) only while `open`. Completing twice returns the same document. Enforced by `app.uploads_guard` (SQLSTATE `AV409`). The daily `expire_uploads` schedule (`core/housekeeping.py`, keyed by date, F28) expires open uploads past `expires_at`, deletes their chunks from Storage and writes `upload.expired` to the audit log.
 
 ## Finding (`findings.decision`)
 
@@ -153,6 +164,12 @@ open (received) → answered (every question answered) → served (answers serve
 ## Opposing claim (`opposing_claims.status`)
 
 unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited.
+
+## Session (`sessions`)
+`aal1` (password only) → `aal2` (authenticator code entered) → revoked. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.
+
+## Email change (`email_changes`)
+Waiting → one address confirmed → completed (both confirmed). Waiting or half-confirmed → cancelled (a newer request) or expired (after a day). Completed, cancelled and expired are final.
 
 ## Membership (`memberships`)
 

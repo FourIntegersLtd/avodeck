@@ -1,0 +1,65 @@
+"""Rule 3, blind read: suggestions for a page stay hidden until the person has marked it read.
+
+Slice B owns the read log (`page_reads`) and the routes; the gate is core so every facts route
+uses the same check. `GET /v1/cases/{case_id}/pages/{page_no}/facts` depends on
+`require_page_read()`: 404/403 from the case access check first, then 423 `blind_read` until
+`POST .../pages/{page_no}/read` is recorded for the person asking. With no read log the gate
+stays shut (fail closed).
+"""
+
+from __future__ import annotations
+
+import uuid
+from typing import Protocol
+
+from fastapi import Request
+from psycopg import AsyncConnection
+
+from app.core.auth.access import CaseAccess, check_case_access
+from app.core.auth.permissions import CASE_ACTIONS
+from app.core.auth.session import current_session
+from app.core.auth.step_up import check_step_up
+from app.core.errors import ApiError
+from app.core.http import DbConn
+
+
+class PageReadLog(Protocol):
+    """Who has read which page. Slice B implements it on `page_reads`; `create_app(page_reads=...)`."""
+
+    async def has_read(self, conn: AsyncConnection, case_id: uuid.UUID, page_no: int, person_id: uuid.UUID) -> bool:
+        """Whether `person_id` has marked bundle page `page_no` of the case read."""
+        ...
+
+    async def read_page_ids(self, conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> set[uuid.UUID]:
+        """The ids of the case's pages `person_id` has marked read."""
+        ...
+
+
+def blind_read() -> ApiError:
+    return ApiError("blind_read", "Mark this page as read first.", 423)
+
+
+class PageReadGate:
+    """A FastAPI dependency. `case_action`, `step_up` and `page_read_gate` let the route scanners see it."""
+
+    page_read_gate = True
+
+    def __init__(self, action: str) -> None:
+        if action not in CASE_ACTIONS:
+            raise ValueError(f"unknown case action {action!r}: add it to docs/spec/permissions.md first")
+        self.case_action = action
+        self.step_up = CASE_ACTIONS[action].step_up
+
+    async def __call__(self, request: Request, case_id: uuid.UUID, page_no: int, conn: DbConn) -> CaseAccess:
+        access = await check_case_access(conn, case_id, self.case_action)
+        if self.step_up:
+            check_step_up(current_session(request))
+        reads: PageReadLog | None = getattr(request.app.state, "page_reads", None)
+        person = request.state.scope.person_id
+        if reads is None or not await reads.has_read(conn, case_id, page_no, person):
+            raise blind_read()
+        return access
+
+
+def require_page_read(action: str = "page.read") -> PageReadGate:
+    return PageReadGate(action)

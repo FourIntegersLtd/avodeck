@@ -13,7 +13,26 @@ from pathlib import Path
 
 PROJECT = Path(os.environ.get("CLAUDE_PROJECT_DIR", ".")).resolve()
 PHASE_FILE = PROJECT / ".claude" / "phase"
-SLICE_RE = re.compile(r"(?:backend/app/slices|backend/tests|frontend/src/features|frontend/tests)/([a-z0-9_-]+)/")
+# The feature folder (api/app/features/<f>/, web/src/capabilities/<f>/, web/e2e/<f>/) or test file (api/tests/<kind>/test_<f>_*.py).
+DIR_RE = re.compile(r"^(?:api/app/features|web/src/capabilities|web/e2e)/([a-z0-9_-]+)/")
+TEST_RE = re.compile(r"^api/tests/[^/]+/test_([a-z0-9_]+)\.py$")
+
+
+def features() -> list[str]:
+    routes = json.loads((PROJECT / ".claude" / "routes.json").read_text())
+    names = {o["feature"] for o in routes["owners"].values()} - {"foundation"}
+    return sorted(names, key=len, reverse=True)
+
+
+def feature_for(rel: str) -> str | None:
+    m = DIR_RE.match(rel)
+    if m:
+        name = m.group(1).replace("-", "_")
+        return name if name in features() else None
+    m = TEST_RE.match(rel)
+    if m:
+        return next((f for f in features() if m.group(1).startswith(f + "_")), None)
+    return None
 
 
 def main() -> int:
@@ -29,8 +48,8 @@ def main() -> int:
         rel = str(Path(path).resolve().relative_to(PROJECT))
     except ValueError:
         return 0
-    m = SLICE_RE.search(rel + "/")
-    target = ["make", "test-slice", f"S={m.group(1)}"] if m else ["make", "test-core"]
+    feature = feature_for(rel)
+    target = ["make", "test-slice", f"S={feature}"] if feature else ["make", "test-core"]
     proc = subprocess.run(target, cwd=PROJECT, capture_output=True, text=True)
     if proc.returncode != 0:
         tail = "\n".join((proc.stdout + proc.stderr).splitlines()[-40:])
