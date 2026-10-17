@@ -20,6 +20,7 @@ from tests.support.packs import REPO
 EVAL = REPO / "evals" / "gb-eaw" / "clin-neg-breach" / "general-practice"
 ANSWERS = REPO / "api" / "tests" / "fixtures" / "ai" / "pipeline" / "answer"
 SOURCES = REPO / "packs" / "specialty" / "general-practice" / "sources.yaml"
+FACTS = REPO / "packs" / "specialty" / "general-practice" / "facts.yaml"
 
 
 def expected(name: str) -> Any:
@@ -61,27 +62,40 @@ def test_every_entry_in_the_gap_series_has_its_printed_date() -> None:
     assert not undated, f"entries without a date on pages {undated}"
 
 
-def test_the_offline_recordings_hold_a_dated_page_of_the_gap_series() -> None:
-    kind = gap_kind()
-    entries = [f for answer in recorded_page_answers() for f in answer["facts"] if f["kind"] == kind]
-    assert len(entries) >= 3, "no page of the gap series is in the offline recordings"
-    assert all(f["fields"].get("date") for f in entries), "a recorded entry has no date"
-
-
-def test_handwriting_does_not_depend_on_where_the_repository_is_checked_out() -> None:
-    """The bundle is regenerated in worktrees and on CI; a writer's hand must come out the same."""
+def generator_module(name: str) -> Any:
     import importlib.util
     import sys
 
     generator = REPO / "evals" / "generator"
     sys.path.insert(0, str(generator))
     try:
-        spec = importlib.util.spec_from_file_location("eval_hand", generator / "hand.py")
+        spec = importlib.util.spec_from_file_location(f"eval_{name}", generator / f"{name}.py")
         assert spec and spec.loader
-        hand = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(hand)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
     finally:
         sys.path.remove(str(generator))
+    return module
+
+
+def test_the_recorded_answer_for_a_page_of_the_gap_series_dates_every_entry() -> None:
+    """The offline subset stays as slice A's tests know it, so the answer is built here from a page
+    of the series as the generator records it."""
+    recordings = generator_module("recordings")
+    kind = gap_kind()
+    row = next(r for r in expected("pages.json") if sum(f["kind"] == kind for f in r["facts"]) >= 3)
+    tokens = [t for f in row["facts"] for t in str(f["value"]).split()]
+    words = [(f"w{i}", t) for i, t in enumerate(tokens)]
+    kinds = {k["key"]: k.get("fields", {}) for k in yaml.safe_load(FACTS.read_text())["fact_kinds"]}
+    answer = recordings.t07b_output(row, words, kinds, recordings.Stats(), None)
+    entries = [f for f in answer["facts"] if f["kind"] == kind]
+    assert len(entries) >= 3, f"page {row['page']}: too few entries recorded"
+    assert all(f["fields"].get("date") for f in entries), f"page {row['page']}: a recorded entry has no date"
+
+
+def test_handwriting_does_not_depend_on_where_the_repository_is_checked_out() -> None:
+    """The bundle is regenerated in worktrees and on CI; a writer's hand must come out the same."""
+    hand = generator_module("hand")
     font = hand.SCRAWL[0]
     here = hand.writer_for(f"/one/checkout/fonts/{font}", 0.7, (30, 35, 80))
     there = hand.writer_for(f"/another/checkout/fonts/{font}", 0.7, (30, 35, 80))
