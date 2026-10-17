@@ -1757,6 +1757,12 @@ export interface components {
         };
         /** Conflicts */
         Conflicts: {
+            /**
+             * Changed Since Declared
+             * @description An answer changed after the latest declaration; declare again.
+             * @default false
+             */
+            changed_since_declared: boolean;
             /** Complete */
             complete: boolean;
             coverage: components["schemas"]["Coverage"];

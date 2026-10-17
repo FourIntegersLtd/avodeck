@@ -1180,6 +1180,12 @@
       },
       "Conflicts": {
         "properties": {
+          "changed_since_declared": {
+            "default": false,
+            "description": "An answer changed after the latest declaration; declare again.",
+            "title": "Changed Since Declared",
+            "type": "boolean"
+          },
           "complete": {
             "title": "Complete",
             "type": "boolean"

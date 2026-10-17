@@ -14,7 +14,8 @@ create table app.conflict_answer_history (
   answer text not null check (answer in ('yes', 'no')),
   detail bytea,
   answered_by uuid references app.people (id),
-  recorded_at timestamptz not null default clock_timestamp()
+  created_at timestamptz not null default now(),
+  recorded_at timestamptz not null default clock_timestamp()  -- exact order within one transaction
 );
 create index conflict_answer_history_case on app.conflict_answer_history (case_id, recorded_at);
 

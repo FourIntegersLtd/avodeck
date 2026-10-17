@@ -248,7 +248,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | question_key / answer / detail | One answer exactly as it was given or changed (the detail stays encrypted) |
-| answered_by / recorded_at | Who gave it and when; the answers behind a declaration are the latest ones before it |
+| answered_by / created_at / recorded_at | Who gave it and when (`recorded_at` is the exact moment, for order); the answers behind a declaration are the latest ones before it |
 
 ### conflict_declarations
 | Field | In plain words |
