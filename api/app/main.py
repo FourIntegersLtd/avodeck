@@ -25,6 +25,7 @@ from app.core.routes.cases import cases_router
 from app.core.routes.dictation import dictation_socket, transcripts_router
 from app.core.routes.jobs import jobs_router
 from app.core.routes.me import me_router
+from app.core.routes.notifications import notifications_router
 from app.core.routes.packs import case_pack_router, packs_router
 from app.core.routes.today import today_router
 from app.core.routes.uploads import uploads_router
@@ -111,7 +112,8 @@ def create_app(
     install_error_handlers(app)
     routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
-    for r in (*routers, me_router, today_router, cases_router, packs_router, case_pack_router, *files):
+    people = (me_router, today_router, notifications_router)
+    for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files):
         mount(app, r)
     return app
 

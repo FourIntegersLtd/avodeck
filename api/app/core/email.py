@@ -12,7 +12,11 @@ from typing import Protocol
 EMAIL_CHANGE_CONFIRM_OLD = "email_change.confirm_old"
 EMAIL_CHANGE_CONFIRM_NEW = "email_change.confirm_new"
 RECOVERY_CODE_USED = "mfa.recovery_code_used"
-TEMPLATES = frozenset({EMAIL_CHANGE_CONFIRM_OLD, EMAIL_CHANGE_CONFIRM_NEW, RECOVERY_CODE_USED})
+NOTIFICATION_NEW = "notification.new"
+NOTIFICATION_DIGEST = "notification.digest"
+TEMPLATES = frozenset(
+    {EMAIL_CHANGE_CONFIRM_OLD, EMAIL_CHANGE_CONFIRM_NEW, RECOVERY_CODE_USED, NOTIFICATION_NEW, NOTIFICATION_DIGEST}
+)
 
 
 @dataclass(frozen=True)

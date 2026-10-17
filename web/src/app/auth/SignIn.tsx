@@ -89,18 +89,28 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <Checkbox label={t("ui.show_password")} checked={show} onChange={(e) => setShow(e.target.checked)} />
+        <div className="av-row av-row--spread">
+          <Checkbox label={t("ui.show_password")} checked={show} onChange={(e) => setShow(e.target.checked)} />
+          <Button variant="quiet" onClick={() => go("forgot")}>
+            {t("sign_in.forgot")}
+          </Button>
+        </div>
         <Button type="submit" wide disabled={busy}>
           {t("sign_in.submit")}
         </Button>
       </form>
-      <div className="av-row">
-        <Button variant="quiet" onClick={() => go("forgot")}>
-          {t("sign_in.forgot")}
-        </Button>
-        <Button variant="quiet" onClick={() => go("recover")}>
-          {t("sign_in.use_backup")}
-        </Button>
+      <div className="av-sign-in__note" role="note">
+        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="11" width="16" height="10" rx="2" />
+          <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+        </svg>
+        <p>
+          {t("sign_in.note.code")} {t("sign_in.note.lost")}{" "}
+          <Button variant="quiet" onClick={() => go("recover")}>
+            {t("sign_in.use_backup")}
+          </Button>{" "}
+          {t("sign_in.note.private")}
+        </p>
       </div>
     </>
   );

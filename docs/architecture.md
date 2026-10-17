@@ -207,7 +207,7 @@ Who signs in, and the professional profile of those who give evidence.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `people` | One row per person who can sign in (an expert, an assistant, an agency admin). Their login lives in Supabase Auth; this is their Avodeck profile. | id (= auth user id), full_name, email, locale, timezone, home_region, records_custodian (name, email), created_at, closed_at |
+| `people` | One row per person who can sign in (an expert, an assistant, an agency admin). Their login lives in Supabase Auth; this is their Avodeck profile. | id (= auth user id), full_name, email, locale, timezone, home_region, records_custodian (name, email), created_at, closed_at, email_bounced_at |
 | `experts` | The professional side of a person who gives expert evidence: profession, specialties and registration. Not every person is an expert (assistants are not). One per person. | person_id, profession, specialties[], registration_body, registration_number, hourly_rate, currency, default_retention, default_jurisdiction |
 | `expert_roles` | The clinical jobs an expert has held and when (e.g. GP partner 2005–now). Used to check they practised in the relevant setting and period. | expert_id, specialty, role_title, setting, period |
 | `expert_training` | Courses and qualifications listed on the expert's CV. | expert_id, title, year |
@@ -228,7 +228,7 @@ Who owns cases and pays, who belongs, and how they want to be told about things.
 | `memberships` | Who belongs to which organisation and in what role. One person can be in several organisations; leaving ends the membership but keeps the history. | organisation_id, person_id, role (owner/admin/expert/assistant/viewer), started_at, ended_at |
 | `invites` | An invitation to join an organisation, sent by email, valid for 7 days. | organisation_id, email, role, invited_by, expires_at, accepted_at |
 | `billing_profiles` | Who an invoice is from: name, address and tax number of the organisation or expert issuing it, with their own invoice numbering. | owner_type, owner_id, legal_name, address, tax_number, currency, next_invoice_no |
-| `notification_preferences` | How a person wants to be told about things, per organisation (in-app, email, daily digest). | person_id, organisation_id, channel, digest, muted_kinds[] |
+| `notification_preferences` | How a person wants to be told about things, per organisation (in-app, email, daily digest). | person_id, organisation_id, channel, enabled, digest, muted_kinds[] |
 | `support_access_grants` | A time-limited permission the named expert gives Avodeck support to look at one case. | case_id, granted_by, granted_to, reason, expires_at, revoked_at |
 
 ### 4.3 Case
@@ -360,7 +360,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
 | `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, expires_at, completed_at |
-| `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, created_at, read_at, emailed_at |
+| `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, in_app, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
 | `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, fingerprint, status_code, response_body, created_at, expires_at |

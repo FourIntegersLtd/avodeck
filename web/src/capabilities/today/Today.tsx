@@ -45,8 +45,10 @@ export function Today() {
     <div className="av-page">
       <div className="av-today__head">
         <div>
+          <p className="av-muted av-today__date" data-testid="today-date">
+            {formatDay(new Date(), locale ?? undefined, me.person.timezone)}
+          </p>
           <h1>{t(greetingKey(hourIn(me.person.timezone)), { name })}</h1>
-          <p className="av-muted">{formatDay(new Date(), locale ?? undefined, me.person.timezone)}</p>
         </div>
         {hasScreen("new_case") && <LinkButton to={screenPath("new_case")!}>{t("today.cases.new")}</LinkButton>}
       </div>
@@ -144,17 +146,45 @@ function CaseCardView({ card, pack, locale }: { card: CaseCard; pack: CasePack |
   const dateLocale = locale ?? pack?.locale;
   return (
     <Link to={`/cases/${card.case_id}`} className="av-card av-case-card">
-      <h3 className="av-case-card__title">{card.label}</h3>
-      {card.organisation_kind !== "personal" && <span className="av-badge">{card.organisation_name}</span>}
-      {party && <span>{party}</span>}
-      {stepIndex >= 0 && (
+      {stepIndex >= 0 && <StepRing step={stepLabel(card.stage!)} number={stepIndex + 1} total={steps.length} />}
+      <div className="av-case-card__body">
+        <h3 className="av-case-card__title">{card.label}</h3>
         <span className="av-row">
-          <span className="av-badge">{stepLabel(card.stage!)}</span>
-          <span className="av-muted">{t("case.step", { number: stepIndex + 1, total: steps.length })}</span>
+          {card.organisation_kind !== "personal" && <span className="av-badge">{card.organisation_name}</span>}
+          {card.on_hold && <span className="av-badge av-badge--look">{t("case.on_hold")}</span>}
         </span>
-      )}
-      {card.due_date && pack && <span>{t("case.due", { date: formatDue(card.due_date, dateLocale) })}</span>}
-      {card.on_hold && <span className="av-badge av-badge--look">{t("case.on_hold")}</span>}
+        <span className="av-case-card__foot">
+          <span>{party}</span>
+          {card.due_date && pack && <span>{t("case.due", { date: formatDue(card.due_date, dateLocale) })}</span>}
+        </span>
+      </div>
     </Link>
+  );
+}
+
+/** How far along a case is: a ring filled to the pack step, with the step's name inside. */
+function StepRing({ step, number, total }: { step: string; number: number; total: number }) {
+  const r = 34;
+  const length = 2 * Math.PI * r;
+  return (
+    <span className="av-ring" role="img" aria-label={t("case.step_ring", { step, number, total })}>
+      <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
+        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--line)" strokeWidth="6" />
+        <circle
+          cx="40"
+          cy="40"
+          r={r}
+          fill="none"
+          stroke="var(--green)"
+          strokeWidth="6"
+          strokeLinecap="round"
+          strokeDasharray={`${(length * number) / total} ${length}`}
+          transform="rotate(-90 40 40)"
+        />
+      </svg>
+      <span className="av-ring__label" aria-hidden="true">
+        {step}
+      </span>
+    </span>
   );
 }

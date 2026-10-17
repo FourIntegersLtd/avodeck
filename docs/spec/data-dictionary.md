@@ -20,6 +20,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | home_region | Which country's system they belong to (UK, Australia, Canada) |
 | records_custodian | Someone they nominate to look after their served cases if they die or can't work |
 | closed_at | When they closed their account (empty if active) |
+| email_bounced_at | When an email to them bounced; no more emails until the address changes |
 
 ### experts (the professional side of a person who gives evidence)
 | Field | In plain words |
@@ -142,6 +143,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | person_id / organisation_id | Whose preferences, for which organisation's cases |
 | channel | In the app, by email, or both |
+| enabled | Whether messages go this way at all |
 | digest | Whether to bundle emails into one a day |
 | muted_kinds[] | Types of message they don't want |
 
@@ -689,7 +691,8 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | person_id / organisation_id / case_id | Who it's for, about which organisation and case |
-| kind | What happened (e.g. bundle ready) |
+| kind | What happened (e.g. bundle ready), as a short code the app turns into words |
+| in_app | Whether it shows in the app (false when the person only wants email) |
 | read_at / emailed_at | When seen and when emailed |
 
 ### feature_flags

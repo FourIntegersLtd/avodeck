@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { t } from "../foundation/i18n";
+import { MessagesProvider } from "../foundation/lib/messages";
 import { SessionContext } from "../foundation/lib/session";
 import { useResource } from "../foundation/lib/useResource";
 import { api, unwrap } from "../foundation/platform-client";
@@ -37,9 +38,11 @@ export function RequireSession() {
   }
   return (
     <SessionContext.Provider value={{ me: session.data.me, status: session.data.status }}>
-      <AppShell>
-        <Outlet />
-      </AppShell>
+      <MessagesProvider>
+        <AppShell name={session.data.me.person.full_name || session.data.me.person.email}>
+          <Outlet />
+        </AppShell>
+      </MessagesProvider>
     </SessionContext.Provider>
   );
 }

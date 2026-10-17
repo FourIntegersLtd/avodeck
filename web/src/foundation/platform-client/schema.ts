@@ -270,6 +270,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/feature-flags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Feature Flags */
+        get: operations["feature_flags_v1_feature_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/jobs/{job_id}": {
         parameters: {
             query?: never;
@@ -395,6 +412,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/notification-preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Preferences */
+        get: operations["get_preferences_v1_me_notification_preferences_get"];
+        /**
+         * Put Preferences
+         * @description Saves the choices for each organisation named; others are left as they were.
+         */
+        put: operations["put_preferences_v1_me_notification_preferences_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/sessions": {
         parameters: {
             query?: never;
@@ -447,6 +485,40 @@ export interface paths {
          * @description Signs out one of the person's own devices; anyone else's is 404.
          */
         delete: operations["end_session_v1_me_sessions__session_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notifications */
+        get: operations["list_notifications_v1_notifications_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/notifications/{notification_id}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Read */
+        post: operations["mark_read_v1_notifications__notification_id__read_post"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -810,6 +882,13 @@ export interface components {
             /** Specialties */
             specialties: string[];
         };
+        /** FeatureFlags */
+        FeatureFlags: {
+            /** Flags */
+            flags: {
+                [key: string]: boolean;
+            };
+        };
         /** Forgot */
         Forgot: {
             /** Email */
@@ -959,6 +1038,77 @@ export interface components {
              * @description Canvas board the action opens, e.g. S09.
              */
             screen: string;
+        };
+        /** Notification */
+        Notification: {
+            /** Case Id */
+            case_id: string | null;
+            /** Case Label */
+            case_label: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Organisation Id
+             * Format: uuid
+             */
+            organisation_id: string;
+            /** Read At */
+            read_at: string | null;
+        };
+        /** NotificationChoice */
+        NotificationChoice: {
+            /** Digest */
+            digest: boolean;
+            /** Email */
+            email: boolean;
+            /** In App */
+            in_app: boolean;
+            /** Muted Kinds */
+            muted_kinds?: string[];
+            /**
+             * Organisation Id
+             * Format: uuid
+             */
+            organisation_id: string;
+        };
+        /** NotificationPreference */
+        NotificationPreference: {
+            /** Digest */
+            digest: boolean;
+            /** Email */
+            email: boolean;
+            /** In App */
+            in_app: boolean;
+            /** Muted Kinds */
+            muted_kinds?: string[];
+            /**
+             * Organisation Id
+             * Format: uuid
+             */
+            organisation_id: string;
+            /** Organisation Kind */
+            organisation_kind: string;
+            /** Organisation Name */
+            organisation_name: string;
+        };
+        /** Notifications */
+        Notifications: {
+            /** Email Bounced */
+            email_bounced: boolean;
+            /** Items */
+            items: components["schemas"]["Notification"][];
+            /** Unread Count */
+            unread_count: number;
         };
         /** PackCombination */
         PackCombination: {
@@ -1640,6 +1790,26 @@ export interface operations {
             };
         };
     };
+    feature_flags_v1_feature_flags_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureFlags"];
+                };
+            };
+        };
+    };
     get_job_v1_jobs__job_id__get: {
         parameters: {
             query?: never;
@@ -1837,6 +2007,59 @@ export interface operations {
             };
         };
     };
+    get_preferences_v1_me_notification_preferences_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreference"][];
+                };
+            };
+        };
+    };
+    put_preferences_v1_me_notification_preferences_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationChoice"][];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreference"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     list_sessions_v1_me_sessions_get: {
         parameters: {
             query?: never;
@@ -1892,6 +2115,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_notifications_v1_notifications_get: {
+        parameters: {
+            query?: {
+                unread?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notifications"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    mark_read_v1_notifications__notification_id__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notification"];
+                };
             };
             /** @description Validation Error */
             422: {

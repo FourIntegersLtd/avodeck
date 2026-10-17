@@ -8,7 +8,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
     <div className="av-sign-in">
       <aside className="av-sign-in__brand">
         <Logo />
-        <p className="av-sign-in__tagline">{t("sign_in.brand.tagline")}</p>
+        <h2 className="av-sign-in__tagline">{t("sign_in.brand.tagline")}</h2>
         <ul className="av-sign-in__points">
           <li>{t("sign_in.brand.point_pages")}</li>
           <li>{t("sign_in.brand.point_visits")}</li>

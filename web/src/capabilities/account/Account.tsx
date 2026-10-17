@@ -1,5 +1,5 @@
 // S28 Account and security (foundation part): email, password, the code, backup codes and devices.
-// Organisations, notifications and closing the account belong to slice O.
+// "How we tell you things" is the foundation's too; organisations and closing the account belong to slice O.
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatRelative, t } from "../../foundation/i18n";
@@ -7,8 +7,8 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { Button, Checkbox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 
 export function Account() {
   const { me } = useSession();
@@ -39,6 +39,7 @@ export function Account() {
       <SigningIn email={me.person.email} act={act} />
       <BackupCodes act={act} />
       <Devices act={act} locale={me.person.locale} />
+      <HowWeTellYou />
       <div>
         <Button
           variant="secondary"
@@ -189,6 +190,61 @@ function Devices({ act, locale }: { act: Act; locale: string | null | undefined 
           </Button>
         </div>
       )}
+    </section>
+  );
+}
+
+type Choice = Schemas["NotificationPreference"];
+const CHANNELS = [
+  ["in_app", "account.notify.in_app"],
+  ["email", "account.notify.email"],
+  ["digest", "account.notify.digest"],
+] as const;
+
+function HowWeTellYou() {
+  const found = useResource(() => unwrap(api.GET("/v1/me/notification-preferences")), []);
+  const [saved, setSaved] = useState<Record<string, Choice>>({});
+  const [failed, setFailed] = useState<string | null>(null);
+  const change = async (choice: Choice, channel: (typeof CHANNELS)[number][0], on: boolean) => {
+    const next = { ...choice, [channel]: on };
+    setFailed(null);
+    setSaved((s) => ({ ...s, [choice.organisation_id]: next }));
+    try {
+      await unwrap(
+        api.PUT("/v1/me/notification-preferences", {
+          body: [{ organisation_id: next.organisation_id, in_app: next.in_app, email: next.email, digest: next.digest, muted_kinds: next.muted_kinds }],
+        }),
+      );
+    } catch (err) {
+      setSaved((s) => ({ ...s, [choice.organisation_id]: choice }));
+      setFailed(errorMessage(err));
+    }
+  };
+  return (
+    <section aria-labelledby="how-we-tell-you" className="av-card av-stack">
+      <h2 id="how-we-tell-you">{t("account.notify.title")}</h2>
+      <p className="av-muted">{t("account.notify.intro")}</p>
+      {failed && (
+        <Notice tone="error">
+          <p>{failed}</p>
+        </Notice>
+      )}
+      {found.error && <LoadError onRetry={found.reload} />}
+      {!found.data && !found.error && <Loading />}
+      {found.data?.map((original) => {
+        const choice = saved[original.organisation_id] ?? original;
+        const name = choice.organisation_kind === "personal" ? t("today.filter.personal") : choice.organisation_name;
+        return (
+          <fieldset key={choice.organisation_id} className="av-choices">
+            <legend className="av-field__label">{name}</legend>
+            <div className="av-row">
+              {CHANNELS.map(([channel, label]) => (
+                <Checkbox key={channel} label={t(label)} checked={choice[channel]} onChange={(e) => void change(choice, channel, e.target.checked)} />
+              ))}
+            </div>
+          </fieldset>
+        );
+      })}
     </section>
   );
 }
