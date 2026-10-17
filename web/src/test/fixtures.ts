@@ -78,3 +78,37 @@ export function device(over: Partial<Schemas["Device"]> = {}): Schemas["Device"]
     ...over,
   };
 }
+
+// Messages (GET /v1/notifications). Typed loosely until `make api-client` adds the schema.
+export interface Message {
+  id: string;
+  kind: string;
+  organisation_id: string;
+  case_id: string | null;
+  case_label: string | null;
+  created_at: string;
+  read_at: string | null;
+}
+
+export interface Messages {
+  items: Message[];
+  unread_count: number;
+  email_bounced: boolean;
+}
+
+export function message(over: Partial<Message> = {}): Message {
+  return {
+    id: "88888888-8888-4888-8888-888888888888",
+    kind: "bundle_ready",
+    organisation_id: PERSONAL_ORG,
+    case_id: CASE_A,
+    case_label: "Mrs A",
+    created_at: new Date(Date.now() - 3_600_000).toISOString(),
+    read_at: null,
+    ...over,
+  };
+}
+
+export function messages(over: Partial<Messages> = {}): Messages {
+  return { items: [], unread_count: 0, email_bounced: false, ...over };
+}

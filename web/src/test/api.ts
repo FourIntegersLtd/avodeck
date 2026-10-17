@@ -1,5 +1,5 @@
 import { http, HttpResponse, type JsonBodyType } from "msw";
-import { fixturePack, launchPack, me, sessionStatus, today, type Schemas } from "./fixtures";
+import { fixturePack, launchPack, me, messages, sessionStatus, today, type Messages, type Schemas } from "./fixtures";
 import { server } from "./server";
 
 export { http, HttpResponse, server };
@@ -12,8 +12,12 @@ export function apiError(status: number, code: string, extra: Record<string, unk
 export const json = (body: JsonBodyType, status = 200) => HttpResponse.json(body, { status });
 
 /** A signed-in person with MFA done: session, me, today and case packs. */
-export function signedIn(opts: { me?: Schemas["Me"]; today?: Schemas["Today"]; pack?: Schemas["CasePack"] } = {}) {
+export function signedIn(
+  opts: { me?: Schemas["Me"]; today?: Schemas["Today"]; pack?: Schemas["CasePack"]; messages?: Messages } = {},
+) {
   server.use(
+    http.get("/v1/notifications", () => json(opts.messages ?? messages())),
+    http.get("/v1/me/notification-preferences", () => json([])),
     http.get("/v1/auth/session", () => json(sessionStatus())),
     http.get("/v1/me", () => json(opts.me ?? me())),
     http.get("/v1/today", () => json(opts.today ?? today())),
