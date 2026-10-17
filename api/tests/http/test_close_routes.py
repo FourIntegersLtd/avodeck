@@ -94,9 +94,8 @@ def audit_actions(admin: psycopg.Connection, case: uuid.UUID) -> list[str]:
 
 TOMBSTONE = pytest.mark.xfail(
     strict=True,
-    reason="foundation: app.case_access() hides a deleted case from everyone, so the certificate and the"
-    " close summary cannot be read after deletion (architecture 5.2 says they can); needs case.view_metadata"
-    " and case.view_certificate on the tombstone",
+    reason="foundation: on a deleted case only case.view_certificate passes the access check (0018), so the"
+    " close summary (case.view_metadata) cannot be read after deletion",
 )
 
 
@@ -508,7 +507,6 @@ async def test_the_certificate_is_not_there_until_the_case_is_deleted(
     assert (await client.get(f"/v1/cases/{case}/deletion-certificate")).status_code == 404
 
 
-@TOMBSTONE
 @pytest.mark.parametrize("person", ["expert", "admin"])
 async def test_the_certificate_carries_counts_hashes_and_dates_only(
     person: str, client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
