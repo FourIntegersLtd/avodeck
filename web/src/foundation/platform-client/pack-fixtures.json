@@ -1,0 +1,860 @@
+{
+  "fixture": {
+    "case_pack": {
+      "checks": [],
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text_key": "zz.qualifications"
+          }
+        ],
+        "rule_ref": "Rule Z"
+      },
+      "currency": "XTS",
+      "date_order": "MDY",
+      "deadline_rules": [
+        {
+          "calendar": "business_days",
+          "days": 21,
+          "from": "report_served",
+          "key": "written_questions",
+          "rule_ref": "Rule Z.4"
+        },
+        {
+          "key": "hearing",
+          "rule_ref": "Rule Z.7",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "affirmation",
+          "rule_ref": "Rule Z.9",
+          "text": "I affirm this test report is mine.",
+          "version": "0.0.1"
+        }
+      ],
+      "expert_roles": [
+        "assessor"
+      ],
+      "fact_kinds": [
+        {
+          "fields": {
+            "duration_minutes": "integer"
+          },
+          "key": "session"
+        },
+        {
+          "fields": {
+            "name": "string",
+            "unit": "string",
+            "value": "string"
+          },
+          "key": "measurement"
+        }
+      ],
+      "final_checks": [],
+      "instructing_party_types": [
+        {
+          "key": "insurer",
+          "label": "carrier"
+        }
+      ],
+      "lanes": [
+        {
+          "key": "sessions"
+        },
+        {
+          "key": "measurements"
+        },
+        {
+          "key": "letters"
+        }
+      ],
+      "language": "en",
+      "legal_tests": null,
+      "locale": "en-ZZ",
+      "party_roles": [
+        {
+          "key": "instructing_side",
+          "label": "petitioner"
+        },
+        {
+          "key": "other_side",
+          "label": "respondent"
+        }
+      ],
+      "profession": "therapist",
+      "question_types": [
+        {
+          "key": "capacity",
+          "label_key": "zz.question_type.capacity"
+        }
+      ],
+      "registration_bodies": [
+        "ZZ-REG"
+      ],
+      "report_sections": [
+        {
+          "key": "introduction"
+        },
+        {
+          "key": "findings"
+        },
+        {
+          "key": "opinion"
+        },
+        {
+          "key": "declarations"
+        }
+      ],
+      "retention_years": 2,
+      "source_types": [
+        {
+          "colour": "#5A4A9E",
+          "key": "clinic_notes"
+        },
+        {
+          "colour": "#8C7556",
+          "key": "letters"
+        }
+      ],
+      "timezone": "America/Halifax",
+      "versions": {
+        "case_type": "zz-case@0.0.1",
+        "jurisdiction": "zz-test@0.0.2",
+        "specialty": "zz-specialty@0.0.1"
+      },
+      "vocabulary": {
+        "clinician": "therapist",
+        "clinicians": "therapists",
+        "court_bundle": "hearing binder",
+        "declaration_name": "affirmation",
+        "expert_meeting": "expert conference",
+        "expert_meeting_document": "conference minute",
+        "instructing_party_types": {
+          "insurer": "carrier",
+          "lawyer": "counsel"
+        },
+        "party_roles": {
+          "instructing_side": "petitioner",
+          "joint": "neutral",
+          "other_side": "respondent"
+        },
+        "practice": "clinic",
+        "report_rules_name": "Rule Z",
+        "subject": "petitioner",
+        "written_questions": "interrogatories"
+      },
+      "workflow_steps": [
+        {
+          "key": "gather",
+          "screens": [
+            "new_case",
+            "preparing",
+            "bundle_ready"
+          ]
+        },
+        {
+          "key": "review",
+          "screens": [
+            "reader",
+            "timeline"
+          ]
+        },
+        {
+          "key": "conclude",
+          "screens": [
+            "opinion",
+            "report",
+            "sign_send"
+          ]
+        }
+      ]
+    },
+    "jurisdiction": {
+      "code": "zz-test",
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text_key": "zz.qualifications"
+          }
+        ],
+        "rule_ref": "Rule Z"
+      },
+      "court_tracks": [],
+      "currency": "XTS",
+      "date_order": "MDY",
+      "deadline_rules": [
+        {
+          "calendar": "business_days",
+          "days": 21,
+          "from": "report_served",
+          "key": "written_questions",
+          "rule_ref": "Rule Z.4"
+        },
+        {
+          "key": "hearing",
+          "rule_ref": "Rule Z.7",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "affirmation",
+          "rule_ref": "Rule Z.9",
+          "text": "I affirm this test report is mine.",
+          "version": "0.0.1"
+        }
+      ],
+      "language": "en",
+      "legal_tests": null,
+      "locale": "en-ZZ",
+      "name": "Testland",
+      "timezone": "America/Halifax",
+      "version": "0.0.2",
+      "vocabulary": {
+        "court_bundle": "hearing binder",
+        "declaration_name": "affirmation",
+        "expert_meeting": "expert conference",
+        "expert_meeting_document": "conference minute",
+        "instructing_party_types": {
+          "insurer": "carrier",
+          "lawyer": "counsel"
+        },
+        "party_roles": {
+          "instructing_side": "petitioner",
+          "joint": "neutral",
+          "other_side": "respondent"
+        },
+        "report_rules_name": "Rule Z",
+        "subject": "petitioner",
+        "written_questions": "interrogatories"
+      },
+      "working_week": [
+        7,
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "launch": {
+    "case_pack": {
+      "checks": [
+        {
+          "applies_to": "result",
+          "flag": "abnormal",
+          "key": "abnormal_result_no_action",
+          "rule": "no_action_within",
+          "window_days": 14
+        },
+        {
+          "applies_to": "referral",
+          "key": "referral_acknowledged",
+          "rule": "not_acknowledged_within",
+          "window_days": 42
+        },
+        {
+          "applies_to": "prescription",
+          "key": "repeat_medicine_monitoring",
+          "rule": "monitoring_overdue",
+          "table": "drug_monitoring"
+        },
+        {
+          "applies_to": "out_of_hours",
+          "key": "ooh_reached_clinician",
+          "rule": "not_reached_clinician",
+          "window_days": 2
+        },
+        {
+          "applies_to": "letter",
+          "key": "hospital_letter_actions",
+          "rule": "actions_not_done"
+        },
+        {
+          "applies_to": "consultation",
+          "field": "examination",
+          "gentle": true,
+          "key": "examination_recorded",
+          "rule": "field_missing"
+        },
+        {
+          "applies_to": "consultation",
+          "field": "safety_netting",
+          "gentle": true,
+          "key": "safety_netting_recorded",
+          "rule": "field_missing"
+        },
+        {
+          "applies_to": "missed_appointment",
+          "default_on": false,
+          "key": "missed_appointment_followed_up",
+          "rule": "not_followed_up",
+          "window_days": 14
+        }
+      ],
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "expert_roles": [
+        "breach"
+      ],
+      "fact_kinds": [
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "examination": "string",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string"
+          },
+          "key": "consultation"
+        },
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string"
+          },
+          "key": "phone_consultation"
+        },
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "examination": "string",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string"
+          },
+          "key": "home_visit"
+        },
+        {
+          "fields": {
+            "actioned_on": "date",
+            "date": "date",
+            "flag": "string",
+            "received_on": "date",
+            "reference_range": "string",
+            "test": "string",
+            "unit": "string",
+            "value": "string"
+          },
+          "key": "result"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "dose": "string",
+            "drug": "string",
+            "quantity": "string",
+            "repeat": "boolean"
+          },
+          "key": "prescription"
+        },
+        {
+          "fields": {
+            "acknowledged_on": "date",
+            "date": "date",
+            "reason": "string",
+            "to": "string",
+            "urgency": "string"
+          },
+          "key": "referral"
+        },
+        {
+          "fields": {
+            "actions_requested": "string",
+            "date": "date",
+            "from": "string",
+            "received_on": "date",
+            "to": "string"
+          },
+          "key": "letter"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "finding": "string",
+            "unit": "string",
+            "value": "string"
+          },
+          "key": "examination"
+        },
+        {
+          "fields": {
+            "advice": "string",
+            "date": "date"
+          },
+          "key": "safety_netting"
+        },
+        {
+          "fields": {
+            "appointment_type": "string",
+            "date": "date"
+          },
+          "key": "missed_appointment"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "description": "string",
+            "done_on": "date"
+          },
+          "key": "task"
+        }
+      ],
+      "final_checks": [
+        {
+          "key": "statement_of_truth_exact",
+          "text": "Statement of truth present with exact wording from declarations.md"
+        },
+        {
+          "key": "required_contents_present",
+          "text": "Every item in report.yaml required_contents is addressed"
+        },
+        {
+          "key": "page_limit",
+          "text": "Page count within the track limit (only if the case track has one)"
+        },
+        {
+          "key": "questions_answered",
+          "text": "Every question in the letter of instruction has an answer or an explained deferral"
+        },
+        {
+          "key": "points_against_considered",
+          "text": "Points against considered for every breach question"
+        },
+        {
+          "key": "guidance_in_force",
+          "text": "Guidance cited was in force on the date of the care in question"
+        }
+      ],
+      "instructing_party_types": [
+        {
+          "key": "lawyer",
+          "label": "solicitor"
+        }
+      ],
+      "lanes": [
+        {
+          "key": "primary_care_visits"
+        },
+        {
+          "key": "results"
+        },
+        {
+          "key": "out_of_hours"
+        },
+        {
+          "key": "prescriptions"
+        },
+        {
+          "key": "hospital_and_letters"
+        },
+        {
+          "key": "appointments"
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of GPs have acted as this GP did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "party_roles": [
+        {
+          "key": "instructing_side",
+          "label": "claimant"
+        },
+        {
+          "key": "other_side",
+          "label": "defendant"
+        },
+        {
+          "key": "joint",
+          "label": "jointly instructed"
+        }
+      ],
+      "profession": "doctor",
+      "question_types": [
+        {
+          "key": "breach",
+          "label_key": "question_type.breach"
+        },
+        {
+          "key": "causation",
+          "label_key": "question_type.causation"
+        },
+        {
+          "key": "other",
+          "label_key": "question_type.other"
+        }
+      ],
+      "registration_bodies": [
+        "GMC"
+      ],
+      "report_sections": [
+        {
+          "key": "introduction"
+        },
+        {
+          "key": "instructions"
+        },
+        {
+          "key": "documents"
+        },
+        {
+          "key": "background"
+        },
+        {
+          "key": "what_happened"
+        },
+        {
+          "key": "opinion"
+        },
+        {
+          "key": "range_of_opinion"
+        },
+        {
+          "key": "summary"
+        },
+        {
+          "key": "declarations"
+        }
+      ],
+      "retention_years": 6,
+      "source_types": [
+        {
+          "colour": "#1E6B4E",
+          "key": "primary_care_record"
+        },
+        {
+          "colour": "#4C6E91",
+          "key": "hospital"
+        },
+        {
+          "colour": "#2C8C99",
+          "key": "out_of_hours"
+        },
+        {
+          "colour": "#7A6BA8",
+          "key": "results"
+        },
+        {
+          "colour": "#8C7556",
+          "key": "letters"
+        }
+      ],
+      "timezone": "Europe/London",
+      "versions": {
+        "case_type": "clin-neg-breach@2026.10.1",
+        "jurisdiction": "gb-eaw@2026.10.2",
+        "overlay": "gb-eaw/general-practice@2026.10.1",
+        "specialty": "general-practice@2026.10.1"
+      },
+      "vocabulary": {
+        "clinician": "GP",
+        "clinicians": "GPs",
+        "court_bundle": "trial bundle",
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "lanes": {
+          "primary_care_visits": "GP visits"
+        },
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "practice": "GP surgery",
+        "report_rules_name": "Part 35",
+        "source_types": {
+          "primary_care_record": "GP record"
+        },
+        "subject": "claimant",
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "workflow_steps": [
+        {
+          "key": "prepare",
+          "screens": [
+            "new_case",
+            "conflicts",
+            "questions",
+            "preparing",
+            "bundle_ready",
+            "ask_instructing_party"
+          ]
+        },
+        {
+          "key": "read",
+          "screens": [
+            "reader",
+            "couldnt_read"
+          ]
+        },
+        {
+          "key": "understand",
+          "screens": [
+            "timeline",
+            "as_clinician_saw_it",
+            "things_to_look_at"
+          ]
+        },
+        {
+          "key": "write",
+          "screens": [
+            "points_against",
+            "opinion",
+            "report",
+            "final_check",
+            "sign_send",
+            "invoice"
+          ]
+        },
+        {
+          "key": "court",
+          "screens": [
+            "after_serving",
+            "written_questions",
+            "new_material",
+            "correct_report",
+            "expert_meeting",
+            "court_bundle_pages",
+            "trial_pack",
+            "witness_box",
+            "close"
+          ]
+        }
+      ]
+    },
+    "jurisdiction": {
+      "code": "gb-eaw",
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "court_tracks": [
+        "small_claims",
+        "fast",
+        "intermediate",
+        "multi"
+      ],
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of {clinicians} have acted as this {clinician} did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "name": "England and Wales",
+      "timezone": "Europe/London",
+      "version": "2026.10.2",
+      "vocabulary": {
+        "court_bundle": "trial bundle",
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "report_rules_name": "Part 35",
+        "subject": "claimant",
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "working_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    }
+  }
+}

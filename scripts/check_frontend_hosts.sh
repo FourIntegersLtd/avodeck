@@ -3,7 +3,8 @@
 set -euo pipefail
 DIST="${1:-web/dist}"
 PATTERN='supabase\.co|supabase\.in|@supabase/|cognitiveservices\.azure\.com|\.azure\.com|amazonaws\.com|bedrock|SUPABASE_ANON|SUPABASE_URL'
-if grep -RInE "$PATTERN" "$DIST" web/src 2>/dev/null; then
+# The guard tests define the pattern itself, so their folder is skipped.
+if grep -RInE --exclude-dir=guards "$PATTERN" "$DIST" web/src 2>/dev/null; then
   echo "Forbidden host or SDK found in the frontend. The browser must talk only to the Avodeck API."
   exit 1
 fi

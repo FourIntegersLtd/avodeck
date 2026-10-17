@@ -40,8 +40,9 @@ typecheck:
 packs:          ## schemas, lint and every combination of the launch and fixture packs
 	poetry run python -m app.core.packs ../packs ../packs/_fixtures
 
-openapi:        ## write ../openapi.json
+openapi:        ## write ../openapi.json and the pack data the web tests use
 	poetry run python -m app.export_openapi > ../openapi.json
+	poetry run python -m app.export_openapi --pack-fixtures > ../web/src/foundation/platform-client/pack-fixtures.json
 
 schemathesis:
 	poetry run schemathesis run ../openapi.json --url http://localhost:8000 --checks all

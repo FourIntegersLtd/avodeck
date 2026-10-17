@@ -1,0 +1,43 @@
+/* Design tokens from the canvas (docs/design/screens/Main.dc.html). Sizes meet U2: body text
+   at least 17px, buttons at least 52px tall. Colour pairs meet WCAG AA contrast. */
+:root {
+  --green: #1E6B4E;
+  --green-dark: #0F3D2C;
+  --green-bright: #2F9E6E;
+  --green-tint: #E6F2EC;
+  --ink: #16201B;
+  --ink-soft: #4F5953;
+  --line: #DDE3DF;
+  --line-strong: #B9C3BD;
+  --surface: #FFFFFF;
+  --surface-soft: #F6F7F5;
+  --surface-muted: #EEF1EF;
+  --amber: #8A3F06;
+  --amber-tint: #FDF1E3;
+  --red: #B42318;
+  --red-tint: #FDECEA;
+  --blue: #2F4A66;
+  --blue-tint: #EAF0F6;
+  --focus: #B45309;
+
+  --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --text-small: 17px;
+  --text-body: 18px;
+  --text-large: 21px;
+  --text-h2: 24px;
+  --text-h1: 32px;
+  --line-height: 1.55;
+
+  --button-min-height: 52px;
+  --radius: 12px;
+  --radius-large: 18px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --page-width: 1120px;
+}

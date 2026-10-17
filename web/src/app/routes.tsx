@@ -1,0 +1,28 @@
+import { Navigate, type RouteObject } from "react-router-dom";
+import { accountRoutes } from "../capabilities/account";
+import { todayRoutes } from "../capabilities/today";
+import { ConfirmEmail } from "./auth/ConfirmEmail";
+import { ResetPassword } from "./auth/ResetPassword";
+import { SignIn } from "./auth/SignIn";
+import { CaseLayout } from "./CaseLayout";
+import { NotFound } from "./NotFound";
+import { RequireSession } from "./RequireSession";
+import { Root } from "./Root";
+
+export const routes: RouteObject[] = [
+  {
+    path: "/",
+    element: <Root />,
+    children: [
+      { index: true, element: <Navigate to="/today" replace /> },
+      { path: "sign-in", element: <SignIn /> },
+      { path: "reset-password", element: <ResetPassword /> },
+      { path: "account/email/confirm", element: <ConfirmEmail /> },
+      {
+        element: <RequireSession />,
+        children: [...todayRoutes, ...accountRoutes, { path: "cases/:caseId", element: <CaseLayout /> }],
+      },
+      { path: "*", element: <NotFound /> },
+    ],
+  },
+];

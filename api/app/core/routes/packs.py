@@ -16,7 +16,7 @@ from app.core.auth.access import CaseAccess, require_case_access
 from app.core.config import cell_settings
 from app.core.errors import ApiError
 from app.core.http import DbConn, router
-from app.core.packs import Pack, PackLibrary
+from app.core.packs import MergedPack, Pack, PackLibrary
 
 packs_router = router(prefix="/v1", tags=["packs"])
 case_pack_router = router(prefix="/v1/cases", tags=["packs"])
@@ -95,6 +95,37 @@ def _ref(pack: Pack) -> PackRef:
     return PackRef(code=pack.code, name=pack.meta["name"], version=pack.meta["version"])
 
 
+def case_pack(pack: MergedPack) -> CasePack:
+    """The pack data a case's screens use (also exported for the web tests by `make api-client`)."""
+    return CasePack(
+        versions=pack.versions,
+        timezone=pack.timezone,
+        date_order=pack.date_order,
+        locale=pack.locale,
+        language=pack.language,
+        currency=pack.currency,
+        retention_years=pack.retention_years,
+        profession=pack.profession,
+        vocabulary=pack.vocabulary,
+        party_roles=pack.party_roles(),
+        instructing_party_types=pack.instructing_party_types(),
+        expert_roles=pack.expert_roles(),
+        registration_bodies=pack.registration_bodies(),
+        workflow_steps=pack.workflow_steps(),
+        question_types=pack.question_types(),
+        report_sections=pack.report_sections(),
+        fact_kinds=pack.fact_kinds(),
+        source_types=pack.source_types(),
+        lanes=pack.lanes(),
+        checks=pack.checks(),
+        final_checks=pack.final_checks(),
+        compliance_checklist=pack.compliance_checklist(),
+        declarations=pack.declarations(),
+        legal_tests=pack.legal_tests() or None,
+        deadline_rules=pack.deadline_rules(),
+    )
+
+
 @packs_router.get("/jurisdictions", response_model=list[PackRef])
 async def list_jurisdictions(request: Request) -> list[PackRef]:
     return [_ref(p) for p in _library(request).jurisdictions_in(_cell(request))]
@@ -129,31 +160,4 @@ async def get_case_pack(
         await cur.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
         row = await cur.fetchone()
     assert row is not None  # require_case_access has already answered 404
-    pack = _library(request).combine(*row)
-    return CasePack(
-        versions=pack.versions,
-        timezone=pack.timezone,
-        date_order=pack.date_order,
-        locale=pack.locale,
-        language=pack.language,
-        currency=pack.currency,
-        retention_years=pack.retention_years,
-        profession=pack.profession,
-        vocabulary=pack.vocabulary,
-        party_roles=pack.party_roles(),
-        instructing_party_types=pack.instructing_party_types(),
-        expert_roles=pack.expert_roles(),
-        registration_bodies=pack.registration_bodies(),
-        workflow_steps=pack.workflow_steps(),
-        question_types=pack.question_types(),
-        report_sections=pack.report_sections(),
-        fact_kinds=pack.fact_kinds(),
-        source_types=pack.source_types(),
-        lanes=pack.lanes(),
-        checks=pack.checks(),
-        final_checks=pack.final_checks(),
-        compliance_checklist=pack.compliance_checklist(),
-        declarations=pack.declarations(),
-        legal_tests=pack.legal_tests() or None,
-        deadline_rules=pack.deadline_rules(),
-    )
+    return case_pack(_library(request).combine(*row))
