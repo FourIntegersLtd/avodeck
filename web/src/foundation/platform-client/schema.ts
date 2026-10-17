@@ -2636,7 +2636,7 @@ export interface components {
         NoteItem: {
             /**
              * Label
-             * @description The pack's words for what the item is about (a conflict question).
+             * @description The pack's words for the item (a conflict question).
              */
             label?: string | null;
             /**
