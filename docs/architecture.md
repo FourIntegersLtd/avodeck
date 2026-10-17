@@ -246,9 +246,14 @@ One instruction: who it's for, who's involved, what was asked.
 | `instruction_versions` | Each letter of instruction or set of oral instructions, in order. Questions belong to one of these. Foundation creates the table (migration 0017); slice C fills it. | case_id, version_no, kind (pack key: letter/supplementary/oral), document_id, received_on, locked_at, locked_by (oral wording is in `case_instructions`) |
 | `case_instructions` | The words of oral instructions, one record per oral instruction version and date received, typed or from dictation. Slice C. | case_id, instruction_version_id, text (encrypted), source (typed/dictated), transcript_id, received_on |
 | `case_subject_keys` | A keyed hash of the subject's identifier, for the duplicate-case warning. The identifier itself is never stored. Slice C. | case_id, key_hash |
-| `conflict_answers` | The expert's answers to the conflict-of-interest questions, which feed their declaration. | case_id, question_key, answer, detail, answered_at |
+| `conflict_answers` | The expert's answers to the conflict-of-interest questions (keys from the jurisdiction pack's `conflicts.yaml`), which feed their declaration. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted; only with yes), answered_by, version, created_at, updated_at |
+| `conflict_declarations` | Each time the expert declares conflicts (at the start, or mid-case). Append-only; the latest is current. Slice C. | case_id, outcome (none/disclosed), declared_by, created_at |
+| `case_withdrawals` | Why the expert withdrew from the case (one per case; the case moves to `withdrawn` in the same transaction). Slice C. | case_id, reason (encrypted), withdrawn_by, created_at |
 | `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, kind, outside_expertise, status, confirmed_text |
-| `assumptions` | Things the instructions tell the expert to assume. | case_id, instruction_version_id, text_verbatim, source_word_ids[], status |
+| `assumptions` | Things the instructions tell the expert to assume. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, status, confirmed_text |
+| `instruction_extractions` | One record per letter read by `extract_questions`: counts kept and refused, whether it reopened the set. Counts only. Slice C. | instruction_version_id, case_id, job_id, questions, assumptions, rejected, reopened, model_task, prompt_version |
+| `prefill_suggestions` | Case details T-04 suggested from the letter, each citing its words, waiting for the expert to accept or dismiss. Never applied to the case by the server. Slice C. | case_id, instruction_version_id, field, value (encrypted), word_ids[], status (suggested/accepted/dismissed), decided_by, decided_at, model_task, prompt_version |
+| `prefill_runs` | One record per `prefill_case` run: suggestions kept and refused. Counts only. Slice C. | case_id, job_id, kept, rejected |
 
 ### 4.4 Bundle
 
@@ -450,7 +455,9 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/uploads/{upload_id}` | Which chunks have arrived and which are missing, to resume | |
 | POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Virus scan and processing are queued by slice A |
 | GET | `/cases/{case_id}/documents/{document_id}/file` | Stream the stored file back through FastAPI | `Cache-Control: private, no-store` |
-| POST | `/cases/{case_id}/prefill` | T-04 suggest fields from the letter | 202 + job |
+| POST | `/cases/{case_id}/prefill` | T-04 suggest fields from the letter | 202 + job; 409 without a letter |
+| GET | `/cases/{case_id}/prefill` | Suggestions with their word ids, whether the letter is still being read, how many were refused | |
+| PATCH | `/cases/{case_id}/prefill/{suggestion_id}` | Accept or dismiss one suggestion `{decision}` (once; 409 after) | Records the choice only; the case changes when the expert saves the form |
 | PUT | `/cases/{case_id}/oral-instructions` | Save oral instructions text | |
 | WS | `/cases/{case_id}/dictation?context=` | Browser streams microphone audio to FastAPI over a WebSocket; FastAPI relays it to Azure Speech (UK South) and streams the text back | Used by every dictation box (T-DICT); no Azure key in the browser; audio not stored |
 | POST | `/cases/{case_id}/transcripts` | Save the finished, edited transcript `{context, text, duration}` | |
@@ -460,7 +467,9 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text and any practice-period warning |
+| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown) |
+| POST | `/cases/{case_id}/conflicts/declare` | Record the declaration (all questions answered, else 409); drafts the note to every current instructing party |
+| POST | `/cases/{case_id}/withdraw` | 🔒 `{reason}` → case `withdrawn`; drafts the note | |
 
 **06 What you've been asked**
 

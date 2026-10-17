@@ -25,7 +25,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | settled → archived | Expert (`case.archive`) or 30 days after settled (daily close run) | — | Read-only; `settled_at` kept |
 | archived → active | Expert "Reopen" (`case.reopen`) | Before `delete_after`; no legal hold needed | Audit; `settled_at` cleared |
 | settled → active | Expert "Reopen" (`case.reopen`; settlement fell through, new questions) | Before `delete_after` | Retention clock stops (`settled_at` cleared); restarts from the latest settlement |
-| draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties |
+| draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties. The reason is kept encrypted in `case_withdrawals`; withdrawing twice returns 409. Slice C moves the status; the slices that own deadlines read `withdrawn` (nothing is cancelled by C), and slice H starts the retention clock (`delete_after` needs `case.retention`) |
 | withdrawn → archived | Expert or 30 days after | — | Read-only |
 | any → deleted | **Blocked** while an active `legal_holds` row exists | — | Deletion job skips the case and notifies the named expert |
 
@@ -74,7 +74,11 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 | question set: open → locked | `confirm-all` | Every question confirmed or edited |
 | locked → open | Expert "Change the questions": a new `instruction_versions` row (the old lock is never undone) | Not yet served; questions moved to the new version return to suggested; drafts keep their links; warning shown |
 
-Writing (screens 14 and 15) requires a locked question set (409 otherwise).
+Writing (screens 14 and 15) requires a locked question set (409 otherwise). A set locks once (`instruction_versions.locked_at`, `confirm-all`; 409 if already locked or nothing to confirm). A newer letter that adds nothing moves the confirmed questions to the new version and locks it straight away; one that adds a question returns them to suggested with the warning `setup.questions.warning.reopened`. After serving, nothing moves.
+
+## Prefill suggestion (`prefill_suggestions.status`)
+
+suggested → accepted / dismissed (named expert or assistant, screen 04; once, 409 after). Enforced by `app.prefill_suggestions_guard`. Accepting records the choice only; the case changes when the expert saves the screen 04 form.
 
 ## Report version (`report_versions`)
 

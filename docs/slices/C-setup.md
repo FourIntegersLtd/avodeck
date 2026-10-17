@@ -18,16 +18,18 @@ The expert sets up their profile once, then for each case enters the details, de
 - `GET/PUT /v1/me/declaration`; `GET /v1/jurisdictions/{code}` (fixed wording from the pack, foundation-owned)
 - Signature: `POST /v1/me/signature`; `GET /v1/me/signature/image`
 - `GET /v1/me/stats/balance?months=12`
-- `POST /v1/cases/{id}/prefill` → 202; `PUT /v1/cases/{id}/oral-instructions`
+- `POST /v1/cases/{id}/prefill` → 202; `GET /v1/cases/{id}/prefill`; `PATCH /v1/cases/{id}/prefill/{suggestion_id}` `{decision}`; `PUT /v1/cases/{id}/oral-instructions`
 - `GET/PUT /v1/cases/{id}/conflicts`
 - `GET /v1/cases/{id}/questions`; `PATCH /v1/cases/{id}/questions/{q_id}`; `PATCH /v1/cases/{id}/assumptions/{a_id}`; `POST /v1/cases/{id}/questions/confirm-all`
 - `POST /v1/cases/{id}/instructing-party-notes/draft`
 
 ## Tables owned
-`expert_roles`, `expert_training`, `report_templates`, `declarations`, `signatures`, `case_instructions`, `conflict_answers`, `assumptions`. Fills the `questions` contract table.
+`expert_roles`, `expert_training`, `report_templates`, `declarations`, `signatures`, `case_instructions`, `conflict_answers`, `assumptions`. Fills the `questions` contract table. Chunk B added `conflict_declarations`, `case_withdrawals` (0320), `instruction_extractions` (0330), `prefill_suggestions`, `prefill_runs` (0340); all registered in `core/contracts/case_tables.py`.
 
-## Worker job: `extract_questions`
-OCR the letter of instruction (T-07a kit) → `pii.strip` → **T-06** → exact-substring check → `questions` and `assumptions` rows with status `suggested`.
+## Worker jobs: `extract_questions`, `prefill_case`
+`extract_questions`: OCR the letter of instruction (T-07a kit) → `pii.strip` → **T-06** → exact-substring check → `questions` and `assumptions` rows with status `suggested`. Queued by `POST /instructions` when a document is attached.
+
+`prefill_case` (chunk B): OCR the latest letter → `pii.strip` → **T-04** → checks (a name is exactly the cited words; a key is one of the pack's; a due date is written out in the cited words, read with the pack's date order and language) → `prefill_suggestions` (encrypted) waiting for the expert. Accepting only records the choice; the case changes when the expert saves the screen 04 form.
 
 ## AI tasks (architecture 6.3)
 | Task | Model | Output | Check |
@@ -76,6 +78,15 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] On hold pauses reminders and queues jobs; resume restores them (chunk A: hold/resume set `cases.on_hold`; no reminder or job code reads the flag yet, so pausing waits for the slices that own reminders and the job queue)
 - Open: `docs/spec/behaviour-index.md` says parties are "editable until served; then additions only". Chunk A refuses new parties after serving (409) and the database refuses changes and removals; allowing additions after serving needs a founder decision because the committed test asserts 409.
 - [ ] Subject status (living, deceased, minor) changes only vocabulary, proven under the fixture packs
+
+## Chunk B notes (2026-10-17)
+- **Gap, T-02:** the optional template heading mapping by AI is not built; `PATCH /v1/me/template/mapping` takes the expert's own mapping.
+- **Gap, deadlines on withdraw:** `POST /withdraw` returns `deadlines_cancelled: 0`. Deadlines belong to the slices that set them; they must read the case's `withdrawn` status.
+- **Gap, retention on withdraw:** withdraw does not set `delete_after` (it needs `case.retention`, slice H's action); slice H starts the retention clock from `case_withdrawals.created_at`.
+- **Gap, i18n:** the keys the API returns (`setup.conflicts.warning.coverage_{none,partial}`, `setup.conflicts.question.<key>`, `setup.questions.warning.*`, `setup.today.{questions_to_confirm,profile_incomplete}[_action]`, note `label_key`s) go into `web/src/foundation/i18n/en-GB.json` with the screens (chunk C).
+- **Gap, evals:** no `evals/.../expected/setup-*.json` rows yet; T-04 and the conflicts expectations are in the recorded fixtures and tests (`api/tests/fixtures/setup/record_setup.py`).
+- Conflicts: the paragraph is the pack's `statement.none`, or `statement.disclosed` followed by the expert's details. Coverage counts roles whose `setting` is one of the specialty's `coverage_roles` (covered/partial/none/unknown); roles stay private to the expert.
+- Today: "questions to confirm" per case for the named expert (screen 06); "profile incomplete" once, on the first case shown, while the name, profession, registration body or number, or a specialty is missing (screen 02).
 
 ## Rules that apply
 1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.

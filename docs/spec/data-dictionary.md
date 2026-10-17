@@ -239,9 +239,22 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### conflict_answers
 | Field | In plain words |
 |---|---|
-| question_key | Which conflict question (e.g. "have you treated this person?") |
-| answer / detail | Yes or no, and any explanation |
-| answered_at | When answered (conflicts can be declared later too) |
+| question_key | Which conflict question (e.g. "have you treated this person?"), from the jurisdiction pack |
+| answer / detail | Yes or no, and the expert's explanation (kept encrypted; only with a yes, and required where the pack says so) |
+| answered_by | Who answered (the named expert) |
+| version / created_at / updated_at | Goes up on each change; when first and last answered (conflicts can be declared later too) |
+
+### conflict_declarations
+| Field | In plain words |
+|---|---|
+| outcome | No conflicts, or conflicts disclosed |
+| declared_by / created_at | Who declared and when; the latest one is the current declaration |
+
+### case_withdrawals
+| Field | In plain words |
+|---|---|
+| reason | Why the expert withdrew (kept encrypted) |
+| withdrawn_by / created_at | Who withdrew and when |
 
 ### questions
 | Field | In plain words |
@@ -259,8 +272,32 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### assumptions
 | Field | In plain words |
 |---|---|
+| number / para_ref | Its order and the paragraph of the letter |
 | text_verbatim / source_word_ids[] | The exact words the expert is told to assume, and where they are |
-| status | Confirmed or not |
+| status / confirmed_text | Suggested, confirmed or edited, and any tidied wording (the original is kept) |
+
+### instruction_extractions
+| Field | In plain words |
+|---|---|
+| instruction_version_id / job_id | Which letter was read, by which job |
+| questions / assumptions / rejected | How many were kept, and how many suggestions were refused because the letter did not say them |
+| reopened | Whether this letter reopened a confirmed set of questions |
+| model_task / prompt_version | Which AI task and prompt version read it |
+
+### prefill_suggestions
+| Field | In plain words |
+|---|---|
+| field | Which case detail: instructing party's name or type, the side they act for, due date, court track |
+| value | The suggestion (kept encrypted): words from the letter, a pack key, or a date |
+| word_ids[] | Where in the letter it comes from, as proof |
+| status / decided_by / decided_at | Waiting, accepted or dismissed, by whom and when (decided once) |
+| model_task / prompt_version | Which AI task and prompt version suggested it |
+
+### prefill_runs
+| Field | In plain words |
+|---|---|
+| job_id | The job that read the letter |
+| kept / rejected | How many suggestions were kept, and how many refused |
 
 ## Bundle
 
