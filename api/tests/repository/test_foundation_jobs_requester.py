@@ -46,7 +46,8 @@ async def test_a_job_records_who_queued_it(
         by_person = await registry.enqueue(conn, case, "zz_work")
     async with worker_db.job(case) as conn:
         by_job = await registry.enqueue(conn, case, "zz_work")
-    rows = dict(admin.execute("select id, requested_by from app.jobs where id = any(%s)", ([by_person, by_job],)))
+    found = admin.execute("select id, requested_by from app.jobs where id = any(%s)", ([by_person, by_job],))
+    rows: dict[object, object] = dict(found.fetchall())
     assert rows == {by_person: expert, by_job: None}
 
 

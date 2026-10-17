@@ -47,7 +47,9 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 @pytest.fixture
 def team(seed: Seed) -> dict[str, uuid.UUID]:
     t = {n: seed.person() for n in ("expert", "assistant", "viewer")}
-    t["org"] = seed.org(kind="team", members={t["expert"]: "expert", t["assistant"]: "assistant", t["viewer"]: "viewer"})
+    t["org"] = seed.org(
+        kind="team", members={t["expert"]: "expert", t["assistant"]: "assistant", t["viewer"]: "viewer"}
+    )
     t["case"] = seed.case(
         t["org"], t["expert"], status="active", members={t["assistant"]: "assistant", t["viewer"]: "viewer"}
     )
