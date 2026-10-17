@@ -10,6 +10,9 @@ via `poetry -P api run`, so the api dependencies are present); web test files wi
 Each commit's tests run against the database as that commit's migrations build it: when the
 `supabase/` tree differs from the last one loaded, the local Supabase is reset from the commit's
 worktree (and reset back to HEAD at the end). Set RED_GREEN_DB_RESET=0 to skip the resets.
+Resets and tests use the current checkout's own Supabase project: its supabase/config.toml (which
+may carry local, uncommitted port changes) is copied into each temporary worktree, and the tests
+get TEST_DATABASE_* for its database port (unless they are already set).
 Usage: check_red_green.py <base_ref>
 """
 import os
@@ -20,6 +23,12 @@ import sys
 import tempfile
 
 TEST_PREFIXES = ("api/tests/", "web/")
+DEFAULT_DB_PORT = "55322"
+DB_ROLES = {
+    "TEST_DATABASE_ADMIN_URL": "postgres:postgres",
+    "TEST_DATABASE_URL": "app_api:app_api_local",
+    "TEST_DATABASE_URL_DIRECT": "app_worker:app_worker_local",
+}  # the local-only role passwords set in supabase/seed.sql
 WEB_TEST_RE = re.compile(r"\.(test|spec)\.tsx?$")
 
 
@@ -33,31 +42,65 @@ def changed_tests(sha: str) -> list[str]:
             and (f.startswith("api/") or WEB_TEST_RE.search(f))]
 
 
+def root_db_port(root: str) -> str:
+    """The database port of the current checkout's local Supabase project."""
+    try:
+        out = subprocess.run(["supabase", "status", "-o", "env"], cwd=root, capture_output=True, text=True,
+                             check=False).stdout
+    except OSError:
+        return DEFAULT_DB_PORT
+    match = re.search(r'^DB_URL="?postgresql://[^@]+@[^:/]+:(\d+)/', out, re.MULTILINE)
+    return match.group(1) if match else DEFAULT_DB_PORT
+
+
+def use_checkout_config(root: str, workdir: str) -> None:
+    """Point the temporary worktree at the checkout's own project (its config.toml may differ from HEAD's)."""
+    src = os.path.join(root, "supabase", "config.toml")
+    if os.path.exists(src):
+        os.makedirs(os.path.join(workdir, "supabase"), exist_ok=True)
+        shutil.copyfile(src, os.path.join(workdir, "supabase", "config.toml"))
+
+
+def test_env(root: str, base: dict[str, str], port: str | None = None) -> dict[str, str]:
+    """The environment for a commit's api tests: the checkout's database, never an inherited PACKS_DIR."""
+    # An inherited PACKS_DIR (e.g. from scripts/local_api_env.sh) points at the current
+    # checkout's packs, not this commit's; drop it so each commit tests its own packs.
+    env = {k: v for k, v in base.items() if k != "PACKS_DIR"}
+    if not all(env.get(name) for name in DB_ROLES):
+        port = port or root_db_port(root)
+        for name, cred in DB_ROLES.items():
+            env[name] = env.get(name) or f"postgresql://{cred}@127.0.0.1:{port}/postgres"
+    return env
+
+
+test_env.__test__ = False  # type: ignore[attr-defined]  # not a pytest test when imported
+
+
 _loaded_db: list[str] = []  # tree hash of the supabase/ folder the local database was last reset from
 
 
-def reset_db(sha: str, workdir: str) -> None:
+def reset_db(sha: str, workdir: str, root: str) -> None:
     if os.environ.get("RED_GREEN_DB_RESET") == "0" or not shutil.which("supabase"):
         return
     tree = git("rev-parse", f"{sha}:supabase")
     if _loaded_db and _loaded_db[-1] == tree:
         return
+    use_checkout_config(root, workdir)
     subprocess.run(["supabase", "db", "reset", "--workdir", workdir], check=True, capture_output=True)
     _loaded_db.append(tree)
 
 
 def run_tests(sha: str, files: list[str]) -> bool:
+    root = git("rev-parse", "--show-toplevel")
     with tempfile.TemporaryDirectory() as tmp:
         git("worktree", "add", "--detach", tmp, sha)
         try:
             ok = True
-            reset_db(sha, tmp)
+            reset_db(sha, tmp, root)
             py = [f for f in files if f.startswith("api/") and f.endswith(".py")]
             ts = [f for f in files if f.startswith("web/")]
             if py:
-                # An inherited PACKS_DIR (e.g. from scripts/local_api_env.sh) points at the current
-                # checkout's packs, not this commit's; drop it so each commit tests its own packs.
-                env = {k: v for k, v in os.environ.items() if k != "PACKS_DIR"}
+                env = test_env(root, dict(os.environ))
                 ok &= subprocess.run([sys.executable, "-m", "pytest", "-q", *[f.removeprefix("api/") for f in py]],
                                      cwd=f"{tmp}/api", env=env).returncode == 0
             if ts:

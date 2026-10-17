@@ -2,7 +2,8 @@
 
 Database and auth tests run against local Supabase (`supabase start`, then `supabase db reset`).
 Connection strings come from the environment so CI and other cells can point elsewhere;
-the defaults are the local-only Supabase ports and the local-only role passwords set in
+the defaults are this checkout's own local Supabase (its port from `supabase status`, so
+parallel worktrees never share a database) and the local-only role passwords set in
 `supabase/seed.sql`. No real credentials ever appear here.
 """
 
@@ -23,6 +24,7 @@ import pytest
 
 from tests.support.auth import CSRF_HEADER, AuthAdmin, add_csrf, cookie_header
 from tests.support.db import ClientFor
+from tests.support.local_supabase import local_db_port, test_dsns
 from tests.support.seed import Seed, SeededSession
 
 if TYPE_CHECKING:
@@ -30,7 +32,6 @@ if TYPE_CHECKING:
 
     from app.core.db import Database
 
-LOCAL_HOST = "127.0.0.1:55322/postgres"
 REPO = Path(__file__).resolve().parents[2]
 APP_ORIGIN = "https://app.test"
 
@@ -47,24 +48,28 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
-def _dsn(env: str, default: str) -> str:
-    return os.environ.get(env, default)
+@pytest.fixture(scope="session")
+def test_database_dsns() -> dict[str, str]:
+    """TEST_DATABASE_* from the environment, else this checkout's own local Supabase (`supabase status`)."""
+    names = ("TEST_DATABASE_ADMIN_URL", "TEST_DATABASE_URL", "TEST_DATABASE_URL_DIRECT")
+    port = "" if all(os.environ.get(n) for n in names) else local_db_port(REPO)
+    return test_dsns(port, os.environ)
 
 
 @pytest.fixture(scope="session")
-def admin_dsn() -> str:
+def admin_dsn(test_database_dsns: dict[str, str]) -> str:
     """Local superuser-ish connection, used only by tests to arrange data."""
-    return _dsn("TEST_DATABASE_ADMIN_URL", f"postgresql://postgres:postgres@{LOCAL_HOST}")
+    return test_database_dsns["TEST_DATABASE_ADMIN_URL"]
 
 
 @pytest.fixture(scope="session")
-def api_dsn() -> str:
-    return _dsn("TEST_DATABASE_URL", f"postgresql://app_api:app_api_local@{LOCAL_HOST}")
+def api_dsn(test_database_dsns: dict[str, str]) -> str:
+    return test_database_dsns["TEST_DATABASE_URL"]
 
 
 @pytest.fixture(scope="session")
-def worker_dsn() -> str:
-    return _dsn("TEST_DATABASE_URL_DIRECT", f"postgresql://app_worker:app_worker_local@{LOCAL_HOST}")
+def worker_dsn(test_database_dsns: dict[str, str]) -> str:
+    return test_database_dsns["TEST_DATABASE_URL_DIRECT"]
 
 
 @pytest.fixture(scope="session")

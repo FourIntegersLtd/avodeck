@@ -45,6 +45,8 @@ A person's rights on a case are the **union** of their case role and the adminis
 
 After the named expert leaves the organisation, they keep every named-expert action on their named cases; the organisation keeps its "not on case" column.
 
+A deleted case (status `deleted`, the tombstone `app.purge_case()` leaves) answers only `case.view_certificate`, for the same people as above (the named expert and organisation owners/admins). Every other action on it, and the certificate for anyone else, is 404, exactly as for a case that never existed (`DELETED_CASE_ACTIONS` in `core/auth/access.py`; `app.case_access(case_id, action)` and `app.can_access_case()` in migration 0018). Lists and Today never show it.
+
 ## Checks the database repeats (rule 9, ADR 0013)
 
 Row-level security lets a person update a row; triggers then check each change against the action it is, for the person `app.person_id` names:
