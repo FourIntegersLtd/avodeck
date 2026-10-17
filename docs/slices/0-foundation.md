@@ -75,6 +75,17 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - Choices: same-origin `/v1` through the Vite proxy in development, `VITE_API_ORIGIN` in production (a cross-origin API needs CORS and the CSRF cookie domain: stage 2); password change on S28 sends the reset link (no change-password endpoint); step names come from `steps.<key>` keys or the pack key; organisations, notifications and closing the account stay with slice O.
   - Not yet: side-by-side canvas review, notifications and feature flags (API not built), stage 2 hosting (Vercel headers).
 
+- [x] Step 10 (2026-10-17): notifications, flags, CI and the canvas review:
+  - Migration `0009_foundation_notifications.sql`: `notification_preferences.enabled`, `notifications.in_app`, `people.email_bounced_at`. `core/notifications.py` `notify()` (in-app row and/or a patient-free email per the person's choices for that organisation), daily `notifications_daily` digest schedule, `mark_bounced()`. `core/flags.py` `evaluate()`, `is_enabled()`, `require_flag()` (per cell, organisation or person; off when unknown).
+  - Endpoints: `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET`/`PUT /v1/me/notification-preferences`, `GET /v1/feature-flags`. Web: messages page, header bell with the unread count, bounce banner, "How we tell you things" on S28.
+  - `POST /v1/cases` (`core/routes/cases.py`): a draft case named to the caller, who must be an owner, admin or expert of the organisation (403 otherwise); jurisdiction, case type and specialty must be a combination the cell offers, and expert role, party role, instructing party type and court track must be keys of that merged pack (422 `invalid`); expert role defaults to the case type's first; pack versions are stamped and `case.created` audited. Migration `0010_foundation_case_create.sql` adds the `cases_create` RLS policy repeating that check. An assistant naming another expert waits for slice C/O.
+  - Every operation documents the shared `ApiError` body as its `default` response; a 405 carries `Allow` with every method the path offers; sign-in, recover, forgot and reset refuse control characters (422 `invalid`); the server's own access log is off (`RequestLog` logs by route template). All found by Schemathesis.
+  - CI: `scripts/local_api_env.sh` gives the API its local settings; `ci-api.yml` starts Supabase without the unused services, starts the API and runs Schemathesis (`api/schemathesis.toml`), and has Node and pnpm for the red-then-green check; `ci-web.yml` takes the pnpm version from `web/package.json`. Run locally: lint, types, packs, guards, tests, Schemathesis, red-then-green, every web step and Playwright.
+  - Canvas: S01 (brand panel, avocado logo, promise points, note), S03 (needs-you card, organisation filter in the cases header, card grid, progress ring) and S28 security part (one "Signing in" list with code and backup codes, devices with "Sign out everywhere else" in the header, message choices) match their boards. Playwright axe with colour contrast on S01, S03 and S28.
+  - Choices: no support phone number on S01 (none decided); the logo word uses the UI font (Outfit is not bundled); the S01 promise stays neutral where the board names the clinician (no pack is known before sign-in); the greeting uses the full name; Cases, profile, help and New case links wait for slice C; organisations, records custodian and closing the account stay with slice O. Schemathesis runs signed out, so 30 operations are fuzzed only up to the sign-in check.
+
+**Stage 1 status (2026-10-17):** stage 1 is complete. The API (auth with MFA, CSRF and step-up, restricted roles with RLS, case access, ETag and Idempotency-Key, chunked encrypted uploads, jobs with progress events, the audit hash chain, packs, the AI kit with recorded stand-ins, local key provider, contracts, Today, notifications and flags) and the web shell (S01, S03, S28 security part, design system, typed client, i18n) run against local Supabase with 764 API tests (95% coverage), 80 web tests and Playwright with axe, all green; CI runs the same commands. What is left is stage 2 and needs cloud accounts: real Bedrock (London in-region IDs), Azure OCR and Speech, the AWS KMS key provider, IAM, Resend, Sentry, the staging and production deploys in London (DigitalOcean App Platform, Vercel headers, CORS and the CSRF cookie domain for a cross-origin API), the acceptance tests re-run against those services, and the definition-of-done item "deployed to staging in London; a test expert can sign in with MFA, create a case and upload a bundle" (the API part, `POST /v1/cases`, is built and tested; the new-case screen is slice C's S04).
+
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
 ## Screens
@@ -90,6 +101,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - `POST /v1/cases`, `PATCH /v1/cases/{id}`, `GET /v1/today`
 - `POST /v1/cases/{id}/uploads`, `PUT /v1/uploads/{upload_id}/chunks/{n}`, `GET /v1/uploads/{upload_id}`, `POST /v1/uploads/{upload_id}/complete`, `GET /v1/cases/{id}/documents/{document_id}/file`
 - `GET /v1/jobs/{job_id}`, `GET /v1/jobs/{job_id}/events` (SSE)
+- `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET`/`PUT /v1/me/notification-preferences`, `GET /v1/feature-flags`
 - `WS /v1/cases/{id}/dictation`, `POST /v1/cases/{id}/transcripts`
 - `GET /health`
 
@@ -152,13 +164,13 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
 - [x] Audit log hash chain verifies; tampering with a row is detected
 - [x] Today shows case cards and items registered through `NeedsYouItem`
-- [ ] Sign-in and Today screens pass axe checks and match their canvas boards (axe passes in Vitest and in Playwright with colour contrast; side-by-side canvas review still to do)
+- [x] Sign-in and Today screens pass axe checks and match their canvas boards (axe in Vitest and in Playwright with colour contrast for S01, S03 and S28; side-by-side review against `docs/design/images/` done in step 10)
 
 ## Out of scope
 Bundle processing (A), reader (B), profile and questions (C), everything after.
 
 ## Definition of done
-Root checklist, plus: deployed to staging in London; a test expert can sign in with MFA, create a case and upload a bundle; all core tests green.
+Root checklist, plus: deployed to staging in London; a test expert can sign in with MFA, create a case and upload a bundle; all core tests green. (Stage 2: the staging deploy needs cloud accounts; core tests are green in stage 1.)
 
 ## Behaviour rules this slice must build (architecture 10, 5.4)
 
