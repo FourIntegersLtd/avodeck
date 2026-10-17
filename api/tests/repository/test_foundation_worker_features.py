@@ -64,6 +64,6 @@ async def test_a_job_sends_mail_through_the_workers_mailer(
     case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert)
     async with worker_db.job(case) as conn:
         job: uuid.UUID = await registry.enqueue(conn, case, "zz_mail")
-    async with open_worker(registry, worker_db, worker_dsn, mailer=mailer) as worker:  # type: ignore[arg-type]
+    async with open_worker(registry, worker_db, worker_dsn, mailer=mailer) as worker:
         assert await run_until_finished(worker, admin, [job]) == {job: "done"}
     assert [m.template for m in mailer.outbox] == [NOTIFICATION_NEW]

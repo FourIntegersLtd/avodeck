@@ -7,7 +7,7 @@ import contextlib
 import time
 import uuid
 from collections.abc import AsyncIterator, Sequence
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import psycopg
 
@@ -27,9 +27,7 @@ def isolated_registry() -> JobRegistry:
 
 
 @contextlib.asynccontextmanager
-async def open_worker(
-    registry: JobRegistry, database: Database, dsn: str, **options: float
-) -> AsyncIterator[JobWorker]:
+async def open_worker(registry: JobRegistry, database: Database, dsn: str, **options: Any) -> AsyncIterator[JobWorker]:
     from app.core.jobs import JobWorker
 
     worker = JobWorker(registry, database=database, dsn=dsn, poll_seconds=0.05, retry_wait_seconds=0, **options)
