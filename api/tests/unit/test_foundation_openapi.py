@@ -40,3 +40,17 @@ def test_the_committed_openapi_json_is_up_to_date() -> None:
     committed = REPO / "openapi.json"
     assert committed.exists(), "run `make -C api openapi` and commit openapi.json"
     assert json.loads(committed.read_text()) == json.loads(openapi_json()), "run `make -C api openapi`"
+
+
+def test_the_committed_pack_fixtures_for_the_web_tests_are_up_to_date() -> None:
+    """Web tests run screen copy under the launch and fixture packs (rule 11) from real pack data."""
+    from app.export_openapi import pack_fixtures_json
+
+    data = json.loads(pack_fixtures_json())
+    assert set(data) == {"launch", "fixture"}
+    assert [s["key"] for s in data["fixture"]["case_pack"]["workflow_steps"]] == ["gather", "review", "conclude"]
+    assert data["launch"]["case_pack"]["locale"] == "en-GB"
+    assert data["fixture"]["jurisdiction"]["code"] == "zz-test"
+    committed = REPO / "web/src/foundation/platform-client/pack-fixtures.json"
+    assert committed.exists(), "run `make api-client` and commit pack-fixtures.json"
+    assert json.loads(committed.read_text()) == data, "run `make api-client`"
