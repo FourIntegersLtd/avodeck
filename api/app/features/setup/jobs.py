@@ -1,4 +1,4 @@
-"""Slice C's worker jobs: `extract_questions` (T-06).
+"""Slice C's worker jobs: `extract_questions` (T-06) and `prefill_case` (T-04).
 
 `extract_questions` reads the case's latest letter: OCR, identifiers out (`pii.strip`, rule 7), T-06
 through the AI kit, then the word check (rule 2). Each kept question or assumption stores the original
@@ -9,27 +9,39 @@ instruction version. A newer letter on a case never served moves the earlier que
 version: if it adds a question, a confirmed set reopens (they return to suggested, with a warning on
 screen 06); if it adds none, the confirmed set stays confirmed.
 
+`prefill_case` reads the same letter and asks T-04 for case details. A name must be exactly the cited
+words; a key must be one of the pack's; a due date must be written out in the cited words (read with the
+pack's date order and language). Kept suggestions are stored encrypted, waiting for the expert; nothing is
+applied to the case.
+
 No text reaches a log or a job row (rule 6).
 """
 
 from __future__ import annotations
 
 import logging
+import re
 import uuid
+from collections.abc import Mapping
+from datetime import date
+from typing import Any
 
 from psycopg import AsyncConnection
 
+from app.core.ai import pii
 from app.core.crypto import CaseCrypto
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
 from app.core.storage import SupabaseStorage
 from app.features.setup import ai_tasks
-from app.features.setup.letter import Letter, checked_items
+from app.features.setup.letter import Found, Letter, checked_items
 from app.features.setup.services import current
 
 logger = logging.getLogger("app.setup")
 
 PARTY_NAME = "party_name"
+PREFILL_VALUE = "prefill_value"
+_ISO = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 
 
 async def case_names(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID) -> list[str]:
@@ -60,6 +72,19 @@ async def read_letter(ctx: JobContext, pack: MergedPack, document_prefix: str, n
     return letter
 
 
+async def _latest_letter(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[uuid.UUID, int, str] | None:
+    cur = await conn.execute(
+        "select v.id, v.version_no, d.storage_path from app.instruction_versions v"
+        " join app.documents d on d.id = v.document_id"
+        " where v.case_id = %s and v.kind in ('letter', 'supplementary') order by v.version_no desc limit 1",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    if row is None or row[2] is None:
+        return None
+    return row[0], int(row[1]), str(row[2])
+
+
 async def _case_pack(conn: AsyncConnection, case_id: uuid.UUID) -> MergedPack:
     cur = await conn.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
     row = await cur.fetchone()
@@ -76,16 +101,10 @@ async def extract_questions(ctx: JobContext) -> None:
     kit, _ = services.ai()
     _, crypto = services.files()
     async with ctx.transaction() as conn:
-        cur = await conn.execute(
-            "select v.id, v.version_no, d.storage_path from app.instruction_versions v"
-            " join app.documents d on d.id = v.document_id"
-            " where v.case_id = %s and v.kind in ('letter', 'supplementary') order by v.version_no desc limit 1",
-            (ctx.case_id,),
-        )
-        row = await cur.fetchone()
-        if row is None or row[2] is None:
+        latest = await _latest_letter(conn, ctx.case_id)
+        if latest is None:
             return
-        version_id, version_no, prefix = row[0], int(row[1]), str(row[2])
+        version_id, version_no, prefix = latest
         cur = await conn.execute(
             "select 1 from app.instruction_extractions where instruction_version_id = %s", (version_id,)
         )
@@ -189,3 +208,80 @@ async def _next_number(conn: AsyncConnection, table: str, case_id: uuid.UUID) ->
     cur = await conn.execute(f"select coalesce(max(number), 0) + 1 from app.{table} where case_id = %s", (case_id,))  # noqa: S608
     row = await cur.fetchone()
     return int(row[0]) if row else 1
+
+
+# --- prefill_case (T-04) -------------------------------------------------------------------------------
+
+
+def _check_suggestion(letter: Letter, pack: MergedPack, item: Mapping[str, Any]) -> list[str] | None:
+    """The cited word ids when a suggestion passes (rule 2; keys from the pack, rule 11), else None."""
+    field, value, word_ids = str(item["field"]), str(item["value"]), [str(w) for w in item["word_ids"]]
+    if field == "instructing_party_name":
+        found = letter.verify(value, word_ids)
+        return found.word_ids if isinstance(found, Found) else None
+    if any(w not in letter.index for w in word_ids):
+        return None
+    positions = sorted({letter.index[w] for w in word_ids})
+    if positions[-1] - positions[0] != len(positions) - 1:
+        return None
+    if field == "due_date":
+        m = _ISO.match(value)
+        if m is None:
+            return None
+        try:
+            day = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            return None
+        cited = " ".join(letter.words[i].text for i in range(positions[0], positions[-1] + 1))
+        written = list(pii._known_dates(cited, [day], pack.date_order, pack.language))
+        return word_ids if written else None
+    context = pack.prompt_context("T-04")
+    keys = {
+        "instructing_party_type": {p["key"] for p in pack.instructing_party_types()},
+        "party_role": {p["key"] for p in pack.party_roles()},
+        "court_track": set(context.get("court_tracks", [])),
+    }
+    return word_ids if value in keys.get(field, set()) else None
+
+
+@registry.kind("prefill_case", interactive=True, changes_case=False)
+async def prefill_case(ctx: JobContext) -> None:
+    services = current()
+    kit, _ = services.ai()
+    _, crypto = services.files()
+    async with ctx.transaction() as conn:
+        latest = await _latest_letter(conn, ctx.case_id)
+        if latest is None:
+            return
+        version_id, _, prefix = latest
+        pack = await _case_pack(conn, ctx.case_id)
+        names = await case_names(conn, crypto, ctx.case_id)
+    await ctx.progress(10, step="ocr")
+    letter = await read_letter(ctx, pack, prefix, names)
+    await ctx.progress(50, step="prefill")
+    task = ai_tasks.t04(pack)
+    async with ctx.transaction() as conn:
+        out = await kit.run(conn, task, pack=pack, text=letter.prompt_text(), case_id=ctx.case_id, names=names)
+    kept: list[tuple[Mapping[str, Any], list[str]]] = []
+    for item in out["suggestions"]:
+        cited = _check_suggestion(letter, pack, item)
+        if cited is not None:
+            kept.append((item, cited))
+    rejected = len(out["suggestions"]) - len(kept)
+
+    async def save(conn: AsyncConnection) -> None:
+        for item, cited in kept:
+            sealed = await crypto.encrypt(conn, ctx.case_id, str(item["value"]).encode(), purpose=PREFILL_VALUE)
+            await conn.execute(
+                "insert into app.prefill_suggestions (case_id, instruction_version_id, field, value, word_ids,"
+                " model_task, prompt_version) values (%s, %s, %s, %s, %s, %s, %s) on conflict do nothing",
+                (ctx.case_id, version_id, item["field"], sealed, cited, task.task_id, task.prompt_version),
+            )
+        await conn.execute(
+            "insert into app.prefill_runs (case_id, job_id, kept, rejected) values (%s, %s, %s, %s)",
+            (ctx.case_id, ctx.job_id, len(kept), rejected),
+        )
+
+    await ctx.step("save_prefill", save)
+    if rejected:
+        logger.info("T-04 refused %d suggestions on case %s", rejected, ctx.case_id)

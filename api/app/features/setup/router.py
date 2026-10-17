@@ -12,6 +12,7 @@ from app.features.setup import (  # noqa: E402, F401
     routes_conflicts,
     routes_declaration,
     routes_files,
+    routes_prefill,
     routes_profile,
     routes_questions,
 )
