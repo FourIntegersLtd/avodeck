@@ -469,6 +469,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | WS | `/cases/{case_id}/dictation?context=` | Browser streams microphone audio to FastAPI over a WebSocket; FastAPI relays it to Azure Speech (UK South) and streams the text back | Used by every dictation box (T-DICT); no Azure key in the browser; audio not stored |
 | POST | `/cases/{case_id}/transcripts` | Save the finished, edited transcript `{context, text, duration}` | |
 | POST | `/cases/{case_id}/process` | Start the bundle pipeline (screen 07) | 202 + job |
+| GET | `/cases/{case_id}/process` | The case's latest processing job (scan or bundle), for screen 07 to follow | `{job: null}` when nothing has run |
 
 **05 Conflicts**
 

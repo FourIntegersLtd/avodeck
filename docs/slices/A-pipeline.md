@@ -12,7 +12,7 @@ After upload, the expert gets a numbered, sorted bundle: every page read by OCR,
 - 08b Ask the instructing party for what's missing (`S08b-AskSolicitor`; pack label "Ask the solicitor")
 
 ## Endpoints (architecture 5.2)
-- `POST /v1/cases/{id}/process` → 202 job
+- `POST /v1/cases/{id}/process` → 202 job; `GET /v1/cases/{id}/process` → the latest processing job (screen 07 follows it)
 - `GET /v1/cases/{id}/bundle/summary`
 - `GET /v1/cases/{id}/duplicates`; `PATCH /v1/cases/{id}/pages/{page_id}/duplicate`
 - `PATCH /v1/cases/{id}/documents/{doc_id}` (provenance)
@@ -56,7 +56,7 @@ Using `evals/gb-eaw/clin-neg-breach/general-practice/bundles/synthetic-mrs-a/` (
 - [ ] Appending 14 pages numbers them 901–914 and processes only those pages
 - [ ] The instructing-party email draft lists the open missing items and clearer-copy pages, contains no patient name or NHS number, and returns a valid `mailto:` link; the request is logged
 - [ ] Bundle summary returns counts by source, duplicates, unreadable pages, gaps and missing items
-- [ ] Screens 07, 08 and 08b pass Playwright + axe and match their canvas boards
+- [x] Screens 07, 08 and 08b pass Playwright + axe and match their canvas boards (and screen 30, under the launch and fixture packs)
 - [ ] `ai_calls` records task, model ID, region, prompt version and tokens for every call, with no content
 
 ## Behaviour rules this slice must build (architecture 10, 5.4)
