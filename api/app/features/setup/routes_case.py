@@ -19,6 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access, require_case_access
+from app.core.contracts.instructing_parties import ORAL_INSTRUCTION_PURPOSE
 from app.core.crypto import CaseCrypto, subject_key_hash
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -499,7 +500,7 @@ class OralInstruction(BaseModel):
     source: str
 
 
-_ORAL = "oral_instruction"
+_ORAL = ORAL_INSTRUCTION_PURPOSE
 
 
 async def _next_version(conn: DbConn, case_id: uuid.UUID, kind: str) -> tuple[int, bool]:
