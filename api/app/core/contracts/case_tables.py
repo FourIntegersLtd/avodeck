@@ -19,6 +19,7 @@ CASE_TABLES: frozenset[str] = frozenset(
         "case_parties",
         "case_subject_keys",
         "case_withdrawals",
+        "conflict_answer_history",
         "conflict_answers",
         "conflict_declarations",
         "documents",
