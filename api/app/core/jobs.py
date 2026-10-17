@@ -12,6 +12,8 @@
   raises `ProcessingPaused` ends `paused` with its reason and waits.
 - `registry.schedule(name)` registers a daily job keyed by date; `JobWorker.catch_up()` runs every
   date since the last run exactly once (F28).
+- A job of a case on hold is not run: it stays `queued` with `case_on_hold` until the case resumes
+  (`app.core.case_hold.release_case_hold`), unless its kind is registered with `runs_on_hold=True`.
 - A worker that dies stops its heartbeat; `JobWorker.requeue_stalled()` puts its jobs back (F6).
 """
 
@@ -52,6 +54,7 @@ class JobKind:
     handler: JobHandler
     interactive: bool
     changes_case: bool
+    runs_on_hold: bool = False
 
 
 class JobRegistry:
@@ -63,12 +66,14 @@ class JobRegistry:
         self.schedules: dict[str, ScheduleHandler] = {}
 
     def kind(
-        self, name: str, *, interactive: bool = False, changes_case: bool = True
+        self, name: str, *, interactive: bool = False, changes_case: bool = True, runs_on_hold: bool = False
     ) -> Callable[[JobHandler], JobHandler]:
+        """`runs_on_hold`: the kind deals with a case on hold itself; other kinds wait for the case to resume."""
+
         def register(handler: JobHandler) -> JobHandler:
             if name in self.kinds:
                 raise ValueError(f"job kind {name!r} is registered twice")
-            self.kinds[name] = JobKind(name, handler, interactive, changes_case)
+            self.kinds[name] = JobKind(name, handler, interactive, changes_case, runs_on_hold)
             return handler
 
         return register
@@ -274,6 +279,14 @@ class JobWorker:
     async def _run_job(self, job_id: str, case_id: str) -> None:
         job, case = uuid.UUID(job_id), uuid.UUID(case_id)
         async with self.database.job(case) as conn:
+            cur = await conn.execute("select kind from app.jobs where id = %s", (job,))
+            known = await cur.fetchone()
+            found = self.registry.kinds.get(known[0]) if known else None
+            runs_on_hold = found is not None and found.runs_on_hold
+            cur = await conn.execute("select app.job_waits_for_hold(%s, %s)", (job, runs_on_hold))
+            waits = await cur.fetchone()
+            if waits is not None and waits[0]:
+                return  # stays queued; `release_case_hold()` puts it back when the case resumes
             cur = await conn.execute(
                 "update app.jobs set status = 'running', attempts = attempts + 1, error_code = null,"
                 " started_at = coalesce(started_at, now()) where id = %s returning kind, attempts",

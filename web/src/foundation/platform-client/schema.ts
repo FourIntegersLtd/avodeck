@@ -400,7 +400,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Deletion Certificate */
+        /**
+         * Deletion Certificate
+         * @description The certificate as JSON, or as a PDF (`?format=pdf` or `Accept: application/pdf`).
+         */
         get: operations["deletion_certificate_v1_cases__case_id__deletion_certificate_get"];
         put?: never;
         post?: never;
@@ -1159,7 +1162,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Resume Case */
+        /**
+         * Resume Case
+         * @description Takes the case off hold and releases what the hold kept back (jobs and messages).
+         */
         post: operations["resume_case_v1_cases__case_id__resume_post"];
         delete?: never;
         options?: never;
@@ -3026,6 +3032,8 @@ export interface components {
             added_at: string;
             /** Case Role */
             case_role: string;
+            /** Display Name */
+            display_name?: string | null;
             /**
              * Id
              * Format: uuid
@@ -5113,7 +5121,9 @@ export interface operations {
     };
     deletion_certificate_v1_cases__case_id__deletion_certificate_get: {
         parameters: {
-            query?: never;
+            query?: {
+                format?: ("json" | "pdf") | null;
+            };
             header?: never;
             path: {
                 case_id: string;
@@ -5122,7 +5132,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Successful Response */
+            /** @description As JSON; as `application/pdf` with `?format=pdf` or `Accept: application/pdf`. */
             200: {
                 headers: {
                     [name: string]: unknown;

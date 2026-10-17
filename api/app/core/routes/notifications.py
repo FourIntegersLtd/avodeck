@@ -62,7 +62,7 @@ class FeatureFlags(BaseModel):
 _SELECT = """
     select n.id, n.kind, n.organisation_id, n.case_id, c.label, n.created_at, n.read_at
     from app.notifications n left join app.cases c on c.id = n.case_id
-    where n.person_id = app.current_person_id() and n.in_app
+    where n.person_id = app.current_person_id() and n.in_app and n.held_at is null
 """
 
 
@@ -79,7 +79,7 @@ async def list_notifications(conn: DbConn, unread: bool = False) -> Notification
     items = [_item(r) for r in await cur.fetchall()]
     cur = await conn.execute(
         "select count(*) from app.notifications"
-        " where person_id = app.current_person_id() and in_app and read_at is null"
+        " where person_id = app.current_person_id() and in_app and held_at is null and read_at is null"
     )
     unread_count = (await cur.fetchone() or (0,))[0]
     cur = await conn.execute("select email_bounced_at is not null from app.people where id = app.current_person_id()")

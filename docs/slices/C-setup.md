@@ -75,7 +75,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] A conflict declared mid-case drafts a note; withdrawal sets status `withdrawn`, keeps served reports locked and cancels deadlines (S16)
 - [x] Duplicate-case warning compares a keyed hash of the subject identifier; the identifier is never stored
 - [x] Jurisdiction can change only before serving (409 after), with packs re-stamped and changes listed
-- [ ] On hold pauses reminders and queues jobs; resume restores them (chunk A: hold/resume set `cases.on_hold`; no reminder or job code reads the flag yet, so pausing waits for the slices that own reminders and the job queue)
+- [x] On hold pauses reminders and queues jobs; resume restores them (foundation 0022: the worker leaves a held case's jobs `queued` with `case_on_hold` and messages about it are kept back; `POST /resume` calls `release_case_hold()`)
 - Open: `docs/spec/behaviour-index.md` says parties are "editable until served; then additions only". Chunk A refuses new parties after serving (409) and the database refuses changes and removals; allowing additions after serving needs a founder decision because the committed test asserts 409.
 - [x] Subject status (living, deceased, minor) changes only vocabulary, proven under the fixture packs
 

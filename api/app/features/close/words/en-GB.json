@@ -1,0 +1,12 @@
+{
+  "close.certificate.title": "Certificate of deletion",
+  "close.certificate.case_reference": "Case reference",
+  "close.certificate.deleted_at": "Deleted on",
+  "close.certificate.backup_expiry_on": "Last backup copy gone by",
+  "close.certificate.backup_expiry_none": "No backup copy kept",
+  "close.certificate.sent_to": "Sent to",
+  "close.certificate.counts": "What was deleted (number of items)",
+  "close.certificate.hashes": "Fingerprints of the deleted files (SHA-256)",
+  "close.certificate.log_chain_heads": "Fingerprints of the activity record at deletion",
+  "close.certificate.none": "None"
+}

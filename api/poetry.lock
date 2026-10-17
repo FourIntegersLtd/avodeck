@@ -3475,7 +3475,7 @@ version = "5.0.1"
 description = "The Reportlab Toolkit"
 optional = false
 python-versions = "<4,>=3.9"
-groups = ["evals"]
+groups = ["main", "evals"]
 files = [
     {file = "reportlab-5.0.1-py3-none-any.whl", hash = "sha256:1c36e6bb0e71780c72331eba60da7f602e8d4389a8723825af71342e49d791e8"},
     {file = "reportlab-5.0.1.tar.gz", hash = "sha256:ebd13154be1c8515e665de70bd2d303ae9ddc3ef47e44afd5116441ca0283a26"},
@@ -4766,4 +4766,4 @@ dev = ["pytest", "setuptools"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.13"
-content-hash = "95980803af45f8bd209703d6e43ff6f6e1082cda64dc453dea1bbcd809a3b4e4"
+content-hash = "2cc66465d133feca495d87d76463c3bf5ece91ea3aa8f10325e2a4bbb896b2a3"

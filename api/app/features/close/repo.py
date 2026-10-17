@@ -93,15 +93,14 @@ async def deletion_started(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
 
 
 async def audit_trail(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
-    return await _all(
-        conn, "select seq, at, action, target, person_id from app.close_case_audit(%s)", (case_id,)
-    )
+    return await _all(conn, "select seq, at, action, target, person_id from app.close_case_audit(%s)", (case_id,))
 
 
 async def export_job(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.UUID) -> dict[str, Any] | None:
     return await _one(
         conn,
-        "select id, status from app.jobs where id = %s and case_id = %s and kind = 'export_case'",
+        "select id, status, requested_by is not distinct from app.current_person_id() as mine from app.jobs"
+        " where id = %s and case_id = %s and kind = 'export_case'",
         (job_id, case_id),
     )
 
