@@ -62,6 +62,9 @@ class Conflicts(BaseModel):
     warnings: list[str] = Field(description="i18n keys.")
     declared_at: datetime | None
     outcome: Literal["none", "disclosed"] | None
+    changed_since_declared: bool = Field(
+        default=False, description="An answer changed after the latest declaration; declare again."
+    )
 
 
 class Answer(BaseModel):
@@ -138,10 +141,15 @@ async def _state(request: Request, conn: DbConn, crypto: Any, case_id: uuid.UUID
     coverage = await _coverage(conn, pack, case_id)
     warnings = [f"setup.conflicts.warning.coverage_{coverage.status}"] if coverage.status in ("none", "partial") else []
     cur = await conn.execute(
-        "select created_at, outcome from app.conflict_declarations where case_id = %s order by created_at desc limit 1",
+        "select d.created_at, d.outcome, exists (select 1 from app.conflict_answer_history h"
+        " where h.case_id = d.case_id and h.recorded_at > d.created_at)"
+        " from app.conflict_declarations d where d.case_id = %s order by d.created_at desc limit 1",
         (case_id,),
     )
     declared = await cur.fetchone()
+    changed = bool(declared and declared[2])
+    if changed:
+        warnings.append("setup.conflicts.warning.declare_again")
     return Conflicts(
         questions=questions,
         complete=all(q.answer is not None for q in questions),
@@ -150,6 +158,7 @@ async def _state(request: Request, conn: DbConn, crypto: Any, case_id: uuid.UUID
         warnings=warnings,
         declared_at=declared[0] if declared else None,
         outcome=declared[1] if declared else None,
+        changed_since_declared=changed,
     )
 
 
@@ -173,7 +182,10 @@ async def put_conflicts(
             raise invalid(f"answers.{i}.detail")
         if a.answer == "yes" and asked[a.key] and not (a.detail and a.detail.strip()):
             raise invalid(f"answers.{i}.detail")
+    given = await _answers(conn, crypto, case_id)
     for a in body.answers:
+        if given.get(a.key) == (a.answer, a.detail):
+            continue  # the same answer again: nothing changes, so no history row
         detail = None if a.detail is None else await crypto.encrypt(conn, case_id, a.detail.encode(), purpose=_DETAIL)
         await conn.execute(
             "insert into app.conflict_answers (case_id, question_key, answer, detail) values (%s, %s, %s, %s)"
