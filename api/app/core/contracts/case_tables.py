@@ -28,6 +28,7 @@ CASE_TABLES: frozenset[str] = frozenset(
         "idempotency_keys",
         "instruction_extractions",
         "instruction_versions",
+        "instructing_party_requests",
         "job_steps",
         "jobs",
         "legal_holds",
