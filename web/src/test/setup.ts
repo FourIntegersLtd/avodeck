@@ -1,9 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
-import { afterAll, afterEach, beforeAll } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, expect } from "vitest";
+import { resetScreens } from "../foundation/lib/screens";
 import { server } from "./server";
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+// The shell's own tests (src/app) start with no slice registered, whatever slices register when they load.
+beforeEach(() => {
+  if (expect.getState().testPath?.includes("/src/app/")) resetScreens();
+});
 afterEach(() => {
   server.resetHandlers();
   if (typeof document !== "undefined") cleanup();
