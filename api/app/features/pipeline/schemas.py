@@ -159,3 +159,14 @@ class JobQueued(BaseModel):
 
 class ProcessingCancelled(BaseModel):
     cancelled: bool  # false when nothing was processing (or a stop was already asked for)
+
+
+class ReplaceAsk(BaseModel):
+    document_id: uuid.UUID  # the clearer copy, uploaded as later records
+
+
+class PageReplacement(BaseModel):
+    page_id: uuid.UUID
+    document_id: uuid.UUID
+    new_page_id: uuid.UUID | None  # set once the copy has been cut into pages
+    new_page_no: int | None

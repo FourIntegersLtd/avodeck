@@ -1038,3 +1038,49 @@ async def quarantines_to_purge(conn: AsyncConnection, run_date: dt.date) -> list
 
 async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID) -> None:
     await conn.execute("select app.purge_quarantined_page(%s)", (quarantine_id,))
+
+
+async def document_in_case(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> bool:
+    cur = await conn.execute("select 1 from app.documents where id = %s and case_id = %s", (document_id, case_id))
+    return await cur.fetchone() is not None
+
+
+async def replacement_taken(conn: AsyncConnection, page_id: uuid.UUID, document_id: uuid.UUID) -> bool:
+    """The page is already superseded or being replaced, or the copy already replaces a page."""
+    cur = await conn.execute(
+        "select 1 from app.page_replacements where page_id = %s or document_id = %s"
+        " union all select 1 from app.pages where id = %s and superseded_by_page_id is not null",
+        (page_id, document_id, page_id),
+    )
+    return await cur.fetchone() is not None
+
+
+async def ask_replacement(
+    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, document_id: uuid.UUID, person_id: uuid.UUID
+) -> None:
+    await conn.execute(
+        "insert into app.page_replacements (case_id, page_id, document_id, requested_by) values (%s, %s, %s, %s)",
+        (case_id, page_id, document_id, person_id),
+    )
+
+
+async def link_replacements(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, tuple[uuid.UUID, int]]:
+    """Each replacement whose copy has been cut into pages: the old page is superseded by the copy's
+    first page. Returns old page -> (new page, its number) for the ones linked now."""
+    cur = await conn.execute(
+        "with first as ("
+        "  select distinct on (p.document_id) p.document_id, p.id, p.bundle_page_no from app.pages p"
+        "  join app.page_replacements r on r.document_id = p.document_id"
+        "  where r.case_id = %s and r.new_page_id is null order by p.document_id, p.bundle_page_no)"
+        " update app.page_replacements r set new_page_id = f.id, linked_at = now() from first f"
+        " where r.document_id = f.document_id and r.new_page_id is null"
+        " returning r.page_id, f.id, f.bundle_page_no",
+        (case_id,),
+    )
+    linked = {r[0]: (r[1], int(r[2])) for r in await cur.fetchall()}
+    for old, (new, _) in linked.items():
+        await conn.execute(
+            "update app.pages set superseded_by_page_id = %s where id = %s and superseded_by_page_id is null",
+            (new, old),
+        )
+    return linked

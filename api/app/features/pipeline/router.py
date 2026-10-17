@@ -10,12 +10,16 @@
   missing items and the unreadable pages needing a clearer copy, with names, dates of birth and
   identifiers stripped. Plain code, no model.
 - `POST /v1/cases/{id}/instructing-party-requests`: logs the text as sent (sealed, append-only) and
-  returns a `mailto:` link; the open items it lists become `requested`.
+  returns a `mailto:` link; the open items it lists become `requested`. Listing quarantined pages
+  (`quarantined_page_ids`) lets their images and text be deleted on the next daily run.
 - `POST /v1/cases/{id}/pages/{page_id}/quarantine` `{reason}`: "not this person's record". An
   assistant only suggests; the named expert confirms: the page keeps its number, leaves reading,
   extraction and the summary, and its facts are rejected.
 - `DELETE /v1/cases/{id}/pages/{page_id}/quarantine` (named expert): dismisses a suggestion, or
   undoes a quarantine (verified facts are verified again; the page is read again, 202-style job).
+  After the daily schedule has deleted the page's image and text it cannot be undone (409).
+- `POST /v1/cases/{id}/pages/{page_id}/replace` `{document_id}`: a clearer copy, uploaded as later
+  records, supersedes the page once cut into pages; nothing moves to it by itself.
 - `POST /v1/cases/{id}/process` (202 + job): processes whatever is not done yet.
 - `POST /v1/cases/{id}/process/cancel`: stops processing at the next page boundary; finished pages
   are kept and the job ends `paused` with reason `cancelled`.
@@ -63,10 +67,12 @@ from app.features.pipeline.schemas import (
     MissingItem,
     MissingItemChange,
     MissingItems,
+    PageReplacement,
     ProcessingCancelled,
     ProvenanceChange,
     QuarantineAsk,
     QuarantinePage,
+    ReplaceAsk,
     RequestDraft,
     RequestDraftAsk,
     RequestLogged,
@@ -537,3 +543,29 @@ async def release_page(
     else:
         await audit.record(conn, action="page.quarantine_dismissed", target=f"page:{page_id}", case_id=case_id)
     return QuarantinePage(page_id=page_id, page_no=live.page_no, status=status, reason=live.reason, job_id=job_id)  # type: ignore[arg-type]
+
+
+@pipeline_router.post("/{case_id}/pages/{page_id}/replace", response_model=PageReplacement)
+async def replace_page(
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("page.replace"))],
+    body: ReplaceAsk,
+    scope: CurrentScope,
+    conn: DbConn,
+) -> PageReplacement:
+    """A clearer copy (uploaded as later records) replaces the page. Its first page supersedes the
+    old one once it has been cut into pages; the old page keeps its number, stays readable and keeps
+    its facts."""
+    if await repo.page_no_of(conn, case_id, page_id) is None:
+        raise _not_found()
+    if not await repo.document_in_case(conn, case_id, body.document_id):
+        raise _not_found()
+    if await repo.replacement_taken(conn, page_id, body.document_id):
+        raise ApiError("conflict", "That page or copy has already been used for a clearer copy.", 409)
+    await repo.ask_replacement(conn, case_id, page_id, body.document_id, scope.person_id)
+    new_page_id, new_page_no = (await repo.link_replacements(conn, case_id)).get(page_id, (None, None))
+    await audit.record(conn, action="page.replaced", target=f"page:{page_id}", case_id=case_id)
+    return PageReplacement(
+        page_id=page_id, document_id=body.document_id, new_page_id=new_page_id, new_page_no=new_page_no
+    )
