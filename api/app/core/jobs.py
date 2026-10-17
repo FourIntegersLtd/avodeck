@@ -31,7 +31,6 @@ from procrastinate.jobs import Job
 from procrastinate.retry import BaseRetryStrategy, RetryDecision
 from psycopg import AsyncConnection
 
-from app.core.auth.permissions import CASE_ACTIONS
 from app.core.db import Database
 from app.core.errors import ProcessingPaused
 
@@ -82,22 +81,18 @@ class JobRegistry:
 
         return register
 
-    async def enqueue(
-        self, conn: AsyncConnection, case_id: uuid.UUID, kind: str, *, action: str = "case.upload"
-    ) -> uuid.UUID:
-        """Queue a job on the case; the person (or the case's own job) must be allowed `action`."""
+    async def enqueue(self, conn: AsyncConnection, case_id: uuid.UUID, kind: str) -> uuid.UUID:
+        """Queue a job on the case. The database decides the case action the kind needs
+        (`app.job_kind_actions`; `case.upload` if not listed) and checks the person has it."""
         found = self.kinds[kind]
-        if action not in CASE_ACTIONS:
-            raise ValueError(f"unknown case action {action!r}")
         cur = await conn.execute(
-            "select app.enqueue_job(%s, %s, %s, %s, %s, %s, %s)",
+            "select app.enqueue_job(%s, %s, %s, %s, %s, %s)",
             (
                 case_id,
                 kind,
                 self.queue,
                 INTERACTIVE_PRIORITY if found.interactive else BATCH_PRIORITY,
                 found.changes_case,
-                action,
                 os.environ.get("CODE_VERSION") or None,
             ),
         )
