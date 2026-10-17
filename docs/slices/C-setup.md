@@ -80,13 +80,21 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] Subject status (living, deceased, minor) changes only vocabulary, proven under the fixture packs
 
 ## Chunk B notes (2026-10-17)
-- **Gap, T-02:** the optional template heading mapping by AI is not built; `PATCH /v1/me/template/mapping` takes the expert's own mapping.
+- T-02 (built in chunk C): `POST /v1/me/template/suggestions` suggests a report section per heading from the pack's report sections plus `other`; it runs on request, is never saved, and the expert saves the map with `PATCH /v1/me/template/mapping`.
 - **Gap, deadlines on withdraw:** `POST /withdraw` returns `deadlines_cancelled: 0`. Deadlines belong to the slices that set them; they must read the case's `withdrawn` status.
 - **Gap, retention on withdraw:** withdraw does not set `delete_after` (it needs `case.retention`, slice H's action); slice H starts the retention clock from `case_withdrawals.created_at`.
 - **Gap, i18n:** the keys the API returns (`setup.conflicts.warning.coverage_{none,partial}`, `setup.conflicts.question.<key>`, `setup.questions.warning.*`, `setup.today.{questions_to_confirm,profile_incomplete}[_action]`, note `label_key`s) go into `web/src/foundation/i18n/en-GB.json` with the screens (chunk C).
 - **Gap, evals:** no `evals/.../expected/setup-*.json` rows yet; T-04 and the conflicts expectations are in the recorded fixtures and tests (`api/tests/fixtures/setup/record_setup.py`).
 - Conflicts: the paragraph is the pack's `statement.none`, or `statement.disclosed` followed by the expert's details. Coverage counts roles whose `setting` is one of the specialty's `coverage_roles` (covered/partial/none/unknown); roles stay private to the expert.
 - Today: "questions to confirm" per case for the named expert (screen 06); "profile incomplete" once, on the first case shown, while the name, profession, registration body or number, or a specialty is missing (screen 02).
+
+## Chunk C notes (2026-10-17)
+- Screens built: S02 at `/profile`; S04 at `/cases/new` (new case) and `/cases/{id}/details` (letter upload and prefill, case details, who instructed you, same person check, oral instructions); S05 at `/cases/{id}/conflicts` (including declaring a change and stepping back with step-up); S06 at `/cases/{id}/questions`. Vitest under the launch and fixture packs; Playwright with axe, buttons at least 52px and text at least 17px in `web/e2e/setup/`.
+- `GET /v1/me/template` gains `sections` (the pack report sections across the cell, plus `other`), because a heading is mapped outside any case.
+- Prefill "Use this" only fills the form; the case changes when the expert saves. A second letter is sent as kind `supplementary`.
+- Screen keys registered: `S02`, `new_case`, `S04`, `case_details`, `S05`, `conflicts`, `S06`, `questions`. **Gap:** `profile` is not registered, because foundation's `web/src/app/ShellLinks.test.tsx` expects no Profile link while no slice registers it and does not reset the registry; foundation is asked to reset it so slice C can register `profile`.
+- **Gap, i18n:** `setup.conflicts.question.<key>` keys are not added; the screen shows the pack's own question text.
+- **Gap:** the drawn-signature path is tested only in the browser build (jsdom has no canvas); board fidelity was checked by eye against the PNGs.
 
 ## Rules that apply
 1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.
