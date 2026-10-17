@@ -51,6 +51,10 @@ class CaseKeyDestroyed(CryptoError):
     """The case's key was destroyed (case deleted): its data can never be read again."""
 
 
+class StoredFileChanged(CryptoError):
+    """A stored file no longer matches the SHA-256 recorded when it was uploaded."""
+
+
 class CaseKeyMissing(CryptoError):
     """The case has no key yet, so nothing of it was ever encrypted."""
 
@@ -210,11 +214,16 @@ class CaseCrypto:
             return data_key.plaintext
         return await self._key(conn, case_id, create=False)  # another process made it first
 
-    async def encrypt(self, conn: AsyncConnection, case_id: uuid.UUID, data: bytes) -> bytes:
-        return _seal(await self._key(conn, case_id, create=True), data, case_id.bytes)
+    @staticmethod
+    def _case_aad(case_id: uuid.UUID, purpose: str) -> bytes:
+        # Bound to the case and, when given, to where the blob belongs (e.g. its storage path).
+        return case_id.bytes + (b"|" + purpose.encode() if purpose else b"")
 
-    async def decrypt(self, conn: AsyncConnection, case_id: uuid.UUID, blob: bytes) -> bytes:
-        return _open(await self._key(conn, case_id, create=False), blob, case_id.bytes)
+    async def encrypt(self, conn: AsyncConnection, case_id: uuid.UUID, data: bytes, *, purpose: str = "") -> bytes:
+        return _seal(await self._key(conn, case_id, create=True), data, self._case_aad(case_id, purpose))
+
+    async def decrypt(self, conn: AsyncConnection, case_id: uuid.UUID, blob: bytes, *, purpose: str = "") -> bytes:
+        return _open(await self._key(conn, case_id, create=False), blob, self._case_aad(case_id, purpose))
 
     async def destroy(self, conn: AsyncConnection, case_id: uuid.UUID) -> None:
         """Worker only, inside the case's own job (the database refuses anyone else)."""

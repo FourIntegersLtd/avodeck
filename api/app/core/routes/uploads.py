@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access, require_case_access
-from app.core.crypto import CaseCrypto
+from app.core.crypto import CaseCrypto, StoredFileChanged
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, router
 from app.core.storage import SupabaseStorage, upload_prefix
@@ -172,7 +172,8 @@ async def put_chunk(
     if sent_sha is not None and hashlib.sha256(data).hexdigest() != sent_sha.lower():
         raise ApiError("chunk_corrupted", "This part was damaged on the way. Send it again.", 422)
     case_id: uuid.UUID = row["case_id"]  # type: ignore[assignment]
-    await storage.put(_chunk_path(_prefix(case_id, upload_id), n), await crypto.encrypt(conn, case_id, data))
+    path = _chunk_path(_prefix(case_id, upload_id), n)
+    await storage.put(path, await crypto.encrypt(conn, case_id, data, purpose=path))
     cur = await conn.execute(
         "update app.uploads set received = array(select distinct unnest(received || %s::int) order by 1)"
         " where id = %s returning received",
@@ -199,7 +200,8 @@ async def complete_upload(
     prefix = _prefix(case_id, upload_id)
     digest = hashlib.sha256()
     for n in range(1, upload.chunk_count + 1):
-        digest.update(await crypto.decrypt(conn, case_id, await storage.get(_chunk_path(prefix, n))))
+        path = _chunk_path(prefix, n)
+        digest.update(await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path))
     if digest.hexdigest() != row["sha256"]:
         raise ApiError("sha256_mismatch", "The file changed on the way. Upload it again.", 422)
     cur = await conn.execute(
@@ -230,11 +232,12 @@ async def download_document(
     crypto: Crypto,
 ) -> StreamingResponse:
     cur = await conn.execute(
-        "select storage_path from app.documents where id = %s and case_id = %s", (document_id, case_id)
+        "select storage_path, sha256 from app.documents where id = %s and case_id = %s", (document_id, case_id)
     )
     row = await cur.fetchone()
     if row is None or not row[0]:
         raise ApiError("not_found", "Not found.", 404)
+    expected: str = row[1]
     paths = sorted(await storage.list(row[0]))
     if not paths:
         raise ApiError("not_found", "Not found.", 404)
@@ -242,11 +245,17 @@ async def download_document(
 
     async def body() -> AsyncIterator[bytes]:
         # The request's transaction has closed by now: each part is read in its own, as the same person.
+        # Each part opens only at its own path; the whole file must still match its SHA-256, or the
+        # stream stops with an error instead of finishing as a file that is not the one uploaded.
+        digest = hashlib.sha256()
         for path in paths:
             blob = await storage.get(path)
             async with database.request(scope) as part_conn:
-                data = await crypto.decrypt(part_conn, case_id, blob)
+                data = await crypto.decrypt(part_conn, case_id, blob, purpose=path)
+            digest.update(data)
             yield data
+        if digest.hexdigest() != expected:
+            raise StoredFileChanged("stored file does not match its checksum")
 
     return StreamingResponse(
         body(), media_type="application/octet-stream", headers={"cache-control": "private, no-store"}
