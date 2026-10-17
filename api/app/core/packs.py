@@ -382,6 +382,11 @@ class MergedPack:
         return int(self._j["default_retention_years"])
 
     @property
+    def quarantine_purge_days(self) -> int:
+        """Days a file that failed the virus scan is kept, set aside, before it is purged."""
+        return int(self._j["quarantine_purge_days"])
+
+    @property
     def profession(self) -> str:
         return str(self._sp["profession"])
 
@@ -399,6 +404,21 @@ class MergedPack:
         if not isinstance(value, str):
             raise PackError(f"{'+'.join(self.codes)}: no word for '{key}'")
         return value
+
+    def instructing_party_request(self, **slots: str) -> dict[str, str]:
+        """The email draft asking the instructing party for missing records (screen 08b): label, subject, body.
+
+        `slots` fill the caller's placeholders (case_reference, missing_items, clearer_copies, expert_name);
+        pack words fill the rest. A placeholder with no value raises `PackError`.
+        """
+        template = self.vocabulary.get("instructing_party_request")
+        if not isinstance(template, dict):
+            raise PackError(f"{'+'.join(self.codes)}: no instructing_party_request wording")
+        values = {k: v for k, v in self.vocabulary.items() if isinstance(v, str)}
+        values.setdefault("instructing_party", self.instructing_party_types()[0]["label"])
+        values.update(slots)
+        filled = _fill({k: template[k] for k in ("label", "subject", "body")}, values, "instructing_party_request")
+        return {k: str(v) for k, v in filled.items()}
 
     def party_roles(self) -> list[dict[str, str]]:
         return [{"key": k, "label": self.vocabulary["party_roles"][k]} for k in self._ct["party_roles"]]

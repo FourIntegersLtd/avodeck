@@ -317,10 +317,27 @@ A joint expert is one with two or more current instructing parties; no separate 
 | received_on / obtained_how | When it arrived and from whom/how |
 | bundle_version | Which delivery of records it came in (v1, v2…) |
 
+### document_scans
+| Field | In plain words |
+|---|---|
+| clean / signature | Whether the safety scan passed, and what it found if not |
+| media_type | What kind of file it really is (PDF, email, image, Word, zip, audio…), read from its contents |
+| scanned_at / split_at | When it was scanned and when its pages were numbered |
+
+### document_parts
+| Field | In plain words |
+|---|---|
+| parent_document_id | The email or zip file it came inside |
+| document_id | The part itself, kept as a document of its own |
+| part_no | Its place in the parent (attachments in order, zip files by name) |
+| media_type | What kind of file the part is |
+
 ### exhibits
 | Field | In plain words |
 |---|---|
+| document_id | The file it was received as (or found inside) |
 | media_type | Audio, video, medical image, etc. |
+| size | How big the file is |
 | storage_path / sha256 | Where it's kept and its fingerprint |
 | note | The expert's description (Avodeck can't read these) |
 
@@ -342,6 +359,48 @@ A joint expert is one with two or more current instructing parties; no separate 
 | relevance | The expert's judgement: relevant or background |
 | language | The page's language, if not the pack's |
 | transcribed_by_expert_text | The expert's own typing of a page the computer couldn't read |
+
+### page_analysis
+| Field | In plain words |
+|---|---|
+| stage | How far the worker has got with the page |
+| word_count / typed_words | How many words were read, and how many were typed rather than handwritten |
+| phash / minhash | Fingerprints of the picture and the words, used to find duplicates |
+| printed_dates | Dates printed on the page (used to find gaps) |
+| extraction | What was read from the page, sealed with the case key |
+| needs_human / reason | Whether a person must check the page, with a short reason |
+| model_id | Which model read the page |
+| duplicate_status / duplicate_by / duplicate_at / duplicate_version | Whether it was set aside as a duplicate, who decided and when (If-Match) |
+| references_checked_at | When its mentions of other documents were checked |
+
+### page_embeddings
+| Field | In plain words |
+|---|---|
+| page_id | The page the vector describes (one per page) |
+| model | Which embedder made it; a page made by an older one is made again |
+| embedding | The search vector, made from the page's words with names and identifiers taken out |
+| created_at / updated_at | When it was first made and last remade |
+
+### page_quarantines
+| Field | In plain words |
+|---|---|
+| page_id | The page that may belong to someone else |
+| status | Suggested, confirmed, dismissed, undone, or deleted (purged) |
+| reason | A short label (e.g. not this person) |
+| suggested_by | Who suggested it (empty when the worker did) |
+| confirmed_by / confirmed_at | The named expert who confirmed it, and when |
+| closed_by / closed_at | Who dismissed or undid it, and when |
+| purged_at | When the page's image and text were deleted (the number stays) |
+| prior_facts | Which suggestions were set aside, so an undo restores them |
+| version | Changes each time it is changed (If-Match) |
+
+### page_replacements
+| Field | In plain words |
+|---|---|
+| page_id | The page a clearer copy replaces |
+| document_id | The later records holding the clearer copy |
+| new_page_id / linked_at | The new page that supersedes it, and when the link was made |
+| requested_by | Who said which page it replaces |
 
 ### ocr_words
 | Field | In plain words |
@@ -389,16 +448,28 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### missing_items
 | Field | In plain words |
 |---|---|
-| description | The document that seems to be missing (e.g. colonoscopy report) |
+| description | The document that seems to be missing (e.g. colonoscopy report), only in words from the page; sealed |
 | citing_page_id | The page that mentions it |
+| reference_key | Which mention on that page (r1, r2, ...); each mention is listed once |
+| word_ids | The words on the page that mention it |
+| reference_date | The date printed with the mention, if any |
+| confidence | How sure the model was that no page holds it |
 | status | Open, requested, received, not available |
+| reason | Why it is not available (required for not available); sealed |
+| received_page_id | The page added later that holds it (required for received) |
+| updated_by | Who last changed it |
+| version | Changes each time it is changed (If-Match) |
 
 ### record_gaps
 | Field | In plain words |
 |---|---|
 | source_type | Which record source goes quiet |
-| gap_start / gap_end | The quiet period |
-| confirmed | Whether the expert agrees it's a real gap |
+| fact_kind | Which kind of entry stops (e.g. the list of consultations) |
+| gap_start / gap_end | The quiet period: from the month after the last entry to the end of the source's last month |
+| last_page_id | The page with the last entry before the gap |
+| confirmed | Whether the expert agrees it's a real gap (empty until reviewed; reviewed gaps are not recalculated) |
+| confirmed_by / confirmed_at | Who reviewed it and when |
+| version | Changes each time it is changed (If-Match) |
 
 ### instructing_party_requests
 | Field | In plain words |
@@ -407,6 +478,13 @@ A joint expert is one with two or more current instructing parties; no separate 
 | body_text | The email wording |
 | sent_via / sent_at / message_id | How and when it was sent |
 | follow_up_on | When to chase |
+| quarantined_page_ids | Pages of someone else this request tells the instructing party about (their image and text are then deleted) |
+
+### case_processing
+| Field | In plain words |
+|---|---|
+| cancel_requested_at / cancel_requested_by | Who asked to stop reading the bundle, and when (it stops at the next page) |
+| reprocess_opted_at / reprocess_opted_by | Who chose to have the pages read again with a newer model, and when (verified facts never change) |
 
 ## Understand
 
@@ -760,6 +838,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | chunk_size / chunk_count / received | The 8 MB parts it is sent in, how many, and which have arrived |
 | status | `open`, `complete` or `expired` |
 | document_id | The document it became when complete |
+| append | Whether these are later records added to a case that already has its bundle (their pages are numbered after the last page) |
 | expires_at / completed_at | When an unfinished upload is given up (7 days) and when it finished |
 
 ### notifications

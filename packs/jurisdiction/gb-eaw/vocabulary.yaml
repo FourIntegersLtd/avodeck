@@ -23,3 +23,22 @@ subject_statuses:
 subject_representatives:
   deceased: personal representative
   minor: litigation friend
+# Screen 08b: the email draft asking the instructing party for missing records. The expert edits
+# and sends it. Slots: {case_reference}, {missing_items}, {clearer_copies}, {expert_name}, plus pack
+# words such as {instructing_party}. Patient-free: no names, identifier numbers or dates of birth.
+instructing_party_request:
+  label: Ask the solicitor
+  subject: "Medical records request: {case_reference}"
+  body: |-
+    Dear {instructing_party},
+
+    Thank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.
+
+    Records that appear to be missing:
+    {missing_items}
+
+    Pages I need a clearer copy of:
+    {clearer_copies}
+
+    Kind regards,
+    {expert_name}

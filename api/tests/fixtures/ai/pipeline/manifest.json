@@ -1,0 +1,190 @@
+{
+ "pages": [
+  {
+   "page": 1,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0001.pdf"
+  },
+  {
+   "page": 9,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0009.pdf"
+  },
+  {
+   "page": 22,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0022.pdf"
+  },
+  {
+   "page": 23,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0023.pdf"
+  },
+  {
+   "page": 34,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0034.pdf"
+  },
+  {
+   "page": 37,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": true,
+   "low_confidence": true,
+   "file": "pages/p0037.pdf"
+  },
+  {
+   "page": 54,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0054.pdf"
+  },
+  {
+   "page": 93,
+   "text_source": "ocr",
+   "typed_header_scanned_body": true,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0093.pdf"
+  },
+  {
+   "page": 99,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0099.pdf"
+  },
+  {
+   "page": 113,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0113.pdf"
+  },
+  {
+   "page": 236,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0236.pdf"
+  },
+  {
+   "page": 306,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0306.pdf"
+  },
+  {
+   "page": 390,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0390.pdf"
+  },
+  {
+   "page": 461,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0461.pdf"
+  },
+  {
+   "page": 463,
+   "text_source": "ocr",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0463.pdf"
+  },
+  {
+   "page": 687,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0687.pdf"
+  },
+  {
+   "page": 701,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0701.pdf"
+  },
+  {
+   "page": 864,
+   "text_source": "embedded",
+   "typed_header_scanned_body": false,
+   "unreadable": false,
+   "low_confidence": false,
+   "file": "pages/p0864.pdf"
+  }
+ ],
+ "planted": {
+  "retry": 113,
+  "bad_twice": 701,
+  "struck": 463
+ },
+ "references": [
+  {
+   "page": 23,
+   "word_ids": [
+    "p1w66",
+    "p1w67",
+    "p1w68",
+    "p1w69",
+    "p1w70",
+    "p1w71",
+    "p1w72",
+    "p1w73"
+   ],
+   "matched_page": 24
+  },
+  {
+   "page": 390,
+   "word_ids": [
+    "p1w97",
+    "p1w98",
+    "p1w99",
+    "p1w100",
+    "p1w101"
+   ],
+   "matched_page": null
+  },
+  {
+   "page": 390,
+   "word_ids": [
+    "p1w132",
+    "p1w133",
+    "p1w134",
+    "p1w135"
+   ],
+   "matched_page": 450
+  }
+ ]
+}

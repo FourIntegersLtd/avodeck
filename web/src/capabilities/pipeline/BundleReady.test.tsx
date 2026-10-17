@@ -1,0 +1,137 @@
+// Screen 08, Your bundle is ready: the bundle summary from the API, in the pack's source words and
+// colours, with a card for each thing the expert should know. Runs under both pack sets.
+import { screen, within } from "@testing-library/react";
+import { describe, expect, test } from "vitest";
+import { humanise } from "../../foundation/i18n";
+import type { Schemas } from "../../foundation/platform-client";
+import { http, json, server, signedIn } from "../../test/api";
+import { fixturePack, launchPack } from "../../test/fixtures";
+import { axeViolations, renderAt } from "../../test/render";
+import { CASE_ID, missingItem, packWords, summary, theCase, VIEWER_ACTIONS } from "./testData";
+
+const PATH = `/cases/${CASE_ID}/bundle`;
+
+function mock(pack: Schemas["CasePack"], opts: { summary?: Partial<Schemas["BundleSummary"]>; item?: Schemas["Case"] } = {}) {
+  signedIn({ pack });
+  server.use(
+    http.get(`/v1/cases/${CASE_ID}`, () => json(opts.item ?? theCase())),
+    http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack, opts.summary))),
+    http.get(`/v1/cases/${CASE_ID}/missing-items`, () =>
+      json({
+        missing_items: [
+          missingItem(),
+          missingItem({ id: "m1000000-0000-4000-8000-000000000002", description: "Practice task list after January", status: "requested" }),
+          missingItem({ id: "m1000000-0000-4000-8000-000000000003", description: "An item already received", status: "received" }),
+        ],
+      }),
+    ),
+  );
+}
+
+const card = (text: string | RegExp | HTMLElement) => (text instanceof HTMLElement ? text : screen.getByText(text)).closest(".av-card") as HTMLElement;
+
+describe.each([
+  { name: "launch packs", pack: launchPack },
+  { name: "fixture packs", pack: fixturePack },
+])("Bundle ready under the $name", ({ pack }) => {
+  const words = packWords(pack);
+  const sources = pack.source_types as Array<{ key: string; colour: string }>;
+
+  test("shows how many pages there are and where they came from, in the pack's words and colours", async () => {
+    mock(pack);
+    const { container } = renderAt(PATH);
+    expect(await screen.findByRole("heading", { level: 1, name: "Your bundle is ready" })).toBeVisible();
+    expect(screen.getByText("1,231 pages, numbered 1 to 1,231.")).toBeVisible();
+    expect(screen.getByText("Sorted by source and date. Each page keeps its number for good. Anything sent later is numbered after page 1,231.")).toBeVisible();
+    const list = screen.getByRole("list", { name: "Where the pages came from" });
+    const items = within(list).getAllByRole("listitem");
+    expect(items).toHaveLength(sources.length);
+    sources.forEach((s, i) => expect(items[i]).toHaveTextContent(words.sources[s.key] ?? humanise(s.key)));
+    const fills = Array.from(container.querySelectorAll("svg rect")).map((r) => r.getAttribute("fill")?.toUpperCase());
+    sources.forEach((s) => expect(fills).toContain(s.colour.toUpperCase()));
+    expect(await axeViolations(container)).toEqual([]);
+  });
+
+  test("copies, pages that may belong to someone else, and pages we couldn't read each get a card", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const copies = card(await screen.findByText("37 copies set aside. Nothing deleted."));
+    expect(within(copies).getByRole("link", { name: "See them" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/copies`);
+    const other = card("4 pages may belong to someone else.");
+    expect(other).toHaveTextContent("pages 412 to 415");
+    expect(within(other).getByRole("link", { name: "Check them" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/not-this-patient`);
+    expect(card("31 pages we couldn't read.")).toHaveTextContent("Mostly handwriting and faint scans. We'll show you these one by one.");
+  });
+
+  test("recordings and pages in another language are listed", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const kept = card(await screen.findByText("1 recording or image Avodeck can't read."));
+    expect(kept).toHaveTextContent("Kept and listed for you, but not read.");
+    expect(kept).toHaveTextContent("p.903");
+  });
+
+  test("what looks missing is listed, with the pack's words for asking", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const missing = card(await screen.findByText("2 things look missing"));
+    expect(within(missing).getByText("Colonoscopy report from September")).toBeVisible();
+    expect(within(missing).getByText("Practice task list after January")).toBeVisible();
+    expect(within(missing).queryByText("An item already received")).toBeNull();
+    expect(missing).toHaveTextContent("There is also 1 stretch of time with no records.");
+    expect(within(missing).getByRole("link", { name: words.askLabel })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/ask`);
+  });
+
+  test("the files table shows each file, its pages, how it was obtained and when it arrived", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const table = await screen.findByRole("table");
+    const rows = within(table).getAllByRole("row");
+    expect(rows[0]).toHaveTextContent("File");
+    expect(rows[0]).toHaveTextContent("How it was obtained");
+    expect(rows[1]).toHaveTextContent("practice-records.pdf");
+    expect(rows[1]).toHaveTextContent("600");
+    expect(rows[1]).toHaveTextContent("Subject access request");
+    expect(rows[2]).toHaveTextContent("Not given");
+  });
+
+  test("later deliveries are listed with their page numbers", async () => {
+    mock(pack, {
+      summary: {
+        versions: [
+          { bundle_version: 1, documents: 2, pages: 1231, first_page_no: 1, last_page_no: 1231, added_at: "2026-10-02T09:00:00Z" },
+          { bundle_version: 2, documents: 1, pages: 40, first_page_no: 1232, last_page_no: 1271, added_at: "2026-10-09T09:00:00Z" },
+        ],
+      },
+    });
+    renderAt(PATH);
+    expect(await screen.findByText("Delivery 2: pages 1,232 to 1,271")).toBeVisible();
+  });
+
+  test("Start reading is the one main action", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const start = await screen.findByRole("link", { name: "Start reading" });
+    expect(start).toHaveClass("av-button");
+    expect(screen.getAllByRole("link").filter((l) => l.classList.contains("av-button") && !/--/.test(l.className))).toHaveLength(1);
+  });
+
+  test("with nothing to flag there are no cards for copies, other people's pages or missing items", async () => {
+    mock(pack, { summary: { duplicates: 0, unreadable: 0, gaps: 0, missing_items: 0, quarantine_suggestions: [], exhibits: [], foreign_language: [] } });
+    server.use(http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json({ missing_items: [] })));
+    renderAt(PATH);
+    await screen.findByText("1,231 pages, numbered 1 to 1,231.");
+    expect(screen.queryByText(/copies set aside/)).toBeNull();
+    expect(screen.queryByText(/may belong to someone else/)).toBeNull();
+    expect(screen.queryByText(/look missing/)).toBeNull();
+    expect(screen.queryByText(/couldn't read/)).toBeNull();
+  });
+
+  test("someone who cannot write to the instructing party is not offered it", async () => {
+    mock(pack, { item: theCase({ allowed_actions: VIEWER_ACTIONS }) });
+    renderAt(PATH);
+    await screen.findByText("2 things look missing");
+    expect(screen.queryByRole("link", { name: words.askLabel })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Check them" })).toBeNull();
+  });
+});

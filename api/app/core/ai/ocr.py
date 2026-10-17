@@ -2,6 +2,11 @@
 
 The real client (Azure AI Document Intelligence in the cell's region) arrives with the cloud cell.
 Word text is hidden from every repr so OCR output can never reach a log line by accident.
+
+Word IDs are `p<page>w<n>`: the page's number within the analysed document (1 for a single page,
+which is how the pipeline sends pages) and the word's place in reading order, from 1. Polygons are
+8 numbers (x, y for each corner, clockwise from top left) in inches from the page's top-left corner,
+as Document Intelligence gives them for PDFs. `struck` marks a word that is crossed out.
 """
 
 from __future__ import annotations
@@ -24,6 +29,12 @@ class OcrWord:
     polygon: tuple[float, ...]
     confidence: float
     handwritten: bool = False
+    struck: bool = False
+
+
+def word_id(page: int, n: int) -> str:
+    """The ID of the nth word (from 1) in reading order on a page (from 1) of the analysed document."""
+    return f"p{page}w{n}"
 
 
 @dataclass(frozen=True)
@@ -59,6 +70,7 @@ def _result(model: str, data: dict[str, Any]) -> OcrResult:
                     polygon=tuple(float(v) for v in w["polygon"]),
                     confidence=float(w["confidence"]),
                     handwritten=bool(w.get("handwritten", False)),
+                    struck=bool(w.get("struck", False)),
                 )
                 for w in p["words"]
             ),

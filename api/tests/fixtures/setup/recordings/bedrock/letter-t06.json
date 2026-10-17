@@ -23,6 +23,11 @@
         "declaration_name": "statement of truth",
         "expert_meeting": "experts' discussion",
         "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
         "instructing_party_types": {
           "coroner": "coroner",
           "insurer": "insurer",

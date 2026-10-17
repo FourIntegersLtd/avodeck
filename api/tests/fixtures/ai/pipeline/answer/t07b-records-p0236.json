@@ -1,0 +1,39 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "e4d448603ad9368a15d67ce642930b5171af203c2572cb0f8e82a0b83b7b29ce",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 374,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2020-12-07"
+              },
+              "kind": "letter",
+              "value": "Flu vaccination clinic",
+              "word_ids": [
+                "p1w27",
+                "p1w28",
+                "p1w29"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2020-12-07"
+          ],
+          "references_out": [],
+          "source_type": "letters"
+        },
+        "output_tokens": 79
+      }
+    ]
+  }
+}

@@ -16,9 +16,13 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-DJV = "/usr/share/fonts/truetype/dejavu"
-LIB = "/usr/share/fonts/truetype/liberation"
+import layout
+from fontdirs import font_dir
+
+DJV = font_dir("dejavu")
+LIB = font_dir("liberation")
 DPI = 150
+A4_INCHES = (A4[0] / 72, A4[1] / 72)
 
 
 def pdf_pages_to_images(pdf_path: str, dpi: int = DPI) -> list[Image.Image]:
@@ -71,13 +75,18 @@ def images_to_pdf(images: list[Image.Image], out_path: str):
 
 
 def scan_pdf(pdf_path: str, out_path: str, seed: int, quality: str = "scan", notes=None):
-    """notes: {page_index: [(text, x_frac, y_frac)]} handwritten on the paper before it is scanned."""
+    """notes: {page_index: [(text, x_frac, y_frac)]} handwritten on the paper before it is scanned.
+
+    Returns, per page, the handwritten words added before scanning (boxes in inches; see layout.py).
+    """
     rng = random.Random(seed)
     pages = pdf_pages_to_images(pdf_path)
     for i, ns in (notes or {}).items():
         annotate(pages[i], ns, seed + i)
+    added = [layout.in_inches(im, *A4_INCHES) for im in pages]
     imgs = [degrade(im, rng, quality) for im in pages]
     images_to_pdf(imgs, out_path)
+    return added
 
 
 # ------------------------------------------------------------ handwriting

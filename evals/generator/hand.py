@@ -22,6 +22,8 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from scipy.ndimage import gaussian_filter, map_coordinates
 
+import layout
+
 FONT_DIR = os.path.join(os.path.dirname(__file__), "fonts")
 
 SCRAWL = ["Kristi-Regular.ttf", "HerrVonMuellerhoff-Regular.ttf", "MrsSaintDelafield-Regular.ttf", "Meddon.ttf",
@@ -90,7 +92,12 @@ def _elastic(a: np.ndarray, rng: np.random.Generator, alpha: float, sigma: float
 
 
 def _render_word(word: str, w: Writer, s: int, rng: random.Random, fatigue: float) -> Image.Image:
-    """Grey mask (L) of one word, distorted."""
+    """Grey mask (L) of one word, distorted. Its own drawing is not page text (layout capture is off)."""
+    with layout.suppressed():
+        return _render_word_mask(word, w, s, rng, fatigue)
+
+
+def _render_word_mask(word: str, w: Writer, s: int, rng: random.Random, fatigue: float) -> Image.Image:
     f = ImageFont.truetype(w.path, max(8, s))
     mess = min(1.0, w.messy + fatigue)
     if w.cursive or len(word) < 2:
@@ -151,7 +158,7 @@ def _render_word(word: str, w: Writer, s: int, rng: random.Random, fatigue: floa
     a *= np.clip(gaussian_filter(nrng.uniform(0.65, 1.0, a.shape), s * 0.15) * 1.35, 0.72, 1.0)
     if w.skips:
         for _ in range(rng.randint(0, 1)):
-            x0 = rng.randrange(max(1, a.shape[1]))
+            x0 = int(rng.random() * a.shape[1])     # one draw whatever the width (fonts measure differently)
             a[:, x0:x0 + rng.randint(1, max(2, s // 14))] *= rng.uniform(0.2, 0.6)
     return Image.fromarray(np.clip(a * 255, 0, 255).astype(np.uint8))
 
@@ -163,6 +170,12 @@ def _abbreviate(text: str, w: Writer, rng: random.Random) -> str:
         if rng.random() < 0.6:
             text = re.sub(pat, sym, text, flags=re.I)
     return text
+
+
+def _ink_box(x: int, y: int, mask: Image.Image):
+    """Where a word's ink lies once its mask is pasted at (x, y) (the mask has blank padding)."""
+    bb = mask.getbbox() or (0, 0, mask.width, mask.height)
+    return (x + bb[0], y + bb[1], x + bb[2], y + bb[3])
 
 
 def write_line(img: Image.Image, xy, text: str, rng: random.Random, size=30, ink=None, messy=0.5, hand=None,
@@ -193,15 +206,20 @@ def write_line(img: Image.Image, xy, text: str, rng: random.Random, size=30, ink
             + rng.uniform(-0.08, 0.08) * s - mask.height * 0.62
         colour = Image.new("RGB", mask.size, ink)
         img.paste(colour, (int(x), int(yy)), mask)
+        n_before = len(layout.words(img))
+        layout.add(img, word, _ink_box(int(x), int(yy), mask), handwritten=True)
         # crossing out a false start, then the word again
         if marks and not crossed_once and len(word) > 2 and rng.random() < 0.02 + 0.03 * w.messy:
             crossed_once = True
             for k in range(rng.randint(1, 2)):
                 draw.line([(x + 2, yy + mask.height * rng.uniform(0.45, 0.65)),
                            (x + mask.width - 4, yy + mask.height * rng.uniform(0.4, 0.6))], fill=ink, width=max(2, s // 12))
+            layout.mark_struck(img, n_before)
             x += mask.width + s * 0.2
             mask = _render_word(word, w, s, rng, fatigue)
-            img.paste(Image.new("RGB", mask.size, ink), (int(x), int(yy + rng.uniform(-3, 3))), mask)
+            ry = int(yy + rng.uniform(-3, 3))
+            img.paste(Image.new("RGB", mask.size, ink), (int(x), ry), mask)
+            layout.add(img, word, _ink_box(int(x), ry, mask), handwritten=True)
         # circle a number, underline an important word
         if marks and any(ch.isdigit() for ch in word) and rng.random() < 0.05 + 0.05 * w.messy:
             draw.ellipse([x - 4, yy + mask.height * 0.15, x + mask.width + 4, yy + mask.height * 0.95], outline=ink,
@@ -238,6 +256,9 @@ def _strike(img, x0, x1, y, ink, width, rng):
 
 
 def _scribble(img, x0, x1, y, h, ink, rng):
+    # The zig-zag's own random stream: how many points it has depends on measured widths, which differ
+    # between font renderers, so it must not use up draws from the shared stream.
+    rng = random.Random(rng.random())
     d = ImageDraw.Draw(img)
     pts = []
     x = x0
@@ -249,6 +270,7 @@ def _scribble(img, x0, x1, y, h, ink, rng):
     if len(pts) > 1:
         d.line(pts, fill=ink, width=3)
         d.line([(p[0] + 3, p[1] + rng.uniform(-6, 6)) for p in pts], fill=ink, width=2)
+    layout.mark_struck_between(img, x0, x1, y - h * 0.3)
 
 
 def ward_entry(img, x_text, y, lines, rng, line_h, size=27, ink=None, messy=0.6, hand=None, initials="JC",
@@ -268,8 +290,10 @@ def ward_entry(img, x_text, y, lines, rng, line_h, size=27, ink=None, messy=0.6,
     for i, ln in enumerate(out_lines):
         if isinstance(ln, tuple):
             txt = ln[1]
+            since = len(layout.words(img))
             end = write_line(img, (x_text, y), txt, rng, size=size, ink=ink, messy=messy, hand=hand, max_x=max_x)
             _strike(img, x_text - 4, end, y - size * 0.28, ink, max(2, size // 13), rng)
+            layout.mark_struck(img, since)
             write_line(img, (end + 10, y), f"error {initials}", rng, size=int(size * 0.7), ink=ink, messy=0.4, hand=hand, marks=False)
             struck.append(txt)
             y += line_h

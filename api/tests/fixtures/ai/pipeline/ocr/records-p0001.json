@@ -1,0 +1,3350 @@
+{
+  "kind": "ocr",
+  "request": {
+    "document_sha256": "ffdd7a33651e0b1304b31eb8498d2c04390d1be95ebd1cf15bf252431821dff4",
+    "model": "layout"
+  },
+  "response": {
+    "pages": [
+      {
+        "height": 11.692913888888889,
+        "number": 1,
+        "width": 8.267716666666667,
+        "words": [
+          {
+            "confidence": 0.991,
+            "handwritten": false,
+            "id": "p1w1",
+            "polygon": [
+              5.3388,
+              0.5834,
+              6.0342,
+              0.5834,
+              6.0342,
+              0.7103,
+              5.3388,
+              0.7103
+            ],
+            "struck": false,
+            "text": "Northam"
+          },
+          {
+            "confidence": 0.97,
+            "handwritten": false,
+            "id": "p1w2",
+            "polygon": [
+              6.0912,
+              0.5834,
+              6.7004,
+              0.5834,
+              6.7004,
+              0.7103,
+              6.0912,
+              0.7103
+            ],
+            "struck": false,
+            "text": "General"
+          },
+          {
+            "confidence": 0.976,
+            "handwritten": false,
+            "id": "p1w3",
+            "polygon": [
+              6.7515,
+              0.5834,
+              7.3972,
+              0.5834,
+              7.3972,
+              0.7469,
+              6.7515,
+              0.7469
+            ],
+            "struck": false,
+            "text": "Hospital"
+          },
+          {
+            "confidence": 0.964,
+            "handwritten": false,
+            "id": "p1w4",
+            "polygon": [
+              6.86,
+              0.7991,
+              7.0987,
+              0.7991,
+              7.0987,
+              0.883,
+              6.86,
+              0.883
+            ],
+            "struck": false,
+            "text": "NHS"
+          },
+          {
+            "confidence": 0.97,
+            "handwritten": false,
+            "id": "p1w5",
+            "polygon": [
+              7.1399,
+              0.8,
+              7.4007,
+              0.8,
+              7.4007,
+              0.883,
+              7.1399,
+              0.883
+            ],
+            "struck": false,
+            "text": "Trust"
+          },
+          {
+            "confidence": 0.969,
+            "handwritten": false,
+            "id": "p1w6",
+            "polygon": [
+              5.9751,
+              0.9732,
+              6.5603,
+              0.9732,
+              6.5603,
+              1.0816,
+              5.9751,
+              1.0816
+            ],
+            "struck": false,
+            "text": "Department"
+          },
+          {
+            "confidence": 0.962,
+            "handwritten": false,
+            "id": "p1w7",
+            "polygon": [
+              6.5969,
+              0.9671,
+              6.6963,
+              0.9671,
+              6.6963,
+              1.0562,
+              6.5969,
+              1.0562
+            ],
+            "struck": false,
+            "text": "of"
+          },
+          {
+            "confidence": 0.966,
+            "handwritten": false,
+            "id": "p1w8",
+            "polygon": [
+              6.7311,
+              0.9684,
+              7.3998,
+              0.9684,
+              7.3998,
+              1.082,
+              6.7311,
+              1.082
+            ],
+            "struck": false,
+            "text": "Haematology"
+          },
+          {
+            "confidence": 0.985,
+            "handwritten": false,
+            "id": "p1w9",
+            "polygon": [
+              0.8713,
+              1.0984,
+              1.0594,
+              1.0984,
+              1.0594,
+              1.1822,
+              0.8713,
+              1.1822
+            ],
+            "struck": false,
+            "text": "Our"
+          },
+          {
+            "confidence": 0.984,
+            "handwritten": false,
+            "id": "p1w10",
+            "polygon": [
+              1.0943,
+              1.0931,
+              1.255,
+              1.0931,
+              1.255,
+              1.1827,
+              1.0943,
+              1.1827
+            ],
+            "struck": false,
+            "text": "ref:"
+          },
+          {
+            "confidence": 0.962,
+            "handwritten": false,
+            "id": "p1w11",
+            "polygon": [
+              1.2999,
+              1.098,
+              2.2743,
+              1.098,
+              2.2743,
+              1.1822,
+              1.2999,
+              1.1822
+            ],
+            "struck": false,
+            "text": "NG4471902/DEPA"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w12",
+            "polygon": [
+              5.6102,
+              1.1416,
+              6.0273,
+              1.1416,
+              6.0273,
+              1.2548,
+              5.6102,
+              1.2548
+            ],
+            "struck": false,
+            "text": "Hospital"
+          },
+          {
+            "confidence": 0.998,
+            "handwritten": false,
+            "id": "p1w13",
+            "polygon": [
+              6.0646,
+              1.1416,
+              6.348,
+              1.1416,
+              6.348,
+              1.2475,
+              6.0646,
+              1.2475
+            ],
+            "struck": false,
+            "text": "Road,"
+          },
+          {
+            "confidence": 0.995,
+            "handwritten": false,
+            "id": "p1w14",
+            "polygon": [
+              6.3907,
+              1.1416,
+              6.8292,
+              1.1416,
+              6.8292,
+              1.2295,
+              6.3907,
+              1.2295
+            ],
+            "struck": false,
+            "text": "Northam"
+          },
+          {
+            "confidence": 0.992,
+            "handwritten": false,
+            "id": "p1w15",
+            "polygon": [
+              6.866,
+              1.1458,
+              7.1187,
+              1.1458,
+              7.1187,
+              1.2283,
+              6.866,
+              1.2283
+            ],
+            "struck": false,
+            "text": "NM1"
+          },
+          {
+            "confidence": 0.982,
+            "handwritten": false,
+            "id": "p1w16",
+            "polygon": [
+              7.1635,
+              1.1456,
+              7.3966,
+              1.1456,
+              7.3966,
+              1.2295,
+              7.1635,
+              1.2295
+            ],
+            "struck": false,
+            "text": "3HG"
+          },
+          {
+            "confidence": 0.968,
+            "handwritten": false,
+            "id": "p1w17",
+            "polygon": [
+              0.8713,
+              1.2715,
+              1.1674,
+              1.2715,
+              1.1674,
+              1.3594,
+              0.8713,
+              1.3594
+            ],
+            "struck": false,
+            "text": "Clinic"
+          },
+          {
+            "confidence": 0.992,
+            "handwritten": false,
+            "id": "p1w18",
+            "polygon": [
+              1.2069,
+              1.2715,
+              1.4349,
+              1.2715,
+              1.4349,
+              1.3599,
+              1.2069,
+              1.3599
+            ],
+            "struck": false,
+            "text": "date:"
+          },
+          {
+            "confidence": 0.991,
+            "handwritten": false,
+            "id": "p1w19",
+            "polygon": [
+              1.4871,
+              1.2751,
+              2.0434,
+              1.2751,
+              2.0434,
+              1.3594,
+              1.4871,
+              1.3594
+            ],
+            "struck": false,
+            "text": "10/05/2024"
+          },
+          {
+            "confidence": 0.971,
+            "handwritten": false,
+            "id": "p1w20",
+            "polygon": [
+              6.4873,
+              1.3148,
+              6.6489,
+              1.3148,
+              6.6489,
+              1.4027,
+              6.4873,
+              1.4027
+            ],
+            "struck": false,
+            "text": "Tel"
+          },
+          {
+            "confidence": 0.972,
+            "handwritten": false,
+            "id": "p1w21",
+            "polygon": [
+              6.6873,
+              1.3185,
+              6.9881,
+              1.3185,
+              6.9881,
+              1.4027,
+              6.6873,
+              1.4027
+            ],
+            "struck": false,
+            "text": "01632"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w22",
+            "polygon": [
+              7.0303,
+              1.3185,
+              7.3965,
+              1.3185,
+              7.3965,
+              1.4027,
+              7.0303,
+              1.4027
+            ],
+            "struck": false,
+            "text": "960500"
+          },
+          {
+            "confidence": 0.977,
+            "handwritten": false,
+            "id": "p1w23",
+            "polygon": [
+              0.8702,
+              1.8775,
+              1.0114,
+              1.8775,
+              1.0114,
+              1.9686,
+              0.8702,
+              1.9686
+            ],
+            "struck": false,
+            "text": "Dr"
+          },
+          {
+            "confidence": 0.972,
+            "handwritten": false,
+            "id": "p1w24",
+            "polygon": [
+              1.0514,
+              1.8775,
+              1.1399,
+              1.8775,
+              1.1399,
+              1.9685,
+              1.0514,
+              1.9685
+            ],
+            "struck": false,
+            "text": "R"
+          },
+          {
+            "confidence": 0.988,
+            "handwritten": false,
+            "id": "p1w25",
+            "polygon": [
+              1.1786,
+              1.8721,
+              1.4492,
+              1.8721,
+              1.4492,
+              1.9698,
+              1.1786,
+              1.9698
+            ],
+            "struck": false,
+            "text": "Patel"
+          },
+          {
+            "confidence": 0.997,
+            "handwritten": false,
+            "id": "p1w26",
+            "polygon": [
+              0.8702,
+              2.0457,
+              1.4395,
+              2.0457,
+              1.4395,
+              2.1434,
+              0.8702,
+              2.1434
+            ],
+            "struck": false,
+            "text": "Brookvale"
+          },
+          {
+            "confidence": 0.955,
+            "handwritten": false,
+            "id": "p1w27",
+            "polygon": [
+              1.4882,
+              2.0502,
+              1.9179,
+              2.0502,
+              1.9179,
+              2.172,
+              1.4882,
+              2.172
+            ],
+            "struck": false,
+            "text": "Surgery"
+          },
+          {
+            "confidence": 0.985,
+            "handwritten": false,
+            "id": "p1w28",
+            "polygon": [
+              6.2335,
+              2.082,
+              6.9342,
+              2.082,
+              6.9342,
+              2.2732,
+              6.2335,
+              2.2732
+            ],
+            "struck": false,
+            "text": "RECEIVED"
+          },
+          {
+            "confidence": 0.954,
+            "handwritten": false,
+            "id": "p1w29",
+            "polygon": [
+              0.8689,
+              2.2243,
+              0.9334,
+              2.2243,
+              0.9334,
+              2.3157,
+              0.8689,
+              2.3157
+            ],
+            "struck": false,
+            "text": "4"
+          },
+          {
+            "confidence": 0.952,
+            "handwritten": false,
+            "id": "p1w30",
+            "polygon": [
+              0.9743,
+              2.2193,
+              1.2066,
+              2.2193,
+              1.2066,
+              2.3157,
+              0.9743,
+              2.3157
+            ],
+            "struck": false,
+            "text": "Mill"
+          },
+          {
+            "confidence": 0.976,
+            "handwritten": false,
+            "id": "p1w31",
+            "polygon": [
+              1.2479,
+              2.2193,
+              1.5352,
+              2.2193,
+              1.5352,
+              2.317,
+              1.2479,
+              2.317
+            ],
+            "struck": false,
+            "text": "Road"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w32",
+            "polygon": [
+              6.0857,
+              2.2888,
+              6.2575,
+              2.2888,
+              6.2575,
+              2.4164,
+              6.0857,
+              2.4164
+            ],
+            "struck": false,
+            "text": "22"
+          },
+          {
+            "confidence": 0.96,
+            "handwritten": false,
+            "id": "p1w33",
+            "polygon": [
+              6.3007,
+              2.3205,
+              6.639,
+              2.3205,
+              6.639,
+              2.4701,
+              6.3007,
+              2.4701
+            ],
+            "struck": false,
+            "text": "MAY"
+          },
+          {
+            "confidence": 0.981,
+            "handwritten": false,
+            "id": "p1w34",
+            "polygon": [
+              0.8702,
+              2.3929,
+              1.3574,
+              2.3929,
+              1.3574,
+              2.4906,
+              0.8702,
+              2.4906
+            ],
+            "struck": false,
+            "text": "Northam"
+          },
+          {
+            "confidence": 0.956,
+            "handwritten": false,
+            "id": "p1w35",
+            "polygon": [
+              6.6738,
+              2.3714,
+              7.0189,
+              2.3714,
+              7.0189,
+              2.5235,
+              6.6738,
+              2.5235
+            ],
+            "struck": false,
+            "text": "2024"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w36",
+            "polygon": [
+              0.8702,
+              2.5716,
+              1.1571,
+              2.5716,
+              1.1571,
+              2.6629,
+              0.8702,
+              2.6629
+            ],
+            "struck": false,
+            "text": "NM4"
+          },
+          {
+            "confidence": 0.971,
+            "handwritten": false,
+            "id": "p1w37",
+            "polygon": [
+              1.2002,
+              2.571,
+              1.4463,
+              2.571,
+              1.4463,
+              2.6853,
+              1.2002,
+              2.6853
+            ],
+            "struck": false,
+            "text": "2QT"
+          },
+          {
+            "confidence": 0.954,
+            "handwritten": false,
+            "id": "p1w38",
+            "polygon": [
+              0.8784,
+              3.0572,
+              1.4964,
+              3.0572,
+              1.4964,
+              3.1509,
+              0.8784,
+              3.1509
+            ],
+            "struck": false,
+            "text": "10/05/2024"
+          },
+          {
+            "confidence": 0.953,
+            "handwritten": false,
+            "id": "p1w39",
+            "polygon": [
+              0.8704,
+              3.3041,
+              1.1479,
+              3.3041,
+              1.1479,
+              3.4009,
+              0.8704,
+              3.4009
+            ],
+            "struck": false,
+            "text": "Dear"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w40",
+            "polygon": [
+              1.1899,
+              3.3041,
+              1.3382,
+              3.3041,
+              1.3382,
+              3.3998,
+              1.1899,
+              3.3998
+            ],
+            "struck": false,
+            "text": "Dr"
+          },
+          {
+            "confidence": 0.986,
+            "handwritten": false,
+            "id": "p1w41",
+            "polygon": [
+              1.3802,
+              3.2984,
+              1.6643,
+              3.2984,
+              1.6643,
+              3.4009,
+              1.3802,
+              3.4009
+            ],
+            "struck": false,
+            "text": "Patel"
+          },
+          {
+            "confidence": 0.956,
+            "handwritten": false,
+            "id": "p1w42",
+            "polygon": [
+              0.8685,
+              3.5309,
+              1.0618,
+              3.5309,
+              1.0618,
+              3.6236,
+              0.8685,
+              3.6236
+            ],
+            "struck": false,
+            "text": "Re:"
+          },
+          {
+            "confidence": 0.963,
+            "handwritten": false,
+            "id": "p1w43",
+            "polygon": [
+              1.1113,
+              3.5309,
+              1.3521,
+              3.5309,
+              1.3521,
+              3.6231,
+              1.1113,
+              3.6231
+            ],
+            "struck": false,
+            "text": "Mrs"
+          },
+          {
+            "confidence": 0.959,
+            "handwritten": false,
+            "id": "p1w44",
+            "polygon": [
+              1.3925,
+              3.5309,
+              1.9598,
+              3.5309,
+              1.9598,
+              3.6524,
+              1.3925,
+              3.6524
+            ],
+            "struck": false,
+            "text": "Margaret"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w45",
+            "polygon": [
+              1.9964,
+              3.5254,
+              2.6107,
+              3.5254,
+              2.6107,
+              3.6432,
+              1.9964,
+              3.6432
+            ],
+            "struck": false,
+            "text": "Ashworth,"
+          },
+          {
+            "confidence": 0.974,
+            "handwritten": false,
+            "id": "p1w46",
+            "polygon": [
+              2.6532,
+              3.5299,
+              2.9477,
+              3.5299,
+              2.9477,
+              3.6231,
+              2.6532,
+              3.6231
+            ],
+            "struck": false,
+            "text": "DOB"
+          },
+          {
+            "confidence": 0.982,
+            "handwritten": false,
+            "id": "p1w47",
+            "polygon": [
+              2.9973,
+              3.5295,
+              3.6481,
+              3.5295,
+              3.6481,
+              3.6432,
+              2.9973,
+              3.6432
+            ],
+            "struck": false,
+            "text": "14/03/1969,"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w48",
+            "polygon": [
+              3.6907,
+              3.5299,
+              3.9677,
+              3.5299,
+              3.9677,
+              3.6231,
+              3.6907,
+              3.6231
+            ],
+            "struck": false,
+            "text": "NHS"
+          },
+          {
+            "confidence": 0.954,
+            "handwritten": false,
+            "id": "p1w49",
+            "polygon": [
+              4.0109,
+              3.5309,
+              4.1727,
+              3.5309,
+              4.1727,
+              3.6231,
+              4.0109,
+              3.6231
+            ],
+            "struck": false,
+            "text": "No"
+          },
+          {
+            "confidence": 0.957,
+            "handwritten": false,
+            "id": "p1w50",
+            "polygon": [
+              4.2164,
+              3.5299,
+              4.416,
+              3.5299,
+              4.416,
+              3.6231,
+              4.2164,
+              3.6231
+            ],
+            "struck": false,
+            "text": "999"
+          },
+          {
+            "confidence": 0.964,
+            "handwritten": false,
+            "id": "p1w51",
+            "polygon": [
+              4.4577,
+              3.5304,
+              4.6607,
+              3.5304,
+              4.6607,
+              3.6218,
+              4.4577,
+              3.6218
+            ],
+            "struck": false,
+            "text": "447"
+          },
+          {
+            "confidence": 0.973,
+            "handwritten": false,
+            "id": "p1w52",
+            "polygon": [
+              4.7099,
+              3.5295,
+              5.006,
+              3.5295,
+              5.006,
+              3.6432,
+              4.7099,
+              3.6432
+            ],
+            "struck": false,
+            "text": "1015,"
+          },
+          {
+            "confidence": 0.97,
+            "handwritten": false,
+            "id": "p1w53",
+            "polygon": [
+              5.0518,
+              3.5299,
+              5.1816,
+              3.5299,
+              5.1816,
+              3.6218,
+              5.0518,
+              3.6218
+            ],
+            "struck": false,
+            "text": "27"
+          },
+          {
+            "confidence": 0.993,
+            "handwritten": false,
+            "id": "p1w54",
+            "polygon": [
+              5.222,
+              3.5254,
+              5.5798,
+              3.5254,
+              5.5798,
+              3.6231,
+              5.222,
+              3.6231
+            ],
+            "struck": false,
+            "text": "Larch"
+          },
+          {
+            "confidence": 0.969,
+            "handwritten": false,
+            "id": "p1w55",
+            "polygon": [
+              5.6234,
+              3.5254,
+              5.9698,
+              3.5254,
+              5.9698,
+              3.6432,
+              5.6234,
+              3.6432
+            ],
+            "struck": false,
+            "text": "Close,"
+          },
+          {
+            "confidence": 0.955,
+            "handwritten": false,
+            "id": "p1w56",
+            "polygon": [
+              6.0124,
+              3.5254,
+              6.5791,
+              3.5254,
+              6.5791,
+              3.6432,
+              6.0124,
+              3.6432
+            ],
+            "struck": false,
+            "text": "Northam,"
+          },
+          {
+            "confidence": 0.965,
+            "handwritten": false,
+            "id": "p1w57",
+            "polygon": [
+              6.6217,
+              3.5304,
+              6.9171,
+              3.5304,
+              6.9171,
+              3.6218,
+              6.6217,
+              3.6218
+            ],
+            "struck": false,
+            "text": "NM4"
+          },
+          {
+            "confidence": 0.977,
+            "handwritten": false,
+            "id": "p1w58",
+            "polygon": [
+              6.9624,
+              3.5299,
+              7.2224,
+              3.5299,
+              7.2224,
+              3.6442,
+              6.9624,
+              3.6442
+            ],
+            "struck": false,
+            "text": "7QT"
+          },
+          {
+            "confidence": 0.988,
+            "handwritten": false,
+            "id": "p1w59",
+            "polygon": [
+              0.8676,
+              3.7428,
+              1.2914,
+              3.7428,
+              1.2914,
+              3.8454,
+              0.8676,
+              3.8454
+            ],
+            "struck": false,
+            "text": "Advice"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w60",
+            "polygon": [
+              1.3362,
+              3.7428,
+              1.565,
+              3.7428,
+              1.565,
+              3.8454,
+              1.3362,
+              3.8454
+            ],
+            "struck": false,
+            "text": "and"
+          },
+          {
+            "confidence": 0.988,
+            "handwritten": false,
+            "id": "p1w61",
+            "polygon": [
+              1.6102,
+              3.7428,
+              2.1985,
+              3.7428,
+              2.1985,
+              3.8457,
+              1.6102,
+              3.8457
+            ],
+            "struck": false,
+            "text": "Guidance"
+          },
+          {
+            "confidence": 0.986,
+            "handwritten": false,
+            "id": "p1w62",
+            "polygon": [
+              2.2425,
+              3.7749,
+              2.7773,
+              3.7749,
+              2.7773,
+              3.875,
+              2.2425,
+              3.875
+            ],
+            "struck": false,
+            "text": "response"
+          },
+          {
+            "confidence": 0.997,
+            "handwritten": false,
+            "id": "p1w63",
+            "polygon": [
+              0.8688,
+              3.9651,
+              1.2385,
+              3.9651,
+              1.2385,
+              4.0676,
+              0.8688,
+              4.0676
+            ],
+            "struck": false,
+            "text": "Thank"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w64",
+            "polygon": [
+              1.2767,
+              3.9976,
+              1.4912,
+              3.9976,
+              1.4912,
+              4.0976,
+              1.2767,
+              4.0976
+            ],
+            "struck": false,
+            "text": "you"
+          },
+          {
+            "confidence": 0.995,
+            "handwritten": false,
+            "id": "p1w65",
+            "polygon": [
+              1.5346,
+              3.9636,
+              1.6988,
+              3.9636,
+              1.6988,
+              4.0676,
+              1.5346,
+              4.0676
+            ],
+            "struck": false,
+            "text": "for"
+          },
+          {
+            "confidence": 0.975,
+            "handwritten": false,
+            "id": "p1w66",
+            "polygon": [
+              1.7384,
+              3.9976,
+              2.0026,
+              3.9976,
+              2.0026,
+              4.0976,
+              1.7384,
+              4.0976
+            ],
+            "struck": false,
+            "text": "your"
+          },
+          {
+            "confidence": 0.988,
+            "handwritten": false,
+            "id": "p1w67",
+            "polygon": [
+              2.0418,
+              3.9651,
+              2.4562,
+              3.9651,
+              2.4562,
+              4.0676,
+              2.0418,
+              4.0676
+            ],
+            "struck": false,
+            "text": "Advice"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w68",
+            "polygon": [
+              2.5027,
+              3.9651,
+              2.7063,
+              3.9651,
+              2.7063,
+              4.0676,
+              2.5027,
+              4.0676
+            ],
+            "struck": false,
+            "text": "and"
+          },
+          {
+            "confidence": 0.962,
+            "handwritten": false,
+            "id": "p1w69",
+            "polygon": [
+              2.7505,
+              3.9651,
+              3.2978,
+              3.9651,
+              3.2978,
+              4.0676,
+              2.7505,
+              4.0676
+            ],
+            "struck": false,
+            "text": "Guidance"
+          },
+          {
+            "confidence": 0.977,
+            "handwritten": false,
+            "id": "p1w70",
+            "polygon": [
+              3.3421,
+              3.9842,
+              3.7592,
+              3.9842,
+              3.7592,
+              4.0972,
+              3.3421,
+              4.0972
+            ],
+            "struck": false,
+            "text": "request"
+          },
+          {
+            "confidence": 0.953,
+            "handwritten": false,
+            "id": "p1w71",
+            "polygon": [
+              3.7993,
+              3.9651,
+              4.352,
+              3.9651,
+              4.352,
+              4.0976,
+              3.7993,
+              4.0976
+            ],
+            "struck": false,
+            "text": "regarding"
+          },
+          {
+            "confidence": 0.951,
+            "handwritten": false,
+            "id": "p1w72",
+            "polygon": [
+              4.3927,
+              3.9651,
+              4.5964,
+              3.9651,
+              4.5964,
+              4.0676,
+              4.3927,
+              4.0676
+            ],
+            "struck": false,
+            "text": "this"
+          },
+          {
+            "confidence": 0.996,
+            "handwritten": false,
+            "id": "p1w73",
+            "polygon": [
+              4.6466,
+              3.9708,
+              4.7783,
+              3.9708,
+              4.7783,
+              4.0676,
+              4.6466,
+              4.0676
+            ],
+            "struck": false,
+            "text": "55"
+          },
+          {
+            "confidence": 0.986,
+            "handwritten": false,
+            "id": "p1w74",
+            "polygon": [
+              4.8222,
+              3.9976,
+              5.0698,
+              3.9976,
+              5.0698,
+              4.0976,
+              4.8222,
+              4.0976
+            ],
+            "struck": false,
+            "text": "year"
+          },
+          {
+            "confidence": 0.982,
+            "handwritten": false,
+            "id": "p1w75",
+            "polygon": [
+              5.1131,
+              3.9651,
+              5.292,
+              3.9651,
+              5.292,
+              4.0676,
+              5.1131,
+              4.0676
+            ],
+            "struck": false,
+            "text": "old"
+          },
+          {
+            "confidence": 0.966,
+            "handwritten": false,
+            "id": "p1w76",
+            "polygon": [
+              5.3332,
+              3.9651,
+              5.5805,
+              3.9651,
+              5.5805,
+              4.0976,
+              5.3332,
+              4.0976
+            ],
+            "struck": false,
+            "text": "lady"
+          },
+          {
+            "confidence": 0.975,
+            "handwritten": false,
+            "id": "p1w77",
+            "polygon": [
+              5.6177,
+              3.9651,
+              5.8746,
+              3.9651,
+              5.8746,
+              4.0676,
+              5.6177,
+              4.0676
+            ],
+            "struck": false,
+            "text": "with"
+          },
+          {
+            "confidence": 0.956,
+            "handwritten": false,
+            "id": "p1w78",
+            "polygon": [
+              5.9181,
+              3.9979,
+              5.9757,
+              3.9979,
+              5.9757,
+              4.0676,
+              5.9181,
+              4.0676
+            ],
+            "struck": false,
+            "text": "a"
+          },
+          {
+            "confidence": 0.97,
+            "handwritten": false,
+            "id": "p1w79",
+            "polygon": [
+              6.0171,
+              3.9697,
+              6.6324,
+              3.9697,
+              6.6324,
+              4.0976,
+              6.0171,
+              4.0976
+            ],
+            "struck": false,
+            "text": "microcytic"
+          },
+          {
+            "confidence": 0.98,
+            "handwritten": false,
+            "id": "p1w80",
+            "polygon": [
+              6.6783,
+              3.9697,
+              7.1564,
+              3.9697,
+              7.1564,
+              4.0676,
+              6.6783,
+              4.0676
+            ],
+            "struck": false,
+            "text": "anaemia"
+          },
+          {
+            "confidence": 0.975,
+            "handwritten": false,
+            "id": "p1w81",
+            "polygon": [
+              0.8726,
+              4.1595,
+              1.0874,
+              4.1595,
+              1.0874,
+              4.2916,
+              0.8726,
+              4.2916
+            ],
+            "struck": false,
+            "text": "(Hb"
+          },
+          {
+            "confidence": 0.961,
+            "handwritten": false,
+            "id": "p1w82",
+            "polygon": [
+              1.1422,
+              4.1642,
+              1.3401,
+              4.1642,
+              1.3401,
+              4.2607,
+              1.1422,
+              4.2607
+            ],
+            "struck": false,
+            "text": "112"
+          },
+          {
+            "confidence": 0.975,
+            "handwritten": false,
+            "id": "p1w83",
+            "polygon": [
+              1.3909,
+              4.1646,
+              1.6141,
+              4.1646,
+              1.6141,
+              4.2921,
+              1.3909,
+              4.2921
+            ],
+            "struck": false,
+            "text": "g/L,"
+          },
+          {
+            "confidence": 0.986,
+            "handwritten": false,
+            "id": "p1w84",
+            "polygon": [
+              1.664,
+              4.1642,
+              1.9902,
+              4.1642,
+              1.9902,
+              4.2628,
+              1.664,
+              4.2628
+            ],
+            "struck": false,
+            "text": "MCV"
+          },
+          {
+            "confidence": 0.956,
+            "handwritten": false,
+            "id": "p1w85",
+            "polygon": [
+              2.0379,
+              4.1652,
+              2.1699,
+              4.1652,
+              2.1699,
+              4.2607,
+              2.0379,
+              4.2607
+            ],
+            "struck": false,
+            "text": "77"
+          },
+          {
+            "confidence": 0.955,
+            "handwritten": false,
+            "id": "p1w86",
+            "polygon": [
+              2.2151,
+              4.1581,
+              2.3902,
+              4.1581,
+              2.3902,
+              4.2916,
+              2.2151,
+              4.2916
+            ],
+            "struck": false,
+            "text": "fL)"
+          },
+          {
+            "confidence": 0.991,
+            "handwritten": false,
+            "id": "p1w87",
+            "polygon": [
+              2.4382,
+              4.1595,
+              2.6418,
+              4.1595,
+              2.6418,
+              4.262,
+              2.4382,
+              4.262
+            ],
+            "struck": false,
+            "text": "and"
+          },
+          {
+            "confidence": 0.98,
+            "handwritten": false,
+            "id": "p1w88",
+            "polygon": [
+              2.6845,
+              4.1581,
+              3.0822,
+              4.1581,
+              3.0822,
+              4.262,
+              2.6845,
+              4.262
+            ],
+            "struck": false,
+            "text": "ferritin"
+          },
+          {
+            "confidence": 0.996,
+            "handwritten": false,
+            "id": "p1w89",
+            "polygon": [
+              3.1264,
+              4.1581,
+              3.2424,
+              4.1581,
+              3.2424,
+              4.262,
+              3.1264,
+              4.262
+            ],
+            "struck": false,
+            "text": "of"
+          },
+          {
+            "confidence": 0.953,
+            "handwritten": false,
+            "id": "p1w90",
+            "polygon": [
+              3.2835,
+              4.1642,
+              3.3457,
+              4.1642,
+              3.3457,
+              4.262,
+              3.2835,
+              4.262
+            ],
+            "struck": false,
+            "text": "9"
+          },
+          {
+            "confidence": 0.955,
+            "handwritten": false,
+            "id": "p1w91",
+            "polygon": [
+              3.3901,
+              4.1646,
+              3.6548,
+              4.1646,
+              3.6548,
+              4.2921,
+              3.3901,
+              4.2921
+            ],
+            "struck": false,
+            "text": "ug/L"
+          },
+          {
+            "confidence": 0.98,
+            "handwritten": false,
+            "id": "p1w92",
+            "polygon": [
+              3.7029,
+              4.1642,
+              3.811,
+              4.1642,
+              3.811,
+              4.2607,
+              3.7029,
+              4.2607
+            ],
+            "struck": false,
+            "text": "in"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w93",
+            "polygon": [
+              3.8538,
+              4.1595,
+              4.4026,
+              4.1595,
+              4.4026,
+              4.2921,
+              3.8538,
+              4.2921
+            ],
+            "struck": false,
+            "text": "February."
+          },
+          {
+            "confidence": 0.991,
+            "handwritten": false,
+            "id": "p1w94",
+            "polygon": [
+              0.8714,
+              4.443,
+              1.1069,
+              4.443,
+              1.1069,
+              4.5398,
+              0.8714,
+              4.5398
+            ],
+            "struck": false,
+            "text": "Iron"
+          },
+          {
+            "confidence": 0.98,
+            "handwritten": false,
+            "id": "p1w95",
+            "polygon": [
+              1.1508,
+              4.4358,
+              1.7515,
+              4.4358,
+              1.7515,
+              4.5698,
+              1.1508,
+              4.5698
+            ],
+            "struck": false,
+            "text": "deficiency"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w96",
+            "polygon": [
+              1.7936,
+              4.442,
+              2.2717,
+              4.442,
+              2.2717,
+              4.5398,
+              1.7936,
+              4.5398
+            ],
+            "struck": false,
+            "text": "anaemia"
+          },
+          {
+            "confidence": 0.978,
+            "handwritten": false,
+            "id": "p1w97",
+            "polygon": [
+              2.3131,
+              4.442,
+              2.4212,
+              4.442,
+              2.4212,
+              4.5385,
+              2.3131,
+              4.5385
+            ],
+            "struck": false,
+            "text": "in"
+          },
+          {
+            "confidence": 0.983,
+            "handwritten": false,
+            "id": "p1w98",
+            "polygon": [
+              2.4649,
+              4.4701,
+              2.5225,
+              4.4701,
+              2.5225,
+              4.5398,
+              2.4649,
+              4.5398
+            ],
+            "struck": false,
+            "text": "a"
+          },
+          {
+            "confidence": 0.981,
+            "handwritten": false,
+            "id": "p1w99",
+            "polygon": [
+              2.5632,
+              4.4373,
+              3.5455,
+              4.4373,
+              3.5455,
+              4.5694,
+              2.5632,
+              4.5694
+            ],
+            "struck": false,
+            "text": "post-menopausal"
+          },
+          {
+            "confidence": 0.952,
+            "handwritten": false,
+            "id": "p1w100",
+            "polygon": [
+              3.5849,
+              4.4698,
+              4.0116,
+              4.4698,
+              4.0116,
+              4.5398,
+              3.5849,
+              4.5398
+            ],
+            "struck": false,
+            "text": "woman"
+          },
+          {
+            "confidence": 0.973,
+            "handwritten": false,
+            "id": "p1w101",
+            "polygon": [
+              4.0562,
+              4.4373,
+              4.4373,
+              4.4373,
+              4.4373,
+              4.5398,
+              4.0562,
+              4.5398
+            ],
+            "struck": false,
+            "text": "should"
+          },
+          {
+            "confidence": 0.967,
+            "handwritten": false,
+            "id": "p1w102",
+            "polygon": [
+              4.4755,
+              4.4373,
+              4.6081,
+              4.4373,
+              4.6081,
+              4.5398,
+              4.4755,
+              4.5398
+            ],
+            "struck": false,
+            "text": "be"
+          },
+          {
+            "confidence": 0.958,
+            "handwritten": false,
+            "id": "p1w103",
+            "polygon": [
+              4.6524,
+              4.4373,
+              5.1574,
+              4.4373,
+              5.1574,
+              4.5698,
+              4.6524,
+              4.5698
+            ],
+            "struck": false,
+            "text": "regarded"
+          },
+          {
+            "confidence": 0.961,
+            "handwritten": false,
+            "id": "p1w104",
+            "polygon": [
+              5.2007,
+              4.4698,
+              5.3117,
+              4.4698,
+              5.3117,
+              4.5398,
+              5.2007,
+              4.5398
+            ],
+            "struck": false,
+            "text": "as"
+          },
+          {
+            "confidence": 0.974,
+            "handwritten": false,
+            "id": "p1w105",
+            "polygon": [
+              5.3597,
+              4.4373,
+              6.2405,
+              4.4373,
+              6.2405,
+              4.5698,
+              5.3597,
+              4.5698
+            ],
+            "struck": false,
+            "text": "gastrointestinal"
+          },
+          {
+            "confidence": 0.981,
+            "handwritten": false,
+            "id": "p1w106",
+            "polygon": [
+              6.2828,
+              4.442,
+              6.3909,
+              4.442,
+              6.3909,
+              4.5385,
+              6.2828,
+              4.5385
+            ],
+            "struck": false,
+            "text": "in"
+          },
+          {
+            "confidence": 0.986,
+            "handwritten": false,
+            "id": "p1w107",
+            "polygon": [
+              6.4351,
+              4.442,
+              6.7755,
+              4.442,
+              6.7755,
+              4.5698,
+              6.4351,
+              4.5698
+            ],
+            "struck": false,
+            "text": "origin"
+          },
+          {
+            "confidence": 0.968,
+            "handwritten": false,
+            "id": "p1w108",
+            "polygon": [
+              6.816,
+              4.4373,
+              7.0784,
+              4.4373,
+              7.0784,
+              4.5398,
+              6.816,
+              4.5398
+            ],
+            "struck": false,
+            "text": "until"
+          },
+          {
+            "confidence": 0.993,
+            "handwritten": false,
+            "id": "p1w109",
+            "polygon": [
+              0.8685,
+              4.6643,
+              1.2688,
+              4.6643,
+              1.2688,
+              4.7639,
+              0.8685,
+              4.7639
+            ],
+            "struck": false,
+            "text": "proven"
+          },
+          {
+            "confidence": 0.972,
+            "handwritten": false,
+            "id": "p1w110",
+            "polygon": [
+              1.313,
+              4.6317,
+              1.9007,
+              4.6317,
+              1.9007,
+              4.7348,
+              1.313,
+              4.7348
+            ],
+            "struck": false,
+            "text": "otherwise."
+          },
+          {
+            "confidence": 0.982,
+            "handwritten": false,
+            "id": "p1w111",
+            "polygon": [
+              1.952,
+              4.6374,
+              1.9902,
+              4.6374,
+              1.9902,
+              4.7329,
+              1.952,
+              4.7329
+            ],
+            "struck": false,
+            "text": "I"
+          },
+          {
+            "confidence": 0.971,
+            "handwritten": false,
+            "id": "p1w112",
+            "polygon": [
+              2.0319,
+              4.6317,
+              2.3945,
+              4.6317,
+              2.3945,
+              4.7343,
+              2.0319,
+              4.7343
+            ],
+            "struck": false,
+            "text": "would"
+          },
+          {
+            "confidence": 0.953,
+            "handwritten": false,
+            "id": "p1w113",
+            "polygon": [
+              2.4356,
+              4.6317,
+              3.1187,
+              4.6317,
+              3.1187,
+              4.7343,
+              2.4356,
+              4.7343
+            ],
+            "struck": false,
+            "text": "recommend"
+          },
+          {
+            "confidence": 0.954,
+            "handwritten": false,
+            "id": "p1w114",
+            "polygon": [
+              3.162,
+              4.6645,
+              3.2196,
+              4.6645,
+              3.2196,
+              4.7343,
+              3.162,
+              4.7343
+            ],
+            "struck": false,
+            "text": "a"
+          },
+          {
+            "confidence": 0.965,
+            "handwritten": false,
+            "id": "p1w115",
+            "polygon": [
+              3.2622,
+              4.6374,
+              3.4742,
+              4.6374,
+              3.4742,
+              4.7329,
+              3.2622,
+              4.7329
+            ],
+            "struck": false,
+            "text": "FIT"
+          },
+          {
+            "confidence": 0.987,
+            "handwritten": false,
+            "id": "p1w116",
+            "polygon": [
+              3.5145,
+              4.6508,
+              3.7144,
+              4.6508,
+              3.7144,
+              4.7343,
+              3.5145,
+              4.7343
+            ],
+            "struck": false,
+            "text": "test"
+          },
+          {
+            "confidence": 0.998,
+            "handwritten": false,
+            "id": "p1w117",
+            "polygon": [
+              3.7567,
+              4.6317,
+              3.9603,
+              4.6317,
+              3.9603,
+              4.7343,
+              3.7567,
+              4.7343
+            ],
+            "struck": false,
+            "text": "and"
+          },
+          {
+            "confidence": 0.953,
+            "handwritten": false,
+            "id": "p1w118",
+            "polygon": [
+              4.0014,
+              4.6303,
+              4.4242,
+              4.6303,
+              4.4242,
+              4.7343,
+              4.0014,
+              4.7343
+            ],
+            "struck": false,
+            "text": "referral"
+          },
+          {
+            "confidence": 0.975,
+            "handwritten": false,
+            "id": "p1w119",
+            "polygon": [
+              4.469,
+              4.6643,
+              4.6071,
+              4.6643,
+              4.6071,
+              4.7343,
+              4.469,
+              4.7343
+            ],
+            "struck": false,
+            "text": "on"
+          },
+          {
+            "confidence": 0.993,
+            "handwritten": false,
+            "id": "p1w120",
+            "polygon": [
+              4.6472,
+              4.6317,
+              4.8187,
+              4.6317,
+              4.8187,
+              4.7343,
+              4.6472,
+              4.7343
+            ],
+            "struck": false,
+            "text": "the"
+          },
+          {
+            "confidence": 0.992,
+            "handwritten": false,
+            "id": "p1w121",
+            "polygon": [
+              4.8661,
+              4.6317,
+              5.4247,
+              4.6317,
+              5.4247,
+              4.7639,
+              4.8661,
+              4.7639
+            ],
+            "struck": false,
+            "text": "suspected"
+          },
+          {
+            "confidence": 0.965,
+            "handwritten": false,
+            "id": "p1w122",
+            "polygon": [
+              5.4659,
+              4.6317,
+              5.7934,
+              4.6317,
+              5.7934,
+              4.7343,
+              5.4659,
+              4.7343
+            ],
+            "struck": false,
+            "text": "lower"
+          },
+          {
+            "confidence": 0.997,
+            "handwritten": false,
+            "id": "p1w123",
+            "polygon": [
+              5.8372,
+              4.6364,
+              5.9799,
+              4.6364,
+              5.9799,
+              4.7343,
+              5.8372,
+              4.7343
+            ],
+            "struck": false,
+            "text": "GI"
+          },
+          {
+            "confidence": 0.985,
+            "handwritten": false,
+            "id": "p1w124",
+            "polygon": [
+              6.027,
+              4.6643,
+              6.4001,
+              4.6643,
+              6.4001,
+              4.7343,
+              6.027,
+              4.7343
+            ],
+            "struck": false,
+            "text": "cancer"
+          },
+          {
+            "confidence": 0.963,
+            "handwritten": false,
+            "id": "p1w125",
+            "polygon": [
+              6.4402,
+              4.6317,
+              6.9309,
+              4.6317,
+              6.9309,
+              4.7643,
+              6.4402,
+              4.7643
+            ],
+            "struck": false,
+            "text": "pathway"
+          },
+          {
+            "confidence": 0.976,
+            "handwritten": false,
+            "id": "p1w126",
+            "polygon": [
+              6.971,
+              4.6303,
+              7.0569,
+              4.6303,
+              7.0569,
+              4.7329,
+              6.971,
+              4.7329
+            ],
+            "struck": false,
+            "text": "if"
+          },
+          {
+            "confidence": 0.957,
+            "handwritten": false,
+            "id": "p1w127",
+            "polygon": [
+              0.8685,
+              4.8308,
+              1.3547,
+              4.8308,
+              1.3547,
+              4.9583,
+              0.8685,
+              4.9583
+            ],
+            "struck": false,
+            "text": "positive,"
+          },
+          {
+            "confidence": 0.959,
+            "handwritten": false,
+            "id": "p1w128",
+            "polygon": [
+              1.4059,
+              4.8587,
+              1.5205,
+              4.8587,
+              1.5205,
+              4.9287,
+              1.4059,
+              4.9287
+            ],
+            "struck": false,
+            "text": "or"
+          },
+          {
+            "confidence": 0.977,
+            "handwritten": false,
+            "id": "p1w129",
+            "polygon": [
+              1.5602,
+              4.8587,
+              1.8889,
+              4.8587,
+              1.8889,
+              4.9583,
+              1.5602,
+              4.9583
+            ],
+            "struck": false,
+            "text": "upper"
+          },
+          {
+            "confidence": 0.953,
+            "handwritten": false,
+            "id": "p1w130",
+            "polygon": [
+              1.9317,
+              4.8262,
+              2.1353,
+              4.8262,
+              2.1353,
+              4.9287,
+              1.9317,
+              4.9287
+            ],
+            "struck": false,
+            "text": "and"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w131",
+            "polygon": [
+              2.1765,
+              4.8262,
+              2.504,
+              4.8262,
+              2.504,
+              4.9287,
+              2.1765,
+              4.9287
+            ],
+            "struck": false,
+            "text": "lower"
+          },
+          {
+            "confidence": 0.96,
+            "handwritten": false,
+            "id": "p1w132",
+            "polygon": [
+              2.5477,
+              4.8308,
+              2.6905,
+              4.8308,
+              2.6905,
+              4.9287,
+              2.5477,
+              4.9287
+            ],
+            "struck": false,
+            "text": "GI"
+          },
+          {
+            "confidence": 0.959,
+            "handwritten": false,
+            "id": "p1w133",
+            "polygon": [
+              2.7351,
+              4.8308,
+              3.4824,
+              4.8308,
+              3.4824,
+              4.9587,
+              2.7351,
+              4.9587
+            ],
+            "struck": false,
+            "text": "investigation"
+          },
+          {
+            "confidence": 0.978,
+            "handwritten": false,
+            "id": "p1w134",
+            "polygon": [
+              3.5241,
+              4.8308,
+              3.6322,
+              4.8308,
+              3.6322,
+              4.9274,
+              3.5241,
+              4.9274
+            ],
+            "struck": false,
+            "text": "in"
+          },
+          {
+            "confidence": 0.964,
+            "handwritten": false,
+            "id": "p1w135",
+            "polygon": [
+              3.6759,
+              4.8587,
+              3.8807,
+              4.8587,
+              3.8807,
+              4.9587,
+              3.6759,
+              4.9587
+            ],
+            "struck": false,
+            "text": "any"
+          },
+          {
+            "confidence": 0.964,
+            "handwritten": false,
+            "id": "p1w136",
+            "polygon": [
+              3.9232,
+              4.8587,
+              4.1951,
+              4.8587,
+              4.1951,
+              4.9293,
+              3.9232,
+              4.9293
+            ],
+            "struck": false,
+            "text": "case."
+          },
+          {
+            "confidence": 0.973,
+            "handwritten": false,
+            "id": "p1w137",
+            "polygon": [
+              4.2471,
+              4.8262,
+              4.6814,
+              4.8262,
+              4.6814,
+              4.9287,
+              4.2471,
+              4.9287
+            ],
+            "struck": false,
+            "text": "Coeliac"
+          },
+          {
+            "confidence": 0.962,
+            "handwritten": false,
+            "id": "p1w138",
+            "polygon": [
+              4.7282,
+              4.8262,
+              5.2236,
+              4.8262,
+              5.2236,
+              4.9587,
+              4.7282,
+              4.9587
+            ],
+            "struck": false,
+            "text": "serology"
+          },
+          {
+            "confidence": 0.973,
+            "handwritten": false,
+            "id": "p1w139",
+            "polygon": [
+              5.2608,
+              4.8262,
+              5.6234,
+              4.8262,
+              5.6234,
+              4.9287,
+              5.2608,
+              4.9287
+            ],
+            "struck": false,
+            "text": "would"
+          },
+          {
+            "confidence": 0.986,
+            "handwritten": false,
+            "id": "p1w140",
+            "polygon": [
+              5.6667,
+              4.8262,
+              5.8907,
+              4.8262,
+              5.8907,
+              4.9287,
+              5.6667,
+              4.9287
+            ],
+            "struck": false,
+            "text": "also"
+          },
+          {
+            "confidence": 0.997,
+            "handwritten": false,
+            "id": "p1w141",
+            "polygon": [
+              5.9327,
+              4.8262,
+              6.0652,
+              4.8262,
+              6.0652,
+              4.9287,
+              5.9327,
+              4.9287
+            ],
+            "struck": false,
+            "text": "be"
+          },
+          {
+            "confidence": 0.955,
+            "handwritten": false,
+            "id": "p1w142",
+            "polygon": [
+              6.1096,
+              4.8262,
+              6.7563,
+              4.8262,
+              6.7563,
+              4.9293,
+              6.1096,
+              4.9293
+            ],
+            "struck": false,
+            "text": "reasonable."
+          },
+          {
+            "confidence": 0.998,
+            "handwritten": false,
+            "id": "p1w143",
+            "polygon": [
+              0.8721,
+              5.104,
+              1.1222,
+              5.104,
+              1.1222,
+              5.2065,
+              0.8721,
+              5.2065
+            ],
+            "struck": false,
+            "text": "Oral"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w144",
+            "polygon": [
+              1.1645,
+              5.1086,
+              1.3941,
+              5.1086,
+              1.3941,
+              5.2065,
+              1.1645,
+              5.2065
+            ],
+            "struck": false,
+            "text": "iron"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w145",
+            "polygon": [
+              1.4356,
+              5.104,
+              2.1435,
+              5.104,
+              2.1435,
+              5.2361,
+              1.4356,
+              5.2361
+            ],
+            "struck": false,
+            "text": "replacement"
+          },
+          {
+            "confidence": 0.988,
+            "handwritten": false,
+            "id": "p1w146",
+            "polygon": [
+              2.1837,
+              5.1086,
+              2.2726,
+              5.1086,
+              2.2726,
+              5.2065,
+              2.1837,
+              5.2065
+            ],
+            "struck": false,
+            "text": "is"
+          },
+          {
+            "confidence": 0.984,
+            "handwritten": false,
+            "id": "p1w147",
+            "polygon": [
+              2.3194,
+              5.1086,
+              2.9727,
+              5.1086,
+              2.9727,
+              5.2361,
+              2.3194,
+              5.2361
+            ],
+            "struck": false,
+            "text": "appropriate"
+          },
+          {
+            "confidence": 0.964,
+            "handwritten": false,
+            "id": "p1w148",
+            "polygon": [
+              3.0172,
+              5.1086,
+              3.1252,
+              5.1086,
+              3.1252,
+              5.2052,
+              3.0172,
+              5.2052
+            ],
+            "struck": false,
+            "text": "in"
+          },
+          {
+            "confidence": 0.993,
+            "handwritten": false,
+            "id": "p1w149",
+            "polygon": [
+              3.1653,
+              5.104,
+              3.3368,
+              5.104,
+              3.3368,
+              5.2065,
+              3.1653,
+              5.2065
+            ],
+            "struck": false,
+            "text": "the"
+          },
+          {
+            "confidence": 0.983,
+            "handwritten": false,
+            "id": "p1w150",
+            "polygon": [
+              3.3813,
+              5.1086,
+              3.9475,
+              5.1086,
+              3.9475,
+              5.2065,
+              3.3813,
+              5.2065
+            ],
+            "struck": false,
+            "text": "meantime"
+          },
+          {
+            "confidence": 0.993,
+            "handwritten": false,
+            "id": "p1w151",
+            "polygon": [
+              3.9889,
+              5.104,
+              4.1744,
+              5.104,
+              4.1744,
+              5.2065,
+              3.9889,
+              5.2065
+            ],
+            "struck": false,
+            "text": "but"
+          },
+          {
+            "confidence": 0.98,
+            "handwritten": false,
+            "id": "p1w152",
+            "polygon": [
+              4.2175,
+              5.104,
+              4.5986,
+              5.104,
+              4.5986,
+              5.2065,
+              4.2175,
+              5.2065
+            ],
+            "struck": false,
+            "text": "should"
+          },
+          {
+            "confidence": 0.974,
+            "handwritten": false,
+            "id": "p1w153",
+            "polygon": [
+              4.6402,
+              5.1231,
+              4.8223,
+              5.1231,
+              4.8223,
+              5.2065,
+              4.6402,
+              5.2065
+            ],
+            "struck": false,
+            "text": "not"
+          },
+          {
+            "confidence": 0.997,
+            "handwritten": false,
+            "id": "p1w154",
+            "polygon": [
+              4.8647,
+              5.104,
+              5.1743,
+              5.104,
+              5.1743,
+              5.2365,
+              4.8647,
+              5.2365
+            ],
+            "struck": false,
+            "text": "delay"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w155",
+            "polygon": [
+              5.2145,
+              5.1086,
+              5.9907,
+              5.1086,
+              5.9907,
+              5.2365,
+              5.2145,
+              5.2365
+            ],
+            "struck": false,
+            "text": "investigation."
+          },
+          {
+            "confidence": 0.952,
+            "handwritten": false,
+            "id": "p1w156",
+            "polygon": [
+              0.8675,
+              5.3866,
+              1.31,
+              5.3866,
+              1.31,
+              5.4842,
+              0.8675,
+              5.4842
+            ],
+            "struck": false,
+            "text": "Actions"
+          },
+          {
+            "confidence": 0.962,
+            "handwritten": false,
+            "id": "p1w157",
+            "polygon": [
+              1.3491,
+              5.3852,
+              1.5224,
+              5.3852,
+              1.5224,
+              5.4842,
+              1.3491,
+              5.4842
+            ],
+            "struck": false,
+            "text": "for"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w158",
+            "polygon": [
+              1.5668,
+              5.391,
+              1.7866,
+              5.391,
+              1.7866,
+              5.4847,
+              1.5668,
+              5.4847
+            ],
+            "struck": false,
+            "text": "GP:"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w159",
+            "polygon": [
+              1.1078,
+              5.6237,
+              1.1457,
+              5.6237,
+              1.1457,
+              5.6346,
+              1.1078,
+              5.6346
+            ],
+            "struck": false,
+            "text": "-"
+          },
+          {
+            "confidence": 0.984,
+            "handwritten": false,
+            "id": "p1w160",
+            "polygon": [
+              1.1888,
+              5.5672,
+              1.6599,
+              5.5672,
+              1.6599,
+              5.6948,
+              1.1888,
+              5.6948
+            ],
+            "struck": false,
+            "text": "Arrange"
+          },
+          {
+            "confidence": 0.963,
+            "handwritten": false,
+            "id": "p1w161",
+            "polygon": [
+              1.7055,
+              5.568,
+              1.9176,
+              5.568,
+              1.9176,
+              5.6635,
+              1.7055,
+              5.6635
+            ],
+            "struck": false,
+            "text": "FIT"
+          },
+          {
+            "confidence": 0.989,
+            "handwritten": false,
+            "id": "p1w162",
+            "polygon": [
+              1.9615,
+              5.5623,
+              2.165,
+              5.5623,
+              2.165,
+              5.6648,
+              1.9615,
+              5.6648
+            ],
+            "struck": false,
+            "text": "and"
+          },
+          {
+            "confidence": 0.955,
+            "handwritten": false,
+            "id": "p1w163",
+            "polygon": [
+              2.2088,
+              5.5623,
+              2.611,
+              5.5623,
+              2.611,
+              5.6648,
+              2.2088,
+              5.6648
+            ],
+            "struck": false,
+            "text": "coeliac"
+          },
+          {
+            "confidence": 0.959,
+            "handwritten": false,
+            "id": "p1w164",
+            "polygon": [
+              2.6578,
+              5.5623,
+              3.1532,
+              5.5623,
+              3.1532,
+              5.6948,
+              2.6578,
+              5.6948
+            ],
+            "struck": false,
+            "text": "serology"
+          },
+          {
+            "confidence": 0.959,
+            "handwritten": false,
+            "id": "p1w165",
+            "polygon": [
+              1.1078,
+              5.8133,
+              1.1457,
+              5.8133,
+              1.1457,
+              5.8242,
+              1.1078,
+              5.8242
+            ],
+            "struck": false,
+            "text": "-"
+          },
+          {
+            "confidence": 0.998,
+            "handwritten": false,
+            "id": "p1w166",
+            "polygon": [
+              1.1916,
+              5.7504,
+              1.5095,
+              5.7504,
+              1.5095,
+              5.8544,
+              1.1916,
+              5.8544
+            ],
+            "struck": false,
+            "text": "Refer"
+          },
+          {
+            "confidence": 0.967,
+            "handwritten": false,
+            "id": "p1w167",
+            "polygon": [
+              1.5518,
+              5.7504,
+              1.716,
+              5.7504,
+              1.716,
+              5.8544,
+              1.5518,
+              5.8544
+            ],
+            "struck": false,
+            "text": "for"
+          },
+          {
+            "confidence": 0.961,
+            "handwritten": false,
+            "id": "p1w168",
+            "polygon": [
+              1.7598,
+              5.7565,
+              1.9025,
+              5.7565,
+              1.9025,
+              5.8544,
+              1.7598,
+              5.8544
+            ],
+            "struck": false,
+            "text": "GI"
+          },
+          {
+            "confidence": 0.968,
+            "handwritten": false,
+            "id": "p1w169",
+            "polygon": [
+              1.9472,
+              5.7565,
+              2.6944,
+              5.7565,
+              2.6944,
+              5.8844,
+              1.9472,
+              5.8844
+            ],
+            "struck": false,
+            "text": "investigation"
+          },
+          {
+            "confidence": 0.971,
+            "handwritten": false,
+            "id": "p1w170",
+            "polygon": [
+              0.8677,
+              6.0583,
+              1.2173,
+              6.0583,
+              1.2173,
+              6.1551,
+              0.8677,
+              6.1551
+            ],
+            "struck": false,
+            "text": "Yours"
+          },
+          {
+            "confidence": 0.968,
+            "handwritten": false,
+            "id": "p1w171",
+            "polygon": [
+              1.265,
+              6.0526,
+              1.7842,
+              6.0526,
+              1.7842,
+              6.1851,
+              1.265,
+              6.1851
+            ],
+            "struck": false,
+            "text": "sincerely"
+          },
+          {
+            "confidence": 0.976,
+            "handwritten": false,
+            "id": "p1w172",
+            "polygon": [
+              0.8688,
+              6.4749,
+              1.033,
+              6.4749,
+              1.033,
+              6.5706,
+              0.8688,
+              6.5706
+            ],
+            "struck": false,
+            "text": "Dr"
+          },
+          {
+            "confidence": 0.988,
+            "handwritten": false,
+            "id": "p1w173",
+            "polygon": [
+              1.0789,
+              6.4749,
+              1.1415,
+              6.4749,
+              1.1415,
+              6.5718,
+              1.0789,
+              6.5718
+            ],
+            "struck": false,
+            "text": "J"
+          },
+          {
+            "confidence": 0.986,
+            "handwritten": false,
+            "id": "p1w174",
+            "polygon": [
+              1.1839,
+              6.4678,
+              1.7712,
+              6.4678,
+              1.7712,
+              6.5725,
+              1.1839,
+              6.5725
+            ],
+            "struck": false,
+            "text": "Whitfield"
+          },
+          {
+            "confidence": 0.978,
+            "handwritten": false,
+            "id": "p1w175",
+            "polygon": [
+              0.8718,
+              6.6636,
+              1.4667,
+              6.6636,
+              1.4667,
+              6.7613,
+              0.8718,
+              6.7613
+            ],
+            "struck": false,
+            "text": "Consultant"
+          },
+          {
+            "confidence": 0.985,
+            "handwritten": false,
+            "id": "p1w176",
+            "polygon": [
+              1.5061,
+              6.6636,
+              2.3104,
+              6.6636,
+              2.3104,
+              6.7899,
+              1.5061,
+              6.7899
+            ],
+            "struck": false,
+            "text": "Haematologist"
+          },
+          {
+            "confidence": 0.977,
+            "handwritten": false,
+            "id": "p1w177",
+            "polygon": [
+              0.8696,
+              6.9559,
+              1.2887,
+              6.9559,
+              1.2887,
+              7.0393,
+              0.8696,
+              7.0393
+            ],
+            "struck": false,
+            "text": "Dictated:"
+          },
+          {
+            "confidence": 0.983,
+            "handwritten": false,
+            "id": "p1w178",
+            "polygon": [
+              1.3321,
+              6.9593,
+              1.8634,
+              6.9593,
+              1.8634,
+              7.0389,
+              1.3321,
+              7.0389
+            ],
+            "struck": false,
+            "text": "08/05/2024"
+          },
+          {
+            "confidence": 0.992,
+            "handwritten": false,
+            "id": "p1w179",
+            "polygon": [
+              1.9854,
+              6.9559,
+              2.308,
+              6.9559,
+              2.308,
+              7.0632,
+              1.9854,
+              7.0632
+            ],
+            "struck": false,
+            "text": "Typed:"
+          },
+          {
+            "confidence": 0.983,
+            "handwritten": false,
+            "id": "p1w180",
+            "polygon": [
+              2.3573,
+              6.9593,
+              2.8826,
+              6.9593,
+              2.8826,
+              7.0389,
+              2.3573,
+              7.0389
+            ],
+            "struck": false,
+            "text": "10/05/2024"
+          },
+          {
+            "confidence": 0.965,
+            "handwritten": false,
+            "id": "p1w181",
+            "polygon": [
+              0.8706,
+              7.1357,
+              0.994,
+              7.1357,
+              0.994,
+              7.1928,
+              0.8706,
+              7.1928
+            ],
+            "struck": false,
+            "text": "cc:"
+          },
+          {
+            "confidence": 0.983,
+            "handwritten": false,
+            "id": "p1w182",
+            "polygon": [
+              1.0364,
+              7.1131,
+              1.3597,
+              7.1131,
+              1.3597,
+              7.1923,
+              1.0364,
+              7.1923
+            ],
+            "struck": false,
+            "text": "Patient"
+          },
+          {
+            "confidence": 0.869,
+            "handwritten": true,
+            "id": "p1w183",
+            "polygon": [
+              4.7901,
+              9.053,
+              5.443,
+              9.053,
+              5.443,
+              9.3263,
+              4.7901,
+              9.3263
+            ],
+            "struck": false,
+            "text": "Seen"
+          },
+          {
+            "confidence": 0.784,
+            "handwritten": true,
+            "id": "p1w184",
+            "polygon": [
+              5.9959,
+              8.9463,
+              6.389,
+              8.9463,
+              6.389,
+              9.2397,
+              5.9959,
+              9.2397
+            ],
+            "struck": false,
+            "text": "RP"
+          },
+          {
+            "confidence": 0.651,
+            "handwritten": true,
+            "id": "p1w185",
+            "polygon": [
+              7.0552,
+              8.953,
+              7.9146,
+              8.953,
+              7.9146,
+              9.273,
+              7.0552,
+              9.273
+            ],
+            "struck": false,
+            "text": "28/5/24"
+          },
+          {
+            "confidence": 0.968,
+            "handwritten": false,
+            "id": "p1w186",
+            "polygon": [
+              2.9286,
+              11.3125,
+              3.2932,
+              11.3125,
+              3.2932,
+              11.3966,
+              2.9286,
+              11.3966
+            ],
+            "struck": false,
+            "text": "Synthetic"
+          },
+          {
+            "confidence": 0.96,
+            "handwritten": false,
+            "id": "p1w187",
+            "polygon": [
+              3.3219,
+              11.3196,
+              3.4654,
+              11.3196,
+              3.4654,
+              11.3788,
+              3.3219,
+              11.3788
+            ],
+            "struck": false,
+            "text": "test"
+          },
+          {
+            "confidence": 0.994,
+            "handwritten": false,
+            "id": "p1w188",
+            "polygon": [
+              3.4969,
+              11.3125,
+              3.741,
+              11.3125,
+              3.741,
+              11.3788,
+              3.4969,
+              11.3788
+            ],
+            "struck": false,
+            "text": "record"
+          },
+          {
+            "confidence": 0.958,
+            "handwritten": false,
+            "id": "p1w189",
+            "polygon": [
+              3.7757,
+              11.3504,
+              3.7978,
+              11.3504,
+              3.7978,
+              11.3575,
+              3.7757,
+              11.3575
+            ],
+            "struck": false,
+            "text": "-"
+          },
+          {
+            "confidence": 0.978,
+            "handwritten": false,
+            "id": "p1w190",
+            "polygon": [
+              3.8329,
+              11.3125,
+              4.1622,
+              11.3125,
+              4.1622,
+              11.3788,
+              3.8329,
+              11.3788
+            ],
+            "struck": false,
+            "text": "invented"
+          },
+          {
+            "confidence": 0.954,
+            "handwritten": false,
+            "id": "p1w191",
+            "polygon": [
+              4.1988,
+              11.3125,
+              4.4633,
+              11.3125,
+              4.4633,
+              11.3966,
+              4.1988,
+              11.3966
+            ],
+            "struck": false,
+            "text": "patient"
+          },
+          {
+            "confidence": 0.996,
+            "handwritten": false,
+            "id": "p1w192",
+            "polygon": [
+              4.4928,
+              11.3504,
+              4.5149,
+              11.3504,
+              4.5149,
+              11.3575,
+              4.4928,
+              11.3575
+            ],
+            "struck": false,
+            "text": "-"
+          },
+          {
+            "confidence": 0.996,
+            "handwritten": false,
+            "id": "p1w193",
+            "polygon": [
+              4.5499,
+              11.3196,
+              4.6688,
+              11.3196,
+              4.6688,
+              11.3788,
+              4.5499,
+              11.3788
+            ],
+            "struck": false,
+            "text": "not"
+          },
+          {
+            "confidence": 0.959,
+            "handwritten": false,
+            "id": "p1w194",
+            "polygon": [
+              4.7003,
+              11.3125,
+              4.8387,
+              11.3125,
+              4.8387,
+              11.3788,
+              4.7003,
+              11.3788
+            ],
+            "struck": false,
+            "text": "real"
+          },
+          {
+            "confidence": 0.952,
+            "handwritten": false,
+            "id": "p1w195",
+            "polygon": [
+              4.8736,
+              11.3125,
+              5.1346,
+              11.3125,
+              5.1346,
+              11.3788,
+              4.8736,
+              11.3788
+            ],
+            "struck": false,
+            "text": "clinical"
+          },
+          {
+            "confidence": 0.99,
+            "handwritten": false,
+            "id": "p1w196",
+            "polygon": [
+              5.1694,
+              11.3125,
+              5.3412,
+              11.3125,
+              5.3412,
+              11.3788,
+              5.1694,
+              11.3788
+            ],
+            "struck": false,
+            "text": "data"
+          }
+        ]
+      }
+    ]
+  }
+}

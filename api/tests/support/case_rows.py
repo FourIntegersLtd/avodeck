@@ -163,6 +163,76 @@ def _setup_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str
     }
 
 
+def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice A's case tables (migrations 0100-0199): one made-up row each."""
+    doc = seed.document(w.case)
+    part = seed.document(w.case)
+    page = seed.page(w.case, doc, 101)
+    new_page = seed.page(w.case, part, 102)
+    admin.execute("insert into app.case_processing (case_id) values (%s)", (w.case,))
+    admin.execute(
+        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+        " values (%s, %s, 1, 'w1', %s, array[0,0,1,0,1,1,0,1]::real[], 0.9, 'ocr')",
+        (page, w.case, b"sealed"),
+    )
+    admin.execute("insert into app.page_analysis (page_id, case_id) values (%s, %s)", (page, w.case))
+    admin.execute(
+        "insert into app.page_embeddings (page_id, case_id, model, embedding)"
+        " values (%s, %s, 'zz-model', array_fill(0.0::real, array[384])::extensions.vector)",
+        (page, w.case),
+    )
+    admin.execute(
+        "insert into app.page_quarantines (case_id, page_id, reason) values (%s, %s, 'zz_reason')", (w.case, page)
+    )
+    admin.execute(
+        "insert into app.page_replacements (case_id, page_id, document_id, requested_by, new_page_id)"
+        " values (%s, %s, %s, %s, %s)",
+        (w.case, page, part, w.expert, new_page),
+    )
+    admin.execute(
+        "insert into app.missing_items (case_id, citing_page_id, reference_key, word_ids, description)"
+        " values (%s, %s, 'r1', array['w1'], %s)",
+        (w.case, page, b"sealed"),
+    )
+    admin.execute(
+        "insert into app.record_gaps (case_id, source_type, fact_kind, gap_start, gap_end)"
+        " values (%s, 'zz_source', 'zz_kind', current_date - 30, current_date)",
+        (w.case,),
+    )
+    admin.execute(
+        "insert into app.document_parts (case_id, parent_document_id, document_id, part_no, media_type)"
+        " values (%s, %s, %s, 1, 'application/pdf')",
+        (w.case, doc, part),
+    )
+    admin.execute("insert into app.document_scans (document_id, case_id, clean) values (%s, %s, true)", (doc, w.case))
+    admin.execute(
+        "insert into app.exhibits (case_id, document_id, media_type, size, sha256, storage_path)"
+        " values (%s, %s, 'image/heic', 1, %s, 'zz/path')",
+        (w.case, part, "0" * 64),
+    )
+    admin.execute(
+        "insert into app.instructing_party_requests (case_id, subject, body_text, sent_via, created_by)"
+        " values (%s, %s, %s, 'mailto', %s)",
+        (w.case, b"sealed", b"sealed", w.expert),
+    )
+    return {
+        "documents": 2,
+        "pages": 2,
+        "case_processing": 1,
+        "ocr_words": 1,
+        "page_analysis": 1,
+        "page_embeddings": 1,
+        "page_quarantines": 1,
+        "page_replacements": 1,
+        "missing_items": 1,
+        "record_gaps": 1,
+        "document_parts": 1,
+        "document_scans": 1,
+        "exhibits": 1,
+        "instructing_party_requests": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -172,6 +242,7 @@ SEEDERS = (
     _legal_holds,
     _deletion_certificates,
     _setup_rows,
+    _pipeline_tables,
 )
 
 
@@ -179,5 +250,6 @@ def fill_every_case_table(admin: psycopg.Connection, seed: Seed, world: CaseWorl
     """Rows in every case table except `cases` and `case_keys`; returns how many went in each."""
     counts: dict[str, int] = {}
     for seeder in SEEDERS:
-        counts.update(seeder(admin, seed, world))
+        for table, n in seeder(admin, seed, world).items():
+            counts[table] = counts.get(table, 0) + n
     return counts

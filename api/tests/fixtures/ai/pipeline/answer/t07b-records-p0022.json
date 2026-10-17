@@ -1,0 +1,26 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "ee3e55f30c82fc3d0107d29d3ff1e2a208f02e0de512ab8dc544bb5acd543538",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 449,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [],
+          "printed_dates": [
+            "2021-06-07",
+            "2021-06-08"
+          ],
+          "references_out": [],
+          "source_type": "result"
+        },
+        "output_tokens": 44
+      }
+    ]
+  }
+}

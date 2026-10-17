@@ -1,0 +1,39 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "35b77d41f1f3757fc1dbf662a03c47d108b658e629c92e1c68638ead02810a82",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 467,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2022-09-12"
+              },
+              "kind": "letter",
+              "value": "Routine sight test",
+              "word_ids": [
+                "p1w45",
+                "p1w46",
+                "p1w47"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2022-09-12"
+          ],
+          "references_out": [],
+          "source_type": "letters"
+        },
+        "output_tokens": 78
+      }
+    ]
+  }
+}

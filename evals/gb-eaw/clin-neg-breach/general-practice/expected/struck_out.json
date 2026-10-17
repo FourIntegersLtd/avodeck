@@ -2,9 +2,10 @@
  {
   "page": 59,
   "struck_out": [
-   "Refer surgeons"
+   "(scribbled word)",
+   "Discharge today"
   ],
-  "entry_date": "1995-07-20"
+  "entry_date": "1995-07-21"
  },
  {
   "page": 67,
@@ -18,33 +19,54 @@
   "struck_out": [
    "IV co-amoxiclav 1.2g tds"
   ],
-  "entry_date": "1999-02-05"
+  "entry_date": "1999-02-04"
  },
  {
-  "page": 437,
+  "page": 67,
   "struck_out": [
    "Discharge today"
   ],
-  "entry_date": "2024-10-22"
+  "entry_date": "1999-02-05"
  },
  {
-  "page": 437,
+  "page": 407,
+  "struck_out": [
+   "Increase oxycodone to 10mg"
+  ],
+  "entry_date": "2024-10-21"
+ },
+ {
+  "page": 407,
+  "struck_out": [
+   "Increase oxycodone to 10mg"
+  ],
+  "entry_date": "2024-10-23"
+ },
+ {
+  "page": 407,
   "struck_out": [
    "Refer surgeons"
   ],
   "entry_date": "2024-10-24"
  },
  {
+  "page": 407,
+  "struck_out": [
+   "Refer surgeons"
+  ],
+  "entry_date": "2024-10-25"
+ },
+ {
   "page": 437,
   "struck_out": [
-   "Stop enoxaparin"
+   "Repeat ECG"
   ],
   "entry_date": "2024-10-26"
  },
  {
   "page": 439,
   "struck_out": [
-   "Discharge today"
+   "CT abdo today"
   ],
   "entry_date": "2019-03-12"
  },
@@ -58,7 +80,8 @@
  {
   "page": 448,
   "struck_out": [
-   "(scribbled word)"
+   "(scribbled word)",
+   "CT abdo today"
   ],
   "entry_date": "2024-09-12"
  },
@@ -72,9 +95,16 @@
  {
   "page": 463,
   "struck_out": [
-   "Bloods 4-hourly"
+   "(scribbled word)"
   ],
   "entry_date": "2024-10-21"
+ },
+ {
+  "page": 463,
+  "struck_out": [
+   "IV co-amoxiclav 1.2g tds"
+  ],
+  "entry_date": "2024-10-22"
  },
  {
   "page": 463,
@@ -86,64 +116,99 @@
  {
   "page": 464,
   "struck_out": [
-   "NBM from midnight"
-  ],
-  "entry_date": "2024-10-24"
- },
- {
-  "page": 464,
-  "struck_out": [
-   "Bloods 4-hourly"
+   "(scribbled word)",
+   "Increase oxycodone to 10mg"
   ],
   "entry_date": "2024-10-25"
  },
  {
+  "page": 464,
+  "struck_out": [
+   "Repeat ECG"
+  ],
+  "entry_date": "2024-10-25"
+ },
+ {
+  "page": 464,
+  "struck_out": [
+   "Fluids 1L 4-hourly"
+  ],
+  "entry_date": "2024-10-26"
+ },
+ {
   "page": 485,
   "struck_out": [
-   "Increase oxycodone to 10mg"
+   "(scribbled word)"
   ],
-  "entry_date": "2024-10-22"
+  "entry_date": "2024-10-23"
  },
  {
   "page": 515,
   "struck_out": [
-   "(scribbled word)",
+   "Fluids 1L 4-hourly"
+  ],
+  "entry_date": "2024-09-20"
+ },
+ {
+  "page": 515,
+  "struck_out": [
    "Repeat ECG"
   ],
   "entry_date": "2024-10-30"
  },
  {
+  "page": 515,
+  "struck_out": [
+   "Discharge today"
+  ],
+  "entry_date": "2024-11-12"
+ },
+ {
   "page": 532,
   "struck_out": [
-   "Increase oxycodone to 10mg"
+   "Bloods 4-hourly"
   ],
   "entry_date": "2019-03-11"
  },
  {
   "page": 532,
   "struck_out": [
-   "CT abdo today"
+   "(scribbled word)"
   ],
   "entry_date": "2019-03-12"
  },
  {
   "page": 532,
   "struck_out": [
-   "Bloods 4-hourly"
+   "Repeat ECG"
+  ],
+  "entry_date": "2019-03-12"
+ },
+ {
+  "page": 532,
+  "struck_out": [
+   "IV co-amoxiclav 1.2g tds"
   ],
   "entry_date": "2019-03-13"
  },
  {
   "page": 532,
   "struck_out": [
-   "Discharge today"
+   "(scribbled word)"
   ],
   "entry_date": "2019-03-14"
  },
  {
   "page": 541,
   "struck_out": [
-   "(scribbled word)"
+   "Repeat ECG"
+  ],
+  "entry_date": "1995-07-19"
+ },
+ {
+  "page": 541,
+  "struck_out": [
+   "CT abdo today"
   ],
   "entry_date": "1995-07-19"
  },
@@ -157,22 +222,21 @@
  {
   "page": 542,
   "struck_out": [
-   "IV co-amoxiclav 1.2g tds"
+   "(scribbled word)"
   ],
   "entry_date": "1995-07-24"
  },
  {
   "page": 548,
   "struck_out": [
-   "Refer surgeons"
+   "IV co-amoxiclav 1.2g tds"
   ],
   "entry_date": "1999-02-03"
  },
  {
   "page": 548,
   "struck_out": [
-   "(scribbled word)",
-   "(scribbled word)"
+   "CT abdo today"
   ],
   "entry_date": "1999-02-03"
  },
@@ -188,7 +252,7 @@
   "struck_out": [
    "(scribbled word)"
   ],
-  "entry_date": "1999-02-06"
+  "entry_date": "1999-02-13"
  },
  {
   "page": 593,
@@ -200,49 +264,93 @@
  {
   "page": 593,
   "struck_out": [
-   "Bloods 4-hourly"
+   "Stop enoxaparin"
   ],
-  "entry_date": "2021-04-26"
+  "entry_date": "2021-04-19"
  },
  {
   "page": 593,
   "struck_out": [
-   "Fluids 1L 4-hourly"
+   "Bloods 4-hourly"
   ],
-  "entry_date": "2021-05-03"
+  "entry_date": "2021-05-17"
  },
  {
   "page": 594,
   "struck_out": [
    "Increase oxycodone to 10mg"
   ],
+  "entry_date": "2024-10-28"
+ },
+ {
+  "page": 594,
+  "struck_out": [
+   "Repeat ECG"
+  ],
   "entry_date": "2024-10-31"
+ },
+ {
+  "page": 594,
+  "struck_out": [
+   "(scribbled word)"
+  ],
+  "entry_date": "2024-11-03"
  },
  {
   "page": 615,
   "struck_out": [
    "(scribbled word)",
-   "Stop enoxaparin"
+   "Fluids 1L 4-hourly"
   ],
   "entry_date": "2024-10-21"
  },
  {
   "page": 615,
   "struck_out": [
-   "NBM from midnight"
+   "Repeat ECG"
   ],
   "entry_date": "2024-10-21"
  },
  {
-  "page": 616,
+  "page": 615,
   "struck_out": [
-   "Discharge today"
+   "IV co-amoxiclav 1.2g tds"
   ],
   "entry_date": "2024-10-22"
  },
  {
+  "page": 616,
+  "struck_out": [
+   "NBM from midnight"
+  ],
+  "entry_date": "2024-10-22"
+ },
+ {
+  "page": 616,
+  "struck_out": [
+   "Fluids 1L 4-hourly",
+   "(scribbled word)"
+  ],
+  "entry_date": "2024-10-23"
+ },
+ {
   "page": 619,
   "struck_out": [
+   "Bloods 4-hourly"
+  ],
+  "entry_date": "2024-10-23"
+ },
+ {
+  "page": 619,
+  "struck_out": [
+   "Stop enoxaparin"
+  ],
+  "entry_date": "2024-10-23"
+ },
+ {
+  "page": 619,
+  "struck_out": [
+   "Repeat ECG",
    "(scribbled word)"
   ],
   "entry_date": "2024-10-24"
@@ -250,14 +358,22 @@
  {
   "page": 619,
   "struck_out": [
-   "(scribbled word)"
+   "Increase oxycodone to 10mg"
   ],
   "entry_date": "2024-10-24"
  },
  {
   "page": 620,
   "struck_out": [
-   "Fluids 1L 4-hourly"
+   "Stop enoxaparin"
+  ],
+  "entry_date": "2024-10-24"
+ },
+ {
+  "page": 620,
+  "struck_out": [
+   "(scribbled word)",
+   "Increase oxycodone to 10mg"
   ],
   "entry_date": "2024-10-25"
  },
@@ -266,117 +382,139 @@
   "struck_out": [
    "(scribbled word)"
   ],
+  "entry_date": "2024-10-25"
+ },
+ {
+  "page": 621,
+  "struck_out": [
+   "Refer surgeons"
+  ],
   "entry_date": "2024-10-26"
  },
  {
   "page": 622,
   "struck_out": [
-   "(scribbled word)"
-  ],
-  "entry_date": "2019-03-11"
- },
- {
-  "page": 622,
-  "struck_out": [
    "(scribbled word)",
    "(scribbled word)"
   ],
-  "entry_date": "2019-03-11"
- },
- {
-  "page": 622,
-  "struck_out": [
-   "(scribbled word)",
-   "Refer surgeons"
-  ],
-  "entry_date": "2019-03-11"
+  "entry_date": "2024-10-26"
  },
  {
   "page": 623,
   "struck_out": [
    "(scribbled word)"
   ],
-  "entry_date": "2019-03-12"
- },
- {
-  "page": 623,
-  "struck_out": [
-   "(scribbled word)"
-  ],
-  "entry_date": "2019-03-12"
- },
- {
-  "page": 624,
-  "struck_out": [
-   "(scribbled word)"
-  ],
-  "entry_date": "2019-03-13"
- },
- {
-  "page": 624,
-  "struck_out": [
-   "(scribbled word)",
-   "CT abdo today"
-  ],
-  "entry_date": "2019-03-13"
- },
- {
-  "page": 626,
-  "struck_out": [
-   "Refer surgeons"
-  ],
-  "entry_date": "2019-03-14"
- },
- {
-  "page": 626,
-  "struck_out": [
-   "Increase oxycodone to 10mg"
-  ],
-  "entry_date": "2019-03-14"
- },
- {
-  "page": 626,
-  "struck_out": [
-   "(scribbled word)",
-   "(scribbled word)"
-  ],
-  "entry_date": "2019-03-14"
- },
- {
-  "page": 628,
-  "struck_out": [
-   "Refer surgeons"
-  ],
   "entry_date": "2019-03-11"
  },
  {
-  "page": 635,
-  "struck_out": [
-   "Stop enoxaparin"
-  ],
-  "entry_date": "2010-11-06"
- },
- {
-  "page": 638,
-  "struck_out": [
-   "Refer surgeons"
-  ],
-  "entry_date": "2022-07-15"
- },
- {
-  "page": 653,
+  "page": 623,
   "struck_out": [
    "(scribbled word)",
    "Bloods 4-hourly"
   ],
-  "entry_date": "2024-11-25"
+  "entry_date": "2019-03-11"
  },
  {
-  "page": 655,
+  "page": 623,
+  "struck_out": [
+   "(scribbled word)"
+  ],
+  "entry_date": "2019-03-11"
+ },
+ {
+  "page": 624,
+  "struck_out": [
+   "(scribbled word)"
+  ],
+  "entry_date": "2019-03-12"
+ },
+ {
+  "page": 624,
+  "struck_out": [
+   "(scribbled word)"
+  ],
+  "entry_date": "2019-03-12"
+ },
+ {
+  "page": 624,
+  "struck_out": [
+   "(scribbled word)"
+  ],
+  "entry_date": "2019-03-12"
+ },
+ {
+  "page": 626,
   "struck_out": [
    "(scribbled word)",
    "(scribbled word)"
   ],
+  "entry_date": "2019-03-13"
+ },
+ {
+  "page": 627,
+  "struck_out": [
+   "(scribbled word)"
+  ],
+  "entry_date": "2019-03-14"
+ },
+ {
+  "page": 627,
+  "struck_out": [
+   "(scribbled word)",
+   "Bloods 4-hourly"
+  ],
+  "entry_date": "2019-03-14"
+ },
+ {
+  "page": 635,
+  "struck_out": [
+   "(scribbled word)",
+   "(scribbled word)",
+   "CT abdo today"
+  ],
+  "entry_date": "2019-03-11"
+ },
+ {
+  "page": 638,
+  "struck_out": [
+   "Discharge today"
+  ],
+  "entry_date": "2010-11-06"
+ },
+ {
+  "page": 645,
+  "struck_out": [
+   "CT abdo today",
+   "(scribbled word)"
+  ],
+  "entry_date": "2022-07-15"
+ },
+ {
+  "page": 655,
+  "struck_out": [
+   "Repeat ECG"
+  ],
+  "entry_date": "2024-11-25"
+ },
+ {
+  "page": 656,
+  "struck_out": [
+   "CT abdo today"
+  ],
   "entry_date": "2024-12-16"
+ },
+ {
+  "page": 657,
+  "struck_out": [
+   "NBM from midnight"
+  ],
+  "entry_date": "2025-01-06"
+ },
+ {
+  "page": 658,
+  "struck_out": [
+   "Discharge today"
+  ],
+  "entry_date": "2025-01-27"
  }
 ]

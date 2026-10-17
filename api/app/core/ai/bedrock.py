@@ -18,7 +18,11 @@ from app.core.config import AiSettings
 
 @dataclass(frozen=True)
 class ModelRequest:
-    """One structured-output call. `text` is already through `pii.strip`; hidden from repr (rule 6)."""
+    """One structured-output call. `text` is already through `pii.strip`; hidden from repr (rule 6).
+
+    `task_id` and `subject` are the call's stable task key (`app.core.ai.answers`): never sent to the
+    model and not part of a whole-prompt recording's key.
+    """
 
     model_id: str
     system: str = field(repr=False)
@@ -27,6 +31,8 @@ class ModelRequest:
     schema: Mapping[str, Any] = field(repr=False)
     temperature: float = 0.0
     max_tokens: int = 4096
+    task_id: str | None = None
+    subject: str | None = None
 
 
 @dataclass(frozen=True)
@@ -56,6 +62,7 @@ class BedrockClient(Protocol):
 
 def _request_record(request: ModelRequest) -> dict[str, Any]:
     record = asdict(request)
+    del record["task_id"], record["subject"]
     record["context"] = dict(request.context)
     record["schema"] = dict(request.schema)
     return record

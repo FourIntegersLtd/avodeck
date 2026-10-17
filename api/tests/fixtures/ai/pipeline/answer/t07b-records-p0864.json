@@ -1,0 +1,110 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "4859f3dba0158a8558efd0b7a20a85d9a8e86bd03200e78edc9ec3a3cc332e39",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 410,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2022-08-24",
+                "flag": "",
+                "test": "Cholesterol"
+              },
+              "kind": "result",
+              "value": "5.1 mmol/L",
+              "word_ids": [
+                "p1w28",
+                "p1w29"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2022-08-24",
+                "flag": "",
+                "test": "HDL cholesterol"
+              },
+              "kind": "result",
+              "value": "1.5 mmol/L",
+              "word_ids": [
+                "p1w34",
+                "p1w35"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2022-08-24",
+                "flag": "",
+                "test": "LDL cholesterol"
+              },
+              "kind": "result",
+              "value": "3.6 mmol/L",
+              "word_ids": [
+                "p1w40",
+                "p1w41"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2022-08-24",
+                "flag": "",
+                "test": "Non-HDL cholesterol"
+              },
+              "kind": "result",
+              "value": "4.1 mmol/L",
+              "word_ids": [
+                "p1w46",
+                "p1w47"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2022-08-24",
+                "flag": "",
+                "test": "Triglyceride"
+              },
+              "kind": "result",
+              "value": "1.5 mmol/L",
+              "word_ids": [
+                "p1w34",
+                "p1w35"
+              ]
+            },
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2022-08-24",
+                "flag": "",
+                "test": "Cholesterol/HDL ratio"
+              },
+              "kind": "result",
+              "value": "3.2",
+              "word_ids": [
+                "p1w57"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2022-08-22",
+            "2022-08-24"
+          ],
+          "references_out": [],
+          "source_type": "result"
+        },
+        "output_tokens": 298
+      }
+    ]
+  }
+}

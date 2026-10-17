@@ -5,6 +5,9 @@ Usage: python evals/generator/build.py OUT_DIR
 Writes:
   OUT_DIR/bundles/synthetic-mrs-a/records.pdf      the bundle as a solicitor might send it
   OUT_DIR/expected/*.json                          answers the tests compare against
+  OUT_DIR/bundles/synthetic-mrs-a/layout/          where the words are on scanned pages (for recordings.py):
+      <name>-source.pdf   page n is page n's text before it was scanned (blank when it never had any)
+      <name>.json         [{page, words: [{text, poly (inches), handwritten, struck}]}] drawn on page images
 
 Page numbers in expected files are positions in records.pdf (1-based), which
 is also the permanent bundle page number Avodeck assigns in upload order.
@@ -23,6 +26,10 @@ from pypdf import PdfReader, PdfWriter
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import layout  # noqa: E402
+
+layout.install()          # before anything is drawn: note where every word on a page image goes
+
 from common import Doc, Fact, PageInfo, W, H  # noqa: E402
 from reportlab.lib.units import mm  # noqa: E402
 from gp_prints import EmisPrint, SystmOnePrint  # noqa: E402
@@ -31,7 +38,7 @@ from hospital import (northam_letter, westvale_clinic_letter, eastmere_discharge
 from more_formats import (typewriter_letter, radiology_report, histology_report, ed_letter, nhs111_report,  # noqa: E402
                           screening_letter, pharmacy_note, optician_letter, fit_note, ecg, fax_cover,
                           kingsmead_letter, riverside_letter, westvale_path, docman_header_overlay)
-from scan import scan_pdf, lloyd_george_card, degrade, images_to_pdf  # noqa: E402
+from scan import A4_INCHES, scan_pdf, lloyd_george_card, degrade, images_to_pdf  # noqa: E402
 from story import PATIENT, CORE_CONSULTS, CORE_RESULTS, CASTLE_GREEN, CASE_NAMES  # noqa: E402
 from content import brookvale_background, castle_green_entries, lloyd_george_cards  # noqa: E402
 from part2 import all_part2  # noqa: E402
@@ -652,17 +659,50 @@ def appended_records():
 
 
 # ============================================================ rendering and assembly
+RENDERED: dict[str, tuple[str | None, list[list[dict]]]] = {}   # path -> (text before scanning, words drawn per page)
+
+
 def render(item: Item, tmp: str, seed: int) -> str:
     if item.pdf and item.pdf[0] == "image":
         p = os.path.join(tmp, f"{item.pages[0].doc_id}-{seed}.pdf")
+        RENDERED[p] = (None, [layout.in_inches(item.pdf[1], *A4_INCHES)])
         images_to_pdf([degrade(item.pdf[1], random.Random(seed), item.quality or "scan")], p)
         return p
     p = item.doc.save(tmp)
     if item.quality:
         sp = p.replace(".pdf", f"-{item.quality}-{seed}.pdf")
-        scan_pdf(p, sp, seed=seed, quality=item.quality, notes=item.notes)
+        RENDERED[sp] = (p, scan_pdf(p, sp, seed=seed, quality=item.quality, notes=item.notes))
         return sp
     return p
+
+
+class LayoutWriter:
+    """The layout sidecar for one bundle file: the pre-scan text page and the drawn words of each page."""
+
+    def __init__(self):
+        self.source, self.rows = PdfWriter(), []
+
+    def add(self, path: str, k: int, overlay_pdf: str | None = None):
+        src, drawn = RENDERED.get(path, (None, []))
+        if src is not None:
+            page = PdfReader(src).pages[k]
+            self.source.add_page(page)
+        else:
+            self.source.add_blank_page(width=W, height=H)
+        if overlay_pdf is not None:
+            self.merge(len(self.rows), overlay_pdf)
+        self.rows.append({"page": len(self.rows) + 1, "words": drawn[k] if k < len(drawn) else []})
+
+    def merge(self, index: int, overlay_pdf: str):
+        self.source.pages[index].merge_page(PdfReader(overlay_pdf).pages[0])
+
+    def write(self, out_dir: str, name: str):
+        d = os.path.join(out_dir, "layout")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, f"{name}-source.pdf"), "wb") as fh:
+            self.source.write(fh)
+        with open(os.path.join(d, f"{name}.json"), "w") as fh:
+            json.dump(self.rows, fh, indent=0, ensure_ascii=False)
 
 
 def page_of_fact(items, planted_id):
@@ -799,7 +839,7 @@ def main(out_root):
 
     # render and assemble
     writer, page_rows, pos = PdfWriter(), [], 0
-    rendered = {}
+    lay = LayoutWriter()
     for n_item, it in enumerate(items):
         path = render(it, tmp, seed=1000 + n_item)
         reader = PdfReader(path)
@@ -807,6 +847,7 @@ def main(out_root):
             if it.overlay is not None:
                 pg.merge_page(PdfReader(it.overlay.save(tmp)).pages[0])
             writer.add_page(pg)
+            lay.add(path, k, it.overlay.save(tmp) if it.overlay is not None else None)
             pos += 1
             info = it.pages[k]
             page_rows.append({"page": pos, "doc_id": info.doc_id, "page_in_doc": info.page_in_doc,
@@ -825,6 +866,7 @@ def main(out_root):
     ov = docman_header_overlay("docman-strip", filed_by="Jo Moss", filed_on=date(2022, 9, 14), doc_type="Optician letter",
                                received=date(2022, 9, 13))
     writer.pages[hdr_target["page"] - 1].merge_page(PdfReader(ov.save(tmp)).pages[0])
+    lay.merge(hdr_target["page"] - 1, ov.save(tmp))
     hdr_target["text_source"] = "ocr"
     hdr_target["typed_header_scanned_body"] = True
 
@@ -841,17 +883,21 @@ def main(out_root):
     with open(rec_path, "wb") as fh:
         writer.write(fh)
 
+    lay.write(out_dir, "records")
     write_expected(exp_dir, page_rows)
     # appended records
-    app_writer, app_rows = PdfWriter(), []
+    app_writer, app_rows, app_lay = PdfWriter(), [], LayoutWriter()
     for n_item, it in enumerate(appended_records()):
-        for k, pg in enumerate(PdfReader(render(it, tmp, seed=5000 + n_item)).pages):
+        path = render(it, tmp, seed=5000 + n_item)
+        for k, pg in enumerate(PdfReader(path).pages):
             app_writer.add_page(pg)
+            app_lay.add(path, k)
             info = it.pages[k]
             app_rows.append({"page": TOTAL_PAGES + PART2_PAGES + len(app_rows) + 1, "doc_id": info.doc_id, "facts": [asdict(f) for f in info.facts],
                              "relevant_new": it.tag == "relevant_new"})
     with open(os.path.join(out_dir, "appended-records.pdf"), "wb") as fh:
         app_writer.write(fh)
+    app_lay.write(out_dir, "appended-records")
     json.dump(app_rows, open(os.path.join(exp_dir, "appended.json"), "w"), indent=1)
     shutil.rmtree(tmp)
     print(f"records.pdf: {pos} pages; appended: {len(app_rows)} pages; fillers used: {counter[0]}")

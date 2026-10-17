@@ -174,7 +174,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 ### 3.5 How code uses packs
 
 - **One entry point:** `pack = packs.for_case(case)` (in `api/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
-- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
+- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
 - **Never hard-code** in slice code, prompts, schemas, enums or tests outside fixtures: court or rule names (CPR, PD35, Part 35), guidance bodies (NICE), "statement of truth", party or instructing-party words (claimant, defendant, solicitor), clinician titles (GP), record systems (EMIS, SystmOne), identifier types (NHS number), currencies, date orders, timezones, holiday rules, retention periods or fixed lists of anything in a registry.
 - **Recorded on the report:** `cases.pack_versions` and each served report store the pack versions used, so later wording changes never alter old reports.
 - **Tested per combination:** `evals/<jurisdiction>/<case-type>/<specialty>/` holds synthetic bundles and expected facts.
@@ -190,7 +190,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 
 | Layer | Required | Optional |
 |---|---|---|
-| Jurisdiction | code, name, version, cell, locale, timezone, date_order, currency, holiday source, registration bodies by profession, retention years, vocabulary for party roles and instructing-party types, declarations, deadlines (with calendar rule), report compliance items, identifier recognisers | court tracks, written-question classifications, meeting types, legal tests, final checks |
+| Jurisdiction | code, name, version, cell, locale, timezone, date_order, currency, holiday source, registration bodies by profession, retention years, quarantine purge days, vocabulary for party roles and instructing-party types and the instructing-party request wording, declarations, deadlines (with calendar rule), report compliance items, identifier recognisers | court tracks, written-question classifications, meeting types, legal tests, final checks |
 | Case type | code, name, version, expert roles, party roles, instructing-party types, workflow steps and screens, question types, report sections | case-type declarations, final checks, extra registries |
 | Specialty | code, name, version, profession, fact kinds (with field schemas), source types, lanes | checks, final checks, vocabulary |
 | Overlay | — | record systems and cues, guideline sources, local vocabulary (clinician title), speech phrases, drug monitoring, unit display rules |
@@ -263,16 +263,23 @@ The records received, every page and word, and the facts found on them.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `documents` | Each file received (records, instructions, witness statements, court bundles…), with who sent it and when. Split into pages. | case_id, kind, filename, storage_path, sha256, pages, received_on, obtained_how, bundle_version |
-| `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, storage_path, sha256, note |
+| `document_scans` | The safety scan of each received file, what kind of file it turned out to be, and when it was split into pages. | document_id, case_id, clean, signature, media_type, scanned_at, split_at |
+| `document_parts` | Which files came inside another file (an email's attachments, a zip's files), in order. Each part is a document of its own. | case_id, parent_document_id, document_id, part_no, media_type |
+| `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, size, storage_path, sha256, note |
 | `pages` | Every page of every document, with its permanent page number. Facts and reads point at pages. | case_id, document_id, bundle_page_no, source_type, image_path, text_source, ocr_confidence, handwriting, rotation, duplicate_of_page_id, superseded_by_page_id, quarantined (reason, by, at), unreadable, relevance, language, transcribed_by_expert_text |
+| `page_analysis` | The worker's working notes on each page: how far it got, the fingerprints used to find duplicates, printed dates, the sealed extraction and whether a person must check it. | page_id, case_id, stage, word_count, typed_words, phash, minhash, printed_dates, extraction (sealed), needs_human, reason, model_id, duplicate_status, duplicate_version, references_checked_at |
+| `page_embeddings` | One search vector per page, made from the page's words after identifiers are stripped, with the embedder that made it; a page embedded by an older model is embedded again. | page_id, case_id, model, embedding, created_at, updated_at |
+| `page_quarantines` | Pages that may belong to someone else: suggested, confirmed by the named expert or undone; once the instructing party is told or the pack's days pass, the page's image and text are deleted and it keeps its number. | case_id, page_id, status, reason, suggested_by, confirmed_by, confirmed_at, closed_by, closed_at, purged_at, prior_facts, version |
+| `page_replacements` | A clearer copy of a page: the later document that replaces it and, once split, the new page that supersedes it. | case_id, page_id, document_id, new_page_id, requested_by, linked_at |
 | `ocr_words` | Every word read on a page, with where it sits. Facts cite these words, which is how every fact points to its exact place. | page_id, word_index, text, polygon, confidence, source (ocr/embedded/expert) |
 | `facts` | A single thing found on a page (a consultation, a result, a prescription…), linked to the exact words it came from. Suggested by the computer, then checked by the expert. | case_id, page_id, kind, fields, value, word_ids[], bbox, event_date, date_basis, available_at, availability_basis, status, version, model_task, model_id, prompt_version |
 | `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | fact_id, person_id, action, old_value, new_value, reason, at |
 | `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, read_at, dwell_seconds, prev_hash, hash |
 | `fact_flags` | Facts the expert marked to come back to under "points against". | case_id, fact_id, person_id, flagged_for, at |
-| `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description, citing_page_id, status |
-| `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, gap_start, gap_end, confirmed |
-| `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on |
+| `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description (sealed), citing_page_id, reference_key, word_ids, reference_date, status, reason (sealed), received_page_id, version |
+| `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
+| `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on, quarantined_page_ids |
+| `case_processing` | The expert's controls over reading the bundle: a request to stop at the next page, and the opt-in to read it again with a newer model. | case_id, cancel_requested_at, cancel_requested_by, reprocess_opted_at, reprocess_opted_by |
 
 ### 4.5 Understand
 
@@ -369,7 +376,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
-| `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, expires_at, completed_at |
+| `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, append, expires_at, completed_at |
 | `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, in_app, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
@@ -451,10 +458,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases` | Create draft case (jurisdiction, case type, specialty, label, party role, instructing party type and name, due date, optional court track) | Pack versions stamped on the case |
 | GET | `/cases/{case_id}/pack` | Merged pack for this case: vocabulary, workflow steps and screens, lanes, question types, deadlines, declarations | Drives the case header and wording |
 | PATCH | `/cases/{case_id}` | Update case details | |
-| POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256}` → `upload_id` | |
+| POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256, append?}` → `upload_id`; `append` marks later records | |
 | PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk; FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent |
 | GET | `/uploads/{upload_id}` | Which chunks have arrived and which are missing, to resume | |
-| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Virus scan and processing are queued by slice A |
+| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Publishes `DocumentUploaded(case_id, document_id, appended)` in the same transaction; slice A's subscriber queues the virus scan (`scan_document`) and processing, and if it fails nothing is registered |
 | GET | `/cases/{case_id}/documents/{document_id}/file` | Stream the stored file back through FastAPI | `Cache-Control: private, no-store` |
 | POST | `/cases/{case_id}/prefill` | T-04 suggest fields from the letter | 202 + job; 409 without a letter |
 | GET | `/cases/{case_id}/prefill` | Suggestions with their word ids, whether the letter is still being read, how many were refused | |
@@ -463,6 +470,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | WS | `/cases/{case_id}/dictation?context=` | Browser streams microphone audio to FastAPI over a WebSocket; FastAPI relays it to Azure Speech (UK South) and streams the text back | Used by every dictation box (T-DICT); no Azure key in the browser; audio not stored |
 | POST | `/cases/{case_id}/transcripts` | Save the finished, edited transcript `{context, text, duration}` | |
 | POST | `/cases/{case_id}/process` | Start the bundle pipeline (screen 07) | 202 + job |
+| GET | `/cases/{case_id}/process` | The case's latest processing job (scan or bundle), for screen 07 to follow | `{job: null}` when nothing has run |
 
 **05 Conflicts**
 
@@ -496,10 +504,12 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/bundle/summary` | Page counts by source, duplicates, unreadable count, missing items, gaps, provenance |
+| GET | `/cases/{case_id}/bundle/sorted` | Pages grouped by the pack's sources, then by the date printed on each page (never from facts); every page keeps its own number; quarantined pages left out |
 | GET | `/cases/{case_id}/duplicates` | Pairs to review; thumbnails via `/pages/{page_no}/thumbnail` |
 | PATCH | `/cases/{case_id}/pages/{page_id}/duplicate` | Confirm or undo "copy of page X" |
 | PATCH | `/cases/{case_id}/documents/{doc_id}` | Edit provenance (how obtained, received date) |
-| PATCH | `/cases/{case_id}/missing-items/{item_id}` | Confirm / dismiss / mark received |
+| GET | `/cases/{case_id}/missing-items` | Documents pages mention that the bundle does not hold, with the page that mentions each |
+| PATCH | `/cases/{case_id}/missing-items/{item_id}` | Not available (reason), open again, or mark received (a page added later); If-Match |
 
 **08b Ask the instructing party** (pack label: "Ask the solicitor")
 

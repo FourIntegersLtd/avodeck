@@ -9,3 +9,16 @@ report_rules_name: Rule Z
 declaration_name: affirmation
 subject_statuses: {present: present subject, absent: absent subject, dependent: dependent subject}
 subject_representatives: {dependent: guardian ad item}
+instructing_party_request:
+  label: Ask the carrier
+  subject: "Records needed - {case_reference}"
+  body: |-
+    To the {instructing_party},
+
+    For file {case_reference} please supply:
+    {missing_items}
+
+    Legible copies needed:
+    {clearer_copies}
+
+    {expert_name}

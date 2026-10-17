@@ -1,0 +1,65 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "24197145d8aa103c64fc8cc04a2c35148a488666c6d75009d8ea9c7fce732677",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 767,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2024-09-12"
+              },
+              "kind": "letter",
+              "value": "Adenocarcinoma of the sigmoid colon (biopsy confirmed)",
+              "word_ids": [
+                "p1w59",
+                "p1w60",
+                "p1w61",
+                "p1w62",
+                "p1w63",
+                "p1w64",
+                "p1w65"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2024-09-12"
+          ],
+          "references_out": [
+            {
+              "date": "2024-09-02",
+              "described_document": "Colonoscopy report",
+              "word_ids": [
+                "p1w97",
+                "p1w98",
+                "p1w99",
+                "p1w100",
+                "p1w101"
+              ]
+            },
+            {
+              "date": "2024-09-02",
+              "described_document": "Histology report (colonic biopsies)",
+              "word_ids": [
+                "p1w132",
+                "p1w133",
+                "p1w134",
+                "p1w135"
+              ]
+            }
+          ],
+          "source_type": "hospital_letter"
+        },
+        "output_tokens": 164
+      }
+    ]
+  }
+}

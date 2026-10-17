@@ -127,7 +127,7 @@
       "timezone": "America/Halifax",
       "versions": {
         "case_type": "zz-case@0.0.3",
-        "jurisdiction": "zz-test@0.0.4",
+        "jurisdiction": "zz-test@0.0.5",
         "specialty": "zz-specialty@0.0.2"
       },
       "vocabulary": {
@@ -141,6 +141,11 @@
         "declaration_name": "affirmation",
         "expert_meeting": "expert conference",
         "expert_meeting_document": "conference minute",
+        "instructing_party_request": {
+          "body": "To the {instructing_party},\n\nFor file {case_reference} please supply:\n{missing_items}\n\nLegible copies needed:\n{clearer_copies}\n\n{expert_name}",
+          "label": "Ask the carrier",
+          "subject": "Records needed - {case_reference}"
+        },
         "instructing_party_types": {
           "insurer": "carrier",
           "lawyer": "counsel"
@@ -230,12 +235,17 @@
       "locale": "en-ZZ",
       "name": "Testland",
       "timezone": "America/Halifax",
-      "version": "0.0.4",
+      "version": "0.0.5",
       "vocabulary": {
         "court_bundle": "hearing binder",
         "declaration_name": "affirmation",
         "expert_meeting": "expert conference",
         "expert_meeting_document": "conference minute",
+        "instructing_party_request": {
+          "body": "To the {instructing_party},\n\nFor file {case_reference} please supply:\n{missing_items}\n\nLegible copies needed:\n{clearer_copies}\n\n{expert_name}",
+          "label": "Ask the carrier",
+          "subject": "Records needed - {case_reference}"
+        },
         "instructing_party_types": {
           "insurer": "carrier",
           "lawyer": "counsel"
@@ -664,7 +674,7 @@
       "timezone": "Europe/London",
       "versions": {
         "case_type": "clin-neg-breach@2026.10.2",
-        "jurisdiction": "gb-eaw@2026.10.4",
+        "jurisdiction": "gb-eaw@2026.10.5",
         "overlay": "gb-eaw/general-practice@2026.10.1",
         "specialty": "general-practice@2026.10.2"
       },
@@ -680,6 +690,11 @@
         "declaration_name": "statement of truth",
         "expert_meeting": "experts' discussion",
         "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
         "instructing_party_types": {
           "coroner": "coroner",
           "insurer": "insurer",
@@ -865,12 +880,17 @@
       "locale": "en-GB",
       "name": "England and Wales",
       "timezone": "Europe/London",
-      "version": "2026.10.4",
+      "version": "2026.10.5",
       "vocabulary": {
         "court_bundle": "trial bundle",
         "declaration_name": "statement of truth",
         "expert_meeting": "experts' discussion",
         "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
         "instructing_party_types": {
           "coroner": "coroner",
           "insurer": "insurer",

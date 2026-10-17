@@ -1,0 +1,54 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "6309f3586ec424c13c1ef1387e6f50d956864bc37d0c849a0d3eb10509eaf391",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 566,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2019-03-14"
+              },
+              "kind": "letter",
+              "value": "Symptomatic gallstones",
+              "word_ids": [
+                "p1w48",
+                "p1w49"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2019-03-11",
+            "2019-03-14"
+          ],
+          "references_out": [
+            {
+              "date": "2019-03-12",
+              "described_document": "Gallbladder histology",
+              "word_ids": [
+                "p1w66",
+                "p1w67",
+                "p1w68",
+                "p1w69",
+                "p1w70",
+                "p1w71",
+                "p1w72",
+                "p1w73"
+              ]
+            }
+          ],
+          "source_type": "discharge_summary"
+        },
+        "output_tokens": 121
+      }
+    ]
+  }
+}

@@ -40,7 +40,7 @@ archived ──reopen──▶ active (if not past delete_after)
 |---|---|---|
 | `bundle_page_no` | Set once, never changes (also through quarantine, replacement and rotation) | Worker at split |
 | `quarantined` | false → true (expert, or expert accepting a suggestion) → false (undo, only until the image is deleted) | A |
-| quarantined image and text | kept → deleted (after the note to the instructing parties is sent or 14 days pass); terminal | A |
+| quarantined image and text | kept → deleted (after a logged request lists the page, or the pack's `quarantine_purge_days` pass after confirming); terminal | A |
 | `superseded_by_page_id` | null → page (a clearer copy was uploaded); never back | A |
 | `rotation` | any → any (expert); re-runs OCR, keeps verified facts (boxes re-mapped or flagged) | B |
 | `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
@@ -136,14 +136,27 @@ A case in `deleted` is terminal. The certificate row is the only remaining recor
 
 suggested → confirmed / edited (expert, screen 06; `text_verbatim` kept) → suggested only if a new instruction version replaces it. Assumptions belong to the question set: they lock and reopen with it.
 
+## Page quarantine (`page_quarantines.status`)
+
+| From → to | Trigger | Guard |
+|---|---|---|
+| suggested → confirmed | Named expert (S30) | `fact.verify`; sets `pages.quarantined` and sets the page's suggestions aside |
+| suggested → dismissed | Named expert | — |
+| confirmed → undone | Named expert | Only before purging; restores the suggestions set aside |
+| confirmed → purged | Daily `purge_quarantined_pages` (worker) | A logged request lists the page, or the pack's `quarantine_purge_days` have passed |
+
+Rows start `suggested` (worker or a case member with `page.quarantine`). dismissed, undone and purged are terminal; after purging, undo is 409. Any other change is refused by the database.
+
 ## Missing item (`missing_items.status`)
 
 | From → to | Trigger | Guard |
 |---|---|---|
 | open → requested | Request sent (08b) | Linked `instructing_party_requests` row |
-| requested → received | Expert links an appended page, or accepts the matcher's suggestion | Page exists in a later bundle version |
+| requested → received | Expert links an appended page, or accepts the matcher's suggestion | Page of the case added after the item was listed |
 | open/requested → not_available | Expert, reason required | — |
-| not_available → open | Expert | — |
+| not_available → open | Expert | Reason cleared |
+
+Items start `open` (the worker, T-07c). `received` is final. `PATCH /cases/{id}/missing-items/{item_id}` (named expert or assistant, `request.draft`) makes only the received, not_available and open changes; `requested` is set only by sending a request (08b). Any other change is 409, and the database refuses it too.
 
 ## Fact–question link (`fact_question_links.status`)
 

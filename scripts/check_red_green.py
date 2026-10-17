@@ -21,6 +21,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 TEST_PREFIXES = ("api/tests/", "web/")
 DEFAULT_DB_PORT = "55322"
@@ -61,6 +62,23 @@ def use_checkout_config(root: str, workdir: str) -> None:
         shutil.copyfile(src, os.path.join(workdir, "supabase", "config.toml"))
 
 
+def use_root_supabase_config(root: str, workdir: str) -> None:
+    """The temporary worktree checks out the committed config (the main project); use the caller's own."""
+    use_checkout_config(root, workdir)
+
+
+def project_id(workdir: str) -> str:
+    text = (Path(workdir) / "supabase" / "config.toml").read_text()
+    m = re.search(r'^project_id\s*=\s*"([^"]+)"', text, re.MULTILINE)
+    return m.group(1) if m else ""
+
+
+def assert_same_project(root: str, workdir: str) -> None:
+    if project_id(root) != project_id(workdir):
+        sys.exit(f"Refusing to reset: project_id {project_id(workdir)!r} in the temporary worktree "
+                 f"differs from {project_id(root)!r} in the invoking checkout.")
+
+
 def test_env(root: str, base: dict[str, str], port: str | None = None) -> dict[str, str]:
     """The environment for a commit's api tests: the checkout's database, never an inherited PACKS_DIR."""
     # An inherited PACKS_DIR (e.g. from scripts/local_api_env.sh) points at the current
@@ -86,6 +104,7 @@ def reset_db(sha: str, workdir: str, root: str) -> None:
     if _loaded_db and _loaded_db[-1] == tree:
         return
     use_checkout_config(root, workdir)
+    assert_same_project(root, workdir)
     subprocess.run(["supabase", "db", "reset", "--workdir", workdir], check=True, capture_output=True)
     _loaded_db.append(tree)
 

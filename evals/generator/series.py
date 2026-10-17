@@ -16,9 +16,11 @@ from more_formats import radiology_report, histology_report, ed_letter, westvale
 from scan import hand_text, pick_hand, INKS, DPI
 from story import PATIENT
 
+from fontdirs import font_dir
+
 P = PATIENT
 R = random.Random(77)
-LIB = "/usr/share/fonts/truetype/liberation"
+LIB = font_dir("liberation")
 
 
 # ------------------------------------------------------------ inpatient charts (images, handwritten)

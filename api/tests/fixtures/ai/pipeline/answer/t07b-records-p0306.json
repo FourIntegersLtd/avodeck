@@ -1,0 +1,49 @@
+{
+  "kind": "answer",
+  "request": {
+    "subject": "a85874c1de0ee28fb93708d7183ac7d83398e0fe6d3e8f1ed929079e39df4691",
+    "task_id": "T-07b"
+  },
+  "response": {
+    "responses": [
+      {
+        "input_tokens": 383,
+        "output": {
+          "actions_requested_of_clinician": [],
+          "availability_evidence": [
+            {
+              "date": "2014-09-10",
+              "kind": "sent_to_clinician",
+              "word_ids": [
+                "p1w46",
+                "p1w47",
+                "p1w48",
+                "p1w49",
+                "p1w50"
+              ]
+            }
+          ],
+          "facts": [
+            {
+              "clinician_role": null,
+              "fields": {
+                "date": "2014-09-10"
+              },
+              "kind": "phone_consultation",
+              "value": "Cough",
+              "word_ids": [
+                "p1w29"
+              ]
+            }
+          ],
+          "printed_dates": [
+            "2014-09-10"
+          ],
+          "references_out": [],
+          "source_type": "ooh"
+        },
+        "output_tokens": 100
+      }
+    ]
+  }
+}

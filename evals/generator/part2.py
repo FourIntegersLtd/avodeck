@@ -24,9 +24,11 @@ from scan import hand_text, pick_hand, INKS, DPI
 from series import continuation_sheets, printed_form_handwritten, STD_HISTORY
 from story import PATIENT, PRACTICE
 
+from fontdirs import font_dir
+
 P = PATIENT
 R = random.Random(4501)
-LIB = "/usr/share/fonts/truetype/liberation"
+LIB = font_dir("liberation")
 PW, PH = int(8.27 * DPI), int(11.69 * DPI)
 
 
