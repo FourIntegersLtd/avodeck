@@ -49,7 +49,7 @@ class Case(BaseModel):
 
 
 class CaseUpdate(BaseModel):
-    """Only the fields sent are changed. Party and track values are pack keys, checked by slice C."""
+    """Only the fields sent are changed. Party and track values must be keys the case's packs offer."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -93,16 +93,25 @@ def _checked(request: Request, body: CaseCreate) -> dict[str, object]:
     pack = library.combine(body.jurisdiction, body.case_type, body.specialty)
     roles = pack.expert_roles()
     expert_role = body.expert_role or roles[0]
-    choices = {
-        "expert_role": (expert_role, roles),
-        "party_role": (body.party_role, [p["key"] for p in pack.party_roles()]),
-        "instructing_party_type": (body.instructing_party_type, [p["key"] for p in pack.instructing_party_types()]),
-        "court_track": (body.court_track, library.jurisdiction_summary(body.jurisdiction)["court_tracks"]),
+    if expert_role not in roles:
+        raise _invalid("expert_role")
+    _check_pack_values(request, (body.jurisdiction, body.case_type, body.specialty), body.model_dump())
+    return {**body.model_dump(), "expert_role": expert_role, "pack_versions": Jsonb(pack.versions)}
+
+
+def _check_pack_values(request: Request, packs: tuple[str, str, str], values: dict[str, object]) -> None:
+    """Party role, instructing-party type and court track must be keys the packs offer (422 `invalid`)."""
+    library = request.app.state.packs
+    pack = library.combine(*packs)
+    offered = {
+        "party_role": [p["key"] for p in pack.party_roles()],
+        "instructing_party_type": [p["key"] for p in pack.instructing_party_types()],
+        "court_track": library.jurisdiction_summary(packs[0])["court_tracks"],
     }
-    for field, (value, allowed) in choices.items():
+    for field, allowed in offered.items():
+        value = values.get(field)
         if value is not None and value not in allowed:
             raise _invalid(field)
-    return {**body.model_dump(), "expert_role": expert_role, "pack_versions": Jsonb(pack.versions)}
 
 
 @cases_router.post("", status_code=201, response_model=Case)
@@ -159,10 +168,16 @@ async def update_case(
     access: Annotated[CaseAccess, Depends(require_case_access("case.edit_setup"))],
     version: IfMatch,
     body: CaseUpdate,
+    request: Request,
     conn: DbConn,
     response: Response,
 ) -> Case:
     changes = body.model_dump(exclude_unset=True)
+    if any(changes.get(f) is not None for f in ("party_role", "instructing_party_type", "court_track")):
+        cur0 = await conn.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
+        packs = await cur0.fetchone()
+        assert packs is not None  # require_case_access has already answered 404
+        _check_pack_values(request, (packs[0], packs[1], packs[2]), changes)
     assignments = sql.SQL(", ").join(sql.SQL("{} = %s").format(sql.Identifier(k)) for k in changes)
     query = (
         sql.SQL("update app.cases set {} where id = %s and version = %s returning {}").format(
