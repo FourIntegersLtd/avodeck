@@ -28,7 +28,7 @@
           ],
           "printed_dates": [],
           "references_out": [],
-          "source_type": "referral"
+          "source_type": "primary_care_record"
         },
         "output_tokens": 75
       }

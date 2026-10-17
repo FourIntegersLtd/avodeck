@@ -39834,7 +39834,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2024-01-21",
   "fields": {
    "created": "21-Jan-2024",
    "status": "Completed"
@@ -39846,7 +39846,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2024-01-16",
   "fields": {
    "created": "16-Jan-2024",
    "status": "Completed"
@@ -39858,7 +39858,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2023-12-07",
   "fields": {
    "created": "07-Dec-2023",
    "status": "Completed"
@@ -39870,7 +39870,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2023-11-18",
   "fields": {
    "created": "18-Nov-2023",
    "status": "Completed"
@@ -39882,7 +39882,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2023-11-11",
   "fields": {
    "created": "11-Nov-2023",
    "status": "Completed"
@@ -39894,7 +39894,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2023-10-16",
   "fields": {
    "created": "16-Oct-2023",
    "status": "Completed"
@@ -39906,7 +39906,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2023-09-05",
   "fields": {
    "created": "05-Sep-2023",
    "status": "Completed"
@@ -39918,7 +39918,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2023-09-04",
   "fields": {
    "created": "04-Sep-2023",
    "status": "Completed"
@@ -39930,7 +39930,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2023-08-10",
   "fields": {
    "created": "10-Aug-2023",
    "status": "Completed"
@@ -39942,7 +39942,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2023-07-09",
   "fields": {
    "created": "09-Jul-2023",
    "status": "Completed"
@@ -39954,7 +39954,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2023-07-08",
   "fields": {
    "created": "08-Jul-2023",
    "status": "Completed"
@@ -39966,7 +39966,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2023-06-16",
   "fields": {
    "created": "16-Jun-2023",
    "status": "Completed"
@@ -39978,7 +39978,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2023-06-13",
   "fields": {
    "created": "13-Jun-2023",
    "status": "Completed"
@@ -39990,7 +39990,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2023-05-20",
   "fields": {
    "created": "20-May-2023",
    "status": "Completed"
@@ -40002,7 +40002,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2023-04-25",
   "fields": {
    "created": "25-Apr-2023",
    "status": "Completed"
@@ -40014,7 +40014,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2023-03-28",
   "fields": {
    "created": "28-Mar-2023",
    "status": "Completed"
@@ -40026,7 +40026,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2023-03-11",
   "fields": {
    "created": "11-Mar-2023",
    "status": "Completed"
@@ -40038,7 +40038,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2023-03-08",
   "fields": {
    "created": "08-Mar-2023",
    "status": "Completed"
@@ -40050,7 +40050,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2023-02-08",
   "fields": {
    "created": "08-Feb-2023",
    "status": "Completed"
@@ -40062,7 +40062,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2023-01-22",
   "fields": {
    "created": "22-Jan-2023",
    "status": "Completed"
@@ -40074,7 +40074,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2023-01-21",
   "fields": {
    "created": "21-Jan-2023",
    "status": "Completed"
@@ -40086,7 +40086,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2023-01-09",
   "fields": {
    "created": "09-Jan-2023",
    "status": "Completed"
@@ -40098,7 +40098,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2022-12-27",
   "fields": {
    "created": "27-Dec-2022",
    "status": "Completed"
@@ -40110,7 +40110,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2022-12-21",
   "fields": {
    "created": "21-Dec-2022",
    "status": "Completed"
@@ -40122,7 +40122,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2022-12-17",
   "fields": {
    "created": "17-Dec-2022",
    "status": "Completed"
@@ -40134,7 +40134,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2022-11-21",
   "fields": {
    "created": "21-Nov-2022",
    "status": "Completed"
@@ -40146,7 +40146,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2022-11-10",
   "fields": {
    "created": "10-Nov-2022",
    "status": "Completed"
@@ -40158,7 +40158,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2022-10-27",
   "fields": {
    "created": "27-Oct-2022",
    "status": "Completed"
@@ -40170,7 +40170,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2022-10-15",
   "fields": {
    "created": "15-Oct-2022",
    "status": "Completed"
@@ -40182,7 +40182,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2022-09-14",
   "fields": {
    "created": "14-Sep-2022",
    "status": "Completed"
@@ -40194,7 +40194,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2022-08-23",
   "fields": {
    "created": "23-Aug-2022",
    "status": "Completed"
@@ -40206,7 +40206,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2022-08-18",
   "fields": {
    "created": "18-Aug-2022",
    "status": "Completed"
@@ -40218,7 +40218,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2022-08-10",
   "fields": {
    "created": "10-Aug-2022",
    "status": "Completed"
@@ -40230,7 +40230,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2022-07-23",
   "fields": {
    "created": "23-Jul-2022",
    "status": "Completed"
@@ -40242,7 +40242,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2022-07-17",
   "fields": {
    "created": "17-Jul-2022",
    "status": "Completed"
@@ -40254,7 +40254,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2022-07-11",
   "fields": {
    "created": "11-Jul-2022",
    "status": "Completed"
@@ -40266,7 +40266,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2022-06-20",
   "fields": {
    "created": "20-Jun-2022",
    "status": "Completed"
@@ -40278,7 +40278,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2022-06-17",
   "fields": {
    "created": "17-Jun-2022",
    "status": "Completed"
@@ -40290,7 +40290,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2022-05-21",
   "fields": {
    "created": "21-May-2022",
    "status": "Completed"
@@ -40302,7 +40302,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2022-04-30",
   "fields": {
    "created": "30-Apr-2022",
    "status": "Completed"
@@ -40314,7 +40314,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2022-04-12",
   "fields": {
    "created": "12-Apr-2022",
    "status": "Completed"
@@ -40326,7 +40326,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2022-03-19",
   "fields": {
    "created": "19-Mar-2022",
    "status": "Completed"
@@ -40338,7 +40338,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2022-02-23",
   "fields": {
    "created": "23-Feb-2022",
    "status": "Completed"
@@ -40350,7 +40350,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2022-02-23",
   "fields": {
    "created": "23-Feb-2022",
    "status": "Completed"
@@ -40362,7 +40362,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2022-01-28",
   "fields": {
    "created": "28-Jan-2022",
    "status": "Completed"
@@ -40374,7 +40374,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2022-01-27",
   "fields": {
    "created": "27-Jan-2022",
    "status": "Completed"
@@ -40386,7 +40386,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2022-01-15",
   "fields": {
    "created": "15-Jan-2022",
    "status": "Completed"
@@ -40398,7 +40398,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2021-12-14",
   "fields": {
    "created": "14-Dec-2021",
    "status": "Completed"
@@ -40410,7 +40410,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2021-11-14",
   "fields": {
    "created": "14-Nov-2021",
    "status": "Completed"
@@ -40422,7 +40422,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2021-11-01",
   "fields": {
    "created": "01-Nov-2021",
    "status": "Completed"
@@ -40434,7 +40434,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2021-09-30",
   "fields": {
    "created": "30-Sep-2021",
    "status": "Completed"
@@ -40446,7 +40446,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2021-09-26",
   "fields": {
    "created": "26-Sep-2021",
    "status": "Completed"
@@ -40458,7 +40458,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2021-08-30",
   "fields": {
    "created": "30-Aug-2021",
    "status": "Completed"
@@ -40470,7 +40470,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2021-08-30",
   "fields": {
    "created": "30-Aug-2021",
    "status": "Completed"
@@ -40482,7 +40482,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2021-08-17",
   "fields": {
    "created": "17-Aug-2021",
    "status": "Completed"
@@ -40494,7 +40494,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2021-07-22",
   "fields": {
    "created": "22-Jul-2021",
    "status": "Completed"
@@ -40506,7 +40506,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2021-06-29",
   "fields": {
    "created": "29-Jun-2021",
    "status": "Completed"
@@ -40518,7 +40518,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2021-06-16",
   "fields": {
    "created": "16-Jun-2021",
    "status": "Completed"
@@ -40530,7 +40530,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2021-05-26",
   "fields": {
    "created": "26-May-2021",
    "status": "Completed"
@@ -40542,7 +40542,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2021-04-24",
   "fields": {
    "created": "24-Apr-2021",
    "status": "Completed"
@@ -40554,7 +40554,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2021-04-22",
   "fields": {
    "created": "22-Apr-2021",
    "status": "Completed"
@@ -40566,7 +40566,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2021-03-30",
   "fields": {
    "created": "30-Mar-2021",
    "status": "Completed"
@@ -40578,7 +40578,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2021-03-25",
   "fields": {
    "created": "25-Mar-2021",
    "status": "Completed"
@@ -40590,7 +40590,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2021-03-07",
   "fields": {
    "created": "07-Mar-2021",
    "status": "Completed"
@@ -40602,7 +40602,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2021-01-30",
   "fields": {
    "created": "30-Jan-2021",
    "status": "Completed"
@@ -40614,7 +40614,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2021-01-22",
   "fields": {
    "created": "22-Jan-2021",
    "status": "Completed"
@@ -40626,7 +40626,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2021-01-04",
   "fields": {
    "created": "04-Jan-2021",
    "status": "Completed"
@@ -40638,7 +40638,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2020-12-04",
   "fields": {
    "created": "04-Dec-2020",
    "status": "Completed"
@@ -40650,7 +40650,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2020-12-03",
   "fields": {
    "created": "03-Dec-2020",
    "status": "Completed"
@@ -40662,7 +40662,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2020-11-25",
   "fields": {
    "created": "25-Nov-2020",
    "status": "Completed"
@@ -40674,7 +40674,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2020-11-07",
   "fields": {
    "created": "07-Nov-2020",
    "status": "Completed"
@@ -40686,7 +40686,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2020-10-25",
   "fields": {
    "created": "25-Oct-2020",
    "status": "Completed"
@@ -40698,7 +40698,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2020-10-07",
   "fields": {
    "created": "07-Oct-2020",
    "status": "Completed"
@@ -40710,7 +40710,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2020-10-04",
   "fields": {
    "created": "04-Oct-2020",
    "status": "Completed"
@@ -40722,7 +40722,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2020-09-25",
   "fields": {
    "created": "25-Sep-2020",
    "status": "Completed"
@@ -40734,7 +40734,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2020-08-27",
   "fields": {
    "created": "27-Aug-2020",
    "status": "Completed"
@@ -40746,7 +40746,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2020-08-02",
   "fields": {
    "created": "02-Aug-2020",
    "status": "Completed"
@@ -40758,7 +40758,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2020-08-01",
   "fields": {
    "created": "01-Aug-2020",
    "status": "Completed"
@@ -40770,7 +40770,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2020-07-27",
   "fields": {
    "created": "27-Jul-2020",
    "status": "Completed"
@@ -40782,7 +40782,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2020-06-26",
   "fields": {
    "created": "26-Jun-2020",
    "status": "Completed"
@@ -40794,7 +40794,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2020-06-25",
   "fields": {
    "created": "25-Jun-2020",
    "status": "Completed"
@@ -40806,7 +40806,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2020-06-02",
   "fields": {
    "created": "02-Jun-2020",
    "status": "Completed"
@@ -40818,7 +40818,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2020-06-02",
   "fields": {
    "created": "02-Jun-2020",
    "status": "Completed"
@@ -40830,7 +40830,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2020-05-22",
   "fields": {
    "created": "22-May-2020",
    "status": "Completed"
@@ -40842,7 +40842,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2020-05-07",
   "fields": {
    "created": "07-May-2020",
    "status": "Completed"
@@ -40854,7 +40854,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2020-03-26",
   "fields": {
    "created": "26-Mar-2020",
    "status": "Completed"
@@ -40866,7 +40866,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2020-02-27",
   "fields": {
    "created": "27-Feb-2020",
    "status": "Completed"
@@ -40878,7 +40878,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2020-01-26",
   "fields": {
    "created": "26-Jan-2020",
    "status": "Completed"
@@ -40890,7 +40890,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2020-01-06",
   "fields": {
    "created": "06-Jan-2020",
    "status": "Completed"
@@ -40902,7 +40902,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2019-12-10",
   "fields": {
    "created": "10-Dec-2019",
    "status": "Completed"
@@ -40914,7 +40914,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2019-12-04",
   "fields": {
    "created": "04-Dec-2019",
    "status": "Completed"
@@ -40926,7 +40926,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2019-12-01",
   "fields": {
    "created": "01-Dec-2019",
    "status": "Completed"
@@ -40938,7 +40938,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2019-11-11",
   "fields": {
    "created": "11-Nov-2019",
    "status": "Completed"
@@ -40950,7 +40950,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2019-10-15",
   "fields": {
    "created": "15-Oct-2019",
    "status": "Completed"
@@ -40962,7 +40962,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2019-10-01",
   "fields": {
    "created": "01-Oct-2019",
    "status": "Completed"
@@ -40974,7 +40974,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2019-09-30",
   "fields": {
    "created": "30-Sep-2019",
    "status": "Completed"
@@ -40986,7 +40986,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2019-09-03",
   "fields": {
    "created": "03-Sep-2019",
    "status": "Completed"
@@ -40998,7 +40998,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2019-08-28",
   "fields": {
    "created": "28-Aug-2019",
    "status": "Completed"
@@ -41010,7 +41010,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2019-08-11",
   "fields": {
    "created": "11-Aug-2019",
    "status": "Completed"
@@ -41022,7 +41022,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2019-08-10",
   "fields": {
    "created": "10-Aug-2019",
    "status": "Completed"
@@ -41034,7 +41034,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2019-07-31",
   "fields": {
    "created": "31-Jul-2019",
    "status": "Completed"
@@ -41046,7 +41046,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2019-07-11",
   "fields": {
    "created": "11-Jul-2019",
    "status": "Completed"
@@ -41058,7 +41058,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2019-07-11",
   "fields": {
    "created": "11-Jul-2019",
    "status": "Completed"
@@ -41070,7 +41070,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2019-07-07",
   "fields": {
    "created": "07-Jul-2019",
    "status": "Completed"
@@ -41082,7 +41082,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2019-06-04",
   "fields": {
    "created": "04-Jun-2019",
    "status": "Completed"
@@ -41094,7 +41094,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2019-05-07",
   "fields": {
    "created": "07-May-2019",
    "status": "Completed"
@@ -41106,7 +41106,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2019-04-14",
   "fields": {
    "created": "14-Apr-2019",
    "status": "Completed"
@@ -41118,7 +41118,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2019-03-18",
   "fields": {
    "created": "18-Mar-2019",
    "status": "Completed"
@@ -41130,7 +41130,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2019-03-13",
   "fields": {
    "created": "13-Mar-2019",
    "status": "Completed"
@@ -41142,7 +41142,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2019-03-06",
   "fields": {
    "created": "06-Mar-2019",
    "status": "Completed"
@@ -41154,7 +41154,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2019-02-11",
   "fields": {
    "created": "11-Feb-2019",
    "status": "Completed"
@@ -41166,7 +41166,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2019-02-11",
   "fields": {
    "created": "11-Feb-2019",
    "status": "Completed"
@@ -41178,7 +41178,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2019-02-03",
   "fields": {
    "created": "03-Feb-2019",
    "status": "Completed"
@@ -41190,7 +41190,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2019-01-01",
   "fields": {
    "created": "01-Jan-2019",
    "status": "Completed"
@@ -41202,7 +41202,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2018-12-31",
   "fields": {
    "created": "31-Dec-2018",
    "status": "Completed"
@@ -41214,7 +41214,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2018-12-12",
   "fields": {
    "created": "12-Dec-2018",
    "status": "Completed"
@@ -41226,7 +41226,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2018-12-11",
   "fields": {
    "created": "11-Dec-2018",
    "status": "Completed"
@@ -41238,7 +41238,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2018-12-07",
   "fields": {
    "created": "07-Dec-2018",
    "status": "Completed"
@@ -41250,7 +41250,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2018-11-07",
   "fields": {
    "created": "07-Nov-2018",
    "status": "Completed"
@@ -41262,7 +41262,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2018-11-03",
   "fields": {
    "created": "03-Nov-2018",
    "status": "Completed"
@@ -41274,7 +41274,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2018-11-03",
   "fields": {
    "created": "03-Nov-2018",
    "status": "Completed"
@@ -41286,7 +41286,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2018-10-19",
   "fields": {
    "created": "19-Oct-2018",
    "status": "Completed"
@@ -41298,7 +41298,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2018-10-16",
   "fields": {
    "created": "16-Oct-2018",
    "status": "Completed"
@@ -41310,7 +41310,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2018-10-06",
   "fields": {
    "created": "06-Oct-2018",
    "status": "Completed"
@@ -41322,7 +41322,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2018-09-07",
   "fields": {
    "created": "07-Sep-2018",
    "status": "Completed"
@@ -41334,7 +41334,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2018-09-05",
   "fields": {
    "created": "05-Sep-2018",
    "status": "Completed"
@@ -41346,7 +41346,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2018-09-03",
   "fields": {
    "created": "03-Sep-2018",
    "status": "Completed"
@@ -41358,7 +41358,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2018-08-08",
   "fields": {
    "created": "08-Aug-2018",
    "status": "Completed"
@@ -41370,7 +41370,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2018-08-05",
   "fields": {
    "created": "05-Aug-2018",
    "status": "Completed"
@@ -41382,7 +41382,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2018-07-21",
   "fields": {
    "created": "21-Jul-2018",
    "status": "Completed"
@@ -41394,7 +41394,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2018-07-18",
   "fields": {
    "created": "18-Jul-2018",
    "status": "Completed"
@@ -41406,7 +41406,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2018-07-06",
   "fields": {
    "created": "06-Jul-2018",
    "status": "Completed"
@@ -41418,7 +41418,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2018-06-13",
   "fields": {
    "created": "13-Jun-2018",
    "status": "Completed"
@@ -41430,7 +41430,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2018-05-19",
   "fields": {
    "created": "19-May-2018",
    "status": "Completed"
@@ -41442,7 +41442,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2018-04-07",
   "fields": {
    "created": "07-Apr-2018",
    "status": "Completed"
@@ -41454,7 +41454,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2018-03-11",
   "fields": {
    "created": "11-Mar-2018",
    "status": "Completed"
@@ -41466,7 +41466,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2018-03-05",
   "fields": {
    "created": "05-Mar-2018",
    "status": "Completed"
@@ -41478,7 +41478,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2018-02-06",
   "fields": {
    "created": "06-Feb-2018",
    "status": "Completed"
@@ -41490,7 +41490,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2018-01-19",
   "fields": {
    "created": "19-Jan-2018",
    "status": "Completed"
@@ -41502,7 +41502,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2018-01-11",
   "fields": {
    "created": "11-Jan-2018",
    "status": "Completed"
@@ -41514,7 +41514,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2018-01-03",
   "fields": {
    "created": "03-Jan-2018",
    "status": "Completed"
@@ -41526,7 +41526,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2017-12-14",
   "fields": {
    "created": "14-Dec-2017",
    "status": "Completed"
@@ -41538,7 +41538,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2017-11-24",
   "fields": {
    "created": "24-Nov-2017",
    "status": "Completed"
@@ -41550,7 +41550,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2017-11-12",
   "fields": {
    "created": "12-Nov-2017",
    "status": "Completed"
@@ -41562,7 +41562,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2017-11-11",
   "fields": {
    "created": "11-Nov-2017",
    "status": "Completed"
@@ -41574,7 +41574,7 @@
   "kind": "task",
   "value": "Hospital letter to review",
   "quote": "Hospital letter to review",
-  "event_date": null,
+  "event_date": "2017-10-25",
   "fields": {
    "created": "25-Oct-2017",
    "status": "Completed"
@@ -41586,7 +41586,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2017-10-20",
   "fields": {
    "created": "20-Oct-2017",
    "status": "Completed"
@@ -41598,7 +41598,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2017-10-08",
   "fields": {
    "created": "08-Oct-2017",
    "status": "Completed"
@@ -41610,7 +41610,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2017-09-15",
   "fields": {
    "created": "15-Sep-2017",
    "status": "Completed"
@@ -41622,7 +41622,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2017-09-12",
   "fields": {
    "created": "12-Sep-2017",
    "status": "Completed"
@@ -41634,7 +41634,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2017-08-17",
   "fields": {
    "created": "17-Aug-2017",
    "status": "Completed"
@@ -41646,7 +41646,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2017-07-27",
   "fields": {
    "created": "27-Jul-2017",
    "status": "Completed"
@@ -41658,7 +41658,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2017-07-20",
   "fields": {
    "created": "20-Jul-2017",
    "status": "Completed"
@@ -41670,7 +41670,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2017-07-08",
   "fields": {
    "created": "08-Jul-2017",
    "status": "Completed"
@@ -41682,7 +41682,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2017-06-12",
   "fields": {
    "created": "12-Jun-2017",
    "status": "Completed"
@@ -41694,7 +41694,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2017-05-19",
   "fields": {
    "created": "19-May-2017",
    "status": "Completed"
@@ -41706,7 +41706,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2017-05-08",
   "fields": {
    "created": "08-May-2017",
    "status": "Completed"
@@ -41718,7 +41718,7 @@
   "kind": "task",
   "value": "Update medication after clinic letter",
   "quote": "Update medication after clinic letter",
-  "event_date": null,
+  "event_date": "2017-04-27",
   "fields": {
    "created": "27-Apr-2017",
    "status": "Completed"
@@ -41730,7 +41730,7 @@
   "kind": "task",
   "value": "Repeat prescription request - authorise",
   "quote": "Repeat prescription request - authorise",
-  "event_date": null,
+  "event_date": "2017-04-16",
   "fields": {
    "created": "16-Apr-2017",
    "status": "Completed"
@@ -41742,7 +41742,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2017-04-15",
   "fields": {
    "created": "15-Apr-2017",
    "status": "Completed"
@@ -41754,7 +41754,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2017-03-29",
   "fields": {
    "created": "29-Mar-2017",
    "status": "Completed"
@@ -41766,7 +41766,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2017-03-24",
   "fields": {
    "created": "24-Mar-2017",
    "status": "Completed"
@@ -41778,7 +41778,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2017-03-15",
   "fields": {
    "created": "15-Mar-2017",
    "status": "Completed"
@@ -41790,7 +41790,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2017-02-23",
   "fields": {
    "created": "23-Feb-2017",
    "status": "Completed"
@@ -41802,7 +41802,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2017-01-21",
   "fields": {
    "created": "21-Jan-2017",
    "status": "Completed"
@@ -41814,7 +41814,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2017-01-10",
   "fields": {
    "created": "10-Jan-2017",
    "status": "Completed"
@@ -41826,7 +41826,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2017-01-08",
   "fields": {
    "created": "08-Jan-2017",
    "status": "Completed"
@@ -41838,7 +41838,7 @@
   "kind": "task",
   "value": "Recall for BP review",
   "quote": "Recall for BP review",
-  "event_date": null,
+  "event_date": "2016-12-14",
   "fields": {
    "created": "14-Dec-2016",
    "status": "Completed"
@@ -41850,7 +41850,7 @@
   "kind": "task",
   "value": "Patient query - call back",
   "quote": "Patient query - call back",
-  "event_date": null,
+  "event_date": "2016-11-25",
   "fields": {
    "created": "25-Nov-2016",
    "status": "Completed"
@@ -41862,7 +41862,7 @@
   "kind": "task",
   "value": "Insurance report request",
   "quote": "Insurance report request",
-  "event_date": null,
+  "event_date": "2016-10-30",
   "fields": {
    "created": "30-Oct-2016",
    "status": "Completed"
@@ -41874,7 +41874,7 @@
   "kind": "task",
   "value": "Result to file",
   "quote": "Result to file",
-  "event_date": null,
+  "event_date": "2016-10-26",
   "fields": {
    "created": "26-Oct-2016",
    "status": "Completed"

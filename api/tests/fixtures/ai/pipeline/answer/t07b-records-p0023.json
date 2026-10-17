@@ -45,7 +45,7 @@
               ]
             }
           ],
-          "source_type": "discharge_summary"
+          "source_type": "hospital"
         },
         "output_tokens": 121
       }

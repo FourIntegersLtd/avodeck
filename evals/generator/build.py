@@ -939,7 +939,8 @@ def write_expected(exp_dir, rows):
     planted["1"] = [r["page"] for r in rows if r["duplicate_of_page"]]
     j("planted.json", planted)
     j("gaps.json", [{"source": "gp_record", "series": "tasks", "last_entry_month": "2024-01",
-                     "gap_from": "2024-02", "gap_to": "2024-12", "planted": "2"}])
+                     "gap_from": "2024-02", "gap_to": "2024-12", "planted": "2",
+                     "fact_kind": "task"}])
     j("findings.json", [
         {"check": "abnormal_result_no_action", "should_fire": True, "planted": "11", "evidence_pages": planted.get("11", [])},
         {"check": "referral_acknowledged", "should_fire": True, "planted": "12", "evidence_pages": planted.get("12", [])},
