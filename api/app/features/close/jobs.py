@@ -196,7 +196,9 @@ async def delete_case(ctx: JobContext) -> None:
         stamp = await _one(
             conn, "select now() as deleted_at, current_date + %s as backup_expiry_on", (BACKUP_RETENTION_DAYS,)
         )
-        cert = await _one(conn, "select counts, sent_to from app.deletion_certificates where case_id = %s", (ctx.case_id,))
+        cert = await _one(
+            conn, "select counts, sent_to from app.deletion_certificates where case_id = %s", (ctx.case_id,)
+        )
         assert purged is not None and stamp is not None and cert is not None
         counts = {**cert["counts"], **purged["counts"]}
         sent = set(cert["sent_to"])
