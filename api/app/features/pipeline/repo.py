@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -191,6 +192,8 @@ class NewFact:
     value: str
     word_ids: list[str]
     bbox: dict[str, float]
+    event_date: dt.date | None = None
+    date_basis: str | None = None
 
 
 async def store_extraction(
@@ -206,11 +209,12 @@ async def store_extraction(
     task: str,
     model_id: str,
     prompt_version: str,
+    printed_dates: list[dt.date] | None = None,
 ) -> None:
     async with conn.cursor() as cur:
         await cur.executemany(
-            "insert into app.facts (case_id, page_id, kind, fields, value, word_ids, bbox, model_task, model_id,"
-            " prompt_version) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            "insert into app.facts (case_id, page_id, kind, fields, value, word_ids, bbox, event_date, date_basis,"
+            " model_task, model_id, prompt_version) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             [
                 (
                     case_id,
@@ -220,6 +224,8 @@ async def store_extraction(
                     f.value,
                     f.word_ids,
                     Jsonb(f.bbox),
+                    f.event_date,
+                    f.date_basis,
                     task,
                     model_id,
                     prompt_version,
@@ -231,9 +237,9 @@ async def store_extraction(
         await conn.execute("update app.pages set source_type = %s where id = %s", (source_type, page_id))
     await conn.execute(
         "insert into app.page_analysis (page_id, case_id, stage, extraction, needs_human, reason, model_id,"
-        " extracted_at) values (%s, %s, 'extract', %s, %s, %s, %s, now())"
+        " printed_dates, extracted_at) values (%s, %s, 'extract', %s, %s, %s, %s, %s, now())"
         " on conflict (page_id) do update set stage = excluded.stage, extraction = excluded.extraction,"
         " needs_human = excluded.needs_human, reason = excluded.reason, model_id = excluded.model_id,"
-        " extracted_at = excluded.extracted_at, updated_at = now()",
-        (page_id, case_id, sealed, needs_human, reason, model_id),
+        " printed_dates = excluded.printed_dates, extracted_at = excluded.extracted_at, updated_at = now()",
+        (page_id, case_id, sealed, needs_human, reason, model_id, printed_dates or []),
     )

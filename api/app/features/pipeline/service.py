@@ -7,6 +7,8 @@
   Each page's words come from its text layer or OCR (T-07a); then each page is sent once to the
   model (T-07b) with identifiers stripped. Facts not found in their cited words are refused and the
   page is asked once more, then marked `needs_human`; facts citing crossed-out words are dropped.
+  Each fact's date is the printed date the model points at, read by code in the pack's date order;
+  one that is not printed in full is marked `please_check` and never guessed.
 
 Every step checks what already exists, so a retried or repeated job changes nothing. Job rows and
 logs carry numbers and step codes only (rule 6).
@@ -32,7 +34,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import extract, paths, repo
+from app.features.pipeline import dates, extract, paths, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
@@ -246,21 +248,28 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> None:
             kept, reason = result.kept, ("not_in_words" if result.refused else None)
             if reason is None:
                 break
+        found = dates.find([(w, t) for w, t in ordered if w not in struck], pack)
         polygons = {w.word_id: w.polygon for w in stored}
         width, height = size or (
             max((x for w in stored for x in w.polygon[0::2]), default=1.0) or 1.0,
             max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
         )
-        facts = [
-            repo.NewFact(
-                kind=str(f["kind"]),
-                fields=dict(f.get("fields") or {}),
-                value=str(f["value"]),
-                word_ids=list(f["word_ids"]),
-                bbox=extract.box(f["word_ids"], polygons, width, height),
+        facts = []
+        for f in kept:
+            fields = dict(f.get("fields") or {})
+            field = dates.date_field(pack, str(f["kind"]))
+            when, basis = dates.event_date(fields.get(field) if field else None, found, pack)
+            facts.append(
+                repo.NewFact(
+                    kind=str(f["kind"]),
+                    fields=fields,
+                    value=str(f["value"]),
+                    word_ids=list(f["word_ids"]),
+                    bbox=extract.box(f["word_ids"], polygons, width, height),
+                    event_date=when,
+                    date_basis=basis,
+                )
             )
-            for f in kept
-        ]
         async with ctx.transaction() as conn:
             sealed = None
             if output is not None:
@@ -279,6 +288,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> None:
                 task=task.task_id,
                 model_id=model_id,
                 prompt_version=task.prompt_version,
+                printed_dates=dates.printed_dates(found),
             )
         done += 1
         if done % 25 == 0:
