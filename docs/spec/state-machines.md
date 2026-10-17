@@ -21,16 +21,16 @@ archived ──reopen──▶ active (if not past delete_after)
 | processing → active* | Worker | Job failed after retries | Case opens with a "processing problem" banner and a retry button; no data lost |
 | active → served | `POST …/report/versions/{v}/serve` 🔒 | A locked report version exists | `report_served` event; deadlines (G) |
 | served → served | New material, questions, supplementary report | — | Stays served; new versions link via `prev_version_id` |
-| served/active → settled | Expert | — | Retention clock starts |
-| settled → archived | Expert or 30 days after settled | — | Read-only |
-| archived → active | Expert "Reopen" | Before `delete_after`; no legal hold needed | Audit |
-| settled → active | Expert "Reopen" (settlement fell through, new questions) | Before `delete_after` | Retention clock stops; restarts from the latest settlement |
+| served/active → settled | Expert (`case.settle`) | — | Retention clock starts: `settled_at` set by the database |
+| settled → archived | Expert (`case.archive`) or 30 days after settled | — | Read-only; `settled_at` kept |
+| archived → active | Expert "Reopen" (`case.reopen`) | Before `delete_after`; no legal hold needed | Audit; `settled_at` cleared |
+| settled → active | Expert "Reopen" (`case.reopen`; settlement fell through, new questions) | Before `delete_after` | Retention clock stops (`settled_at` cleared); restarts from the latest settlement |
 | draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties |
 | withdrawn → archived | Expert or 30 days after | — | Read-only |
 | any → deleted | **Blocked** while an active `legal_holds` row exists | — | Deletion job skips the case and notifies the named expert |
 
 **On hold** is a flag, not a status: `on_hold` true/false on draft, active or served cases. While on hold, reminders and deadline alerts pause and processing jobs queue; nothing is deleted. Cleared by `…/resume`.
-| any → deleted | Daily deletion job or `delete_now` 🔒 | `delete_after ≤ today`; `delete_now` (`case.delete_now`) only on a case never served, checked by `app.cases_actor` | Crypto-shred, certificate; terminal |
+| any → deleted | Daily deletion job or `delete_now` 🔒 | `delete_after ≤ today`; `delete_now` (`case.delete_now`) only on a case never served, checked by `app.cases_actor` | `app.purge_case` removes every row (served reports too) and leaves the case row as a tombstone; crypto-shred, certificate, `deletion_ledger`; terminal |
 
 ## Page (`pages`)
 

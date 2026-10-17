@@ -1,4 +1,4 @@
-"""App factory: error handlers, the foundation routers and, later, each slice's router."""
+"""App factory: error handlers, the foundation routers and each slice's router (`app.features`)."""
 
 from __future__ import annotations
 
@@ -18,6 +18,8 @@ from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer
 from app.core.errors import install_error_handlers
+from app.core.features import DEFAULT_PACKAGE as DEFAULT_FEATURES
+from app.core.features import feature_routers
 from app.core.packs import PackLibrary, default_library
 from app.core.routes.account import account_public, account_router
 from app.core.routes.auth import auth_pending, auth_public, auth_signed_in, auth_status
@@ -45,6 +47,7 @@ def create_app(
     speech: SpeechClient | None = None,
     needs_you: NeedsYouRegistry | None = None,
     page_reads: PageReadLog | None = None,
+    features: str = DEFAULT_FEATURES,
 ) -> FastAPI:
     """Without a database, region or Supabase Auth they are read from the environment at start-up.
 
@@ -56,6 +59,7 @@ def create_app(
     Today lists the "needs you" items registered on `needs_you` (the app's own registry unless a test
     passes one). Without `page_reads` (slice B's read log) the blind-read gate stays shut (rule 3).
     Packs load here, not in the lifespan: an invalid pack stops the app being built at all.
+    Each slice's router under `features` (`app.features.<name>.router`) is mounted with `mount()`.
     """
 
     @asynccontextmanager
@@ -114,6 +118,8 @@ def create_app(
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
     people = (me_router, today_router, notifications_router)
     for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files):
+        mount(app, r)
+    for r in feature_routers(features):
         mount(app, r)
     return app
 

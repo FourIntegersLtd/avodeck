@@ -7,6 +7,7 @@ Callers store what they put here encrypted under the case's key (`core/crypto.py
 
 from __future__ import annotations
 
+import builtins
 import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -19,9 +20,14 @@ from app.core.config import ConfigError
 DEFAULT_BUCKET = "case-files"
 
 
+def case_prefix(case_id: object) -> str:
+    """The one folder holding every file of a case (deleting the case removes everything below it)."""
+    return f"cases/{case_id}"
+
+
 def upload_prefix(case_id: object, upload_id: object) -> str:
     """Where an upload's chunks are kept until it completes or expires."""
-    return f"cases/{case_id}/uploads/{upload_id}"
+    return f"{case_prefix(case_id)}/uploads/{upload_id}"
 
 
 class StorageError(RuntimeError):
@@ -48,8 +54,17 @@ def storage_settings(env: Mapping[str, str] | None = None) -> StorageSettings:
 
 
 class SupabaseStorage:
-    def __init__(self, settings: StorageSettings, *, timeout: float = 120) -> None:
+    def __init__(
+        self,
+        settings: StorageSettings,
+        *,
+        timeout: float = 120,
+        list_page_size: int = 1000,
+        delete_batch_size: int = 1000,
+    ) -> None:
         self.settings = settings
+        self.list_page_size = list_page_size
+        self.delete_batch_size = delete_batch_size
         self._client = httpx.AsyncClient(
             base_url=f"{settings.url}/storage/v1",
             headers={"authorization": f"Bearer {settings.service_role_key}", "apikey": settings.service_role_key},
@@ -85,22 +100,52 @@ class SupabaseStorage:
         self._check(resp)
         return resp.content
 
-    async def list(self, prefix: str) -> list[str]:
-        """Full paths of the objects directly under `prefix`, in name order."""
-        prefix = prefix.rstrip("/")
+    async def _list_page(self, prefix: str, offset: int) -> builtins.list[dict[str, object]]:
         resp = await self._client.post(
             f"/object/list/{self.settings.bucket}",
-            json={"prefix": prefix, "limit": 1000, "offset": 0, "sortBy": {"column": "name", "order": "asc"}},
+            json={
+                "prefix": prefix,
+                "limit": self.list_page_size,
+                "offset": offset,
+                "sortBy": {"column": "name", "order": "asc"},
+            },
         )
         self._check(resp)
-        return [f"{prefix}/{item['name']}" for item in resp.json() if item.get("id")]
+        items: builtins.list[dict[str, object]] = resp.json()
+        return items
+
+    async def list(self, prefix: str) -> list[str]:
+        """Full paths of the objects directly under `prefix`, in name order (first page only)."""
+        prefix = prefix.rstrip("/")
+        return [f"{prefix}/{item['name']}" for item in await self._list_page(prefix, 0) if item.get("id")]
+
+    async def list_recursive(self, prefix: str) -> builtins.list[str]:
+        """Full paths of every object anywhere below `prefix`, however many.
+
+        Storage lists one folder level at a time (folders come back without an id), a page at a time.
+        """
+        found: builtins.list[str] = []
+        folders = [prefix.rstrip("/")]
+        while folders:
+            folder = folders.pop()
+            offset = 0
+            while True:
+                items = await self._list_page(folder, offset)
+                for item in items:
+                    path = f"{folder}/{item['name']}"
+                    (found if item.get("id") else folders).append(path)
+                if len(items) < self.list_page_size:
+                    break
+                offset += len(items)
+        return sorted(found)
 
     async def delete(self, paths: Sequence[str]) -> None:
-        """Remove objects by full path. Paths that are already gone are not an error."""
-        if not paths:
-            return
-        resp = await self._client.request("DELETE", f"/object/{self.settings.bucket}", json={"prefixes": list(paths)})
-        self._check(resp)
+        """Remove objects by full path, in batches. Paths that are already gone are not an error."""
+        paths = list(paths)
+        for start in range(0, len(paths), self.delete_batch_size):
+            batch = paths[start : start + self.delete_batch_size]
+            resp = await self._client.request("DELETE", f"/object/{self.settings.bucket}", json={"prefixes": batch})
+            self._check(resp)
 
     async def aclose(self) -> None:
         await self._client.aclose()

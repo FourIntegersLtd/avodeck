@@ -1,7 +1,9 @@
 """Worker entrypoint: runs the app's job registry from the Postgres queue (`app.core.jobs`).
 
-Each slice registers its job kinds on `app.core.jobs.registry`; importing `app.features` here (as
-slices arrive) is what makes them known to the worker. The worker connects as `app_worker` on the
+Each slice registers its job kinds and schedules on `app.core.jobs.registry` in
+`app.features.<name>.jobs`; `build_worker()` imports every feature (`app.core.features`), which is
+what makes them known to the worker. Jobs reach the mailer as `ctx.mailer` (the local outbox until
+the cell has its email service). The worker connects as `app_worker` on the
 direct connection (`DATABASE_URL_DIRECT`), never through the pooler and never as the service role.
 """
 
@@ -15,15 +17,25 @@ import app.core.housekeeping  # noqa: F401 - registers the foundation's daily sc
 import app.core.notifications  # noqa: F401 - the daily messages schedule
 from app.core.config import ConfigError, database_settings
 from app.core.db import Database
+from app.core.email import Mailer, OutboxMailer
+from app.core.features import DEFAULT_PACKAGE, load_features
 from app.core.jobs import JobWorker, registry
 
 
-def build_worker(env: Mapping[str, str] | None = None) -> JobWorker:
-    """The worker, not yet connected."""
+def build_worker(
+    env: Mapping[str, str] | None = None, *, features: str = DEFAULT_PACKAGE, mailer: Mailer | None = None
+) -> JobWorker:
+    """The worker, not yet connected, knowing every feature's jobs."""
     settings = database_settings(env)
     if not settings.url_direct:
         raise ConfigError("DATABASE_URL_DIRECT is not set")
-    return JobWorker(registry, database=Database(settings.url_direct), dsn=settings.url_direct)
+    load_features(features)
+    return JobWorker(
+        registry,
+        database=Database(settings.url_direct),
+        dsn=settings.url_direct,
+        mailer=mailer if mailer is not None else OutboxMailer(),
+    )
 
 
 async def run(env: Mapping[str, str] | None = None) -> None:

@@ -17,7 +17,7 @@ import uuid
 import psycopg
 import pytest
 
-from app.core.contracts.case_tables import CASE_TABLES, KEPT_AFTER_CASE_DELETION
+from app.core.contracts.case_tables import AWAITING_SLICE_MIGRATION, CASE_TABLES, KEPT_AFTER_CASE_DELETION
 from tests.support.contracts import add_fact, add_question, add_report_version
 from tests.support.seed import Seed
 
@@ -318,8 +318,18 @@ def test_every_table_holding_case_data_is_in_the_case_table_registry(admin: psyc
     assert not missing, f"add these case tables to app/core/contracts/case_tables.py: {sorted(missing)}"
     assert not (CASE_TABLES & KEPT_AFTER_CASE_DELETION)
     assert "audit_log" in KEPT_AFTER_CASE_DELETION
-    gone = (CASE_TABLES | KEPT_AFTER_CASE_DELETION) - with_case - {"cases"}
+    assert set(AWAITING_SLICE_MIGRATION) <= CASE_TABLES | KEPT_AFTER_CASE_DELETION
+    gone = (CASE_TABLES | KEPT_AFTER_CASE_DELETION) - with_case - {"cases"} - set(AWAITING_SLICE_MIGRATION)
     assert not gone, f"registry names tables that do not exist: {sorted(gone)}"
+
+
+def test_the_close_slice_tables_are_registered() -> None:
+    assert "legal_holds" in CASE_TABLES
+    assert {"audit_log", "deletion_certificates", "deletion_ledger"} <= KEPT_AFTER_CASE_DELETION
+    # A table registered before its slice creates it names that slice (A-I, O); it leaves this list
+    # once its migration lands. The foundation's deletion_ledger is never awaiting.
+    assert all(slice_ in "ABCDEFGHIO" and len(slice_) == 1 for slice_ in AWAITING_SLICE_MIGRATION.values())
+    assert "deletion_ledger" not in AWAITING_SLICE_MIGRATION
 
 
 # --- citable facts (rule 2) -----------------------------------------------------------------------

@@ -32,6 +32,7 @@ from procrastinate.retry import BaseRetryStrategy, RetryDecision
 from psycopg import AsyncConnection
 
 from app.core.db import Database
+from app.core.email import Mailer, OutboxMailer
 from app.core.errors import ProcessingPaused
 
 logger = logging.getLogger("app.jobs")
@@ -107,8 +108,18 @@ registry = JobRegistry()
 class JobContext:
     """What a running job gets: who it is, its own case's transactions, progress and steps."""
 
-    def __init__(self, database: Database, job_id: uuid.UUID, case_id: uuid.UUID, kind: str, attempt: int) -> None:
+    def __init__(
+        self,
+        database: Database,
+        job_id: uuid.UUID,
+        case_id: uuid.UUID,
+        kind: str,
+        attempt: int,
+        *,
+        mailer: Mailer | None = None,
+    ) -> None:
         self.database = database
+        self.mailer: Mailer = mailer or OutboxMailer()
         self.job_id = job_id
         self.case_id = case_id
         self.kind = kind
@@ -168,8 +179,10 @@ class JobWorker:
         max_attempts: float = 3,
         retry_wait_seconds: float = 5,
         schedule_seconds: float = 3600,
+        mailer: Mailer | None = None,
     ) -> None:
         self.registry = registry
+        self.mailer: Mailer = mailer or OutboxMailer()
         self.database = database
         self.poll_seconds = poll_seconds
         self.heartbeat_seconds = heartbeat_seconds
@@ -275,7 +288,7 @@ class JobWorker:
             await self._finish(case, job, "failed", error_code="unknown_kind")
             return
         try:
-            await kind.handler(JobContext(self.database, job, case, kind_name, attempt))
+            await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
         except ProcessingPaused as paused:
             await self._finish(case, job, "paused", error_code=paused.reason)
             return
