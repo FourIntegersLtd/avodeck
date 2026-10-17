@@ -2,6 +2,7 @@
 // answers produce, the coverage warning, declaring something new mid-case and stepping back (with the code).
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
+import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
@@ -125,6 +126,25 @@ test("declaring something new mid-case gives a note for whoever instructed you",
   const drafted = await screen.findByRole("region", { name: "A note to send" });
   expect(within(drafted).getByText("Something I need to tell you about this case")).toBeInTheDocument();
   expect(within(drafted).getByText("Ms Rees, Rees & Co")).toBeInTheDocument();
+});
+
+test("the note names each declared matter by the question's own words", async () => {
+  conflicts("launch", {
+    complete: true,
+    paragraph: "I disclose the following. I met them once in 2019.",
+    declared_at: "2026-10-05T09:00:00Z",
+    outcome: "none",
+  });
+  const item = { question_id: null, number: null, para_ref: null, label: "Have you met the person?", label_key: null, text: "I met them once in 2019." };
+  server.use(
+    http.post("/v1/cases/:caseId/conflicts/declare", () =>
+      json({ declared_at: "2026-10-17T09:00:00Z", outcome: "disclosed", note: note("conflict_declared", { items: [item] as Schemas["NoteDraft"]["items"] }) }),
+    ),
+  );
+  const { user } = renderAt(`/cases/${CASE_A}/conflicts`);
+  await user.click(await screen.findByRole("button", { name: "Declare this change" }));
+  const drafted = await screen.findByRole("region", { name: "A note to send" });
+  expect(within(drafted).getByText("Have you met the person?: I met them once in 2019.")).toBeInTheDocument();
 });
 
 test("stepping back asks for the code, then records the reason", async () => {

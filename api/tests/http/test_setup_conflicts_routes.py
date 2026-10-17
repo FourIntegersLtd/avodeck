@@ -194,6 +194,19 @@ async def test_declaring_drafts_a_note_to_every_current_instructing_party(
     assert (await client.get(url(world, "conflicts"))).json()["declared_at"] is not None
 
 
+async def test_a_declared_note_names_each_question_in_the_packs_words(
+    client_for: ClientFor, world: dict[str, uuid.UUID]
+) -> None:
+    client = await client_for(world["expert"])
+    answers = all_no()["answers"]
+    answers[KEYS.index(DETAIL_REQUIRED)] = {"key": DETAIL_REQUIRED, "answer": "yes", "detail": DETAIL}
+    assert (await client.put(url(world, "conflicts"), json={"answers": answers})).status_code == 200
+    shown = {q["key"]: q["text"] for q in (await client.get(url(world, "conflicts"))).json()["questions"]}
+
+    items = (await client.post(url(world, "conflicts/declare"))).json()["note"]["items"]
+    assert [(i["label"], i["text"], i["label_key"]) for i in items] == [(shown[DETAIL_REQUIRED], DETAIL, None)]
+
+
 # --- withdrawing -----------------------------------------------------------------------------------
 
 
