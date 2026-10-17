@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useRef, useState, type FormEven
 import { t } from "../i18n";
 import { api, ApiError, unwrap } from "../platform-client";
 import { Button, CodeField, Dialog, Notice } from "../ui";
+import { DevSkipCode } from "./DevSkipCode";
 import { errorMessage } from "./errors";
 
 type Run = <T>(action: () => Promise<T>) => Promise<T | undefined>;
@@ -77,6 +78,7 @@ function StepUpDialog({ onDone }: { onDone: (ok: boolean) => void }) {
           <Button variant="secondary" onClick={() => onDone(false)}>
             {t("step_up.cancel")}
           </Button>
+          <DevSkipCode onVerified={() => onDone(true)} />
         </div>
       </form>
     </Dialog>

@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "../../foundation/i18n";
+import { DevSkipCode } from "../../foundation/lib/DevSkipCode";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, CodeField, Loading, Notice, TextField } from "../../foundation/ui";
@@ -130,6 +131,7 @@ function CodeForm({ onDone, submitLabel }: { onDone: (r: Schemas["Verified"]) =>
         <Button type="submit" wide disabled={busy}>
           {submitLabel}
         </Button>
+        <DevSkipCode onVerified={onDone} />
       </form>
     </>
   );
