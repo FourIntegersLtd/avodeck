@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Conflict-of-interest questions and the statement they produce",
+  "type": "object",
+  "properties": {
+    "questions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "text": {"type": "string", "minLength": 1},
+          "detail_required": {"type": "boolean"}
+        },
+        "additionalProperties": false,
+        "required": ["key", "text", "detail_required"]
+      }
+    },
+    "statement": {
+      "type": "object",
+      "properties": {
+        "none": {"type": "string", "minLength": 1},
+        "disclosed": {"type": "string", "minLength": 1}
+      },
+      "additionalProperties": false,
+      "required": ["none", "disclosed"]
+    }
+  },
+  "additionalProperties": false,
+  "required": ["questions", "statement"]
+}

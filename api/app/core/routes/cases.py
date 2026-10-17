@@ -113,7 +113,7 @@ def _checked(request: Request, body: CaseCreate) -> dict[str, object]:
         raise _invalid("expert_role")
     values = body.model_dump(exclude={"named_expert_id"})
     _check_pack_values(request, (body.jurisdiction, body.case_type, body.specialty), values)
-    _check_period(values.get("period_start"), values.get("period_end"))  # type: ignore[arg-type]
+    _check_period(values.get("period_start"), values.get("period_end"))
     return {**values, "expert_role": expert_role, "pack_versions": Jsonb(pack.versions)}
 
 

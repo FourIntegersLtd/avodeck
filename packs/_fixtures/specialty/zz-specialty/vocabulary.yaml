@@ -1,3 +1,4 @@
 clinician: therapist
 clinicians: therapists
 practice: clinic
+coverage_roles: {practitioner: zz practitioner, supervisor: zz supervisor}

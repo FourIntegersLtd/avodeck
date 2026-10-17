@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
+import hmac
 import json
 import os
 import uuid
@@ -83,6 +84,10 @@ class KeyProvider(Protocol):
 
     def decrypt_data_key(self, wrapped: bytes, context: Mapping[str, str]) -> bytes: ...
 
+    def mac(self, data: bytes, *, purpose: str) -> bytes:
+        """HMAC-SHA256 of `data` under a cell secret for `purpose` that never leaves the provider."""
+        ...
+
 
 def _aad(context: Mapping[str, str]) -> bytes:
     return json.dumps(dict(context), sort_keys=True, separators=(",", ":")).encode()
@@ -99,6 +104,7 @@ class LocalKeyProvider:
             raise ConfigError("the local master key must be 32 bytes")
         self._aead = AESGCM(master_key)
         self._key_ref = "local:" + hashlib.sha256(b"avodeck-key-ref" + master_key).hexdigest()[:16]
+        self._mac_root = hmac.new(master_key, b"avodeck-mac", hashlib.sha256).digest()
         self.reachable = True
 
     @classmethod
@@ -128,6 +134,11 @@ class LocalKeyProvider:
             return self._aead.decrypt(wrapped[:NONCE_BYTES], wrapped[NONCE_BYTES:], _aad(context))
         except (InvalidTag, ValueError) as exc:
             raise CiphertextInvalid("the data key cannot be unwrapped") from exc
+
+    def mac(self, data: bytes, *, purpose: str) -> bytes:
+        self._check()
+        key = hmac.new(self._mac_root, purpose.encode(), hashlib.sha256).digest()
+        return hmac.new(key, data, hashlib.sha256).digest()
 
 
 def key_provider_from_env(env: Mapping[str, str] | None = None) -> KeyProvider:
@@ -266,6 +277,22 @@ class SecretBox:
 
 
 @cache
+def cell_key_provider() -> KeyProvider:
+    """The process's key provider, from the cell config (read on first use)."""
+    return key_provider_from_env()
+
+
+@cache
 def cell_secret_box() -> SecretBox:
     """The process's secret box, from the cell config (read on first use)."""
-    return SecretBox(key_provider_from_env())
+    return SecretBox(cell_key_provider())
+
+
+def subject_key_hash(normalised: str, *, provider: KeyProvider | None = None) -> str:
+    """Keyed hash (hex HMAC-SHA256 under the cell secret) of a normalised subject key, for the duplicate-case
+    check. Callers build `normalised` with `pack.normalise_identifier()`; store and compare only the hash.
+    Raises ProcessingPaused when the key service cannot be reached (fail closed)."""
+    try:
+        return (provider or cell_key_provider()).mac(normalised.encode(), purpose="subject_key").hex()
+    except KeyServiceUnreachable as exc:
+        raise _paused() from exc

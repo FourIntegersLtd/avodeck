@@ -1,5 +1,6 @@
 code: general-practice
 name: General practice
-version: 2026.10.1
+version: 2026.10.2
 profession: doctor
+coverage_roles: [partner, salaried, locum]   # roles that count when checking the expert practised during the case period
 outside_expertise_question_types: [causation]   # flagged on screen 06 and by the lint; the expert decides

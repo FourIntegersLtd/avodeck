@@ -96,7 +96,11 @@ class AiKit:
             await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
         request = ModelRequest(
-            model_id=model_id, system=task.system, context=pack.prompt_context(), text=stripped.text, schema=task.schema
+            model_id=model_id,
+            system=task.system,
+            context=pack.prompt_context(task.task_id),
+            text=stripped.text,
+            schema=task.schema,
         )
         validator = jsonschema_rs.validator_for(dict(task.schema))
         for _ in range(2):

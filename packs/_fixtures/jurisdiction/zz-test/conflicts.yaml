@@ -1,0 +1,11 @@
+# Fixture conflict questions (tests only).
+questions:
+  - key: knows_the_parties
+    text: Have you met the {subject} or the other parties?
+    detail_required: true
+  - key: holds_a_stake
+    text: Do you hold a stake in the result?
+    detail_required: false
+statement:
+  none: Zz no conflicts declared.
+  disclosed: "Zz conflicts declared:"
