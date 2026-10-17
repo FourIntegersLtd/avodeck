@@ -1,0 +1,191 @@
+"""Slice C's worker jobs: `extract_questions` (T-06).
+
+`extract_questions` reads the case's latest letter: OCR, identifiers out (`pii.strip`, rule 7), T-06
+through the AI kit, then the word check (rule 2). Each kept question or assumption stores the original
+words of the run it cites, so the stored wording is always an exact piece of the letter; anything the
+model rewrote is refused and counted. The paragraph reference is read from the letter's layout and the
+"usually outside the expertise" flag from the pack, both in code. Rows start `suggested`, tied to the
+instruction version. A newer letter on a case never served moves the earlier questions to the new
+version: if it adds a question, a confirmed set reopens (they return to suggested, with a warning on
+screen 06); if it adds none, the confirmed set stays confirmed.
+
+No text reaches a log or a job row (rule 6).
+"""
+
+from __future__ import annotations
+
+import logging
+import uuid
+
+from psycopg import AsyncConnection
+
+from app.core.crypto import CaseCrypto
+from app.core.jobs import JobContext, registry
+from app.core.packs import MergedPack
+from app.core.storage import SupabaseStorage
+from app.features.setup import ai_tasks
+from app.features.setup.letter import Letter, checked_items
+from app.features.setup.services import current
+
+logger = logging.getLogger("app.setup")
+
+PARTY_NAME = "party_name"
+
+
+async def case_names(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID) -> list[str]:
+    """The names of the case's parties, for `pii.strip`."""
+    cur = await conn.execute("select name from app.case_parties where case_id = %s order by created_at, id", (case_id,))
+    return [
+        (await crypto.decrypt(conn, case_id, bytes(r[0]), purpose=PARTY_NAME)).decode() for r in await cur.fetchall()
+    ]
+
+
+async def read_document(
+    conn: AsyncConnection, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str
+) -> bytes:
+    parts = []
+    for path in sorted(await storage.list(prefix)):
+        parts.append(await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path))
+    return b"".join(parts)
+
+
+async def read_letter(ctx: JobContext, pack: MergedPack, document_prefix: str, names: list[str]) -> Letter:
+    services = current()
+    _, ocr = services.ai()
+    storage, crypto = services.files()
+    async with ctx.transaction() as conn:
+        document = await read_document(conn, storage, crypto, ctx.case_id, document_prefix)
+    letter = Letter.from_ocr(await ocr.analyse(document, "layout"))
+    letter.mask(pack=pack, names=names, dates_of_birth=())
+    return letter
+
+
+async def _case_pack(conn: AsyncConnection, case_id: uuid.UUID) -> MergedPack:
+    cur = await conn.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
+    row = await cur.fetchone()
+    assert row is not None
+    return current().packs.combine(str(row[0]), str(row[1]), str(row[2]))
+
+
+# --- extract_questions ----------------------------------------------------------------------------------
+
+
+@registry.kind("extract_questions", interactive=True, changes_case=True)
+async def extract_questions(ctx: JobContext) -> None:
+    services = current()
+    kit, _ = services.ai()
+    _, crypto = services.files()
+    async with ctx.transaction() as conn:
+        cur = await conn.execute(
+            "select v.id, v.version_no, d.storage_path from app.instruction_versions v"
+            " join app.documents d on d.id = v.document_id"
+            " where v.case_id = %s and v.kind in ('letter', 'supplementary') order by v.version_no desc limit 1",
+            (ctx.case_id,),
+        )
+        row = await cur.fetchone()
+        if row is None or row[2] is None:
+            return
+        version_id, version_no, prefix = row[0], int(row[1]), str(row[2])
+        cur = await conn.execute(
+            "select 1 from app.instruction_extractions where instruction_version_id = %s", (version_id,)
+        )
+        if await cur.fetchone() is not None:
+            return
+        pack = await _case_pack(conn, ctx.case_id)
+        names = await case_names(conn, crypto, ctx.case_id)
+    await ctx.progress(10, step="ocr")
+    letter = await read_letter(ctx, pack, prefix, names)
+    await ctx.progress(40, step="questions")
+    task = ai_tasks.t06(pack)
+    async with ctx.transaction() as conn:
+        out = await kit.run(conn, task, pack=pack, text=letter.prompt_text(), case_id=ctx.case_id, names=names)
+    questions, rejected_q = checked_items(letter, out["questions"])
+    assumptions, rejected_a = checked_items(letter, out["assumptions"])
+    outside = set(pack.outside_expertise_question_types())
+
+    async def save(conn: AsyncConnection) -> None:
+        served = await _ever_served(conn, ctx.case_id)
+        known_q = await _known(conn, "questions", ctx.case_id)
+        known_a = await _known(conn, "assumptions", ctx.case_id)
+        new_q = [(i, f) for i, f in questions if f.text not in known_q]
+        new_a = [(i, f) for i, f in assumptions if f.text not in known_a]
+        cur = await conn.execute(
+            "select locked_at is not null from app.instruction_versions where case_id = %s and version_no < %s"
+            " order by version_no desc limit 1",
+            (ctx.case_id, version_no),
+        )
+        prev = await cur.fetchone()
+        was_locked = bool(prev and prev[0])
+        reopened = was_locked and bool(new_q or new_a) and not served
+        if not served:
+            for table in ("questions", "assumptions"):
+                status = "'suggested'" if reopened else "status"
+                await conn.execute(
+                    f"update app.{table} set instruction_version_id = %s, status = {status}"  # noqa: S608
+                    " where case_id = %s and instruction_version_id is distinct from %s",
+                    (version_id, ctx.case_id, version_id),
+                )
+        number = await _next_number(conn, "questions", ctx.case_id)
+        for item, found in sorted(new_q, key=lambda q: q[1].start):
+            kind = str(item["kind"])
+            await conn.execute(
+                "insert into app.questions (case_id, instruction_version_id, number, text_verbatim, source_word_ids,"
+                " para_ref, kind, outside_expertise) values (%s, %s, %s, %s, %s, %s, %s, %s)",
+                (
+                    ctx.case_id,
+                    version_id,
+                    number,
+                    found.text,
+                    found.word_ids,
+                    letter.para_ref(found.start),
+                    kind,
+                    kind in outside,
+                ),
+            )
+            number += 1
+        number = await _next_number(conn, "assumptions", ctx.case_id)
+        for _, found in sorted(new_a, key=lambda a: a[1].start):
+            await conn.execute(
+                "insert into app.assumptions (case_id, instruction_version_id, number, text_verbatim, source_word_ids,"
+                " para_ref) values (%s, %s, %s, %s, %s, %s)",
+                (ctx.case_id, version_id, number, found.text, found.word_ids, letter.para_ref(found.start)),
+            )
+            number += 1
+        if was_locked and not new_q and not new_a and not served:
+            await conn.execute("update app.instruction_versions set locked_at = now() where id = %s", (version_id,))
+        await conn.execute(
+            "insert into app.instruction_extractions (instruction_version_id, case_id, job_id, questions, assumptions,"
+            " rejected, reopened, model_task, prompt_version) values (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                version_id,
+                ctx.case_id,
+                ctx.job_id,
+                len(new_q),
+                len(new_a),
+                len(rejected_q) + len(rejected_a),
+                reopened,
+                task.task_id,
+                task.prompt_version,
+            ),
+        )
+
+    await ctx.step("save_questions", save)
+    if rejected_q or rejected_a:
+        logger.info("T-06 refused %d suggestions on case %s", len(rejected_q) + len(rejected_a), ctx.case_id)
+
+
+async def _ever_served(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    cur = await conn.execute("select app.case_ever_served(%s)", (case_id,))
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
+async def _known(conn: AsyncConnection, table: str, case_id: uuid.UUID) -> set[str]:
+    cur = await conn.execute(f"select text_verbatim from app.{table} where case_id = %s", (case_id,))  # noqa: S608
+    return {str(r[0]) for r in await cur.fetchall()}
+
+
+async def _next_number(conn: AsyncConnection, table: str, case_id: uuid.UUID) -> int:
+    cur = await conn.execute(f"select coalesce(max(number), 0) + 1 from app.{table} where case_id = %s", (case_id,))  # noqa: S608
+    row = await cur.fetchone()
+    return int(row[0]) if row else 1

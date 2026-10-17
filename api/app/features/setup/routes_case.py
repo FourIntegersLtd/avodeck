@@ -22,6 +22,7 @@ from app.core.auth.access import CaseAccess, check_case_access, require_case_acc
 from app.core.crypto import CaseCrypto, subject_key_hash
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
+from app.core.jobs import registry
 from app.core.packs import MergedPack
 from app.features.setup.common import cell, invalid, library, not_found
 from app.features.setup.router import router
@@ -462,6 +463,7 @@ class Instruction(BaseModel):
 
 class InstructionCreated(Instruction):
     reopens_questions: bool = Field(description="The previous version was locked; its questions reopen.")
+    job_id: uuid.UUID | None = Field(default=None, description="The job reading the letter for questions.")
 
 
 class InstructionIn(BaseModel):
@@ -559,6 +561,9 @@ async def add_instruction(case_id: uuid.UUID, body: InstructionIn, access: Uploa
         if await cur.fetchone() is None:
             raise invalid("document_id")
     version_id, number, reopens = await _new_version(conn, case_id, body.kind, body.document_id, body.received_on)
+    job_id = None
+    if body.document_id is not None:
+        job_id = await registry.enqueue(conn, case_id, "extract_questions")
     return InstructionCreated(
         id=version_id,
         version_no=number,
@@ -567,6 +572,7 @@ async def add_instruction(case_id: uuid.UUID, body: InstructionIn, access: Uploa
         received_on=body.received_on,
         locked=False,
         reopens_questions=reopens,
+        job_id=job_id,
     )
 
 
