@@ -201,8 +201,11 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | type_key | What sort of instructing party (solicitor, insurer, coroner…) from the pack |
 | name / firm / email | Who they are and where to send things |
-| is_joint | Whether the expert is jointly instructed (both sides) |
+| reference | Their own reference for the case, if given |
 | effective_from / effective_to | When this party took over or stopped (e.g. a change of firm) |
+| replaces_id | The earlier row this one took over from, after a change of firm |
+
+A joint expert is one with two or more current instructing parties; no separate flag is stored.
 
 ### case_links
 | Field | In plain words |
@@ -217,8 +220,21 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | kind | Original letter, supplementary letter, or oral instructions |
 | document_id | The letter itself (if written) |
 | received_on | When the instructions were received |
-| text | The typed or dictated wording of oral instructions (slice C; not in the foundation table) |
 | locked_at / locked_by | When and by whom the questions in this version were locked; never undone |
+
+### case_instructions
+| Field | In plain words |
+|---|---|
+| instruction_version_id | The oral instruction version these words belong to |
+| text | The words of the oral instructions, encrypted under the case key |
+| source | Typed, or dictated (from a saved transcript) |
+| transcript_id | The dictation they came from, if dictated |
+| received_on | The date the instructions were given |
+
+### case_subject_keys
+| Field | In plain words |
+|---|---|
+| key_hash | A keyed fingerprint of the subject's identifier, used only to warn about duplicate cases; the identifier itself is never kept |
 
 ### conflict_answers
 | Field | In plain words |

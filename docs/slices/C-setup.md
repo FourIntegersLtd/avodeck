@@ -42,7 +42,7 @@ OCR the letter of instruction (T-07a kit) → `pii.strip` → **T-06** → exact
 - **Out:** confirmed `questions` (used by D, E, F, G), expert profile, roles and template (F), signature (F), declaration (F), conflicts text (F).
 
 ## Acceptance tests (write first)
-- [ ] Roles store date ranges; conflicts screen warns when no role in the expert's specialty (settings from the specialty pack) covers the case period (Feb–Aug 2024 in the fixture)
+- [ ] Roles store date ranges; conflicts screen warns when no role in the expert's specialty (settings from the specialty pack) covers the case period (2024-02-01 to 2024-09-30 in the fixture, from `evals/.../expected/case.json`)
 - [ ] Uploading the fixture `.docx` template stores the original unchanged (same SHA-256) and returns its heading map
 - [ ] Declaration can be edited until the expert's first report is served, then returns 409
 - [ ] The statement of truth and declaration wording shown come from the `gb-eaw` pack and cannot be changed by the expert
@@ -63,9 +63,9 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Test inputs:** synthetic files in `bundles/synthetic-mrs-a/inputs/` (built by `make eval-data`), expected results in `evals/gb-eaw/clin-neg-breach/general-practice/expected/inputs.json` under `instruction_version_2`.
 
-**Extra tables owned:** `case_parties`, `case_instructing_parties`, `case_links`, `instruction_versions`. Screens for `case_members` (table from foundation).
+**Extra tables owned:** `case_parties`, `case_instructing_parties`, `case_links`, `case_instructions` (oral wording), `case_subject_keys` (migration 0310). `instruction_versions` is a foundation table (0017) that this slice fills. Screens for `case_members` (table from foundation).
 
-**Extra endpoints:** `GET/POST /v1/cases/{id}/members`, `DELETE /v1/cases/{id}/members/{member_id}`, `GET/POST /v1/cases/{id}/parties`, `PATCH/DELETE /v1/cases/{id}/parties/{party_id}`, `GET/POST /v1/cases/{id}/instructing-parties`, `PATCH /v1/cases/{id}/instructing-parties/{ip_id}`, `GET/POST /v1/cases/{id}/instructions`, `GET/POST /v1/cases/{id}/links`, `DELETE /v1/cases/{id}/links/{link_id}`, `POST /v1/cases/{id}/conflicts/declare`, `POST /v1/cases/{id}/withdraw` 🔒, `POST /v1/cases/{id}/hold`, `POST /v1/cases/{id}/resume`, `PATCH /v1/cases/{id}/jurisdiction` 🔒, `POST /v1/cases/duplicate-check`.
+**Extra endpoints:** `GET/POST /v1/cases/{id}/members`, `DELETE /v1/cases/{id}/members/{member_id}`, `GET/POST /v1/cases/{id}/parties`, `PATCH/DELETE /v1/cases/{id}/parties/{party_id}`, `GET/POST /v1/cases/{id}/instructing-parties`, `PATCH /v1/cases/{id}/instructing-parties/{ip_id}`, `GET/POST /v1/cases/{id}/instructions`, `GET/POST /v1/cases/{id}/links`, `DELETE /v1/cases/{id}/links/{link_id}`, `POST /v1/cases/{id}/conflicts/declare`, `POST /v1/cases/{id}/withdraw` 🔒, `POST /v1/cases/{id}/hold`, `POST /v1/cases/{id}/resume`, `PATCH /v1/cases/{id}/jurisdiction` 🔒, `POST /v1/cases/duplicate-check`; added in chunk A: `PUT /v1/cases/{id}/subject-key` (stores the keyed hash the duplicate check compares) and `GET /v1/cases/{id}/subject` (the subject's words for the current status).
 
 - [ ] New case asks "Who is this case for?" and sets `organisation_id` and `named_expert_id`
 - [ ] Any number of parties with pack role keys; a joint expert has two instructing parties and every draft is addressed to both (S4)
@@ -73,7 +73,8 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [ ] A conflict declared mid-case drafts a note; withdrawal sets status `withdrawn`, keeps served reports locked and cancels deadlines (S16)
 - [ ] Duplicate-case warning compares a keyed hash of the subject identifier; the identifier is never stored
 - [ ] Jurisdiction can change only before serving (409 after), with packs re-stamped and changes listed
-- [ ] On hold pauses reminders and queues jobs; resume restores them
+- [ ] On hold pauses reminders and queues jobs; resume restores them (chunk A: hold/resume set `cases.on_hold`; no reminder or job code reads the flag yet, so pausing waits for the slices that own reminders and the job queue)
+- Open: `docs/spec/behaviour-index.md` says parties are "editable until served; then additions only". Chunk A refuses new parties after serving (409) and the database refuses changes and removals; allowing additions after serving needs a founder decision because the committed test asserts 409.
 - [ ] Subject status (living, deceased, minor) changes only vocabulary, proven under the fixture packs
 
 ## Rules that apply
