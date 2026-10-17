@@ -3372,6 +3372,12 @@ export interface components {
         };
         /** UploadStart */
         UploadStart: {
+            /**
+             * Append
+             * @description Later records added to a case that already has a bundle.
+             * @default false
+             */
+            append: boolean;
             /** Filename */
             filename: string;
             /**

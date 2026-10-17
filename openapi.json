@@ -5159,6 +5159,12 @@
       },
       "UploadStart": {
         "properties": {
+          "append": {
+            "default": false,
+            "description": "Later records added to a case that already has a bundle.",
+            "title": "Append",
+            "type": "boolean"
+          },
           "filename": {
             "maxLength": 255,
             "minLength": 1,

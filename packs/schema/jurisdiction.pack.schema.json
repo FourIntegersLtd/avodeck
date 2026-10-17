@@ -107,6 +107,11 @@
       "type": "integer",
       "minimum": 1
     },
+    "quarantine_purge_days": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Days a file that failed the virus scan is kept, set aside, before it is purged."
+    },
     "speech": {
       "type": "object",
       "properties": {
@@ -154,6 +159,7 @@
     "holidays",
     "registration_bodies",
     "default_retention_years",
-    "speech"
+    "speech",
+    "quarantine_purge_days"
   ]
 }

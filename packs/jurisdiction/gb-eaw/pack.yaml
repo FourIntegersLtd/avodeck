@@ -1,6 +1,6 @@
 code: gb-eaw
 name: England and Wales
-version: 2026.10.4
+version: 2026.10.5
 cell: uk
 locale: en-GB
 language: en
@@ -19,6 +19,7 @@ registration_bodies:       # by profession (the specialty pack declares the prof
   psychologist: [HCPC]
   dentist: [GDC]
 default_retention_years: 6 # expert's default; configurable per case
+quarantine_purge_days: 14        # a file that failed the virus scan is set aside this long, then purged
 speech: {locale: en-GB}
 legal_system: common law
 court_tracks: [small_claims, fast, intermediate, multi]     # optional registry; hidden where a jurisdiction has none
