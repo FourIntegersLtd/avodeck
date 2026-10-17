@@ -270,8 +270,8 @@ The records received, every page and word, and the facts found on them.
 | `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | fact_id, person_id, action, old_value, new_value, reason, at |
 | `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, read_at, dwell_seconds, prev_hash, hash |
 | `fact_flags` | Facts the expert marked to come back to under "points against". | case_id, fact_id, person_id, flagged_for, at |
-| `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description, citing_page_id, status |
-| `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, gap_start, gap_end, confirmed |
+| `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description (sealed), citing_page_id, reference_key, word_ids, reference_date, status, reason (sealed), received_page_id, version |
+| `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
 | `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on |
 
 ### 4.5 Understand
@@ -499,7 +499,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/duplicates` | Pairs to review; thumbnails via `/pages/{page_no}/thumbnail` |
 | PATCH | `/cases/{case_id}/pages/{page_id}/duplicate` | Confirm or undo "copy of page X" |
 | PATCH | `/cases/{case_id}/documents/{doc_id}` | Edit provenance (how obtained, received date) |
-| PATCH | `/cases/{case_id}/missing-items/{item_id}` | Confirm / dismiss / mark received |
+| GET | `/cases/{case_id}/missing-items` | Documents pages mention that the bundle does not hold, with the page that mentions each |
+| PATCH | `/cases/{case_id}/missing-items/{item_id}` | Not available (reason), open again, or mark received (a page added later); If-Match |
 
 **08b Ask the instructing party** (pack label: "Ask the solicitor")
 

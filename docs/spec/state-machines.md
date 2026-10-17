@@ -141,9 +141,11 @@ suggested → confirmed / edited (expert, screen 06; `text_verbatim` kept) → s
 | From → to | Trigger | Guard |
 |---|---|---|
 | open → requested | Request sent (08b) | Linked `instructing_party_requests` row |
-| requested → received | Expert links an appended page, or accepts the matcher's suggestion | Page exists in a later bundle version |
+| requested → received | Expert links an appended page, or accepts the matcher's suggestion | Page of the case added after the item was listed |
 | open/requested → not_available | Expert, reason required | — |
-| not_available → open | Expert | — |
+| not_available → open | Expert | Reason cleared |
+
+Items start `open` (the worker, T-07c). `received` is final. `PATCH /cases/{id}/missing-items/{item_id}` (named expert or assistant, `request.draft`) makes only the received, not_available and open changes; `requested` is set only by sending a request (08b). Any other change is 409, and the database refuses it too.
 
 ## Fact–question link (`fact_question_links.status`)
 

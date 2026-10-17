@@ -389,16 +389,28 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### missing_items
 | Field | In plain words |
 |---|---|
-| description | The document that seems to be missing (e.g. colonoscopy report) |
+| description | The document that seems to be missing (e.g. colonoscopy report), only in words from the page; sealed |
 | citing_page_id | The page that mentions it |
+| reference_key | Which mention on that page (r1, r2, ...); each mention is listed once |
+| word_ids | The words on the page that mention it |
+| reference_date | The date printed with the mention, if any |
+| confidence | How sure the model was that no page holds it |
 | status | Open, requested, received, not available |
+| reason | Why it is not available (required for not available); sealed |
+| received_page_id | The page added later that holds it (required for received) |
+| updated_by | Who last changed it |
+| version | Changes each time it is changed (If-Match) |
 
 ### record_gaps
 | Field | In plain words |
 |---|---|
 | source_type | Which record source goes quiet |
-| gap_start / gap_end | The quiet period |
-| confirmed | Whether the expert agrees it's a real gap |
+| fact_kind | Which kind of entry stops (e.g. the list of consultations) |
+| gap_start / gap_end | The quiet period: from the month after the last entry to the end of the source's last month |
+| last_page_id | The page with the last entry before the gap |
+| confirmed | Whether the expert agrees it's a real gap (empty until reviewed; reviewed gaps are not recalculated) |
+| confirmed_by / confirmed_at | Who reviewed it and when |
+| version | Changes each time it is changed (If-Match) |
 
 ### instructing_party_requests
 | Field | In plain words |

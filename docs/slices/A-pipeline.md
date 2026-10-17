@@ -32,7 +32,7 @@ split (pikepdf) → render 150–200 dpi (pypdfium2) → hashes → text-layer c
 |---|---|---|---|
 | T-07a | Azure DI `prebuilt-layout` | words, polygons, confidence, handwriting | low confidence → screen 10 queue |
 | T-07b | Claude Sonnet 5 (in-region) | `source_type`, `printed_dates[]`, `facts[]`, `references_out[]`, `availability_evidence[]`, `actions_requested_of_clinician[]`, all with `word_ids` | value-in-span; one retry then `needs_human` |
-| T-07c | bge-small + Sonnet 5 | `{reference_id, matched_page or null, confidence}` | unmatched → missing list; expert confirms |
+| T-07c | Sonnet 5 (candidate pages chosen by code, nearest by date then page number, until bge-small is in the cell) | `{reference_id, matched_page or null, confidence}` | unmatched, or a page the case lacks → missing list; expert confirms |
 
 ## Contracts
 - **In:** foundation uploads, jobs, AI kit, `pages` and `facts` contracts.

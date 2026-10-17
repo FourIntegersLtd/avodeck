@@ -32,7 +32,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `comment.write` | ✓ | ✓ | ✓ | ✓ | — | — |
 | `report.build` | ✓ | — | — | ✓ | — | — |
 | `report.sign` 🔒, `report.serve` 🔒, `report.withdraw` 🔒 | ✓ | — | — | — | — | — |
-| `request.draft` (instructing-party emails) | ✓ | — | — | ✓ | — | — |
+| `request.draft` (instructing-party emails; missing-item status: not available, open again, received) | ✓ | — | — | ✓ | — | — |
 | `request.send` 🔒 | ✓ | — | — | — | — | — |
 | `invoice.create` (draft) | ✓ | — | — | ✓ (draft only) | — | ✓ (team cases) |
 | `invoice.send` 🔒, `credit_note.issue` 🔒 | ✓ | — | — | — | — | ✓ (team cases) |
@@ -62,6 +62,7 @@ Row-level security lets a person update a row; triggers then check each change a
 - Creating a case: the creator is an owner, admin or expert of the organisation and names themselves, or an assistant naming an owner, admin or expert member; an assistant who creates a case joins it as its assistant.
 - `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`, → settled `case.settle`, → archived `case.archive`, settled or archived → active `case.reopen`; any other move and every other column `case.edit_setup`.
 - `app.purge_case()`: only the worker, inside the case's own job (`app.job_case_id`); refused while the case is on hold or under an active legal hold.
+- `missing_items`: status, reason and received page change only with `request.draft`; the description and the page it cites never change; the worker inserts.
 - `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one.
 
 ## Organisation actions
