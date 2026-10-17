@@ -39,7 +39,7 @@ def world(seed: Seed, admin: psycopg.Connection) -> dict[str, uuid.UUID]:
     org = seed.org(kind="team", members={expert: "expert", assistant: "assistant", viewer: "expert"})
     seed.org(kind="personal", members={outsider: "owner"})
     case = seed.case(org, expert, status="active", members={assistant: "assistant", viewer: "viewer"})
-    other = seed.case(org, expert, status="active")
+    other = seed.case(org, expert, status="active", members={assistant: "assistant", viewer: "viewer"})
     row = admin.execute(
         "insert into app.instruction_versions (case_id, version_no, kind) values (%s, 1, 'oral') returning id",
         (case,),

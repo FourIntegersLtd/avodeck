@@ -1,8 +1,8 @@
 """A case link needs access to both cases (slice C review finding 6, rule 9).
 
 Row-level security on `case_links` insert checks `case.edit_setup` on the case and that the linked case is
-one the person can see (`case.view_metadata`) or one in the same organisation, so nobody can link to (and
-so learn of) a case in another organisation that they cannot see.
+one the person can see (`case.view_metadata`); a case in the same organisation that they cannot see is
+refused too (founder decision), so a link never reveals a case.
 """
 
 from __future__ import annotations
@@ -33,3 +33,14 @@ async def test_a_link_to_a_case_you_cannot_see_is_refused(api_db: Database, seed
         await conn.execute(LINK, (case, mine))
         row = await (await conn.execute("select count(*) from app.case_links where case_id = %s", (case,))).fetchone()
     assert row == (1,)
+
+
+async def test_a_link_to_a_colleagues_case_you_cannot_see_is_refused(api_db: Database, seed: Seed) -> None:
+    expert, assistant = seed.person(), seed.person()
+    org = seed.org(kind="team", members={expert: "expert", assistant: "assistant"})
+    mine = seed.case(org, expert, status="active", members={assistant: "assistant"})
+    colleagues = seed.case(org, expert, status="active")
+
+    with pytest.raises(psycopg.errors.InsufficientPrivilege):
+        async with api_db.request(scope_for(assistant)) as conn:
+            await conn.execute(LINK, (mine, colleagues))

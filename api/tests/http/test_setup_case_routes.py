@@ -157,12 +157,25 @@ async def test_a_party_role_must_come_from_the_packs(client_for: ClientFor, worl
     assert (await (await client_for(world["outsider"])).get(url(world, "parties"))).status_code == 404
 
 
-async def test_parties_are_fixed_after_serving(client_for: ClientFor, seed: Seed, world: dict[str, uuid.UUID]) -> None:
+async def test_a_party_can_be_added_after_serving_but_not_changed_or_removed(
+    client_for: ClientFor, seed: Seed, world: dict[str, uuid.UUID]
+) -> None:
     served = seed.case(world["org"], world["expert"], status="served")
+    seed.admin.execute(
+        "insert into app.case_parties (id, case_id, role_key, name) values (%s, %s, %s, '\\x00')",
+        (existing := uuid.uuid4(), served, PARTY_ROLES[0]),
+    )
     client = await client_for(world["expert"])
-    resp = await client.post(f"/v1/cases/{served}/parties", json={"role_key": PARTY_ROLES[0], "name": "X"})
-    assert resp.status_code == 409
-    assert resp.json()["error"]["code"] == "conflict"
+    added = await client.post(f"/v1/cases/{served}/parties", json={"role_key": PARTY_ROLES[0], "name": "X"})
+    assert added.status_code == 201, added.text
+    changed = await client.patch(
+        f"/v1/cases/{served}/parties/{existing}", json={"name": "Y"}, headers={"if-match": added.headers["etag"]}
+    )
+    assert changed.status_code == 409
+    assert changed.json()["error"]["code"] == "conflict"
+    removed = await client.delete(f"/v1/cases/{served}/parties/{existing}")
+    assert removed.status_code == 409
+    assert removed.json()["error"]["code"] == "conflict"
 
 
 # --- instructing parties ---------------------------------------------------------------------------
@@ -324,6 +337,20 @@ async def test_a_link_needs_a_case_you_can_see(client_for: ClientFor, seed: Seed
     assert (
         await client.post(url(world, "links"), json={"linked_case_id": str(other), "kind": "nope"})
     ).status_code == 422
+
+
+async def test_a_link_needs_access_to_both_cases_and_the_other_answers_not_found(
+    client_for: ClientFor, seed: Seed, world: dict[str, uuid.UUID]
+) -> None:
+    # A colleague's case in the same organisation that the assistant is not a member of.
+    colleagues = seed.case(world["org"], world["colleague"], status="active")
+    assistant = await client_for(world["assistant"])
+    body = {"linked_case_id": str(colleagues), "kind": "related"}
+    refused = await assistant.post(url(world, "links"), json=body)
+    assert refused.status_code == 404
+    missing = await assistant.post(url(world, "links"), json={**body, "linked_case_id": str(uuid.uuid4())})
+    assert missing.status_code == 404
+    assert refused.json() == missing.json()
 
 
 # --- duplicate check -------------------------------------------------------------------------------
