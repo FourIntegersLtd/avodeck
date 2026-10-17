@@ -31,16 +31,16 @@ None.
 - **Out:** deletion certificates; evidence for the DPIA.
 
 ## Acceptance tests (write first)
-- [ ] Export, retention change and deletion refuse without step-up (403 `step_up_required`)
-- [ ] Export ZIP contains every report version with matching SHA-256, the methodology log, the page-read log and the invoice; download works once and is audited
-- [ ] `keep_default` sets `delete_after` to six years after settlement; `delete_now` schedules deletion today
-- [ ] Deletion removes every row for the case from every table listed in `case_tables.py`, and every Storage object under the case prefix (verified by listing)
-- [ ] A new case table added without registering in `case_tables.py` fails a core test
-- [ ] After deletion, the case key is destroyed and any remaining backup blob cannot be decrypted
-- [ ] Certificate lists counts, hashes, deletion time and the date backups expire; it is emailed to the expert and the instructing party with no patient details
-- [ ] Archive and reopen change status and recalculate `delete_after`
-- [ ] Deletion job is idempotent and resumes safely if interrupted
-- [ ] Screen 26 passes Playwright + axe and matches its canvas board
+- [x] Export, retention change and deletion refuse without step-up (403 `step_up_required`)
+- [ ] Export ZIP contains every report version with matching SHA-256, the methodology log, the page-read log and the invoice; download works once and is audited (built: report versions, hashes, logs; methodology, page-read and invoice files wait on B, F, C contracts)
+- [x] `keep_default` sets `delete_after` to six years after settlement; `delete_now` schedules deletion today
+- [x] Deletion removes every row for the case from every table listed in `case_tables.py`, and every Storage object under the case prefix (verified by listing)
+- [x] A new case table added without registering in `case_tables.py` fails a core test
+- [x] After deletion, the case key is destroyed and any remaining backup blob cannot be decrypted
+- [ ] Certificate lists counts, hashes, deletion time and the date backups expire; it is emailed to the expert and the instructing party with no patient details (built for the named expert; instructing-party contacts wait on C; certificate is JSON until a PDF library lands)
+- [x] Archive and reopen change status and recalculate `delete_after`
+- [x] Deletion job is idempotent and resumes safely if interrupted
+- [x] Screen 26 passes Playwright + axe and matches its canvas board
 
 ## Behaviour rules this slice must build (architecture 10, 5.4)
 
@@ -50,12 +50,12 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Extra endpoints:** `POST /v1/cases/{id}/legal-holds` 🔒, `POST /v1/cases/{id}/legal-holds/{hold_id}/release` 🔒, `GET /v1/cases/{id}/audit`.
 
-- [ ] Deletion skips a case with an active legal hold and notifies the named expert (S13, F30)
-- [ ] Every deleted case ID goes in `deletion_ledger`; the restore runbook replays it before reopening (S14, F29)
-- [ ] On deletion, audit rows are kept as pseudonymised metadata; `page_reads` and `fact_verifications` go, with their chain heads on the certificate
-- [ ] Quarantined pages, superseded pages and exhibits are included in deletion
-- [ ] Organisation admins get an administrative export (no page images); the named expert gets the full export
-- [ ] Withdrawn cases follow the same retention as settled ones
+- [x] Deletion skips a case with an active legal hold and notifies the named expert (S13, F30)
+- [x] Every deleted case ID goes in `deletion_ledger`; the restore runbook replays it before reopening (S14, F29)
+- [ ] On deletion, audit rows are kept as pseudonymised metadata; `page_reads` and `fact_verifications` go, with their chain heads on the certificate (chain heads built; audit pseudonymisation awaits a founder decision)
+- [x] Quarantined pages, superseded pages and exhibits are included in deletion
+- [x] Organisation admins get an administrative export (no page images); the named expert gets the full export
+- [x] Withdrawn cases follow the same retention as settled ones
 
 ## Rules that apply
 4, 5, 6, 9, 10 from the root `AGENTS.md`.
