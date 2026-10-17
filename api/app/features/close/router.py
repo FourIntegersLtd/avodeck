@@ -15,7 +15,8 @@ from fastapi.responses import StreamingResponse
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
-from app.core.http import DbConn, router
+from app.core.http import DbConn
+from app.core.http import router as make_router
 from app.core.packs import PackLibrary
 from app.core.storage import SupabaseStorage
 from app.features.close import jobs as _jobs  # noqa: F401  (registers export_case and delete_case)
@@ -31,7 +32,7 @@ from app.features.close.schemas import (
     RetentionChange,
 )
 
-router = router(prefix="/v1/cases/{case_id}", tags=["close"])
+router = make_router(prefix="/v1/cases/{case_id}", tags=["close"])
 
 
 def _packs(request: Request) -> PackLibrary:

@@ -22,13 +22,13 @@ _HOLD = "select id, reason, until, set_by, created_at, released_at from app.lega
 
 async def _one(conn: AsyncConnection, query: str, params: tuple[Any, ...]) -> dict[str, Any] | None:
     async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(query, params)  # type: ignore[arg-type]
+        await cur.execute(query, params)
         return await cur.fetchone()
 
 
 async def _all(conn: AsyncConnection, query: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
     async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(query, params)  # type: ignore[arg-type]
+        await cur.execute(query, params)
         return await cur.fetchall()
 
 
@@ -47,7 +47,7 @@ async def case(conn: AsyncConnection, case_id: uuid.UUID, *, lock: bool = False)
 
 async def update_case(conn: AsyncConnection, case_id: uuid.UUID, **values: Any) -> None:
     columns = ", ".join(f"{name} = %s" for name in values)  # names are this module's own constants
-    await conn.execute(f"update app.cases set {columns} where id = %s", (*values.values(), case_id))  # type: ignore[arg-type]
+    await conn.execute(f"update app.cases set {columns} where id = %s", (*values.values(), case_id))
 
 
 async def active_holds(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
