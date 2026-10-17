@@ -1,5 +1,6 @@
 // Slice screens mount inside the case frame: CaseLayout renders the matched child route (an <Outlet/>)
-// and shows the "coming" notice only when no child matches. routes.tsx mounts slice C's routes.
+// and shows the "coming" notice only when no child matches. Slice C's routes are found by convention
+// (capabilityRoutes.ts): setupRoutes at the top level, setupCaseRoutes inside the case frame.
 import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { expect, test } from "vitest";
@@ -7,7 +8,7 @@ import { setupCaseRoutes, setupRoutes } from "../capabilities/setup";
 import { http, json, server, signedIn } from "../test/api";
 import { AppProviders } from "./AppProviders";
 import { CaseLayout } from "./CaseLayout";
-import source from "./routes.tsx?raw";
+import { capabilityCaseRoutes, capabilityRoutes } from "./capabilityRoutes";
 
 const CASE = "11111111-1111-4111-8111-111111111111";
 
@@ -39,9 +40,8 @@ test("the case itself still shows the frame and the coming notice", async () => 
   expect(screen.queryByText("Child screen")).toBeNull();
 });
 
-test("routes.tsx mounts slice C's signed-in and case routes", () => {
-  expect(Array.isArray(setupRoutes)).toBe(true);
-  expect(Array.isArray(setupCaseRoutes)).toBe(true);
-  expect(source).toMatch(/\.\.\.setupRoutes/);
-  expect(source).toMatch(/children:\s*\[\s*\.\.\.setupCaseRoutes/);
+test("slice C's signed-in and case routes are mounted by convention", () => {
+  expect(capabilityRoutes).toEqual(expect.arrayContaining(setupRoutes));
+  expect(capabilityCaseRoutes).toEqual(expect.arrayContaining(setupCaseRoutes));
+  for (const r of setupCaseRoutes) expect(capabilityRoutes).not.toContain(r);
 });
