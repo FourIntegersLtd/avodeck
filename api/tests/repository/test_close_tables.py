@@ -303,3 +303,104 @@ def test_holds_past_their_end_date_are_released(
 def test_the_daily_functions_are_the_workers(fn: str, api_dsn: str, team: dict[str, uuid.UUID]) -> None:
     with pytest.raises(Refused), as_person(api_dsn, team["expert"]) as conn:
         conn.execute(f"select {fn}")  # noqa: S608
+
+
+# --- after review: releases, finished certificates, withdrawal ------------------------------------------
+
+
+def refused(api_dsn: str, person: uuid.UUID, sql: str, params: tuple[object, ...]) -> str | None:
+    with pytest.raises(psycopg.Error) as err, as_person(api_dsn, person) as conn:
+        conn.execute(sql, params)  # type: ignore[arg-type]
+    return err.value.sqlstate
+
+
+RELEASE = "update app.legal_holds set released_at = now(), released_by = %s where id = %s"
+UNRELEASE = "update app.legal_holds set released_at = null, released_by = null where id = %s"
+
+
+def test_a_released_hold_is_never_unreleased_or_released_again(
+    api_dsn: str, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    hold = add_hold(admin, team["case"], team["expert"])
+    with as_person(api_dsn, team["expert"]) as conn:
+        conn.execute(RELEASE, (team["expert"], hold))
+    assert refused(api_dsn, team["expert"], UNRELEASE, (hold,)) == "AV409"
+    assert refused(api_dsn, team["owner"], RELEASE, (team["owner"], hold)) == "AV409"
+    row = admin.execute("select released_by from app.legal_holds where id = %s", (hold,)).fetchone()
+    assert row == (team["expert"],)
+
+
+def test_a_release_is_by_the_person_releasing_it_now(
+    api_dsn: str, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    hold = add_hold(admin, team["case"], team["expert"])
+    assert refused(api_dsn, team["expert"], RELEASE, (team["owner"], hold)) == "AV409"
+    backdated = "update app.legal_holds set released_at = now() - interval '1 day', released_by = %s where id = %s"
+    assert refused(api_dsn, team["expert"], backdated, (team["expert"], hold)) == "AV409"
+    assert refused(api_dsn, team["expert"], UNRELEASE, (hold,)) == "AV409"
+
+
+def test_a_finished_certificate_never_changes(worker_dsn: str, team: dict[str, uuid.UUID]) -> None:
+    case = team["case"]
+    with as_job(worker_dsn, case) as conn:
+        conn.execute("insert into app.deletion_certificates (case_id) values (%s)", (case,))
+    with as_job(worker_dsn, case) as conn:  # still running: it may be completed
+        conn.execute("update app.deletion_certificates set sent_to = '{named_expert}' where case_id = %s", (case,))
+        conn.execute("update app.deletion_certificates set deleted_at = now() where case_id = %s", (case,))
+    for change in ("counts = '{\"pages\": 1}'", "deleted_at = null", "sent_to = '{}'", "backup_expiry_on = null"):
+        with pytest.raises(psycopg.Error) as err, as_job(worker_dsn, case) as conn:
+            conn.execute(f"update app.deletion_certificates set {change} where case_id = %s", (case,))  # noqa: S608
+        assert err.value.sqlstate == "AV409", change
+
+
+def withdraw_on(admin: psycopg.Connection, case: uuid.UUID, day: date) -> None:
+    with admin.transaction():
+        admin.execute("set local session_replication_role = replica")
+        admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
+    admin.execute(
+        "insert into app.audit_log (case_id, action, target, at)"
+        " values (%s, 'case.withdrawn', %s, (%s::date + time '12:00')::timestamptz)",
+        (case, f"case:{case}", day),
+    )
+
+
+def test_withdrawing_a_case_records_the_day_for_its_members(
+    api_dsn: str, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = team["case"]
+    admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
+    audit = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'case.withdrawn'", (case,)
+    ).fetchone()
+    assert audit == (1,)
+    with as_person(api_dsn, team["assistant"]) as conn:
+        assert conn.execute("select app.close_withdrawn_on(%s)", (case,)).fetchone() == (date.today(),)
+    with pytest.raises(Refused), as_person(api_dsn, team["outsider"]) as conn:
+        conn.execute("select app.close_withdrawn_on(%s)", (case,))
+
+
+def test_withdrawn_cases_move_to_the_archive_after_the_given_days(
+    worker_dsn: str, admin: psycopg.Connection, seed: Seed, team: dict[str, uuid.UUID]
+) -> None:
+    old = seed.case(team["org"], team["expert"], status="active")
+    recent = seed.case(team["org"], team["expert"], status="active")
+    withdraw_on(admin, old, date.today() - timedelta(days=31))
+    withdraw_on(admin, recent, date.today() - timedelta(days=5))
+    with as_job(worker_dsn, None) as conn:
+        conn.execute("select app.close_auto_archive(%s, 30)", (date.today(),))
+    statuses = dict(admin.execute("select id, status from app.cases where id = any(%s)", ([old, recent],)).fetchall())
+    assert statuses == {old: "archived", recent: "withdrawn"}
+
+
+def test_deletion_started_is_seen_by_every_case_member_and_no_outsider(
+    worker_dsn: str, api_dsn: str, team: dict[str, uuid.UUID]
+) -> None:
+    case = team["case"]
+    with as_person(api_dsn, team["assistant"]) as conn:
+        assert conn.execute("select app.close_deletion_started(%s)", (case,)).fetchone() == (False,)
+    with as_job(worker_dsn, case) as conn:
+        conn.execute("insert into app.deletion_certificates (case_id) values (%s)", (case,))
+    with as_person(api_dsn, team["assistant"]) as conn:
+        assert conn.execute("select app.close_deletion_started(%s)", (case,)).fetchone() == (True,)
+    with pytest.raises(Refused), as_person(api_dsn, team["outsider"]) as conn:
+        conn.execute("select app.close_deletion_started(%s)", (case,))

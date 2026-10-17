@@ -581,3 +581,72 @@ async def test_a_download_waits_for_the_export_to_finish(
     job = seed.job(case, kind="export_case")
     resp = await (await client_for(team["expert"])).get(f"/v1/cases/{case}/export/{job}/download")
     assert resp.status_code == 409
+
+
+# --- after review: reopening a due case, withdrawn retention, exports, who sees deletion ---------------
+
+
+def withdraw_on(admin: psycopg.Connection, case: uuid.UUID, day: date) -> None:
+    """The case was withdrawn on `day` (the status set without triggers, the day recorded as it would be)."""
+    with admin.transaction():
+        admin.execute("set local session_replication_role = replica")
+        admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
+    admin.execute(
+        "insert into app.audit_log (case_id, action, target, at)"
+        " values (%s, 'case.withdrawn', %s, (%s::date + time '12:00')::timestamptz)",
+        (case, f"case:{case}", day),
+    )
+
+
+@pytest.mark.parametrize("days_ago", [0, 3])
+async def test_a_case_due_for_deletion_cannot_be_reopened(
+    days_ago: int, client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    admin.execute(
+        "update app.cases set retention_policy = 'keep_default', delete_after = current_date - %s where id = %s",
+        (days_ago, case),
+    )
+    resp = await (await client_for(team["expert"])).post(f"/v1/cases/{case}/reopen")
+    assert resp.status_code == 409, resp.text
+    assert case_row(admin, case)["status"] == "settled"
+
+
+async def test_a_withdrawn_cases_retention_counts_from_the_day_it_was_withdrawn(
+    client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "active")
+    withdrawn = date.today() - timedelta(days=40)
+    withdraw_on(admin, case, withdrawn)
+    client = await client_for(team["expert"])
+    resp = await client.post(f"/v1/cases/{case}/archive")
+    assert resp.status_code == 200, resp.text
+    assert case_row(admin, case)["delete_after"] == plus_years(withdrawn, years())
+    resp = await client.put(f"/v1/cases/{case}/retention", json={"policy": "return_then_delete"})
+    assert resp.status_code == 200, resp.text
+    assert case_row(admin, case)["delete_after"] == withdrawn
+    resp = await client.put(f"/v1/cases/{case}/retention", json={"policy": "keep_default"})
+    assert resp.status_code == 200, resp.text
+    assert case_row(admin, case)["delete_after"] == plus_years(withdrawn, years())
+
+
+async def test_no_export_once_deletion_has_started(
+    client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    start_deletion(admin, case)
+    resp = await (await client_for(team["expert"])).post(f"/v1/cases/{case}/export")
+    assert resp.status_code == 409, resp.text
+    assert jobs_of(admin, case, "export_case") == []
+
+
+@pytest.mark.parametrize("person", ["assistant", "viewer"])
+async def test_every_case_member_sees_that_deletion_has_started(
+    person: str, client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    start_deletion(admin, case)
+    resp = await (await client_for(team[person])).get(f"/v1/cases/{case}/close")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["deletion_started"] is True
+    assert resp.json()["deleted_at"] is None

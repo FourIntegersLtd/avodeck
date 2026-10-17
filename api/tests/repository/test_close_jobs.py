@@ -22,6 +22,7 @@ gets one `delete_case` job. Missed days are caught up, each once (F28).
 
 from __future__ import annotations
 
+import asyncio
 import csv
 import hashlib
 import io
@@ -590,3 +591,162 @@ async def test_the_daily_run_is_registered_for_the_worker() -> None:
 
     assert close_jobs.DAILY in registry.schedules
     assert {"export_case", "delete_case"} <= set(registry.kinds)
+
+
+# --- after review: served versions, one email per recipient, exports during deletion, expiry ----------
+
+
+async def test_a_served_report_version_is_removed_by_the_deletion_run(
+    run: Run, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    case = world["case"]
+    rid = add_report_version(admin, case, version_no=7, status="served")
+    make_due(admin, case)
+    await run(close_jobs.delete_case, case, "delete_case")
+    assert admin.execute("select count(*) from app.report_versions where id = %s", (rid,)).fetchone() == (0,)
+
+
+async def test_the_certificate_is_emailed_once_even_when_the_run_is_retried(
+    run: Run, seed: Seed, admin: psycopg.Connection, world: dict[str, Any], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    case = world["case"]
+    seed.page(case, seed.document(case), 1)
+    make_due(admin, case)
+    job = seed.job(case, kind="delete_case")
+    real = close_jobs.finish_certificate
+    calls = {"n": 0}
+
+    async def flaky(*args: Any, **kwargs: Any) -> Any:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("database went away")
+        return await real(*args, **kwargs)
+
+    monkeypatch.setattr(close_jobs, "finish_certificate", flaky)
+    first = OutboxMailer()
+    with pytest.raises(RuntimeError):
+        await run(close_jobs.delete_case, case, "delete_case", job=job, mailer=first)
+    assert len(first.outbox) == 1
+    cert = certificate(admin, case)
+    assert cert is not None and cert["deleted_at"] is None and cert["sent_to"] == ["named_expert"]
+    assert rows_of(admin, "pages", case) == 1
+
+    second = await run(close_jobs.delete_case, case, "delete_case", job=job, attempt=2)
+    assert second.outbox == []
+    cert = certificate(admin, case)
+    assert cert is not None and cert["deleted_at"] is not None and cert["sent_to"] == ["named_expert"]
+    assert rows_of(admin, "pages", case) == 0
+
+
+async def test_an_export_writes_nothing_once_deletion_has_started(
+    run: Run,
+    seed: Seed,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+) -> None:
+    case = world["case"]
+    await served_report(admin, storage, crypto, worker_db, case)
+    admin.execute("insert into app.deletion_certificates (case_id) values (%s)", (case,))
+    await run(close_jobs.export_case, case, "export_case", job=seed.job(case, kind="export_case"))
+    assert await storage.list_recursive(f"{case_prefix(case)}/exports") == []
+
+
+async def test_a_deletion_that_starts_during_an_export_still_removes_the_export(
+    run: Run,
+    seed: Seed,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    case = world["case"]
+    await served_report(admin, storage, crypto, worker_db, case)
+    make_due(admin, case)
+    reading, go_on = asyncio.Event(), asyncio.Event()
+    real_get = storage.get
+
+    async def slow_get(path: str) -> bytes:
+        reading.set()
+        await go_on.wait()
+        return await real_get(path)
+
+    monkeypatch.setattr(storage, "get", slow_get)
+    export_job, delete_job = seed.job(case, kind="export_case"), seed.job(case, kind="delete_case")
+    export = asyncio.create_task(run(close_jobs.export_case, case, "export_case", job=export_job))
+    await asyncio.wait_for(reading.wait(), 10)
+    deletion = asyncio.create_task(run(close_jobs.delete_case, case, "delete_case", job=delete_job))
+    await asyncio.sleep(0.5)
+    go_on.set()
+    await asyncio.wait_for(asyncio.gather(export, deletion), 30)
+    cert = certificate(admin, case)
+    assert cert is not None and cert["deleted_at"] is not None
+    assert await storage.list_recursive(case_prefix(case)) == []
+
+
+async def test_the_download_is_streamed(
+    run: Run,
+    seed: Seed,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+    client_for: ClientFor,
+) -> None:
+    case = world["case"]
+    pdf = await served_report(admin, storage, crypto, worker_db, case)
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
+    resp = await client.get(f"/v1/cases/{case}/export/{job}/download")
+    assert resp.status_code == 200, resp.text
+    assert "content-length" not in resp.headers, "sent in chunks, not as one body"
+    assert "no-store" in resp.headers["cache-control"]
+    assert zipfile.ZipFile(io.BytesIO(resp.content)).read("report-versions/v1.pdf") == pdf
+
+
+async def test_the_daily_run_removes_exports_not_downloaded_in_time(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, storage: SupabaseStorage, world: dict[str, Any]
+) -> None:
+    registry = isolated_registry()
+    name = daily(registry)
+    case = world["case"]
+    old, recent = seed.job(case, kind="export_case"), seed.job(case, kind="export_case")
+    for job, days in ((old, close_jobs.EXPORT_KEEP_DAYS + 1), (recent, 1)):
+        finish(admin, job)
+        with admin.transaction():
+            admin.execute("set local session_replication_role = replica")
+            admin.execute(
+                "update app.jobs set finished_at = now() - make_interval(days => %s) where id = %s", (days, job)
+            )
+        for variant in close_jobs.VARIANTS:
+            await storage.put(f"{case_prefix(case)}/exports/{job}/{variant}.zip", b"zz")
+    await run_daily(worker_db, registry, name, date.today())
+    assert await storage.list_recursive(f"{case_prefix(case)}/exports/{old}") == []
+    assert len(await storage.list_recursive(f"{case_prefix(case)}/exports/{recent}")) == len(close_jobs.VARIANTS)
+
+
+async def test_the_daily_run_archives_and_dates_a_case_withdrawn_long_ago(
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
+) -> None:
+    registry = isolated_registry()
+    name = daily(registry)
+    case = seed.case(world["org"], world["expert"], status="active")
+    withdrawn = date.today() - timedelta(days=close_jobs.ARCHIVE_AFTER_DAYS + 10)
+    with admin.transaction():
+        admin.execute("set local session_replication_role = replica")
+        admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
+    admin.execute(
+        "insert into app.audit_log (case_id, action, target, at)"
+        " values (%s, 'case.withdrawn', %s, (%s::date + time '12:00')::timestamptz)",
+        (case, f"case:{case}", withdrawn),
+    )
+    await run_daily(worker_db, registry, name, date.today())
+    row = admin.execute("select status, delete_after from app.cases where id = %s", (case,)).fetchone()
+    assert row == ("archived", withdrawn.replace(year=withdrawn.year + FIXTURE_YEARS))
