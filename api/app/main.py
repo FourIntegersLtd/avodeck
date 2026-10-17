@@ -33,6 +33,7 @@ from app.core.routes.today import today_router
 from app.core.routes.uploads import uploads_router
 from app.core.speech import SpeechClient
 from app.core.storage import SupabaseStorage, storage_settings
+from app.features.pipeline import pipeline_router
 
 
 def create_app(
@@ -117,7 +118,8 @@ def create_app(
     routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
     people = (me_router, today_router, notifications_router)
-    for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files):
+    slices = (pipeline_router,)
+    for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files, *slices):
         mount(app, r)
     for r in feature_routers(features):
         mount(app, r)
