@@ -10,7 +10,7 @@ from __future__ import annotations
 import contextlib
 import uuid
 from collections.abc import Awaitable, Callable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -20,6 +20,7 @@ from app.core import jobs
 from app.core.ai.kit import AiKit
 from app.core.ai.ocr import OcrClient
 from app.core.crypto import CaseCrypto
+from app.core.email import Mailer
 from app.core.packs import PackLibrary
 from app.core.scan import VirusScanner
 
@@ -48,6 +49,13 @@ class PipelineServices:
     packs: PackLibrary
     registry: jobs.JobRegistry
     identity: IdentityFor = no_identity
+    mailer: Mailer = field(default_factory=lambda: _default_mailer())
+
+
+def _default_mailer() -> Mailer:
+    from app.core.notifications import default_mailer
+
+    return default_mailer()
 
 
 _stack: list[PipelineServices] = []

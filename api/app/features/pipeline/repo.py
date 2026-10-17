@@ -559,3 +559,29 @@ async def change_missing(
     )
     row = await cur.fetchone()
     return int(row[0]) if row else None
+
+
+# --- bundle ready ----------------------------------------------------------------------------------
+
+
+async def split_in_job(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.UUID) -> bool:
+    """Whether a document of the case was cut into pages since this job was queued."""
+    cur = await conn.execute(
+        "select exists (select 1 from app.document_scans s join app.jobs j on j.id = %s"
+        " where s.case_id = %s and s.split_at >= j.created_at)",
+        (job_id, case_id),
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
+async def activate_case(conn: AsyncConnection, case_id: uuid.UUID) -> None:
+    await conn.execute("update app.cases set status = 'active' where id = %s and status = 'processing'", (case_id,))
+
+
+async def case_people(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[uuid.UUID, uuid.UUID]:
+    """The case's named expert and its organisation."""
+    cur = await conn.execute("select named_expert_id, organisation_id from app.cases where id = %s", (case_id,))
+    row = await cur.fetchone()
+    assert row is not None
+    return row[0], row[1]

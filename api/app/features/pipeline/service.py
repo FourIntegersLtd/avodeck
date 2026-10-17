@@ -26,7 +26,7 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from app.core import audit
+from app.core import audit, notifications
 from app.core.ai import pii
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.cell import model_for
@@ -43,7 +43,8 @@ from app.features.pipeline.words import assess, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 CONCURRENCY = 3  # pages read or sent to a model at once
-STEPS = ("split", "ocr", "extract", "sort", "duplicates", "gaps", "missing")
+STEPS = ("split", "ocr", "sort", "duplicates", "missing")  # the steps the Preparing screen shows
+READY = "bundle_ready"  # the notification kind sent when new pages are ready
 
 
 async def _noop(conn: AsyncConnection) -> None:
@@ -294,7 +295,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> None:
             )
         done += 1
         if done % 25 == 0:
-            await ctx.progress(min(90, 40 + 50 * done // len(waiting)), step="extract")
+            await ctx.progress(min(55, 40 + 15 * done // len(waiting)), step="sort")
 
     await bounded(waiting, one)
 
@@ -441,25 +442,40 @@ async def _missing(ctx: JobContext, services: PipelineServices) -> None:
     await bounded(waiting, one)
 
 
-STAGES: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {
-    "extract": _extract,
-    "duplicates": _duplicates,
-    "gaps": _gaps,
-    "missing": _missing,
-}
+async def _missing_step(ctx: JobContext, services: PipelineServices) -> None:
+    await _gaps(ctx, services)
+    await _missing(ctx, services)
+
+
+async def _ready(ctx: JobContext, services: PipelineServices) -> None:
+    """Pages split in this job are ready: the case leaves `processing` and the named expert is told
+    once (the kind only, never case text)."""
+    async with ctx.transaction() as conn:
+        if not await repo.split_in_job(conn, ctx.case_id, ctx.job_id):
+            return
+        await repo.activate_case(conn, ctx.case_id)
+        expert, organisation = await repo.case_people(conn, ctx.case_id)
+        await notifications.notify(
+            conn, services.mailer, person_id=expert, organisation_id=organisation, kind=READY, case_id=ctx.case_id
+        )
 
 
 async def process_bundle(ctx: JobContext) -> None:
     services = current()
-    await ctx.progress(0, step="split")
-    await _split(ctx, services)
-    await ctx.progress(30, step="ocr")
-    await _read_words(ctx, services)
-    for n, step in enumerate(STEPS, start=1):
-        if step in STAGES:
-            await STAGES[step](ctx, services)
+    stages: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {
+        "split": _split,
+        "ocr": _read_words,
+        "sort": _extract,
+        "duplicates": _duplicates,
+        "missing": _missing_step,
+    }
+    starts = {"split": 0, "ocr": 30, "sort": 40, "duplicates": 55, "missing": 70}
+    for step in STEPS:
+        await ctx.progress(starts[step], step=step)
+        await stages[step](ctx, services)
         await ctx.step(step, _noop)
-        await ctx.progress(100 * n // len(STEPS), step=step)
+    await _ready(ctx, services)
+    await ctx.progress(100, step=STEPS[-1])
 
 
 async def queue_pages(conn: AsyncConnection, case_id: uuid.UUID, page_ids: object) -> uuid.UUID:
