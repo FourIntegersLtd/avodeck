@@ -64,7 +64,7 @@ def ocr_pages(pdf: Path) -> dict[str, object]:
 
     pages = []
     for p, page in enumerate(PdfReader(str(pdf)).pages, 1):
-        words = []
+        words: list[dict[str, object]] = []
         for line_no, line in enumerate((page.extract_text() or "").splitlines()):
             top = 0.4 + line_no * 0.2
             for x, text in enumerate(line.split()):
