@@ -9,7 +9,11 @@ word ids whose words are exactly those words, copied as the model sees them (ide
 replaced). Requests are built exactly as `AiKit.run` builds them, so the recordings replay in tests.
 
 `recordings-paraphrased/` holds one answer whose first question is reworded: the server must refuse it.
-Re-run this after a change to the T-06 prompt, its schema or the launch packs' prompt context.
+The T-04 answer (prefill) suggests the instructing party's name, its type and the side it acts for, each
+citing the words it came from; it also gives one due date the letter never writes out ("within 8 weeks"),
+which the server must refuse.
+
+Re-run this after a change to the T-06 or T-04 prompt, their schemas or the launch packs' prompt context.
 """
 
 from __future__ import annotations
@@ -100,6 +104,23 @@ def item(letter: Letter, text: str, para_ref: str, kind: str | None = None) -> d
     return out
 
 
+PREFILL = [
+    ("instructing_party_name", "Harland & Price LLP", "Harland & Price LLP", "letterhead"),
+    ("instructing_party_type", "lawyer", "Solicitors", "letterhead"),
+    ("party_role", "instructing_side", "We act for the Claimant,", "who they act for"),
+    ("due_date", "2025-12-04", "within 8 weeks.", "report due"),  # not a written date: refused
+]
+
+
+def _prefill(letter: Letter) -> dict[str, object]:
+    return {
+        "suggestions": [
+            {"field": field, "value": value, "word_ids": find_run(letter, words), "reason": reason}
+            for field, value, words, reason in PREFILL
+        ]
+    }
+
+
 def main() -> None:
     _supplementary()
     settings = cell()
@@ -145,6 +166,17 @@ def main() -> None:
             reworded = {**output, "questions": [{**questions[0], "text_verbatim": PARAPHRASE}, *questions[1:]]}
             paraphrased_model.record(
                 request, ModelResponse(output=reworded, input_tokens=2400, output_tokens=600), f"{name}-t06"
+            )
+            prefill = ai_tasks.t04(pack)
+            t04 = ModelRequest(
+                model_id=model_for(settings, prefill.model),
+                system=prefill.system,
+                context=pack.prompt_context(prefill.task_id),
+                text=request.text,
+                schema=prefill.schema,
+            )
+            model.record(
+                t04, ModelResponse(output=_prefill(letter), input_tokens=2400, output_tokens=200), "letter-t04"
             )
     print("recorded")  # noqa: T201
 
