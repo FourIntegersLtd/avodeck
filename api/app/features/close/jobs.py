@@ -82,13 +82,13 @@ services = _Services()
 
 async def _one(conn: AsyncConnection, query: str, params: tuple[Any, ...]) -> dict[str, Any] | None:
     async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(query, params)  # type: ignore[arg-type]
+        await cur.execute(query, params)
         return await cur.fetchone()
 
 
 async def _all(conn: AsyncConnection, query: str, params: tuple[Any, ...]) -> list[dict[str, Any]]:
     async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(query, params)  # type: ignore[arg-type]
+        await cur.execute(query, params)
         return await cur.fetchall()
 
 

@@ -273,7 +273,8 @@ def test_settled_cases_move_to_the_archive_after_the_given_days(
     with as_job(worker_dsn, None) as conn:
         row = conn.execute("select app.close_auto_archive(%s, 30)", (date.today(),)).fetchone()
     assert row is not None and row[0] >= 1
-    statuses = dict(admin.execute("select id, status from app.cases where id = any(%s)", ([old, recent],)).fetchall())
+    rows = admin.execute("select id, status from app.cases where id = any(%s)", ([old, recent],)).fetchall()
+    statuses: dict[uuid.UUID, str] = dict(rows)
     assert statuses == {old: "archived", recent: "settled"}
     audit = admin.execute(
         "select count(*) from app.audit_log where case_id = %s and action = 'case.archived'", (old,)
@@ -289,7 +290,7 @@ def test_holds_past_their_end_date_are_released(
     admin.execute("update app.legal_holds set until = current_date - 1 where id = %s", (ended,))
     with as_job(worker_dsn, None) as conn:
         conn.execute("select app.close_release_expired_holds(%s)", (date.today(),))
-    released = dict(
+    released: dict[uuid.UUID, object] = dict(
         admin.execute(
             "select id, released_at is not null from app.legal_holds where id = any(%s)", ([ended, lasting],)
         ).fetchall()
@@ -310,7 +311,7 @@ def test_the_daily_functions_are_the_workers(fn: str, api_dsn: str, team: dict[s
 
 def refused(api_dsn: str, person: uuid.UUID, sql: str, params: tuple[object, ...]) -> str | None:
     with pytest.raises(psycopg.Error) as err, as_person(api_dsn, person) as conn:
-        conn.execute(sql, params)  # type: ignore[arg-type]
+        conn.execute(sql, params)
     return err.value.sqlstate
 
 
@@ -388,7 +389,8 @@ def test_withdrawn_cases_move_to_the_archive_after_the_given_days(
     withdraw_on(admin, recent, date.today() - timedelta(days=5))
     with as_job(worker_dsn, None) as conn:
         conn.execute("select app.close_auto_archive(%s, 30)", (date.today(),))
-    statuses = dict(admin.execute("select id, status from app.cases where id = any(%s)", ([old, recent],)).fetchall())
+    rows = admin.execute("select id, status from app.cases where id = any(%s)", ([old, recent],)).fetchall()
+    statuses: dict[uuid.UUID, str] = dict(rows)
     assert statuses == {old: "archived", recent: "withdrawn"}
 
 

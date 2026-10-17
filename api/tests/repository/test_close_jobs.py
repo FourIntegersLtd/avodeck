@@ -743,9 +743,13 @@ async def test_a_deletion_that_starts_during_an_export_still_removes_the_export(
 
     monkeypatch.setattr(storage, "get", slow_get)
     export_job, delete_job = seed.job(case, kind="export_case"), seed.job(case, kind="delete_case")
-    export = asyncio.create_task(run(close_jobs.export_case, case, "export_case", job=export_job))
+    export: asyncio.Future[OutboxMailer] = asyncio.ensure_future(
+        run(close_jobs.export_case, case, "export_case", job=export_job)
+    )
     await asyncio.wait_for(reading.wait(), 10)
-    deletion = asyncio.create_task(run(close_jobs.delete_case, case, "delete_case", job=delete_job))
+    deletion: asyncio.Future[OutboxMailer] = asyncio.ensure_future(
+        run(close_jobs.delete_case, case, "delete_case", job=delete_job)
+    )
     await asyncio.sleep(0.5)
     go_on.set()
     await asyncio.wait_for(asyncio.gather(export, deletion), 30)
