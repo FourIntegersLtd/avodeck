@@ -21,7 +21,15 @@ test("the sign-in screen matches its board and passes axe", async () => {
   expect(await screen.findByRole("heading", { level: 1, name: "Welcome back" })).toBeInTheDocument();
   expect(screen.getByText("Sign in to carry on where you left off.")).toBeInTheDocument();
   expect(screen.getByText(/Every page read\. Every fact traced\./)).toBeInTheDocument();
-  expect(screen.getByText("Your opinion is always your own. We never write it.")).toBeInTheDocument();
+  for (const point of [
+    "Sorted and numbered. Nothing thrown away.",
+    "Every fact linked to the exact words in the records.",
+    "See each visit as it was seen on the day.",
+    "Walk into court with page numbers that match.",
+  ]) {
+    expect(screen.getByText(point)).toBeInTheDocument();
+  }
+  expect(screen.getByText("Your opinion stays yours. We never write it.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Forgotten your password?" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Use a backup code" })).toBeInTheDocument();
   expect(await axeViolations(container)).toEqual([]);
