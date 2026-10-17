@@ -6,7 +6,7 @@ import { useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, CaseHeader, Dialog, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import "./close.css";
 import { w, type CloseKey } from "./words";
@@ -40,6 +40,8 @@ export function Close() {
   const [message, setMessage] = useState<Message>(null);
 
   const error = item.error ?? pack.error ?? close.error;
+  // A deleted case answers only its certificate (the rest is 404), so show the proof on its own.
+  if (item.error instanceof ApiError && item.error.status === 404) return <DeletedCase caseId={caseId} />;
   if (error) return <div className="av-page"><LoadError onRetry={() => { item.reload(); pack.reload(); close.reload(); }} /></div>;
   if (!item.data || !pack.data || !close.data) return <div className="av-page"><Loading /></div>;
 
@@ -451,7 +453,16 @@ function Closing(props: { caseId: string; status: string; can: (a: string) => bo
   );
 }
 
-function Certificate({ caseId, locale }: { caseId: string; locale: string }) {
+function DeletedCase({ caseId }: { caseId: string }) {
+  return (
+    <div className="av-page av-stack">
+      <h1>{w("heading.deleted")}</h1>
+      <Certificate caseId={caseId} locale={undefined} />
+    </div>
+  );
+}
+
+function Certificate({ caseId, locale }: { caseId: string; locale: string | undefined }) {
   const cert = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deletion-certificate", { params: { path: { case_id: caseId } } })), [caseId]);
   if (cert.error) return <LoadError onRetry={cert.reload} />;
   if (!cert.data) return <Loading />;
