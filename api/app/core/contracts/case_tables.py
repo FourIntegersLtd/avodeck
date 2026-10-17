@@ -10,6 +10,7 @@ CASE_TABLES: frozenset[str] = frozenset(
     {
         "case_processing",
         "page_quarantines",
+        "page_replacements",
         "cases",
         "ai_calls",
         "assumptions",
