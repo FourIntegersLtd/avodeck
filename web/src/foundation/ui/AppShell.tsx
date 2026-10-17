@@ -52,8 +52,9 @@ export function AppShell({ children, name }: AppShellProps) {
                 </span>
               )}
             </Link>
-            <Link to="/account" className="av-shell__avatar" aria-label={t("app.nav.account")}>
+            <Link to="/account" className="av-shell__avatar">
               <span aria-hidden="true">{initials(name)}</span>
+              <span className="av-visually-hidden">{t("app.nav.account")}</span>
             </Link>
           </div>
         </div>
