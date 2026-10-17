@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 
@@ -178,7 +179,8 @@ async def test_later_sign_ins_ask_for_the_code_and_issue_no_new_recovery_codes(
     resp = await client.post("/v1/auth/sign-in", json={"email": first.email, "password": PASSWORD})
     assert resp.json() == {"status": "mfa_required", "mfa_enrolled": True}
     assert (await client.post("/v1/auth/mfa/enroll")).json()["error"]["code"] == "already_enrolled"
-    ok = await client.post("/v1/auth/mfa/verify", json={"code": totp(first.secret)})
+    # The next code: the one used to sign in first cannot be used again (RFC 6238 section 5.2).
+    ok = await client.post("/v1/auth/mfa/verify", json={"code": totp(first.secret, at=time.time() + 30)})
     assert ok.status_code == 200, ok.text
     assert ok.json() == {"status": "signed_in", "recovery_codes": None}
     assert (await client.get("/v1/me")).status_code == 200
