@@ -32,6 +32,14 @@ describe.each([
   { name: "launch packs", pack: launchPack },
   { name: "fixture packs", pack: fixturePack },
 ])("Not this patient under the $name", ({ pack }) => {
+  test("says how many days pass before set-aside pages are deleted, from the pack", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const days = pack.quarantine_purge_days;
+    await screen.findByRole("heading", { level: 1, name: "These pages may belong to someone else" });
+    expect(screen.getByText(`After the note is sent, or after ${days} ${days === 1 ? "day" : "days"}. You can undo until then.`)).toBeVisible();
+  });
+
   test("lists each page with its picture and why, and explains what setting aside does", async () => {
     const party = mock(pack);
     const { container } = renderAt(PATH);
