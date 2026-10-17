@@ -67,6 +67,13 @@ A deployed, empty Avodeck that an expert can sign in to with MFA, create a case 
   - `core/housekeeping.py`: daily `expire_uploads` schedule (chunks deleted from Storage; rows only when Storage is not configured). `app.export_openapi` and `make api-client` (web step skipped until the frontend exists); `/openapi.json` committed and tested against the app.
   - Choices: the read gate uses the `page.read` action and reads are per person; citable = verified or edited on a page the named expert has read; `questions.instruction_version_id` has no foreign key until slice C adds `instruction_versions`.
   - Not yet (frontend, step 9): CSP and no cloud hosts in the build, no tokens in browser storage, screen copy under the fixture packs, i18n keys, Sign-in/Today axe and canvas checks. Not yet (stage 2): staging deploy in London and real Bedrock, Azure, KMS. Not yet built: `GET /v1/notifications`, `POST /v1/notifications/{id}/read`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/feature-flags` (next API step).
+- [x] Step 9 (2026-10-17): the frontend shell (`web/`, Vite + React + TypeScript, pnpm):
+  - `foundation/platform-client`: client generated from `openapi.json` (`make api-client`), `unwrap()`/`ApiError`, CSRF header from the `av_csrf` cookie, `onSignedOut`, `idempotencyKey`, `ifMatch`, `websocketUrl`. `make api-client` also writes `pack-fixtures.json` (launch and fixture packs as the API returns them; `case_pack()` builder in `core/routes/packs.py`), tested up to date.
+  - `foundation/ui`: tokens (body 18px, buttons 52px, canvas colours), `Button`/`LinkButton`, `TextField`/`CodeField`, `Checkbox`, `Notice`, `StatusBadge`, `CaseHeader` (pack steps, tick when done, `aria-current="step"`), `Dialog`, `DictationBox` (WebSocket to the API; type-instead messages), `AppShell`, `Logo`. `foundation/lib`: screen registry, step-up dialog (rule 10), session, errors, pack party words. `foundation/i18n`: `en-GB.json`, plurals, `registerMessages`, `Intl` dates.
+  - Screens: S01 sign in (password, code, first set-up with QR and key, backup codes shown once, backup-code recovery then re-set-up, forgotten password), reset-password and email-confirm link pages, S03 Today (greeting in the person's timezone, ranked needs-you items with registered words and screens, case cards with pack party word, step and due date, organisation filter, counts), S28 security part (email change, password link, code, new backup codes, devices, sign out one or everywhere else with step-up, sign out). A minimal case frame at `/cases/{id}` (name and pack steps).
+  - Guards (`web/src/foundation/guards/`): no cloud host or SDK in source or build; build-time CSP (`web/csp.ts`) allows only `'self'` and the API origin; no browser storage or cookie writes (static and during sign-in); no hard-coded JSX text; i18n keys exist; forbidden words in `capabilities`, `app`, `foundation/{ui,i18n,lib}`; Today and the case header under launch and fixture packs. Playwright: sign in to Today, Today axe with colour contrast, 52px/17px.
+  - Choices: same-origin `/v1` through the Vite proxy in development, `VITE_API_ORIGIN` in production (a cross-origin API needs CORS and the CSRF cookie domain: stage 2); password change on S28 sends the reset link (no change-password endpoint); step names come from `steps.<key>` keys or the pack key; organisations, notifications and closing the account stay with slice O.
+  - Not yet: side-by-side canvas review, notifications and feature flags (API not built), stage 2 hosting (Vercel headers).
 
 Acceptance tests that need a cloud service are written in stage 1 against the stand-ins and re-run against the real service in stage 2.
 
@@ -119,14 +126,14 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] `bedrock.py` refuses any model ID that is not a London in-region ID
 - [x] A request containing a made-up NHS number and name produces no log line containing either
 - [x] `pii.strip` removes names from the case name list, NHS numbers (mod-11 valid), postcodes and dates of birth; keeps event dates
-- [ ] Frontend build contains no Supabase/Azure/AWS hosts or SDKs; CSP allows only the API origin
-- [ ] Frontend never writes tokens to `localStorage` or `sessionStorage`
+- [x] Frontend build contains no Supabase/Azure/AWS hosts or SDKs; CSP allows only the API origin
+- [x] Frontend never writes tokens to `localStorage` or `sessionStorage`
 - [x] No slice code or prompt template contains a word from the forbidden list in architecture 3.5 (scan of `api/app/features`, `web/src/capabilities`, prompt templates)
-- [ ] **Fixture packs** (`packs/_fixtures/`) (API side done in step 5; screen copy waits for the frontend step): core API flows and screen copy run under both the launch packs and the fixture packs; party words, clinician titles, deadlines (business days, timezone), date order, identifiers, workflow steps, lanes and declarations all change accordingly
+- [x] **Fixture packs** (`packs/_fixtures/`) (API side step 5, screen copy step 9): core API flows and screen copy run under both the launch packs and the fixture packs; party words, clinician titles, deadlines (business days, timezone), date order, identifiers, workflow steps, lanes and declarations all change accordingly
 - [x] Pack loader merges four layers (jurisdiction, case type, specialty, overlay) with the rules in architecture 3.2, supports `extends:`, resolves placeholders, and refuses a jurisdiction file containing a specialty word or a specialty file containing a country word
 - [x] Deadlines respect the pack's calendar rule and public holidays (test: a deadline landing on an England and Wales bank holiday)
 - [x] All timestamps stored in UTC; deadlines shown in the expert's timezone
-- [ ] Every frontend string comes from an i18n key (no hard-coded user-facing text in components)
+- [x] Every frontend string comes from an i18n key (no hard-coded user-facing text in components)
 - [x] The AI kit refuses model IDs and endpoints outside the current cell's allow-list
 - [x] `GET /v1/jurisdictions` returns only `gb-eaw` in the UK cell; `GET /v1/jurisdictions/gb-eaw` returns vocabulary, declarations, checklist and deadline rules
 - [x] `pack.deadline("written_questions", served_on)` returns served_on + 28 days for `gb-eaw`
@@ -145,7 +152,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] Dictation: audio streamed over WebSocket returns text; no audio is stored; no Azure key reaches the browser
 - [x] Audit log hash chain verifies; tampering with a row is detected
 - [x] Today shows case cards and items registered through `NeedsYouItem`
-- [ ] Sign-in and Today screens pass axe checks and match their canvas boards
+- [ ] Sign-in and Today screens pass axe checks and match their canvas boards (axe passes in Vitest and in Playwright with colour contrast; side-by-side canvas review still to do)
 
 ## Out of scope
 Bundle processing (A), reader (B), profile and questions (C), everything after.
