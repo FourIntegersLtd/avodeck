@@ -53,6 +53,11 @@ def _read(text: str, order: str, language: str) -> dt.date | None:
     return got.date() if got else None
 
 
+def read_date(text: str, pack: MergedPack) -> dt.date | None:
+    """A whole date written in `text`, read in the pack's date order."""
+    return _read(text.strip(), pack.date_order, pack.language)
+
+
 def _numeric(word_id: str, text: str, pack: MergedPack) -> Printed | None:
     order, language = pack.date_order, pack.language
     match = _NUMERIC.match(text)

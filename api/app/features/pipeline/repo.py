@@ -105,7 +105,7 @@ async def set_image(conn: AsyncConnection, page_id: uuid.UUID, image_path: str) 
 async def pages_without_words(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
     cur = await conn.execute(
         "select id from app.pages where case_id = %s and text_source is null and image_path is not null"
-        " order by bundle_page_no",
+        " and not quarantined order by bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]
@@ -160,7 +160,7 @@ async def pages_to_extract(conn: AsyncConnection, case_id: uuid.UUID) -> list[uu
     cur = await conn.execute(
         "select p.id from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " where p.case_id = %s and p.text_source is not null and p.duplicate_of_page_id is null"
-        " and a.extracted_at is null order by p.bundle_page_no",
+        " and not p.quarantined and a.extracted_at is null order by p.bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]
@@ -256,7 +256,8 @@ async def pages_to_hash(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.
     """Pages with their words read and no picture or word hash yet."""
     cur = await conn.execute(
         "select a.page_id from app.page_analysis a join app.pages p on p.id = a.page_id"
-        " where a.case_id = %s and a.word_count is not null and a.phash is null order by p.bundle_page_no",
+        " where a.case_id = %s and a.word_count is not null and a.phash is null and not p.quarantined"
+        " order by p.bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]
@@ -289,7 +290,7 @@ async def copy_states(conn: AsyncConnection, case_id: uuid.UUID) -> list[CopySta
         "select p.id, p.bundle_page_no, a.phash, a.minhash, coalesce(a.typed_words, 0),"
         " a.duplicate_checked_at is not null, p.duplicate_of_page_id, a.duplicate_status"
         " from app.pages p join app.page_analysis a on a.page_id = p.id"
-        " where p.case_id = %s order by p.bundle_page_no",
+        " where p.case_id = %s and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
     return [
@@ -373,7 +374,8 @@ async def review_copy(
 
 async def page_id_of(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
     cur = await conn.execute(
-        "select id from app.pages where case_id = %s and bundle_page_no = %s and image_path is not null",
+        "select id from app.pages where case_id = %s and bundle_page_no = %s and image_path is not null"
+        " and not quarantined",
         (case_id, page_no),
     )
     row = await cur.fetchone()
@@ -391,7 +393,7 @@ async def gap_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[gaps.Page
         " coalesce(array_agg(f.event_date) filter (where f.id is not null), '{}')"
         " from app.pages p left join app.page_analysis a on a.page_id = p.id"
         " left join app.facts f on f.page_id = p.id and f.status <> 'rejected'"
-        " where p.case_id = %s and p.duplicate_of_page_id is null"
+        " where p.case_id = %s and p.duplicate_of_page_id is null and not p.quarantined"
         " group by p.id, p.bundle_page_no, p.source_type, a.printed_dates order by p.bundle_page_no",
         (case_id,),
     )
@@ -431,7 +433,7 @@ async def pages_to_match(conn: AsyncConnection, case_id: uuid.UUID) -> list[tupl
     cur = await conn.execute(
         "select p.id, p.bundle_page_no from app.pages p join app.page_analysis a on a.page_id = p.id"
         " where p.case_id = %s and a.extracted_at is not null and a.references_checked_at is null"
-        " and p.duplicate_of_page_id is null order by p.bundle_page_no",
+        " and p.duplicate_of_page_id is null and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
@@ -604,7 +606,7 @@ async def summary_counts(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[int
     cur = await conn.execute(
         "select"
         " (select count(*) from app.pages p join app.page_analysis a on a.page_id = p.id"
-        "   where p.case_id = %(c)s and p.duplicate_of_page_id is not null"
+        "   where p.case_id = %(c)s and p.duplicate_of_page_id is not null and not p.quarantined"
         "   and a.duplicate_status in ('suggested', 'confirmed')),"
         " (select count(*) from app.pages where case_id = %(c)s and unreadable and not quarantined),"
         " (select count(*) from app.record_gaps where case_id = %(c)s and confirmed is distinct from false),"
@@ -848,3 +850,136 @@ async def reset_for_reprocess(conn: AsyncConnection, case_id: uuid.UUID) -> int:
         )
         await conn.execute("update app.page_analysis set extracted_at = null where page_id = any(%s)", (stale,))
     return len(stale)
+
+
+# Pages that are not this person's record (increment 11b) ------------------------------------------
+
+
+async def pages_for_identity(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
+    """Pages with words, not copies and not quarantined: the pages whose identifiers are compared."""
+    cur = await conn.execute(
+        "select p.id from app.pages p where p.case_id = %s and p.text_source is not null"
+        " and p.duplicate_of_page_id is null and not p.quarantined order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [r[0] for r in await cur.fetchall()]
+
+
+async def add_suggestions(conn: AsyncConnection, case_id: uuid.UUID, page_ids: list[uuid.UUID], reason: str) -> None:
+    """The pipeline's suggestions; a page anyone has suggested, decided or dismissed before is left alone."""
+    await conn.execute(
+        "insert into app.page_quarantines (case_id, page_id, reason)"
+        " select %s, p, %s from unnest(%s::uuid[]) as p"
+        " where not exists (select 1 from app.page_quarantines q where q.page_id = p)",
+        (case_id, reason, page_ids),
+    )
+
+
+@dataclass(frozen=True)
+class Quarantine:
+    id: uuid.UUID
+    page_id: uuid.UUID
+    page_no: int
+    status: str
+    reason: str
+
+
+_QUARANTINE = (
+    "select q.id, q.page_id, p.bundle_page_no, q.status, q.reason from app.page_quarantines q"
+    " join app.pages p on p.id = q.page_id"
+)
+
+
+async def quarantines(conn: AsyncConnection, case_id: uuid.UUID) -> list[Quarantine]:
+    """The case's open suggestions and confirmed quarantines, in page order."""
+    cur = await conn.execute(
+        _QUARANTINE + " where q.case_id = %s and q.status in ('suggested', 'confirmed') order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [Quarantine(*r) for r in await cur.fetchall()]
+
+
+async def live_quarantine(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> Quarantine | None:
+    cur = await conn.execute(
+        _QUARANTINE + " where q.case_id = %s and q.page_id = %s and q.status in ('suggested', 'confirmed')",
+        (case_id, page_id),
+    )
+    row = await cur.fetchone()
+    return Quarantine(*row) if row else None
+
+
+async def page_no_of(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> int | None:
+    cur = await conn.execute("select bundle_page_no from app.pages where id = %s and case_id = %s", (page_id, case_id))
+    row = await cur.fetchone()
+    return int(row[0]) if row else None
+
+
+async def suggest_quarantine(
+    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, reason: str, person_id: uuid.UUID
+) -> Quarantine:
+    await conn.execute(
+        "insert into app.page_quarantines (case_id, page_id, reason, suggested_by) values (%s, %s, %s, %s)",
+        (case_id, page_id, reason, person_id),
+    )
+    found = await live_quarantine(conn, case_id, page_id)
+    assert found is not None
+    return found
+
+
+async def confirm_quarantine(conn: AsyncConnection, q: Quarantine, reason: str, person_id: uuid.UUID) -> None:
+    """The page is quarantined and every fact on it rejected; their earlier statuses are kept for undo."""
+    cur = await conn.execute(
+        "select id, status from app.facts where page_id = %s and status <> 'rejected'", (q.page_id,)
+    )
+    prior = [{"id": str(r[0]), "status": r[1]} for r in await cur.fetchall()]
+    if prior:
+        await conn.execute(
+            "update app.facts set status = 'rejected' where id = any(%s)", ([uuid.UUID(f["id"]) for f in prior],)
+        )
+    await conn.execute(
+        "update app.page_quarantines set status = 'confirmed', reason = %s, confirmed_by = %s, confirmed_at = now(),"
+        " prior_facts = %s where id = %s",
+        (reason, person_id, Jsonb(prior), q.id),
+    )
+    await conn.execute(
+        "update app.pages set quarantined = true, quarantine_reason = %s, quarantined_by = %s,"
+        " quarantined_at = now() where id = %s",
+        (reason, person_id, q.page_id),
+    )
+
+
+async def close_quarantine(conn: AsyncConnection, q: Quarantine, person_id: uuid.UUID) -> str:
+    """Dismisses a suggestion, or undoes a quarantine: the page comes back and the facts that were
+    verified or edited before it are verified again. Returns the new status."""
+    if q.status == "suggested":
+        await conn.execute(
+            "update app.page_quarantines set status = 'dismissed', closed_by = %s, closed_at = now() where id = %s",
+            (person_id, q.id),
+        )
+        return "dismissed"
+    cur = await conn.execute(
+        "update app.page_quarantines set status = 'undone', closed_by = %s, closed_at = now() where id = %s"
+        " returning prior_facts",
+        (person_id, q.id),
+    )
+    row = await cur.fetchone()
+    kept = [uuid.UUID(f["id"]) for f in (row[0] if row else []) if f["status"] in ("verified", "edited")]
+    if kept:
+        await conn.execute(
+            "update app.facts set status = 'verified' where id = any(%s) and status = 'rejected'", (kept,)
+        )
+    await conn.execute(
+        "update app.pages set quarantined = false, quarantine_reason = null, quarantined_by = null,"
+        " quarantined_at = null where id = %s",
+        (q.page_id,),
+    )
+    return "undone"
+
+
+async def reset_undone(conn: AsyncConnection, case_id: uuid.UUID) -> None:
+    """A page brought back from quarantine is extracted again."""
+    await conn.execute(
+        "update app.page_analysis a set extracted_at = null from app.page_quarantines q"
+        " where q.page_id = a.page_id and a.case_id = %s and q.status = 'undone' and q.closed_at > a.extracted_at",
+        (case_id,),
+    )

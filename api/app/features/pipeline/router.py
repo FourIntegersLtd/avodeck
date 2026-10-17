@@ -11,6 +11,11 @@
   identifiers stripped. Plain code, no model.
 - `POST /v1/cases/{id}/instructing-party-requests`: logs the text as sent (sealed, append-only) and
   returns a `mailto:` link; the open items it lists become `requested`.
+- `POST /v1/cases/{id}/pages/{page_id}/quarantine` `{reason}`: "not this person's record". An
+  assistant only suggests; the named expert confirms: the page keeps its number, leaves reading,
+  extraction and the summary, and its facts are rejected.
+- `DELETE /v1/cases/{id}/pages/{page_id}/quarantine` (named expert): dismisses a suggestion, or
+  undoes a quarantine (verified facts are verified again; the page is read again, 202-style job).
 - `POST /v1/cases/{id}/process` (202 + job): processes whatever is not done yet.
 - `POST /v1/cases/{id}/process/cancel`: stops processing at the next page boundary; finished pages
   are kept and the job ends `paused` with reason `cancelled`.
@@ -60,6 +65,8 @@ from app.features.pipeline.schemas import (
     MissingItems,
     ProcessingCancelled,
     ProvenanceChange,
+    QuarantineAsk,
+    QuarantinePage,
     RequestDraft,
     RequestDraftAsk,
     RequestLogged,
@@ -71,6 +78,10 @@ from app.features.pipeline.service import REPROCESS_CASE
 pipeline_router = router(prefix="/v1/cases", tags=["pipeline"])
 
 _REVIEW = {"confirm": ("confirmed", "page.duplicate_confirmed"), "undo": ("kept", "page.duplicate_undone")}
+
+
+def _quarantine(q: repo.Quarantine, job_id: uuid.UUID | None = None) -> QuarantinePage:
+    return QuarantinePage(page_id=q.page_id, page_no=q.page_no, status=q.status, reason=q.reason, job_id=job_id)  # type: ignore[arg-type]
 
 
 def _not_found() -> ApiError:
@@ -274,6 +285,7 @@ async def bundle_summary(
     sources = await repo.source_counts(conn, case_id)
     copies, unreadable, gaps, open_items = await repo.summary_counts(conn, case_id)
     docs = await repo.documents(conn, case_id)
+    held = await repo.quarantines(conn, case_id)
     response.headers["cache-control"] = "private, no-store"
     return BundleSummary(
         pages=sum(n for _, n in sources),
@@ -284,6 +296,8 @@ async def bundle_summary(
         missing_items=open_items,
         documents=[_document(d) for d in docs],
         versions=[BundleVersion(**v) for v in repo.versions_of(docs)],
+        quarantine_suggestions=[_quarantine(q) for q in held if q.status == "suggested"],
+        quarantined=[_quarantine(q) for q in held if q.status == "confirmed"],
     )
 
 
@@ -466,3 +480,54 @@ async def reprocess(
     job_id = await wiring.registry().enqueue(conn, case_id, REPROCESS_CASE)
     await audit.record(conn, action="bundle.reprocess_requested", target=f"case:{case_id}", case_id=case_id)
     return JobQueued(job_id=job_id)
+
+
+def _decides(access: CaseAccess) -> bool:
+    """Only the named expert confirms, dismisses or undoes a quarantine (permissions.md)."""
+    return "fact.verify" in access.allowed_actions
+
+
+@pipeline_router.post("/{case_id}/pages/{page_id}/quarantine", response_model=QuarantinePage)
+async def quarantine_page(
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("page.quarantine"))],
+    body: QuarantineAsk,
+    scope: CurrentScope,
+    conn: DbConn,
+) -> QuarantinePage:
+    """An assistant's call suggests; the named expert's confirms (accepting any suggestion)."""
+    if await repo.page_no_of(conn, case_id, page_id) is None:
+        raise _not_found()
+    live = await repo.live_quarantine(conn, case_id, page_id)
+    if live is None:
+        live = await repo.suggest_quarantine(conn, case_id, page_id, body.reason, scope.person_id)
+        await audit.record(conn, action="page.quarantine_suggested", target=f"page:{page_id}", case_id=case_id)
+    if not _decides(access) or live.status == "confirmed":
+        return _quarantine(live)
+    await repo.confirm_quarantine(conn, live, body.reason, scope.person_id)
+    await audit.record(conn, action="page.quarantined", target=f"page:{page_id}", case_id=case_id)
+    return QuarantinePage(page_id=page_id, page_no=live.page_no, status="confirmed", reason=body.reason)
+
+
+@pipeline_router.delete("/{case_id}/pages/{page_id}/quarantine", response_model=QuarantinePage)
+async def release_page(
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("page.quarantine"))],
+    scope: CurrentScope,
+    conn: DbConn,
+) -> QuarantinePage:
+    if not _decides(access):
+        raise ApiError("forbidden", "You cannot do that on this case.", 403)
+    live = await repo.live_quarantine(conn, case_id, page_id)
+    if live is None:
+        raise _not_found()
+    status = await repo.close_quarantine(conn, live, scope.person_id)
+    job_id = None
+    if status == "undone":
+        job_id = await wiring.registry().enqueue(conn, case_id, PROCESS_PAGES)
+        await audit.record(conn, action="page.quarantine_undone", target=f"page:{page_id}", case_id=case_id)
+    else:
+        await audit.record(conn, action="page.quarantine_dismissed", target=f"page:{page_id}", case_id=case_id)
+    return QuarantinePage(page_id=page_id, page_no=live.page_no, status=status, reason=live.reason, job_id=job_id)  # type: ignore[arg-type]

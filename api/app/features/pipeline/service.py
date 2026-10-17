@@ -36,7 +36,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import dates, duplicates, extract, gaps, missing, paths, repo
+from app.features.pipeline import dates, duplicates, extract, gaps, missing, paths, quarantine, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
@@ -238,11 +238,13 @@ async def _ask(
             return None
 
 
-async def _extract(ctx: JobContext, services: PipelineServices) -> None:
+async def _extract(ctx: JobContext, services: PipelineServices) -> int:
+    """Extracts every page waiting for it; returns how many."""
     async with ctx.transaction() as conn:
+        await repo.reset_undone(conn, ctx.case_id)
         waiting = await repo.pages_to_extract(conn, ctx.case_id)
         if not waiting:
-            return
+            return 0
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
         who = await services.identity(conn, ctx.case_id)
     if services.kit is None:
@@ -328,6 +330,46 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> None:
             await ctx.progress(min(55, 40 + 15 * done // len(waiting)), step="sort")
 
     await bounded(waiting, one, stop=_stop(ctx))
+    return len(waiting)
+
+
+async def _suggest_quarantine(ctx: JobContext, services: PipelineServices) -> None:
+    """Suggests the pages whose identifiers are not the case subject's (F25). Never hides a page; the
+    identifiers are compared in memory and never stored."""
+    async with ctx.transaction() as conn:
+        candidates = await repo.pages_for_identity(conn, ctx.case_id)
+        pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        who = await services.identity(conn, ctx.case_id)
+    found: dict[uuid.UUID, dict[str, set[str]]] = {}
+
+    async def one(page_id: uuid.UUID) -> None:
+        async with ctx.transaction() as conn:
+            stored = await repo.words_of(conn, page_id)
+            ordered = [
+                (
+                    w.word_id,
+                    (
+                        await services.crypto.decrypt(
+                            conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                        )
+                    ).decode(),
+                )
+                for w in stored
+                if not w.struck
+            ]
+        found[page_id] = quarantine.identifiers(extract.plain_text(ordered), pack)
+
+    await bounded(candidates, one, stop=_stop(ctx))
+    flagged = quarantine.suggest({p: found[p] for p in candidates}, quarantine.known(who.dates_of_birth))
+    if flagged:
+        async with ctx.transaction() as conn:
+            await repo.add_suggestions(conn, ctx.case_id, flagged, quarantine.REASON)
+
+
+async def _sort(ctx: JobContext, services: PipelineServices) -> None:
+    """Extraction, then (when any page was extracted) the wrong-person check across the bundle."""
+    if await _extract(ctx, services):
+        await _suggest_quarantine(ctx, services)
 
 
 async def _compared_words(
@@ -495,7 +537,7 @@ async def process_bundle(ctx: JobContext) -> None:
     stages: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {
         "split": _split,
         "ocr": _read_words,
-        "sort": _extract,
+        "sort": _sort,
         "duplicates": _duplicates,
         "missing": _missing_step,
     }
@@ -515,7 +557,7 @@ async def reprocess_case(ctx: JobContext) -> None:
     async with ctx.transaction() as conn:
         await repo.reset_for_reprocess(conn, ctx.case_id)
     await ctx.progress(40, step="sort")
-    await _extract(ctx, services)
+    await _sort(ctx, services)
     await ctx.progress(100, step="sort")
 
 

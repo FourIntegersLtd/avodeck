@@ -80,6 +80,21 @@ class BundleVersions(BaseModel):
     versions: list[BundleVersion]
 
 
+QuarantineStatus = Literal["suggested", "confirmed", "dismissed", "undone", "purged"]
+
+
+class QuarantinePage(BaseModel):
+    page_id: uuid.UUID
+    page_no: int
+    status: QuarantineStatus
+    reason: str  # a short code; the screen shows its words
+    job_id: uuid.UUID | None = None  # reading the page again, after an undo
+
+
+class QuarantineAsk(BaseModel):
+    reason: str = Field(pattern=r"^[a-z_]{1,40}$")
+
+
 class BundleSummary(BaseModel):
     pages: int
     by_source: list[SourceCount]
@@ -89,6 +104,8 @@ class BundleSummary(BaseModel):
     missing_items: int
     documents: list[Document]
     versions: list[BundleVersion]
+    quarantine_suggestions: list[QuarantinePage] = []  # pages that may be someone else's, never hidden
+    quarantined: list[QuarantinePage] = []  # pages the named expert removed; they keep their numbers
 
 
 class ProvenanceChange(BaseModel):
