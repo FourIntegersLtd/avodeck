@@ -13,7 +13,11 @@ The T-04 answer (prefill) suggests the instructing party's name, its type and th
 citing the words it came from; it also gives one due date the letter never writes out ("within 8 weeks"),
 which the server must refuse.
 
-Re-run this after a change to the T-06 or T-04 prompt, their schemas or the launch packs' prompt context.
+T-02 (template headings): the fixture template's headings each get the section a careful reader would
+give. `recordings-paraphrased/` holds one T-02 answer with a suggestion for a paragraph that is not a
+heading and a second suggestion for one heading: the server must refuse both.
+
+Re-run this after a change to the T-06, T-04 or T-02 prompt, their schemas or the launch packs' prompt context.
 """
 
 from __future__ import annotations
@@ -35,11 +39,13 @@ from app.core.ai.recordings import FixtureStore  # noqa: E402
 from app.core.packs import default_library  # noqa: E402
 from app.features.setup import ai_tasks  # noqa: E402
 from app.features.setup.letter import Letter  # noqa: E402
+from app.features.setup.routes_files import _read_headings  # noqa: E402
 from tests.support.ai import cell  # noqa: E402
 
 EXPECTED = REPO / "evals" / "gb-eaw" / "clin-neg-breach" / "general-practice" / "expected"
 LETTER = HERE / "letter-of-instruction.pdf"
 SUPPLEMENTARY = HERE / "supplementary-letter-of-instruction.pdf"
+TEMPLATE = HERE / "template.docx"
 ROOT = HERE / "recordings"
 PARAPHRASED = HERE / "recordings-paraphrased"
 NAMES = ["Margaret Ashworth"]
@@ -121,6 +127,51 @@ def _prefill(letter: Letter) -> dict[str, object]:
     }
 
 
+TEMPLATE_SECTIONS = {
+    "Introduction": "introduction",
+    "My instructions": "instructions",
+    "Documents I have read": "documents",
+    "Background": "background",
+    "What happened": "what_happened",
+    "My opinion": "opinion",
+    "Range of reasonable opinion": "range_of_opinion",
+    "Summary of conclusions": "summary",
+    "Declaration and statement of truth": "declarations",
+}
+
+
+def _template(settings: object, pack: object, good: RecordedBedrock, bad: RecordedBedrock) -> None:
+    headings, _ = _read_headings(TEMPLATE.read_bytes())
+    task = ai_tasks.t02(pack)  # type: ignore[arg-type]
+    request = ModelRequest(
+        model_id=model_for(settings, task.model),  # type: ignore[arg-type]
+        system=task.system,
+        context=pack.prompt_context(task.task_id),  # type: ignore[attr-defined]
+        text=pii.strip(ai_tasks.t02_text(headings), pack=pack, names=(), dates_of_birth=()).text,  # type: ignore[arg-type]
+        schema=task.schema,
+    )
+    suggestions = [
+        {
+            "index": h["index"],
+            "section": TEMPLATE_SECTIONS.get(h["text"], "other"),
+            "reason": "heading wording" if h["text"] in TEMPLATE_SECTIONS else "no matching section",
+        }
+        for h in headings
+    ]
+    good.record(
+        request, ModelResponse(output={"suggestions": suggestions}, input_tokens=400, output_tokens=300), "template-t02"
+    )
+    wrong = [
+        {"index": 1, "section": "introduction", "reason": "heading wording"},
+        {"index": 3, "section": "instructions", "reason": "heading wording"},
+        {"index": 2, "section": "opinion", "reason": "body text"},  # not a heading: refused
+        {"index": 1, "section": "background", "reason": "second guess"},  # a second one: refused
+    ]
+    bad.record(
+        request, ModelResponse(output={"suggestions": wrong}, input_tokens=400, output_tokens=100), "template-t02"
+    )
+
+
 def main() -> None:
     _supplementary()
     settings = cell()
@@ -178,6 +229,7 @@ def main() -> None:
             model.record(
                 t04, ModelResponse(output=_prefill(letter), input_tokens=2400, output_tokens=200), "letter-t04"
             )
+    _template(settings, pack, model, paraphrased_model)
     print("recorded")  # noqa: T201
 
 
