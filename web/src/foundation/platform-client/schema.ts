@@ -253,6 +253,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/bundle/sorted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Bundle Sorted */
+        get: operations["bundle_sorted_v1_cases__case_id__bundle_sorted_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/bundle/summary": {
         parameters: {
             query?: never;
@@ -2271,6 +2288,25 @@ export interface components {
              */
             status: "mfa_required";
         };
+        /** SortedPage */
+        SortedPage: {
+            /** Date */
+            date: string | null;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Source Type */
+            source_type: string | null;
+        };
+        /** SortedPages */
+        SortedPages: {
+            /** Pages */
+            pages: components["schemas"]["SortedPage"][];
+        };
         /** SourceCount */
         SourceCount: {
             /** Pages */
@@ -2922,6 +2958,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AuditTrail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    bundle_sorted_v1_cases__case_id__bundle_sorted_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SortedPages"];
                 };
             };
             /** @description Validation Error */

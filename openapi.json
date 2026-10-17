@@ -3099,6 +3099,66 @@
         "title": "SignInResult",
         "type": "object"
       },
+      "SortedPage": {
+        "properties": {
+          "date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date"
+          },
+          "page_id": {
+            "format": "uuid",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "source_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type"
+          }
+        },
+        "required": [
+          "page_id",
+          "page_no",
+          "source_type",
+          "date"
+        ],
+        "title": "SortedPage",
+        "type": "object"
+      },
+      "SortedPages": {
+        "properties": {
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/SortedPage"
+            },
+            "title": "Pages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "pages"
+        ],
+        "title": "SortedPages",
+        "type": "object"
+      },
       "SourceCount": {
         "properties": {
           "pages": {
@@ -4102,6 +4162,59 @@
         "summary": "Audit Trail",
         "tags": [
           "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/bundle/sorted": {
+      "get": {
+        "operationId": "bundle_sorted_v1_cases__case_id__bundle_sorted_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SortedPages"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Bundle Sorted",
+        "tags": [
+          "pipeline"
         ]
       }
     },
