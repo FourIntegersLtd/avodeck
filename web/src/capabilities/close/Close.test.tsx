@@ -192,6 +192,22 @@ test("a deleted case shows its certificate: counts and dates only", async () => 
   expect(screen.queryByRole("button", { name: CLOSE_MESSAGES["close.keep.save"] })).not.toBeInTheDocument();
 });
 
+test("after deletion only the certificate answers, and the screen still shows it", async () => {
+  serve();
+  server.use(
+    http.get(`/v1/cases/${CASE_A}`, () => apiError(404, "not_found")),
+    http.get(`/v1/cases/${CASE_A}/pack`, () => apiError(404, "not_found")),
+    http.get(`/v1/cases/${CASE_A}/close`, () => apiError(404, "not_found")),
+    http.get(`/v1/cases/${CASE_A}/deletion-certificate`, () =>
+      json({ case_id: CASE_A, deleted_at: "2033-07-14T02:00:00Z", counts: { pages: 1231, storage_objects: 1240 }, hashes: {}, log_chain_heads: {}, backup_expiry_on: "2033-08-13", sent_to: ["named_expert"] }),
+    ),
+  );
+  renderClose();
+  expect(await screen.findByRole("heading", { level: 1, name: CLOSE_MESSAGES["close.heading.deleted"] })).toBeInTheDocument();
+  expect(await screen.findByText(/2033/, { selector: "dd" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
+});
+
 test("the screen is registered at the case's close path", () => {
   expect(closeRoutes.map((r) => r.path)).toEqual(["cases/:caseId/close"]);
 });
