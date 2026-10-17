@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "check_red_green.py"
 
 
-def _load():
+def _load() -> Any:
     spec = importlib.util.spec_from_file_location("check_red_green", SCRIPT)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
