@@ -844,7 +844,7 @@ export interface components {
         };
         /**
          * CaseUpdate
-         * @description Only the fields sent are changed. Party and track values are pack keys, checked by slice C.
+         * @description Only the fields sent are changed. Party and track values must be keys the case's packs offer.
          */
         CaseUpdate: {
             /** Court Track */
