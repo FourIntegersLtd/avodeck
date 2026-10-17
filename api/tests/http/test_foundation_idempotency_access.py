@@ -21,7 +21,7 @@ from app.core.auth.access import CaseAccess, require_case_access
 from app.core.auth.step_up import require_step_up
 from app.core.http import DbConn, router
 from tests.support.auth import CSRF_HEADER, cookie_header
-from tests.support.seed import SeededSession, Seed
+from tests.support.seed import Seed, SeededSession
 
 pytestmark = pytest.mark.anyio
 
@@ -78,7 +78,9 @@ async def test_a_person_removed_from_the_case_gets_404_on_replay(
     session = seed.session(team["assistant"])
     path = f"/v1/cases/{team['case']}/test-replay"
     assert (await post(session, path, "r1")).status_code == 201
-    admin.execute("delete from app.case_members where case_id = %s and person_id = %s", (team["case"], team["assistant"]))
+    admin.execute(
+        "delete from app.case_members where case_id = %s and person_id = %s", (team["case"], team["assistant"])
+    )
     replayed = await post(session, path, "r1")
     assert replayed.status_code == 404
     assert SECRET not in replayed.text
@@ -90,7 +92,9 @@ async def test_a_lapsed_step_up_gets_403_on_replay(
     session = seed.session(team["expert"])
     path = f"/v1/cases/{team['case']}/test-replay/risky"
     assert (await post(session, path, "r2")).status_code == 201
-    admin.execute("update app.sessions set mfa_verified_at = now() - interval '11 minutes' where id = %s", (session.id,))
+    admin.execute(
+        "update app.sessions set mfa_verified_at = now() - interval '11 minutes' where id = %s", (session.id,)
+    )
     replayed = await post(session, path, "r2")
     assert replayed.status_code == 403
     assert replayed.json()["error"]["code"] == "step_up_required"

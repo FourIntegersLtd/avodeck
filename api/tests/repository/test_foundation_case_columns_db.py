@@ -46,7 +46,7 @@ def case_for(seed: Seed, team: dict[str, uuid.UUID], status: str = "active") -> 
 def update_as(api_dsn: str, person: uuid.UUID, case: uuid.UUID, assignment: str, *params: object) -> int:
     with psycopg.connect(api_dsn) as conn, conn.transaction():
         conn.execute("select set_config('app.person_id', %s, true)", (str(person),))
-        cur = conn.execute(f"update app.cases set {assignment} where id = %s", (*params, case))  # type: ignore[arg-type]
+        cur = conn.execute(f"update app.cases set {assignment} where id = %s", (*params, case))
         return cur.rowcount
 
 

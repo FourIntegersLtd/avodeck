@@ -37,7 +37,7 @@ def team(seed: Seed) -> dict[str, uuid.UUID]:
 def run_as(api_dsn: str, person: uuid.UUID, statement: str, params: tuple[object, ...]) -> int:
     with psycopg.connect(api_dsn) as conn, conn.transaction():
         conn.execute("select set_config('app.person_id', %s, true)", (str(person),))
-        return conn.execute(statement, params).rowcount  # type: ignore[arg-type]
+        return conn.execute(statement, params).rowcount
 
 
 @pytest.mark.parametrize("move", sorted(MOVES))
@@ -60,7 +60,9 @@ def test_the_named_expert_can_move_a_report_versions_status(
     assert run_as(api_dsn, team["expert"], statement, (*extra, version)) == 1
 
 
-def test_an_assistant_can_still_edit_a_draft(api_dsn: str, admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
+def test_an_assistant_can_still_edit_a_draft(
+    api_dsn: str, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
     version = add_report_version(admin, team["case"])
     changed = run_as(
         api_dsn, team["assistant"], "update app.report_versions set display_name = 'Report 2' where id = %s", (version,)
