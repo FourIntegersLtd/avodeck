@@ -1,8 +1,9 @@
 """Slice A: the sorted view (brief acceptance 1: grouped by source then date, never renumbered).
 
 `GET /v1/cases/{id}/bundle/sorted` lists the case's pages in the pack's source order, then by the
-page's date (the earliest date of a fact on it that was not rejected, else the earliest printed
-date), pages with no date after dated ones, then by page number. Each entry keeps the page's own
+page's date (the earliest date printed on the page, page-level data only), pages with no date after
+dated ones, then by page number. Nothing comes from facts: a page not yet read must not reveal a
+suggestion, even its date (rule 3). Each entry keeps the page's own
 `page_no`: sorting never changes a number. Pages set aside as not this person's are left out.
 A viewer may look (case.view_content); anyone without access gets 404. Runs under both packs.
 """
@@ -105,9 +106,9 @@ async def test_pages_are_grouped_by_source_then_date_and_keep_their_numbers(h: H
     assert got.headers["cache-control"] == "private, no-store"
     first, second = h.sources[0], h.sources[1]  # type: ignore[attr-defined]
     assert [(p["page_no"], p["source_type"], p["date"]) for p in got.json()["pages"]] == [
-        (3, first, "2020-02-02"),
         (2, first, "2023-01-01"),
-        (1, second, "2021-05-01"),
+        (3, first, "2024-06-06"),
+        (1, second, None),
         (5, second, None),
         (4, None, None),
     ]
@@ -122,3 +123,13 @@ async def test_a_viewer_may_look_and_a_stranger_gets_404(h: Harness) -> None:
     path = f"/v1/cases/{h.case_id}/bundle/sorted"
     assert (await h.client.get(path, headers=member(h, "viewer"))).status_code == 200
     assert (await h.client.get(path, headers=stranger(h))).status_code == 404
+
+
+def test_the_sorted_view_never_reads_facts() -> None:
+    """Rule 3: the sort uses page-level data only, so no facts query runs for pages not yet read."""
+    import inspect
+
+    from app.features.pipeline import repo, router
+
+    assert "facts" not in inspect.getsource(repo.sorted_pages)
+    assert "facts" not in inspect.getsource(router.bundle_sorted)
