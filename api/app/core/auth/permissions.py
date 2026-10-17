@@ -63,6 +63,11 @@ CASE_ACTIONS: dict[str, ActionRule] = {
     "case.withdraw": ActionRule(_NAMED, step_up=True),
     "support_access.grant": ActionRule(_NAMED, step_up=True),
     "case.delete_now": ActionRule(_NAMED, "owner", step_up=True),
+    "case.settle": ActionRule(_NAMED),
+    "case.archive": ActionRule(_NAMED),
+    "case.reopen": ActionRule(_NAMED),
+    "case.view_audit": ActionRule(_NAMED, "admin"),
+    "case.view_certificate": ActionRule(_NAMED, "admin"),
 }
 
 
