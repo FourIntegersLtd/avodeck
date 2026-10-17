@@ -6,11 +6,13 @@ Everything runs in this region cell's worker (rule 5). Logs carry exception type
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import hashlib
 import io
 import json
 import logging
+import tempfile
 import uuid
 import zipfile
 from datetime import UTC, date, datetime
@@ -36,6 +38,10 @@ DAILY = "close_daily"
 BACKUP_RETENTION_DAYS = 30
 # Settled cases move to the archive this many days after settlement.
 ARCHIVE_AFTER_DAYS = 30
+# Export copies nobody downloaded are removed this many days after they were made; each daily run
+# looks back over the sweep window so a missed day is caught up.
+EXPORT_KEEP_DAYS = 7
+EXPORT_SWEEP_WINDOW_DAYS = 30
 PAUSED_KIND = "deletion_paused"
 VARIANTS = ("full", "admin")
 # Parts of the record of work whose slices are not built yet: exported as labelled empty files.
@@ -181,35 +187,55 @@ async def delete_case(ctx: JobContext) -> None:
     await ctx.step("storage", remove_files)
     await ctx.step("key", destroy_key)
 
-    # The rows go last, with the certificate and its email in the same transaction: if the email
-    # fails, the purge is undone and the job tries again (F20).
+    # The rows go last, with the certificate in the same transaction: if anything fails, the purge
+    # is undone and the job tries again (F20). Each email is recorded as sent in its own committed
+    # step, so a retry never sends the certificate to the same recipient twice.
     async with ctx.transaction() as conn:
         recipients = await _all(conn, "select role, email from app.close_certificate_recipients(%s)", (ctx.case_id,))
         purged = await _one(conn, "select app.purge_case(%s) as counts", (ctx.case_id,))
-        assert purged is not None
-        cert = await _one(
-            conn,
-            "update app.deletion_certificates set counts = counts || %s, deleted_at = now(),"
-            " backup_expiry_on = current_date + %s, sent_to = %s where case_id = %s"
-            " returning counts, deleted_at, backup_expiry_on",
-            (
-                Jsonb(purged["counts"]),
-                BACKUP_RETENTION_DAYS,
-                sorted({r["role"] for r in recipients}),
-                ctx.case_id,
-            ),
+        stamp = await _one(
+            conn, "select now() as deleted_at, current_date + %s as backup_expiry_on", (BACKUP_RETENTION_DAYS,)
         )
-        assert cert is not None
+        cert = await _one(conn, "select counts, sent_to from app.deletion_certificates where case_id = %s", (ctx.case_id,))
+        assert purged is not None and stamp is not None and cert is not None
+        counts = {**cert["counts"], **purged["counts"]}
+        sent = set(cert["sent_to"])
         for recipient in recipients:
+            if recipient["role"] in sent:
+                continue
             await ctx.mailer.send(
                 deletion_certificate_mail(
                     recipient["email"],
                     case_id=ctx.case_id,
-                    counts=cert["counts"],
-                    deleted_at=cert["deleted_at"],
-                    backup_expiry_on=cert["backup_expiry_on"],
+                    counts=counts,
+                    deleted_at=stamp["deleted_at"],
+                    backup_expiry_on=stamp["backup_expiry_on"],
                 )
             )
+            await _mark_sent(ctx, recipient["role"])
+            sent.add(recipient["role"])
+        await finish_certificate(conn, ctx.case_id, purged["counts"], stamp)
+
+
+async def _mark_sent(ctx: JobContext, role: str) -> None:
+    """Records, in its own committed transaction, that the certificate went to `role`."""
+    async with ctx.transaction() as conn:
+        await conn.execute(
+            "update app.deletion_certificates set sent_to = array_append(sent_to, %s)"
+            " where case_id = %s and deleted_at is null and not (%s = any(sent_to))",
+            (role, ctx.case_id, role),
+        )
+
+
+async def finish_certificate(
+    conn: AsyncConnection, case_id: uuid.UUID, counts: dict[str, Any], stamp: dict[str, Any]
+) -> None:
+    """Completes the certificate (after this it never changes)."""
+    await conn.execute(
+        "update app.deletion_certificates set counts = counts || %s, deleted_at = %s, backup_expiry_on = %s"
+        " where case_id = %s",
+        (Jsonb(counts), stamp["deleted_at"], stamp["backup_expiry_on"], case_id),
+    )
 
 
 # --- export_case ------------------------------------------------------------------------------------
@@ -219,8 +245,8 @@ def _sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def _zip(files: dict[str, bytes], hashes: list[dict[str, str]], case_id: uuid.UUID, variant: str) -> bytes:
-    out = io.BytesIO()
+def _finish_zip(archive: zipfile.ZipFile, names: list[str], hashes: list[dict[str, str]], case_id: uuid.UUID,
+                variant: str) -> None:  # fmt: skip
     table = io.StringIO()
     writer = csv.DictWriter(table, fieldnames=["file", "recorded_sha256", "computed_sha256", "matches"])
     writer.writeheader()
@@ -229,24 +255,37 @@ def _zip(files: dict[str, bytes], hashes: list[dict[str, str]], case_id: uuid.UU
         "case_id": str(case_id),
         "variant": variant,
         "created_at": datetime.now(UTC).isoformat(),
-        "files": sorted(files),
+        "files": sorted(names),
         "not_yet_available": [{"path": path, "reason": reason} for path, reason in NOT_YET_AVAILABLE],
     }
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
-        for name in sorted(files):
-            archive.writestr(name, files[name])
-        for path, _ in NOT_YET_AVAILABLE:
-            archive.writestr(path, "not_yet_available\n")
-        archive.writestr("hashes.csv", table.getvalue())
-        archive.writestr("manifest.json", json.dumps(manifest, indent=2))
-    return out.getvalue()
+    for path, _ in NOT_YET_AVAILABLE:
+        archive.writestr(path, "not_yet_available\n")
+    archive.writestr("hashes.csv", table.getvalue())
+    archive.writestr("manifest.json", json.dumps(manifest, indent=2))
+    archive.close()
+
+
+async def _deleting(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    """Locks the case against a deletion run starting (FOR SHARE) and says whether one has started."""
+    case = await _one(conn, "select status from app.cases where id = %s for share", (case_id,))
+    if case is None or case["status"] == "deleted":
+        return True
+    cert = await _one(conn, "select 1 as started from app.deletion_certificates where case_id = %s", (case_id,))
+    return cert is not None
 
 
 async def export_case(ctx: JobContext) -> None:
     """Builds both copies: `full` for the named expert (with the bundle) and `admin` for an
-    organisation admin (report versions, hashes and logs; no bundle or page images)."""
+    organisation admin (report versions, hashes and logs; no bundle or page images).
+
+    The case row stays share-locked until the copies are stored, so a deletion run starts either
+    before (and this writes nothing) or after (and its Storage sweep finds the copies). Each copy is
+    written to a temporary file one source file at a time; only the finished ZIP is read back to be
+    encrypted (CaseCrypto seals a file whole)."""
     storage, crypto = services.get_storage(), services.get_crypto()
     async with ctx.transaction() as conn:
+        if await _deleting(conn, ctx.case_id):
+            return
         reports = await _all(
             conn,
             "select version_no, pdf_path, docx_path, sha256 from app.report_versions where case_id = %s"
@@ -259,30 +298,34 @@ async def export_case(ctx: JobContext) -> None:
             " order by id",
             (ctx.case_id,),
         )
-        report_files: dict[str, bytes] = {}
-        report_hashes: list[dict[str, str]] = []
-        for r in reports:
-            for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
-                if path is None:
-                    continue
+        with contextlib.ExitStack() as stack:
+            files = {v: stack.enter_context(tempfile.TemporaryFile()) for v in VARIANTS}
+            archives = {v: zipfile.ZipFile(files[v], "w", zipfile.ZIP_DEFLATED) for v in VARIANTS}
+            names: dict[str, list[str]] = {v: [] for v in VARIANTS}
+            hashes: dict[str, list[dict[str, str]]] = {v: [] for v in VARIANTS}
+
+            def add(variants: tuple[str, ...], name: str, recorded: str | None, data: bytes) -> None:
+                row = _hash_row(name, recorded, data)
+                for v in variants:
+                    archives[v].writestr(name, data)
+                    names[v].append(name)
+                    hashes[v].append(row)
+
+            for r in reports:
+                for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
+                    if path is not None:
+                        data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
+                        add(VARIANTS, f"report-versions/v{r['version_no']}.{ext}", recorded, data)
+            for d in documents:
+                path = d["storage_path"]
                 data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-                name = f"report-versions/v{r['version_no']}.{ext}"
-                report_files[name] = data
-                report_hashes.append(_hash_row(name, recorded, data))
-        bundle_files: dict[str, bytes] = {}
-        bundle_hashes: list[dict[str, str]] = []
-        for d in documents:
-            path = d["storage_path"]
-            data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-            name = f"bundle/{d['id']}{PurePosixPath(path).suffix}"
-            bundle_files[name] = data
-            bundle_hashes.append(_hash_row(name, d["sha256"], data))
-        for variant in VARIANTS:
-            files = {**report_files, **(bundle_files if variant == "full" else {})}
-            hashes = report_hashes + (bundle_hashes if variant == "full" else [])
-            target = export_path(ctx.case_id, ctx.job_id, variant)
-            blob = _zip(files, hashes, ctx.case_id, variant)
-            await storage.put(target, await crypto.encrypt(conn, ctx.case_id, blob, purpose=target))
+                add(("full",), f"bundle/{d['id']}{PurePosixPath(path).suffix}", d["sha256"], data)
+            for variant in VARIANTS:
+                _finish_zip(archives[variant], names[variant], hashes[variant], ctx.case_id, variant)
+                files[variant].seek(0)
+                target = export_path(ctx.case_id, ctx.job_id, variant)
+                blob = await crypto.encrypt(conn, ctx.case_id, files[variant].read(), purpose=target)
+                await storage.put(target, blob)
 
 
 def _hash_row(name: str, recorded: str | None, data: bytes) -> dict[str, str]:
@@ -303,7 +346,8 @@ async def _as_case(conn: AsyncConnection, case_id: uuid.UUID | None) -> None:
 
 
 async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -> None:
-    """Release ended holds, archive old settled cases, date closed cases, queue due deletions."""
+    """Release ended holds, archive old closed cases, date closed cases, queue due deletions and
+    remove export copies nobody downloaded in time."""
     await conn.execute("select app.close_release_expired_holds(%s)", (run_date,))
     await conn.execute("select app.close_auto_archive(%s, %s)", (run_date, ARCHIVE_AFTER_DAYS))
     library = services.get_packs()
@@ -314,10 +358,14 @@ async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -
                 years = int(library.combine(row["jurisdiction"], row["case_type"], row["specialty"]).retention_years)
                 policy = row["retention_policy"] or DEFAULT_POLICY
                 case = await _one(
-                    conn, "select status, settled_at from app.cases where id = %s for update", (row["case_id"],)
+                    conn,
+                    "select status, settled_at, app.close_withdrawn_on(id) as withdrawn_on from app.cases"
+                    " where id = %s for update",
+                    (row["case_id"],),
                 )
                 if case is not None:
-                    base = case["settled_at"].date() if case["settled_at"] is not None else run_date
+                    closed = case["settled_at"].date() if case["settled_at"] is not None else case["withdrawn_on"]
+                    base = closed or run_date
                     due = delete_after(policy, case["status"], base, run_date, years)
                     await conn.execute(
                         "update app.cases set retention_policy = %s, delete_after = %s where id = %s",
@@ -343,6 +391,16 @@ async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -
             logger.error("close daily: queueing a deletion failed: %s", type(exc).__name__)
         finally:
             await _as_case(conn, None)
+    stale = await _all(
+        conn,
+        "select case_id, job_id from app.close_stale_exports(%s, %s, %s)",
+        (run_date, EXPORT_KEEP_DAYS, EXPORT_SWEEP_WINDOW_DAYS),
+    )
+    for row in stale:
+        try:
+            await services.get_storage().delete([export_path(row["case_id"], row["job_id"], v) for v in VARIANTS])
+        except Exception as exc:  # noqa: BLE001 - as above
+            logger.error("close daily: removing an old export failed: %s", type(exc).__name__)
 
 
 def register(reg: JobRegistry, *, daily_name: str = DAILY) -> None:

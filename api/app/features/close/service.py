@@ -5,13 +5,15 @@ Retention (the years come from the case's packs, never from here):
 - `return_then_delete`: due on the settlement date (the records go back, then the case is deleted).
 - `delete_now`: due today and `delete_case` is queued; only for a case never served and not held.
 The clock runs only once the case is closed (settled, archived or withdrawn). Settlement is the
-base; a case closed without settling (withdrawn) counts from the day it is closed. Reopening stops
-the clock and keeps the chosen policy for the next settlement.
+base; a case closed without settling (withdrawn) counts from the day it was withdrawn, so archiving
+it or changing its policy later never moves the date. Reopening stops the clock and keeps the chosen
+policy for the next settlement; a case already due for deletion cannot be reopened.
 """
 
 from __future__ import annotations
 
 import uuid
+from collections.abc import Iterator
 from datetime import date
 from typing import Any
 
@@ -28,6 +30,9 @@ from app.features.close import repo
 from app.features.close.schemas import CloseSummary, Hold
 
 CLOSED = ("settled", "archived", "withdrawn")
+# The download is sent in pieces of this size. CaseCrypto opens a file whole (one AES-GCM seal), so
+# the decrypted ZIP is held in memory once; it is never copied into a single response body.
+DOWNLOAD_CHUNK = 1024 * 1024
 DEFAULT_POLICY = "keep_default"
 
 
@@ -72,7 +77,7 @@ async def summary(
         ever_served=case["ever_served"],
         holds=[Hold(**h) for h in holds],
         held=_held(holds, await repo.today(conn)),
-        deletion_started=cert is not None or case["status"] == "deleted",
+        deletion_started=await repo.deletion_started(conn, case_id),
         deleted_at=cert["deleted_at"] if cert else None,
         job_id=job_id,
     )
@@ -81,13 +86,16 @@ async def summary(
 async def _locked_case(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any]:
     """The case row, locked; refused once its deletion run has started."""
     case = await repo.case(conn, case_id, lock=True)
-    if case["status"] == "deleted" or await repo.deletion(conn, case_id) is not None:
+    if case["status"] == "deleted" or await repo.deletion_started(conn, case_id):
         raise conflict()
     return case
 
 
 def _base(case: dict[str, Any]) -> date | None:
-    return case["settled_at"].date() if case["settled_at"] is not None else None
+    """When the case closed: its settlement, else the day it was withdrawn (None while open)."""
+    if case["settled_at"] is not None:
+        return case["settled_at"].date()  # type: ignore[no-any-return]
+    return case["withdrawn_on"]  # type: ignore[no-any-return]
 
 
 async def _record(conn: AsyncConnection, case_id: uuid.UUID, action: str, target: str | None = None) -> None:
@@ -120,6 +128,8 @@ async def reopen(conn: AsyncConnection, case_id: uuid.UUID) -> None:
     case = await _locked_case(conn, case_id)
     if case["status"] not in ("settled", "archived"):
         raise conflict()
+    if case["delete_after"] is not None and case["delete_after"] <= await repo.today(conn):
+        raise conflict()  # due for deletion: the daily run may already have queued it
     await repo.update_case(conn, case_id, status="active", delete_after=None)
     await _record(conn, case_id, "case.reopened")
 
@@ -164,6 +174,7 @@ async def release_hold(conn: AsyncConnection, case_id: uuid.UUID, hold_id: uuid.
 
 
 async def request_export(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID:
+    await _locked_case(conn, case_id)  # refused once deletion has started
     job_id = await registry.enqueue(conn, case_id, "export_case")
     await _record(conn, case_id, "case.export_requested", f"export:{job_id}")
     return job_id
@@ -206,3 +217,9 @@ async def download_export(
     await _record(conn, case_id, "case.export_downloaded", f"export:{job_id}")
     await storage.delete([path])
     return data
+
+
+def chunks(data: bytes, size: int = DOWNLOAD_CHUNK) -> Iterator[bytes]:
+    view = memoryview(data)
+    for start in range(0, len(view), size):
+        yield bytes(view[start : start + size])

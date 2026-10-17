@@ -14,7 +14,8 @@ from psycopg.rows import dict_row
 
 _CASE = (
     "select id, status, settled_at, retention_policy, delete_after, jurisdiction, case_type, specialty,"
-    " app.case_ever_served(id) as ever_served from app.cases where id = %s"
+    " app.case_ever_served(id) as ever_served, app.close_withdrawn_on(id) as withdrawn_on"
+    " from app.cases where id = %s"
 )
 _HOLD = "select id, reason, until, set_by, created_at, released_at from app.legal_holds"
 
@@ -82,6 +83,13 @@ async def deletion(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any] 
         " from app.deletion_certificates where case_id = %s",
         (case_id,),
     )
+
+
+async def deletion_started(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    """Whether the deletion run has started, for any case member (the certificate is not theirs to read)."""
+    cur = await conn.execute("select app.close_deletion_started(%s)", (case_id,))
+    row = await cur.fetchone()
+    return bool(row and row[0])
 
 
 async def audit_trail(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:

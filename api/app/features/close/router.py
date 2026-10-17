@@ -10,6 +10,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import Depends, Request, Response
+from fastapi.responses import StreamingResponse
 
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.crypto import CaseCrypto
@@ -154,8 +155,8 @@ async def download_export(
     # Storage is looked up after the access check, so a refusal never says whether storage is ready.
     await service.check_export_done(conn, access.case_id, job_id)
     data = await service.download_export(conn, _storage(request), _crypto(request), access, job_id)
-    return Response(
-        content=data,
+    return StreamingResponse(
+        service.chunks(data),
         media_type="application/zip",
         headers={
             "Cache-Control": "private, no-store",
