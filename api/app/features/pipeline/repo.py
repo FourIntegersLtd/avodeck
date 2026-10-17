@@ -721,3 +721,71 @@ async def group_version(conn: AsyncConnection, case_id: uuid.UUID, document_ids:
     row = await cur.fetchone()
     assert row is not None
     return int(row[0])
+
+
+# --- instructing-party requests --------------------------------------------------------------------
+
+
+async def open_missing(conn: AsyncConnection, case_id: uuid.UUID) -> list[MissingItem]:
+    """Open missing items, in page order."""
+    return [i for i in await missing_items(conn, case_id) if i.status == "open"]
+
+
+async def clearer_copy_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int]]:
+    """Unreadable pages still in the bundle (not set aside), as (id, page number)."""
+    cur = await conn.execute(
+        "select id, bundle_page_no from app.pages where case_id = %s and unreadable and not quarantined"
+        " order by bundle_page_no",
+        (case_id,),
+    )
+    return [(r[0], int(r[1])) for r in await cur.fetchall()]
+
+
+async def request_wording_facts(conn: AsyncConnection, case_id: uuid.UUID) -> tuple[str, str]:
+    """The case's label and the named expert's name ('' if not set)."""
+    cur = await conn.execute(
+        "select c.label, coalesce(p.full_name, '') from app.cases c left join app.people p on p.id = c.named_expert_id"
+        " where c.id = %s",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return row[0], row[1]
+
+
+async def count_known(conn: AsyncConnection, table: str, case_id: uuid.UUID, ids: list[uuid.UUID]) -> int:
+    assert table in {"missing_items", "pages"}
+    cur = await conn.execute(f"select count(*) from app.{table} where case_id = %s and id = any(%s)", (case_id, ids))
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
+async def log_request(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    *,
+    request_id: uuid.UUID,
+    missing_item_ids: list[uuid.UUID],
+    page_ids: list[uuid.UUID],
+    subject: bytes,
+    body: bytes,
+    follow_up_on: dt.date | None,
+    person_id: uuid.UUID,
+) -> None:
+    await conn.execute(
+        "insert into app.instructing_party_requests (id, case_id, missing_item_ids, page_ids, subject, body_text,"
+        " sent_via, follow_up_on, created_by) values (%s, %s, %s, %s, %s, %s, 'mailto', %s, %s)",
+        (request_id, case_id, missing_item_ids, page_ids, subject, body, follow_up_on, person_id),
+    )
+
+
+async def mark_requested(
+    conn: AsyncConnection, case_id: uuid.UUID, ids: list[uuid.UUID], person_id: uuid.UUID
+) -> list[uuid.UUID]:
+    """Open items among `ids` become `requested`; returns the ones that moved."""
+    cur = await conn.execute(
+        "update app.missing_items set status = 'requested', updated_by = %s, version = version + 1,"
+        " updated_at = now() where case_id = %s and id = any(%s) and status = 'open' returning id",
+        (person_id, case_id, ids),
+    )
+    return [r[0] for r in await cur.fetchall()]

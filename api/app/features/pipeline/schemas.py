@@ -103,3 +103,33 @@ class AppendRecords(BaseModel):
 class Appended(BaseModel):
     job_id: uuid.UUID
     bundle_version: int
+
+
+class RequestDraftAsk(BaseModel):
+    """Nothing to choose yet: the draft lists every open missing item and every unreadable page."""
+
+
+class RequestDraft(BaseModel):
+    label: str
+    subject: str
+    body: str
+    missing_item_ids: list[uuid.UUID]
+    clearer_copy_page_ids: list[uuid.UUID]
+    clearer_copy_page_nos: list[int]
+
+
+_ADDRESS = r"^[^@\s,;?&]+@[^@\s,;?&]+\.[^@\s,;?&]+$"
+
+
+class RequestSent(BaseModel):
+    to: str | None = Field(default=None, max_length=320, pattern=_ADDRESS)
+    subject: str = Field(min_length=1, max_length=500)
+    body: str = Field(min_length=1, max_length=20000)
+    missing_item_ids: list[uuid.UUID] = Field(default_factory=list, max_length=500)
+    clearer_copy_page_ids: list[uuid.UUID] = Field(default_factory=list, max_length=5000)
+    follow_up_on: dt.date | None = None
+
+
+class RequestLogged(BaseModel):
+    id: uuid.UUID
+    mailto: str

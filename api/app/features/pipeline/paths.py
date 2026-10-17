@@ -39,3 +39,13 @@ def missing_description_purpose(item_id: object) -> str:
 def missing_reason_purpose(item_id: object) -> str:
     """The purpose the reason a missing item is not available (`missing_items.reason`) is sealed under."""
     return f"missing_items/{item_id}/reason"
+
+
+def request_subject_purpose(request_id: object) -> str:
+    """Key-derivation label for a logged request's sealed subject line."""
+    return f"instructing_party_requests/{request_id}/subject"
+
+
+def request_body_purpose(request_id: object) -> str:
+    """Key-derivation label for a logged request's sealed text."""
+    return f"instructing_party_requests/{request_id}/body"

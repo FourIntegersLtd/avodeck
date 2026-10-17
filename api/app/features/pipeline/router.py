@@ -6,6 +6,11 @@
 - `GET /v1/cases/{id}/bundle/versions`: what each delivery of records added.
 - `POST /v1/cases/{id}/documents/append`: appended files form one new bundle version and their
   pages are processed (202 + job); files already cut into pages cannot be regrouped (409).
+- `POST /v1/cases/{id}/instructing-party-requests/draft`: the pack's request wording listing the open
+  missing items and the unreadable pages needing a clearer copy, with names, dates of birth and
+  identifiers stripped. Plain code, no model.
+- `POST /v1/cases/{id}/instructing-party-requests`: logs the text as sent (sealed, append-only) and
+  returns a `mailto:` link; the open items it lists become `requested`.
 
 - `GET /v1/cases/{id}/duplicates`: each page set aside as a copy, the page it copies and its review.
 - `PATCH /v1/cases/{id}/pages/{page_id}/duplicate` (If-Match): `confirm` keeps it set aside; `undo`
@@ -21,10 +26,12 @@ from __future__ import annotations
 
 import uuid
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import Depends, Request, Response
 
 from app.core import audit
+from app.core.ai import pii
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts.pipeline import PROCESS_PAGES
 from app.core.crypto import CaseCrypto
@@ -46,6 +53,10 @@ from app.features.pipeline.schemas import (
     MissingItemChange,
     MissingItems,
     ProvenanceChange,
+    RequestDraft,
+    RequestDraftAsk,
+    RequestLogged,
+    RequestSent,
     SourceCount,
 )
 
@@ -317,3 +328,95 @@ async def append_records(
     job_id = await wiring.registry().enqueue(conn, case_id, PROCESS_PAGES)
     await audit.record(conn, action="bundle.appended", target=f"case:{case_id}", case_id=case_id)
     return Appended(job_id=job_id, bundle_version=version)
+
+
+@pipeline_router.post("/{case_id}/instructing-party-requests/draft", response_model=RequestDraft)
+async def draft_request(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("request.draft"))],
+    body: RequestDraftAsk,
+    request: Request,
+    conn: DbConn,
+    response: Response,
+) -> RequestDraft:
+    crypto = _crypto(request)
+    services = wiring.current()
+    pack = services.packs.for_case(await repo.case_codes(conn, case_id))
+    who = await services.identity(conn, case_id)
+
+    def clean(text: str) -> str:
+        return pii.strip(text, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth).text
+
+    items = await repo.open_missing(conn, case_id)
+    lines = []
+    for item in items:
+        words = await crypto.decrypt(
+            conn, case_id, item.description, purpose=paths.missing_description_purpose(item.id)
+        )
+        lines.append(f"- {clean(words.decode())} ({item.citing_page_no})")
+    unreadable = await repo.clearer_copy_pages(conn, case_id)
+    label, expert = await repo.request_wording_facts(conn, case_id)
+    wording = pack.instructing_party_request(
+        case_reference=clean(label),
+        missing_items="\n".join(lines) or "-",
+        clearer_copies="\n".join(f"- {n}" for _, n in unreadable) or "-",
+        expert_name=expert,
+    )
+    response.headers["cache-control"] = "private, no-store"
+    return RequestDraft(
+        label=wording["label"],
+        subject=clean(wording["subject"]),
+        body=clean(wording["body"]),
+        missing_item_ids=[i.id for i in items],
+        clearer_copy_page_ids=[p for p, _ in unreadable],
+        clearer_copy_page_nos=[n for _, n in unreadable],
+    )
+
+
+def _mailto(to: str | None, subject: str, body: str) -> str:
+    """An RFC 6068 link: the address, then the subject and text percent-encoded."""
+    return f"mailto:{quote(to or '', safe='@')}?subject={quote(subject, safe='')}&body={quote(body, safe='')}"
+
+
+@pipeline_router.post("/{case_id}/instructing-party-requests", status_code=201, response_model=RequestLogged)
+async def log_request(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("request.draft"))],
+    body: RequestSent,
+    request: Request,
+    conn: DbConn,
+    scope: CurrentScope,
+    response: Response,
+) -> RequestLogged:
+    crypto = _crypto(request)
+    items = sorted(set(body.missing_item_ids))
+    pages = list(dict.fromkeys(body.clearer_copy_page_ids))
+    if await repo.count_known(conn, "missing_items", case_id, items) != len(items):
+        raise _not_found()
+    if await repo.count_known(conn, "pages", case_id, pages) != len(pages):
+        raise _not_found()
+    request_id = uuid.uuid4()
+    subject = await crypto.encrypt(
+        conn, case_id, body.subject.encode(), purpose=paths.request_subject_purpose(request_id)
+    )
+    text = await crypto.encrypt(conn, case_id, body.body.encode(), purpose=paths.request_body_purpose(request_id))
+    await repo.log_request(
+        conn,
+        case_id,
+        request_id=request_id,
+        missing_item_ids=items,
+        page_ids=pages,
+        subject=subject,
+        body=text,
+        follow_up_on=body.follow_up_on,
+        person_id=scope.person_id,
+    )
+    await repo.mark_requested(conn, case_id, items, scope.person_id)
+    await audit.record(
+        conn,
+        action="instructing_party_request.logged",
+        target=f"instructing_party_request:{request_id}",
+        case_id=case_id,
+    )
+    response.headers["cache-control"] = "private, no-store"
+    return RequestLogged(id=request_id, mailto=_mailto(body.to, body.subject, body.body))
