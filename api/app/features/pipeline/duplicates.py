@@ -21,6 +21,7 @@ import io
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import imagehash
 from datasketch import MinHash, MinHashLSH  # type: ignore[import-untyped]
@@ -153,12 +154,12 @@ def same_content(a: Sequence[Word], b: Sequence[Word], pack: MergedPack) -> bool
 
 
 def originals(
-    pairs: Iterable[tuple[object, object]],
-    page_no: Mapping[object, int],
-    copy_of: Mapping[object, object | None],
-    new: set[object],
-    kept: set[object],
-) -> dict[object, object]:
+    pairs: Iterable[tuple[Any, Any]],
+    page_no: Mapping[Any, int],
+    copy_of: Mapping[Any, Any],
+    new: set[Any],
+    kept: set[Any],
+) -> dict[Any, Any]:
     """Each new page that copies an earlier page, with the earliest such page that is not a copy."""
     matches: dict[object, list[object]] = {}
     for first, second in pairs:

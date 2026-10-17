@@ -120,7 +120,7 @@ def later_page(h: Harness) -> uuid.UUID:
     doc = Seed(h.admin).document(h.case_id)
     return uuid.UUID(
         str(
-            h.admin.execute(
+            h.admin.execute(  # type: ignore[index]
                 "insert into app.pages (case_id, document_id, bundle_page_no) values (%s, %s, 2) returning id",
                 (h.case_id, doc),
             ).fetchone()[0]
@@ -165,7 +165,7 @@ async def test_not_available_needs_a_reason_and_can_be_opened_again(bundle: Harn
     assert done.json()["status"] == "not_available" and done.json()["version"] == 1
     same = done.json()["reason"] == "Destroyed under the practice policy"
     assert same, "the reason given was not kept"
-    sealed = bundle.admin.execute("select reason from app.missing_items where id = %s", (item,)).fetchone()[0]
+    sealed = bundle.admin.execute("select reason from app.missing_items where id = %s", (item,)).fetchone()[0]  # type: ignore[index]
     assert b"Destroyed" not in bytes(sealed), "the reason is stored unsealed"
     again = await change(bundle, item, {"status": "open"}, 1)
     assert again.status_code == 200, again.status_code

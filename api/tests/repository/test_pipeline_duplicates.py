@@ -206,7 +206,7 @@ async def test_the_review_columns_change_only_with_the_page_action_and_hashes_on
     case_id = seed.case(seed.org(members={expert: "owner"}), expert)
     seed.case_member(case_id, viewer, "viewer", added_by=expert)
     doc = seed.document(case_id)
-    page_id = admin.execute(
+    page_id = admin.execute(  # type: ignore[index]
         "insert into app.pages (case_id, document_id, bundle_page_no) values (%s, %s, 1) returning id", (case_id, doc)
     ).fetchone()[0]
     admin.execute("insert into app.page_analysis (page_id, case_id) values (%s, %s)", (page_id, case_id))

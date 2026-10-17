@@ -134,7 +134,7 @@ def test_pages_of_mixed_kinds_make_no_series() -> None:
     dates = months(dt.date(2021, 1, 1), dt.date(2024, 1, 1))
     for i in range(0, len(dates), 4):
         chunk = dates[i : i + 4]
-        b.page(source, [(listed, None), (listed, None), (other, None), (other, None)][: len(chunk)], chunk)
+        b.page(source, [(listed, None), (listed, None), (other, None), (other, None)][: len(chunk)], chunk)  # type: ignore[arg-type]
     b.letters(source, other, months(dt.date(2023, 6, 1), dt.date(2024, 12, 1)))
     assert all(g.fact_kind != listed for g in gaps.find(b.pages))
 
