@@ -441,13 +441,17 @@ function SamePerson({ caseId, jurisdiction }: { caseId: string; jurisdiction: st
   const [identifier, setIdentifier] = useState("");
   const [result, setResult] = useState<Schemas["DuplicateCheck"] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
   const check = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     try {
       const value = identifier.trim();
-      setResult(await unwrap(api.POST("/v1/cases/duplicate-check", { body: { identifier: value, jurisdiction, case_id: caseId } })));
+      // once this case's own key is saved, leave this case out of the matches
+      const body = saved ? { identifier: value, jurisdiction, case_id: caseId } : { identifier: value, jurisdiction };
+      setResult(await unwrap(api.POST("/v1/cases/duplicate-check", { body })));
       await unwrap(api.PUT("/v1/cases/{case_id}/subject-key", { params: { path: { case_id: caseId } }, body: { identifier: value } }));
+      setSaved(true);
     } catch (err) {
       setError(errorMessage(err, { invalid: "setup.same_person.invalid" }));
     }
