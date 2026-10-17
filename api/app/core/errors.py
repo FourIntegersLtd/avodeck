@@ -14,6 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.routing import Match, Route
 
 # Raised by the database's state-machine triggers (migration 0002).
 CONFLICT_SQLSTATE = "AV409"
@@ -72,10 +73,22 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
     return error_response(422, "invalid", "Some details are not valid.", fields=fields)
 
 
-async def _http_error(_: Request, exc: Exception) -> JSONResponse:
+def _allowed_methods(request: Request) -> str:
+    """Every method any route offers for this path (Starlette names only the first matching route's)."""
+    methods: set[str] = set()
+    for route in request.app.router.routes:
+        if isinstance(route, Route) and route.methods and route.matches(request.scope)[0] != Match.NONE:
+            methods |= route.methods
+    return ", ".join(sorted(methods))
+
+
+async def _http_error(request: Request, exc: Exception) -> JSONResponse:
     assert isinstance(exc, StarletteHTTPException)
     code = _HTTP_CODES.get(exc.status_code, "error")
-    return error_response(exc.status_code, code, "Request refused.", headers=dict(exc.headers or {}))
+    headers = dict(exc.headers or {})
+    if exc.status_code == 405:
+        headers["Allow"] = _allowed_methods(request) or headers.get("Allow", "")
+    return error_response(exc.status_code, code, "Request refused.", headers=headers)
 
 
 async def _database_error(request: Request, exc: Exception) -> JSONResponse:

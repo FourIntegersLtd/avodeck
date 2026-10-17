@@ -67,7 +67,7 @@ async def list_sessions(session: CurrentSession, conn: DbConn) -> list[Device]:
     ]
 
 
-@account_router.delete("/sessions/{session_id}", status_code=204)
+@account_router.delete("/sessions/{session_id:uuid}", status_code=204)
 async def end_session(session_id: uuid.UUID, conn: DbConn) -> Response:
     """Signs out one of the person's own devices; anyone else's is 404."""
     if await sessions.revoke(conn, "signed_out", session_id=session_id) == 0:
