@@ -9,6 +9,7 @@ router = _router(prefix="/v1", tags=["setup"])
 from app.features.setup import (  # noqa: E402, F401
     jobs,
     routes_case,
+    routes_conflicts,
     routes_declaration,
     routes_files,
     routes_profile,
