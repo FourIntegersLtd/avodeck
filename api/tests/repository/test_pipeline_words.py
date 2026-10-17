@@ -172,7 +172,9 @@ async def test_every_word_is_kept_sealed_and_exactly_as_read(subset: Harness, re
         assert all(r["source"] == entry["text_source"] for r in stored), f"page {n}"
         for row, (word_id, text, confidence) in zip(stored, read, strict=True):
             sealed = bytes(row["text"])
-            assert text.encode() not in sealed, f"page {n}: a word is stored unsealed"
+            # Words long enough not to turn up in random bytes by chance; a bool, so no word is printed.
+            unsealed = len(text) >= 6 and text.encode() in sealed
+            assert not unsealed, f"page {n}: a word is stored unsealed"
             opened = await subset.decrypt(sealed, word_purpose(page["id"], word_id))
             assert digest(opened.decode()) == digest(text), f"page {n}: a word changed"
             assert abs(row["confidence"] - confidence) < 1e-4, f"page {n}"
