@@ -28,7 +28,7 @@ function mock(pack: Schemas["CasePack"], opts: { summary?: Partial<Schemas["Bund
   );
 }
 
-const card = (text: string | RegExp) => screen.getByText(text).closest(".av-card") as HTMLElement;
+const card = (text: string | RegExp | HTMLElement) => (text instanceof HTMLElement ? text : screen.getByText(text)).closest(".av-card") as HTMLElement;
 
 describe.each([
   { name: "launch packs", pack: launchPack },

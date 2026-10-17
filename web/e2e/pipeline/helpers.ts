@@ -1,7 +1,7 @@
 // Slice A's e2e stub: the built app against a stubbed API (page.route), under either pack set.
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, type Route } from "@playwright/test";
-import packFixtures from "../../src/foundation/platform-client/pack-fixtures.json";
+import packFixtures from "../../src/foundation/platform-client/pack-fixtures.json" with { type: "json" };
 
 export const CASE_A = "44444444-4444-4444-8444-444444444444";
 const ORG = "22222222-2222-4222-8222-222222222222";

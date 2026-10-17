@@ -73,8 +73,9 @@ describe.each([
     mock(pack, [duplicate()]);
     server.use(http.patch(`/v1/cases/${CASE_ID}/pages/${pageId(20)}/duplicate`, () => apiError(412, "version_mismatch")));
     const { user } = renderAt(PATH);
-    await user.click(await screen.findByRole("button", { name: "Yes, it's a copy" }));
+    const button = await screen.findByRole("button", { name: "Yes, it's a copy" });
     server.use(http.get(`/v1/cases/${CASE_ID}/duplicates`, () => json({ duplicates: [duplicate({ status: "kept", version: 2 })] })));
+    await user.click(button);
     expect(await screen.findByText("Someone else changed this page. Here is the latest. Please choose again if you need to.")).toBeVisible();
     expect(await within(row(20)).findByText("Kept in the bundle")).toBeVisible();
   });
