@@ -9,6 +9,11 @@ def page_prefix(case_id: uuid.UUID, page_id: uuid.UUID) -> str:
     return f"cases/{case_id}/pages/{page_id}"
 
 
+def part_prefix(case_id: uuid.UUID, document_id: uuid.UUID) -> str:
+    """Where a file taken out of an email or a zip is kept, as a document of its own."""
+    return f"cases/{case_id}/parts/{document_id}"
+
+
 def page_pdf_path(case_id: uuid.UUID, page_id: uuid.UUID) -> str:
     return f"{page_prefix(case_id, page_id)}/page.pdf"
 

@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, SerializerFunctionWrapHandler, model_serializer
 
 
 class DuplicatePage(BaseModel):
@@ -65,6 +65,33 @@ class Document(BaseModel):
     received_on: dt.date | None
     obtained_how: str | None
     bundle_version: int
+    media_type: str | None = None  # what the file turned out to be (F36)
+    part_of: uuid.UUID | None = None  # the email or zip it came out of
+
+    @model_serializer(mode="wrap")
+    def _omit_unknown(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """`media_type` and `part_of` appear once the file has been sniffed (when it is cut into pages)."""
+        out: dict[str, Any] = handler(self)
+        if out.get("media_type") is None:
+            out.pop("media_type", None)
+            out.pop("part_of", None)
+        return out
+
+
+class Exhibit(BaseModel):
+    """A file Avodeck keeps and lists but cannot read: audio, video, imaging. Never paged."""
+
+    id: uuid.UUID
+    document_id: uuid.UUID
+    filename: str
+    media_type: str
+    size: int
+    part_of: uuid.UUID | None = None
+    added_at: dt.datetime
+
+
+class Exhibits(BaseModel):
+    exhibits: list[Exhibit]
 
 
 class BundleVersion(BaseModel):
@@ -106,6 +133,7 @@ class BundleSummary(BaseModel):
     versions: list[BundleVersion]
     quarantine_suggestions: list[QuarantinePage] = []  # pages that may be someone else's, never hidden
     quarantined: list[QuarantinePage] = []  # pages the named expert removed; they keep their numbers
+    exhibits: list[Exhibit] = []  # files kept but not readable by Avodeck
 
 
 class ProvenanceChange(BaseModel):

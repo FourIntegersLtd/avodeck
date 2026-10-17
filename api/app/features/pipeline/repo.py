@@ -19,6 +19,7 @@ RECORDS_KIND = "records"  # the core document kind that becomes numbered pages
 class Document:
     id: uuid.UUID
     storage_path: str
+    filename: str = ""
 
 
 async def unscanned_documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[Document]:
@@ -45,12 +46,13 @@ async def record_scan(
 
 async def clean_unsplit(conn: AsyncConnection, case_id: uuid.UUID) -> list[Document]:
     cur = await conn.execute(
-        "select d.id, d.storage_path from app.documents d join app.document_scans s on s.document_id = d.id"
+        "select d.id, d.storage_path, d.filename from app.documents d"
+        " join app.document_scans s on s.document_id = d.id"
         " where d.case_id = %s and s.clean and s.split_at is null and d.kind = %s"
         " order by d.created_at, d.id",
         (case_id, RECORDS_KIND),
     )
-    return [Document(r[0], r[1]) for r in await cur.fetchall()]
+    return [Document(r[0], r[1], r[2]) for r in await cur.fetchall()]
 
 
 async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, count: int) -> bool:
@@ -91,11 +93,108 @@ async def pages_without_image(conn: AsyncConnection, case_id: uuid.UUID) -> list
     return [PageRow(r[0], r[1], r[2], r[3]) for r in await cur.fetchall()]
 
 
-async def document_path(conn: AsyncConnection, document_id: uuid.UUID) -> str:
-    cur = await conn.execute("select storage_path from app.documents where id = %s", (document_id,))
+async def document_file(conn: AsyncConnection, document_id: uuid.UUID) -> tuple[str, str]:
+    """Where a document is kept, and its filename."""
+    cur = await conn.execute("select storage_path, filename from app.documents where id = %s", (document_id,))
     row = await cur.fetchone()
     assert row is not None and row[0]
-    return str(row[0])
+    return str(row[0]), str(row[1])
+
+
+# --- files that are not PDFs (F36) -----------------------------------------------------------------
+
+
+async def part_depth(conn: AsyncConnection, document_id: uuid.UUID) -> int:
+    """How many emails or zips the document sits inside."""
+    cur = await conn.execute(
+        "with recursive up(id, depth) as (select %s::uuid, 0 union all"
+        " select p.parent_document_id, up.depth + 1 from app.document_parts p join up on p.document_id = up.id"
+        " where up.depth < 50) select max(depth) from up",
+        (document_id,),
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row and row[0] is not None else 0
+
+
+async def add_part(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    parent_id: uuid.UUID,
+    part_no: int,
+    *,
+    document_id: uuid.UUID,
+    filename: str,
+    media_type: str,
+    sha256: str,
+    storage_path: str,
+) -> bool:
+    """A file inside an email or a zip becomes a document of its own, once. False if already made."""
+    cur = await conn.execute(
+        "select 1 from app.document_parts where parent_document_id = %s and part_no = %s", (parent_id, part_no)
+    )
+    if await cur.fetchone() is not None:
+        return False
+    await conn.execute(
+        "insert into app.documents (id, case_id, kind, filename, storage_path, sha256, received_on, obtained_how,"
+        " bundle_version, uploaded_by)"
+        " select %s, case_id, kind, %s, %s, %s, received_on, obtained_how, bundle_version, uploaded_by"
+        " from app.documents where id = %s",
+        (document_id, filename[:255], storage_path, sha256, parent_id),
+    )
+    await conn.execute(
+        "insert into app.document_scans (document_id, case_id, clean) values (%s, %s, true)", (document_id, case_id)
+    )
+    await conn.execute(
+        "insert into app.document_parts (case_id, parent_document_id, document_id, part_no, media_type)"
+        " values (%s, %s, %s, %s, %s)",
+        (case_id, parent_id, document_id, part_no, media_type),
+    )
+    return True
+
+
+async def set_media_type(conn: AsyncConnection, document_id: uuid.UUID, media_type: str) -> None:
+    await conn.execute(
+        "update app.document_scans set media_type = %s where document_id = %s", (media_type, document_id)
+    )
+
+
+async def add_exhibit(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    *,
+    media_type: str,
+    size: int,
+    sha256: str,
+    storage_path: str,
+) -> None:
+    await conn.execute(
+        "insert into app.exhibits (case_id, document_id, media_type, size, sha256, storage_path)"
+        " values (%s, %s, %s, %s, %s, %s) on conflict (document_id) do nothing",
+        (case_id, document_id, media_type, size, sha256, storage_path),
+    )
+
+
+@dataclass(frozen=True)
+class ExhibitRow:
+    id: uuid.UUID
+    document_id: uuid.UUID
+    filename: str
+    media_type: str
+    size: int
+    part_of: uuid.UUID | None
+    created_at: Any
+
+
+async def exhibits(conn: AsyncConnection, case_id: uuid.UUID) -> list[ExhibitRow]:
+    cur = await conn.execute(
+        "select e.id, e.document_id, d.filename, e.media_type, e.size, p.parent_document_id, e.created_at"
+        " from app.exhibits e join app.documents d on d.id = e.document_id"
+        " left join app.document_parts p on p.document_id = e.document_id"
+        " where e.case_id = %s order by e.created_at, d.filename",
+        (case_id,),
+    )
+    return [ExhibitRow(*r) for r in await cur.fetchall()]
 
 
 async def set_image(conn: AsyncConnection, page_id: uuid.UUID, image_path: str) -> None:
@@ -630,25 +729,33 @@ class DocumentRow:
     obtained_how: str | None
     bundle_version: int
     created_at: Any
+    media_type: str | None = None
+    part_of: uuid.UUID | None = None
 
 
 _DOCUMENT = (
     "select d.id, d.kind, d.filename, d.pages, min(p.bundle_page_no), max(p.bundle_page_no), d.received_on,"
-    " d.obtained_how, d.bundle_version, d.created_at"
+    " d.obtained_how, d.bundle_version, d.created_at, s.media_type, dp.parent_document_id"
     " from app.documents d left join app.pages p on p.document_id = d.id"
+    " left join app.document_scans s on s.document_id = d.id"
+    " left join app.document_parts dp on dp.document_id = d.id"
 )
+_GROUP = " group by d.id, s.media_type, dp.parent_document_id"
 
 
 async def documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[DocumentRow]:
     cur = await conn.execute(
-        _DOCUMENT + " where d.case_id = %s group by d.id order by min(p.bundle_page_no) nulls last, d.created_at",
+        _DOCUMENT + " where d.case_id = %s" + _GROUP + " order by min(p.bundle_page_no) nulls last, d.created_at",
         (case_id,),
     )
     return [DocumentRow(*r) for r in await cur.fetchall()]
 
 
 async def document(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> DocumentRow | None:
-    cur = await conn.execute(_DOCUMENT + " where d.case_id = %s and d.id = %s group by d.id", (case_id, document_id))
+    cur = await conn.execute(
+        _DOCUMENT + " where d.case_id = %s and d.id = %s" + _GROUP,
+        (case_id, document_id),
+    )
     row = await cur.fetchone()
     return DocumentRow(*row) if row else None
 

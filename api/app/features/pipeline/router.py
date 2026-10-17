@@ -63,6 +63,8 @@ from app.features.pipeline.schemas import (
     DuplicatePage,
     DuplicateReview,
     Duplicates,
+    Exhibit,
+    Exhibits,
     JobQueued,
     MissingItem,
     MissingItemChange,
@@ -278,6 +280,20 @@ def _document(d: repo.DocumentRow) -> Document:
         received_on=d.received_on,
         obtained_how=d.obtained_how,
         bundle_version=d.bundle_version,
+        media_type=d.media_type,
+        part_of=d.part_of,
+    )
+
+
+def _exhibit(e: repo.ExhibitRow) -> Exhibit:
+    return Exhibit(
+        id=e.id,
+        document_id=e.document_id,
+        filename=e.filename,
+        media_type=e.media_type,
+        size=e.size,
+        part_of=e.part_of,
+        added_at=e.created_at,
     )
 
 
@@ -304,7 +320,20 @@ async def bundle_summary(
         versions=[BundleVersion(**v) for v in repo.versions_of(docs)],
         quarantine_suggestions=[_quarantine(q) for q in held if q.status == "suggested"],
         quarantined=[_quarantine(q) for q in held if q.status in ("confirmed", "purged")],
+        exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
     )
+
+
+@pipeline_router.get("/{case_id}/exhibits", response_model=Exhibits)
+async def list_exhibits(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_content"))],
+    conn: DbConn,
+    response: Response,
+) -> Exhibits:
+    """Audio, video and imaging files: kept and listed, never paged or read (F36)."""
+    response.headers["cache-control"] = "private, no-store"
+    return Exhibits(exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)])
 
 
 @pipeline_router.get("/{case_id}/bundle/versions", response_model=BundleVersions)

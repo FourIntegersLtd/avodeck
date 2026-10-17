@@ -19,6 +19,7 @@ logs carry numbers and step codes only (rule 6).
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
@@ -37,7 +38,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import dates, duplicates, extract, gaps, missing, paths, quarantine, repo
+from app.features.pipeline import convert, dates, duplicates, extract, gaps, missing, paths, quarantine, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
@@ -46,6 +47,8 @@ SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
 PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
 CONCURRENCY = 3  # pages read or sent to a model at once
+LIMITS = convert.Limits()
+PART_OBJECT = "file"  # the one sealed object under a part's prefix
 STEPS = ("split", "ocr", "sort", "duplicates", "missing")  # the steps the Preparing screen shows
 READY = "bundle_ready"  # the notification kind sent when new pages are ready
 
@@ -88,16 +91,62 @@ async def scan_document(ctx: JobContext) -> None:
     await ctx.progress(100, step="scan")
 
 
+def _pages_of(found: convert.Unpacked) -> list[bytes]:
+    return split_pages(found.pdf) if found.pdf is not None else []
+
+
+async def _unpack(
+    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, doc: repo.Document
+) -> list[bytes]:
+    """Cuts one document into pages; the files inside an email or a zip become documents of their
+    own (cut on the next round) and files that cannot be paged become exhibits (F36)."""
+    data = await _read_document(conn, services, case_id, doc.storage_path)
+    found = convert.unpack(data, doc.filename, LIMITS)
+    if found.members and await repo.part_depth(conn, doc.id) >= LIMITS.max_depth:
+        found = convert.Unpacked(found.media_type, exhibit=True)
+    for n, member in enumerate(found.members, start=1):
+        child = uuid.uuid4()
+        prefix = paths.part_prefix(case_id, child)
+        made = await repo.add_part(
+            conn,
+            case_id,
+            doc.id,
+            n,
+            document_id=child,
+            filename=member.filename,
+            media_type=convert.sniff(member.data, member.filename),
+            sha256=hashlib.sha256(member.data).hexdigest(),
+            storage_path=prefix,
+        )
+        if made:
+            await _put_sealed(conn, services, case_id, f"{prefix}/{PART_OBJECT}", member.data)
+    if found.exhibit:
+        await repo.add_exhibit(
+            conn,
+            case_id,
+            doc.id,
+            media_type=found.media_type,
+            size=len(data),
+            sha256=hashlib.sha256(data).hexdigest(),
+            storage_path=doc.storage_path,
+        )
+    await repo.set_media_type(conn, doc.id, found.media_type)
+    return _pages_of(found)
+
+
 async def _split(ctx: JobContext, services: PipelineServices) -> None:
     cache: dict[uuid.UUID, list[bytes]] = {}
-    async with ctx.transaction() as conn:
-        documents = await repo.clean_unsplit(conn, ctx.case_id)
-    for doc in documents:
+    while True:
         async with ctx.transaction() as conn:
-            pages = split_pages(await _read_document(conn, services, ctx.case_id, doc.storage_path))
-            if await repo.add_pages(conn, ctx.case_id, doc.id, len(pages)):
-                cache[doc.id] = pages
-            await repo.link_replacements(conn, ctx.case_id)
+            documents = await repo.clean_unsplit(conn, ctx.case_id)
+        if not documents:
+            break
+        for doc in documents:
+            async with ctx.transaction() as conn:
+                pages = await _unpack(conn, services, ctx.case_id, doc)
+                if await repo.add_pages(conn, ctx.case_id, doc.id, len(pages)):
+                    cache[doc.id] = pages
+                await repo.link_replacements(conn, ctx.case_id)
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
     stop = _stop(ctx)
@@ -106,8 +155,9 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
             raise ProcessingPaused("cancelled")
         async with ctx.transaction() as conn:
             if page.document_id not in cache:
-                prefix = await repo.document_path(conn, page.document_id)
-                cache[page.document_id] = split_pages(await _read_document(conn, services, ctx.case_id, prefix))
+                prefix, filename = await repo.document_file(conn, page.document_id)
+                data = await _read_document(conn, services, ctx.case_id, prefix)
+                cache[page.document_id] = _pages_of(convert.unpack(data, filename, LIMITS))
             page_pdf = cache[page.document_id][page.bundle_page_no - page.first_page_no]
             pictures = render(page_pdf)
             await _put_sealed(conn, services, ctx.case_id, paths.page_pdf_path(ctx.case_id, page.id), page_pdf)
