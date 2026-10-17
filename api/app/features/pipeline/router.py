@@ -66,7 +66,7 @@ async def list_duplicates(
 async def review_duplicate(
     case_id: uuid.UUID,
     page_id: uuid.UUID,
-    access: Annotated[CaseAccess, Depends(require_case_access("page.rotate"))],
+    access: Annotated[CaseAccess, Depends(require_case_access("page.review_duplicate"))],
     version: IfMatch,
     body: DuplicateReview,
     conn: DbConn,

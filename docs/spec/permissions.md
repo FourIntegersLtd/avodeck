@@ -26,6 +26,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `conflict.declare` (conflict answers and declarations) | ✓ | — | — | — | — | — |
 | `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — |
 | `page.quarantine`, `page.replace`, `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — |
+| `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — |
 | `fact.verify` | ✓ | — | — | — | — | — |
 | `question.confirm` | ✓ | — | — | — | — | — |
 | `opinion.write` | ✓ | — | — | — | — | — |

@@ -45,6 +45,7 @@ CASE_ACTIONS: dict[str, ActionRule] = {
     "page.quarantine": ActionRule(_HELPERS),
     "page.replace": ActionRule(_HELPERS),
     "page.rotate": ActionRule(_HELPERS),
+    "page.review_duplicate": ActionRule(_HELPERS),
     "fact.verify": ActionRule(_NAMED),
     "question.confirm": ActionRule(_NAMED),
     "opinion.write": ActionRule(_NAMED),
