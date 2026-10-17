@@ -189,7 +189,8 @@ def certificate(admin: psycopg.Connection, case: uuid.UUID) -> dict[str, Any] | 
     row = cur.fetchone()
     if row is None:
         return None
-    return dict(zip(("deleted_at", "counts", "hashes", "log_chain_heads", "backup_expiry_on", "sent_to"), row, strict=True))
+    fields = ("deleted_at", "counts", "hashes", "log_chain_heads", "backup_expiry_on", "sent_to")
+    return dict(zip(fields, row, strict=True))
 
 
 def existing_tables(admin: psycopg.Connection) -> set[str]:

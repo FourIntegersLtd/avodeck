@@ -297,7 +297,9 @@ def test_holds_past_their_end_date_are_released(
     assert released == {ended: True, lasting: False}
 
 
-@pytest.mark.parametrize("fn", ["app.close_auto_archive(current_date, 30)", "app.close_release_expired_holds(current_date)"])
+@pytest.mark.parametrize(
+    "fn", ["app.close_auto_archive(current_date, 30)", "app.close_release_expired_holds(current_date)"]
+)
 def test_the_daily_functions_are_the_workers(fn: str, api_dsn: str, team: dict[str, uuid.UUID]) -> None:
     with pytest.raises(Refused), as_person(api_dsn, team["expert"]) as conn:
         conn.execute(f"select {fn}")  # noqa: S608

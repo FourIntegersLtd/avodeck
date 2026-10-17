@@ -371,7 +371,8 @@ async def test_delete_now_is_refused_for_a_served_case(
     for status in ("served", "settled"):
         case = new_case(seed, team, status)
         before = case_row(admin, case)
-        resp = await (await client_for(team["expert"])).put(f"/v1/cases/{case}/retention", json={"policy": "delete_now"})
+        expert = await client_for(team["expert"])
+        resp = await expert.put(f"/v1/cases/{case}/retention", json={"policy": "delete_now"})
         assert resp.status_code == 409, (status, resp.text)
         assert code(resp) == "conflict"
         assert case_row(admin, case) == before
