@@ -11,7 +11,8 @@
    and is emailed (patient-free) in the same transaction. Interrupted at any point, a rerun finishes
    the job with exactly one certificate (F20).
 
-`export_case`: the record of work as an encrypted ZIP per variant, downloaded once through the API.
+`export_case`: the requester's copy of the record of work (full for the named expert, administrative for an
+organisation admin) as an encrypted ZIP, downloaded once, by that person only, through the API.
 The named expert gets the full copy (with the bundle); an organisation admin the administrative one
 (report versions, hashes and logs, no page images).
 
@@ -546,10 +547,62 @@ async def test_an_organisation_admin_gets_the_administrative_copy_without_page_i
     assert archive.read("report-versions/v1.pdf") == pdf
     assert not any(n.startswith(("bundle/", "pages/")) for n in names)
     assert json.loads(archive.read("manifest.json"))["variant"] == "admin"
-    # The expert's full copy is still there for the expert.
+    # Only the requester's copy was built: nothing is left once it is downloaded.
+    assert await storage.list_recursive(f"{case_prefix(case)}/exports/{job}") == []
+
+
+async def test_the_named_experts_export_builds_only_the_full_copy(
+    run: Run,
+    seed: Seed,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+    client_for: ClientFor,
+) -> None:
+    case = world["case"]
+    await served_report(admin, storage, crypto, worker_db, case)
+    client = await client_for(world["expert"])
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
     assert await storage.list_recursive(f"{case_prefix(case)}/exports/{job}") == [
         f"{case_prefix(case)}/exports/{job}/full.zip"
     ]
+    resp = await (await client_for(world["org_admin"])).get(f"/v1/cases/{case}/export/{job}/download")
+    assert resp.status_code == 404, "an export is downloaded only by the person who asked for it"
+
+
+async def test_another_admin_cannot_download_an_admins_export(
+    run: Run,
+    seed: Seed,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+    client_for: ClientFor,
+) -> None:
+    case = world["case"]
+    await served_report(admin, storage, crypto, worker_db, case)
+    other_admin = seed.person()
+    seed.membership(world["org"], other_admin, "admin")
+    job = uuid.UUID((await (await client_for(world["org_admin"])).post(f"/v1/cases/{case}/export")).json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
+    resp = await (await client_for(other_admin)).get(f"/v1/cases/{case}/export/{job}/download")
+    assert resp.status_code == 404
+    assert len(await storage.list_recursive(f"{case_prefix(case)}/exports/{job}")) == 1
+
+
+async def test_an_export_nobody_asked_for_builds_nothing(
+    run: Run, seed: Seed, storage: SupabaseStorage, world: dict[str, Any]
+) -> None:
+    case = world["case"]
+    job = seed.job(case, kind="export_case")
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    assert await storage.list_recursive(f"{case_prefix(case)}/exports") == []
 
 
 async def test_an_export_is_stored_encrypted(
@@ -559,7 +612,10 @@ async def test_an_export_is_stored_encrypted(
     case = world["case"]
     pdf = await served_report(admin, storage, crypto, worker_db, case)
     job = uuid.uuid4()
-    admin.execute("insert into app.jobs (id, case_id, kind) values (%s, %s, 'export_case')", (job, case))
+    admin.execute(
+        "insert into app.jobs (id, case_id, kind, requested_by) values (%s, %s, 'export_case', %s)",
+        (job, case, world["expert"]),
+    )
     await run(close_jobs.export_case, case, "export_case", job=job)
     blob = await storage.get(f"{case_prefix(case)}/exports/{job}/full.zip")
     assert pdf not in blob and not blob.startswith(b"PK")
@@ -742,7 +798,8 @@ async def test_a_deletion_that_starts_during_an_export_still_removes_the_export(
         return await real_get(path)
 
     monkeypatch.setattr(storage, "get", slow_get)
-    export_job, delete_job = seed.job(case, kind="export_case"), seed.job(case, kind="delete_case")
+    export_job = seed.job(case, kind="export_case", requested_by=world["expert"])
+    delete_job = seed.job(case, kind="delete_case")
     export: asyncio.Future[OutboxMailer] = asyncio.ensure_future(
         run(close_jobs.export_case, case, "export_case", job=export_job)
     )
@@ -811,12 +868,11 @@ async def test_the_daily_run_archives_and_dates_a_case_withdrawn_long_ago(
     withdrawn = date.today() - timedelta(days=close_jobs.ARCHIVE_AFTER_DAYS + 10)
     with admin.transaction():
         admin.execute("set local session_replication_role = replica")
-        admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
-    admin.execute(
-        "insert into app.audit_log (case_id, action, target, at)"
-        " values (%s, 'case.withdrawn', %s, (%s::date + time '12:00')::timestamptz)",
-        (case, f"case:{case}", withdrawn),
-    )
+        admin.execute(
+            "update app.cases set status = 'withdrawn', closed_at = (%s::date + time '12:00')::timestamptz"
+            " where id = %s",
+            (withdrawn, case),
+        )
     await run_daily(worker_db, registry, name, date.today())
     row = admin.execute("select status, delete_after from app.cases where id = %s", (case,)).fetchone()
     assert row == ("archived", withdrawn.replace(year=withdrawn.year + FIXTURE_YEARS))
