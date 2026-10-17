@@ -268,6 +268,7 @@ The records received, every page and word, and the facts found on them.
 | `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, size, storage_path, sha256, note |
 | `pages` | Every page of every document, with its permanent page number. Facts and reads point at pages. | case_id, document_id, bundle_page_no, source_type, image_path, text_source, ocr_confidence, handwriting, rotation, duplicate_of_page_id, superseded_by_page_id, quarantined (reason, by, at), unreadable, relevance, language, transcribed_by_expert_text |
 | `page_analysis` | The worker's working notes on each page: how far it got, the fingerprints used to find duplicates, printed dates, the sealed extraction and whether a person must check it. | page_id, case_id, stage, word_count, typed_words, phash, minhash, printed_dates, extraction (sealed), needs_human, reason, model_id, duplicate_status, duplicate_version, references_checked_at |
+| `page_embeddings` | One search vector per page, made from the page's words after identifiers are stripped, with the embedder that made it; a page embedded by an older model is embedded again. | page_id, case_id, model, embedding, created_at, updated_at |
 | `page_quarantines` | Pages that may belong to someone else: suggested, confirmed by the named expert or undone; once the instructing party is told or the pack's days pass, the page's image and text are deleted and it keeps its number. | case_id, page_id, status, reason, suggested_by, confirmed_by, confirmed_at, closed_by, closed_at, purged_at, prior_facts, version |
 | `page_replacements` | A clearer copy of a page: the later document that replaces it and, once split, the new page that supersedes it. | case_id, page_id, document_id, new_page_id, requested_by, linked_at |
 | `ocr_words` | Every word read on a page, with where it sits. Facts cite these words, which is how every fact points to its exact place. | page_id, word_index, text, polygon, confidence, source (ocr/embedded/expert) |
@@ -503,6 +504,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/bundle/summary` | Page counts by source, duplicates, unreadable count, missing items, gaps, provenance |
+| GET | `/cases/{case_id}/bundle/sorted` | Pages grouped by the pack's sources, then by date; every page keeps its own number; quarantined pages left out |
 | GET | `/cases/{case_id}/duplicates` | Pairs to review; thumbnails via `/pages/{page_no}/thumbnail` |
 | PATCH | `/cases/{case_id}/pages/{page_id}/duplicate` | Confirm or undo "copy of page X" |
 | PATCH | `/cases/{case_id}/documents/{doc_id}` | Edit provenance (how obtained, received date) |

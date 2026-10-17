@@ -373,6 +373,14 @@ A joint expert is one with two or more current instructing parties; no separate 
 | duplicate_status / duplicate_by / duplicate_at / duplicate_version | Whether it was set aside as a duplicate, who decided and when (If-Match) |
 | references_checked_at | When its mentions of other documents were checked |
 
+### page_embeddings
+| Field | In plain words |
+|---|---|
+| page_id | The page the vector describes (one per page) |
+| model | Which embedder made it; a page made by an older one is made again |
+| embedding | The search vector, made from the page's words with names and identifiers taken out |
+| created_at / updated_at | When it was first made and last remade |
+
 ### page_quarantines
 | Field | In plain words |
 |---|---|
