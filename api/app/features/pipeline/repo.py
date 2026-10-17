@@ -95,3 +95,38 @@ async def document_path(conn: AsyncConnection, document_id: uuid.UUID) -> str:
 
 async def set_image(conn: AsyncConnection, page_id: uuid.UUID, image_path: str) -> None:
     await conn.execute("update app.pages set image_path = %s where id = %s", (image_path, page_id))
+
+
+async def pages_without_words(conn: AsyncConnection, case_id: uuid.UUID) -> list[uuid.UUID]:
+    cur = await conn.execute(
+        "select id from app.pages where case_id = %s and text_source is null and image_path is not null"
+        " order by bundle_page_no",
+        (case_id,),
+    )
+    return [r[0] for r in await cur.fetchall()]
+
+
+WordRow = tuple[uuid.UUID, uuid.UUID, int, str, bytes, list[float], float, bool, bool, str]
+
+
+async def store_words(
+    conn: AsyncConnection,
+    page_id: uuid.UUID,
+    rows: list[WordRow],
+    *,
+    source: str,
+    confidence: float,
+    handwriting: bool,
+    unreadable: bool,
+) -> None:
+    async with conn.cursor() as cur:
+        await cur.executemany(
+            "insert into app.ocr_words"
+            " (page_id, case_id, n, word_id, text, polygon, confidence, handwritten, struck, source)"
+            " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            rows,
+        )
+    await conn.execute(
+        "update app.pages set text_source = %s, ocr_confidence = %s, handwriting = %s, unreadable = %s where id = %s",
+        (source, confidence, handwriting, unreadable, page_id),
+    )

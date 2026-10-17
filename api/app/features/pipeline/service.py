@@ -11,20 +11,25 @@ logs carry numbers and step codes only (rule 6).
 
 from __future__ import annotations
 
+import asyncio
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 
 from psycopg import AsyncConnection
 
 from app.core import audit
+from app.core.ai.ocr import OcrPage
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
+from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
 from app.features.pipeline import paths, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
+from app.features.pipeline.words import assess, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
+CONCURRENCY = 3  # pages read or sent to a model at once
 STEPS = ("split", "ocr", "duplicates", "extract", "sort", "gaps", "missing")
 
 
@@ -95,10 +100,84 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
             await ctx.progress(min(30, 30 * n // len(waiting)), step="split")
 
 
+async def bounded[T](items: Sequence[T], work: Callable[[T], Awaitable[None]], limit: int = CONCURRENCY) -> None:
+    """Run `work` on every item, at most `limit` at once; the first error stops the rest."""
+    gate = asyncio.Semaphore(limit)
+
+    async def one(item: T) -> None:
+        async with gate:
+            await work(item)
+
+    tasks = [asyncio.create_task(one(item)) for item in items]
+    try:
+        await asyncio.gather(*tasks)
+    except BaseException:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
+
+
+async def _page_pdf(conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, page_id: uuid.UUID) -> bytes:
+    path = paths.page_pdf_path(case_id, page_id)
+    return await services.crypto.decrypt(conn, case_id, await services.storage.get(path), purpose=path)
+
+
+async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
+    async with ctx.transaction() as conn:
+        waiting = await repo.pages_without_words(conn, ctx.case_id)
+
+    async def read(page_id: uuid.UUID) -> None:
+        async with ctx.transaction() as conn:
+            page_pdf = await _page_pdf(conn, services, ctx.case_id, page_id)
+        page: OcrPage | None = usable_text_layer(page_pdf)
+        source = "embedded"
+        if page is None:
+            if services.ocr is None:
+                raise ProcessingPaused("model_unavailable")
+            page = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+            source = "ocr"
+        reading = assess(page, source)
+        async with ctx.transaction() as conn:
+            rows: list[repo.WordRow] = []
+            for n, word in enumerate(page.words, start=1):
+                sealed = await services.crypto.encrypt(
+                    conn, ctx.case_id, word.text.encode(), purpose=paths.word_purpose(page_id, word.id)
+                )
+                polygon = list(word.polygon)
+                rows.append(
+                    (
+                        page_id,
+                        ctx.case_id,
+                        n,
+                        word.id,
+                        sealed,
+                        polygon,
+                        word.confidence,
+                        word.handwritten,
+                        word.struck,
+                        source,
+                    )
+                )
+            await repo.store_words(
+                conn,
+                page_id,
+                rows,
+                source=source,
+                confidence=reading.confidence,
+                handwriting=reading.handwriting,
+                unreadable=reading.unreadable,
+            )
+
+    await bounded(waiting, read)
+
+
 async def process_bundle(ctx: JobContext) -> None:
     services = current()
     await ctx.progress(0, step="split")
     await _split(ctx, services)
+    await ctx.progress(30, step="ocr")
+    await _read_words(ctx, services)
     for n, step in enumerate(STEPS, start=1):
         await ctx.step(step, _noop)
         await ctx.progress(100 * n // len(STEPS), step=step)
