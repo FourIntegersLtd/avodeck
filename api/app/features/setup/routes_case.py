@@ -830,15 +830,26 @@ async def _held_keys(conn: DbConn, case_id: uuid.UUID, new: MergedPack) -> list[
     """Keys the new packs lack are kept (refusing would leave the expert no way forward, since every key is
     checked against the current packs) and listed for the expert; waiting key suggestions are dismissed."""
     checks = (
-        ("case_parties.role_key", "select distinct role_key from app.case_parties where case_id = %s",
-         {p["key"] for p in new.party_roles()}),
-        ("case_instructing_parties.type_key",
-         "select distinct type_key from app.case_instructing_parties where case_id = %s and effective_to is null",
-         {p["key"] for p in new.instructing_party_types()}),
-        ("questions.kind", "select distinct kind from app.questions where case_id = %s",
-         {str(q["key"]) for q in new.question_types()}),
-        ("conflict_answers.question_key", "select distinct question_key from app.conflict_answers where case_id = %s",
-         {str(q["key"]) for q in new.conflicts()["questions"]}),
+        (
+            "case_parties.role_key",
+            "select distinct role_key from app.case_parties where case_id = %s",
+            {p["key"] for p in new.party_roles()},
+        ),
+        (
+            "case_instructing_parties.type_key",
+            "select distinct type_key from app.case_instructing_parties where case_id = %s and effective_to is null",
+            {p["key"] for p in new.instructing_party_types()},
+        ),
+        (
+            "questions.kind",
+            "select distinct kind from app.questions where case_id = %s",
+            {str(q["key"]) for q in new.question_types()},
+        ),
+        (
+            "conflict_answers.question_key",
+            "select distinct question_key from app.conflict_answers where case_id = %s",
+            {str(q["key"]) for q in new.conflicts()["questions"]},
+        ),
     )
     out: list[PackChange] = []
     for key, sql, allowed in checks:

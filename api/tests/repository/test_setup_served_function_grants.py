@@ -12,8 +12,9 @@ import pytest
 FUNCTION = "app.expert_has_served(uuid)"
 
 
-@pytest.mark.parametrize(("role", "allowed"), [("anon", False), ("authenticated", False), ("app_api", True),
-                                               ("app_worker", True)])
+@pytest.mark.parametrize(
+    ("role", "allowed"), [("anon", False), ("authenticated", False), ("app_api", True), ("app_worker", True)]
+)
 def test_only_the_api_and_worker_roles_run_it(admin: psycopg.Connection, role: str, allowed: bool) -> None:
     row = admin.execute("select has_function_privilege(%s, %s, 'execute')", (role, FUNCTION)).fetchone()
     assert row == (allowed,)
