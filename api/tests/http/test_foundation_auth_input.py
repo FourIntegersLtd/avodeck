@@ -26,7 +26,9 @@ async def test_sign_in_refuses_control_characters_in_the_email(browser: Browser,
 
 
 async def test_sign_in_refuses_control_characters_in_the_password(browser: Browser) -> None:
-    resp = await (await browser()).post("/v1/auth/sign-in", json={"email": "a@example.test", "password": "pass\x00word"})
+    resp = await (await browser()).post(
+        "/v1/auth/sign-in", json={"email": "a@example.test", "password": "pass\x00word"}
+    )
     assert resp.status_code == 422
 
 
@@ -38,6 +40,10 @@ async def test_forgot_refuses_control_characters(browser: Browser, path: str) ->
 
 async def test_reset_refuses_control_characters_in_the_token_and_password(browser: Browser) -> None:
     client = await browser()
-    bad_token = await client.post("/v1/auth/password/reset", json={"token": "abc\x00", "new_password": "Long-enough-pass-1"})
-    bad_password = await client.post("/v1/auth/password/reset", json={"token": "abc", "new_password": "Long-enough\x00pass-1"})
+    bad_token = await client.post(
+        "/v1/auth/password/reset", json={"token": "abc\x00", "new_password": "Long-enough-pass-1"}
+    )
+    bad_password = await client.post(
+        "/v1/auth/password/reset", json={"token": "abc", "new_password": "Long-enough\x00pass-1"}
+    )
     assert (bad_token.status_code, bad_password.status_code) == (422, 422)
