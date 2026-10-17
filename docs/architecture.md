@@ -369,7 +369,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
-| `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, expires_at, completed_at |
+| `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, append, expires_at, completed_at |
 | `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, in_app, created_at, read_at, emailed_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
@@ -451,10 +451,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases` | Create draft case (jurisdiction, case type, specialty, label, party role, instructing party type and name, due date, optional court track) | Pack versions stamped on the case |
 | GET | `/cases/{case_id}/pack` | Merged pack for this case: vocabulary, workflow steps and screens, lanes, question types, deadlines, declarations | Drives the case header and wording |
 | PATCH | `/cases/{case_id}` | Update case details | |
-| POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256}` → `upload_id` | |
+| POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256, append?}` → `upload_id`; `append` marks later records | |
 | PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk; FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent |
 | GET | `/uploads/{upload_id}` | Which chunks have arrived and which are missing, to resume | |
-| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Virus scan and processing are queued by slice A |
+| POST | `/uploads/{upload_id}/complete` | Check sha256, register the document, queue virus scan | 409 `chunks_missing` lists the missing chunks; 422 `sha256_mismatch`. Publishes `DocumentUploaded(case_id, document_id, appended)` in the same transaction; slice A's subscriber queues the virus scan (`scan_document`) and processing, and if it fails nothing is registered |
 | GET | `/cases/{case_id}/documents/{document_id}/file` | Stream the stored file back through FastAPI | `Cache-Control: private, no-store` |
 | POST | `/cases/{case_id}/prefill` | T-04 suggest fields from the letter | 202 + job; 409 without a letter |
 | GET | `/cases/{case_id}/prefill` | Suggestions with their word ids, whether the letter is still being read, how many were refused | |

@@ -39,5 +39,9 @@ strict = true
 mypy_path = "."
 explicit_package_bases = true
 
+[[tool.mypy.overrides]]
+module = ["pypdfium2", "pypdfium2.*"]
+ignore_missing_imports = true
+
 [tool.coverage.report]
 exclude_also = ['if __name__ == "__main__":']

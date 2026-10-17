@@ -1,13 +1,22 @@
-"""In-process events between slices. `ReportServed` is emitted by F when a report is served; G listens."""
+"""In-process events between slices.
+
+- `ReportServed` is emitted by F when a report is served; G listens (`subscribe` / `emit`).
+- `DocumentUploaded` is published by core when an upload completes, inside the request's
+  transaction; A listens to queue scanning and processing (`subscribe_in_transaction` / `publish`).
+  An in-transaction subscriber gets the same connection, so what it writes commits with the
+  document or not at all; if it raises, the request fails and nothing is registered.
+"""
 
 from __future__ import annotations
 
 import uuid
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, TypeVar
+
+from psycopg import AsyncConnection
 
 E = TypeVar("E")
 
@@ -19,9 +28,20 @@ class ReportServed:
     served_on: date
 
 
+@dataclass(frozen=True)
+class DocumentUploaded:
+    case_id: uuid.UUID
+    document_id: uuid.UUID
+    appended: bool = False
+
+
+InTransaction = Callable[[AsyncConnection, Any], Awaitable[None]]
+
+
 class EventBus:
     def __init__(self) -> None:
         self._handlers: dict[type, list[Callable[[Any], None]]] = defaultdict(list)
+        self._in_transaction: dict[type, list[InTransaction]] = defaultdict(list)
 
     def subscribe(self, event_type: type[E]) -> Callable[[Callable[[E], None]], Callable[[E], None]]:
         def register(handler: Callable[[E], None]) -> Callable[[E], None]:
@@ -34,6 +54,27 @@ class EventBus:
         """Call each subscriber in the order it subscribed."""
         for handler in self._handlers[type(event)]:
             handler(event)
+
+    def subscribe_in_transaction(
+        self, event_type: type[E]
+    ) -> Callable[[Callable[[AsyncConnection, E], Awaitable[None]]], Callable[[AsyncConnection, E], Awaitable[None]]]:
+        def register(
+            handler: Callable[[AsyncConnection, E], Awaitable[None]],
+        ) -> Callable[[AsyncConnection, E], Awaitable[None]]:
+            self._in_transaction[event_type].append(handler)
+            return handler
+
+        return register
+
+    def unsubscribe(self, event_type: type, handler: Callable[..., Any]) -> None:
+        for handlers in (self._handlers[event_type], self._in_transaction[event_type]):
+            if handler in handlers:
+                handlers.remove(handler)
+
+    async def publish(self, conn: AsyncConnection, event: object) -> None:
+        """Await each in-transaction subscriber in order, on the caller's connection; errors propagate."""
+        for handler in list(self._in_transaction[type(event)]):
+            await handler(conn, event)
 
 
 events = EventBus()

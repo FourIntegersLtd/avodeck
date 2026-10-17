@@ -89,7 +89,9 @@ class AiKit:
         case_id: uuid.UUID | None = None,
         names: Sequence[str] = (),
         dates_of_birth: Sequence[date] = (),
+        subject: str | None = None,
     ) -> dict[str, Any]:
+        """`subject` is what the call is about (`answers.page_subject`), so recorded answers can be found."""
         check_endpoint(self.settings, self.bedrock.endpoint)
         model_id = model_for(self.settings, task.model)
         if case_id is not None:
@@ -101,6 +103,8 @@ class AiKit:
             context=pack.prompt_context(task.task_id),
             text=stripped.text,
             schema=task.schema,
+            task_id=task.task_id,
+            subject=subject,
         )
         validator = jsonschema_rs.validator_for(dict(task.schema))
         for _ in range(2):

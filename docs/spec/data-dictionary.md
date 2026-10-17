@@ -760,6 +760,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | chunk_size / chunk_count / received | The 8 MB parts it is sent in, how many, and which have arrived |
 | status | `open`, `complete` or `expired` |
 | document_id | The document it became when complete |
+| append | Whether these are later records added to a case that already has its bundle (their pages are numbered after the last page) |
 | expires_at / completed_at | When an unfinished upload is given up (7 days) and when it finished |
 
 ### notifications

@@ -7,7 +7,8 @@
 - POST /v1/uploads/{upload_id}/complete checks the whole file's SHA-256 and registers the document.
 - GET /v1/cases/{case_id}/documents/{document_id}/file streams the file back, decrypted.
 
-Storage paths and keys never leave the server. Scanning and processing start in slice A.
+Storage paths and keys never leave the server. Completing publishes `DocumentUploaded` in the same transaction;
+slice A subscribes to queue scanning and processing.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ from pydantic import BaseModel, Field
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access, require_case_access
+from app.core.contracts.events import DocumentUploaded, events
 from app.core.crypto import CaseCrypto, StoredFileChanged
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, router
@@ -42,6 +44,7 @@ class UploadStart(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     size: int = Field(gt=0)
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    append: bool = Field(default=False, description="Later records added to a case that already has a bundle.")
 
 
 class Upload(BaseModel):
@@ -113,7 +116,8 @@ async def _load(conn: AsyncConnection, upload_id: uuid.UUID, *, lock: bool = Fal
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
             "select id, case_id, status, size, sha256, chunk_size, chunk_count, received, document_id, kind,"
-            " filename, expires_at < now() as expired from app.uploads where id = %s" + (" for update" if lock else ""),
+            " filename, append, expires_at < now() as expired from app.uploads where id = %s"
+            + (" for update" if lock else ""),
             (upload_id,),
         )
         row = await cur.fetchone()
@@ -135,10 +139,11 @@ async def start_upload(
     count = -(-body.size // CHUNK_SIZE)
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
-            " values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s)"
+            "insert into app.uploads"
+            " (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, append)"
+            " values (%s, app.current_person_id(), %s, %s, %s, %s, %s, %s, %s)"
             " returning id, case_id, status, size, chunk_size, chunk_count, received, document_id",
-            (case_id, body.kind, body.filename, body.size, body.sha256, CHUNK_SIZE, count),
+            (case_id, body.kind, body.filename, body.size, body.sha256, CHUNK_SIZE, count, body.append),
         )
         row = await cur.fetchone()
     assert row is not None
@@ -217,6 +222,7 @@ async def complete_upload(
         (document_id, upload_id),
     )
     await audit.record(conn, action="document.uploaded", target=f"document:{document_id}", case_id=case_id)
+    await events.publish(conn, DocumentUploaded(case_id=case_id, document_id=document_id, appended=bool(row["append"])))
     return UploadedDocument(document_id=document_id, sha256=row["sha256"], size=upload.size)
 
 
