@@ -102,6 +102,7 @@ class Template(BaseModel):
     headings: list[Heading]
     styles: list[str]
     mapping: list[MappingItem]
+    sections: list[str] = Field(description="The report section keys a heading can be mapped to, `other` last.")
     created_at: datetime
 
 
@@ -139,9 +140,10 @@ async def _latest_template(conn: DbConn) -> dict[str, Any]:
     return row
 
 
-def _template_out(row: dict[str, Any], response: Response) -> Template:
+def _template_out(row: dict[str, Any], response: Response, request: Request) -> Template:
     response.headers["etag"] = etag(row["revision"])
-    return Template(**{k: v for k, v in row.items() if k not in ("revision", "storage_path")})
+    fields = {k: v for k, v in row.items() if k not in ("revision", "storage_path")}
+    return Template(**fields, sections=_section_list(request))
 
 
 @router.post("/me/template/file", status_code=201, response_model=Template)
@@ -178,12 +180,12 @@ async def upload_template(
             version,
         ),
     )
-    return _template_out(await _latest_template(conn), response)
+    return _template_out(await _latest_template(conn), response, request)
 
 
 @router.get("/me/template", response_model=Template)
-async def get_template(conn: DbConn, response: Response) -> Template:
-    return _template_out(await _latest_template(conn), response)
+async def get_template(request: Request, conn: DbConn, response: Response) -> Template:
+    return _template_out(await _latest_template(conn), response, request)
 
 
 @router.get("/me/template/file", response_class=Response)
@@ -196,13 +198,18 @@ async def download_template(request: Request, conn: DbConn) -> Response:
     return Response(content=data, media_type=DOCX, headers=NO_STORE)
 
 
-def _section_keys(request: Request) -> set[str]:
+def _section_list(request: Request) -> list[str]:
+    """Every pack combination's report sections in this cell, in pack order, then `other`."""
     packs = library(request)
-    keys = {OTHER_SECTION}
+    keys: list[str] = []
     for combo in packs.combinations_in(cell(request)):
         merged = packs.combine(*(p.code for p in combo))
-        keys.update(registry_keys(merged.report_sections()))
-    return keys
+        keys.extend(k for k in registry_keys(merged.report_sections()) if k not in keys and k != OTHER_SECTION)
+    return [*keys, OTHER_SECTION]
+
+
+def _section_keys(request: Request) -> set[str]:
+    return set(_section_list(request))
 
 
 @router.patch("/me/template/mapping", response_model=Template)
@@ -221,7 +228,7 @@ async def update_mapping(
         "update app.report_templates set mapping = %s where id = %s",
         (json.dumps([m.model_dump() for m in body.mapping]), row["id"]),
     )
-    return _template_out(await _latest_template(conn), response)
+    return _template_out(await _latest_template(conn), response, request)
 
 
 class SectionSuggestion(BaseModel):

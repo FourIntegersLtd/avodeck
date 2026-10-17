@@ -2921,6 +2921,11 @@ export interface components {
             id: string;
             /** Mapping */
             mapping: components["schemas"]["MappingItem"][];
+            /**
+             * Sections
+             * @description The report section keys a heading can be mapped to, `other` last.
+             */
+            sections: string[];
             /** Sha256 */
             sha256: string;
             /** Size Bytes */
