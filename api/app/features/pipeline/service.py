@@ -42,6 +42,7 @@ from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
+REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
 CONCURRENCY = 3  # pages read or sent to a model at once
 STEPS = ("split", "ocr", "sort", "duplicates", "missing")  # the steps the Preparing screen shows
 READY = "bundle_ready"  # the notification kind sent when new pages are ready
@@ -96,7 +97,10 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
                 cache[doc.id] = pages
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
+    stop = _stop(ctx)
     for n, page in enumerate(waiting, start=1):
+        if await stop():
+            raise ProcessingPaused("cancelled")
         async with ctx.transaction() as conn:
             if page.document_id not in cache:
                 prefix = await repo.document_path(conn, page.document_id)
@@ -114,12 +118,26 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
             await ctx.progress(min(30, 30 * n // len(waiting)), step="split")
 
 
-async def bounded[T](items: Sequence[T], work: Callable[[T], Awaitable[None]], limit: int = CONCURRENCY) -> None:
-    """Run `work` on every item, at most `limit` at once; the first error stops the rest."""
+Stop = Callable[[], Awaitable[bool]]
+
+
+async def bounded[T](
+    items: Sequence[T], work: Callable[[T], Awaitable[None]], limit: int = CONCURRENCY, stop: Stop | None = None
+) -> None:
+    """Run `work` on every item, at most `limit` at once; the first error stops the rest.
+
+    With `stop`, it is asked before each item starts: once it says yes, no new item starts, items
+    already running finish, and the job pauses with reason `cancelled`.
+    """
     gate = asyncio.Semaphore(limit)
+    stopped = False
 
     async def one(item: T) -> None:
+        nonlocal stopped
         async with gate:
+            if stopped or (stop is not None and await stop()):
+                stopped = True
+                return
             await work(item)
 
     tasks = [asyncio.create_task(one(item)) for item in items]
@@ -130,6 +148,18 @@ async def bounded[T](items: Sequence[T], work: Callable[[T], Awaitable[None]], l
             task.cancel()
         await asyncio.gather(*tasks, return_exceptions=True)
         raise
+    if stopped:
+        raise ProcessingPaused("cancelled")
+
+
+def _stop(ctx: JobContext) -> Stop:
+    """Whether the expert asked to stop processing after this job was queued."""
+
+    async def asked() -> bool:
+        async with ctx.transaction() as conn:
+            return await repo.cancel_requested(conn, ctx.job_id)
+
+    return asked
 
 
 async def _page_pdf(conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, page_id: uuid.UUID) -> bytes:
@@ -184,7 +214,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 size=(page.width, page.height),
             )
 
-    await bounded(waiting, read)
+    await bounded(waiting, read, stop=_stop(ctx))
 
 
 async def _ask(
@@ -297,7 +327,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> None:
         if done % 25 == 0:
             await ctx.progress(min(55, 40 + 15 * done // len(waiting)), step="sort")
 
-    await bounded(waiting, one)
+    await bounded(waiting, one, stop=_stop(ctx))
 
 
 async def _compared_words(
@@ -328,7 +358,7 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
                 conn, page_id, duplicates.picture_hash(thumbnail), duplicates.word_hash(words), typed
             )
 
-    await bounded(unhashed, hash_one)
+    await bounded(unhashed, hash_one, stop=_stop(ctx))
     async with ctx.transaction() as conn:
         states = await repo.copy_states(conn, ctx.case_id)
     new: set[object] = {s.page_id for s in states if not s.checked}
@@ -439,7 +469,7 @@ async def _missing(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             await repo.add_missing(conn, ctx.case_id, page_id, items)
 
-    await bounded(waiting, one)
+    await bounded(waiting, one, stop=_stop(ctx))
 
 
 async def _missing_step(ctx: JobContext, services: PipelineServices) -> None:
@@ -476,6 +506,17 @@ async def process_bundle(ctx: JobContext) -> None:
         await ctx.step(step, _noop)
     await _ready(ctx, services)
     await ctx.progress(100, step=STEPS[-1])
+
+
+async def reprocess_case(ctx: JobContext) -> None:
+    """Extracts again every page extracted before the expert opted in (`POST /reprocess`). Words are
+    not read again; verified facts never change; new suggestions carry the current model ID."""
+    services = current()
+    async with ctx.transaction() as conn:
+        await repo.reset_for_reprocess(conn, ctx.case_id)
+    await ctx.progress(40, step="sort")
+    await _extract(ctx, services)
+    await ctx.progress(100, step="sort")
 
 
 async def queue_pages(conn: AsyncConnection, case_id: uuid.UUID, page_ids: object) -> uuid.UUID:

@@ -11,6 +11,11 @@
   identifiers stripped. Plain code, no model.
 - `POST /v1/cases/{id}/instructing-party-requests`: logs the text as sent (sealed, append-only) and
   returns a `mailto:` link; the open items it lists become `requested`.
+- `POST /v1/cases/{id}/process` (202 + job): processes whatever is not done yet.
+- `POST /v1/cases/{id}/process/cancel`: stops processing at the next page boundary; finished pages
+  are kept and the job ends `paused` with reason `cancelled`.
+- `POST /v1/cases/{id}/reprocess` (202 + job): the opt-in to extract every page again with the
+  cell's current model; earlier unverified suggestions are superseded, verified facts never change.
 
 - `GET /v1/cases/{id}/duplicates`: each page set aside as a copy, the page it copies and its review.
 - `PATCH /v1/cases/{id}/pages/{page_id}/duplicate` (If-Match): `confirm` keeps it set aside; `undo`
@@ -33,7 +38,7 @@ from fastapi import Depends, Request, Response
 from app.core import audit
 from app.core.ai import pii
 from app.core.auth.access import CaseAccess, require_case_access
-from app.core.contracts.pipeline import PROCESS_PAGES
+from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
@@ -49,9 +54,11 @@ from app.features.pipeline.schemas import (
     DuplicatePage,
     DuplicateReview,
     Duplicates,
+    JobQueued,
     MissingItem,
     MissingItemChange,
     MissingItems,
+    ProcessingCancelled,
     ProvenanceChange,
     RequestDraft,
     RequestDraftAsk,
@@ -59,6 +66,7 @@ from app.features.pipeline.schemas import (
     RequestSent,
     SourceCount,
 )
+from app.features.pipeline.service import REPROCESS_CASE
 
 pipeline_router = router(prefix="/v1/cases", tags=["pipeline"])
 
@@ -420,3 +428,41 @@ async def log_request(
     )
     response.headers["cache-control"] = "private, no-store"
     return RequestLogged(id=request_id, mailto=_mailto(body.to, body.subject, body.body))
+
+
+@pipeline_router.post("/{case_id}/process", status_code=202, response_model=JobQueued)
+async def start_processing(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    conn: DbConn,
+) -> JobQueued:
+    """Processes whatever is not done yet: finished pages are never read again."""
+    return JobQueued(job_id=await wiring.registry().enqueue(conn, case_id, PROCESS_BUNDLE))
+
+
+@pipeline_router.post("/{case_id}/process/cancel", status_code=202, response_model=ProcessingCancelled)
+async def cancel_processing(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    scope: CurrentScope,
+    conn: DbConn,
+) -> ProcessingCancelled:
+    """Stops processing at the next page boundary; pages being read finish and are kept."""
+    cancelled = await repo.request_cancel(conn, case_id, scope.person_id)
+    if cancelled:
+        await audit.record(conn, action="bundle.processing_cancelled", target=f"case:{case_id}", case_id=case_id)
+    return ProcessingCancelled(cancelled=cancelled)
+
+
+@pipeline_router.post("/{case_id}/reprocess", status_code=202, response_model=JobQueued)
+async def reprocess(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    scope: CurrentScope,
+    conn: DbConn,
+) -> JobQueued:
+    """The opt-in to read every page again with the cell's current model; verified facts never change."""
+    await repo.opt_in_reprocess(conn, case_id, scope.person_id)
+    job_id = await wiring.registry().enqueue(conn, case_id, REPROCESS_CASE)
+    await audit.record(conn, action="bundle.reprocess_requested", target=f"case:{case_id}", case_id=case_id)
+    return JobQueued(job_id=job_id)

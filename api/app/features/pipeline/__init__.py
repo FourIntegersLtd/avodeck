@@ -14,7 +14,14 @@ from app.core.contracts.events import DocumentUploaded, events
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, register_process_pages
 from app.features.pipeline import repo, wiring
 from app.features.pipeline.router import pipeline_router
-from app.features.pipeline.service import SCAN_DOCUMENT, process_bundle, queue_pages, scan_document
+from app.features.pipeline.service import (
+    REPROCESS_CASE,
+    SCAN_DOCUMENT,
+    process_bundle,
+    queue_pages,
+    reprocess_case,
+    scan_document,
+)
 
 __all__ = ["mount_on", "pipeline_router", "register", "wiring"]
 
@@ -23,6 +30,7 @@ def register(registry: jobs.JobRegistry) -> None:
     registry.kind(SCAN_DOCUMENT)(scan_document)
     registry.kind(PROCESS_BUNDLE)(process_bundle)
     registry.kind(PROCESS_PAGES)(process_bundle)
+    registry.kind(REPROCESS_CASE)(reprocess_case)
 
 
 def mount_on(app: FastAPI) -> None:

@@ -133,3 +133,11 @@ class RequestSent(BaseModel):
 class RequestLogged(BaseModel):
     id: uuid.UUID
     mailto: str
+
+
+class JobQueued(BaseModel):
+    job_id: uuid.UUID
+
+
+class ProcessingCancelled(BaseModel):
+    cancelled: bool  # false when nothing was processing (or a stop was already asked for)

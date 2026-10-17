@@ -789,3 +789,62 @@ async def mark_requested(
         (person_id, case_id, ids),
     )
     return [r[0] for r in await cur.fetchall()]
+
+
+BUNDLE_JOBS = ("process_bundle", "process_pages", "reprocess_case")
+
+
+async def request_cancel(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> bool:
+    """Asks the bundle jobs queued or running now to stop at the next page boundary. False when nothing
+    is processing or a stop is already asked for every such job."""
+    cur = await conn.execute(
+        "with live as (select max(created_at) as since from app.jobs"
+        "   where case_id = %(case)s and kind = any(%(kinds)s) and status in ('queued', 'running'))"
+        " insert into app.case_processing (case_id, cancel_requested_at, cancel_requested_by)"
+        " select %(case)s, now(), %(person)s from live where live.since is not null"
+        " on conflict (case_id) do update set cancel_requested_at = now(),"
+        "   cancel_requested_by = excluded.cancel_requested_by, updated_at = now()"
+        " where app.case_processing.cancel_requested_at is null or app.case_processing.cancel_requested_at <"
+        "   (select max(created_at) from app.jobs where case_id = %(case)s and kind = any(%(kinds)s)"
+        "    and status in ('queued', 'running'))"
+        " returning case_id",
+        {"case": case_id, "person": person_id, "kinds": list(BUNDLE_JOBS)},
+    )
+    return await cur.fetchone() is not None
+
+
+async def cancel_requested(conn: AsyncConnection, job_id: uuid.UUID) -> bool:
+    """Whether a stop was asked for after this job was queued."""
+    cur = await conn.execute(
+        "select exists (select 1 from app.jobs j join app.case_processing c on c.case_id = j.case_id"
+        " where j.id = %s and c.cancel_requested_at > j.created_at)",
+        (job_id,),
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
+async def opt_in_reprocess(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> None:
+    await conn.execute(
+        "insert into app.case_processing (case_id, reprocess_opted_at, reprocess_opted_by) values (%s, now(), %s)"
+        " on conflict (case_id) do update set reprocess_opted_at = now(),"
+        " reprocess_opted_by = excluded.reprocess_opted_by, updated_at = now()",
+        (case_id, person_id),
+    )
+
+
+async def reset_for_reprocess(conn: AsyncConnection, case_id: uuid.UUID) -> int:
+    """Pages extracted before the expert opted in to reprocessing are extracted again: their unverified
+    suggestions are superseded (rejected); verified and edited facts are left as they are."""
+    cur = await conn.execute(
+        "select a.page_id from app.page_analysis a join app.case_processing c on c.case_id = a.case_id"
+        " where a.case_id = %s and a.extracted_at < c.reprocess_opted_at",
+        (case_id,),
+    )
+    stale = [r[0] for r in await cur.fetchall()]
+    if stale:
+        await conn.execute(
+            "update app.facts set status = 'rejected' where page_id = any(%s) and status = 'suggested'", (stale,)
+        )
+        await conn.execute("update app.page_analysis set extracted_at = null where page_id = any(%s)", (stale,))
+    return len(stale)
