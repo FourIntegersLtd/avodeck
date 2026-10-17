@@ -53,10 +53,10 @@ a { color: var(--green); }
 .av-checkbox input { width: 24px; height: 24px; accent-color: var(--green); }
 
 /* Notices */
-.av-notice { border-radius: var(--radius); padding: var(--space-4); border-left: 6px solid var(--blue); background: var(--blue-tint); }
-.av-notice--error { border-color: var(--red); background: var(--red-tint); }
-.av-notice--warning { border-color: var(--amber); background: var(--amber-tint); }
-.av-notice--success { border-color: var(--green); background: var(--green-tint); }
+.av-notice { border-radius: var(--radius); padding: var(--space-4); background: var(--blue-tint); }
+.av-notice--error { background: var(--red-tint); }
+.av-notice--warning { background: var(--amber-tint); }
+.av-notice--success { background: var(--green-tint); }
 .av-notice p:last-child { margin-bottom: 0; }
 
 /* Cards and badges */
