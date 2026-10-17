@@ -37,7 +37,7 @@ def test_the_quarantine_note_is_the_packs_wording_with_the_pages_filled(
     library: packs.PackLibrary, combo: Combo
 ) -> None:
     pack = library.combine(*combo.codes)
-    raw = combo.raw("jurisdiction", "vocabulary.yaml")["quarantine_note"]
+    raw = combo.raw("jurisdiction", "vocabulary.yaml")["request_notes"]["quarantine"]
     note = pack.quarantine_note(pages="3, 5")
     assert "3, 5" in note and "{" not in note
     assert note == raw.replace("{pages}", "3, 5").replace(
@@ -50,7 +50,7 @@ def test_the_translation_request_is_the_packs_wording_with_the_pages_filled(
     library: packs.PackLibrary, combo: Combo
 ) -> None:
     pack = library.combine(*combo.codes)
-    raw = combo.raw("jurisdiction", "vocabulary.yaml")["translation_request"]
+    raw = combo.raw("jurisdiction", "vocabulary.yaml")["request_notes"]["translation"]
     text = pack.translation_request(pages="7")
     assert "7" in text and "{" not in text
     assert text == raw.replace("{pages}", "7").replace(
