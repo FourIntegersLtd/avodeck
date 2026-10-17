@@ -149,12 +149,12 @@ function CaseCardView({ card, pack, locale }: { card: CaseCard; pack: CasePack |
       {party && <span>{party}</span>}
       {stepIndex >= 0 && (
         <span className="av-row">
-          <span className="av-badge av-badge--checked">{stepLabel(card.stage!)}</span>
+          <span className="av-badge">{stepLabel(card.stage!)}</span>
           <span className="av-muted">{t("case.step", { number: stepIndex + 1, total: steps.length })}</span>
         </span>
       )}
       {card.due_date && pack && <span>{t("case.due", { date: formatDue(card.due_date, dateLocale) })}</span>}
-      {card.on_hold && <span className="av-badge av-badge--please_check">{t("case.on_hold")}</span>}
+      {card.on_hold && <span className="av-badge av-badge--look">{t("case.on_hold")}</span>}
     </Link>
   );
 }

@@ -62,8 +62,8 @@ a { color: var(--green); }
 /* Cards and badges */
 .av-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-large); padding: var(--space-5); }
 .av-badge { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px var(--space-3); border-radius: 999px; font-size: var(--text-small); font-weight: 700; background: var(--surface-muted); color: var(--ink); }
-.av-badge--checked { background: var(--green-tint); color: var(--green-dark); }
-.av-badge--please_check { background: var(--amber-tint); color: var(--amber); }
+.av-badge--checked { background: var(--green); color: #FFFFFF; }
+.av-badge--please_check { background: var(--surface); color: var(--ink); border: 2px dashed #8A948E; }
 .av-badge--not_right { background: var(--red-tint); color: var(--red); }
 .av-badge--look { background: var(--blue-tint); color: var(--blue); }
 
