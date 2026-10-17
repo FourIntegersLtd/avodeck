@@ -78,7 +78,7 @@ Writing (screens 14 and 15) requires a locked question set (409 otherwise). A se
 
 ## Prefill suggestion (`prefill_suggestions.status`)
 
-suggested → accepted / dismissed (named expert or assistant, screen 04; once, 409 after). Enforced by `app.prefill_suggestions_guard`. Accepting records the choice only; the case changes when the expert saves the screen 04 form.
+suggested → accepted / dismissed (named expert or assistant, screen 04; once, 409 after). Also suggested → dismissed by the server when the case's packs change (`PATCH /jurisdiction`) for suggestions holding a pack key (party role, instructing party type, court track), since they were checked against the old packs' words. Enforced by `app.prefill_suggestions_guard`. Accepting records the choice only; the case changes when the expert saves the screen 04 form.
 
 ## Report version (`report_versions`)
 

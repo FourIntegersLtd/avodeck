@@ -247,6 +247,7 @@ One instruction: who it's for, who's involved, what was asked.
 | `case_instructions` | The words of oral instructions, one record per oral instruction version and date received, typed or from dictation. Slice C. | case_id, instruction_version_id, text (encrypted), source (typed/dictated), transcript_id, received_on |
 | `case_subject_keys` | A keyed hash of the subject's identifier, for the duplicate-case warning. The identifier itself is never stored. Slice C. | case_id, key_hash |
 | `conflict_answers` | The expert's answers to the conflict-of-interest questions (keys from the jurisdiction pack's `conflicts.yaml`), which feed their declaration. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted; only with yes), answered_by, version, created_at, updated_at |
+| `conflict_answer_history` | Every conflict answer as it was given or changed, written only by a database trigger; append-only. The answers behind a declaration are the latest rows before it; a newer row means the declaration is out of date. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted), answered_by, recorded_at |
 | `conflict_declarations` | Each time the expert declares conflicts (at the start, or mid-case). Append-only; the latest is current. Slice C. | case_id, outcome (none/disclosed), declared_by, created_at |
 | `case_withdrawals` | Why the expert withdrew from the case (one per case; the case moves to `withdrawn` in the same transaction). Slice C. | case_id, reason (encrypted), withdrawn_by, created_at |
 | `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, kind, outside_expertise, status, confirmed_text |
@@ -467,7 +468,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown) |
+| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown); `changed_since_declared` when an answer changed after the latest declaration |
 | POST | `/cases/{case_id}/conflicts/declare` | Record the declaration (all questions answered, else 409); drafts the note to every current instructing party |
 | POST | `/cases/{case_id}/withdraw` | 🔒 `{reason}` → case `withdrawn`; drafts the note | |
 
@@ -479,6 +480,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | PATCH | `/cases/{case_id}/questions/{q_id}` | Confirm / edit wording / change kind | |
 | PATCH | `/cases/{case_id}/assumptions/{a_id}` | Confirm / edit | |
 | POST | `/cases/{case_id}/questions/confirm-all` | Lock the question set | Required before writing |
+| POST | `/cases/{case_id}/questions/read-again` | Queue `extract_questions` again after a failed reading (202 + job; 409 if nothing is waiting to be read or a reading is under way) | `case.upload` |
 | POST | `/cases/{case_id}/instructing-party-notes/draft` | Template note (e.g. outside expertise), wording from the pack | Returns text to edit |
 
 **07 Preparing your bundle**

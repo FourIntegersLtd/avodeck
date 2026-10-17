@@ -32,6 +32,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `case_instructions` | C | Named expert or assistant | One per oral instruction version | Words replaced while the version is unlocked; never deleted | Case deletion |
 | `case_subject_keys` | C | Named expert or assistant | One per case | Replaced when the identifier changes; keyed hash only | Case deletion |
 | `conflict_answers` | C | Named expert | One per question | Changed in place (version rises); snapshot at signing | Case deletion |
+| `conflict_answer_history` | C | Database trigger on `conflict_answers` (no direct writes) | One per answer given or changed | Append only; same answer again adds nothing | Case deletion |
 | `conflict_declarations` | C | Named expert | Many; latest is current | Append only | Case deletion |
 | `case_withdrawals` | C | Named expert (step-up) | One per case | Append only | Case deletion |
 | `questions` | C | Named expert | Many per instruction version | Locked with the set; reopened by new instructions before serving | Case deletion |

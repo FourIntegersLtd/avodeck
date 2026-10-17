@@ -20,11 +20,11 @@ The expert sets up their profile once, then for each case enters the details, de
 - `GET /v1/me/stats/balance?months=12`
 - `POST /v1/cases/{id}/prefill` → 202; `GET /v1/cases/{id}/prefill`; `PATCH /v1/cases/{id}/prefill/{suggestion_id}` `{decision}`; `PUT /v1/cases/{id}/oral-instructions`
 - `GET/PUT /v1/cases/{id}/conflicts`
-- `GET /v1/cases/{id}/questions`; `PATCH /v1/cases/{id}/questions/{q_id}`; `PATCH /v1/cases/{id}/assumptions/{a_id}`; `POST /v1/cases/{id}/questions/confirm-all`
+- `GET /v1/cases/{id}/questions`; `PATCH /v1/cases/{id}/questions/{q_id}`; `PATCH /v1/cases/{id}/assumptions/{a_id}`; `POST /v1/cases/{id}/questions/confirm-all`; `POST /v1/cases/{id}/questions/read-again` → 202
 - `POST /v1/cases/{id}/instructing-party-notes/draft`
 
 ## Tables owned
-`expert_roles`, `expert_training`, `report_templates`, `declarations`, `signatures`, `case_instructions`, `conflict_answers`, `assumptions`. Fills the `questions` contract table. Chunk B added `conflict_declarations`, `case_withdrawals` (0320), `instruction_extractions` (0330), `prefill_suggestions`, `prefill_runs` (0340); all registered in `core/contracts/case_tables.py`.
+`expert_roles`, `expert_training`, `report_templates`, `declarations`, `signatures`, `case_instructions`, `conflict_answers`, `assumptions`. Fills the `questions` contract table. Chunk B added `conflict_declarations`, `case_withdrawals` (0320), `instruction_extractions` (0330), `prefill_suggestions`, `prefill_runs` (0340); the review fixes added `conflict_answer_history` (0370); all registered in `core/contracts/case_tables.py`.
 
 ## Worker jobs: `extract_questions`, `prefill_case`
 `extract_questions`: OCR the letter of instruction (T-07a kit) → `pii.strip` → **T-06** → exact-substring check → `questions` and `assumptions` rows with status `suggested`. Queued by `POST /instructions` when a document is attached.
@@ -95,6 +95,18 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - Screen keys registered: `S02`, `profile`, `new_case`, `S04`, `case_details`, `S05`, `conflicts`, `S06`, `questions`. The header's Your profile link now shows (foundation reset the registry for the shell's own tests).
 - **Gap, i18n:** `setup.conflicts.question.<key>` keys are not added; the screen shows the pack's own question text.
 - **Gap:** the drawn-signature path is tested only in the browser build (jsdom has no canvas); board fidelity was checked by eye against the PNGs.
+
+## Review fixes (2026-10-17)
+- T-04 stores a name in the letter's own words (the cited run), never the model's value, and refuses a name the identifier strip replaced; a key needs the pack's word (its label) in the cited words.
+- Changing the packs (`PATCH /jurisdiction`) is not refused for keys held on other tables (party roles, current instructing party types, question kinds, conflict question keys): they are kept and listed as `held` for the expert to change, because every key is checked against the current packs and refusing would leave no way forward. Waiting key suggestions (party role, instructing party type, court track) are dismissed and listed as `dismissed`.
+- `extract_questions` reads every letter version that has a file and no reading yet, oldest first, one step per version. Oral instructions never reopen the questions nor hide the lock (`questions_locked` skips kind `oral`). A letter added without its file reopens the set and warns `setup.questions.warning.letter_without_file`. A failed reading sets `read_failed`, warns `setup.questions.warning.read_failed`, `confirm-all` answers 409 `letter_not_read`, and `POST /questions/read-again` queues the reading again.
+- `case_links_add` also checks the linked case: the person can see it (`case.view_metadata`) or it is in the same organisation as the case (0350). The same-organisation allowance keeps a team assistant able to link a colleague's case, as the existing tests require; a case in another organisation that the person cannot see can never be linked.
+- `app.expert_has_served` is revoked from public and granted to `app_api` and `app_worker` only (0360).
+- Conflict answers keep an append-only `conflict_answer_history`, written only by a trigger (0370); saving the same answer again writes nothing. After a declaration, a changed answer sets `changed_since_declared` and warns `setup.conflicts.warning.declare_again` until the expert declares again (which drafts the note to every current instructing party); this holds after serving too, so no change is silent.
+- The duplicate check takes an optional `case_id` that leaves that case out; S04 sends it on a check again, once this case's key is saved.
+- Withdrawing from a served case keeps its served report locked (tested). **Gap, deadlines on withdraw** (unchanged): `deadlines_cancelled` is 0; the deadline-owning slices must read the `withdrawn` status.
+- **Decision, T-02 runs on request** (finding 11): `POST /v1/me/template/suggestions` calls T-02 inside the request instead of as a 202 job, because it reads only the headings of one template (a few hundred words), is never saved and the expert waits for it on S02. See `docs/decisions/0014-t02-template-suggestions-on-request.md`; move it to a job if the eval shows calls over the request time budget.
+- **Gap, plain text** (finding 13): `assumptions.text_verbatim`/`confirmed_text` and `case_instructing_parties.name`/`firm`/`email`/`reference` are stored as plain text (protected by RLS and storage encryption, not the per-case key), unlike party names, details and oral instructions. Encrypting them needs a migration and a change to every reader (slices D and E read assumptions); noted in the data dictionary.
 
 ## Rules that apply
 1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.

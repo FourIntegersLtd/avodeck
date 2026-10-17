@@ -200,7 +200,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | type_key | What sort of instructing party (solicitor, insurer, coroner…) from the pack |
-| name / firm / email | Who they are and where to send things |
+| name / firm / email | Who they are and where to send things (plain text, not encrypted under the case key; see the slice C brief) |
 | reference | Their own reference for the case, if given |
 | effective_from / effective_to | When this party took over or stopped (e.g. a change of firm) |
 | replaces_id | The earlier row this one took over from, after a change of firm |
@@ -244,6 +244,12 @@ A joint expert is one with two or more current instructing parties; no separate 
 | answered_by | Who answered (the named expert) |
 | version / created_at / updated_at | Goes up on each change; when first and last answered (conflicts can be declared later too) |
 
+### conflict_answer_history
+| Field | In plain words |
+|---|---|
+| question_key / answer / detail | One answer exactly as it was given or changed (the detail stays encrypted) |
+| answered_by / recorded_at | Who gave it and when; the answers behind a declaration are the latest ones before it |
+
 ### conflict_declarations
 | Field | In plain words |
 |---|---|
@@ -273,7 +279,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | number / para_ref | Its order and the paragraph of the letter |
-| text_verbatim / source_word_ids[] | The exact words the expert is told to assume, and where they are |
+| text_verbatim / source_word_ids[] | The exact words the expert is told to assume, and where they are (plain text, not encrypted under the case key; see the slice C brief) |
 | status / confirmed_text | Suggested, confirmed or edited, and any tidied wording (the original is kept) |
 
 ### instruction_extractions
