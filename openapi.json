@@ -2216,6 +2216,25 @@
         "title": "Person",
         "type": "object"
       },
+      "Processing": {
+        "properties": {
+          "job": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProcessingJob"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "job"
+        ],
+        "title": "Processing",
+        "type": "object"
+      },
       "ProcessingCancelled": {
         "properties": {
           "cancelled": {
@@ -2227,6 +2246,79 @@
           "cancelled"
         ],
         "title": "ProcessingCancelled",
+        "type": "object"
+      },
+      "ProcessingJob": {
+        "description": "A processing job's progress: status, step code, percentage, time left, error code (rule 6).",
+        "properties": {
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "eta_seconds": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Seconds"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "pct": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pct"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "step",
+          "pct",
+          "eta_seconds",
+          "error_code"
+        ],
+        "title": "ProcessingJob",
         "type": "object"
       },
       "ProvenanceChange": {
@@ -4654,6 +4746,58 @@
       }
     },
     "/v1/cases/{case_id}/process": {
+      "get": {
+        "description": "The latest processing job, so screen 07 can follow it after an upload (architecture 5.3). An upload\nis scanned first and the scan queues the bundle job, so the screen follows the newest until it ends.",
+        "operationId": "processing_v1_cases__case_id__process_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Processing"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Processing",
+        "tags": [
+          "pipeline"
+        ]
+      },
       "post": {
         "description": "Processes whatever is not done yet: finished pages are never read again.",
         "operationId": "start_processing_v1_cases__case_id__process_post",

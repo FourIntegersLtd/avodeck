@@ -510,7 +510,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Processing
+         * @description The latest processing job, so screen 07 can follow it after an upload (architecture 5.3). An upload
+         *     is scanned first and the scan queues the bundle job, so the screen follows the newest until it ends.
+         */
+        get: operations["processing_v1_cases__case_id__process_get"];
         put?: never;
         /**
          * Start Processing
@@ -1761,10 +1766,37 @@ export interface components {
             /** Timezone */
             timezone: string | null;
         };
+        /** Processing */
+        Processing: {
+            job: components["schemas"]["ProcessingJob"] | null;
+        };
         /** ProcessingCancelled */
         ProcessingCancelled: {
             /** Cancelled */
             cancelled: boolean;
+        };
+        /**
+         * ProcessingJob
+         * @description A processing job's progress: status, step code, percentage, time left, error code (rule 6).
+         */
+        ProcessingJob: {
+            /** Error Code */
+            error_code: string | null;
+            /** Eta Seconds */
+            eta_seconds: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Pct */
+            pct: number | null;
+            /** Status */
+            status: string;
+            /** Step */
+            step: string | null;
         };
         /** ProvenanceChange */
         ProvenanceChange: {
@@ -3216,6 +3248,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    processing_v1_cases__case_id__process_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Processing"];
+                };
             };
             /** @description Validation Error */
             422: {
