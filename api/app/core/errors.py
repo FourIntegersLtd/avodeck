@@ -55,10 +55,8 @@ def locked() -> ApiError:
     return ApiError("locked", "This report version is locked. Changes go in a supplementary report.", 409)
 
 
-def error_response(
-    status: int, code: str, message: str, headers: dict[str, str] | None = None, **extra: object
-) -> JSONResponse:
-    return JSONResponse({"error": {"code": code, "message": message, **extra}}, status_code=status, headers=headers)
+def error_response(status: int, code: str, message: str, **extra: object) -> JSONResponse:
+    return JSONResponse({"error": {"code": code, "message": message, **extra}}, status_code=status)
 
 
 async def _api_error(_: Request, exc: Exception) -> JSONResponse:
@@ -74,11 +72,20 @@ async def _validation_error(_: Request, exc: Exception) -> JSONResponse:
 
 
 def _allowed_methods(request: Request) -> str:
-    """Every method any route offers for this path (Starlette names only the first matching route's)."""
+    """Every method the routes for this path offer (Starlette names only the first matching route's).
+
+    A literal path (`/v1/me/sessions/revoke-all`) is its own resource, so it does not also advertise a
+    template that happens to match it (`/v1/me/sessions/{session_id}`).
+    """
+    matching = [
+        route
+        for route in request.app.router.routes
+        if isinstance(route, Route) and route.methods and route.matches(request.scope)[0] != Match.NONE
+    ]
+    literal = [route for route in matching if "{" not in route.path]
     methods: set[str] = set()
-    for route in request.app.router.routes:
-        if isinstance(route, Route) and route.methods and route.matches(request.scope)[0] != Match.NONE:
-            methods |= route.methods
+    for route in literal or matching:
+        methods |= route.methods or set()
     return ", ".join(sorted(methods))
 
 
@@ -88,7 +95,9 @@ async def _http_error(request: Request, exc: Exception) -> JSONResponse:
     headers = dict(exc.headers or {})
     if exc.status_code == 405:
         headers["Allow"] = _allowed_methods(request) or headers.get("Allow", "")
-    return error_response(exc.status_code, code, "Request refused.", headers=headers)
+    response = error_response(exc.status_code, code, "Request refused.")
+    response.headers.update(headers)
+    return response
 
 
 async def _database_error(request: Request, exc: Exception) -> JSONResponse:
