@@ -580,9 +580,7 @@ async def run_daily(worker_db: Database, registry: JobRegistry, name: str, day: 
 
 
 def delete_jobs(admin: psycopg.Connection, case: uuid.UUID) -> int:
-    row = admin.execute(
-        "select count(*) from app.jobs where case_id = %s and kind = 'delete_case'", (case,)
-    ).fetchone()
+    row = admin.execute("select count(*) from app.jobs where case_id = %s and kind = 'delete_case'", (case,)).fetchone()
     assert row is not None
     return int(row[0])
 
