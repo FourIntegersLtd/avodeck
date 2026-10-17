@@ -4,6 +4,10 @@
 - `PATCH /v1/cases/{id}/pages/{page_id}/duplicate` (If-Match): `confirm` keeps it set aside; `undo`
   restores the page with everything found on it, and it is never set aside again (F13).
 - `GET /v1/cases/{id}/pages/{page_no}/thumbnail`: the page's small picture, never cached.
+- `GET /v1/cases/{id}/missing-items`: documents pages mention that the bundle does not hold.
+- `PATCH /v1/cases/{id}/missing-items/{item_id}` (If-Match): `not_available` with a reason, `open`
+  again, or `received` naming a page added after the item was listed (state-machines "Missing
+  item"); `requested` is set only by sending a request (08b).
 """
 
 from __future__ import annotations
@@ -19,8 +23,15 @@ from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
 from app.core.storage import SupabaseStorage
-from app.features.pipeline import paths, repo
-from app.features.pipeline.schemas import DuplicatePage, DuplicateReview, Duplicates
+from app.features.pipeline import missing, paths, repo
+from app.features.pipeline.schemas import (
+    DuplicatePage,
+    DuplicateReview,
+    Duplicates,
+    MissingItem,
+    MissingItemChange,
+    MissingItems,
+)
 
 pipeline_router = router(prefix="/v1/cases", tags=["pipeline"])
 
@@ -98,3 +109,107 @@ async def page_thumbnail(
     path = paths.thumbnail_path(case_id, page_id)
     picture = await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
     return Response(picture, media_type="image/jpeg", headers={"cache-control": "private, no-store"})
+
+
+_MISSING_AUDIT = {
+    "open": "missing_item.reopened",
+    "not_available": "missing_item.not_available",
+    "received": "missing_item.received",
+}
+
+
+def _crypto(request: Request) -> CaseCrypto:
+    crypto: CaseCrypto | None = getattr(request.app.state, "crypto", None)
+    if crypto is None:
+        raise ApiError("unavailable", "File storage is not ready.", 503)
+    return crypto
+
+
+async def _missing_item(conn: DbConn, crypto: CaseCrypto, case_id: uuid.UUID, item: repo.MissingItem) -> MissingItem:
+    description = await crypto.decrypt(
+        conn, case_id, item.description, purpose=paths.missing_description_purpose(item.id)
+    )
+    reason = None
+    if item.reason is not None:
+        reason = (
+            await crypto.decrypt(conn, case_id, item.reason, purpose=paths.missing_reason_purpose(item.id))
+        ).decode()
+    return MissingItem(
+        id=item.id,
+        citing_page_id=item.citing_page_id,
+        citing_page_no=item.citing_page_no,
+        word_ids=item.word_ids,
+        description=description.decode(),
+        reference_date=item.reference_date,
+        status=item.status,  # type: ignore[arg-type]
+        reason=reason,
+        received_page_id=item.received_page_id,
+        received_page_no=item.received_page_no,
+        version=item.version,
+    )
+
+
+@pipeline_router.get("/{case_id}/missing-items", response_model=MissingItems)
+async def list_missing_items(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_content"))],
+    request: Request,
+    conn: DbConn,
+    response: Response,
+) -> MissingItems:
+    crypto = _crypto(request)
+    items = [await _missing_item(conn, crypto, case_id, i) for i in await repo.missing_items(conn, case_id)]
+    response.headers["cache-control"] = "private, no-store"
+    return MissingItems(missing_items=items)
+
+
+@pipeline_router.patch("/{case_id}/missing-items/{item_id}", response_model=MissingItem)
+async def change_missing_item(
+    case_id: uuid.UUID,
+    item_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("request.draft"))],
+    version: IfMatch,
+    body: MissingItemChange,
+    request: Request,
+    conn: DbConn,
+    scope: CurrentScope,
+    response: Response,
+) -> MissingItem:
+    crypto = _crypto(request)
+    current = await repo.missing_item(conn, case_id, item_id)
+    if current is None:
+        raise _not_found()
+    if current.version != version:
+        raise stale()
+    if body.status not in missing.NEXT[current.status]:
+        raise ApiError("conflict", "This item cannot change that way.", 409)
+    reason: bytes | None = None
+    received: uuid.UUID | None = None
+    if body.status == "not_available":
+        given = (body.reason or "").strip()
+        if not given:
+            raise ApiError("invalid", "Say why the document is not available.", 422)
+        reason = await crypto.encrypt(conn, case_id, given.encode(), purpose=paths.missing_reason_purpose(item_id))
+    if body.status == "received":
+        if body.page_id is None:
+            raise ApiError("invalid", "Choose the page that holds the document.", 422)
+        if not await repo.page_added_after(conn, case_id, body.page_id, current.created_at):
+            raise ApiError("conflict", "That page was not added after the item was listed.", 409)
+        received = body.page_id
+    moved = await repo.change_missing(
+        conn,
+        item_id,
+        status=body.status,
+        reason=reason,
+        received_page_id=received,
+        person_id=scope.person_id,
+        version=version,
+    )
+    if moved is None:
+        raise stale()
+    await audit.record(conn, action=_MISSING_AUDIT[body.status], target=f"missing_item:{item_id}", case_id=case_id)
+    after = await repo.missing_item(conn, case_id, item_id)
+    assert after is not None
+    response.headers["etag"] = etag(moved)
+    response.headers["cache-control"] = "private, no-store"
+    return await _missing_item(conn, crypto, case_id, after)

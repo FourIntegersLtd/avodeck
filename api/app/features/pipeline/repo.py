@@ -10,6 +10,8 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from app.features.pipeline import gaps
+
 RECORDS_KIND = "records"  # the core document kind that becomes numbered pages
 
 
@@ -376,3 +378,184 @@ async def page_id_of(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) ->
     )
     row = await cur.fetchone()
     return row[0] if row else None
+
+
+# Record gaps and missing documents (increment 6) --------------------------------------------------
+
+
+async def gap_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[gaps.Page]:
+    """Every page not set aside as a copy, with its printed dates and its facts' kinds and dates."""
+    cur = await conn.execute(
+        "select p.id, p.bundle_page_no, p.source_type, coalesce(a.printed_dates, '{}'),"
+        " coalesce(array_agg(f.kind) filter (where f.id is not null), '{}'),"
+        " coalesce(array_agg(f.event_date) filter (where f.id is not null), '{}')"
+        " from app.pages p left join app.page_analysis a on a.page_id = p.id"
+        " left join app.facts f on f.page_id = p.id and f.status <> 'rejected'"
+        " where p.case_id = %s and p.duplicate_of_page_id is null"
+        " group by p.id, p.bundle_page_no, p.source_type, a.printed_dates order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [
+        gaps.Page(
+            page_id=r[0],
+            page_no=r[1],
+            source_type=r[2],
+            printed=tuple(r[3]),
+            facts=tuple(zip(r[4], r[5], strict=True)),
+        )
+        for r in await cur.fetchall()
+    ]
+
+
+async def store_gaps(conn: AsyncConnection, case_id: uuid.UUID, found: list[gaps.Gap]) -> None:
+    """Keep the case's unreviewed gaps equal to `found`; a gap the expert reviewed is left as it is."""
+    for gap in found:
+        await conn.execute(
+            "insert into app.record_gaps (case_id, source_type, fact_kind, gap_start, gap_end, last_page_id)"
+            " values (%s, %s, %s, %s, %s, %s) on conflict (case_id, source_type, fact_kind) do update set"
+            " gap_start = excluded.gap_start, gap_end = excluded.gap_end, last_page_id = excluded.last_page_id,"
+            " updated_at = now() where app.record_gaps.confirmed is null and (app.record_gaps.gap_start,"
+            " app.record_gaps.gap_end, app.record_gaps.last_page_id) is distinct from"
+            " (excluded.gap_start, excluded.gap_end, excluded.last_page_id)",
+            (case_id, gap.source_type, gap.fact_kind, gap.gap_start, gap.gap_end, gap.last_page_id),
+        )
+    await conn.execute(
+        "delete from app.record_gaps where case_id = %s and confirmed is null"
+        " and not (source_type || chr(31) || fact_kind = any(%s::text[]))",
+        (case_id, [f"{g.source_type}\x1f{g.fact_kind}" for g in found]),
+    )
+
+
+async def pages_to_match(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int]]:
+    """Pages read by the model whose references are not matched yet, copies left out."""
+    cur = await conn.execute(
+        "select p.id, p.bundle_page_no from app.pages p join app.page_analysis a on a.page_id = p.id"
+        " where p.case_id = %s and a.extracted_at is not null and a.references_checked_at is null"
+        " and p.duplicate_of_page_id is null order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [(r[0], r[1]) for r in await cur.fetchall()]
+
+
+async def sealed_extraction(conn: AsyncConnection, page_id: uuid.UUID) -> bytes | None:
+    cur = await conn.execute("select extraction from app.page_analysis where page_id = %s", (page_id,))
+    row = await cur.fetchone()
+    return bytes(row[0]) if row and row[0] is not None else None
+
+
+async def page_numbers(conn: AsyncConnection, case_id: uuid.UUID) -> set[int]:
+    cur = await conn.execute("select bundle_page_no from app.pages where case_id = %s", (case_id,))
+    return {int(r[0]) for r in await cur.fetchall()}
+
+
+@dataclass(frozen=True)
+class NewMissing:
+    id: uuid.UUID
+    reference_key: str
+    word_ids: list[str]
+    sealed: bytes
+    reference_date: dt.date | None
+    confidence: float | None
+
+
+async def add_missing(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, items: list[NewMissing]) -> None:
+    """Add the page's missing items (once each) and mark its references matched."""
+    for item in items:
+        await conn.execute(
+            "insert into app.missing_items (id, case_id, citing_page_id, reference_key, word_ids, description,"
+            " reference_date, confidence) values (%s, %s, %s, %s, %s, %s, %s, %s)"
+            " on conflict (citing_page_id, reference_key) do nothing",
+            (
+                item.id,
+                case_id,
+                page_id,
+                item.reference_key,
+                item.word_ids,
+                item.sealed,
+                item.reference_date,
+                item.confidence,
+            ),
+        )
+    await conn.execute(
+        "update app.page_analysis set references_checked_at = now(), updated_at = now() where page_id = %s",
+        (page_id,),
+    )
+
+
+@dataclass(frozen=True)
+class MissingItem:
+    id: uuid.UUID
+    citing_page_id: uuid.UUID
+    citing_page_no: int
+    word_ids: list[str]
+    description: bytes
+    reference_date: dt.date | None
+    status: str
+    reason: bytes | None
+    received_page_id: uuid.UUID | None
+    received_page_no: int | None
+    version: int
+    created_at: dt.datetime
+
+
+_MISSING = (
+    "select m.id, m.citing_page_id, c.bundle_page_no, m.word_ids, m.description, m.reference_date, m.status,"
+    " m.reason, m.received_page_id, r.bundle_page_no, m.version, m.created_at"
+    " from app.missing_items m join app.pages c on c.id = m.citing_page_id"
+    " left join app.pages r on r.id = m.received_page_id"
+)
+
+
+def _item(r: Any) -> MissingItem:
+    return MissingItem(
+        r[0],
+        r[1],
+        r[2],
+        list(r[3]),
+        bytes(r[4]),
+        r[5],
+        r[6],
+        bytes(r[7]) if r[7] is not None else None,
+        r[8],
+        r[9],
+        r[10],
+        r[11],
+    )
+
+
+async def missing_items(conn: AsyncConnection, case_id: uuid.UUID) -> list[MissingItem]:
+    cur = await conn.execute(_MISSING + " where m.case_id = %s order by c.bundle_page_no, m.reference_key", (case_id,))
+    return [_item(r) for r in await cur.fetchall()]
+
+
+async def missing_item(conn: AsyncConnection, case_id: uuid.UUID, item_id: uuid.UUID) -> MissingItem | None:
+    cur = await conn.execute(_MISSING + " where m.case_id = %s and m.id = %s", (case_id, item_id))
+    row = await cur.fetchone()
+    return _item(row) if row else None
+
+
+async def page_added_after(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, after: dt.datetime) -> bool:
+    cur = await conn.execute(
+        "select 1 from app.pages where id = %s and case_id = %s and created_at > %s", (page_id, case_id, after)
+    )
+    return await cur.fetchone() is not None
+
+
+async def change_missing(
+    conn: AsyncConnection,
+    item_id: uuid.UUID,
+    *,
+    status: str,
+    reason: bytes | None,
+    received_page_id: uuid.UUID | None,
+    person_id: uuid.UUID,
+    version: int,
+) -> int | None:
+    """Record the change if `version` is still current; the new version, or None if it moved on."""
+    cur = await conn.execute(
+        "update app.missing_items set status = %s, reason = %s, received_page_id = %s, updated_by = %s,"
+        " version = version + 1, updated_at = now() where id = %s and version = %s returning version",
+        (status, reason, received_page_id, person_id, item_id, version),
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row else None

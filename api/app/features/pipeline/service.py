@@ -28,7 +28,7 @@ from psycopg import AsyncConnection
 
 from app.core import audit
 from app.core.ai import pii
-from app.core.ai.answers import page_subject
+from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
 from app.core.ai.ocr import OcrPage
@@ -36,7 +36,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import dates, duplicates, extract, paths, repo
+from app.features.pipeline import dates, duplicates, extract, gaps, missing, paths, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, usable_text_layer
@@ -361,9 +361,91 @@ async def _duplicates(ctx: JobContext, services: PipelineServices) -> None:
         await repo.mark_checked(conn, [uuid.UUID(str(p)) for p in new])
 
 
+async def _gaps(ctx: JobContext, services: PipelineServices) -> None:
+    """Where a record source goes quiet: worked out again from every page each run (code only)."""
+    async with ctx.transaction() as conn:
+        await repo.store_gaps(conn, ctx.case_id, gaps.find(await repo.gap_pages(conn, ctx.case_id)))
+
+
+async def _missing(ctx: JobContext, services: PipelineServices) -> None:
+    """T-07c: each document a page mentions, asked once, with only the reference's own words."""
+    async with ctx.transaction() as conn:
+        waiting = await repo.pages_to_match(conn, ctx.case_id)
+        if not waiting:
+            return
+        pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        who = await services.identity(conn, ctx.case_id)
+        pages = await repo.gap_pages(conn, ctx.case_id)
+        numbers = await repo.page_numbers(conn, ctx.case_id)
+    if services.kit is None:
+        raise ProcessingPaused("model_unavailable")
+    task = missing.task_for(pack)
+
+    async def one(page: tuple[uuid.UUID, int]) -> None:
+        page_id, page_no = page
+        async with ctx.transaction() as conn:
+            sealed = await repo.sealed_extraction(conn, page_id)
+            output: dict[str, Any] = {}
+            if sealed is not None:
+                output = json.loads(
+                    await services.crypto.decrypt(conn, ctx.case_id, sealed, purpose=paths.extraction_purpose(page_id))
+                )
+            stored = await repo.words_of(conn, page_id)
+            texts = {
+                w.word_id: (
+                    await services.crypto.decrypt(
+                        conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                    )
+                ).decode()
+                for w in stored
+            }
+        ordered = [(w.word_id, texts[w.word_id]) for w in stored]
+        struck = {w.word_id for w in stored if w.struck}
+        found = dates.find([(w, t) for w, t in ordered if w not in struck], pack)
+        subject_page = page_subject(ordered)
+        items: list[repo.NewMissing] = []
+        for k, ref in enumerate(output.get("references_out") or [], start=1):
+            word_ids = [str(w) for w in ref.get("word_ids") or []]
+            cited = [texts[w] for w in word_ids if w in texts]
+            if not word_ids or len(cited) != len(word_ids):
+                continue
+            when, basis = dates.event_date(ref.get("date"), found, pack)
+            ref_date = when if basis == "printed" else None
+            shown = missing.candidates(pages, ref_date, page_no)
+            text = missing.request_text(f"p{page_no}-r{k}", cited, ref_date, shown)
+            answer = await _ask(ctx, services, task, pack, who, text, reference_subject(subject_page, ref["word_ids"]))
+            if answer is None:
+                continue
+            matched = answer.get("matched_page")
+            if matched is not None and int(matched) in numbers:
+                continue
+            item_id = uuid.uuid4()
+            words = missing.description(str(ref.get("described_document") or ""), cited)
+            async with ctx.transaction() as conn:
+                sealed_words = await services.crypto.encrypt(
+                    conn, ctx.case_id, words.encode(), purpose=paths.missing_description_purpose(item_id)
+                )
+            items.append(
+                repo.NewMissing(
+                    id=item_id,
+                    reference_key=f"r{k}",
+                    word_ids=word_ids,
+                    sealed=sealed_words,
+                    reference_date=ref_date,
+                    confidence=float(answer["confidence"]) if answer.get("confidence") is not None else None,
+                )
+            )
+        async with ctx.transaction() as conn:
+            await repo.add_missing(conn, ctx.case_id, page_id, items)
+
+    await bounded(waiting, one)
+
+
 STAGES: dict[str, Callable[[JobContext, PipelineServices], Awaitable[None]]] = {
     "extract": _extract,
     "duplicates": _duplicates,
+    "gaps": _gaps,
+    "missing": _missing,
 }
 
 

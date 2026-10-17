@@ -29,3 +29,13 @@ def word_purpose(page_id: uuid.UUID, word_id: str) -> str:
 def extraction_purpose(page_id: uuid.UUID) -> str:
     """The purpose a page's sealed extraction (`page_analysis.extraction`) is sealed under."""
     return f"page_analysis/{page_id}/extraction"
+
+
+def missing_description_purpose(item_id: object) -> str:
+    """The purpose a missing item's description (`missing_items.description`) is sealed under."""
+    return f"missing_items/{item_id}/description"
+
+
+def missing_reason_purpose(item_id: object) -> str:
+    """The purpose the reason a missing item is not available (`missing_items.reason`) is sealed under."""
+    return f"missing_items/{item_id}/reason"

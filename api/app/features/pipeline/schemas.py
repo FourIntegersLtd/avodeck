@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class DuplicatePage(BaseModel):
@@ -23,3 +24,27 @@ class Duplicates(BaseModel):
 
 class DuplicateReview(BaseModel):
     action: Literal["confirm", "undo"]
+
+
+class MissingItem(BaseModel):
+    id: uuid.UUID
+    citing_page_id: uuid.UUID
+    citing_page_no: int
+    word_ids: list[str]
+    description: str
+    reference_date: dt.date | None
+    status: Literal["open", "requested", "received", "not_available"]
+    reason: str | None
+    received_page_id: uuid.UUID | None
+    received_page_no: int | None
+    version: int
+
+
+class MissingItems(BaseModel):
+    missing_items: list[MissingItem]
+
+
+class MissingItemChange(BaseModel):
+    status: Literal["open", "not_available", "received"]
+    reason: str | None = Field(default=None, max_length=500)
+    page_id: uuid.UUID | None = None
