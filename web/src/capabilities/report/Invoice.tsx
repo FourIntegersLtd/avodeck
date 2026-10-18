@@ -1,6 +1,9 @@
 // S18b Time and invoice (docs/design/screens/S18b-Invoice.dc.html): time by workflow step (step names from the
 // pack), audited adjustments, the expert's billing details, invoices made from the time, sending behind the code,
-// payments and credit notes. A sent invoice never changes; mistakes are put right with a credit note.
+// payments and credit notes. A sent invoice never changes; mistakes are put right with a credit note. The time
+// estimate per step sits beside the time; when the time runs over it by more than the pack's threshold the server
+// sends a gentle notice naming the instructing party (in the pack's word), which never blocks anything. Bank
+// details for the invoice's "How to pay" box are saved behind the code.
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -23,6 +26,7 @@ export function InvoiceScreen() {
       <h2>{w("invoice.title")}</h2>
       <p>{w("invoice.intro")}</p>
       <TimeCard caseId={caseId} />
+      <EstimateCard caseId={caseId} />
       <BillingCard />
       <Invoices caseId={caseId} />
     </div>
@@ -61,6 +65,74 @@ function TimeCard({ caseId }: { caseId: string }) {
       {time.adjusted && <p className="av-muted">{w("invoice.adjusted")}</p>}
       <p className="av-muted">{w("invoice.time_note")}</p>
       {adjusting && <Adjust caseId={caseId} stages={time.stages} onClose={() => setAdjusting(false)} onSaved={() => { setAdjusting(false); found.reload(); }} />}
+    </section>
+  );
+}
+
+function EstimateCard({ caseId }: { caseId: string }) {
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId]);
+  if (found.error) return <LoadError onRetry={found.reload} />;
+  if (!found.data) return <Loading />;
+  return <EstimateForm caseId={caseId} time={found.data} />;
+}
+
+type Entry = { hours: string; fee: string };
+
+function EstimateForm({ caseId, time }: { caseId: string; time: Schemas["TimeOut"] }) {
+  const initial = (s: Schemas["StageTime"]): Entry => ({ hours: s.estimate_hours ?? "", fee: s.estimate_fee ?? "" });
+  const [current, setCurrent] = useState(time);
+  const [entries, setEntries] = useState<Record<string, Entry>>(() => Object.fromEntries(time.stages.map((s) => [s.stage, initial(s)])));
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const set = (stage: string, field: keyof Entry, value: string) => {
+    setSaved(false);
+    setEntries((all) => ({ ...all, [stage]: { ...(all[stage] ?? { hours: "", fee: "" }), [field]: value } }));
+  };
+  const save = async () => {
+    setError(null);
+    const estimates = current.stages.flatMap((s) => {
+      const entry = entries[s.stage] ?? { hours: "", fee: "" };
+      const hours = entry.hours.trim();
+      const fee = entry.fee.trim();
+      const was = initial(s);
+      if (!hours || (hours === was.hours && fee === was.fee)) return [];
+      return [fee ? { stage: s.stage, hours, fee } : { stage: s.stage, hours }];
+    });
+    if (estimates.length === 0) return;
+    try {
+      const out = await unwrap(api.POST("/v1/cases/{case_id}/time/estimates", { params: { path: { case_id: caseId } }, body: { estimates } }));
+      if (out.stages.length > 0) setCurrent(out);
+      setSaved(true);
+    } catch (err) {
+      setError(errorMessage(err, ERRORS));
+    }
+  };
+  const over = current.over_estimate;
+  return (
+    <section className="av-card av-stack" aria-labelledby="estimate-title">
+      <h3 id="estimate-title">{w("invoice.estimate")}</h3>
+      <p className="av-muted">{w("invoice.estimate_intro")}</p>
+      {over && (
+        <div className="av-notice av-notice--warning" role="status" aria-labelledby="over-estimate-title">
+          <p id="over-estimate-title"><strong>{w("invoice.over_estimate_title")}</strong></p>
+          <p>{w("invoice.over_estimate", { percent: over.percent, party: over.instructing_party })}</p>
+        </div>
+      )}
+      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {current.stages.map((s) => (
+        <fieldset key={s.stage} className="av-stack" aria-label={stepLabel(s.stage)}>
+          <legend>{stepLabel(s.stage)}</legend>
+          <div className="av-row">
+            <TextField label={w("invoice.estimate_hours")} name={`estimate-hours-${s.stage}`} inputMode="decimal" value={entries[s.stage]?.hours ?? ""} onChange={(e) => set(s.stage, "hours", e.target.value)} />
+            <TextField label={w("invoice.estimate_fee")} name={`estimate-fee-${s.stage}`} inputMode="decimal" value={entries[s.stage]?.fee ?? ""} onChange={(e) => set(s.stage, "fee", e.target.value)} />
+          </div>
+        </fieldset>
+      ))}
+      {current.estimate_hours && <p>{w("invoice.estimate_total", { hours: current.estimate_hours })}</p>}
+      <div className="av-row">
+        <Button variant="secondary" onClick={() => void save()}>{w("invoice.estimate_save")}</Button>
+        {saved && <span role="status">{w("invoice.estimate_saved")}</span>}
+      </div>
     </section>
   );
 }
@@ -117,8 +189,17 @@ function BillingCard() {
 }
 
 function BillingForm({ initial }: { initial: { profile: Schemas["BillingProfile"] | null; etag: string } }) {
-  const p = initial.profile;
   const [etag, setEtag] = useState(initial.etag);
+  const [missing, setMissing] = useState(initial.profile === null);
+  return (
+    <>
+      <BillingDetails initial={initial.profile} etag={etag} missing={missing} onSaved={(tag) => { setEtag(tag); setMissing(false); }} />
+      {!missing && <BankForm initial={initial.profile?.bank ?? null} etag={etag} onSaved={setEtag} />}
+    </>
+  );
+}
+
+function BillingDetails({ initial: p, etag, missing, onSaved }: { initial: Schemas["BillingProfile"] | null; etag: string; missing: boolean; onSaved: (etag: string) => void }) {
   const [name, setName] = useState(p?.legal_name ?? "");
   const [address, setAddress] = useState(p?.address ?? "");
   const [taxNumber, setTaxNumber] = useState(p?.tax_number ?? "");
@@ -126,7 +207,6 @@ function BillingForm({ initial }: { initial: { profile: Schemas["BillingProfile"
   const [currency, setCurrency] = useState(p?.currency ?? "");
   const [rate, setRate] = useState(p?.hourly_rate ?? "");
   const [prefix, setPrefix] = useState(p?.invoice_prefix ?? "");
-  const [missing, setMissing] = useState(p === null);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
@@ -138,8 +218,7 @@ function BillingForm({ initial }: { initial: { profile: Schemas["BillingProfile"
         body: { legal_name: name, address: address || null, tax_number: taxNumber || null, tax_rate: taxRate || "0", currency, hourly_rate: rate || null, invoice_prefix: prefix },
       });
       await unwrap(Promise.resolve(result));
-      setEtag(result.response.headers.get("etag") ?? etag);
-      setMissing(false);
+      onSaved(result.response.headers.get("etag") ?? etag);
       setSaved(true);
     } catch (err) {
       setError(errorMessage(err, ERRORS));
@@ -159,6 +238,50 @@ function BillingForm({ initial }: { initial: { profile: Schemas["BillingProfile"
       <TextField label={w("invoice.billing_prefix")} name="invoice_prefix" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
       <div className="av-row">
         <Button variant="secondary" onClick={() => void save()}>{w("invoice.billing_save")}</Button>
+        {saved && <span role="status">{w("invoice.billing_saved")}</span>}
+      </div>
+    </section>
+  );
+}
+
+type Bank = NonNullable<Schemas["BillingProfile"]["bank"]>;
+const BANK_FIELDS = ["account_name", "sort_code", "account_number", "iban", "bic"] as const;
+
+function BankForm({ initial, etag, onSaved }: { initial: Bank | null; etag: string; onSaved: (etag: string) => void }) {
+  const stepUp = useStepUp();
+  const [values, setValues] = useState<Record<(typeof BANK_FIELDS)[number], string>>(() =>
+    Object.fromEntries(BANK_FIELDS.map((f) => [f, initial?.[f] ?? ""])) as Record<(typeof BANK_FIELDS)[number], string>,
+  );
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = async () => {
+    setError(null);
+    setSaved(false);
+    const body = Object.fromEntries(BANK_FIELDS.map((f) => [f, values[f].trim() || null])) as Bank;
+    try {
+      const out = await stepUp(async () => {
+        const result = await api.PUT("/v1/me/billing-profile/bank-details", { headers: ifMatch(etag), body });
+        await unwrap(Promise.resolve(result));
+        return result;
+      });
+      if (out) {
+        onSaved(out.response.headers.get("etag") ?? etag);
+        setSaved(true);
+      }
+    } catch (err) {
+      setError(errorMessage(err, ERRORS));
+    }
+  };
+  return (
+    <section className="av-card av-stack" aria-labelledby="bank-title">
+      <h3 id="bank-title">{w("invoice.bank")}</h3>
+      <p className="av-muted">{w("invoice.bank_note")}</p>
+      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {BANK_FIELDS.map((f) => (
+        <TextField key={f} label={w(`invoice.bank_${f}`)} name={`bank_${f}`} value={values[f]} onChange={(e) => { const v = e.target.value; setValues((all) => ({ ...all, [f]: v })); }} />
+      ))}
+      <div className="av-row">
+        <Button variant="secondary" onClick={() => void save()}>{w("invoice.bank_save")}</Button>
         {saved && <span role="status">{w("invoice.billing_saved")}</span>}
       </div>
     </section>
@@ -241,6 +364,9 @@ function InvoiceCard({ caseId, invoice, onChanged }: { caseId: string; invoice: 
           <strong className="av-report-mono">{money_(invoice.total)}</strong>
         </li>
       </ul>
+      {invoice.estimate_amount != null && (
+        <p data-estimate="true">{w("invoice.estimate_line", { estimate: money_(invoice.estimate_amount), amount: money_(invoice.total) })}</p>
+      )}
       {invoice.sent_at && <p className="av-muted">{w("invoice.sent", { date: longDate(invoice.sent_at, locale) })}</p>}
       {Number(invoice.paid_amount) > 0 && <p className="av-muted">{w("invoice.paid_so_far", { amount: money_(invoice.paid_amount) })}</p>}
       {invoice.credit_notes.map((c) => (

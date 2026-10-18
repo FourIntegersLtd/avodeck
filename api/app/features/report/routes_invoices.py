@@ -1,12 +1,13 @@
 """Screen 18b: billing profile, invoices, payments and credit notes (architecture 10.8).
 
 - `GET/PUT /me/billing-profile`: the expert's own issuer details for personal cases (a team's profile is
-  slice O's). Changing the tax number needs step-up.
+  slice O's). Changing the tax number needs step-up; bank details change through `routes_bank`.
 - `POST /cases/{id}/invoices` (`invoice.create`): brings the case's open draft up to date, or starts one,
   from the named expert's time (`routes_time.totals`) at the issuer's hourly rate (the expert profile's rate
   when the issuer has none), the issuer's tax rate and currency, plus expenses. The issuer is the
   organisation for a team case and the expert for a personal case (`app.case_billing_profile`); 409
-  `no_billing_profile` / `no_hourly_rate` otherwise.
+  `no_billing_profile` / `no_hourly_rate` otherwise. The draft freezes the issuer (bank details included),
+  the jurisdiction pack's invoice statements and the time estimate in money (`routes_time.estimate_amount`).
 - `POST .../invoices/{inv}/send` (`invoice.send`, step-up): numbers the invoice from its issuer (gap-free, by
   the database), stores its PDF sealed under the case key and mails the recipient the case's id, the number
   and the amount only (core template `invoice.sent`). A sent invoice never changes.
@@ -39,10 +40,12 @@ from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.packs import MergedPack
 from app.core.storage import case_prefix
+from app.features.report import bank
+from app.features.report.bank import BankDetails
 from app.features.report.common import Crypto, Pack, Storage, invalid, not_found
 from app.features.report.invoice_pdf import InvoiceDoc, render_invoice
 from app.features.report.router import router
-from app.features.report.routes_time import totals
+from app.features.report.routes_time import estimate_amount, totals
 from app.features.report.services import current
 
 CreateInvoice = Annotated[CaseAccess, Depends(require_case_access("invoice.create"))]
@@ -77,13 +80,16 @@ class BillingProfileIn(BaseModel):
 
 class BillingProfile(BillingProfileIn):
     id: uuid.UUID
+    bank: BankDetails | None = None
 
 
 class BillingProfileOut(BaseModel):
     profile: BillingProfile | None
 
 
-_PROFILE_COLS = "id, legal_name, address, tax_number, tax_rate, currency, hourly_rate, invoice_prefix, version"
+_PROFILE_COLS = (
+    f"id, legal_name, address, tax_number, tax_rate, currency, hourly_rate, invoice_prefix, version, {bank.COLUMNS}"
+)
 
 
 async def _own_profile(conn: Any) -> dict[str, Any] | None:
@@ -98,7 +104,11 @@ async def _own_profile(conn: Any) -> dict[str, Any] | None:
 
 def _profile_out(row: dict[str, Any] | None, response: Response) -> BillingProfileOut:
     response.headers["etag"] = etag(int(row.pop("version")) if row else 0)
-    return BillingProfileOut(profile=BillingProfile(**row) if row else None)
+    if row is None:
+        return BillingProfileOut(profile=None)
+    details = bank.from_row(row)
+    fields = {k: v for k, v in row.items() if not k.startswith("bank_")}
+    return BillingProfileOut(profile=BillingProfile(**fields, bank=details))
 
 
 @router.get("/me/billing-profile", response_model=BillingProfileOut)
@@ -188,13 +198,18 @@ class InvoiceOut(BaseModel):
     sent_at: datetime | None
     created_at: datetime
     credit_notes: list[CreditNoteOut] = []
+    statements: list[str] = []
+    estimate_amount: Decimal | None = None
 
 
 class InvoicesOut(BaseModel):
     invoices: list[InvoiceOut]
 
 
-_INVOICE_COLS = "id, number_text, status, lines, tax, total, currency, paid_amount, sent_to, sent_at, created_at"
+_INVOICE_COLS = (
+    "id, number_text, status, lines, tax, total, currency, paid_amount, sent_to, sent_at, created_at, statements,"
+    " estimate_amount"
+)
 
 
 async def _invoices(conn: Any, case_id: uuid.UUID, invoice_id: uuid.UUID | None = None) -> list[InvoiceOut]:
@@ -263,8 +278,21 @@ async def draft_invoice(
     ]
     tax = cents((time_amount + expenses) * Decimal(issuer["tax_rate"]) / Decimal(100))
     total = time_amount + expenses + tax
-    snapshot = {k: issuer[k] for k in ("legal_name", "address", "tax_number")}  # the PDF uses these, not the profile
-    values = (issuer["id"], Jsonb(lines), total, tax, issuer["currency"], issuer["tax_rate"], Jsonb(snapshot))
+    snapshot: dict[str, Any] = {k: issuer[k] for k in ("legal_name", "address", "tax_number")}  # the PDF uses these
+    if details := bank.snapshot(issuer):
+        snapshot["bank"] = details
+    estimate = await estimate_amount(conn, case_id, rate)
+    values = (
+        issuer["id"],
+        Jsonb(lines),
+        total,
+        tax,
+        issuer["currency"],
+        issuer["tax_rate"],
+        Jsonb(snapshot),
+        Jsonb(pack.invoice_statements()),
+        estimate,
+    )
     cur = await conn.execute(
         "select id from app.invoices where case_id = %s and status = 'draft' order by created_at desc limit 1",
         (case_id,),
@@ -272,14 +300,15 @@ async def draft_invoice(
     draft = await cur.fetchone()
     if draft is None:
         cur = await conn.execute(
-            "insert into app.invoices (billing_profile_id, lines, total, tax, currency, tax_rate, issuer, case_id)"
-            " values (%s, %s, %s, %s, %s, %s, %s, %s) returning id",
+            "insert into app.invoices (billing_profile_id, lines, total, tax, currency, tax_rate, issuer, statements,"
+            " estimate_amount, case_id) values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning id",
             (*values, case_id),
         )
     else:
         cur = await conn.execute(
             "update app.invoices set billing_profile_id = %s, lines = %s, total = %s, tax = %s, currency = %s,"
-            " tax_rate = %s, issuer = %s, version = version + 1 where id = %s returning id",
+            " tax_rate = %s, issuer = %s, statements = %s, estimate_amount = %s, version = version + 1"
+            " where id = %s returning id",
             (*values, draft[0]),
         )
     row = await cur.fetchone()
@@ -313,6 +342,9 @@ async def _document(
         tax=invoice.tax,
         total=invoice.total,
         credits=[(c.number_text or "", c.amount) for c in invoice.credit_notes],
+        statements=list(invoice.statements),
+        bank=dict(issuer.get("bank") or {}),
+        estimate=invoice.estimate_amount,
     )
 
 

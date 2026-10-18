@@ -337,7 +337,8 @@ Time, invoices and corrections.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `time_entries` | Time the expert spent, by stage, for invoicing. | case_id, person_id, stage, started_at, ended_at, seconds, adjusted_by_expert |
-| `invoices` | Invoices sent to instructing parties; never changed once sent. | case_id, billing_profile_id, number, lines, total, currency, tax, tax_rate and issuer (snapshot when drafted), status (draft/sent/part_paid/paid/written_off), paid_amount (sum of payments), pdf_path, sent_at |
+| `time_estimates` | The expert's time estimate per workflow step; a change is a new row, the newest counts; never changed or deleted. | case_id, stage, hours, fee (optional fixed fee), created_by, created_at |
+| `invoices` | Invoices sent to instructing parties; never changed once sent. | case_id, billing_profile_id, number, lines, total, currency, tax, tax_rate, issuer (with bank details), statements (the pack's invoice lines) and estimate_amount (snapshots when drafted), status (draft/sent/part_paid/paid/written_off), paid_amount (sum of payments), pdf_path, sent_at |
 | `invoice_payments` | Each payment received on a sent invoice; never changed or deleted. No case_id: seen and recorded through its invoice's case, and goes with the invoice (cascade). | invoice_id, amount (> 0), recorded_by, recorded_at |
 | `credit_notes` | Corrections to a sent invoice. | invoice_id, number, amount, reason, issued_at |
 
@@ -641,6 +642,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases/{case_id}/time/heartbeat` | `{stage}` every 30 s while active (idle ignored) |
 | GET | `/cases/{case_id}/time` | Totals by stage vs estimate |
 | PATCH | `/cases/{case_id}/time/adjust` | Expert adjustment (audited) |
+| POST | `/cases/{case_id}/time/estimates` | Time estimate per workflow step (new rows; audited) |
 | POST | `/cases/{case_id}/invoices` | Generate invoice PDF |
 | POST | `/cases/{case_id}/invoices/{inv_id}/send` | Email to the instructing party via Resend (attachment, no clinical content); currency and tax from the expert and pack |
 
@@ -780,6 +782,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/organisations/{org_id}/leave` | Leave; named-expert access to named cases kept | |
 | POST | `/organisations/{org_id}/close` | Close once no open cases remain | Owner, 🔒 |
 | GET / PUT | `/organisations/{org_id}/billing-profile`, `/me/billing-profile` | Invoice issuer details | 🔒 for tax number |
+| PUT, GET / PUT | `/me/billing-profile/bank-details`, `/organisations/{org_id}/billing-profile/bank-details` | Bank details for the invoice's "How to pay" box (organisation: owner or admin only) | 🔒 |
 | POST | `/cases/{case_id}/named-expert` | Change the named expert (before serving only) | Owner/admin, 🔒; 409 after serving |
 | PUT | `/me/custodian` | Name a records custodian | 🔒 |
 | POST | `/me/close` | Close account after export; served cases kept read-only | 🔒 |

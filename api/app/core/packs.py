@@ -47,7 +47,9 @@ REQUIRED: dict[str, frozenset[str]] = {
     "overlay": frozenset({"pack.yaml"}),
 }
 OPTIONAL: dict[str, frozenset[str]] = {
-    "jurisdiction": frozenset({"meetings.yaml", "legal_tests.md", "final_checks.yaml", "conflicts.yaml"}),
+    "jurisdiction": frozenset(
+        {"meetings.yaml", "legal_tests.md", "final_checks.yaml", "conflicts.yaml", "invoice.yaml"}
+    ),
     "case-type": frozenset({"final_checks.yaml", "declarations.md", "opinion.yaml"}),
     "specialty": frozenset({"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}),
     "overlay": frozenset(
@@ -481,6 +483,15 @@ class MergedPack:
         if not data:
             return {"questions": [], "statement": {}}
         return copy.deepcopy({"questions": data["questions"], "statement": data["statement"]})
+
+    def invoice_statements(self) -> list[str]:
+        """Lines every invoice under this jurisdiction prints (`invoice.yaml`); none without the file."""
+        return [str(line) for line in (self._files.get("invoice.yaml") or {}).get("statements", [])]
+
+    def estimate_overrun_percent(self) -> int | None:
+        """How far (percent) time may run over the estimate before the time screen shows its notice."""
+        value = (self._files.get("invoice.yaml") or {}).get("estimate_overrun_percent")
+        return int(value) if value is not None else None
 
     def expert_roles(self) -> list[str]:
         return list(self._ct["expert_roles"])

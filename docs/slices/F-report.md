@@ -18,7 +18,7 @@ Avodeck assembles the expert's report in their own Word template, with the court
 - `POST /v1/cases/{id}/report/final-check` → 202; `GET /v1/cases/{id}/report/final-check/latest`
 - `POST /v1/cases/{id}/spot-checks`; `GET/POST /v1/spot-checks/{token}[/responses]` (no login; expiring token plus emailed code)
 - `POST /v1/cases/{id}/report/sign` 🔒; `GET /v1/cases/{id}/report/versions/{v}/download?format=docx|pdf`; `POST /v1/cases/{id}/report/versions/{v}/serve` 🔒
-- `POST /v1/cases/{id}/time/heartbeat`; `GET /v1/cases/{id}/time`; `PATCH /v1/cases/{id}/time/adjust`
+- `POST /v1/cases/{id}/time/heartbeat`; `GET /v1/cases/{id}/time`; `PATCH /v1/cases/{id}/time/adjust`; `POST /v1/cases/{id}/time/estimates`
 - `POST /v1/cases/{id}/invoices`; `POST /v1/cases/{id}/invoices/{inv_id}/send`
 
 ## Tables owned
@@ -100,7 +100,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Extra tables owned:** `report_snapshots`, `report_servings`, `credit_notes`, `invoice_payments` (insert-only, no case_id: purged with its invoice), `report_settings`, `report_section_texts`, `report_builds`; personal `billing_profiles` (team ones in O). Colleague spot-check routes: `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses`.
 
-**Extra endpoints:** `GET /v1/cases/{id}/report/versions/{v}/snapshots`, `GET/POST /v1/cases/{id}/report/versions/{v}/servings` 🔒, `POST /v1/cases/{id}/report/versions/{v}/withdraw` 🔒, `PATCH /v1/cases/{id}/invoices/{invoice_id}/payment`, `POST /v1/cases/{id}/invoices/{invoice_id}/credit-notes` 🔒.
+**Extra endpoints:** `GET /v1/cases/{id}/report/versions/{v}/snapshots`, `GET/POST /v1/cases/{id}/report/versions/{v}/servings` 🔒, `POST /v1/cases/{id}/report/versions/{v}/withdraw` 🔒, `PATCH /v1/cases/{id}/invoices/{invoice_id}/payment`, `POST /v1/cases/{id}/invoices/{invoice_id}/credit-notes` 🔒, `PUT /v1/me/billing-profile/bank-details` 🔒, `GET/PUT /v1/organisations/{org_id}/billing-profile/bank-details` 🔒 (PUT).
 
 - [x] Signing freezes CV, declarations, signature, template, pack, guideline-table and instruction versions and conflict answers; a later profile change doesn't alter the signed report
 - [x] Served documents are named from the pack ("Report 1", "Supplementary report 1"…); drafts numbered per case
@@ -120,9 +120,11 @@ Decisions (defaults; change by decision record if wrong):
 - Spot-check: up to 10 random cited facts from the latest report that cites anything; token and code kept as hashes; 7-day expiry; five wrong codes lock the link; crops around the cited words only (never the page), party names and pack identifiers blacked out, watermarked, sealed with a key derived from the link token; every opening or refusal is audited without a person; answers are kept once.
 - Web: S18 has no signature canvas (`SignIn` takes the confirm tick; the saved signature comes from slice C). Snapshots view and "add another recipient" form not built yet.
 
-TODO (law, data or money policy, founder to decide):
-- Fee-independence wording on invoices (not in the packs).
-- Bank details and a time estimate on invoices (no contract yet).
+Invoice details (founder approved 2026-10-18; migration 0606, table `time_estimates`):
+- Invoice statements come from the jurisdiction pack's optional `invoice.yaml` (`MergedPack.invoice_statements()`; gb-eaw: fees not dependent on the outcome; the fixture pack has none). They are frozen into `invoices.statements` when drafted and print below the total; a pack without any prints nothing.
+- Bank details (account name, sort code, account number, IBAN, SWIFT/BIC) are optional, loosely checked columns on `billing_profiles`. They are plain columns, not sealed: billing profiles are not case data and do not use `CaseCrypto`. The expert changes their own (`PUT /me/billing-profile/bank-details`), an organisation owner or admin the organisation's (`/organisations/{org_id}/billing-profile/bank-details`, anyone else 404); every change needs step-up and writes `billing_profile.bank_details_changed` with no values. The draft's issuer snapshot carries them; the PDF's "How to pay" box shows only when filled in. They are never put in any email (`invoice.sent` carries case id, number and amount only).
+- Time estimate: append-only `time_estimates` rows per pack workflow step (hours, optional fixed fee), `POST /cases/{id}/time/estimates` (`invoice.create`, audited `time.estimated`); the newest row per step counts. `GET /cases/{id}/time` gives each step's estimate beside its time and `over_estimate` (percent and the pack's instructing-party word) when the time on the estimated steps is over their estimate by more than the pack's `estimate_overrun_percent` (gb-eaw 20, fixture 50; no notice without it). The notice never blocks. The draft freezes `estimate_amount` (fixed fee, else hours at the invoice rate) and the PDF says "Estimate given: X. This invoice: Y." in the invoice's currency, Y being the invoice total including tax.
+- The purge order for `time_estimates` was added to 0699 (it runs after 0606 and is F's last definition of `app.case_purge_order()`).
 
 Foundation requests:
 - Done: mail templates `invoice.sent` and `spot_check.code` in `app.core.email` (F's own outbox is gone; the invoice email carries no attachment).

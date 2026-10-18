@@ -86,6 +86,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `report_section_texts` | F | Named expert (`opinion.write`) | One per section | Editable with If-Match; frozen into each build | Case deletion |
 | `report_builds` | F | System at build | One per draft | Never change | Case deletion |
 | `time_entries` | F | Person who worked; named expert adjusts | Many | Editable until invoiced | Case deletion; invoice keeps totals |
+| `time_estimates` | F | Anyone with `invoice.create` (named expert) | Many per step; newest counts | Append-only (never changed or deleted) | Case deletion; invoice keeps the amount |
 | `invoices` | F | Issuer (named expert or org admin) | Many | Immutable once sent; state machine | Kept for tax beyond case deletion as metadata only (no patient data) |
 | `credit_notes` | F | Issuer | Many per invoice | Immutable | As invoices |
 | `invoice_payments` | F | People who record payments on the case | Many per invoice | Insert only; their sum is the invoice's paid amount, never above total less credit notes | Goes with its invoice (cascade) |

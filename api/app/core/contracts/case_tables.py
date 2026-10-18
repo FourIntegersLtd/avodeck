@@ -78,6 +78,7 @@ CASE_TABLES: frozenset[str] = frozenset(
         "spot_checks",
         "credit_notes",
         "invoices",
+        "time_estimates",
         "time_entries",
         "report_settings",
     }
@@ -126,6 +127,7 @@ PURGE_ORDER: tuple[str, ...] = (
     "spot_checks",
     "credit_notes",
     "invoices",
+    "time_estimates",
     "time_entries",
     "report_settings",
     "jobs",

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Invoice wording and the time-estimate notice threshold",
+  "type": "object",
+  "properties": {
+    "statements": {
+      "description": "Lines every invoice under this jurisdiction prints, in order (for example that fees do not depend on the outcome).",
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "estimate_overrun_percent": {
+      "description": "How far, in percent, the time may run over the estimate before the time screen suggests telling the instructing party.",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1000
+    }
+  },
+  "additionalProperties": false
+}

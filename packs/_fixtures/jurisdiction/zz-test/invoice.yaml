@@ -1,0 +1,2 @@
+# Fixture invoice settings: no statements (an invoice prints none), a different notice threshold.
+estimate_overrun_percent: 50
