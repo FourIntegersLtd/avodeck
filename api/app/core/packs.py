@@ -539,7 +539,8 @@ class MergedPack:
         return result if isinstance(result, str) and result else None
 
     def _opinion_words(self) -> dict[str, Any]:
-        return self._files.get("opinion.yaml", {})
+        words: dict[str, Any] = self._files.get("opinion.yaml", {})
+        return words
 
     def point_sides(self) -> list[dict[str, str]]:
         """The three sides a fact can support (core codes) with this case type's labels."""
