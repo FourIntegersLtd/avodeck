@@ -1,6 +1,7 @@
 // S12 One consultation, as the clinician saw it. The title (with the clinician's role) and the guidance in force
-// come from the API (the pack and the seeded table); later entries are counted and folded away; entries with no
-// known arrival are shown as not known. The expert keeps a note and may change when something arrived, with a reason.
+// come from the API (both from the case's packs); later entries are counted and folded away; entries with no
+// known arrival are shown as not known. Any day can be chosen. Each person keeps a private note, and the named
+// expert may change when something arrived, with a reason. Buttons follow what the person may do on the case.
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -8,7 +9,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Dialog, LoadError, Loading, Notice, StatusBadge } from "../../foundation/ui";
 import { Comments } from "./Comments";
-import { kindWord, longDate, pageLabel, statusOf, TextArea } from "./shared";
+import { GuidanceChanged, kindWord, longDate, pageLabel, statusOf, TextArea, useCan } from "./shared";
 import { w } from "./words";
 
 type Entry = Schemas["Entry"];
@@ -17,7 +18,7 @@ function Arrival({ entry }: { entry: Entry }) {
   return <span className="av-muted">{entry.available_at ? w("consultation.arrived", { date: longDate(entry.available_at) }) : w("consultation.arrival_unknown")}</span>;
 }
 
-function Entries({ items, onChange }: { items: Entry[]; onChange: (e: Entry) => void }) {
+function Entries({ items, onChange }: { items: Entry[]; onChange?: (e: Entry) => void }) {
   return (
     <ul className="av-understand-list">
       {items.map((e) => (
@@ -28,9 +29,11 @@ function Entries({ items, onChange }: { items: Entry[]; onChange: (e: Entry) => 
           <span className="av-muted">{pageLabel(e.page_no)}</span>
           <StatusBadge status={statusOf(e.status)} />
           <Arrival entry={e} />
-          <Button variant="secondary" onClick={() => onChange(e)}>
-            {w("consultation.change_arrival")}
-          </Button>
+          {onChange && (
+            <Button variant="secondary" onClick={() => onChange(e)}>
+              {w("consultation.change_arrival")}
+            </Button>
+          )}
         </li>
       ))}
     </ul>
@@ -86,7 +89,7 @@ function ArrivalDialog({ caseId, entry, onClose, onSaved }: { caseId: string; en
   );
 }
 
-function NoteEditor({ caseId, factId, initial }: { caseId: string; factId: string; initial: string }) {
+function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factId: string; initial: string; canAdd: boolean }) {
   const [body, setBody] = useState(initial);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -103,12 +106,17 @@ function NoteEditor({ caseId, factId, initial }: { caseId: string; factId: strin
   return (
     <section aria-labelledby="consult-note" className="av-card av-stack">
       <h2 id="consult-note">{w("consultation.note_title")}</h2>
-      <TextArea label={w("consultation.note")} hint={w("consultation.note_hint")} rows={5} value={body} onChange={(e) => { setBody(e.target.value); setSaved(false); }} />
+      <p className="av-muted" id="consult-note-hint">{w("consultation.note_hint")}</p>
+      {(canAdd || initial) && (
+        <TextArea label={w("consultation.note")} aria-describedby="consult-note-hint" rows={5} value={body} onChange={(e) => { setBody(e.target.value); setSaved(false); }} />
+      )}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {saved && <Notice tone="success"><p>{w("consultation.note_saved")}</p></Notice>}
-      <div>
-        <Button onClick={() => void save()}>{w("consultation.note_save")}</Button>
-      </div>
+      {(canAdd || initial) && (
+        <div>
+          <Button onClick={() => void save()}>{w("consultation.note_save")}</Button>
+        </div>
+      )}
     </section>
   );
 }
@@ -116,14 +124,27 @@ function NoteEditor({ caseId, factId, initial }: { caseId: string; factId: strin
 export function Consultation() {
   const { caseId = "", factId = "" } = useParams();
   const [changing, setChanging] = useState<Entry | null>(null);
+  const [on, setOn] = useState<string | null>(null);
+  const [typed, setTyped] = useState<string | null>(null);
+  const can = useCan(caseId);
   const found = useResource(
-    () => unwrap(api.GET("/v1/cases/{case_id}/consultations/{fact_id}", { params: { path: { case_id: caseId, fact_id: factId }, query: { as_seen: true } } })),
-    [caseId, factId],
+    () =>
+      unwrap(
+        api.GET("/v1/cases/{case_id}/consultations/{fact_id}", {
+          params: { path: { case_id: caseId, fact_id: factId }, query: on ? { as_seen: true, on } : { as_seen: true } },
+        }),
+      ),
+    [caseId, factId, on],
   );
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!found.data) return <div className="av-page"><Loading /></div>;
   const c = found.data;
   const day = c.entry.event_date ?? c.entry.available_at;
+  const change = can("availability.override") ? setChanging : undefined;
+  const pick = (value: string) => {
+    setTyped(value);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setOn(value);
+  };
   return (
     <div className="av-page av-stack">
       <div>
@@ -133,19 +154,24 @@ export function Consultation() {
           {kindWord(c.entry.kind)} · {pageLabel(c.entry.page_no)} · {w("consultation.hint")}
         </p>
       </div>
+      <GuidanceChanged codes={c.guidance_changed} />
+      <div className="av-field">
+        <label className="av-field__label" htmlFor="consult-on">{w("consultation.on_label")}</label>
+        <input id="consult-on" className="av-input" type="date" value={typed ?? c.on} onChange={(e) => pick(e.target.value)} />
+      </div>
       <section aria-labelledby="consult-seen" className="av-card av-stack">
         <h2 id="consult-seen">{w("consultation.seen")}</h2>
-        {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <Entries items={c.visible} onChange={setChanging} />}
+        {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <Entries items={c.visible} onChange={change} />}
         <details className="av-understand-later">
           <summary>{w("consultation.later", { count: c.later_count })}</summary>
-          {c.later.length === 0 ? <p className="av-muted">{w("consultation.later_none")}</p> : <Entries items={c.later} onChange={setChanging} />}
+          {c.later.length === 0 ? <p className="av-muted">{w("consultation.later_none")}</p> : <Entries items={c.later} onChange={change} />}
         </details>
       </section>
       {c.unknown.length > 0 && (
         <section aria-labelledby="consult-unknown" className="av-card av-stack">
           <h2 id="consult-unknown">{w("consultation.unknown")}</h2>
           <p className="av-muted">{w("consultation.unknown_hint")}</p>
-          <Entries items={c.unknown} onChange={setChanging} />
+          <Entries items={c.unknown} onChange={change} />
         </section>
       )}
       <section aria-labelledby="consult-guidance" className="av-card av-stack">
@@ -163,7 +189,7 @@ export function Consultation() {
           })}
         </ul>
       </section>
-      <NoteEditor key={`${factId}-${c.note ?? ""}`} caseId={caseId} factId={factId} initial={c.note ?? ""} />
+      <NoteEditor key={`${factId}-${c.note ?? ""}`} caseId={caseId} factId={factId} initial={c.note ?? ""} canAdd={can("consultation.note")} />
       <Comments caseId={caseId} targetKind="fact" targetId={factId} />
       {changing && (
         <ArrivalDialog

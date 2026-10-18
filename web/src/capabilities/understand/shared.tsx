@@ -1,6 +1,9 @@
 // Parts shared by slice D's screens: labelled boxes, dates and the status badge for a fact.
 import { useId, type TextareaHTMLAttributes } from "react";
 import { humanise } from "../../foundation/i18n";
+import { useResource } from "../../foundation/lib/useResource";
+import { api, unwrap } from "../../foundation/platform-client";
+import { Notice } from "../../foundation/ui";
 import type { Status } from "../../foundation/ui/StatusBadge";
 import { w } from "./words";
 
@@ -35,5 +38,22 @@ export function TextArea({ label, hint, ...box }: { label: string; hint?: string
       )}
       <textarea id={id} className="av-textarea av-understand-textarea" aria-describedby={hint ? `${id}-hint` : undefined} {...box} />
     </div>
+  );
+}
+
+/** What the signed-in person may do on this case (Case.allowed_actions). Buttons follow it; the server still checks. */
+export function useCan(caseId: string): (action: string) => boolean {
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId]);
+  const actions = found.data?.allowed_actions ?? [];
+  return (action: string) => actions.includes(action);
+}
+
+/** Shown when guidance the case was first shown has changed in the pack since (codes only). */
+export function GuidanceChanged({ codes }: { codes: string[] | undefined }) {
+  if (!codes || codes.length === 0) return null;
+  return (
+    <Notice>
+      <p>{w("common.guidance_changed", { codes: codes.join(", ") })}</p>
+    </Notice>
   );
 }
