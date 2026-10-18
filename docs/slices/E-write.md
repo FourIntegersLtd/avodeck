@@ -50,7 +50,7 @@ The loaded-language word list and opinion `view` options come from the case-type
 - [ ] Facts flagged on screen 09 appear first under the question they're linked to.
 - [x] T-14b suggests the planted unused fact (safety-netting entry on page 117) after a draft that ignores it.
 - [x] T-14c on the synthetic witness statement finds the planted contradiction ("I was never told to come back" vs page 118 "review 3/52 if no better"). Claims are exact substrings, and the expert's decision is stored.
-- [ ] The regex lint flags a sentence with a date or number but no citation, and words from the pack's loaded-language list ("clearly negligent", "obviously"), in under 200 ms.
+- [x] The regex lint flags a sentence with a date or number but no citation, and words from the pack's loaded-language list ("clearly negligent", "obviously"), in under 200 ms.
 - [ ] The AI lint flags a causation statement as `outside_expertise` for a general-practice expert (rule from the case-type pack).
 - [ ] Lint returns in under 2 s at p95 (recorded responses plus timing budget).
 - [ ] No lint response contains replacement text, and the lint schema has no free-prose field (core test).
