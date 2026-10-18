@@ -13,7 +13,7 @@ from fastapi import Depends, Query, Request, Response
 
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
-from app.core.contracts.fact_flags import POINTS
+from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, process_pages
 from app.core.contracts.reading import blind_read, require_page_read
 from app.core.crypto import CaseCrypto
@@ -273,9 +273,12 @@ async def verify_fact(
 ) -> FactOut:
     before = await _checkable(conn, case_id, fact_id, version, scope)
     status = _CHECKS.get((before["status"], body.action))
+    if status is None and body.action == "correct" and before["needs_recheck"] and before["status"] in _CHECKED:
+        status = before["status"]  # "Please check": the expert confirms a checked fact again
     if status is None:
         raise ApiError("conflict", "This suggestion cannot be changed that way.", 409)
-    value, word_ids = before["value"], before["word_ids"]
+    value, word_ids, bbox = before["value"], before["word_ids"], before["bbox"]
+    fields, event_date = before["fields"], before["event_date"]
     if body.action == "edit":
         if not body.new_value:
             raise _invalid()
@@ -283,6 +286,14 @@ async def verify_fact(
         words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
         if not provenance.supported(value, word_ids, words):
             raise _invalid()
+        if body.word_ids:
+            bbox = await repo.word_box(conn, before["page_id"], word_ids)
+        if body.fields is not None:
+            fields = body.fields
+        if "event_date" in body.model_fields_set:
+            event_date = body.event_date
+    if before["needs_recheck"]:
+        await repo.set_flag(conn, case_id, fact_id, RECHECK, scope.person_id, on=False)
     after = await repo.change_fact(
         conn,
         fact_id,
@@ -291,7 +302,9 @@ async def verify_fact(
         value=value,
         word_ids=word_ids,
         page_id=before["page_id"],
-        bbox=before["bbox"],
+        bbox=bbox,
+        fields=fields,
+        event_date=event_date,
     )
     out = _changed(response, after)
     assert after is not None
@@ -301,7 +314,7 @@ async def verify_fact(
         scope.person_id,
         body.action,
         before,
-        {**after, "fields": before["fields"]},
+        after,
         reason=body.reason if body.action == "not_right" else None,
     )
     return out
@@ -339,13 +352,13 @@ async def move_fact(
         value=before["value"],
         word_ids=body.word_ids,
         page_id=target,
-        bbox=None,
+        bbox=await repo.word_box(conn, target, body.word_ids),
+        fields=before["fields"],
+        event_date=before["event_date"],
     )
     out = _changed(response, after)
     assert after is not None
-    await repo.log_check(
-        conn, case_id, scope.person_id, "move", before, {**after, "fields": before["fields"]}, new_page_id=target
-    )
+    await repo.log_check(conn, case_id, scope.person_id, "move", before, after, new_page_id=target)
     return out
 
 

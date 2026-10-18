@@ -153,6 +153,47 @@ describe.each([
     await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_ID}/read/118`));
   });
 
+  test("on the last page, Next and J go no further", async () => {
+    mockReader(pack, { alreadyRead: true, lastPage: 118 });
+    const { user, router } = renderAt(PATH);
+    await screen.findByRole("article", { name: /Dr P consultation/ });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next page" })).toBeDisabled());
+    await user.keyboard("j");
+    await new Promise((r) => setTimeout(r, 50));
+    expect(router.state.location.pathname).toBe(PATH);
+  });
+
+  test("a checked suggestion offers only what the server allows, by button and by key", async () => {
+    const api = mockReader(pack, { alreadyRead: true, facts: [fact(1, { status: "verified" }), fact(2, { status: "rejected" })] });
+    const { user } = renderAt(PATH);
+    const c = await screen.findByRole("article", { name: /Dr P consultation/ });
+    expect(within(c).queryByRole("button", { name: "Correct" })).not.toBeInTheDocument();
+    expect(within(c).queryByRole("button", { name: "Change a detail" })).not.toBeInTheDocument();
+    expect(within(c).getByRole("button", { name: "Not right" })).toBeVisible();
+    fireEvent.click(c);
+    await user.keyboard("1");
+    await user.keyboard("3");
+    expect(screen.queryByLabelText("The right words")).not.toBeInTheDocument();
+    fireEvent.click(card(/Anusol/));
+    await user.keyboard("2");
+    await user.keyboard("3");
+    expect(screen.queryByLabelText("The right words")).not.toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(api.verifies).toHaveLength(0);
+  });
+
+  test("a fact to check again after the page was read again says Please check, not Points against, and Correct checks it", async () => {
+    const api = mockReader(pack, { alreadyRead: true, facts: [fact(1, { status: "verified", needs_recheck: true })] });
+    const { user } = renderAt(PATH);
+    const c = await screen.findByRole("article", { name: /Dr P consultation/ });
+    expect(within(c).getByText("Please check")).toBeVisible();
+    expect(within(c).queryByText("In Points against")).not.toBeInTheDocument();
+    expect(within(c).getByRole("button", { name: "Send to Points against" })).toBeVisible();
+    await user.click(within(c).getByRole("button", { name: "Correct" }));
+    await waitFor(() => expect(api.verifies[0]?.body).toEqual({ action: "correct" }));
+    expect(await within(card(/Dr P consultation/)).findByText("Checked by you")).toBeVisible();
+  });
+
   test("keys are ignored while typing in a box", async () => {
     const api = mockReader(pack, { alreadyRead: true });
     const { user, router } = renderAt(PATH);
