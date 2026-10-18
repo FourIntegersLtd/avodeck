@@ -504,8 +504,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### fact_question_links
 | Field | In plain words |
 |---|---|
-| fact_id / question_id | Which fact relates to which question |
-| status / reason | Suggested, confirmed or rejected, and the short reason |
+| fact_id / question_id | Which fact relates to which question (the question is cleared, and the link turns stale, if the question is removed) |
+| status / reason | Suggested, confirmed, rejected or stale, and the short reason |
 
 ### check_config
 | Field | In plain words |
@@ -520,7 +520,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | check_key | Which check found it |
 | evidence_fact_ids[] | The facts behind it |
 | decision / reason | The expert's decision (relevant, not relevant, explained elsewhere) and why |
-| status | Open, or gone when a later run no longer finds it (never deleted) |
+| status | Open, or gone when a later run no longer finds it (never deleted; a decided gone finding stays listed). One finding per check and set of evidence facts |
 | gentle | Whether the screen uses the softer wording |
 
 ### check_runs
@@ -534,6 +534,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 |---|---|
 | code / version_label | Which guideline and which version the case was shown |
 | table_reviewed_at | When that entry of the guidance table was last reviewed |
+| entry_hash | A fingerprint of the guidance entry as the case was shown it; a different fingerprint now shows a notice until checks are run again |
 
 ### availability_overrides
 | Field | In plain words |
@@ -544,7 +545,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### consultation_notes
 | Field | In plain words |
 |---|---|
-| fact_id / text | Which consultation, and the expert's note |
+| fact_id / text | Which consultation, and the note |
+| person_id | Who wrote it: each person keeps their own note, and only they see it |
 
 ### guideline_versions
 Not a database table: these fields are the rows of the overlay pack's `guidelines.yaml`, read with `pack.guidelines()` (ADR 0016).

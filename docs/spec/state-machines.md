@@ -124,7 +124,7 @@ Chunks can be sent (and re-sent) only while `open`. Completing twice returns the
 
 null → relevant / not_relevant / explained_elsewhere (reason required for the last two). The expert can change a decision at any time; every change is audited. A re-run keeps decisions on findings that still exist.
 
-Status (`findings.status`): open → gone when a re-run of the same check no longer finds it; gone → open if a later run finds it again (its decision is kept). Code never decides or deletes a finding.
+Status (`findings.status`): open → gone when a re-run of the same check no longer finds it; gone → open if a later run finds it again (its decision is kept). Code never decides or deletes a finding. A `gone` finding the expert has decided stays listed on screen 13, marked "no longer found"; an undecided `gone` finding is hidden. One finding per check and set of evidence facts (`findings_one_each`).
 
 ## Comment (`comments.resolved_at`)
 
@@ -170,7 +170,7 @@ Items start `open` (the worker, T-07c). `received` is final. `PATCH /cases/{id}/
 
 ## Fact–question link (`fact_question_links.status`)
 
-suggested → confirmed / rejected (expert); confirmed ↔ rejected (expert, audited). If the fact is later rejected, the link becomes `stale` and the expert is shown it on screen 13. A new instruction version never deletes links; links to removed questions become `stale`.
+suggested → confirmed / rejected (expert); confirmed ↔ rejected (expert, audited). If the fact is later rejected, the link becomes `stale` and the expert is shown it on screen 13. A new instruction version never deletes links; links to removed questions become `stale` (their `question_id` is cleared; the database guard sets `stale`). A `stale` link cannot be confirmed (409 `stale_link`) and never returns to `suggested`. A link whose fact is rejected reads as `stale` on screen 13; its row keeps its status until foundation's `confirmed_links` keeps to checked facts (see `docs/decisions/deferred.md`).
 
 ## Point (`points.status`)
 

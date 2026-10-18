@@ -8,13 +8,13 @@ The expert sees the whole story on a timeline, opens any consultation exactly as
 ## Screens
 - 11 The timeline (`S11-Timeline`): lanes from the pack, filters (date, status, question), links to questions
 - 12 One consultation, as the clinician saw it (`S12-Consultation`): label from the packs: "as the GP saw it" under gb-eaw/general-practice
-- 13 Things to look at (`S13-ThingsToLook`): findings with evidence pages; check settings
+- 13 Things to look at (`S13-ThingsToLook`): findings with evidence pages (a decided finding no longer found stays listed, marked so); links to the questions (suggest, confirm, reject, add by hand, stale list); check settings (on/off and days allowed). Buttons follow `Case.allowed_actions`
 - Today cards: registers "things to look at to decide"
 
 ## Endpoints (architecture 5.2)
 - `GET /v1/cases/{id}/timeline?from=&to=&status=&question_id=`
-- `POST /v1/cases/{id}/links/suggest` → 202; `PATCH /v1/cases/{id}/links/{link_id}`; `POST /v1/cases/{id}/links`
-- `GET /v1/cases/{id}/consultations/{fact_id}?as_seen=true`
+- `GET /v1/cases/{id}/fact-links`; `POST /v1/cases/{id}/fact-links/suggest` → 202; `PATCH /v1/cases/{id}/fact-links/{link_id}` (If-Match; a `stale` link gives 409 `stale_link`); `POST /v1/cases/{id}/fact-links` (confirmed questions only, through `confirmed_questions`)
+- `GET /v1/cases/{id}/consultations/{fact_id}?as_seen=true&on=` (`on` shows the record as it stood on another day; the reply carries `guidance_changed`)
 - `PATCH /v1/cases/{id}/facts/{fact_id}/availability` `{available_at | unknown, reason}`
 - `PUT /v1/cases/{id}/consultations/{fact_id}/note`
 - `GET /v1/guidelines/in-force?code=&date=` (jurisdiction taken from the case or query; global table)
@@ -44,21 +44,21 @@ Writes on the contract table: `facts.available_at`, `facts.availability_basis`, 
 - **Out:** confirmed links (E's points and opinion workspace, G's T-21a), findings and decisions (F's final checks), `available_at` (E and F).
 
 ## Acceptance tests (write first)
-- [ ] Timeline lanes and their order come from the case's pack (`lanes.yaml`). Changing the pack fixture changes the lanes with no code change.
-- [ ] Facts show their status (Checked by you / Please check) and filter by status, date range and linked question.
-- [ ] Synthetic case: the consultation on page 118 (15 May 2024). The hospital letter dated 10 May but stamped received 22 May is hidden "as seen" and listed under "What came later". The blood result filed 14 May is visible.
-- [ ] A letter with no availability evidence shows "Not known when this arrived". It is never placed before the consultation automatically.
-- [ ] Overriding availability requires a reason, appends to `availability_overrides`, and is audited. The latest override wins.
-- [ ] `GET /guidelines/in-force?code=NG12&date=2024-05-15` returns the version in force on that date from the overlay pack's guideline table. A date before the first version returns `not_found`.
-- [ ] Recorded AI requests from this slice never contain guideline text beyond the code and title.
-- [ ] T-11 is refused for unverified facts and only suggests links. Confirming or rejecting is audited. Manual links can be added.
-- [ ] Planted case: an abnormal result (planted ferritin 9 µg/L on page 402) with no action within 14 days produces an `abnormal_result_no_action` finding with evidence pages.
-- [ ] Turning that check off in `/me/checks` affects only new runs. `rerun` recreates findings and keeps decisions on findings that still exist.
-- [ ] `gentle` checks use the softer wording keys from i18n.
-- [ ] A decision of `not_relevant` or `explained_elsewhere` requires a reason. Findings are never auto-closed.
-- [ ] Planted referral with no acknowledgement within 6 weeks produces `referral_acknowledged`. A planted out-of-hours contact that reached the clinician the next day produces no finding.
-- [ ] No slice code contains a clinician title, guidance body or a fixed lane list (core scan), and the timeline renders the fixture specialty's lanes unchanged.
-- [ ] Screens 11, 12 and 13 pass Playwright + axe and match their canvas boards. The timeline renders 1,500 events in under 1 s.
+- [x] Timeline lanes and their order come from the case's pack (`lanes.yaml`). Changing the pack fixture changes the lanes with no code change.
+- [x] Facts show their status (Checked by you / Please check) and filter by status, date range and linked question.
+- [x] Synthetic case: the consultation on page 118 (15 May 2024). The hospital letter dated 10 May but stamped received 22 May is hidden "as seen" and listed under "What came later". The blood result filed 14 May is visible.
+- [x] A letter with no availability evidence shows "Not known when this arrived". It is never placed before the consultation automatically.
+- [x] Overriding availability requires a reason, appends to `availability_overrides`, and is audited. The latest override wins.
+- [x] `GET /guidelines/in-force?code=NG12&date=2024-05-15` returns the version in force on that date from the overlay pack's guideline table. A date before the first version returns `not_found`.
+- [x] Recorded AI requests from this slice never contain guideline text beyond the code and title.
+- [x] T-11 is refused for unverified facts and only suggests links. Confirming or rejecting is audited. Manual links can be added.
+- [x] Planted case: an abnormal result (planted ferritin 9 µg/L on page 402) with no action within 14 days produces an `abnormal_result_no_action` finding with evidence pages.
+- [x] Turning that check off in `/me/checks` affects only new runs. `rerun` recreates findings and keeps decisions on findings that still exist.
+- [x] `gentle` checks use the softer wording keys from i18n.
+- [x] A decision of `not_relevant` or `explained_elsewhere` requires a reason. Findings are never auto-closed.
+- [x] Planted referral with no acknowledgement within 6 weeks produces `referral_acknowledged`. A planted out-of-hours contact that reached the clinician the next day produces no finding.
+- [x] No slice code contains a clinician title, guidance body or a fixed lane list (core scan), and the timeline renders the fixture specialty's lanes unchanged.
+- [ ] Screens 11, 12 and 13 pass Playwright + axe (axe passes in the component tests; the Playwright run needs `make dev` and was not run in the 2026-10-18 audit) and match their canvas boards. The timeline renders 1,500 events in under 1 s.
 
 ## Behaviour rules this slice must build (architecture 10, 5.4)
 
@@ -68,9 +68,9 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Extra endpoints:** `GET/POST /v1/cases/{id}/comments`, `PATCH /v1/cases/{id}/comments/{comment_id}`.
 
-- [ ] Any case member can comment on a page, fact or paragraph; comments never appear in a report; the screen warns they may be disclosable
-- [ ] Links whose fact is rejected, or whose question is removed, become `stale` and are shown for review
-- [ ] A change to a cited guideline's table entry shows a notice on the case; the case records the table version used
+- [x] Any case member can comment on a page, fact or paragraph; comments never appear in a report; the screen warns they may be disclosable
+- [x] Links whose fact is rejected, or whose question is removed, become `stale` and are shown for review (a removed question sets `question_id` to null and the row to `stale`; a link whose fact was later rejected reads as `stale` in `/fact-links` but its row stays `confirmed`, because slice D cannot react to slice B's fact changes; `core/contracts/fact_links.confirmed_links` returns `confirmed` rows only and should also keep to checked facts, raised with foundation on 2026-10-18)
+- [x] A change to a cited guideline's table entry shows a notice on the case; the case records the table version used (`case_guideline_versions` with `entry_hash`; "Check again" takes the new list)
 
 ## Rules that apply
 1, 2, 4, 6, 7, 9, 11 from the root `AGENTS.md`.
