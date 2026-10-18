@@ -26,7 +26,12 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 
-from app.core.contracts.pipeline import extract_page_text_entry, process_pages, process_pages_entry
+from app.core.contracts.pipeline import (
+    extract_page_text_entry,
+    process_pages,
+    process_pages_entry,
+    transcription_purpose,
+)
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from tests.support.seed import Seed
@@ -125,7 +130,7 @@ async def test_the_queue_lists_the_unreadable_pages_with_a_done_count(world: dic
 
 
 async def test_saving_a_transcription_queues_re_extraction_and_counts_as_read(
-    admin: psycopg.Connection, world: dict[str, Any], calls: list[Any]
+    admin: psycopg.Connection, api_db: Database, world: dict[str, Any], calls: list[Any]
 ) -> None:
     client, n = world["client"], UNREADABLE[0]
     page_id = world["pages"][n]
@@ -135,7 +140,14 @@ async def test_saving_a_transcription_queues_re_extraction_and_counts_as_read(
     assert saved.status_code == 202, saved.text
     assert uuid.UUID(saved.json()["job_id"])
     assert calls == [("extract", world["case"], page_id)]
-    assert page_row(admin, page_id)[:2] == (TEXT, "relevant")
+    sealed, relevance = page_row(admin, page_id)[:2]
+    assert relevance == "relevant"
+    assert isinstance(sealed, bytes) and b"chest" not in sealed, "the typed text is sealed with the case key"
+    from tests.support.db import scope_for
+
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        opened = await CRYPTO.decrypt(conn, world["case"], sealed, purpose=transcription_purpose(page_id))
+    assert opened.decode() == TEXT
     assert admin.execute("select person_id from app.page_reads where page_id = %s", (page_id,)).fetchall() == [
         (world["expert"],)
     ]

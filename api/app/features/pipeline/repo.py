@@ -116,7 +116,7 @@ async def read_typed_again(conn: AsyncConnection, case_id: uuid.UUID, page_id: u
 @dataclass(frozen=True)
 class ReadingState:
     rotation: int
-    typed: str | None
+    typed: bytes | None  # sealed: open with `transcription_purpose(page_id)`
     unreadable: bool
     handwriting: bool
 
@@ -127,7 +127,7 @@ async def reading_state(conn: AsyncConnection, page_id: uuid.UUID) -> ReadingSta
     )
     row = await cur.fetchone()
     assert row is not None
-    return ReadingState(int(row[0]), row[1], bool(row[2]), bool(row[3]))
+    return ReadingState(int(row[0]), None if row[1] is None else bytes(row[1]), bool(row[2]), bool(row[3]))
 
 
 async def checked_facts(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[uuid.UUID, list[str]]]:

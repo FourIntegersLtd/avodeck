@@ -368,3 +368,83 @@ async def test_only_verified_facts_on_pages_the_named_expert_has_read_are_citabl
         assert on_unread not in {f.id for f in found}, "another person's read does not count"
         assert all(f.status in ("verified", "edited") and f.word_ids for f in found)
         assert await citable_facts(conn, case, None) == [], "no read log: nothing is citable"
+
+
+@pytest.mark.anyio
+async def test_a_checked_fact_awaiting_a_recheck_is_not_citable(
+    api_db: object, seed: Seed, admin: psycopg.Connection, case_page: dict[str, uuid.UUID]
+) -> None:
+    """After a page is read again, a checked fact whose words are gone is flagged 'recheck': its
+    word ids may point at words that no longer exist, so no report cites it until the expert checks it
+    again. A flag for another purpose (sent to Points against) leaves it citable."""
+    from app.core.contracts.fact_flags import POINTS, RECHECK
+    from app.core.contracts.facts import citable_facts
+    from app.core.db import Database
+    from tests.support.db import scope_for
+
+    assert isinstance(api_db, Database)
+    case, page, expert = case_page["case"], case_page["page"], case_page["expert"]
+    awaiting = add_fact(admin, case, page, status="verified")
+    sent_on = add_fact(admin, case, page, status="edited")
+    plain = add_fact(admin, case, page, status="verified")
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, %s, null)",
+        (case, awaiting, RECHECK),
+    )
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, %s, %s)",
+        (case, sent_on, POINTS, expert),
+    )
+    async with api_db.request(scope_for(expert)) as conn:
+        found = {f.id for f in await citable_facts(conn, case, StubReads({expert: {page}}))}
+    assert found == {sent_on, plain}
+
+
+# --- confirmed fact-question links (slice D's table, read by slice E) -------------------------------
+
+
+def _link(admin: psycopg.Connection, case: uuid.UUID, fact: uuid.UUID, question: uuid.UUID, status: str) -> None:
+    """A link in `status`, reached the way the state machine allows (state-machines.md)."""
+    if status == "confirmed":
+        admin.execute(
+            "insert into app.fact_question_links (case_id, fact_id, question_id, source, status)"
+            " values (%s, %s, %s, 'expert', 'confirmed')",
+            (case, fact, question),
+        )
+        return
+    admin.execute(
+        "insert into app.fact_question_links (case_id, fact_id, question_id, source) values (%s, %s, %s, 'ai')",
+        (case, fact, question),
+    )
+    if status != "suggested":
+        admin.execute(
+            "update app.fact_question_links set status = %s where fact_id = %s and question_id = %s",
+            (status, fact, question),
+        )
+
+
+@pytest.mark.anyio
+async def test_confirmed_links_are_only_the_links_the_expert_confirmed(
+    api_db: object, admin: psycopg.Connection, case_page: dict[str, uuid.UUID]
+) -> None:
+    from app.core.contracts.fact_links import confirmed_links
+    from app.core.db import Database
+    from tests.support.db import scope_for
+
+    assert isinstance(api_db, Database)
+    case, page = case_page["case"], case_page["page"]
+    q1, q2 = add_question(admin, case, number=1), add_question(admin, case, number=2)
+    facts = {s: add_fact(admin, case, page, status="verified") for s in ("a", "b", "c", "d", "e")}
+    _link(admin, case, facts["a"], q1, "confirmed")
+    _link(admin, case, facts["b"], q1, "confirmed")
+    _link(admin, case, facts["c"], q1, "suggested")
+    _link(admin, case, facts["d"], q1, "rejected")
+    _link(admin, case, facts["e"], q1, "stale")
+    _link(admin, case, facts["a"], q2, "confirmed")
+    _link(admin, case, facts["b"], q2, "rejected")
+
+    async with api_db.request(scope_for(case_page["viewer"])) as conn:
+        assert await confirmed_links(conn, case) == {q1: {facts["a"], facts["b"]}, q2: {facts["a"]}}
+        assert await confirmed_links(conn, case, q2) == {q2: {facts["a"]}}
+    async with api_db.request(scope_for(case_page["outsider"])) as conn:
+        assert await confirmed_links(conn, case) == {}, "row-level security applies on the caller's connection"

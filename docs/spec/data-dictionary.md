@@ -360,7 +360,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | needs_clearer_copy | The expert asked for a clearer copy; the page goes on the next request to the instructing party |
 | relevance | The expert's judgement: relevant or background |
 | language | The page's language, if not the pack's |
-| transcribed_by_expert_text | The expert's own typing of a page the computer couldn't read |
+| transcribed_by_expert_text | The expert's own typing of a page the computer couldn't read, sealed with the case key (never stored as plain text) |
 
 ### page_analysis
 | Field | In plain words |

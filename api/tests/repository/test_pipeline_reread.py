@@ -22,7 +22,7 @@ import psycopg
 import pytest
 from PIL import Image
 
-from app.core.contracts.pipeline import extract_page_text, process_pages
+from app.core.contracts.pipeline import extract_page_text, process_pages, transcription_purpose
 from app.core.db import Database
 from app.core.packs import default_library
 from app.core.storage import SupabaseStorage
@@ -154,16 +154,26 @@ async def test_a_turned_page_is_read_again_and_keeps_its_number_and_checked_fact
     assert row is not None and "chest" not in row[0]
 
 
+async def sealed_typing(h: Harness, page_id: uuid.UUID, text: str) -> bytes:
+    """The expert's typed-out text as slice B stores it: sealed with the case key (never plain)."""
+    async with h.api_db.request(scope_for(h.expert)) as conn:
+        return await h.crypto.encrypt(conn, h.case_id, text.encode(), purpose=transcription_purpose(page_id))
+
+
 async def test_the_experts_text_replaces_the_words_and_is_sent_to_the_model(h: Harness) -> None:
     first, _ = page_ids(h)
     kept_id = add_fact(h, first, "chest clear", await words_for(h, first, "chest clear"), "verified")
     lost_id = add_fact(h, first, "Seen", await words_for(h, first, "Seen"), "edited")
     h.admin.execute(
-        "update app.pages set unreadable = true, transcribed_by_expert_text = %s where id = %s", (TYPED, first)
+        "update app.pages set unreadable = true, transcribed_by_expert_text = %s where id = %s",
+        (await sealed_typing(h, first, TYPED), first),
     )
     async with h.api_db.request(scope_for(h.expert)) as conn:
         await extract_page_text(conn, h.case_id, first)
-    h.admin.execute("update app.pages set transcribed_by_expert_text = %s where id = %s", ("chest clear", first))
+    h.admin.execute(
+        "update app.pages set transcribed_by_expert_text = %s where id = %s",
+        (await sealed_typing(h, first, "chest clear"), first),
+    )
     async with h.api_db.request(scope_for(h.expert)) as conn:
         await extract_page_text(conn, h.case_id, first)
     assert set((await h.drain()).values()) == {"done"}
