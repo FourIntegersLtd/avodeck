@@ -55,7 +55,9 @@ def _answer(evidence: list[dict[str, Any]]) -> Any:
 
 
 def _stored(h: Any) -> list[dict[str, Any]]:
-    row = h.admin.execute("select availability_evidence from app.page_analysis").fetchone()
+    row = h.admin.execute(
+        "select availability_evidence from app.page_analysis where case_id = %s", (h.case_id,)
+    ).fetchone()
     assert row is not None
     return list(row[0])
 
