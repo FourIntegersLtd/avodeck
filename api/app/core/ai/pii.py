@@ -149,7 +149,7 @@ def _month(word: str, language: str) -> int | None:
     return None
 
 
-def _known_dates(text: str, dates: Sequence[date], order: str, language: str) -> Iterable[tuple[int, int]]:
+def known_dates(text: str, dates: Sequence[date], order: str, language: str) -> Iterable[tuple[int, int]]:
     if not dates:
         return
     for m in _NUMERIC_DATE.finditer(text):
@@ -193,7 +193,7 @@ def strip(
             person_of.setdefault((m.start(), m.end()), person)
 
     found = _pack_spans(text, pack.identifier_recognisers())
-    found.setdefault(DATE_OF_BIRTH, []).extend(_known_dates(text, dates_of_birth, pack.date_order, language))
+    found.setdefault(DATE_OF_BIRTH, []).extend(known_dates(text, dates_of_birth, pack.date_order, language))
     found[NAME] = name_spans
     recognisers: list[EntityRecognizer] = [_Found(kind, language, spans) for kind, spans in found.items() if spans]
 

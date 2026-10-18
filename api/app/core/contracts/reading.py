@@ -35,6 +35,31 @@ class PageReadLog(Protocol):
         ...
 
 
+class PageReads:
+    """`PageReadLog` on slice B's `page_reads`, for code with no app to ask (the worker).
+
+    `has_read` is the person's own read, so an assistant who has read a page sees its suggestions.
+    `read_page_ids` lists only reads that count for citing (the named expert's), so `citable_facts()`
+    never unlocks a fact through anyone else's reading.
+    """
+
+    async def has_read(self, conn: AsyncConnection, case_id: uuid.UUID, page_no: int, person_id: uuid.UUID) -> bool:
+        cur = await conn.execute(
+            "select exists (select 1 from app.page_reads r join app.pages p on p.id = r.page_id"
+            " where r.case_id = %s and p.bundle_page_no = %s and r.person_id = %s)",
+            (case_id, page_no, person_id),
+        )
+        row = await cur.fetchone()
+        return bool(row and row[0])
+
+    async def read_page_ids(self, conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> set[uuid.UUID]:
+        cur = await conn.execute(
+            "select distinct page_id from app.page_reads where case_id = %s and person_id = %s and counts_for_citing",
+            (case_id, person_id),
+        )
+        return {r[0] for r in await cur.fetchall()}
+
+
 def blind_read() -> ApiError:
     return ApiError("blind_read", "Mark this page as read first.", 423)
 

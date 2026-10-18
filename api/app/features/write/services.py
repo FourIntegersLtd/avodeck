@@ -19,7 +19,7 @@ from app.core.ai.bedrock import RecordedBedrock
 from app.core.ai.kit import AiKit
 from app.core.ai.recordings import FixtureStore
 from app.core.config import ConfigError, ai_settings
-from app.core.contracts.reading import PageReadLog
+from app.core.contracts.reading import PageReadLog, PageReads
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
@@ -98,15 +98,13 @@ def from_env() -> WriteServices:
         crypto: CaseCrypto | None = CaseCrypto(key_provider_from_env())
     except ConfigError:
         crypto = None
-    from app.features.reader.log import ReaderPageReadLog  # slice B's read log, as `app.main` uses it
-
     return WriteServices(
         flags=PointFlags(),
         links=ConfirmedLinks(),
         guidance=PackGuidance(),
         kit=kit,
         crypto=crypto,
-        reads=ReaderPageReadLog(),
+        reads=PageReads(),
     )
 
 

@@ -11,11 +11,10 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from app.core.contracts.document_words import box, word_purpose
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import transcription_purpose
 from app.core.crypto import CaseCrypto
-from app.features.pipeline.extract import box
-from app.features.pipeline.paths import word_purpose
 
 
 async def record_read(
@@ -227,19 +226,6 @@ async def word_box(conn: AsyncConnection, page_id: uuid.UUID, word_ids: list[str
     width = float(size[0]) if size and size[0] else max((x for p in polygons.values() for x in p[0::2]), default=1.0)
     height = float(size[1]) if size and size[1] else max((y for p in polygons.values() for y in p[1::2]), default=1.0)
     return box(cited, polygons, width or 1.0, height or 1.0)
-
-
-async def log_remaps(
-    conn: AsyncConnection, case_id: uuid.UUID, moved: list[tuple[uuid.UUID, str | None, list[str], list[str]]]
-) -> None:
-    """One `remapped` row per fact (fact, value, old words, new words) a re-read moved onto new words.
-    Written by the job, so no person."""
-    async with conn.cursor() as cur:
-        await cur.executemany(
-            "insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value,"
-            " old_word_ids, new_word_ids) values (%s, %s, null, 'remapped', %s, %s, %s, %s)",
-            [(case_id, f, value, value, old, new) for f, value, old, new in moved],
-        )
 
 
 async def log_check(

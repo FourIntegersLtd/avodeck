@@ -40,6 +40,7 @@ from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
 from app.core.ai.ocr import OcrPage
 from app.core.contracts.fact_flags import flag_for_recheck
+from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
@@ -48,7 +49,6 @@ from app.features.pipeline import convert, dates, duplicates, extract, gaps, lan
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, turned, typed, usable_text_layer
-from app.features.reader import repo as reader_repo
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
@@ -287,7 +287,7 @@ async def _settle(
             logged.append((fact_id, value, word_ids, found))
     await repo.settle_facts(conn, page_id, moved)
     if logged:
-        await reader_repo.log_remaps(conn, case_id, logged)
+        await log_remaps(conn, case_id, logged)
     if lost:
         await flag_for_recheck(conn, case_id, lost)
 
