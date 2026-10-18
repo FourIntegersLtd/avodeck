@@ -1,7 +1,7 @@
 """The citation rule (rule 2): an opinion cites only citable facts, by the words the fact holds.
 
 The opinion text carries markers `[[cite:n]]`; the n-th `Citation` says which fact, on which page,
-and the words quoted. The quote is compared with the fact's value (which slice A already proved
+and the words quoted (`quote_verbatim`). The quote is compared with the fact's value (which slice A already proved
 against the page's OCR words) after the same normalising as provenance: case, spacing, number format.
 A refusal names the citation or marker by position and a fixed reason; it never repeats the words.
 """
@@ -26,7 +26,7 @@ class Citation(BaseModel):
 
     fact_id: uuid.UUID
     page_id: uuid.UUID
-    quote: str = Field(max_length=2000)
+    quote_verbatim: str = Field(max_length=2000)
 
 
 def markers(body: str) -> list[int]:
@@ -53,7 +53,7 @@ def check_citations(body: str, citations: Sequence[Citation], citable: Sequence[
             raise _refuse("not_citable", citation=position)
         if fact.page_id != citation.page_id:
             raise _refuse("wrong_page", citation=position)
-        if not _within(citation.quote, fact.value):
+        if not _within(citation.quote_verbatim, fact.value):
             raise _refuse("quote_not_in_fact", citation=position)
     used = markers(body)
     for n in used:
