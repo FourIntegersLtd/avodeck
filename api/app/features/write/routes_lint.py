@@ -88,9 +88,17 @@ async def _ask(
     task = ai_tasks.t15a(pack, len(said))
     current = services.current()
     names = await current.party_names().case_names(conn, case_id)
+    births = await current.births.dates_of_birth(conn, case_id)
     try:
         out: dict[str, Any] = await current.ai().run(
-            conn, task, pack=pack, text="\n".join(lines), case_id=case_id, names=names, subject=f"opinion:{opinion_id}"
+            conn,
+            task,
+            pack=pack,
+            text="\n".join(lines),
+            case_id=case_id,
+            names=names,
+            dates_of_birth=births,
+            subject=f"opinion:{opinion_id}",
         )
     except InvalidOutput:
         logger.warning("T-15a answer refused twice for one opinion; pattern check warnings only")

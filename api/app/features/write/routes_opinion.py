@@ -5,12 +5,14 @@ citation rule (`citations.py`). Saves take If-Match with the opinion's version (
 first save); a window that has fallen behind gets 412 `stale` carrying what it sent (`yours`) and
 what is saved (`saved`), and the screen asks which to keep. The database keeps every save as a
 version (migration 0502); restoring one saves it again as a new version. Every save runs the pattern
-check again (`lint_regex`): the open warnings are replaced and returned with the opinion.
+check again (`lint_regex`): its open warnings are replaced, the model's stay while their words are still
+in their sentence, and all are returned with the opinion.
 """
 
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 
@@ -20,14 +22,15 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.contracts.facts import Fact
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag
 from app.core.packs import MergedPack
-from app.features.write.citations import Citation, check_citations
+from app.features.write.citations import Citation, changed_citations, check_citations
 from app.features.write.common import Crypto, View, Write, case_pack, citable, invalid, not_found, require_question
-from app.features.write.lint_regex import lint
+from app.features.write.lint_regex import lint, sentences
 from app.features.write.lint_store import BODY, LintIssueOut, dismissed_issues, lint_purpose, open_issues
-from app.features.write.quotes import same_words
+from app.features.write.quotes import locate, same_words
 from app.features.write.router import router
 
 TEST_TEXT = "opinion_test_text"
@@ -55,6 +58,8 @@ class OpinionOut(BaseModel):
     version: int
     updated_at: datetime
     lint: list[LintIssueOut] = Field(default_factory=list)
+    changed_citations: list[int] = Field(default_factory=list)
+    stale: bool = False
 
 
 class OpinionVersion(BaseModel):
@@ -83,15 +88,22 @@ async def _test_text(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, blob: Any
     return (await crypto.decrypt(conn, case_id, bytes(blob), purpose=TEST_TEXT)).decode()
 
 
-async def opinion_out(conn: DbConn, crypto: Crypto, row: dict[str, Any]) -> OpinionOut:
+async def opinion_out(
+    conn: DbConn, crypto: Crypto, row: dict[str, Any], citable_now: Sequence[Fact] | None = None
+) -> OpinionOut:
+    """The saved opinion; with the citable facts, the citations whose fact changed since (and `stale`)."""
     case_id = row["case_id"]
-    return OpinionOut(
+    out = OpinionOut(
         **{
             **row,
             "body": await _decrypt(conn, crypto, case_id, row["body"]),
             "test_text": await _test_text(conn, crypto, case_id, row["test_text"]),
         }
     )
+    if citable_now is not None:
+        out.changed_citations = changed_citations(out.citation_refs, citable_now)
+        out.stale = bool(out.changed_citations)
+    return out
 
 
 async def _current(
@@ -106,18 +118,36 @@ async def _current(
         return await cur.fetchone()
 
 
-async def _check(request: Request, conn: DbConn, case_id: uuid.UUID, saving: OpinionIn) -> MergedPack:
+async def _check(
+    request: Request, conn: DbConn, case_id: uuid.UUID, saving: OpinionIn, kept: Sequence[Citation]
+) -> tuple[MergedPack, list[Fact]]:
     pack = await case_pack(request, conn, case_id)
     if saving.view is not None and saving.view not in {v["code"] for v in pack.opinion_views()}:
         raise invalid("view")
-    check_citations(saving.body, saving.citation_refs, await citable(request, conn, case_id))
-    return pack
+    facts = await citable(request, conn, case_id)
+    check_citations(saving.body, saving.citation_refs, facts, kept)
+    return pack, facts
 
 
-async def _relint(conn: DbConn, crypto: Crypto, row: dict[str, Any], body: str, pack: MergedPack) -> OpinionOut:
-    """Replace the open warnings with the pattern check's on the saved text; the opinion with them."""
+def _saved_refs(row: dict[str, Any] | None) -> list[Citation]:
+    return [] if row is None else [Citation.model_validate(c) for c in row["citation_refs"]]
+
+
+async def _relint(
+    conn: DbConn, crypto: Crypto, row: dict[str, Any], body: str, pack: MergedPack, facts: Sequence[Fact]
+) -> OpinionOut:
+    """Replace the pattern check's open warnings on the saved text and drop the model's whose words are
+    no longer in their sentence; the opinion with them."""
     case_id, opinion_id = row["case_id"], row["id"]
-    await conn.execute("delete from app.lint_issues where opinion_id = %s and status = 'open'", (opinion_id,))
+    await conn.execute(
+        "delete from app.lint_issues where opinion_id = %s and status = 'open' and source = 'regex'", (opinion_id,)
+    )
+    said = sentences(body)
+    for warned in await open_issues(conn, crypto, case_id, opinion_id):
+        index = warned.sentence_index
+        words = [(str(n), w) for n, w in enumerate(said[index].split())] if index < len(said) else []
+        if locate(warned.words, words) is None:
+            await conn.execute("delete from app.lint_issues where id = %s and status = 'open'", (warned.id,))
     dismissed = await dismissed_issues(conn, crypto, case_id, opinion_id)
     for issue in lint(body, pack.loaded_language()):
         if any(t == issue.type and same_words(w, issue.words) for t, w in dismissed):
@@ -128,7 +158,7 @@ async def _relint(conn: DbConn, crypto: Crypto, row: dict[str, Any], body: str, 
             " values (%s, %s, %s, %s, %s, %s, 'regex')",
             (case_id, opinion_id, row["version"], issue.sentence_index, issue.type, sealed),
         )
-    out = await opinion_out(conn, crypto, row)
+    out = await opinion_out(conn, crypto, row, facts)
     out.lint = await open_issues(conn, crypto, case_id, opinion_id)
     return out
 
@@ -202,14 +232,14 @@ async def save_opinion(
     current = await _current(conn, case_id, question_id=question_id)
     if (0 if current is None else current["version"]) != if_match:
         raise await _stale(conn, crypto, current, saving)
-    pack = await _check(request, conn, case_id, saving)
+    pack, facts = await _check(request, conn, case_id, saving, _saved_refs(current))
     try:
         async with conn.transaction():
             row = await _write(conn, crypto, case_id, question_id, current, saving)
     except UniqueViolation:
         raise await _stale(conn, crypto, await _current(conn, case_id, question_id=question_id), saving) from None
     response.headers["ETag"] = etag(row["version"])
-    return await _relint(conn, crypto, row, saving.body, pack)
+    return await _relint(conn, crypto, row, saving.body, pack, facts)
 
 
 @router.get("/cases/{case_id}/opinions/{opinion_id}/versions", response_model=OpinionVersions)
@@ -276,7 +306,7 @@ async def restore_version(
     )
     if current["version"] != if_match:
         raise await _stale(conn, crypto, current, restoring)
-    pack = await _check(request, conn, case_id, restoring)
+    pack, facts = await _check(request, conn, case_id, restoring, restoring.citation_refs)
     row = await _write(conn, crypto, case_id, current["question_id"], current, restoring, restored_from=version_no)
     response.headers["ETag"] = etag(row["version"])
-    return await _relint(conn, crypto, row, restoring.body, pack)
+    return await _relint(conn, crypto, row, restoring.body, pack, facts)

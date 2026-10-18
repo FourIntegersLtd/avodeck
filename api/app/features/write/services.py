@@ -3,8 +3,10 @@
 Jobs run in the worker, which has no `app.state`, so they get the AI kit, case encryption, the packs and
 slice B's read log from here. `current()` builds them from the cell config on first use; tests call
 `configure()` with stand-ins. Without a model for the cell (no cloud accounts yet, unless
-`AI_RECORDINGS_DIR` names recorded responses) a job pauses with `model_unavailable` (F24). Without a read
-log nothing is citable (fail closed). The A, B, C and D ports are in `ports.py`.
+`AI_RECORDINGS_DIR` names recorded responses) a job pauses with `model_unavailable` (F24). The cell's
+services use slice B's read log and flags, slice D's confirmed links and the pack's guidance; the
+dataclass defaults are the stand-ins tests use. Without a read log nothing is citable (fail closed).
+The A, B, C and D ports are in `ports.py`.
 """
 
 from __future__ import annotations
@@ -23,13 +25,18 @@ from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
 from app.features.write.ports import (
     AllLinked,
+    BirthDates,
     CaseNames,
+    ConfirmedLinks,
     FactFlags,
     GuidanceInForce,
+    NoBirthDates,
     NoFlags,
     NoGuidance,
     OcrWords,
+    PackGuidance,
     PartyNames,
+    PointFlags,
     QuestionLinks,
     StatementWords,
 )
@@ -46,6 +53,7 @@ class WriteServices:
     names: CaseNames | None = None
     statements: StatementWords | None = None
     packs: PackLibrary = field(default_factory=default_library)
+    births: BirthDates = field(default_factory=NoBirthDates)
 
     def ai(self) -> AiKit:
         if self.kit is None:
@@ -90,7 +98,16 @@ def from_env() -> WriteServices:
         crypto: CaseCrypto | None = CaseCrypto(key_provider_from_env())
     except ConfigError:
         crypto = None
-    return WriteServices(kit=kit, crypto=crypto)
+    from app.features.reader.log import ReaderPageReadLog  # slice B's read log, as `app.main` uses it
+
+    return WriteServices(
+        flags=PointFlags(),
+        links=ConfirmedLinks(),
+        guidance=PackGuidance(),
+        kit=kit,
+        crypto=crypto,
+        reads=ReaderPageReadLog(),
+    )
 
 
 def current() -> WriteServices:

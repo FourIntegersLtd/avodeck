@@ -14,10 +14,10 @@ not cite and that were not suggested before (T-14b, same checks); kept answers a
 facts with a short label, for the expert to use or dismiss on screen 14.
 
 `compare_witness_statement` takes each comparison queued under its job. A statement already compared
-adds nothing. Otherwise it sends the statement's words and the case's citable facts (same checks). Each
-claim returned must be an exact run of the statement's words: code finds that run and keeps those words
-with their references; a claim not in the statement is dropped. A claim with no verdict is kept as
-not_addressed. Two wrong answers keep nothing and the comparison is marked refused.
+adds nothing. Otherwise it sends the words of the document's pages whose source type the packs mark as a
+statement, and the case's citable facts (same checks). Each claim returned must be an exact run of the
+statement's words: code finds that run and keeps those words with their references; a claim not in the
+statement is dropped. A claim with no verdict is kept as not_addressed. Two wrong answers keep nothing and the comparison is marked refused.
 """
 
 from __future__ import annotations
@@ -36,7 +36,7 @@ from app.features.write import ai_tasks
 from app.features.write.common import ANSWERABLE
 from app.features.write.lint_store import BODY
 from app.features.write.quotes import locate
-from app.features.write.routes_witness import claim_purpose
+from app.features.write.routes_witness import claim_purpose, statement_pages
 from app.features.write.services import WriteServices, current
 
 logger = logging.getLogger("app.write")
@@ -94,9 +94,17 @@ async def _sort(
     text = "\n".join([f"question\t{' '.join(question.split())}", *(_fact_line(r, f) for r, f in refs.items())])
     task = ai_tasks.t14a(pack, list(refs))
     names = await services.party_names().case_names(conn, ctx.case_id)
+    births = await services.births.dates_of_birth(conn, ctx.case_id)
     try:
         out: dict[str, Any] = await kit.run(
-            conn, task, pack=pack, text=text, case_id=ctx.case_id, names=names, subject=f"question:{question_id}"
+            conn,
+            task,
+            pack=pack,
+            text=text,
+            case_id=ctx.case_id,
+            names=names,
+            dates_of_birth=births,
+            subject=f"question:{question_id}",
         )
     except InvalidOutput:
         logger.warning("T-14a answer refused twice for one question; no points added")
@@ -151,9 +159,17 @@ async def _relevant(
     text = "\n".join([f"draft\t{' '.join(body.split())}", *(_fact_line(r, f) for r, f in refs.items())])
     task = ai_tasks.t14b(pack, list(refs))
     names = await services.party_names().case_names(conn, ctx.case_id)
+    births = await services.births.dates_of_birth(conn, ctx.case_id)
     try:
         out: dict[str, Any] = await kit.run(
-            conn, task, pack=pack, text=text, case_id=ctx.case_id, names=names, subject=f"draft:{question_id}"
+            conn,
+            task,
+            pack=pack,
+            text=text,
+            case_id=ctx.case_id,
+            names=names,
+            dates_of_birth=births,
+            subject=f"draft:{question_id}",
         )
     except InvalidOutput:
         logger.warning("T-14b answer refused twice for one question; nothing suggested")
@@ -212,19 +228,32 @@ async def _compare(
     if row and row[0]:
         await _finish(conn, comparison_id, "done", row[0])
         return
-    words = await services.statement_words().words(conn, ctx.case_id, document_id)
+    pack = await _case_pack(conn, services, ctx.case_id)
+    pages = {str(p) for p in await statement_pages(conn, ctx.case_id, document_id, pack)}
+    words = [
+        (ref, text)
+        for ref, text in await services.statement_words().words(conn, ctx.case_id, document_id)
+        if ref.split("/", 1)[0] in pages
+    ]
     refs = {f"f{i}": f for i, f in enumerate(await citable_facts(conn, ctx.case_id, services.reads), 1)}
     if not words or not refs:
         await _finish(conn, comparison_id, "done", 0)
         return
-    pack = await _case_pack(conn, services, ctx.case_id)
     statement = " ".join(" ".join(text for _, text in words).split())
     text = "\n".join([f"statement\t{statement}", *(_fact_line(r, f) for r, f in refs.items())])
     task = ai_tasks.t14c(pack, list(refs))
     names = await services.party_names().case_names(conn, ctx.case_id)
+    births = await services.births.dates_of_birth(conn, ctx.case_id)
     try:
         out: dict[str, Any] = await kit.run(
-            conn, task, pack=pack, text=text, case_id=ctx.case_id, names=names, subject=f"statement:{document_id}"
+            conn,
+            task,
+            pack=pack,
+            text=text,
+            case_id=ctx.case_id,
+            names=names,
+            dates_of_birth=births,
+            subject=f"statement:{document_id}",
         )
     except InvalidOutput:
         logger.warning("T-14c answer refused twice for one statement; no claims added")

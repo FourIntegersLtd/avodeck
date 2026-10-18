@@ -1,16 +1,17 @@
-"""What slice E needs from slices B and D, as Protocols with stand-ins until those slices land.
+"""What slice E needs from slices A, B, C and D, as Protocols, with the cell's adapters and test stand-ins.
 
 - `FactFlags` (B, screen 09): the facts the expert flagged "use in points"; they come first on screen 14.
-- `QuestionLinks` (D): the citable facts linked to one question; the stand-in treats every citable fact
-  as linked, so nothing is hidden before D decides the links.
+  The cell reads `core/contracts/fact_flags`.
+- `QuestionLinks` (D): the citable facts linked to one question. The cell keeps only the facts the expert
+  confirmed for the question (`core/contracts/fact_links`); `AllLinked` is the stand-in tests use.
 - `CaseNames` (C): the names of the case's parties, so `pii.strip` takes them out before a model call
-  (rule 7). The stand-in reads C's `case_parties` the way C's own jobs do, until a core contract exists.
-- `StatementWords` (A): a document's words in reading order, for T-14c. The stand-in reads A's
-  `ocr_words` the way A seals them, until a core contract exists; each word's reference is
-  `<page_id>/<word_id>`.
-- `GuidanceInForce` (D, screen 12): the guidance in force on a date, from D's `guideline_versions` (shared,
-  not patient data). The stand-in returns none until D's table lands.
-When B or D land, only these adapters change (cross-slice.md, E -> B and E -> D).
+  (rule 7), from `core/contracts/case_names`.
+- `BirthDates`: the subject's dates of birth, taken out the same way. No slice stores one yet, so the
+  cell has none (the pipeline does the same); tests pass their own.
+- `StatementWords` (A): a document's words in reading order, for T-14c, from
+  `core/contracts/document_words`; each word's reference is `<page_id>/<word_id>`.
+- `GuidanceInForce` (D, screen 12): the guidance in force on a date. The cell reads the overlay pack's
+  guideline list (shared, not patient data).
 """
 
 from __future__ import annotations
@@ -23,15 +24,13 @@ from typing import Protocol
 from psycopg import AsyncConnection
 from pydantic import BaseModel, ConfigDict
 
+from app.core.contracts.case_names import party_names
+from app.core.contracts.document_words import document_words
+from app.core.contracts.fact_flags import flagged_fact_ids
+from app.core.contracts.fact_links import confirmed_links
 from app.core.contracts.facts import Fact
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack
-
-PARTY_NAME = "party_name"  # slice C's encryption purpose for a party's name
-
-
-def _word_purpose(page_id: uuid.UUID, word_id: str) -> str:
-    return f"ocr_words/{page_id}/{word_id}"  # slice A's encryption purpose for one OCR word
 
 
 class FactFlags(Protocol):
@@ -51,6 +50,12 @@ class QuestionLinks(Protocol):
 class CaseNames(Protocol):
     async def case_names(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[str]:
         """The names of the case's parties."""
+        ...
+
+
+class BirthDates(Protocol):
+    async def dates_of_birth(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[date]:
+        """The subject's dates of birth."""
         ...
 
 
@@ -76,7 +81,9 @@ Guidance = WorkspaceGuidance  # the name slice D's consultation Guidance already
 
 
 class GuidanceInForce(Protocol):
-    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[WorkspaceGuidance]:
+    async def in_force(
+        self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date
+    ) -> list[WorkspaceGuidance]:
         """The guidance for the case's jurisdiction and specialty in force on `on`."""
         ...
 
@@ -94,8 +101,55 @@ class AllLinked:
 
 
 class NoGuidance:
-    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[WorkspaceGuidance]:
+    async def in_force(
+        self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date
+    ) -> list[WorkspaceGuidance]:
         return []
+
+
+class NoBirthDates:
+    async def dates_of_birth(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[date]:
+        return []
+
+
+class PointFlags:
+    async def flagged_for_points(self, conn: AsyncConnection, case_id: uuid.UUID) -> set[uuid.UUID]:
+        return await flagged_fact_ids(conn, case_id)
+
+
+class ConfirmedLinks:
+    async def linked(
+        self, conn: AsyncConnection, case_id: uuid.UUID, question_id: uuid.UUID, facts: Sequence[Fact]
+    ) -> list[Fact]:
+        confirmed = (await confirmed_links(conn, case_id, question_id)).get(question_id, set())
+        return [f for f in facts if f.id in confirmed]
+
+
+def _day(value: object) -> date | None:
+    return None if value in (None, "") else date.fromisoformat(str(value))
+
+
+class PackGuidance:
+    async def in_force(
+        self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date
+    ) -> list[WorkspaceGuidance]:
+        out = []
+        for row in pack.guidelines():
+            start, end = _day(row.get("in_force_from")), _day(row.get("in_force_to"))
+            if start is None or start > on or (end is not None and on >= end):
+                continue
+            out.append(
+                WorkspaceGuidance(
+                    source=str(row["source"]),
+                    code=str(row["code"]),
+                    title=str(row["title"]),
+                    version_label=str(row["version_label"]),
+                    in_force_from=start,
+                    in_force_to=end,
+                    url=None if row.get("url") is None else str(row["url"]),
+                )
+            )
+        return out
 
 
 class PartyNames:
@@ -103,13 +157,7 @@ class PartyNames:
         self.crypto = crypto
 
     async def case_names(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[str]:
-        cur = await conn.execute(
-            "select name from app.case_parties where case_id = %s order by created_at, id", (case_id,)
-        )
-        return [
-            (await self.crypto.decrypt(conn, case_id, bytes(r[0]), purpose=PARTY_NAME)).decode()
-            for r in await cur.fetchall()
-        ]
+        return await party_names(conn, self.crypto, case_id)
 
 
 class OcrWords:
@@ -117,15 +165,4 @@ class OcrWords:
         self.crypto = crypto
 
     async def words(self, conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> list[tuple[str, str]]:
-        cur = await conn.execute(
-            "select w.page_id, w.word_id, w.text from app.ocr_words w join app.pages p on p.id = w.page_id"
-            " where p.case_id = %s and p.document_id = %s order by p.bundle_page_no, w.n",
-            (case_id, document_id),
-        )
-        return [
-            (
-                f"{r[0]}/{r[1]}",
-                (await self.crypto.decrypt(conn, case_id, bytes(r[2]), purpose=_word_purpose(r[0], r[1]))).decode(),
-            )
-            for r in await cur.fetchall()
-        ]
+        return await document_words(conn, self.crypto, case_id, document_id)

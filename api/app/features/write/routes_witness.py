@@ -1,6 +1,8 @@
 """Screen 14: where a witness statement and the records differ (T-14c, slice E brief).
 
 The named expert asks for one of the case's documents to be compared (202, `compare_witness_statement`).
+Only a document with pages whose source type the case's packs mark as a statement can be compared (else
+422 `not_a_statement`); only those pages' words are sent.
 Each claim kept is an exact run of the statement's words, shown beside the facts it was compared with.
 The expert confirms the AI's label, gives their own verdict (`edited`) or dismisses the claim (If-Match on
 the claim's version); each decision is audited. The database keeps the allowed status changes (0501).
@@ -12,15 +14,17 @@ import uuid
 from typing import Any, Literal
 
 import psycopg
-from fastapi import Response
+from fastapi import Request, Response
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict
 
 from app.core import audit
 from app.core.crypto import CaseCrypto
+from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
-from app.features.write.common import Crypto, PointFact, Queued, Write, invalid, not_found, refused
+from app.core.packs import MergedPack
+from app.features.write.common import Crypto, PointFact, Queued, Write, case_pack, invalid, not_found, refused
 from app.features.write.router import router
 
 Verdict = Literal["supports", "contradicts", "not_addressed"]
@@ -29,6 +33,18 @@ Verdict = Literal["supports", "contradicts", "not_addressed"]
 def claim_purpose(document_id: uuid.UUID, claim_index: int) -> str:
     """The purpose a claim's words are sealed under, so they cannot be moved to another claim."""
     return f"witness_claim/{document_id}/{claim_index}"
+
+
+async def statement_pages(
+    conn: DbConn, case_id: uuid.UUID, document_id: uuid.UUID, pack: MergedPack
+) -> list[uuid.UUID]:
+    """The document's pages whose source type the packs mark as a statement."""
+    cur = await conn.execute(
+        "select id from app.pages where case_id = %s and document_id = %s and source_type = any(%s)"
+        " order by bundle_page_no",
+        (case_id, document_id, sorted(pack.statement_sources())),
+    )
+    return [r[0] for r in await cur.fetchall()]
 
 
 class ClaimOut(BaseModel):
@@ -87,11 +103,17 @@ async def open_claims(conn: DbConn, crypto: CaseCrypto, case_id: uuid.UUID) -> l
 
 
 @router.post("/cases/{case_id}/witness-statements/{document_id}/compare", response_model=Queued, status_code=202)
-async def compare(case_id: uuid.UUID, document_id: uuid.UUID, access: Write, conn: DbConn) -> Queued:
+async def compare(case_id: uuid.UUID, document_id: uuid.UUID, request: Request, access: Write, conn: DbConn) -> Queued:
     """Ask for a statement in the case to be set beside the records (T-14c); the expert decides each claim."""
     cur = await conn.execute("select 1 from app.documents where case_id = %s and id = %s", (case_id, document_id))
     if await cur.fetchone() is None:
         raise not_found()
+    if not await statement_pages(conn, case_id, document_id, await case_pack(request, conn, case_id)):
+        raise ApiError(
+            "not_a_statement",
+            "This document is not marked as a statement, so it cannot be set beside the records.",
+            422,
+        )
     job_id = await registry.enqueue(conn, case_id, "compare_witness_statement")
     await conn.execute(
         "insert into app.witness_comparisons (case_id, document_id, job_id) values (%s, %s, %s)",

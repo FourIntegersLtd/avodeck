@@ -10,12 +10,14 @@ the legal test text come from the packs (rule 11).
 from __future__ import annotations
 
 import uuid
+from collections.abc import Sequence
 from datetime import date
 
 from fastapi import Request
 from psycopg.rows import dict_row
 from pydantic import BaseModel
 
+from app.core.contracts.facts import Fact
 from app.core.http import DbConn
 from app.features.write import services
 from app.features.write.common import Crypto, View, case_pack, citable, require_question
@@ -34,6 +36,7 @@ class Chip(BaseModel):
     value: str
     event_date: date | None
     quote_verbatim: str
+    fact_version: int
 
 
 class SideCount(BaseModel):
@@ -77,7 +80,8 @@ async def workspace(
     await require_question(conn, case_id, question_id)
     pack = await case_pack(request, conn, case_id)
     current = services.current()
-    linked = await current.links.linked(conn, case_id, question_id, await citable(request, conn, case_id))
+    facts = await citable(request, conn, case_id)
+    linked = await current.links.linked(conn, case_id, question_id, facts)
     cur = await conn.execute(
         "select id, bundle_page_no from app.pages where id = any(%s)", (list({f.page_id for f in linked}),)
     )
@@ -91,6 +95,7 @@ async def workspace(
             value=f.value,
             event_date=f.event_date,
             quote_verbatim=f.value,
+            fact_version=f.version,
         )
         for f in sorted(linked, key=lambda f: (pages[f.page_id], f.event_date or date.min, str(f.id)))
         if f.value
@@ -106,7 +111,7 @@ async def workspace(
         points=await _summary(conn, crypto, case_id, question_id, pack.point_sides()),
         views=[OpinionView(**v) for v in pack.opinion_views()],
         legal_test=pack.legal_tests(),
-        opinion=await _opinion(conn, crypto, case_id, question_id),
+        opinion=await _opinion(conn, crypto, case_id, question_id, facts),
     )
 
 
@@ -125,12 +130,14 @@ async def _summary(
     return PointsSummary(sides=[SideCount(**s, count=counts.get(s["code"], 0)) for s in sides], differ=differ)
 
 
-async def _opinion(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, question_id: uuid.UUID) -> OpinionOut | None:
+async def _opinion(
+    conn: DbConn, crypto: Crypto, case_id: uuid.UUID, question_id: uuid.UUID, facts: Sequence[Fact]
+) -> OpinionOut | None:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute("select * from app.opinions where case_id = %s and question_id = %s", (case_id, question_id))
         row = await cur.fetchone()
     if row is None:
         return None
-    out = await opinion_out(conn, crypto, row)
+    out = await opinion_out(conn, crypto, row, facts)
     out.lint = await open_issues(conn, crypto, case_id, row["id"])
     return out
