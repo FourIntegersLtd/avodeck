@@ -42,7 +42,7 @@ export function QuestionsScreen() {
   }
   if (!rounds.data || !questions.data || !deadlines.data) return <div className="av-page"><Loading /></div>;
   const vocab = (pack.vocabulary as Record<string, unknown>).written_questions;
-  const classes = [...new Set(questions.data.questions.flatMap((q) => [q.classification, q.suggested_classification]).filter((c): c is string => !!c))];
+  const classes = pack.written_question_classifications ?? [];
   const reloadAll = () => { rounds.reload(); questions.reload(); deadlines.reload(); };
 
   return (
