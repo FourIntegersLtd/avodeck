@@ -35,6 +35,7 @@ _WORDS: Final[dict[str, dict[str, str]]] = {
         "invoice_tax": "Tax at {rate}%",
         "invoice_total": "Total due",
         "invoice_credit": "Credit note {number}",
+        "spot_check_watermark": "Spot check {ref}",
     },
 }
 

@@ -9654,6 +9654,179 @@
         "title": "SourceCount",
         "type": "object"
       },
+      "SpotCheckAnswer": {
+        "properties": {
+          "agrees": {
+            "title": "Agrees",
+            "type": "boolean"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "fact_id",
+          "agrees"
+        ],
+        "title": "SpotCheckAnswer",
+        "type": "object"
+      },
+      "SpotCheckIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reviewer_email": {
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+$",
+            "title": "Reviewer Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reviewer_email"
+        ],
+        "title": "SpotCheckIn",
+        "type": "object"
+      },
+      "SpotCheckList": {
+        "properties": {
+          "spot_checks": {
+            "items": {
+              "$ref": "#/components/schemas/SpotCheckOut"
+            },
+            "title": "Spot Checks",
+            "type": "array"
+          }
+        },
+        "required": [
+          "spot_checks"
+        ],
+        "title": "SpotCheckList",
+        "type": "object"
+      },
+      "SpotCheckOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fact_count": {
+            "title": "Fact Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "opened_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Opened At"
+          },
+          "report_version_id": {
+            "format": "uuid",
+            "title": "Report Version Id",
+            "type": "string"
+          },
+          "responded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responded At"
+          },
+          "responses": {
+            "items": {
+              "$ref": "#/components/schemas/SpotCheckAnswer"
+            },
+            "title": "Responses",
+            "type": "array"
+          },
+          "reviewer_email": {
+            "title": "Reviewer Email",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "report_version_id",
+          "reviewer_email",
+          "fact_count",
+          "created_at",
+          "expires_at",
+          "opened_at",
+          "responded_at",
+          "locked",
+          "responses"
+        ],
+        "title": "SpotCheckOut",
+        "type": "object"
+      },
+      "SpotCheckStarted": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "fact_count": {
+            "title": "Fact Count",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "token": {
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "token",
+          "expires_at",
+          "fact_count"
+        ],
+        "title": "SpotCheckStarted",
+        "type": "object"
+      },
       "StageTime": {
         "properties": {
           "seconds": {
@@ -20057,6 +20230,120 @@
         "summary": "Settle",
         "tags": [
           "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/spot-checks": {
+      "get": {
+        "operationId": "list_spot_checks_v1_cases__case_id__spot_checks_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotCheckList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Spot Checks",
+        "tags": [
+          "report"
+        ]
+      },
+      "post": {
+        "operationId": "start_spot_check_v1_cases__case_id__spot_checks_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpotCheckIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpotCheckStarted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Start Spot Check",
+        "tags": [
+          "report"
         ]
       }
     },

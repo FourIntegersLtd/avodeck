@@ -2222,6 +2222,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/spot-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Spot Checks */
+        get: operations["list_spot_checks_v1_cases__case_id__spot_checks_get"];
+        put?: never;
+        /** Start Spot Check */
+        post: operations["start_spot_check_v1_cases__case_id__spot_checks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/subject": {
         parameters: {
             query?: never;
@@ -6477,6 +6495,80 @@ export interface components {
             pages: number;
             /** Source Type */
             source_type: string | null;
+        };
+        /** SpotCheckAnswer */
+        SpotCheckAnswer: {
+            /** Agrees */
+            agrees: boolean;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** SpotCheckIn */
+        SpotCheckIn: {
+            /** Reviewer Email */
+            reviewer_email: string;
+        };
+        /** SpotCheckList */
+        SpotCheckList: {
+            /** Spot Checks */
+            spot_checks: components["schemas"]["SpotCheckOut"][];
+        };
+        /** SpotCheckOut */
+        SpotCheckOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fact Count */
+            fact_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Locked */
+            locked: boolean;
+            /** Opened At */
+            opened_at: string | null;
+            /**
+             * Report Version Id
+             * Format: uuid
+             */
+            report_version_id: string;
+            /** Responded At */
+            responded_at: string | null;
+            /** Responses */
+            responses: components["schemas"]["SpotCheckAnswer"][];
+            /** Reviewer Email */
+            reviewer_email: string;
+        };
+        /** SpotCheckStarted */
+        SpotCheckStarted: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Fact Count */
+            fact_count: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Token */
+            token: string;
         };
         /** StageTime */
         StageTime: {
@@ -12943,6 +13035,90 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CloseSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_spot_checks_v1_cases__case_id__spot_checks_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotCheckList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    start_spot_check_v1_cases__case_id__spot_checks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SpotCheckIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpotCheckStarted"];
                 };
             };
             /** @description Validation Error */

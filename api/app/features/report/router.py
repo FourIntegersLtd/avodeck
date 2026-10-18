@@ -14,6 +14,7 @@ from app.features.report import (  # noqa: E402, F401
     routes_sections,
     routes_serve,
     routes_sign,
+    routes_spot_checks,
     routes_time,
 )
 
