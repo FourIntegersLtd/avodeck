@@ -1,8 +1,11 @@
+# ruff: noqa: F811
 """A purged quarantine leaves no extracted value and, once none of its pages remain, no source file."""
 
 from __future__ import annotations
 
 import datetime as dt
+
+import pytest
 
 from tests.repository.test_pipeline_quarantine import OTHER_PAGE, page_id, quarantine_path
 from tests.repository.test_pipeline_quarantine_purge import (  # noqa: F401
@@ -12,8 +15,6 @@ from tests.repository.test_pipeline_quarantine_purge import (  # noqa: F401
     storage,
 )
 from tests.repository.test_pipeline_support import Harness
-
-import pytest
 
 pytestmark = pytest.mark.anyio
 
@@ -28,7 +29,7 @@ def add_fact(h: Harness, n: int) -> None:
 
 def facts_of(h: Harness, n: int) -> list[tuple[object, object, str]]:
     return [
-        tuple(r)  # type: ignore[misc]
+        tuple(r)
         for r in h.admin.execute(
             "select value, fields, status from app.facts where page_id = %s", (page_id(h, n),)
         ).fetchall()

@@ -1,10 +1,11 @@
+# ruff: noqa: F811
 """A page read before its language was worked out gets its language on the next run."""
 
 from __future__ import annotations
 
 import pytest
 
-from app.features.pipeline.service import PROCESS_BUNDLE
+from app.core.contracts.pipeline import PROCESS_BUNDLE
 from tests.repository.test_pipeline_language import h, storage  # noqa: F401
 from tests.repository.test_pipeline_support import Harness
 

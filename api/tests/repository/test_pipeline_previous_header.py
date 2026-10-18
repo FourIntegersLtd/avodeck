@@ -1,3 +1,4 @@
+# ruff: noqa: F811
 """T-07b is given the top of the previous page of the same document as context (architecture 6.3).
 
 A page that carries on a letter then knows where the letter came from and when. Page 1 has no

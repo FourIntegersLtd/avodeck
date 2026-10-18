@@ -444,8 +444,8 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
         text = extract.page_text(ordered, stripped.text)
         if header:
-            top = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
-            text = extract.with_header(text, top.text)
+            cap = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+            text = extract.with_header(text, cap.text)
         subject = page_subject(ordered)
         output: dict[str, Any] | None = None
         kept: list[Any] = []
