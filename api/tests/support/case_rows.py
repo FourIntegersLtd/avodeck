@@ -450,6 +450,89 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
     }
 
 
+def _after_serving_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice G's case tables (migration 0700): one made-up row each, on a served version."""
+    doc = seed.document(w.case)
+    page = seed.page(w.case, doc, 701)
+    fact = add_fact(admin, w.case, page, status="verified")
+    question = add_question(admin, w.case, number=70, status="confirmed")
+    served = add_report_version(admin, w.case, version_no=70)
+    para = admin.execute(
+        "insert into app.report_paragraphs (case_id, report_version_id, para_no, section, content_control_id, text)"
+        " values (%s, %s, 1, 'opinion', 'cc70', %s) returning id",
+        (w.case, served, b"sealed"),
+    ).fetchone()
+    assert para is not None
+    admin.execute("update app.report_versions set status = 'locked', sha256 = %s where id = %s", ("d" * 64, served))
+    admin.execute("update app.report_versions set status = 'served' where id = %s", (served,))
+    direction = admin.execute(
+        "insert into app.court_directions (case_id, made_on) values (%s, current_date) returning id", (w.case,)
+    ).fetchone()
+    assert direction is not None
+    admin.execute(
+        "insert into app.hearings (case_id, type, starts_on, ends_on) values (%s, 'zz_hearing', current_date,"
+        " current_date)",
+        (w.case,),
+    )
+    deadline = admin.execute(
+        "insert into app.deadlines (case_id, kind, due_on, timezone, created_from, source)"
+        " values (%s, 'zz_kind', current_date, 'UTC', 'manual', 'manual') returning id",
+        (w.case,),
+    ).fetchone()
+    assert deadline is not None
+    admin.execute(
+        "insert into app.deadline_changes (case_id, deadline_id, new_due_on, reason, source)"
+        " values (%s, %s, current_date, 'added', 'manual')",
+        (w.case, deadline[0]),
+    )
+    rnd = admin.execute(
+        "insert into app.written_question_rounds (case_id, number, received_on) values (%s, 1, current_date)"
+        " returning id",
+        (w.case,),
+    ).fetchone()
+    assert rnd is not None
+    admin.execute(
+        "insert into app.written_questions (case_id, round_id, number, text_verbatim) values (%s, %s, 1, %s)",
+        (w.case, rnd[0], b"sealed"),
+    )
+    admin.execute(
+        "insert into app.opposing_reports (case_id, document_id, received_on) values (%s, %s, current_date)",
+        (w.case, doc),
+    )
+    admin.execute(
+        "insert into app.opposing_claims (case_id, document_id, claim_no, text_verbatim, word_ids)"
+        " values (%s, %s, 1, %s, '{w1}')",
+        (w.case, doc, b"sealed"),
+    )
+    admin.execute(
+        "insert into app.report_changes (case_id, served_version_id, kind, paragraph_id, old_text, new_text, reason)"
+        " values (%s, %s, 'correction', %s, %s, %s, %s)",
+        (w.case, served, para[0], b"sealed", b"sealed", b"sealed"),
+    )
+    admin.execute(
+        "insert into app.may_matter (case_id, page_id, fact_id, question_id, why) values (%s, %s, %s, %s, 'zz')",
+        (w.case, page, fact, question),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "questions": 1,
+        "report_versions": 1,
+        "report_paragraphs": 1,
+        "court_directions": 1,
+        "hearings": 1,
+        "deadlines": 1,
+        "deadline_changes": 1,
+        "written_question_rounds": 1,
+        "written_questions": 1,
+        "opposing_reports": 1,
+        "opposing_claims": 1,
+        "report_changes": 1,
+        "may_matter": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -464,6 +547,7 @@ SEEDERS = (
     _understand_rows,
     _write_tables,
     _report_tables,
+    _after_serving_tables,
 )
 
 
