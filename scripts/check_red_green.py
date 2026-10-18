@@ -122,6 +122,19 @@ def reset_db(sha: str, workdir: str, root: str) -> None:
     _loaded_db.append(tree)
 
 
+def pytest_argv(root: str, files: list[str]) -> list[str]:
+    """pytest for a commit's api tests, without the invoking checkout's api/ on sys.path.
+
+    The editable install's .pth adds that folder, and `tests` is a namespace package, so a helper the
+    commit does not have yet would be imported from the checkout and a red test would pass.
+    """
+    drop = os.path.realpath(os.path.join(root, "api"))
+    code = ("import os, sys; "
+            f"sys.path[:] = [p for p in sys.path if os.path.realpath(p or '.') != {drop!r}]; "
+            "import pytest; sys.exit(pytest.main(sys.argv[1:]))")
+    return [sys.executable, "-c", code, "-q", *files]
+
+
 def run_tests(sha: str, files: list[str]) -> bool:
     root = git("rev-parse", "--show-toplevel")
     with tempfile.TemporaryDirectory() as tmp:
@@ -133,7 +146,7 @@ def run_tests(sha: str, files: list[str]) -> bool:
             ts = [f for f in files if f.startswith("web/")]
             if py:
                 env = test_env(root, dict(os.environ))
-                ok &= subprocess.run([sys.executable, "-m", "pytest", "-q", *[f.removeprefix("api/") for f in py]],
+                ok &= subprocess.run(pytest_argv(root, [f.removeprefix("api/") for f in py]),
                                      cwd=f"{tmp}/api", env=env).returncode == 0
             if ts:
                 unit = [f.removeprefix("web/") for f in ts if not f.startswith("web/e2e/")]

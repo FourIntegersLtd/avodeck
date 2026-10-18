@@ -111,3 +111,27 @@ def test_a_feat_is_paired_with_its_own_parent_across_merged_branches(
 def test_the_known_historic_commit_is_excused() -> None:
     """d6784a1's tests failed only from a test-order bug, fixed in cac27bd; pushed history is not rewritten."""
     assert "d6784a1789899552f84afb7a2078e9b2bfdeba7e" in _load().EXCUSED
+
+
+def test_a_commit_s_tests_cannot_import_the_invoking_checkouts_files(tmp_path: Path) -> None:
+    """The editable install puts the invoking checkout's api/ on sys.path; `tests` is a namespace
+    package, so a helper missing at the commit would be found there and a red test would pass."""
+    import os
+    import subprocess
+    import sys
+
+    mod = _load()
+    root, commit = tmp_path / "root", tmp_path / "commit"
+    (root / "api" / "tests" / "fixtures").mkdir(parents=True)
+    (root / "api" / "tests" / "fixtures" / "helper.py").write_text("VALUE = 1\n")
+    (commit / "api" / "tests").mkdir(parents=True)
+    (commit / "api" / "tests" / "test_uses_helper.py").write_text(
+        "from tests.fixtures.helper import VALUE\n\ndef test_it() -> None:\n    assert VALUE == 1\n"
+    )
+    env = {**os.environ, "PYTHONPATH": str(root / "api")}  # stands in for the editable install's .pth
+    argv = mod.pytest_argv(str(root), ["tests/test_uses_helper.py"])
+    assert argv[0] == sys.executable
+    done = subprocess.run(
+        [*argv, "-p", "no:cacheprovider"], cwd=commit / "api", env=env, capture_output=True, check=False
+    )
+    assert done.returncode != 0
