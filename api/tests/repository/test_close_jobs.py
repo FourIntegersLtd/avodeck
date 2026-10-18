@@ -47,7 +47,7 @@ from app.core.packs import default_library
 from app.core.storage import SupabaseStorage, case_prefix
 from app.features.close import jobs as close_jobs
 from tests.support.case_rows import CaseWorld, fill_every_case_table
-from tests.support.contracts import add_report_version
+from tests.support.contracts import add_fact, add_report_version
 from tests.support.db import ClientFor
 from tests.support.files import build_app, local_storage
 from tests.support.jobs import isolated_registry, open_worker
@@ -476,6 +476,65 @@ async def served_report(
     return pdf
 
 
+async def test_the_export_carries_requests_page_reads_and_methodology_counts(
+    run: Run,
+    seed: Seed,
+    admin: psycopg.Connection,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+    client_for: ClientFor,
+) -> None:
+    case, expert = world["case"], world["expert"]
+    doc = seed.document(case)
+    page = seed.page(case, doc, 41)
+    fact = add_fact(admin, case, page, status="verified")
+    for _ in range(2):
+        admin.execute(
+            "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)",
+            (case, page, expert),
+        )
+    admin.execute(
+        "insert into app.fact_verifications (case_id, fact_id, person_id, action) values (%s, %s, %s, 'correct')",
+        (case, fact, expert),
+    )
+    request_id = uuid.uuid4()
+    async with worker_db.job(case) as conn:
+        subject = await crypto.encrypt(
+            conn, case, b"Zz subject line", purpose=f"instructing_party_requests/{request_id}/subject"
+        )
+        body = await crypto.encrypt(
+            conn, case, b"Zz body text", purpose=f"instructing_party_requests/{request_id}/body"
+        )
+    admin.execute(
+        "insert into app.instructing_party_requests (id, case_id, subject, body_text, sent_via, created_by)"
+        " values (%s, %s, %s, %s, 'mailto', %s)",
+        (request_id, case, subject, body, expert),
+    )
+    client = await client_for(expert)
+    job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
+    resp = await client.get(f"/v1/cases/{case}/export/{job}/download")
+    assert resp.status_code == 200, resp.text
+    archive = zipfile.ZipFile(io.BytesIO(resp.content))
+
+    def table(name: str) -> list[dict[str, str]]:
+        return list(csv.DictReader(io.StringIO(archive.read(name).decode())))
+
+    requests = table("requests.csv")
+    assert [(r["subject"], r["body"], r["sent_via"]) for r in requests] == [
+        ("Zz subject line", "Zz body text", "mailto")
+    ]
+    reads = table("logs/page-reads.csv")
+    assert [(r["seq"], r["page_no"], r["dwell_seconds"]) for r in reads] == [("1", "41", "20"), ("2", "41", "20")]
+    assert reads[0]["prev_hash"] == "" and reads[1]["prev_hash"] == reads[0]["hash"] != ""
+    assert {(r["action"], r["count"]) for r in table("logs/methodology.csv")} == {("correct", "1")}
+    manifest = json.loads(archive.read("manifest.json"))
+    assert [e["path"] for e in manifest["not_yet_available"]] == ["invoices.csv"]
+    assert "requests.csv" in manifest["files"] and "logs/page-reads.csv" in manifest["files"]
+
+
 async def test_the_named_expert_downloads_the_full_record_of_work_once(
     run: Run,
     seed: Seed,
@@ -876,3 +935,52 @@ async def test_the_daily_run_archives_and_dates_a_case_withdrawn_long_ago(
     await run_daily(worker_db, registry, name, date.today())
     row = admin.execute("select status, delete_after from app.cases where id = %s", (case,)).fetchone()
     assert row == ("archived", withdrawn.replace(year=withdrawn.year + FIXTURE_YEARS))
+
+
+async def test_the_certificate_also_goes_to_the_current_instructing_parties_patient_free(
+    run: Run, seed: Seed, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    case = world["case"]
+    seed.page(case, seed.document(case), 1)
+    for name, email, to in (
+        ("Zz Ann", "ann@example.test", None),
+        ("Zz Bo", None, None),
+        ("Zz Old", "old@example.test", "2026-01-31"),
+    ):
+        admin.execute(
+            "insert into app.case_instructing_parties (case_id, type_key, name, firm, email, effective_from,"
+            " effective_to) values (%s, 'zz_firm', %s, 'Zz Firm Name', %s, '2026-01-01', %s)",
+            (case, name, email, to),
+        )
+    make_due(admin, case)
+
+    mailer = await run(close_jobs.delete_case, case, "delete_case")
+
+    assert sorted(m.to for m in mailer.outbox) == sorted(
+        [
+            admin.execute("select email from app.people where id = %s", (world["expert"],)).fetchone()[0],
+            "ann@example.test",
+        ]  # type: ignore[index]
+    )
+    cert = certificate(admin, case)
+    assert cert is not None and cert["sent_to"] == ["named_expert", "instructing_party_1"]
+    text = repr(mailer.outbox)
+    for secret in ("Zz Ann", "Zz Firm Name", LABEL, FULL_NAME):
+        assert secret not in text
+
+
+async def test_deletion_removes_the_page_embeddings(
+    run: Run, seed: Seed, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    case = world["case"]
+    page = seed.page(case, seed.document(case), 1)
+    admin.execute(
+        "insert into app.page_embeddings (page_id, case_id, model, embedding)"
+        " values (%s, %s, 'zz-model', array_fill(0.0::real, array[384])::extensions.vector)",
+        (page, case),
+    )
+    assert rows_of(admin, "page_embeddings", case) == 1
+    make_due(admin, case)
+    await run(close_jobs.delete_case, case, "delete_case")
+    assert rows_of(admin, "page_embeddings", case) == 0
+    assert rows_of(admin, "pages", case) == 0
