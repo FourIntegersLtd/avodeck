@@ -12,11 +12,11 @@ import logging
 
 import httpx
 import pytest
-from app.core.ai.azure_ocr import AzureOcr
-from app.core.ai.bedrock_live import AwsCredentials, LiveBedrock
 from botocore.stub import Stubber
 
+from app.core.ai.azure_ocr import AzureOcr
 from app.core.ai.bedrock import ModelRequest
+from app.core.ai.bedrock_live import AwsCredentials, LiveBedrock
 from tests.support.ai import CELL_ENV, NAME, cell, mod11_number, spaced
 from tests.support.live_ai import (
     AWS_KEYS,

@@ -11,10 +11,10 @@ import json
 from typing import Any
 
 import pytest
-from app.core.ai.bedrock_live import AwsCredentials, LiveBedrock, ModelRequestRefused
 from botocore.stub import Stubber
 
 from app.core.ai.bedrock import BedrockClient, ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
+from app.core.ai.bedrock_live import AwsCredentials, LiveBedrock, ModelRequestRefused
 from app.core.ai.cell import EndpointNotAllowed, ModelNotAllowed
 from tests.support.ai import CELL_ENV, cell
 from tests.support.live_ai import AWS_KEYS, converse_response

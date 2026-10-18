@@ -8,10 +8,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.core.ai.azure_ocr import AzureOcr
+from app.core.ai.bedrock import RecordedBedrock
 from app.core.ai.bedrock_live import LiveBedrock
 from app.core.ai.clients import AiClients, live_or_recorded
-
-from app.core.ai.bedrock import RecordedBedrock
 from app.core.ai.kit import AiKit
 from app.core.ai.ocr import RecordedOcr
 from app.core.ai.recordings import FixtureStore

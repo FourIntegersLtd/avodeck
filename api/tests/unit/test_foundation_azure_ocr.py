@@ -10,8 +10,8 @@ import json
 
 import httpx
 import pytest
-from app.core.ai.azure_ocr import AzureOcr
 
+from app.core.ai.azure_ocr import AzureOcr
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import EndpointNotAllowed
 from app.core.ai.ocr import OcrClient, OcrFailed, OcrResult
