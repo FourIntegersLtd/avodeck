@@ -18,6 +18,7 @@ const WORDS = {
   "points.remove": "Remove",
   "points.remove_title": "Why are you removing this?",
   "points.remove_reason": "A few words",
+  "points.reason_needed": "Please say why, in a few words.",
   "points.remove_confirm": "Remove it",
   "points.cancel": "Cancel",
   "points.unused": "Facts not on a side yet",
@@ -46,7 +47,7 @@ const WORDS = {
   "opinion.guidance": "Guidance on {{date}}",
   "opinion.guidance_force": "In force on the day",
   "opinion.points": "Your points against",
-  "opinion.points_summary": "{{count}} facts for {{side}}",
+  "opinion.points_summary": "{{side}}: {{count}}",
   "opinion.points_differ_one": "{{count}} account differs",
   "opinion.points_differ_other": "{{count}} accounts differ",
   "opinion.points_open": "Open",
@@ -90,7 +91,8 @@ const WORDS = {
   "today.points_not_considered_action": "Look at the points",
 } as const;
 
-export type WriteKey = keyof typeof WORDS;
+type Plural<K> = K extends `${infer B}_${"one" | "other"}` ? B : never;
+export type WriteKey = keyof typeof WORDS | Plural<keyof typeof WORDS>;
 
 export const WRITE_MESSAGES: Record<string, string> = Object.fromEntries(
   Object.entries(WORDS).map(([key, value]) => [`write.${key}`, value]),
