@@ -22,7 +22,7 @@ Avodeck assembles the expert's report in their own Word template, with the court
 - `POST /v1/cases/{id}/invoices`; `POST /v1/cases/{id}/invoices/{inv_id}/send`
 
 ## Tables owned
-`report_paragraphs`, `citations`, `final_check_runs`, `spot_checks`, `time_entries`, `invoices` (rate, total, currency from the expert profile). Writes the `report_versions` contract table (foundation owns locking at database level). Adds `paragraph_id` rows to E's `lint_issues` for whole-report lint.
+`report_paragraphs`, `citations`, `final_check_runs`, `spot_checks`, `spot_check_address_tries`, `time_entries`, `invoices` (rate, total, currency from the expert profile). Writes the `report_versions` contract table (foundation owns locking at database level). Adds `paragraph_id` rows to E's `lint_issues` for whole-report lint.
 
 ## Worker jobs
 - **`build_report`:**
