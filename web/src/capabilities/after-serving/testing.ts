@@ -48,18 +48,18 @@ export const round = (over: Partial<Schemas["RoundOut"]> = {}): Schemas["RoundOu
   status: "open", extracted_at: "2026-12-01T10:00:00Z", version: 1, ...over,
 });
 
-export const question = (over: Partial<Schemas["QuestionOut"]> = {}): Schemas["QuestionOut"] => ({
+export const question = (over: Partial<Schemas["app__features__after_serving__routes_questions__QuestionOut"]> = {}): Schemas["app__features__after_serving__routes_questions__QuestionOut"] => ({
   id: Q1, round_id: ROUND, number: 1, para_ref: "6.12 to 6.14", rule_ref: "ref", text_verbatim: "Would your opinion change if the examination was not recorded?",
   status: "received", suggested_classification: "clarifies", classification_reason: "refers to a paragraph", classification: null,
   suggested_paragraph_ids: [P1], paragraph_ids: [], answer_text: null, citation_refs: [], told_instructing_party_at: null, version: 1, ...over,
 });
 
-export const claim = (over: Partial<Schemas["ClaimOut"]> = {}): Schemas["ClaimOut"] => ({
+export const claim = (over: Partial<Schemas["app__features__after_serving__routes_new_material__ClaimOut"]> = {}): Schemas["app__features__after_serving__routes_new_material__ClaimOut"] => ({
   id: CLAIM, claim_no: 1, text_verbatim: "Haemoglobin was 89 in February", paragraph_ref: "4.2", their_page_ref: "214", their_quote: "89", our_page_no: 214, our_quote: "98",
   status: "wrong_value", reason: "number differs", checked_by: "code", discrepancy: true, expert_confirmed: false, confirmed_at: null, version: 1, ...over,
-}) as Schemas["ClaimOut"];
+}) as Schemas["app__features__after_serving__routes_new_material__ClaimOut"];
 
-export const change = (over: Partial<Schemas["ChangeOut"]> = {}): Schemas["ChangeOut"] => ({
+export const change = (over: Partial<Schemas["app__features__after_serving__routes_changes__ChangeOut"]> = {}): Schemas["app__features__after_serving__routes_changes__ChangeOut"] => ({
   id: CHANGE, paragraph_id: P1, kind: "change_of_opinion", old_text: "Referred in early March.", new_text: "Referred by 15 May at the latest.", reason: "Having considered their report.",
   citation_refs: [], dependent_paragraph_ids: [], suggested_dependents: [], supplementary_version_id: null, version: 1, ...over,
 });
@@ -73,10 +73,10 @@ export function etagged(body: unknown, version: number, status = 200) {
 /** Signed in under a pack, with a stub for every slice G read; `record` notes what a handler was sent. */
 export function serve(run: PackRun, opts: {
   deadlines?: Schemas["DeadlineOut"][]; served?: Schemas["Served"]; hearings?: Schemas["HearingOut"][]; directions?: Schemas["DirectionOut"][];
-  rounds?: Schemas["RoundOut"][]; questions?: Schemas["QuestionOut"][]; pages?: Schemas["NewPage"][]; opposing?: Schemas["OpposingReport"] | null;
-  changes?: Schemas["ChangeOut"][]; supplementary?: Schemas["Supplementary"] | null; deadlineChanges?: Record<string, unknown[]>;
+  rounds?: Schemas["RoundOut"][]; questions?: Schemas["app__features__after_serving__routes_questions__QuestionOut"][]; pages?: Schemas["NewPage"][]; opposing?: Schemas["OpposingReport"] | null;
+  changes?: Schemas["app__features__after_serving__routes_changes__ChangeOut"][]; supplementary?: Schemas["Supplementary"] | null; deadlineChanges?: Record<string, unknown[]>;
 } = {}) {
-  inCase(run);
+  inCase(run, { instructing_party_type: (casePack(run).instructing_party_types as Array<{ key: string }>)[0]!.key });
   const sent: Sent[] = [];
   const record = async (request: Request) => {
     const text = await request.text();
