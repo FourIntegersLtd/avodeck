@@ -76,7 +76,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] Duplicate-case warning compares a keyed hash of the subject identifier; the identifier is never stored
 - [x] Jurisdiction can change only before serving (409 after), with packs re-stamped and changes listed
 - [x] On hold pauses reminders and queues jobs; resume restores them (foundation 0022: the worker leaves a held case's jobs `queued` with `case_on_hold` and messages about it are kept back; `POST /resume` calls `release_case_hold()`)
-- Open: `docs/spec/behaviour-index.md` says parties are "editable until served; then additions only". Chunk A refuses new parties after serving (409) and the database refuses changes and removals; allowing additions after serving needs a founder decision because the committed test asserts 409.
+- Founder decision (parties after serving): a new party can be added after serving (201); editing or removing an existing party stays refused with 409 (database guard, AV409). The served report stays locked.
 - [x] Subject status (living, deceased, minor) changes only vocabulary, proven under the fixture packs
 
 ## Chunk B notes (2026-10-17)
@@ -100,7 +100,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - T-04 stores a name in the letter's own words (the cited run), never the model's value, and refuses a name the identifier strip replaced; a key needs the pack's word (its label) in the cited words.
 - Changing the packs (`PATCH /jurisdiction`) is not refused for keys held on other tables (party roles, current instructing party types, question kinds, conflict question keys): they are kept and listed as `held` for the expert to change, because every key is checked against the current packs and refusing would leave no way forward. Waiting key suggestions (party role, instructing party type, court track) are dismissed and listed as `dismissed`.
 - `extract_questions` reads every letter version that has a file and no reading yet, oldest first, one step per version. Oral instructions never reopen the questions nor hide the lock (`questions_locked` skips kind `oral`). A letter added without its file reopens the set and warns `setup.questions.warning.letter_without_file`. A failed reading sets `read_failed`, warns `setup.questions.warning.read_failed`, `confirm-all` answers 409 `letter_not_read`, and `POST /questions/read-again` queues the reading again.
-- `case_links_add` also checks the linked case: the person can see it (`case.view_metadata`) or it is in the same organisation as the case (0350). The same-organisation allowance keeps a team assistant able to link a colleague's case, as the existing tests require; a case in another organisation that the person cannot see can never be linked.
+- `case_links_add` also checks the linked case: the person can see it (`case.view_metadata`); since 0390 the same-organisation allowance of 0350 is gone.
 - `app.expert_has_served` is revoked from public and granted to `app_api` and `app_worker` only (0360).
 - Conflict answers keep an append-only `conflict_answer_history`, written only by a trigger (0370); saving the same answer again writes nothing. After a declaration, a changed answer sets `changed_since_declared` and warns `setup.conflicts.warning.declare_again` until the expert declares again (which drafts the note to every current instructing party); this holds after serving too, so no change is silent.
 - The duplicate check takes an optional `case_id` that leaves that case out; S04 sends it on a check again, once this case's key is saved.
@@ -116,7 +116,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - i18n: a unit test (`api/tests/unit/test_setup_i18n_keys.py`) fails when a `setup.*` key the API returns is missing from `en-GB.json`. Declared conflict questions carry the pack's own words in `NoteItem.label` instead of a `setup.conflicts.question.<key>` key, so no jurisdiction's wording is in en-GB.json (rule 11).
 - Joint expert: every draft (each note topic, the declaration and the withdrawal) is tested to go to both current instructing parties and to no ended one.
 - Withdraw and retention: slice H's 0802 records the withdrawal and starts retention for withdrawn cases (`close_cases_without_retention`), so C sets nothing. Deadlines on withdraw stay with slice G.
-- Kept as built (founder default): parties after serving are refused with 409; case links are allowed within the same organisation.
+- Founder decision (case links): a link needs access to both cases. The linked case needs `case.view_metadata` for the person; otherwise it answers 404 and the database policy refuses the insert, so a link never reveals a case (0390 replaces the same-organisation allowance of 0350).
 
 ## Rules that apply
 1, 2, 4, 5, 6, 7, 9 from the root `AGENTS.md`.

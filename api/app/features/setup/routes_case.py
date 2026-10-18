@@ -223,8 +223,6 @@ async def add_party(
     crypto: Crypto,
     response: Response,
 ) -> Party:
-    if await _served(conn, case_id):
-        raise conflict("The parties are fixed once the case is served.")
     await _check_role(request, conn, case_id, body.role_key)
     party_id = uuid.uuid4()
     await conn.execute(
