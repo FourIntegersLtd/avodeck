@@ -13,31 +13,39 @@ checks.unsupported_method.enabled = false
 
 # The same for these action routes: each path also matches a sibling `{id}` template
 # (e.g. PATCH /v1/cases/{case_id}/questions/{question_id}), which refuses it (401 signed out,
-# 404 or 422 not an id) before the method is looked at, so they never answer 405.
+# 404 or 422 not an id) before the method is looked at, so they never answer 405, and a 405 they do
+# give lists the sibling's methods in `Allow`.
 [[operations]]
 include-path = "/v1/cases/duplicate-check"
 checks.unsupported_method.enabled = false
+checks.allow_header_conformance.enabled = false
 
 [[operations]]
 include-path = "/v1/cases/{case_id}/documents/append"
 checks.unsupported_method.enabled = false
+checks.allow_header_conformance.enabled = false
 
 [[operations]]
 include-path = "/v1/cases/{case_id}/fact-links/suggest"
 checks.unsupported_method.enabled = false
+checks.allow_header_conformance.enabled = false
 
 [[operations]]
 include-path = "/v1/cases/{case_id}/findings/rerun"
 checks.unsupported_method.enabled = false
+checks.allow_header_conformance.enabled = false
 
 [[operations]]
 include-path = "/v1/cases/{case_id}/pages/unreadable"
 checks.unsupported_method.enabled = false
+checks.allow_header_conformance.enabled = false
 
 [[operations]]
 include-path = "/v1/cases/{case_id}/questions/confirm-all"
 checks.unsupported_method.enabled = false
+checks.allow_header_conformance.enabled = false
 
 [[operations]]
 include-path = "/v1/cases/{case_id}/questions/read-again"
 checks.unsupported_method.enabled = false
+checks.allow_header_conformance.enabled = false
