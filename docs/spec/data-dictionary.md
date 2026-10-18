@@ -369,6 +369,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | phash / minhash | Fingerprints of the picture and the words, used to find duplicates |
 | printed_dates | Dates printed on the page (used to find gaps) |
 | extraction | What was read from the page, sealed with the case key |
+| availability_evidence | When the page was received, filed, seen or sent to the clinician: each with its words on the page and the date read by code in the pack's date order (empty when the printed date could be read two ways) |
 | needs_human / reason | Whether a person must check the page, with a short reason |
 | model_id | Which model read the page |
 | duplicate_status / duplicate_by / duplicate_at / duplicate_version | Whether it was set aside as a duplicate, who decided and when (If-Match) |

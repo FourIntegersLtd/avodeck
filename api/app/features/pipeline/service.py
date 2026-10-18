@@ -344,6 +344,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             max((x for w in stored for x in w.polygon[0::2]), default=1.0) or 1.0,
             max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
         )
+        evidence = extract.sort_evidence(output, ordered, struck, pack)
         facts = []
         for f in kept:
             fields = dict(f.get("fields") or {})
@@ -379,6 +380,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 model_id=model_id,
                 prompt_version=task.prompt_version,
                 printed_dates=dates.printed_dates(found),
+                availability_evidence=evidence,
             )
         done += 1
         if done % 25 == 0:
