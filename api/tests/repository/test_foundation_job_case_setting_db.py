@@ -1,7 +1,8 @@
 """Only the worker role may act as a case's job (migration 0027).
 
 `app.job_case_id` is a plain session setting, so the API role could set it itself. The report-input check
-(`app.case_signature` and the other report-input functions, 0026) therefore also requires the connecting role to be `app_worker`.
+(`app.case_signature` and the other report-input functions, 0026) therefore also requires the connecting
+role to be `app_worker`.
 """
 
 from __future__ import annotations
