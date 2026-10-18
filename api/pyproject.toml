@@ -47,7 +47,7 @@ mypy_path = "."
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = ["pypdfium2", "pypdfium2.*", "reportlab", "reportlab.*", "dateparser", "dateparser.*", "datasketch", "datasketch.*"]
+module = ["pypdfium2", "pypdfium2.*", "reportlab", "reportlab.*", "dateparser", "dateparser.*", "datasketch", "datasketch.*", "boto3", "boto3.*", "botocore", "botocore.*"]
 ignore_missing_imports = true
 
 [tool.coverage.report]

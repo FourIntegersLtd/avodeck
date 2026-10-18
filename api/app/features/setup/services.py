@@ -8,15 +8,12 @@ recorded responses), the job pauses with `model_unavailable` instead of guessing
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
-from pathlib import Path
 
-from app.core.ai.bedrock import RecordedBedrock
+from app.core.ai.clients import live_or_recorded
 from app.core.ai.kit import AiKit
-from app.core.ai.ocr import OcrClient, RecordedOcr
-from app.core.ai.recordings import FixtureStore
-from app.core.config import ConfigError, ai_settings
+from app.core.ai.ocr import OcrClient
+from app.core.config import ConfigError
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
@@ -52,17 +49,9 @@ def configure(services: SetupServices | None) -> None:
 
 
 def from_env() -> SetupServices:
-    kit: AiKit | None = None
-    ocr: OcrClient | None = None
-    recordings = os.environ.get("AI_RECORDINGS_DIR", "").strip()
-    try:
-        settings = ai_settings()
-    except ConfigError:
-        settings = None
-    if settings is not None and recordings:
-        store = FixtureStore(Path(recordings))
-        kit = AiKit(settings, RecordedBedrock(settings, store))
-        ocr = RecordedOcr(settings, store)
+    ai = live_or_recorded()
+    kit: AiKit | None = ai.kit
+    ocr: OcrClient | None = ai.ocr
     try:
         storage: SupabaseStorage | None = SupabaseStorage(storage_settings())
     except ConfigError:

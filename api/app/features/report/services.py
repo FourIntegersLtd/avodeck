@@ -10,14 +10,11 @@ kit the final check still runs its code checks and records that T-17 did not run
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from app.core.ai.bedrock import RecordedBedrock
+from app.core.ai.clients import live_or_recorded
 from app.core.ai.kit import AiKit
-from app.core.ai.recordings import FixtureStore
-from app.core.config import ConfigError, ai_settings
+from app.core.config import ConfigError
 from app.core.contracts.reading import PageReadLog, PageReads
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.email import OutboxMailer
@@ -64,14 +61,7 @@ def from_env() -> ReportServices:
         storage: SupabaseStorage | None = SupabaseStorage(storage_settings())
     except ConfigError:
         storage = None
-    kit: AiKit | None = None
-    recordings = os.environ.get("AI_RECORDINGS_DIR", "").strip()
-    try:
-        settings = ai_settings()
-    except ConfigError:
-        settings = None
-    if settings is not None and recordings:
-        kit = AiKit(settings, RecordedBedrock(settings, FixtureStore(Path(recordings))))
+    kit: AiKit | None = live_or_recorded().kit
     return ReportServices(crypto=crypto, storage=storage, reads=PageReads(), kit=kit)
 
 
