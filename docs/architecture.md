@@ -110,7 +110,7 @@ Every case carries three codes (jurisdiction, case type, specialty). The loader 
 packs/
   jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, holidays.yaml, meetings.yaml,
                             legal_tests.md, report.yaml (court compliance items), final_checks.yaml, identifiers.py
-  case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml, final_checks.yaml
+  case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml, final_checks.yaml, opinion.yaml (point-side, opinion-view, loaded-word and range-note wording)
   specialty/general-practice/ pack.yaml (profession), facts.yaml, sources.yaml, lanes.yaml, checks.yaml, final_checks.yaml, vocabulary.yaml
   overlay/gb-eaw/general-practice/ records.yaml, guidelines.yaml, vocabulary.yaml, speech_phrases.yaml, drug_monitoring.yaml
   _fixtures/                 deliberately strange test packs (see 3.6); never allowed in a real cell
