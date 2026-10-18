@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, timedelta
 from typing import Any
@@ -20,14 +20,17 @@ from psycopg.types.json import Jsonb
 
 from app.core.ai.embed import RecordedEmbedder
 from app.core.ai.kit import AiKit
+from app.core.ai.pii import Stripped
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.packs import MergedPack, default_library
 from app.features.pipeline.paths import word_purpose
-from app.features.understand.services import UnderstandServices, configure
+from app.features.understand import jobs
+from app.features.understand.services import UnderstandServices, configure, current
 from tests.support.ai import ScriptedBedrock, cell, response
+from tests.support.contracts import QUESTION_PATH
 from tests.support.db import scope_for
 from tests.support.facts_seed import insert_fact
 from tests.support.packs import BOTH, Combo
@@ -449,6 +452,189 @@ async def test_no_patient_text_reaches_the_model_the_logs_or_the_job_row(
         job = await b.run()
     sent = model.requests[0].text
     assert "Ashworth" not in sent and "Zorbulon" in sent
+    row = b.seed.admin.execute("select to_jsonb(j)::text from app.jobs j where id = %s", (job,)).fetchone()
+    assert row is not None
+    for secret in ("Zorbulon", "Ashworth"):
+        assert secret not in row[0] and secret not in caplog.text
+
+
+# --- suggest_links ------------------------------------------------------------------------------------------
+
+
+class SpyEmbedder(RecordedEmbedder):
+    def __init__(self) -> None:
+        self.seen: list[str] = []
+
+    def embed(self, texts: Sequence[Stripped]) -> list[tuple[float, ...]]:
+        self.seen += [t.text for t in texts]
+        return super().embed(texts)
+
+
+def entry(b: Bundle, page: uuid.UUID, value: str, status: str = "verified", day: str = "2024-03-01") -> uuid.UUID:
+    return insert_fact(
+        b.seed.admin,
+        b.case,
+        page,
+        b.arriving,
+        value=value,
+        word_ids=["w1"],
+        event_date=date.fromisoformat(day),
+        status=status,
+    )
+
+
+def ask(b: Bundle, status: str = "confirmed", number: int = 1, words: str = "Was the result acted on?") -> uuid.UUID:
+    row = b.seed.admin.execute(
+        "insert into app.questions (case_id, number, text_verbatim, kind) values (%s, %s, %s, 'k') returning id",
+        (b.case, number, words),
+    ).fetchone()
+    assert row is not None
+    for step in QUESTION_PATH[status]:
+        b.seed.admin.execute("update app.questions set status = %s where id = %s", (step, row[0]))
+    return uuid.UUID(str(row[0]))
+
+
+def offers(b: Bundle, *pairs: tuple[uuid.UUID, uuid.UUID, bool]) -> ScriptedBedrock:
+    model = ScriptedBedrock(
+        [
+            response(
+                {
+                    "links": [
+                        {"fact_id": str(f), "question_id": str(q), "relevant": rel, "reason": "same matter"}
+                        for f, q, rel in pairs
+                    ]
+                }
+            )
+        ]
+    )
+    configure(
+        UnderstandServices(kit=AiKit(cell(), model), crypto=b.crypto, embedder=SpyEmbedder(), packs=default_library())
+    )
+    return model
+
+
+def links(b: Bundle) -> dict[tuple[uuid.UUID, uuid.UUID], tuple[str, str, str | None, int]]:
+    rows = b.seed.admin.execute(
+        "select fact_id, question_id, source, status, reason, version from app.fact_question_links where case_id = %s",
+        (b.case,),
+    ).fetchall()
+    return {(r[0], r[1]): (r[2], r[3], r[4], r[5]) for r in rows}
+
+
+async def test_checked_facts_are_suggested_for_confirmed_questions_and_only_suggested(bundle: Bundle) -> None:
+    b = bundle
+    page = await b.page(b.other_source)
+    mine = entry(b, page, "potassium result raised")
+    edited = entry(b, page, "creatinine result raised", status="edited")
+    unchecked = entry(b, page, "unchecked wording", status="suggested")
+    rejected = entry(b, page, "rejected wording", status="rejected")
+    asked = ask(b)
+    later = ask(b, status="edited", number=2, words="Was the repeat test done?")
+    waiting = ask(b, status="suggested", number=3, words="Unconfirmed wording")
+    model = offers(b, (mine, asked, True), (edited, later, True), (edited, asked, False), (unchecked, asked, True))
+
+    await b.run("suggest_links")
+
+    assert links(b) == {
+        (mine, asked): ("ai", "suggested", "same matter", 1),
+        (edited, later): ("ai", "suggested", "same matter", 1),
+    }
+    [request] = model.requests
+    assert request.task_id == "T-11"
+    for seen in ("potassium result raised", "creatinine result raised", "Was the result acted on?", "repeat test"):
+        assert seen in request.text
+    for hidden in ("unchecked wording", "rejected wording", "Unconfirmed wording"):
+        assert hidden not in request.text
+    assert {rejected, waiting}.isdisjoint({f for pair in links(b) for f in pair})
+
+
+async def test_links_the_code_never_offered_are_dropped(bundle: Bundle) -> None:
+    b = bundle
+    page = await b.page(b.other_source)
+    mine = entry(b, page, "potassium result raised")
+    asked = ask(b)
+    offers(b, (uuid.uuid4(), asked, True), (mine, uuid.uuid4(), True))
+    await b.run("suggest_links")
+    assert links(b) == {}
+
+
+async def test_a_decided_or_existing_link_is_never_overwritten(bundle: Bundle) -> None:
+    b = bundle
+    page = await b.page(b.other_source)
+    confirmed, rejected, waiting = (entry(b, page, f"result {n}") for n in ("one", "two", "three"))
+    asked = ask(b)
+    for fact, source, status in (
+        (confirmed, "expert", "confirmed"),
+        (rejected, "ai", "suggested"),
+        (waiting, "ai", "suggested"),
+    ):
+        b.seed.admin.execute(
+            "insert into app.fact_question_links (case_id, fact_id, question_id, source, status, reason)"
+            " values (%s, %s, %s, %s, %s, 'old reason')",
+            (b.case, fact, asked, source, status),
+        )
+    b.seed.admin.execute(
+        "update app.fact_question_links set status = 'rejected' where fact_id = %s and question_id = %s",
+        (rejected, asked),
+    )
+    before = links(b)
+    offers(b, (confirmed, asked, True), (rejected, asked, True), (waiting, asked, True))
+    await b.run("suggest_links")
+    assert links(b)[(confirmed, asked)] == before[(confirmed, asked)]
+    assert links(b)[(rejected, asked)] == before[(rejected, asked)]
+    assert links(b)[(waiting, asked)] == before[(waiting, asked)]
+
+
+async def test_only_the_closest_facts_are_offered_for_each_question(bundle: Bundle) -> None:
+    b = bundle
+    page = await b.page(b.other_source)
+    for n in range(jobs.TOP_K + 5):
+        entry(b, page, f"entry{n} filler{n}")
+    ask(b)
+    model = offers(b)
+    await b.run("suggest_links")
+    assert sum(line.startswith("fact\t") for line in model.requests[0].text.splitlines()) == jobs.TOP_K
+
+
+async def test_nothing_is_asked_without_a_question_or_a_checked_fact(bundle: Bundle) -> None:
+    b = bundle
+    page = await b.page(b.other_source)
+    entry(b, page, "alone", status="suggested")
+    model = offers(b)
+    await b.run("suggest_links")
+    ask(b)
+    await b.run("suggest_links")
+    assert model.requests == [] and links(b) == {}
+
+
+async def test_suggesting_pauses_without_a_model(bundle: Bundle) -> None:
+    b = bundle
+    entry(b, await b.page(b.other_source), "result")
+    ask(b)
+    with pytest.raises(ProcessingPaused) as paused:
+        await b.run("suggest_links")
+    assert paused.value.reason == "model_unavailable" and links(b) == {}
+
+
+async def test_identifiers_are_out_before_the_embedder_and_the_model_and_nothing_is_logged(
+    bundle: Bundle, caplog: pytest.LogCaptureFixture
+) -> None:
+    b = bundle
+    async with b.db.job(b.case) as conn:
+        blob = await b.crypto.encrypt(conn, b.case, b"Margaret Ashworth", purpose="party_name")
+        await conn.execute(
+            "insert into app.case_parties (case_id, role_key, name) values (%s, %s, %s)",
+            (b.case, b.pack.party_roles()[0]["key"], blob),
+        )
+    mine = entry(b, await b.page(b.other_source), "Margaret Ashworth had a Zorbulon result")
+    asked = ask(b, words="Was Ashworth told about the Zorbulon?")
+    model = offers(b, (mine, asked, True))
+    with caplog.at_level(logging.DEBUG):
+        job = await b.run("suggest_links")
+    assert "Ashworth" not in model.requests[0].text and "Zorbulon" in model.requests[0].text
+    embedder = current().embedder
+    assert isinstance(embedder, SpyEmbedder) and embedder.seen
+    assert all("Ashworth" not in t for t in embedder.seen)
     row = b.seed.admin.execute("select to_jsonb(j)::text from app.jobs j where id = %s", (job,)).fetchone()
     assert row is not None
     for secret in ("Zorbulon", "Ashworth"):
