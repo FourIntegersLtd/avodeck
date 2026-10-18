@@ -158,7 +158,7 @@ def test_any_other_change_to_a_fact_still_raises_its_version(
     version = fact_row(admin, fact)[2]  # type: ignore[index]
     with as_job(worker_dsn, world["case"]) as conn:
         conn.execute("update app.facts set available_at = %s, value = '10' where id = %s", (WHEN, fact))
-    assert fact_row(admin, fact)[2] == version + 1  # type: ignore[index]
+    assert fact_row(admin, fact)[2] == version + 1  # type: ignore[index, operator]
     with as_job(worker_dsn, world["case"]) as conn:
         conn.execute("update app.facts set available_at = %s where id = %s", (None, fact))
-    assert fact_row(admin, fact)[2] == version + 2  # type: ignore[index]
+    assert fact_row(admin, fact)[2] == version + 2  # type: ignore[index, operator]
