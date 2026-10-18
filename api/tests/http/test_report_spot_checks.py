@@ -21,6 +21,7 @@ from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
 import psycopg
 import pytest
 from fastapi import FastAPI
@@ -75,6 +76,13 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 @pytest.fixture
 def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage) -> FastAPI:
     return app_for(api_db, auth_env, combo, reads, storage)
+
+
+@pytest.fixture(autouse=True)
+def fresh_address_counts(admin: psycopg.Connection) -> None:
+    """Every test client shares one address, so each test starts with no tries counted against it."""
+    if admin.execute("select to_regclass('app.spot_check_address_tries')").fetchone() != (None,):
+        admin.execute("delete from app.spot_check_address_tries")
 
 
 @pytest.fixture(autouse=True)
@@ -405,3 +413,26 @@ async def test_an_answer_must_say_true_or_false_not_a_number(client_for: ClientF
     answers = [{"fact_id": str(built.plan), "agrees": 0}]
     resp = await colleague.post(f"/v1/spot-checks/{token}/responses", json={"code": code, "answers": answers})
     assert resp.status_code == 422
+
+
+ADDRESS_LIMIT = 20  # tries from one address in 15 minutes, across every link
+
+
+async def from_address(app: FastAPI, address: str) -> httpx.AsyncClient:
+    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=(address, 1)), base_url="https://test")
+
+
+async def test_one_address_is_refused_after_too_many_tries(app: FastAPI, admin: psycopg.Connection) -> None:
+    async with await from_address(app, "198.51.100.7") as guesser, await from_address(app, "198.51.100.8") as other:
+        for n in range(ADDRESS_LIMIT):
+            resp = await guesser.get(f"/v1/spot-checks/zz-guess-{n}", headers={CODE_HEADER: "123456"})
+            assert resp.status_code == 200 and resp.json()["status"] == "unknown"
+        refused = await guesser.get("/v1/spot-checks/zz-guess-last", headers={CODE_HEADER: "123456"})
+        assert refused.status_code == 429 and refused.json()["error"]["code"] == "too_many_attempts"
+        answers = [{"fact_id": str(uuid.uuid4()), "agrees": True}]
+        posted = await guesser.post("/v1/spot-checks/zz-guess-last/responses", json={"code": "123456", "answers": answers})
+        assert posted.status_code == 429
+        still = await other.get("/v1/spot-checks/zz-guess-other", headers={CODE_HEADER: "123456"})
+        assert still.status_code == 200
+    kept = [row[0] for row in admin.execute("select address_hash from app.spot_check_address_tries").fetchall()]
+    assert kept and not any("198.51.100" in h for h in kept)
