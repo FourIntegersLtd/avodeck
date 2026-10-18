@@ -92,8 +92,8 @@ async def add_words(
     for n, word in enumerate(page_words(text), start=1):
         sealed = await CRYPTO.encrypt(aconn, case, word.encode(), purpose=word_purpose(page, f"w{n}"))
         admin.execute(
-            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence)"
-            " values (%s, %s, %s, %s, %s, array[0,0,1,0,1,1,0,1]::real[], 0.99)",
+            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+            " values (%s, %s, %s, %s, %s, array[0,0,1,0,1,1,0,1]::real[], 0.99, 'ocr')",
             (page, case, n, f"w{n}", sealed),
         )
 
@@ -382,8 +382,13 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 
 @pytest.fixture
-async def world(seed: Seed, admin: psycopg.Connection, aconn: AsyncConnection, combo: Combo, reads: Reads) -> World:
-    return await build(seed, admin, aconn, combo, reads)
+async def world(
+    seed: Seed, admin: psycopg.Connection, aconn: AsyncConnection, combo: Combo, reads: Reads
+) -> AsyncIterator[World]:
+    built = await build(seed, admin, aconn, combo, reads)
+    yield built
+    # The daily reminder scan reads every case; close this case's deadlines so later tests start clean.
+    admin.execute("update app.deadlines set done_at = now() where case_id = %s and done_at is null", (built.case,))
 
 
 @pytest.fixture

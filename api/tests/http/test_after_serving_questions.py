@@ -184,7 +184,9 @@ async def test_t20a_finds_the_six_questions_as_exact_words_of_the_document(
     assert [q["number"] for q in questions] == [1, 2, 3, 4, 5, 6]
     assert [q["para_ref"] for q in questions] == ["1", "2", "3", "4", "5", "6"], "read from the layout by code"
     assert all(q["status"] == "received" and q["round_id"] == made["id"] for q in questions)
-    rule = [r for r in served.combo.raw("jurisdiction", "deadlines.yaml")["deadlines"] if r["key"] == "written_questions"]
+    rule = [
+        r for r in served.combo.raw("jurisdiction", "deadlines.yaml")["deadlines"] if r["key"] == "written_questions"
+    ]
     assert all(q["rule_ref"] == rule[0]["rule_ref"] for q in questions)
     for request in model.by_task("T-20a"):
         for words in PAGE_TEXT.values():
@@ -371,12 +373,12 @@ async def test_signing_the_answers_needs_step_up_and_locks_a_new_version(
     client = await client_for(served.expert)
     sign = {"round_id": made["id"], "declaration_confirmed": True}
     early = await client.post(served.url("written-questions/answers/sign"), json=sign)
-    assert early.status_code == 409 and early.json()["code"] == "answers_missing"
+    assert early.status_code == 409 and early.json()["error"]["code"] == "answers_missing"
     await answer_all(client, served, questions)
     stale = await (await client_for(served.expert, mfa_age=timedelta(minutes=11))).post(
         served.url("written-questions/answers/sign"), json=sign
     )
-    assert stale.status_code == 403 and stale.json()["code"] == "step_up_required"
+    assert stale.status_code == 403 and stale.json()["error"]["code"] == "step_up_required"
     assert (
         await (await client_for(served.co_expert)).post(served.url("written-questions/answers/sign"), json=sign)
     ).status_code == 403

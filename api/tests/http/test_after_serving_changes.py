@@ -112,7 +112,7 @@ async def test_the_served_version_is_shown_read_only(client_for: ClientFor, serv
     signed = await (await client_for(served.expert)).post(
         served.url(f"report/versions/{served.served}/sign"), json={"declaration_confirmed": True}
     )
-    assert signed.status_code == 409 and signed.json()["code"] == "locked", "the served version never changes"
+    assert signed.status_code == 409 and signed.json()["error"]["code"] == "locked", "the served version never changes"
 
 
 async def test_a_change_needs_a_reason_and_lists_paragraphs_sharing_its_citations(
@@ -185,7 +185,7 @@ async def test_a_supplementary_report_holds_only_the_changes_and_is_signed_with_
     before = served_state(admin, served.served)  # type: ignore[arg-type]
     expert = await client_for(served.expert)
     empty = await expert.post(served.url("report-changes/supplementary"))
-    assert empty.status_code == 409 and empty.json()["code"] == "no_changes"
+    assert empty.status_code == 409 and empty.json()["error"]["code"] == "no_changes"
     change = await make_change(client_for, worker_db, model, served)
     await run_job(
         worker_db, served, await expert.post(served.url("report-changes/supplementary")), "build_supplementary"
@@ -200,7 +200,7 @@ async def test_a_supplementary_report_holds_only_the_changes_and_is_signed_with_
     stale = await (await client_for(served.expert, mfa_age=timedelta(minutes=11))).post(
         url, json={"declaration_confirmed": True}
     )
-    assert stale.status_code == 403 and stale.json()["code"] == "step_up_required"
+    assert stale.status_code == 403 and stale.json()["error"]["code"] == "step_up_required"
     assert (
         await (await client_for(served.co_expert)).post(url, json={"declaration_confirmed": True})
     ).status_code == 403
