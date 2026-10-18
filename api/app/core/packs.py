@@ -48,7 +48,7 @@ REQUIRED: dict[str, frozenset[str]] = {
 }
 OPTIONAL: dict[str, frozenset[str]] = {
     "jurisdiction": frozenset({"meetings.yaml", "legal_tests.md", "final_checks.yaml", "conflicts.yaml"}),
-    "case-type": frozenset({"final_checks.yaml", "declarations.md"}),
+    "case-type": frozenset({"final_checks.yaml", "declarations.md", "opinion.yaml"}),
     "specialty": frozenset({"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}),
     "overlay": frozenset(
         {"records.yaml", "guidelines.yaml", "vocabulary.yaml", "speech_phrases.yaml", "drug_monitoring.yaml"}
@@ -599,6 +599,34 @@ class MergedPack:
         result = normalise(value)
         return result if isinstance(result, str) and result else None
 
+    def _opinion_words(self) -> dict[str, Any]:
+        words: dict[str, Any] = self._files.get("opinion.yaml", {})
+        return words
+
+    def point_sides(self) -> list[dict[str, str]]:
+        """The three sides a fact can support (core codes) with this case type's labels."""
+        return [{"code": s["code"], "label": s["label"]} for s in self._opinion_words().get("point_sides", [])]
+
+    def opinion_views(self) -> list[dict[str, str]]:
+        """The views an opinion on a question can take (case type), as {code, label}."""
+        return [{"code": v["code"], "label": v["label"]} for v in self._opinion_words().get("opinion_views", [])]
+
+    def loaded_language(self) -> list[str]:
+        """Phrases the opinion lint flags as loaded."""
+        return list(self._opinion_words().get("loaded_language", []))
+
+    def range_note_prompt(self) -> str:
+        """The heading over the note on what other practitioners might reasonably do."""
+        return str(self._opinion_words().get("range_note_prompt", ""))
+
+    def _who(self) -> dict[str, Any]:
+        return {
+            "language": self.language,
+            "profession": self.profession,
+            "clinician": self.term("clinician"),
+            "clinicians": self.term("clinicians"),
+        }
+
     def record_hints(self) -> dict[str, Any]:
         return copy.deepcopy(self._files.get("records.yaml", {}))
 
@@ -624,6 +652,16 @@ class MergedPack:
                 "instructing_party_types": self.instructing_party_types(),
                 "party_roles": self.party_roles(),
                 "court_tracks": list(self._j.get("court_tracks", [])),
+            }
+        if task in ("T-14a", "T-14b", "T-14c"):
+            sides = {"point_sides": self.point_sides()} if task == "T-14a" else {}
+            return {**self._who(), **sides}
+        if task == "T-15a":
+            return {
+                **self._who(),
+                "specialty": str(self._sp["name"]),
+                "outside_expertise_question_types": self.outside_expertise_question_types(),
+                "loaded_language": self.loaded_language(),
             }
         if task == "T-02":
             sections = [s["key"] for s in self.report_sections()]

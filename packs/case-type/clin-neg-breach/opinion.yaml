@@ -1,0 +1,12 @@
+# Words for the points-against list and the opinion workspace. Codes are fixed by the core; labels are ours.
+# {clinician} and {clinicians} come from the vocabulary (the overlay's local title where there is one).
+point_sides:
+  - {code: supports_claim, label: Supports the claim}
+  - {code: supports_clinician, label: "Supports the {clinician}"}
+  - {code: neutral, label: Neutral}
+opinion_views:
+  - {code: within_range, label: Within the range of reasonable practice}
+  - {code: at_limit, label: At the limit of reasonable practice}
+  - {code: below_standard, label: "Below the standard of a reasonable {clinician}"}
+loaded_language: [clearly negligent, obviously, grossly, appalling, inexcusable, blatant]
+range_note_prompt: "What other {clinicians} might reasonably do"

@@ -1,0 +1,10 @@
+point_sides:
+  - {code: supports_claim, label: Zz favours the petitioner}
+  - {code: supports_clinician, label: "Zz favours the {clinician}"}
+  - {code: neutral, label: Zz neither side}
+opinion_views:
+  - {code: zz_view_ok, label: Zz acceptable}
+  - {code: zz_view_edge, label: Zz borderline}
+  - {code: zz_view_poor, label: "Zz below what a {clinician} should do"}
+loaded_language: [zzfoul, zzshocking]
+range_note_prompt: "Zz what other {clinicians} might do"
