@@ -60,6 +60,8 @@ Core checks include:
 
 ## Contracts
 - **In:** opinions and citations (E), template, profile, signature, declaration and conflicts (C), `citable_facts()` and page-read log (B), findings (D), questions (C), pack sections, checks and declarations (foundation).
+  - Needs: F reads opinions through `core/contracts/opinions.latest_opinions(conn, case_id, crypto)` (never `app.opinions` directly).
+  - Needs: F runs `core/contracts/citations.citation_problems(conn, case_id, reads)` in its final checks and blocks signing while it returns any problem.
 - **Out:**
   - A **locked served `report_versions` row** with SHA-256 of the DOCX and PDF. G, I and H depend on it.
   - The `report_served` event in `core/contracts/events.py`: `{case_id, version_id, served_on}`. G subscribes to create deadlines; in the MVP nothing subscribes.

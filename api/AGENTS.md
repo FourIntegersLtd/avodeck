@@ -17,6 +17,7 @@ api/app/
     speech.py             # WebSocket relay to Azure Speech
     contracts/            # shared contracts (only grow): Fact + citable_facts, Question, ReportVersion + ensure_unlocked,
                           # NeedsYouItem + needs_you registry, require_page_read (423 gate), events, case_tables
+                          # latest_opinions (opinions.py), Citation + citation_problems (citations.py) for F
     housekeeping.py       # daily schedules owned by foundation (expire_uploads)
     packs.py              # pack loader: merges jurisdiction + case-type + specialty packs for a case
     config.py             # cell config: REGION, endpoints, model IDs, allowed packs

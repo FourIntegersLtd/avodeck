@@ -9,35 +9,20 @@ A citation saved before is kept as it was even if its fact has changed since (mo
 re-read, no longer citable): architecture 10.4 keeps what was cited. `changed_citations` names those, so
 the screen shows "changed since cited" and the expert re-cites. `fact_version` is the fact's version when
 cited, if the screen sent it.
+
+The citation shape and the comparing helpers live in `app.core.contracts.citations`, shared with slice F,
+which re-checks every saved citation (kept ones included) with `citation_problems()` before signing.
 """
 
 from __future__ import annotations
 
-import re
-import uuid
 from collections.abc import Sequence
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from app.core.ai.provenance import atoms
+from app.core.contracts.citations import Citation, differs, markers, quote_within
 from app.core.contracts.facts import Fact
 from app.core.errors import ApiError
 
-_MARKER = re.compile(r"\[\[cite:(\d+)\]\]")
-
-
-class Citation(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-    fact_id: uuid.UUID
-    page_id: uuid.UUID
-    quote_verbatim: str = Field(max_length=2000)
-    fact_version: int | None = Field(default=None, ge=1, exclude_if=lambda v: v is None)
-
-
-def markers(body: str) -> list[int]:
-    """The citation numbers in the text, in the order they appear."""
-    return [int(n) for n in _MARKER.findall(body)]
+__all__ = ["Citation", "changed_citations", "check_citations", "markers"]
 
 
 def _refuse(reason: str, **where: int) -> ApiError:
@@ -55,25 +40,10 @@ def _unused(position: int) -> ApiError:
     )
 
 
-def _within(quote: str, value: str | None) -> bool:
-    wanted, held = atoms(quote), atoms(value or "")
-    size = len(wanted)
-    return size > 0 and any(held[i : i + size] == wanted for i in range(len(held) - size + 1))
-
-
-def _differs(citation: Citation, fact: Fact | None) -> bool:
-    return (
-        fact is None
-        or fact.page_id != citation.page_id
-        or not _within(citation.quote_verbatim, fact.value)
-        or (citation.fact_version is not None and citation.fact_version != fact.version)
-    )
-
-
 def changed_citations(citations: Sequence[Citation], citable: Sequence[Fact]) -> list[int]:
     """The positions (from 1) of the citations whose fact has changed since it was cited."""
     facts = {f.id: f for f in citable}
-    return [n for n, c in enumerate(citations, start=1) if _differs(c, facts.get(c.fact_id))]
+    return [n for n, c in enumerate(citations, start=1) if differs(c, facts.get(c.fact_id))]
 
 
 def check_citations(
@@ -90,7 +60,7 @@ def check_citations(
             raise _refuse("not_citable", citation=position)
         if fact.page_id != citation.page_id:
             raise _refuse("wrong_page", citation=position)
-        if not _within(citation.quote_verbatim, fact.value):
+        if not quote_within(citation.quote_verbatim, fact.value):
             raise _refuse("quote_not_in_fact", citation=position)
     used = markers(body)
     for n in used:

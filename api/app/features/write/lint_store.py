@@ -7,10 +7,11 @@ import uuid
 from psycopg.rows import dict_row
 from pydantic import BaseModel
 
+from app.core.contracts.opinions import BODY_PURPOSE
 from app.core.http import DbConn
 from app.features.write.common import Crypto
 
-BODY = "opinion_body"
+BODY = BODY_PURPOSE
 
 
 def lint_purpose(opinion_id: uuid.UUID) -> str:
