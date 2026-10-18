@@ -136,7 +136,7 @@ function Checks({ caseId }: { caseId: string }) {
           type="number"
           min={1}
           inputMode="numeric"
-          value={days[c.key] ?? ""}
+          value={days[c.key] ?? String(c.window_days)}
           onChange={(e) => { setDays((d) => ({ ...d, [c.key]: e.target.value })); setDaysSaved(false); }}
         />
       ))}
