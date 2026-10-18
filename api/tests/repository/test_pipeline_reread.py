@@ -213,7 +213,8 @@ def remaps(h: Harness, fact_id: uuid.UUID) -> list[tuple[Any, ...]]:
 
 async def type_out(h: Harness, page_id: uuid.UUID, text: str) -> None:
     h.admin.execute(
-        "update app.pages set unreadable = true, transcribed_by_expert_text = %s where id = %s", (text, page_id)
+        "update app.pages set unreadable = true, transcribed_by_expert_text = %s where id = %s",
+        (await sealed_typing(h, page_id, text), page_id),
     )
     async with h.api_db.request(scope_for(h.expert)) as conn:
         await extract_page_text(conn, h.case_id, page_id)
