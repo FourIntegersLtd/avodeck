@@ -2214,6 +2214,162 @@
         "title": "Code",
         "type": "object"
       },
+      "ColleagueAnswer": {
+        "additionalProperties": false,
+        "properties": {
+          "agrees": {
+            "title": "Agrees",
+            "type": "boolean"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "fact_id",
+          "agrees"
+        ],
+        "title": "ColleagueAnswer",
+        "type": "object"
+      },
+      "ColleagueItem": {
+        "properties": {
+          "crop": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A PNG of the area around the cited words, base64",
+            "title": "Crop"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "value",
+          "crop"
+        ],
+        "title": "ColleagueItem",
+        "type": "object"
+      },
+      "ColleagueReply": {
+        "additionalProperties": false,
+        "properties": {
+          "answers": {
+            "items": {
+              "$ref": "#/components/schemas/ColleagueAnswer"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Answers",
+            "type": "array"
+          },
+          "code": {
+            "pattern": "^\\d{6}$",
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "answers"
+        ],
+        "title": "ColleagueReply",
+        "type": "object"
+      },
+      "ColleagueReplyOut": {
+        "properties": {
+          "status": {
+            "enum": [
+              "ok",
+              "already",
+              "invalid",
+              "bad_code",
+              "locked",
+              "expired",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ColleagueReplyOut",
+        "type": "object"
+      },
+      "ColleagueView": {
+        "properties": {
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "items": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ColleagueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "responded": {
+            "default": false,
+            "title": "Responded",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "bad_code",
+              "locked",
+              "expired",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ColleagueView",
+        "type": "object"
+      },
       "CommentChange": {
         "properties": {
           "body": {
@@ -23015,6 +23171,134 @@
         "summary": "List Packs",
         "tags": [
           "packs"
+        ]
+      }
+    },
+    "/v1/spot-checks/{token}": {
+      "get": {
+        "operationId": "open_spot_check_v1_spot_checks__token__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Spot-Check-Code",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{6}$",
+              "title": "X-Spot-Check-Code",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColleagueView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Open Spot Check",
+        "tags": [
+          "spot-checks"
+        ]
+      }
+    },
+    "/v1/spot-checks/{token}/responses": {
+      "post": {
+        "operationId": "answer_spot_check_v1_spot_checks__token__responses_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 1,
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ColleagueReply"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ColleagueReplyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Answer Spot Check",
+        "tags": [
+          "spot-checks"
         ]
       }
     },

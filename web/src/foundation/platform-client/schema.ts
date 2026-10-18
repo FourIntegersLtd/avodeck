@@ -3009,6 +3009,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/spot-checks/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Open Spot Check */
+        get: operations["open_spot_check_v1_spot_checks__token__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/spot-checks/{token}/responses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Answer Spot Check */
+        post: operations["answer_spot_check_v1_spot_checks__token__responses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/today": {
         parameters: {
             query?: never;
@@ -3866,6 +3900,68 @@ export interface components {
         Code: {
             /** Code */
             code: string;
+        };
+        /** ColleagueAnswer */
+        ColleagueAnswer: {
+            /** Agrees */
+            agrees: boolean;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** ColleagueItem */
+        ColleagueItem: {
+            /**
+             * Crop
+             * @description A PNG of the area around the cited words, base64
+             */
+            crop: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Value */
+            value: string;
+        };
+        /** ColleagueReply */
+        ColleagueReply: {
+            /** Answers */
+            answers: components["schemas"]["ColleagueAnswer"][];
+            /** Code */
+            code: string;
+        };
+        /** ColleagueReplyOut */
+        ColleagueReplyOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "already" | "invalid" | "bad_code" | "locked" | "expired" | "unknown";
+        };
+        /** ColleagueView */
+        ColleagueView: {
+            /** Expires At */
+            expires_at?: string | null;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["ColleagueItem"][];
+            /**
+             * Responded
+             * @default false
+             */
+            responded: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ok" | "bad_code" | "locked" | "expired" | "unknown";
         };
         /** CommentChange */
         CommentChange: {
@@ -15089,6 +15185,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PackCombination"][];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    open_spot_check_v1_spot_checks__token__get: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Spot-Check-Code": string;
+            };
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColleagueView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    answer_spot_check_v1_spot_checks__token__responses_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ColleagueReply"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ColleagueReplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

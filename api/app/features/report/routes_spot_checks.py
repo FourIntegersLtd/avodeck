@@ -5,9 +5,8 @@
   `nothing_cited` until a report cites a fact.
 - `GET /cases/{id}/spot-checks` (`report.build`): each check with the colleague's answers.
 
-The colleague's routes (`GET /v1/spot-checks/{token}`, `POST /v1/spot-checks/{token}/responses`) need the
-public router, which is foundation's (slice F brief, foundation requests); `spot_checks.open_check` and
-`respond` are ready for them.
+The colleague's routes (`GET /v1/spot-checks/{token}`, `POST /v1/spot-checks/{token}/responses`) are on
+foundation's public router in `routes_colleague.py`.
 """
 
 from __future__ import annotations

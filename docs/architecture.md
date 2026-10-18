@@ -624,7 +624,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases/{case_id}/report/final-check` | Run 28 checks (26 code + T-17) → `final_check_runs` |
 | GET | `/cases/{case_id}/report/final-check/latest` | Results with "fix it" targets |
 | POST | `/cases/{case_id}/spot-checks` | Send 10 random cited facts to a colleague (expiring link + email code) |
-| GET / POST | `/spot-checks/{token}`, `/spot-checks/{token}/responses` | Colleague's view and answers (no login; page crops only) |
+| GET / POST | `/spot-checks/{token}`, `/spot-checks/{token}/responses` | Colleague's view (code in `X-Spot-Check-Code`) and answers (no login; public and token-gated: the link token and emailed code hashes are the gate, no `require_case_access`; every outcome is 200 with `status` `ok`, `bad_code`, `locked`, `expired` or `unknown`, answers also `already` or `invalid`, and a wrong code commits its count; page crops only) |
 
 **18 Sign and send**
 
