@@ -26,14 +26,9 @@ from app.core.packs import MergedPack
 from app.features.write.citations import Citation, check_citations
 from app.features.write.common import Crypto, View, Write, case_pack, citable, invalid, not_found, require_question
 from app.features.write.lint_regex import lint
+from app.features.write.lint_store import BODY, LintIssueOut, dismissed_issues, lint_purpose, open_issues
+from app.features.write.quotes import same_words
 from app.features.write.router import router
-
-BODY = "opinion_body"
-
-
-def lint_purpose(opinion_id: uuid.UUID) -> str:
-    """The purpose the words a warning quotes are sealed under."""
-    return f"lint_words/{opinion_id}"
 
 
 class OpinionIn(BaseModel):
@@ -43,15 +38,6 @@ class OpinionIn(BaseModel):
     citation_refs: list[Citation] = Field(default_factory=list, max_length=500)
     view: str | None = Field(default=None, max_length=40)
     provisional: bool = False
-
-
-class LintIssueOut(BaseModel):
-    id: uuid.UUID
-    sentence_index: int
-    type: str
-    words: str
-    source: str
-    status: str
 
 
 class OpinionOut(BaseModel):
@@ -114,7 +100,10 @@ async def _relint(conn: DbConn, crypto: Crypto, row: dict[str, Any], body: str, 
     """Replace the open warnings with the pattern check's on the saved text; the opinion with them."""
     case_id, opinion_id = row["case_id"], row["id"]
     await conn.execute("delete from app.lint_issues where opinion_id = %s and status = 'open'", (opinion_id,))
+    dismissed = await dismissed_issues(conn, crypto, case_id, opinion_id)
     for issue in lint(body, pack.loaded_language()):
+        if any(t == issue.type and same_words(w, issue.words) for t, w in dismissed):
+            continue
         sealed = await crypto.encrypt(conn, case_id, issue.words.encode(), purpose=lint_purpose(opinion_id))
         await conn.execute(
             "insert into app.lint_issues (case_id, opinion_id, opinion_version, sentence_index, type, words, source)"
@@ -124,28 +113,6 @@ async def _relint(conn: DbConn, crypto: Crypto, row: dict[str, Any], body: str, 
     out = await _out(conn, crypto, row)
     out.lint = await open_issues(conn, crypto, case_id, opinion_id)
     return out
-
-
-async def open_issues(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, opinion_id: uuid.UUID) -> list[LintIssueOut]:
-    """The opinion's open warnings, in the order of its sentences."""
-    async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(
-            "select id, sentence_index, type, words, source, status from app.lint_issues"
-            " where opinion_id = %s and status = 'open' order by sentence_index, created_at, id",
-            (opinion_id,),
-        )
-        rows = await cur.fetchall()
-    return [
-        LintIssueOut(
-            **{
-                **r,
-                "words": (
-                    await crypto.decrypt(conn, case_id, bytes(r["words"]), purpose=lint_purpose(opinion_id))
-                ).decode(),
-            }
-        )
-        for r in rows
-    ]
 
 
 async def _write(

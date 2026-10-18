@@ -1,5 +1,6 @@
 """Slice E's AI tasks (architecture 6.3): T-14a sorts facts by side, T-14b picks
-citable facts the draft does not use yet, T-14c sets a witness statement's claims beside the facts.
+citable facts the draft does not use yet, T-14c sets a witness statement's claims beside the facts,
+T-15a points at wording in the expert's opinion to check.
 
 Prompts are neutral templates in `prompts/*.md` (first line `version: ...`); the pack's prompt context
 and the output schemas (built from the pack's registries and the references a request supplies) carry
@@ -105,3 +106,28 @@ def t14c(pack: MergedPack, refs: Sequence[str]) -> AiTask:
         },
     }
     return AiTask(task_id="T-14c", prompt_version=version, model="opus", system=system, schema=schema)
+
+
+LINT_TYPES = ("uncited_fact", "loaded_language", "outside_expertise")
+
+
+def t15a(pack: MergedPack, sentences: int) -> AiTask:
+    """Point at words in the numbered sentences; the words are checked against the sentence by code."""
+    version, system = prompt("t15a")
+    issue = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["sentence_index", "type", "words"],
+        "properties": {
+            "sentence_index": {"type": "integer", "minimum": 0, "maximum": max(sentences - 1, 0)},
+            "type": {"type": "string", "enum": list(LINT_TYPES)},
+            "words": {"type": "string", "minLength": 1, "maxLength": 200},
+        },
+    }
+    schema: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["issues"],
+        "properties": {"issues": {"type": "array", "maxItems": min(3 * max(sentences, 1), 100), "items": issue}},
+    }
+    return AiTask(task_id="T-15a", prompt_version=version, model="sonnet", system=system, schema=schema)

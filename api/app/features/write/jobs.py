@@ -28,14 +28,14 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from app.core.ai import provenance
 from app.core.ai.kit import AiKit, InvalidOutput
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
 from app.features.write import ai_tasks
 from app.features.write.common import ANSWERABLE
-from app.features.write.routes_opinion import BODY
+from app.features.write.lint_store import BODY
+from app.features.write.quotes import locate
 from app.features.write.routes_witness import claim_purpose
 from app.features.write.services import WriteServices, current
 
@@ -191,23 +191,6 @@ async def compare_witness_statement(ctx: JobContext) -> None:
     for comparison_id, document_id in asked:
         async with ctx.transaction() as conn:
             await _compare(ctx, conn, services, kit, comparison_id, document_id)
-
-
-def locate(quote: str, words: list[tuple[str, str]]) -> list[tuple[str, str]] | None:
-    """The run of `words` whose text is exactly `quote` (case, spacing and number format aside), or None."""
-    target = provenance.atoms(quote)
-    each = [provenance.atoms(text) for _, text in words]
-    for start in range(len(words)):
-        if not target or not each[start] or each[start][0] != target[0]:
-            continue
-        run: list[str] = []
-        for end in range(start, len(words)):
-            run += each[end]
-            if run == target:
-                return words[start : end + 1]
-            if run != target[: len(run)]:
-                break
-    return None
 
 
 async def _finish(conn: AsyncConnection, comparison_id: uuid.UUID, status: str, claims: int | None) -> None:

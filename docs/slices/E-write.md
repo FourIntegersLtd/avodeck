@@ -51,10 +51,10 @@ The loaded-language word list and opinion `view` options come from the case-type
 - [x] T-14b suggests the planted unused fact (safety-netting entry on page 117) after a draft that ignores it.
 - [x] T-14c on the synthetic witness statement finds the planted contradiction ("I was never told to come back" vs page 118 "review 3/52 if no better"). Claims are exact substrings, and the expert's decision is stored.
 - [x] The regex lint flags a sentence with a date or number but no citation, and words from the pack's loaded-language list ("clearly negligent", "obviously"), in under 200 ms.
-- [ ] The AI lint flags a causation statement as `outside_expertise` for a general-practice expert (rule from the case-type pack).
-- [ ] Lint returns in under 2 s at p95 (recorded responses plus timing budget).
-- [ ] No lint response contains replacement text, and the lint schema has no free-prose field (core test).
-- [ ] Dismissing a lint issue requires a reason and is kept for the final check.
+- [x] The AI lint flags a causation statement as `outside_expertise` for a general-practice expert (rule from the case-type pack).
+- [x] Lint returns in under 2 s at p95 (recorded responses plus timing budget).
+- [x] No lint response contains replacement text, and the lint schema has no free-prose field (core test).
+- [x] Dismissing a lint issue requires a reason and is kept for the final check.
 - [ ] Autosave every 5 s and on blur. Two tabs editing the same opinion: the later save with a stale `updated_at` gets 409 with both versions.
 - [ ] The workspace returns verified facts linked to the question as chips, the guidance in force on the consultation date, and the points summary.
 - [ ] No slice code contains a clinician title, party or instructing-party word, or a fixed side or view list (core scan); the screens work unchanged with the fixture packs.
