@@ -279,7 +279,7 @@ async def test_sending_for_signature_needs_step_up_and_the_webhook_signs_it(
     ).encode()
     anyone = await client_for(None)
     unset = await anyone.post("/v1/webhooks/esign", content=payload, headers={"x-avodeck-signature": "sha256=00"})
-    assert unset.status_code == 503
+    assert unset.status_code == 401 and code(unset) == "bad_signature"
     monkeypatch.setenv("ESIGN_WEBHOOK_SECRET", SECRET)
     bad = await anyone.post(
         "/v1/webhooks/esign", content=payload, headers={"x-avodeck-signature": "sha256=" + "0" * 64}
