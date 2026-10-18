@@ -12,9 +12,9 @@ from collections.abc import Iterator
 from typing import Any
 
 import pytest
-from app.features.after_serving import ai_tasks
 
 from app.core.packs import default_library
+from app.features.after_serving import ai_tasks
 from tests.support.packs import BOTH, Combo
 
 FORBIDDEN = ("replace", "rewrite", "suggest", "instead", "better", "wording", "fix", "prose", "opinion", "summary")

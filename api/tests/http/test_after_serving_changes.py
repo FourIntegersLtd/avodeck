@@ -221,7 +221,7 @@ async def test_a_supplementary_report_holds_only_the_changes_and_is_signed_with_
         assert other not in text, "only the changes"
     assert pack_of(served.combo).declarations()[0]["text"].split("\n")[0][:40] in text
 
-    assert served_state(admin, served.served) == before, "the served version is byte-identical"  # type: ignore[arg-type]
+    assert served_state(admin, served.served) == before, "the served version is byte-identical"
     late = await expert.patch(
         served.url(f"report-changes/{change['id']}"),
         json={"reason": "Later."},
