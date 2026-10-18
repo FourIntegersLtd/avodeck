@@ -445,9 +445,7 @@ async def test_an_organisation_admin_cannot_set_a_hold(
     assert resp.status_code == 403
 
 
-@pytest.mark.parametrize(
-    "body", [{"reason": "Appeal by Mr Example"}, {"reason": "appeal", "until": "2001-01-01"}, {}]
-)
+@pytest.mark.parametrize("body", [{"reason": "Appeal by Mr Example"}, {"reason": "appeal", "until": "2001-01-01"}, {}])
 async def test_a_hold_needs_a_short_reason_code_and_a_future_end(
     body: dict[str, str], client_for: ClientFor, seed: Seed, team: dict[str, uuid.UUID]
 ) -> None:
@@ -516,7 +514,7 @@ async def test_the_certificate_carries_counts_hashes_and_dates_only(
     expiry = date.today() + timedelta(days=30)
     admin.execute(
         "insert into app.deletion_certificates (case_id, deleted_at, counts, hashes, log_chain_heads,"
-        " backup_expiry_on, sent_to) values (%s, now(), '{\"pages\": 3}', '{\"documents\": [\"ab\"]}',"
+        ' backup_expiry_on, sent_to) values (%s, now(), \'{"pages": 3}\', \'{"documents": ["ab"]}\','
         " '{\"page_reads\": \"cd\"}', %s, '{named_expert}')",
         (case, expiry),
     )
@@ -537,7 +535,7 @@ async def test_the_certificate_carries_counts_hashes_and_dates_only(
 def deleted_with_certificate(admin: psycopg.Connection, case: uuid.UUID, expiry: date) -> None:
     admin.execute(
         "insert into app.deletion_certificates (case_id, deleted_at, counts, hashes, log_chain_heads,"
-        " backup_expiry_on, sent_to) values (%s, now(), '{\"pages\": 3}', '{\"documents\": [\"ab12\"]}',"
+        ' backup_expiry_on, sent_to) values (%s, now(), \'{"pages": 3}\', \'{"documents": ["ab12"]}\','
         " '{\"page_reads\": \"cd34\"}', %s, '{named_expert}')",
         (case, expiry),
     )

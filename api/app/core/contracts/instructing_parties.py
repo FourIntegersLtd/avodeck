@@ -2,6 +2,8 @@
 
 - `instructing_party_contacts(conn, case_id)`: the parties instructing the case and their email, for the
   certificate of deletion. Read them before `app.purge_case()` removes the rows.
+- `logged_requests(conn, case_id, crypto)`: every request for missing records the expert sent (subject and text
+  opened), in order, for the export.
 - `instructing_party_requests(conn, case_id, crypto)`: every set of instructions the expert received
   (letters, supplementary letters, oral instructions with their words), oldest first, for the export.
 
@@ -13,7 +15,7 @@ log them (rule 6).
 from __future__ import annotations
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
@@ -25,8 +27,10 @@ __all__ = [
     "ORAL_INSTRUCTION_PURPOSE",
     "InstructingPartyContact",
     "InstructingPartyRequest",
+    "LoggedRequest",
     "instructing_party_contacts",
     "instructing_party_requests",
+    "logged_requests",
 ]
 
 # The purpose oral instruction words are sealed under (`CaseCrypto.encrypt(..., purpose=...)`).
@@ -95,4 +99,41 @@ async def instructing_party_requests(
             sealed = bytes(r["text"])
             r["text"] = (await crypto.decrypt(conn, case_id, sealed, purpose=ORAL_INSTRUCTION_PURPOSE)).decode()
         out.append(InstructingPartyRequest(**r))
+    return out
+
+
+class LoggedRequest(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    seq: int
+    sent_at: datetime
+    sent_via: str
+    follow_up_on: date | None
+    missing_item_count: int
+    page_count: int
+    subject: str
+    body: str
+
+
+async def logged_requests(conn: AsyncConnection, case_id: uuid.UUID, crypto: CaseCrypto) -> list[LoggedRequest]:
+    """Requests the expert sent to the instructing party for missing records (`instructing_party_requests`),
+    oldest first, with the sealed subject and text opened. Runs under row-level security as the caller."""
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "select id, seq, sent_at, sent_via, follow_up_on, cardinality(missing_item_ids) as missing_item_count,"
+            " cardinality(page_ids) as page_count, subject, body_text from app.instructing_party_requests"
+            " where case_id = %s order by seq",
+            (case_id,),
+        )
+        rows = await cur.fetchall()
+    out = []
+    for r in rows:
+        rid = r.pop("id")
+        subject = await crypto.decrypt(
+            conn, case_id, bytes(r.pop("subject")), purpose=f"instructing_party_requests/{rid}/subject"
+        )
+        body = await crypto.decrypt(
+            conn, case_id, bytes(r.pop("body_text")), purpose=f"instructing_party_requests/{rid}/body"
+        )
+        out.append(LoggedRequest(**r, subject=subject.decode(), body=body.decode()))
     return out

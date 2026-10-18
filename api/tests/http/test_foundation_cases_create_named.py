@@ -148,9 +148,7 @@ async def test_subject_and_period_values_are_checked(
     assert resp.status_code == 422, resp.text
 
 
-def test_the_database_lets_an_assistant_name_an_expert_member_only(
-    api_dsn: str, people: dict[str, uuid.UUID]
-) -> None:
+def test_the_database_lets_an_assistant_name_an_expert_member_only(api_dsn: str, people: dict[str, uuid.UUID]) -> None:
     """RLS repeats the check (rule 9)."""
     insert = (
         "insert into app.cases (organisation_id, named_expert_id, jurisdiction, case_type, specialty,"

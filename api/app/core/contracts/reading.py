@@ -71,6 +71,9 @@ class PageReadEntry:
     read_at: datetime
     dwell_seconds: int
     counts_for_citing: bool
+    seq: int = 0
+    prev_hash: str = ""
+    hash: str = ""
 
 
 async def page_read_log(conn: AsyncConnection, case_id: uuid.UUID) -> list[PageReadEntry]:
@@ -78,13 +81,13 @@ async def page_read_log(conn: AsyncConnection, case_id: uuid.UUID) -> list[PageR
 
     Runs on the caller's connection, so row-level security applies: no access, no reads."""
     cur = await conn.execute(
-        "select p.bundle_page_no, r.person_id, r.at, r.dwell_seconds, r.counts_for_citing"
+        "select p.bundle_page_no, r.person_id, r.at, r.dwell_seconds, r.counts_for_citing, r.seq, r.prev_hash, r.hash"
         " from app.page_reads r join app.pages p on p.id = r.page_id where r.case_id = %s order by r.seq",
         (case_id,),
     )
     return [
-        PageReadEntry(int(n), person, at, int(dwell), bool(counts))
-        for n, person, at, dwell, counts in await cur.fetchall()
+        PageReadEntry(int(n), person, at, int(dwell), bool(counts), int(seq), str(prev), str(digest))
+        for n, person, at, dwell, counts, seq, prev, digest in await cur.fetchall()
     ]
 
 

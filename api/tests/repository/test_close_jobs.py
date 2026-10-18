@@ -248,11 +248,11 @@ async def test_deletion_removes_every_case_row_every_file_and_the_key_and_writes
     assert hashlib.sha256(files["original"]).hexdigest() in cert["hashes"]["documents"]
     assert "a" * 64 in cert["hashes"]["report_versions"]
     assert cert["backup_expiry_on"] == date.today() + timedelta(days=close_jobs.BACKUP_RETENTION_DAYS)
-    assert cert["sent_to"] == ["named_expert"]
+    assert cert["sent_to"] == ["named_expert", "instructing_party_1"]  # the filled case has one party with an email
     assert rid  # the served version went too (rule 8: only through this run)
 
     expert_email = admin.execute("select email from app.people where id = %s", (world["expert"],)).fetchone()[0]  # type: ignore[index]
-    assert [m.to for m in mailer.outbox] == [expert_email]
+    assert [m.to for m in mailer.outbox] == [expert_email, "zed@example.test"]
     text = repr(mailer.outbox) + json.dumps(cert, default=str)
     for secret in (LABEL, FULL_NAME, FILENAME):
         assert secret not in text
@@ -528,7 +528,7 @@ async def test_the_export_carries_requests_page_reads_and_methodology_counts(
     ]
     reads = table("logs/page-reads.csv")
     assert [(r["seq"], r["page_no"], r["dwell_seconds"]) for r in reads] == [("1", "41", "20"), ("2", "41", "20")]
-    assert reads[0]["prev_hash"] == "" and reads[1]["prev_hash"] == reads[0]["hash"] != ""
+    assert reads[0]["prev_hash"] == "0" * 64 and reads[1]["prev_hash"] == reads[0]["hash"] != ""
     assert {(r["action"], r["count"]) for r in table("logs/methodology.csv")} == {("correct", "1")}
     manifest = json.loads(archive.read("manifest.json"))
     assert [e["path"] for e in manifest["not_yet_available"]] == ["invoices.csv"]
@@ -958,9 +958,9 @@ async def test_the_certificate_also_goes_to_the_current_instructing_parties_pati
 
     assert sorted(m.to for m in mailer.outbox) == sorted(
         [
-            admin.execute("select email from app.people where id = %s", (world["expert"],)).fetchone()[0],
+            admin.execute("select email from app.people where id = %s", (world["expert"],)).fetchone()[0],  # type: ignore[index]
             "ann@example.test",
-        ]  # type: ignore[index]
+        ]
     )
     cert = certificate(admin, case)
     assert cert is not None and cert["sent_to"] == ["named_expert", "instructing_party_1"]

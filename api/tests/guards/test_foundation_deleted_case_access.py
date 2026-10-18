@@ -33,8 +33,16 @@ pytestmark = pytest.mark.anyio
 def people(seed: Seed) -> dict[str, uuid.UUID]:
     """A deleted team case with someone in every case role, owner/admin/expert in the organisation, an outsider."""
     p = {name: seed.person() for name in EVERYONE}
-    org_roles = {"named_expert": "expert", "co_expert": "expert", "supervisor": "expert", "assistant": "assistant",
-                 "viewer": "viewer", "owner": "owner", "admin": "admin", "org_expert": "expert"}
+    org_roles = {
+        "named_expert": "expert",
+        "co_expert": "expert",
+        "supervisor": "expert",
+        "assistant": "assistant",
+        "viewer": "viewer",
+        "owner": "owner",
+        "admin": "admin",
+        "org_expert": "expert",
+    }
     team = seed.org(kind="team", members={p[n]: r for n, r in org_roles.items()})
     seed.org(kind="personal", members={p["outsider"]: "owner"})
     p["case"] = seed.case(

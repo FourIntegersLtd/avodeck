@@ -93,7 +93,11 @@ async def test_a_message_is_shown_in_the_app_and_emailed_at_once_by_default(
     mailer = OutboxMailer()
     async with api_db.request(scope_for(world["expert"])) as conn:
         nid = await notify(
-            conn, mailer, person_id=world["assistant"], organisation_id=world["org"], kind="zz.ready",
+            conn,
+            mailer,
+            person_id=world["assistant"],
+            organisation_id=world["org"],
+            kind="zz.ready",
             case_id=world["case"],
         )
     assert nid is not None
@@ -110,8 +114,14 @@ async def test_emails_never_carry_the_case_name(
     admin.execute("update app.cases set label = 'Mrs Patient Zedd' where id = %s", (world["case"],))
     mailer = OutboxMailer()
     async with api_db.request(scope_for(world["expert"])) as conn:
-        await notify(conn, mailer, person_id=world["expert"], organisation_id=world["org"], kind="zz.ready",
-                     case_id=world["case"])
+        await notify(
+            conn,
+            mailer,
+            person_id=world["expert"],
+            organisation_id=world["org"],
+            kind="zz.ready",
+            case_id=world["case"],
+        )
     assert mailer.outbox and all("Zedd" not in repr(vars(m)) for m in mailer.outbox)
 
 
@@ -121,10 +131,28 @@ async def test_a_muted_kind_is_not_sent_at_all(
     prefs(admin, world["assistant"], world["org"], muted=("zz.ready",))
     mailer = OutboxMailer()
     async with api_db.request(scope_for(world["expert"])) as conn:
-        assert await notify(conn, mailer, person_id=world["assistant"], organisation_id=world["org"],
-                            kind="zz.ready", case_id=world["case"]) is None
-        assert await notify(conn, mailer, person_id=world["assistant"], organisation_id=world["org"],
-                            kind="zz.other", case_id=world["case"]) is not None
+        assert (
+            await notify(
+                conn,
+                mailer,
+                person_id=world["assistant"],
+                organisation_id=world["org"],
+                kind="zz.ready",
+                case_id=world["case"],
+            )
+            is None
+        )
+        assert (
+            await notify(
+                conn,
+                mailer,
+                person_id=world["assistant"],
+                organisation_id=world["org"],
+                kind="zz.other",
+                case_id=world["case"],
+            )
+            is not None
+        )
     assert [r[0] for r in rows(admin, world["assistant"])] == ["zz.other"]
 
 
@@ -134,8 +162,14 @@ async def test_email_only_people_get_the_email_but_no_in_app_message(
     prefs(admin, world["assistant"], world["org"], in_app=False)
     mailer = OutboxMailer()
     async with api_db.request(scope_for(world["expert"])) as conn:
-        await notify(conn, mailer, person_id=world["assistant"], organisation_id=world["org"], kind="zz.ready",
-                     case_id=world["case"])
+        await notify(
+            conn,
+            mailer,
+            person_id=world["assistant"],
+            organisation_id=world["org"],
+            kind="zz.ready",
+            case_id=world["case"],
+        )
     assert rows(admin, world["assistant"]) == [("zz.ready", world["case"], False, True)]
     assert len(mailer.outbox) == 1
 
@@ -146,8 +180,17 @@ async def test_nothing_on_any_channel_writes_nothing(
     prefs(admin, world["assistant"], world["org"], in_app=False, email=False)
     mailer = OutboxMailer()
     async with api_db.request(scope_for(world["expert"])) as conn:
-        assert await notify(conn, mailer, person_id=world["assistant"], organisation_id=world["org"],
-                            kind="zz.ready", case_id=world["case"]) is None
+        assert (
+            await notify(
+                conn,
+                mailer,
+                person_id=world["assistant"],
+                organisation_id=world["org"],
+                kind="zz.ready",
+                case_id=world["case"],
+            )
+            is None
+        )
     assert rows(admin, world["assistant"]) == [] and mailer.outbox == []
 
 
@@ -158,8 +201,14 @@ async def test_one_email_a_day_sends_a_single_daily_count_once_per_date(
     mailer = OutboxMailer()
     async with api_db.request(scope_for(world["expert"])) as conn:
         for kind in ("zz.ready", "zz.other"):
-            await notify(conn, mailer, person_id=world["assistant"], organisation_id=world["org"], kind=kind,
-                         case_id=world["case"])
+            await notify(
+                conn,
+                mailer,
+                person_id=world["assistant"],
+                organisation_id=world["org"],
+                kind=kind,
+                case_id=world["case"],
+            )
     assert mailer.outbox == [], "no email at once for one-email-a-day people"
     daily = OutboxMailer()
     async with worker_db.anonymous() as conn:
@@ -183,8 +232,17 @@ async def test_a_bounced_address_gets_no_email_until_it_changes(
         assert await mark_bounced(conn, "nobody@example.test") is False
     mailer = OutboxMailer()
     async with api_db.request(scope_for(world["expert"])) as conn:
-        assert await notify(conn, mailer, person_id=world["assistant"], organisation_id=world["org"],
-                            kind="zz.ready", case_id=world["case"]) is not None
+        assert (
+            await notify(
+                conn,
+                mailer,
+                person_id=world["assistant"],
+                organisation_id=world["org"],
+                kind="zz.ready",
+                case_id=world["case"],
+            )
+            is not None
+        )
     assert mailer.outbox == []
     assert rows(admin, world["assistant"]) == [("zz.ready", world["case"], True, False)]
     admin.execute("update app.people set email = %s where id = %s", (f"new-{address}", world["assistant"]))
@@ -197,8 +255,14 @@ async def test_only_people_who_can_see_the_case_may_notify_about_it(
 ) -> None:
     async with api_db.request(scope_for(world["outsider"])) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            await notify(conn, OutboxMailer(), person_id=world["expert"], organisation_id=world["org"],
-                         kind="zz.ready", case_id=world["case"])
+            await notify(
+                conn,
+                OutboxMailer(),
+                person_id=world["expert"],
+                organisation_id=world["org"],
+                kind="zz.ready",
+                case_id=world["case"],
+            )
 
 
 async def test_the_person_told_must_belong_to_the_cases_organisation(
@@ -206,30 +270,63 @@ async def test_the_person_told_must_belong_to_the_cases_organisation(
 ) -> None:
     async with api_db.request(scope_for(world["expert"])) as conn:
         with pytest.raises(psycopg.errors.InvalidParameterValue):
-            await notify(conn, OutboxMailer(), person_id=world["outsider"], organisation_id=world["org"],
-                         kind="zz.ready", case_id=world["case"])
+            await notify(
+                conn,
+                OutboxMailer(),
+                person_id=world["outsider"],
+                organisation_id=world["org"],
+                kind="zz.ready",
+                case_id=world["case"],
+            )
         with pytest.raises(psycopg.errors.InvalidParameterValue):
-            await notify(conn, OutboxMailer(), person_id=world["expert"], organisation_id=world["other_org"],
-                         kind="zz.ready", case_id=world["case"])
+            await notify(
+                conn,
+                OutboxMailer(),
+                person_id=world["expert"],
+                organisation_id=world["other_org"],
+                kind="zz.ready",
+                case_id=world["case"],
+            )
 
 
 async def test_a_job_may_notify_about_its_own_case_only(
     worker_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID]
 ) -> None:
     async with worker_db.job(world["case"]) as conn:
-        assert await notify(conn, OutboxMailer(), person_id=world["expert"], organisation_id=world["org"],
-                            kind="zz.ready", case_id=world["case"]) is not None
+        assert (
+            await notify(
+                conn,
+                OutboxMailer(),
+                person_id=world["expert"],
+                organisation_id=world["org"],
+                kind="zz.ready",
+                case_id=world["case"],
+            )
+            is not None
+        )
     async with worker_db.job(world["case"]) as conn:
         with pytest.raises(psycopg.errors.InsufficientPrivilege):
-            await notify(conn, OutboxMailer(), person_id=world["outsider"], organisation_id=world["other_org"],
-                         kind="zz.ready", case_id=world["outsider_case"])
+            await notify(
+                conn,
+                OutboxMailer(),
+                person_id=world["outsider"],
+                organisation_id=world["other_org"],
+                kind="zz.ready",
+                case_id=world["outsider_case"],
+            )
 
 
 async def test_kinds_are_short_codes(api_db: Database, world: dict[str, uuid.UUID]) -> None:
     async with api_db.request(scope_for(world["expert"])) as conn:
         with pytest.raises(psycopg.errors.CheckViolation):
-            await notify(conn, OutboxMailer(), person_id=world["expert"], organisation_id=world["org"],
-                         kind="Your report for Mrs Zedd is ready", case_id=world["case"])
+            await notify(
+                conn,
+                OutboxMailer(),
+                person_id=world["expert"],
+                organisation_id=world["org"],
+                kind="Your report for Mrs Zedd is ready",
+                case_id=world["case"],
+            )
 
 
 async def test_messages_older_than_a_year_are_deleted_by_the_daily_run(

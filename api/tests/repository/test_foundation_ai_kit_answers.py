@@ -40,8 +40,9 @@ async def test_the_kit_passes_task_and_subject_and_a_recorded_retry_is_used(
     book.record(TASK.task_id, SUBJECT, [response({"n": "not a number"}), response({"n": 2})])
     pack = default_library().combine(*combo.codes)
     async with api_db.request(scope_for(expert)) as conn:
-        out = await AiKit(cell(), book).run(conn, TASK, pack=pack, text="synthetic words", case_id=case_id,
-                                            subject=SUBJECT)
+        out = await AiKit(cell(), book).run(
+            conn, TASK, pack=pack, text="synthetic words", case_id=case_id, subject=SUBJECT
+        )
     assert out == {"n": 2}
     assert [(r.task_id, r.subject) for r in book.requests] == [(TASK.task_id, SUBJECT)] * 2
     outcomes = admin.execute("select outcome from app.ai_calls where case_id = %s", (case_id,)).fetchall()

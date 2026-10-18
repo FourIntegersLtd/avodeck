@@ -107,17 +107,23 @@ async def test_choices_default_to_app_and_email_for_each_current_organisation(
     assert set(found) == {str(world["personal"]), str(world["team"])}, "not the organisation I left"
     personal = found[str(world["personal"])]
     assert (personal["in_app"], personal["email"], personal["digest"], personal["muted_kinds"]) == (
-        True, True, False, [],
+        True,
+        True,
+        False,
+        [],
     )
     assert personal["organisation_kind"] == "personal" and found[str(world["team"])]["organisation_name"]
 
 
-async def test_changing_choices_saves_them_per_organisation(
-    client_for: ClientFor, world: dict[str, uuid.UUID]
-) -> None:
+async def test_changing_choices_saves_them_per_organisation(client_for: ClientFor, world: dict[str, uuid.UUID]) -> None:
     client = await client_for(world["me"])
-    change = {"organisation_id": str(world["team"]), "in_app": True, "email": False, "digest": True,
-              "muted_kinds": ["zz.ready"]}
+    change = {
+        "organisation_id": str(world["team"]),
+        "in_app": True,
+        "email": False,
+        "digest": True,
+        "muted_kinds": ["zz.ready"],
+    }
     resp = await client.put("/v1/me/notification-preferences", json=[change])
     assert resp.status_code == 200, resp.text
     found = {p["organisation_id"]: p for p in (await client.get("/v1/me/notification-preferences")).json()}
@@ -140,8 +146,15 @@ async def test_choices_only_for_my_own_current_organisations(
 
 
 async def test_muted_kinds_are_short_codes(client_for: ClientFor, world: dict[str, uuid.UUID]) -> None:
-    body = [{"organisation_id": str(world["personal"]), "in_app": True, "email": True, "digest": False,
-             "muted_kinds": ["Not a code!"]}]
+    body = [
+        {
+            "organisation_id": str(world["personal"]),
+            "in_app": True,
+            "email": True,
+            "digest": False,
+            "muted_kinds": ["Not a code!"],
+        }
+    ]
     assert (await (await client_for(world["me"])).put("/v1/me/notification-preferences", json=body)).status_code == 422
 
 
