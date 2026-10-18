@@ -27,6 +27,7 @@ from typing import Any
 
 from app.core.ai.kit import InvalidOutput
 from app.core.contracts.case_names import party_names
+from app.core.contracts.facts import CITABLE_STATUSES
 from app.core.contracts.questions import confirmed_questions
 from app.core.jobs import JobContext, registry
 from app.core.notifications import notify
@@ -192,6 +193,10 @@ async def _suggest(ctx: JobContext, pack: MergedPack, round_id: uuid.UUID) -> No
 # --- new records since serving --------------------------------------------------------------------------
 
 
+# T-21a sees suggested and citable facts; a fact the expert rejected is never offered.
+OFFERED_STATUSES = sorted(CITABLE_STATUSES | {"suggested"})
+
+
 @registry.kind("find_may_matter", interactive=False, changes_case=False)
 async def find_may_matter(ctx: JobContext) -> None:
     pack = await _pack(ctx)
@@ -205,8 +210,8 @@ async def find_may_matter(ctx: JobContext) -> None:
         facts = await fetch_all(
             conn,
             "select f.id, f.page_id, f.value from app.facts f join app.pages p on p.id = f.page_id"
-            " where f.case_id = %s and p.created_at > %s order by p.bundle_page_no, f.id",
-            (ctx.case_id, served_at),
+            " where f.case_id = %s and p.created_at > %s and f.status = any(%s) order by p.bundle_page_no, f.id",
+            (ctx.case_id, served_at, OFFERED_STATUSES),
         )
         questions = await confirmed_questions(conn, ctx.case_id)
         if not facts or not questions:
