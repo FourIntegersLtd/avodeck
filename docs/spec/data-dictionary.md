@@ -500,7 +500,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | check_key | Which "Things to look at" check |
-| enabled / gentle | On or off, and whether it uses softer wording |
+| enabled | On or off (a check the pack starts off stays off until switched on) |
+| window_days | The expert's own number of days for the check, if they changed it |
 
 ### findings
 | Field | In plain words |
@@ -508,6 +509,20 @@ A joint expert is one with two or more current instructing parties; no separate 
 | check_key | Which check found it |
 | evidence_fact_ids[] | The facts behind it |
 | decision / reason | The expert's decision (relevant, not relevant, explained elsewhere) and why |
+| status | Open, or gone when a later run no longer finds it (never deleted) |
+| gentle | Whether the screen uses the softer wording |
+
+### check_runs
+| Field | In plain words |
+|---|---|
+| pack_version | Which version of the packs the checks came from |
+| checks | Which checks ran |
+
+### case_guideline_versions
+| Field | In plain words |
+|---|---|
+| code / version_label | Which guideline and which version the case was shown |
+| table_reviewed_at | When that entry of the guidance table was last reviewed |
 
 ### availability_overrides
 | Field | In plain words |

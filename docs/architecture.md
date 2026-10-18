@@ -289,8 +289,10 @@ How facts relate to the questions, and what the checks found.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `fact_question_links` | Which facts relate to which question (suggested by the computer, confirmed by the expert). | fact_id, question_id, status, reason |
-| `check_config` | The expert's on/off choices for "Things to look at" checks. | expert_id, check_key, enabled, gentle |
-| `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, evidence_fact_ids[], decision, reason |
+| `check_config` | The expert's on/off choices for "Things to look at" checks, and any window they changed. | person_id, check_key, enabled, window_days |
+| `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, rule, gentle, evidence_fact_ids[], evidence_page_ids[], status (open, gone), decision, reason, run_id |
+| `check_runs` | Each time the checks ran on a case, with the pack version and which checks ran. | case_id, job_id, pack_version, checks |
+| `case_guideline_versions` | Which guideline version a case was shown, so a later change to the guidance table shows a notice. | case_id, code, version_label, table_reviewed_at |
 | `availability_overrides` | The expert's corrections to when an item became available to the clinician. | case_id, fact_id, available_at, unknown, reason, at |
 | `consultation_notes` | The expert's private notes on a consultation. | case_id, fact_id, text |
 | `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
@@ -550,9 +552,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=` | Events by lane with verification status and links |
-| POST | `/cases/{case_id}/links/suggest` | Run T-11 (202 + job) |
-| PATCH | `/cases/{case_id}/links/{link_id}` | Confirm / reject suggested link |
-| POST | `/cases/{case_id}/links` | Add a link by hand |
+| GET | `/cases/{case_id}/fact-links?status=` | Fact–question links (`stale` when the fact was rejected) |
+| POST | `/cases/{case_id}/fact-links/suggest` | Run T-11 (202 + job) |
+| PATCH | `/cases/{case_id}/fact-links/{link_id}` | Confirm / reject suggested link |
+| POST | `/cases/{case_id}/fact-links` | Add a link by hand (checked facts only) |
 
 **12 One consultation, as the clinician saw it**
 
