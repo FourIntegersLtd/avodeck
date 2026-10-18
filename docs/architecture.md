@@ -238,7 +238,7 @@ One instruction: who it's for, who's involved, what was asked.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `cases` | One instruction to give expert evidence. Belongs to one organisation and has one named expert whose evidence it is. Everything else in a case hangs off this. | organisation_id, named_expert_id, jurisdiction, case_type, specialty, expert_role, pack_versions, label ("Mrs A"), subject_status (living/deceased/minor), party_role, court_track, due_date, period_start, period_end, stage, status, on_hold, retention_policy, delete_after, settled_at |
+| `cases` | One instruction to give expert evidence. Belongs to one organisation and has one named expert whose evidence it is. Everything else in a case hangs off this. | organisation_id, named_expert_id, jurisdiction, case_type, specialty, expert_role, pack_versions, label ("Mrs A"), subject_status (living/deceased/minor), party_role, court_track, due_date, period_start, period_end, stage, status, on_hold, retention_policy, delete_after, settled_at, closed_at |
 | `case_members` | Other people added to a case (assistant, supervisor, co-expert, viewer). They can help or view; only the named expert signs and verifies. | case_id, person_id, case_role, added_by, added_at, removed_at |
 | `case_parties` | The people and organisations on each side of the claim (e.g. the claimant, a GP and a hospital trust). | case_id, role_key, name, representative (name and representative encrypted under the case key) |
 | `case_instructing_parties` | Who instructed the expert (usually one firm; two for a joint expert), with dates if the firm changes. | case_id, type_key, name, firm, email, reference, effective_from, effective_to, replaces_id (joint = two or more current rows; no stored flag) |
@@ -372,12 +372,12 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
-| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, code_version, error_code |
+| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, code_version, error_code, requested_by |
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
 | `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, append, expires_at, completed_at |
-| `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, in_app, created_at, read_at, emailed_at |
+| `notifications` | Messages shown in the app or emailed (never with patient details). | person_id, organisation_id, case_id, kind, in_app, created_at, read_at, emailed_at, held_at |
 | `feature_flags` | Switches that turn features on for everyone, a region, an organisation or a person. | key, scope, scope_id, enabled |
 | `audit_log` | Every important action: who, for which organisation, on which case, what. Chained so tampering shows. Kept as metadata after a case is deleted. | person_id, organisation_id, case_id, action, target, at, prev_hash, hash |
 | `idempotency_keys` | The first answer to a request sent with an `Idempotency-Key`, kept for 24 hours so a repeat (double click, retry) does the work once (F27). | person_id, key, case_id, fingerprint, status_code, response_body (sealed), created_at, expires_at |
@@ -1242,7 +1242,7 @@ Section 4 says what is stored; this section says how it behaves: who can do what
 - **Idempotency.** Creating, sending, serving and signing accept an `Idempotency-Key` header; a repeat returns the first result.
 - **Search and embeddings** store the model that produced them. A model change triggers a re-index job; queries use only current rows.
 - **Audit log versus deletion.** When a case is deleted:
-  - its content goes, and its audit rows are kept as pseudonymised metadata (IDs and hashes, no content) for 6 years for security;
+  - its content goes, and its audit rows are kept unchanged as pseudonymised metadata for 6 years for security: they hold only IDs, short codes and hashes, and the IDs of deleted case data point at nothing (ADR 0015);
   - `page_reads` and `fact_verifications` are deleted with the case, but the final hash of each chain is written on the deletion certificate.
 - **Legal hold.** `legal_holds` (case, reason, set by, until) blocks deletion; the retention job skips held cases and notifies the expert. Holds are set by the named expert or an organisation owner (step-up).
 - **Deletion ledger.** Every deleted case ID is kept in `deletion_ledger`. After any backup restore, the ledger is re-applied before the service reopens, so restored backups cannot bring deleted cases back. The deletion job removes rows through `app.purge_case(case_id)` (in `PURGE_ORDER`, `api/app/core/contracts/case_tables.py`), which keeps the case row as a tombstone and the audit rows unchanged: they hold IDs and short codes only, and the hash chain covers every column, so rewriting them would break it.

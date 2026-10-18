@@ -357,12 +357,11 @@ def test_a_finished_certificate_never_changes(worker_dsn: str, team: dict[str, u
 def withdraw_on(admin: psycopg.Connection, case: uuid.UUID, day: date) -> None:
     with admin.transaction():
         admin.execute("set local session_replication_role = replica")
-        admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
-    admin.execute(
-        "insert into app.audit_log (case_id, action, target, at)"
-        " values (%s, 'case.withdrawn', %s, (%s::date + time '12:00')::timestamptz)",
-        (case, f"case:{case}", day),
-    )
+        admin.execute(
+            "update app.cases set status = 'withdrawn', closed_at = (%s::date + time '12:00')::timestamptz"
+            " where id = %s",
+            (day, case),
+        )
 
 
 def test_withdrawing_a_case_records_the_day_for_its_members(
@@ -370,10 +369,8 @@ def test_withdrawing_a_case_records_the_day_for_its_members(
 ) -> None:
     case = team["case"]
     admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
-    audit = admin.execute(
-        "select count(*) from app.audit_log where case_id = %s and action = 'case.withdrawn'", (case,)
-    ).fetchone()
-    assert audit == (1,)
+    closed = admin.execute("select closed_at::date from app.cases where id = %s", (case,)).fetchone()
+    assert closed == (date.today(),)
     with as_person(api_dsn, team["assistant"]) as conn:
         assert conn.execute("select app.close_withdrawn_on(%s)", (case,)).fetchone() == (date.today(),)
     with pytest.raises(Refused), as_person(api_dsn, team["outsider"]) as conn:

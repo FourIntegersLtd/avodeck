@@ -6,6 +6,9 @@ A muted kind goes nowhere. Emails carry a template and the kind only, never a ca
 text. A bounced address gets no email until it changes. Who may notify, and whom, is checked by
 `app.notify()` in the database (a case the caller can see, or a job's own case).
 
+A message about a case on hold is kept back (not listed, not emailed) until the case resumes
+(`app.core.case_hold.release_case_hold`); `while_on_hold=True` is for a message about the hold itself.
+
 `send_daily` is the worker's daily schedule (keyed by date, F28): one email per "one email a day"
 person with a count, and messages over a year old are deleted.
 """
@@ -28,7 +31,7 @@ DIGEST_TEMPLATE = NOTIFICATION_DIGEST
 DAILY = "notifications_daily"
 
 
-async def _send(mailer: Mailer, mail: Mail) -> None:
+async def send_mail(mailer: Mailer, mail: Mail) -> None:
     """Email is best effort: a failure is logged by type only and the message stays in the app."""
     try:
         await mailer.send(mail)
@@ -44,20 +47,21 @@ async def notify(
     organisation_id: uuid.UUID,
     kind: str,
     case_id: uuid.UUID | None = None,
+    while_on_hold: bool = False,
 ) -> uuid.UUID | None:
     """Tells one person; returns the message id, or None when their choices send it nowhere."""
     # In a savepoint: a refusal leaves the caller's transaction usable.
     async with conn.transaction():
         cur = await conn.execute(
-            "select notification_id, email from app.notify(%s, %s, %s, %s)",
-            (person_id, organisation_id, case_id, kind),
+            "select notification_id, email from app.notify(%s, %s, %s, %s, %s)",
+            (person_id, organisation_id, case_id, kind, while_on_hold),
         )
         row = await cur.fetchone()
     if row is None:
         return None
     message_id, email = row
     if email:
-        await _send(mailer, Mail(to=email, template=NOTIFY_TEMPLATE, params={"kind": kind}))
+        await send_mail(mailer, Mail(to=email, template=NOTIFY_TEMPLATE, params={"kind": kind}))
     return message_id  # type: ignore[no-any-return]
 
 
@@ -66,7 +70,7 @@ async def send_daily(conn: AsyncConnection, run_date: date, mailer: Mailer) -> i
     cur = await conn.execute("select email, message_count from app.notifications_daily(%s)", (run_date,))
     rows = await cur.fetchall()
     for email, count in rows:
-        await _send(mailer, Mail(to=email, template=DIGEST_TEMPLATE, params={"count": str(count)}))
+        await send_mail(mailer, Mail(to=email, template=DIGEST_TEMPLATE, params={"count": str(count)}))
     return len(rows)
 
 

@@ -23,7 +23,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `billing_profiles` | O (personal ones in F) | Person or org owner | One per issuer | Number sequence never skips; edits don't touch sent invoices | Kept with sent invoices for tax |
 | `notification_preferences` | Foundation | The person | One per person per org | Edit freely | Deleted with the membership |
 | `support_access_grants` | O | Named expert grants or revokes | Any; one active per case | Expire after 24 hours | Audit rows kept |
-| `cases` | Foundation (C fills) | Named expert; org admin for admin fields | Many per org | State machine; on hold flag; named expert fixed after serving | Case deletion; legal hold blocks |
+| `cases` | Foundation (C fills) | Named expert; org admin for admin fields | Many per org | State machine; on hold flag; named expert fixed after serving; settled_at and closed_at set by the system | Case deletion; legal hold blocks |
 | `case_members` | C | Named expert or org admin | Many per case | Added and removed with dates, history kept | Removed when membership ends unless named |
 | `case_parties` | C | Named expert or assistant | Many | Editable until served; then additions only | Case deletion |
 | `case_instructing_parties` | C | Named expert or assistant | One or more (joint) | Change of firm = new row with dates | Case deletion |
@@ -101,12 +101,12 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
 | `deletion_ledger` | Foundation (H writes, through `app.purge_case`) | System | One per deleted case | Append only; replayed after restore (`app.replay_deletion_ledger`) | Kept |
 | `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
-| `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case | Metadata kept 90 days |
+| `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case; waits while its case is on hold; requested_by set by the system | Metadata kept 90 days |
 | `job_kind_actions` | Foundation | Migrations only | One per job kind | Read-only reference | Kept (no patient data) |
 | `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
 | `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
 | `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open; daily sweep expires unfinished uploads after 7 days and deletes their chunks; completing publishes `DocumentUploaded` (with `append`) in the same transaction | Case deletion |
-| `notifications` | Foundation | System; the person marks read | Many | Read state only | Deleted after 1 year; case ones with the case |
+| `notifications` | Foundation | System; the person marks read | Many | Read state only; held while the case is on hold | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |
 | `idempotency_keys` | Foundation | System | One per person per key | Replaced only after it expires | Expired after 24 hours |

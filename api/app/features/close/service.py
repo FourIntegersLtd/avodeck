@@ -190,12 +190,15 @@ def export_path(case_id: uuid.UUID, job_id: uuid.UUID, variant: str) -> str:
 
 
 async def check_export_done(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
-    """404 unless `job_id` is an export of this case; 409 until it has finished."""
+    """404 unless `job_id` is an export of this case; 409 until it has finished; then 404 unless the
+    caller asked for it (only the requester's copy is built)."""
     job = await repo.export_job(conn, case_id, job_id)
     if job is None:
         raise ApiError("not_found", "Not found.", 404)
     if job["status"] != "done":
         raise conflict()
+    if not job["mine"]:
+        raise ApiError("not_found", "Not found.", 404)
 
 
 async def download_export(

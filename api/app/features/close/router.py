@@ -7,9 +7,9 @@ access dependency enforces it for those actions. `delete_now` also needs `case.d
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Query, Request, Response
 from fastapi.responses import StreamingResponse
 
 from app.core.auth.access import CaseAccess, require_case_access
@@ -21,6 +21,7 @@ from app.core.packs import PackLibrary
 from app.core.storage import SupabaseStorage
 from app.features.close import jobs as _jobs  # noqa: F401  (registers export_case and delete_case)
 from app.features.close import repo, service
+from app.features.close.certificate import certificate_pdf
 from app.features.close.schemas import (
     AuditEntry,
     AuditTrail,
@@ -125,14 +126,35 @@ async def audit_trail(
     return AuditTrail(entries=[AuditEntry(**row) for row in await repo.audit_trail(conn, case_id)])
 
 
-@router.get("/deletion-certificate", response_model=Certificate)
+@router.get(
+    "/deletion-certificate",
+    response_model=Certificate,
+    # The PDF is not a second content type here: the typed web client would lose the JSON shape.
+    responses={200: {"description": "As JSON; as `application/pdf` with `?format=pdf` or `Accept: application/pdf`."}},
+)
 async def deletion_certificate(
-    case_id: uuid.UUID, conn: DbConn, _: _access("case.view_certificate")  # type: ignore[valid-type]
-) -> Certificate:
+    case_id: uuid.UUID,
+    request: Request,
+    conn: DbConn,
+    _: _access("case.view_certificate"),  # type: ignore[valid-type]
+    format: Annotated[Literal["json", "pdf"] | None, Query()] = None,  # noqa: A002 - the query name
+) -> Certificate | Response:
+    """The certificate as JSON, or as a PDF (`?format=pdf` or `Accept: application/pdf`)."""
     row = await repo.deletion(conn, case_id)
     if row is None or row["deleted_at"] is None:
         raise ApiError("not_found", "Not found.", 404)
-    return Certificate(**row)
+    cert = Certificate(**row)
+    wants_pdf = format == "pdf" or (format is None and "application/pdf" in request.headers.get("accept", ""))
+    if not wants_pdf:
+        return cert
+    return Response(
+        certificate_pdf(cert),
+        media_type="application/pdf",
+        headers={
+            "Cache-Control": "private, no-store",
+            "Content-Disposition": f'attachment; filename="deletion-certificate-{case_id}.pdf"',
+        },
+    )
 
 
 @router.post("/export", status_code=202, response_model=JobQueued)

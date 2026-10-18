@@ -19,7 +19,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access, require_case_access
+from app.core.case_hold import release_case_hold
 from app.core.contracts.instructing_parties import ORAL_INSTRUCTION_PURPOSE
+from app.core.contracts.members import case_member_names
 from app.core.crypto import CaseCrypto, subject_key_hash
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -82,6 +84,7 @@ class Member(BaseModel):
     person_id: uuid.UUID
     case_role: str
     added_at: datetime
+    display_name: str | None = None
 
 
 class MemberIn(BaseModel):
@@ -98,7 +101,9 @@ _MEMBER = "select id, person_id, case_role, added_at from app.case_members"
 async def list_members(case_id: uuid.UUID, access: ViewMetadata, conn: DbConn) -> list[Member]:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(f"{_MEMBER} where case_id = %s and removed_at is null order by added_at, id", (case_id,))
-        return [Member(**r) for r in await cur.fetchall()]
+        rows = await cur.fetchall()
+    names = await case_member_names(conn, case_id)
+    return [Member(**r, display_name=names.get(r["person_id"])) for r in rows]
 
 
 @router.post("/cases/{case_id}/members", status_code=201, response_model=Member)
@@ -128,7 +133,8 @@ async def add_member(case_id: uuid.UUID, body: MemberIn, access: ManageMembers, 
         await dcur.execute(f"{_MEMBER} where id = %s", (member_id,))
         added = await dcur.fetchone()
     assert added is not None
-    return Member(**added)
+    names = await case_member_names(conn, case_id)
+    return Member(**added, display_name=names.get(added["person_id"]))
 
 
 @router.delete("/cases/{case_id}/members/{member_id}", status_code=204)
@@ -954,8 +960,13 @@ async def hold_case(case_id: uuid.UUID, access: HoldAccess, conn: DbConn, respon
 
 
 @router.post("/cases/{case_id}/resume", response_model=Hold)
-async def resume_case(case_id: uuid.UUID, access: HoldAccess, conn: DbConn, response: Response) -> Hold:
-    return await _hold(conn, case_id, False, response)
+async def resume_case(
+    case_id: uuid.UUID, access: HoldAccess, conn: DbConn, request: Request, response: Response
+) -> Hold:
+    """Takes the case off hold and releases what the hold kept back (jobs and messages)."""
+    resumed = await _hold(conn, case_id, False, response)
+    await release_case_hold(conn, request.app.state.mailer, case_id)
+    return resumed
 
 
 # --- the subject's words -------------------------------------------------------------------------------

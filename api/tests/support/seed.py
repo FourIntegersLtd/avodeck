@@ -122,9 +122,12 @@ class Seed:
         )
         return pid
 
-    def job(self, case: uuid.UUID, *, kind: str = "process_bundle") -> uuid.UUID:
+    def job(self, case: uuid.UUID, *, kind: str = "process_bundle", requested_by: uuid.UUID | None = None) -> uuid.UUID:
         jid = uuid.uuid4()
-        self.admin.execute("insert into app.jobs (id, case_id, kind) values (%s, %s, %s)", (jid, case, kind))
+        self.admin.execute(
+            "insert into app.jobs (id, case_id, kind, requested_by) values (%s, %s, %s, %s)",
+            (jid, case, kind, requested_by),
+        )
         return jid
 
     def notification(self, person: uuid.UUID, org: uuid.UUID, case: uuid.UUID | None = None) -> uuid.UUID:

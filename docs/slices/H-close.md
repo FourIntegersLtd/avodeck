@@ -52,7 +52,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 - [x] Deletion skips a case with an active legal hold and notifies the named expert (S13, F30)
 - [x] Every deleted case ID goes in `deletion_ledger`; the restore runbook replays it before reopening (S14, F29)
-- [ ] On deletion, audit rows are kept as pseudonymised metadata; `page_reads` and `fact_verifications` go, with their chain heads on the certificate (chain heads built; audit pseudonymisation awaits a founder decision)
+- [x] On deletion, audit rows are kept as pseudonymised metadata; `page_reads` and `fact_verifications` go, with their chain heads on the certificate (audit rows stay unchanged: ids and short codes only, pointing at nothing once the case is gone; ADR 0015)
 - [x] Quarantined pages, superseded pages and exhibits are included in deletion
 - [x] Organisation admins get an administrative export (no page images); the named expert gets the full export
 - [x] Withdrawn cases follow the same retention as settled ones
@@ -65,14 +65,14 @@ Producing the content being exported (other slices), invoice generation (F).
 
 ## As built (scope notes)
 - `POST /settle` takes no body; the database sets `settled_at`. `GET /close` returns the screen's summary.
-- The certificate is JSON (counts, hashes, log chain heads, dates, recipient role codes); a PDF waits for a PDF library (foundation).
+- The certificate is JSON (counts, hashes, log chain heads, dates, recipient role codes), or a PDF of the same values with `?format=pdf` or `Accept: application/pdf` (`app/core/pdf_document.py`; words in `features/close/words/`).
 - Backups are assumed gone 30 days after deletion (`BACKUP_RETENTION_DAYS` in `features/close/jobs.py`); settled or withdrawn cases archive after 30 days.
 - The export marks four files `not_built_yet` (methodology, page reads, invoices, requests) until their slices expose a source.
 - A deleted case answers only `deletion-certificate` (foundation 0018; the guard `test_only_the_certificate_passes_on_a_deleted_case` forbids widening it). `GET /close` is 404 there by decision, and S26 shows the certificate on its own when the case answers 404. The strict xfail `test_a_deleted_case_still_shows_its_close_summary` records that decision.
 - The certificate email goes to the named expert only, until instructing-party contacts and org-admin recipients exist.
-- A withdrawn case's retention counts from the day it was withdrawn: H's trigger records a `case.withdrawn` audit row when a case moves to withdrawn (`app.close_withdrawn_on`); a `closed_at` column on `cases` (foundation) would be cleaner.
+- A withdrawn case's retention counts from the day it was withdrawn: `cases.closed_at` (foundation 0022), read through `app.close_withdrawn_on` (0803 replaced H's audit-row trigger).
 - Reopening is refused (409) once `delete_after` has come. Exports are refused once deletion has started; the export job holds a share lock on the case so a deletion run starts either before it (nothing written) or after it (its Storage sweep removes the copies).
-- Export copies nobody downloaded are removed by the daily run `EXPORT_KEEP_DAYS` (7) days after they were made. Both copies (`full`, `admin`) are still built for every request (the route tests expect the expert's copy to survive an admin's download); building only the requester's copy needs the requester on the job (foundation).
+- Export copies nobody downloaded are removed by the daily run `EXPORT_KEEP_DAYS` (7) days after they were made. Only the requester's copy is built (`jobs.requested_by`, foundation 0022): `full` for the named expert, `admin` for an organisation admin; only the requester may download it (404 for anyone else).
 - The download streams in 1 MB pieces; `CaseCrypto` opens a file whole, so the decrypted ZIP is held in memory once. The worker builds each ZIP in a temporary file.
 - `GET /close` shows `deletion_started` to every case member (`app.close_deletion_started`); the certificate itself stays `case.view_certificate`.
 - S26 is mounted by `app/capabilityRoutes.ts` from `closeRoutes`; its words are registered by the capability (`words.ts`). Its Playwright check (axe, 52px buttons, 17px text) runs against a stubbed settled case.

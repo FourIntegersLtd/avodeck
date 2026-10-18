@@ -10,7 +10,8 @@
   Withdrawn cases follow the same retention as settled ones, from the day they are closed.
 - `POST /legal-holds` 🔒 and `POST /legal-holds/{hold_id}/release` 🔒: the named expert or an owner.
 - `GET /audit`: the case's audit trail for the named expert and organisation admins.
-- `GET /deletion-certificate`: 404 until the case is deleted; then counts, hashes and dates only.
+- `GET /deletion-certificate`: 404 until the case is deleted; then counts, hashes and dates only, as JSON
+  or (`?format=pdf` or `Accept: application/pdf`) as a PDF with no patient details.
 - `POST /export` 🔒: 202 and an `export_case` job for the named expert or an organisation admin.
 - Export, retention, deletion and holds refuse without step-up (403 `step_up_required`).
 """
@@ -533,6 +534,62 @@ async def test_the_certificate_carries_counts_hashes_and_dates_only(
     assert body["sent_to"] == ["named_expert"]
 
 
+def deleted_with_certificate(admin: psycopg.Connection, case: uuid.UUID, expiry: date) -> None:
+    admin.execute(
+        "insert into app.deletion_certificates (case_id, deleted_at, counts, hashes, log_chain_heads,"
+        " backup_expiry_on, sent_to) values (%s, now(), '{\"pages\": 3}', '{\"documents\": [\"ab12\"]}',"
+        " '{\"page_reads\": \"cd34\"}', %s, '{named_expert}')",
+        (case, expiry),
+    )
+    admin.execute("update app.cases set status = 'deleted', label = null where id = %s", (case,))
+
+
+@pytest.mark.parametrize("ask", [{"params": {"format": "pdf"}}, {"headers": {"accept": "application/pdf"}}])
+async def test_the_certificate_comes_as_a_pdf_without_patient_details(
+    ask: dict[str, Any], client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    import pypdfium2 as pdfium
+
+    case = new_case(seed, team, "settled")
+    admin.execute("update app.people set full_name = 'Zed Named Expert' where id = %s", (team["expert"],))
+    expiry = date.today() + timedelta(days=30)
+    deleted_with_certificate(admin, case, expiry)
+    resp = await (await client_for(team["expert"])).get(f"/v1/cases/{case}/deletion-certificate", **ask)
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"] == "application/pdf"
+    assert "no-store" in resp.headers["cache-control"]
+    assert f"deletion-certificate-{case}.pdf" in resp.headers["content-disposition"]
+    doc = pdfium.PdfDocument(resp.content)
+    text = "\n".join(doc[i].get_textpage().get_text_range() for i in range(len(doc)))
+    doc.close()
+    for value in (str(case), "pages", "3", "ab12", "cd34", str(expiry)):
+        assert value in text, value
+    for private in ("Case Z", "Zed Named Expert", "@example.test"):
+        assert private not in text, private
+
+
+async def test_the_certificate_is_json_unless_a_pdf_is_asked_for(
+    client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    deleted_with_certificate(admin, case, date.today())
+    client = await client_for(team["admin"])
+    resp = await client.get(f"/v1/cases/{case}/deletion-certificate")
+    assert resp.status_code == 200 and resp.headers["content-type"] == "application/json"
+    bad = await client.get(f"/v1/cases/{case}/deletion-certificate", params={"format": "zz"})
+    assert bad.status_code == 422
+
+
+async def test_the_certificate_pdf_is_not_there_until_the_case_is_deleted(
+    client_for: ClientFor, seed: Seed, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    resp = await (await client_for(team["expert"])).get(
+        f"/v1/cases/{case}/deletion-certificate", params={"format": "pdf"}
+    )
+    assert resp.status_code == 404
+
+
 @TOMBSTONE
 async def test_a_deleted_case_still_shows_its_close_summary(
     client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
@@ -585,15 +642,14 @@ async def test_a_download_waits_for_the_export_to_finish(
 
 
 def withdraw_on(admin: psycopg.Connection, case: uuid.UUID, day: date) -> None:
-    """The case was withdrawn on `day` (the status set without triggers, the day recorded as it would be)."""
+    """The case was withdrawn on `day` (the status set without triggers, `closed_at` as it would be)."""
     with admin.transaction():
         admin.execute("set local session_replication_role = replica")
-        admin.execute("update app.cases set status = 'withdrawn' where id = %s", (case,))
-    admin.execute(
-        "insert into app.audit_log (case_id, action, target, at)"
-        " values (%s, 'case.withdrawn', %s, (%s::date + time '12:00')::timestamptz)",
-        (case, f"case:{case}", day),
-    )
+        admin.execute(
+            "update app.cases set status = 'withdrawn', closed_at = (%s::date + time '12:00')::timestamptz"
+            " where id = %s",
+            (day, case),
+        )
 
 
 @pytest.mark.parametrize("days_ago", [0, 3])

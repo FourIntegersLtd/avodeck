@@ -124,6 +124,7 @@ async def _tell_paused(ctx: JobContext, conn: AsyncConnection, case: dict[str, A
             organisation_id=case["organisation_id"],
             kind=PAUSED_KIND,
             case_id=case["id"],
+            while_on_hold=True,
         )
 
 
@@ -277,8 +278,9 @@ async def _deleting(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
 
 
 async def export_case(ctx: JobContext) -> None:
-    """Builds both copies: `full` for the named expert (with the bundle) and `admin` for an
-    organisation admin (report versions, hashes and logs; no bundle or page images).
+    """Builds the requester's copy only: `full` for the named expert (with the bundle), `admin` for
+    anyone else allowed to export, an organisation admin (report versions, hashes and logs; no bundle
+    or page images). A job nobody asked for (`requested_by` empty) builds nothing.
 
     The case row stays share-locked until the copies are stored, so a deletion run starts either
     before (and this writes nothing) or after (and its Storage sweep finds the copies). Each copy is
@@ -288,6 +290,15 @@ async def export_case(ctx: JobContext) -> None:
     async with ctx.transaction() as conn:
         if await _deleting(conn, ctx.case_id):
             return
+        asked = await _one(
+            conn,
+            "select j.requested_by = c.named_expert_id as expert from app.jobs j join app.cases c on c.id = j.case_id"
+            " where j.id = %s and j.requested_by is not null",
+            (ctx.job_id,),
+        )
+        if asked is None:
+            return
+        variants: tuple[str, ...] = ("full",) if asked["expert"] else ("admin",)
         reports = await _all(
             conn,
             "select version_no, pdf_path, docx_path, sha256 from app.report_versions where case_id = %s"
@@ -301,12 +312,12 @@ async def export_case(ctx: JobContext) -> None:
             (ctx.case_id,),
         )
         with contextlib.ExitStack() as stack:
-            files = {v: stack.enter_context(tempfile.TemporaryFile()) for v in VARIANTS}
-            archives = {v: zipfile.ZipFile(files[v], "w", zipfile.ZIP_DEFLATED) for v in VARIANTS}
-            names: dict[str, list[str]] = {v: [] for v in VARIANTS}
-            hashes: dict[str, list[dict[str, str]]] = {v: [] for v in VARIANTS}
+            files = {v: stack.enter_context(tempfile.TemporaryFile()) for v in variants}
+            archives = {v: zipfile.ZipFile(files[v], "w", zipfile.ZIP_DEFLATED) for v in variants}
+            names: dict[str, list[str]] = {v: [] for v in variants}
+            hashes: dict[str, list[dict[str, str]]] = {v: [] for v in variants}
 
-            def add(variants: tuple[str, ...], name: str, recorded: str | None, data: bytes) -> None:
+            def add(name: str, recorded: str | None, data: bytes) -> None:
                 row = _hash_row(name, recorded, data)
                 for v in variants:
                     archives[v].writestr(name, data)
@@ -317,12 +328,12 @@ async def export_case(ctx: JobContext) -> None:
                 for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
                     if path is not None:
                         data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-                        add(VARIANTS, f"report-versions/v{r['version_no']}.{ext}", recorded, data)
-            for d in documents:
+                        add(f"report-versions/v{r['version_no']}.{ext}", recorded, data)
+            for d in documents if "full" in variants else []:
                 path = d["storage_path"]
                 data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-                add(("full",), f"bundle/{d['id']}{PurePosixPath(path).suffix}", d["sha256"], data)
-            for variant in VARIANTS:
+                add(f"bundle/{d['id']}{PurePosixPath(path).suffix}", d["sha256"], data)
+            for variant in variants:
                 _finish_zip(archives[variant], names[variant], hashes[variant], ctx.case_id, variant)
                 files[variant].seek(0)
                 target = export_path(ctx.case_id, ctx.job_id, variant)
@@ -406,8 +417,8 @@ async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -
 
 
 def register(reg: JobRegistry, *, daily_name: str = DAILY) -> None:
-    reg.kind("export_case", changes_case=False)(export_case)
-    reg.kind("delete_case", changes_case=True)(delete_case)
+    reg.kind("export_case", changes_case=False, runs_on_hold=True)(export_case)
+    reg.kind("delete_case", changes_case=True, runs_on_hold=True)(delete_case)
 
     async def daily(conn: AsyncConnection, run_date: date) -> None:
         await close_daily(reg, conn, run_date)

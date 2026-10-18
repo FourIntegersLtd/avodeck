@@ -178,9 +178,10 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | period_start / period_end | The period of care the questions are about |
 | stage | Where the case is in the workflow (prepare, read, understand, write, court) |
 | status | Its state: draft, processing, active, served, settled, withdrawn, archived, deleted |
-| on_hold | Paused (e.g. court stay); reminders stop |
+| on_hold | Paused (e.g. court stay); reminders stop and processing waits until it is cleared |
 | retention_policy / delete_after | How long to keep the case after it ends (a short code), and the resulting deletion date |
 | settled_at | When the case was last settled; set by the system, kept when archived, cleared when reopened. The retention clock runs from it |
+| closed_at | When the case was last settled or withdrawn; set by the system, kept when archived or deleted, cleared when reopened. A withdrawn case's retention clock runs from it |
 
 ### case_members
 | Field | In plain words |
@@ -810,7 +811,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | kind / status / priority | What the background work is, its state, and how urgent |
 | attempts | How many times it has been tried |
 | step / pct / eta_seconds | Which step it is on (a short code), progress and time left |
-| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed (a short code, never text) |
+| code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed, or `case_on_hold` while it waits for its case to resume (a short code, never text) |
+| requested_by | The person who asked for it; empty for work started by another job or the daily run. Set by the system |
 
 ### job_kind_actions
 | Field | In plain words |
@@ -848,6 +850,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | kind | What happened (e.g. bundle ready), as a short code the app turns into words |
 | in_app | Whether it shows in the app (false when the person only wants email) |
 | read_at / emailed_at | When seen and when emailed |
+| held_at | Set while the message waits because its case is on hold; it is not shown or emailed until the case resumes |
 
 ### feature_flags
 | Field | In plain words |

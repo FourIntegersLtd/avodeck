@@ -64,7 +64,10 @@ Row-level security lets a person update a row; triggers then check each change a
 - `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`, → settled `case.settle`, → archived `case.archive`, settled or archived → active `case.reopen`; any other move and every other column `case.edit_setup`.
 - `app.purge_case()`: only the worker, inside the case's own job (`app.job_case_id`); refused while the case is on hold or under an active legal hold.
 - `missing_items`: status, reason and received page change only with `request.draft`; the description and the page it cites never change; the worker inserts.
-- `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one.
+- `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one. `jobs.requested_by` is the signed-in person, set by the database; nobody sets it by hand.
+- `app.release_case_hold()`: `case.hold` (or the case's own job), and only once the case is off hold (409 otherwise).
+- `app.case_member_names()`: `case.view_metadata` (or the case's own job); anyone else gets no names.
+- An export (`export_case`) is downloaded only by the person who asked for it (`jobs.requested_by`); anyone else gets 404.
 
 ## Organisation actions
 

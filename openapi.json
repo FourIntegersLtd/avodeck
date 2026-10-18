@@ -3226,6 +3226,17 @@
             "title": "Case Role",
             "type": "string"
           },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -7697,6 +7708,7 @@
     },
     "/v1/cases/{case_id}/deletion-certificate": {
       "get": {
+        "description": "The certificate as JSON, or as a PDF (`?format=pdf` or `Accept: application/pdf`).",
         "operationId": "deletion_certificate_v1_cases__case_id__deletion_certificate_get",
         "parameters": [
           {
@@ -7707,6 +7719,26 @@
               "format": "uuid",
               "title": "Case Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "json",
+                    "pdf"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Format"
             }
           }
         ],
@@ -7719,7 +7751,7 @@
                 }
               }
             },
-            "description": "Successful Response"
+            "description": "As JSON; as `application/pdf` with `?format=pdf` or `Accept: application/pdf`."
           },
           "422": {
             "content": {
@@ -10844,6 +10876,7 @@
     },
     "/v1/cases/{case_id}/resume": {
       "post": {
+        "description": "Takes the case off hold and releases what the hold kept back (jobs and messages).",
         "operationId": "resume_case_v1_cases__case_id__resume_post",
         "parameters": [
           {
