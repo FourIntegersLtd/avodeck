@@ -574,7 +574,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | version_no / body / citation_refs | Each saved version of the text and its references |
-| saved_at / saved_by | When and by whom |
+| created_at / saved_by | When and by whom it was saved |
 
 ### lint_issues
 | Field | In plain words |
