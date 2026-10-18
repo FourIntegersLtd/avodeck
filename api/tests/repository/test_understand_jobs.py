@@ -289,7 +289,7 @@ async def test_only_checked_facts_are_looked_at(bundle: Bundle) -> None:
 
 async def test_the_model_labels_the_words_of_an_entry_that_could_be_the_action(bundle: Bundle) -> None:
     b = bundle
-    page = await b.page(b.other_source, ["w1", "seen", "and", "treated", "later", "words", "x", "y"])
+    page = await b.page(b.other_source, ["w1", "seen", "treated", "later", "words", "x", "x", "x"])
     abnormal(b, page)
     done = action(b, page, 1)
     model = use_kit(b, labels((done, "action_taken", ["w2", "w3"])))
@@ -441,7 +441,7 @@ async def test_no_patient_text_reaches_the_model_the_logs_or_the_job_row(
         await conn.execute(
             "insert into app.case_parties (case_id, role_key, name) values (%s, %s, %s)", (b.case, role, blob)
         )
-    page = await b.page(b.other_source, ["w1", "Margaret", "Ashworth", "rang", "Zorbulon", "x", "x", "x"])
+    page = await b.page(b.other_source, ["w1", "Zorbulon", "Ashworth", "rang", "Margaret", "x", "x", "x"])
     abnormal(b, page)
     done = action(b, page, 1)
     model = use_kit(b, labels((done, "action_taken", ["w2", "w3"])))
