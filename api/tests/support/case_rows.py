@@ -233,6 +233,56 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
     }
 
 
+def _understand_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice D's case tables (migration 0400)."""
+    page = seed.page(w.case, seed.document(w.case), 9)
+    fact = add_fact(admin, w.case, page, status="verified")
+    question = add_question(admin, w.case)
+    admin.execute(
+        "insert into app.fact_question_links (case_id, fact_id, question_id, source) values (%s, %s, %s, 'ai')",
+        (w.case, fact, question),
+    )
+    admin.execute(
+        "insert into app.availability_overrides (case_id, fact_id, unknown, reason, person_id)"
+        " values (%s, %s, true, 'zz', %s)",
+        (w.case, fact, w.expert),
+    )
+    run = admin.execute(
+        "insert into app.check_runs (case_id, pack_version) values (%s, 'zz@1') returning id", (w.case,)
+    ).fetchone()
+    assert run is not None
+    admin.execute(
+        "insert into app.findings (case_id, check_key, rule, evidence_fact_ids, evidence_page_ids, pack_version,"
+        " run_id) values (%s, 'zz_check', 'zz_rule', %s, %s, 'zz@1', %s)",
+        (w.case, [fact], [page], run[0]),
+    )
+    admin.execute(
+        "insert into app.case_guideline_versions (case_id, code, version_label) values (%s, 'zz_g1', 'v1')",
+        (w.case,),
+    )
+    admin.execute(
+        "insert into app.consultation_notes (case_id, fact_id, body, person_id) values (%s, %s, %s, %s)",
+        (w.case, fact, "zz note", w.expert),
+    )
+    admin.execute(
+        "insert into app.comments (case_id, target_kind, target_id, body, author_id) values (%s, 'page', %s, 'zz', %s)",
+        (w.case, str(page), w.expert),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "questions": 1,
+        "fact_question_links": 1,
+        "availability_overrides": 1,
+        "check_runs": 1,
+        "findings": 1,
+        "case_guideline_versions": 1,
+        "consultation_notes": 1,
+        "comments": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -243,6 +293,7 @@ SEEDERS = (
     _deletion_certificates,
     _setup_rows,
     _pipeline_tables,
+    _understand_rows,
 )
 
 
