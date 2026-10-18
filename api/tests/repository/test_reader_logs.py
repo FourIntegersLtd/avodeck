@@ -3,7 +3,7 @@
 - Each read appends one `page_reads` row hashed onto the case's previous read; the chain verifies and
   altering any row breaks it. Neither log can be changed or removed by the running app or by hand
   (only `app.purge_case` removes a deleted case's rows).
-- A second read keeps the first `read_at` and adds its own dwell.
+- A second read keeps the first read's time (`at`) and adds its own dwell.
 - Only the named expert's reads count for citing; an assistant's reads are recorded (and unlock the
   suggestions for the assistant) but never make a fact citable (permissions `page.read`).
 - Nobody records a read for someone else, and a person with no access to the case records nothing.
@@ -60,7 +60,7 @@ async def read(api_db: Database, w: dict[str, Any], person: uuid.UUID, n: int, d
 
 def reads_of(admin: psycopg.Connection, case: uuid.UUID) -> list[tuple[Any, ...]]:
     return admin.execute(
-        "select seq, page_id, person_id, read_at, dwell_seconds, counts_for_citing, prev_hash, hash"
+        "select seq, page_id, person_id, at, dwell_seconds, counts_for_citing, prev_hash, hash"
         " from app.page_reads where case_id = %s order by seq",
         (case,),
     ).fetchall()
