@@ -75,6 +75,20 @@
       "language": "en",
       "legal_tests": null,
       "locale": "en-ZZ",
+      "opinion_views": [
+        {
+          "code": "zz_view_ok",
+          "label": "Zz acceptable"
+        },
+        {
+          "code": "zz_view_edge",
+          "label": "Zz borderline"
+        },
+        {
+          "code": "zz_view_poor",
+          "label": "Zz below what a therapist should do"
+        }
+      ],
       "party_roles": [
         {
           "key": "instructing_side",
@@ -83,6 +97,20 @@
         {
           "key": "other_side",
           "label": "respondent"
+        }
+      ],
+      "point_sides": [
+        {
+          "code": "supports_claim",
+          "label": "Zz favours the petitioner"
+        },
+        {
+          "code": "supports_clinician",
+          "label": "Zz favours the therapist"
+        },
+        {
+          "code": "neutral",
+          "label": "Zz neither side"
         }
       ],
       "profession": "therapist",
@@ -97,6 +125,7 @@
           "label_key": "zz.question_type.liability"
         }
       ],
+      "range_note_prompt": "Zz what other therapists might do",
       "registration_bodies": [
         "ZZ-REG"
       ],
@@ -596,6 +625,20 @@
       "language": "en",
       "legal_tests": "## Breach of duty\nWould a responsible body of GPs have acted as this GP did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
       "locale": "en-GB",
+      "opinion_views": [
+        {
+          "code": "within_range",
+          "label": "Within the range of reasonable practice"
+        },
+        {
+          "code": "at_limit",
+          "label": "At the limit of reasonable practice"
+        },
+        {
+          "code": "below_standard",
+          "label": "Below the standard of a reasonable GP"
+        }
+      ],
       "party_roles": [
         {
           "key": "instructing_side",
@@ -608,6 +651,20 @@
         {
           "key": "joint",
           "label": "jointly instructed"
+        }
+      ],
+      "point_sides": [
+        {
+          "code": "supports_claim",
+          "label": "Supports the claim"
+        },
+        {
+          "code": "supports_clinician",
+          "label": "Supports the GP"
+        },
+        {
+          "code": "neutral",
+          "label": "Neutral"
         }
       ],
       "profession": "doctor",
@@ -626,6 +683,7 @@
           "label_key": "question_type.other"
         }
       ],
+      "range_note_prompt": "What other GPs might reasonably do",
       "registration_bodies": [
         "GMC"
       ],
