@@ -23,6 +23,7 @@ from app.core.contracts.citations import Citation, quote_within
 from app.core.contracts.document_words import word_purpose
 from app.core.contracts.facts import citable_facts
 from app.core.contracts.reading import PageReadLog
+from app.core.contracts.reports import AFTER_SERVING_TYPES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import DbConn
@@ -49,7 +50,7 @@ CHANGE_NEW = "report_change_new"
 CHANGE_REASON = "report_change_reason"
 
 # Report version types that are not the report itself.
-NOT_MAIN = ("answers", "supplementary")
+NOT_MAIN = AFTER_SERVING_TYPES
 
 
 def not_found() -> ApiError:
