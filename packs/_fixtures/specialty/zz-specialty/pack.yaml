@@ -4,3 +4,11 @@ version: 0.0.2
 profession: therapist
 coverage_roles: [practitioner, supervisor]
 outside_expertise_question_types: [liability]
+record_gaps:
+  header_min_pages: 3
+  source_end_min_pages: 2
+  list_min_facts: 3
+  list_share: 0.75
+  regular_months: 12
+  recent_months: 6
+  gap_min_months: 4

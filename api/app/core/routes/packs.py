@@ -61,6 +61,7 @@ class CasePack(BaseModel):
     language: str
     currency: str
     retention_years: int
+    quarantine_purge_days: int
     profession: str
     vocabulary: dict[str, Any]
     party_roles: list[dict[str, str]]
@@ -105,6 +106,7 @@ def case_pack(pack: MergedPack) -> CasePack:
         language=pack.language,
         currency=pack.currency,
         retention_years=pack.retention_years,
+        quarantine_purge_days=pack.quarantine_purge_days,
         profession=pack.profession,
         vocabulary=pack.vocabulary,
         party_roles=pack.party_roles(),

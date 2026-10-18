@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from typing import Any, Literal
+from typing import Literal, NotRequired, TypedDict
 
-from pydantic import BaseModel, Field, SerializerFunctionWrapHandler, model_serializer
+from pydantic import BaseModel, Field
 
 
 class DuplicatePage(BaseModel):
@@ -55,7 +55,9 @@ class SourceCount(BaseModel):
     pages: int
 
 
-class Document(BaseModel):
+class Document(TypedDict):
+    """A file in the bundle; `media_type` and `part_of` are left out until the file is sniffed."""
+
     id: uuid.UUID
     kind: str
     filename: str
@@ -65,17 +67,8 @@ class Document(BaseModel):
     received_on: dt.date | None
     obtained_how: str | None
     bundle_version: int
-    media_type: str | None = None  # what the file turned out to be (F36)
-    part_of: uuid.UUID | None = None  # the email or zip it came out of
-
-    @model_serializer(mode="wrap")
-    def _omit_unknown(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        """`media_type` and `part_of` appear once the file has been sniffed (when it is cut into pages)."""
-        out: dict[str, Any] = handler(self)
-        if out.get("media_type") is None:
-            out.pop("media_type", None)
-            out.pop("part_of", None)
-        return out
+    media_type: NotRequired[str]
+    part_of: NotRequired[uuid.UUID | None]
 
 
 class Exhibit(BaseModel):

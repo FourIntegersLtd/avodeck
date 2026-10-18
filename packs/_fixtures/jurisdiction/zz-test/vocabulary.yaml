@@ -22,3 +22,8 @@ instructing_party_request:
     {clearer_copies}
 
     {expert_name}
+request_notes:
+  quarantine: >-
+    Withheld as another subject's records: {pages}. {instructing_party} to confirm.
+  translation: >-
+    Translate for the file, pages {pages}.

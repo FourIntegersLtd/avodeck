@@ -2274,6 +2274,8 @@ export interface components {
             }[];
             /** Profession */
             profession: string;
+            /** Quarantine Purge Days */
+            quarantine_purge_days: number;
             /** Question Types */
             question_types: {
                 [key: string]: unknown;
@@ -2548,8 +2550,36 @@ export interface components {
              */
             last_seen_at: string;
         };
+        /**
+         * Document
+         * @description A file in the bundle; `media_type` and `part_of` are left out until the file is sniffed.
+         */
         Document: {
-            [key: string]: unknown;
+            /** Bundle Version */
+            bundle_version: number;
+            /** Filename */
+            filename: string;
+            /** First Page No */
+            first_page_no: number | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Last Page No */
+            last_page_no: number | null;
+            /** Media Type */
+            media_type?: string;
+            /** Obtained How */
+            obtained_how: string | null;
+            /** Pages */
+            pages: number | null;
+            /** Part Of */
+            part_of?: string | null;
+            /** Received On */
+            received_on: string | null;
         };
         /** DuplicateCheck */
         DuplicateCheck: {

@@ -4,3 +4,11 @@ version: 2026.10.2
 profession: doctor
 coverage_roles: [partner, salaried, locum]   # roles that count when checking the expert practised during the case period
 outside_expertise_question_types: [causation]   # flagged on screen 06 and by the lint; the expert decides
+record_gaps:                # where a record source goes quiet (a series that stops before its source ends)
+  header_min_pages: 3       # a date printed on at least this many pages, and half of them, is a header date
+  source_end_min_pages: 2   # a source ends in the latest month dated on at least this many pages
+  list_min_facts: 3         # a list page has at least this many facts...
+  list_share: 0.8           # ...and at least this share of one kind
+  regular_months: 12        # a regular series has entries in at least this many months...
+  recent_months: 6          # ...at least this many of them in the 12 months up to its last entry
+  gap_min_months: 3         # a gap is a series that stops at least this many months before its source ends
