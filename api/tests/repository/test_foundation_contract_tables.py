@@ -368,3 +368,33 @@ async def test_only_verified_facts_on_pages_the_named_expert_has_read_are_citabl
         assert on_unread not in {f.id for f in found}, "another person's read does not count"
         assert all(f.status in ("verified", "edited") and f.word_ids for f in found)
         assert await citable_facts(conn, case, None) == [], "no read log: nothing is citable"
+
+
+@pytest.mark.anyio
+async def test_a_checked_fact_awaiting_a_recheck_is_not_citable(
+    api_db: object, seed: Seed, admin: psycopg.Connection, case_page: dict[str, uuid.UUID]
+) -> None:
+    """After a page is read again, a checked fact whose words are gone is flagged 'recheck': its
+    word ids may point at words that no longer exist, so no report cites it until the expert checks it
+    again. A flag for another purpose (sent to Points against) leaves it citable."""
+    from app.core.contracts.fact_flags import POINTS, RECHECK
+    from app.core.contracts.facts import citable_facts
+    from app.core.db import Database
+    from tests.support.db import scope_for
+
+    assert isinstance(api_db, Database)
+    case, page, expert = case_page["case"], case_page["page"], case_page["expert"]
+    awaiting = add_fact(admin, case, page, status="verified")
+    sent_on = add_fact(admin, case, page, status="edited")
+    plain = add_fact(admin, case, page, status="verified")
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, %s, null)",
+        (case, awaiting, RECHECK),
+    )
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, %s, %s)",
+        (case, sent_on, POINTS, expert),
+    )
+    async with api_db.request(scope_for(expert)) as conn:
+        found = {f.id for f in await citable_facts(conn, case, StubReads({expert: {page}}))}
+    assert found == {sent_on, plain}
