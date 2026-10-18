@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from app.features.understand.as_seen import SeenItem, as_seen
 from app.features.understand.availability import Mark, Override, Placed, compute
@@ -137,8 +137,8 @@ def test_own_entries_break_runs() -> None:
 
 def test_the_latest_override_wins_including_unknown() -> None:
     letter = _placed("letter", 20, date(2024, 5, 10))
-    early = datetime(2026, 1, 1, tzinfo=timezone.utc)
-    late = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    early = datetime(2026, 1, 1, tzinfo=UTC)
+    late = datetime(2026, 1, 2, tzinfo=UTC)
     overrides = [
         Override(letter.fact_id, None, True, late),
         Override(letter.fact_id, date(2024, 5, 12), False, early),

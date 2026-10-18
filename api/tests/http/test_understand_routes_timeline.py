@@ -12,7 +12,8 @@
 - `PATCH /facts/{fact_id}/availability`: the named expert, always with a reason; appended and
   audited; the latest change wins.
 - `PUT /consultations/{fact_id}/note`: the named expert's own note.
-- `GET /v1/guidelines/in-force`: the version label and link in force on a date, else 404 `not_found`.
+- `GET /v1/guidelines/in-force`: the version label and link in force on a date, else 404 `not_found`
+  (the fixture packs ship no overlay, so under them nothing is in force).
 """
 
 from __future__ import annotations
@@ -247,7 +248,7 @@ async def test_as_seen_shows_what_had_arrived_keeps_later_apart_and_never_guesse
 ) -> None:
     """Page 118 in miniature: filed the day before is visible, received a week later is not."""
     case = Case(seed)
-    arriving = case.pack.arriving_kinds()[0]
+    arriving = sorted(case.pack.arriving_kinds())[0]
     visit = case.fact(_visit_kind(case.pack), date(2024, 5, 15), page=118, available=date(2024, 5, 15))
     filed = case.fact(arriving, date(2024, 5, 14), page=117, available=date(2024, 5, 14))
     later = case.fact(arriving, date(2024, 5, 10), page=119, available=date(2024, 5, 22))
@@ -271,7 +272,7 @@ async def test_overriding_availability_needs_a_reason_appends_is_audited_and_the
     client_for: ClientFor, seed: Seed
 ) -> None:
     case = Case(seed)
-    arriving = case.pack.arriving_kinds()[0]
+    arriving = sorted(case.pack.arriving_kinds())[0]
     visit = case.fact(_visit_kind(case.pack), date(2024, 5, 15), available=date(2024, 5, 15))
     letter = case.fact(arriving, date(2024, 5, 10), page=2)
     expert = await client_for(case.expert)
@@ -305,11 +306,8 @@ async def test_only_the_named_expert_writes_a_note_on_a_consultation(client_for:
 # --- guidance in force ----------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
-async def test_the_version_in_force_on_a_date_and_none_before_the_first(
-    combo: Combo, client_for: ClientFor, seed: Seed
-) -> None:
-    case = Case(seed, combo)
+async def test_the_version_in_force_on_a_date_and_none_before_the_first(client_for: ClientFor, seed: Seed) -> None:
+    case = Case(seed, LAUNCH)
     row = case.pack.guidelines()[0]
     client = await client_for(case.expert)
     on = date.fromisoformat(str(row["in_force_from"]))
@@ -329,6 +327,16 @@ async def test_the_version_in_force_on_a_date_and_none_before_the_first(
         "/v1/guidelines/in-force", params={"code": row["code"], "date": on.isoformat(), "case_id": str(case.id)}
     )
     assert hidden.status_code == 404
+
+
+async def test_a_case_whose_packs_list_no_guidance_finds_none(client_for: ClientFor, seed: Seed) -> None:
+    """The fixture packs ship no overlay: nothing is in force, and nothing is guessed."""
+    case = Case(seed, FIXTURE)
+    assert case.pack.guidelines() == []
+    resp = await (await client_for(case.expert)).get(
+        "/v1/guidelines/in-force", params={"code": "zz_g1", "date": "2024-05-15", "case_id": str(case.id)}
+    )
+    assert resp.status_code == 404 and _code(resp) == "not_found"
 
 
 async def test_launch_guidance_for_the_planted_consultation_date(client_for: ClientFor, seed: Seed) -> None:
