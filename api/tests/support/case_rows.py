@@ -396,6 +396,15 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
         (w.case, w.expert),
     )
     admin.execute("insert into app.report_settings (case_id) values (%s)", (w.case,))
+    admin.execute(
+        "insert into app.report_builds (report_version_id, case_id, citation_style, page_count)"
+        " values (%s, %s, 'page', 1)",
+        (draft, w.case),
+    )
+    admin.execute(
+        "insert into app.report_section_texts (case_id, section, body) values (%s, 'zz_section', %s)",
+        (w.case, b"sealed"),
+    )
     profile = admin.execute(
         "insert into app.billing_profiles (owner_type, owner_id, legal_name, currency) values ('person', %s, 'Z', 'XTS')"
         " on conflict (owner_type, owner_id) do update set legal_name = excluded.legal_name returning id",
@@ -427,6 +436,8 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
         "spot_checks": 1,
         "time_entries": 1,
         "report_settings": 1,
+        "report_builds": 1,
+        "report_section_texts": 1,
         "invoices": 1,
         "credit_notes": 1,
     }
