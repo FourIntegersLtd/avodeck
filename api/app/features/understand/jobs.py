@@ -29,7 +29,7 @@ from psycopg.types.json import Jsonb
 
 from app.core.ai import pii
 from app.core.contracts import availability as evidence
-from app.core.contracts import questions
+from app.core.contracts import case_names, document_words, questions
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
 from app.features.understand import ai_tasks, availability, guidelines, links
@@ -39,7 +39,6 @@ from app.features.understand.repo import CHECKED
 from app.features.understand.services import current
 
 TOP_K = 10  # the facts closest to each question that are offered to T-11
-PARTY_NAME = "party_name"  # the purpose slice C seals a party's name under
 
 
 async def _case_pack(conn: AsyncConnection, case_id: uuid.UUID) -> MergedPack:
@@ -85,38 +84,16 @@ async def write_availability(conn: AsyncConnection, case_id: uuid.UUID, pack: Me
         )
 
 
-def word_purpose(page_id: uuid.UUID, word_id: str) -> str:
-    """The purpose slice A seals each word of `ocr_words` under."""
-    return f"ocr_words/{page_id}/{word_id}"
-
-
 async def party_names(conn: AsyncConnection, case_id: uuid.UUID) -> list[str]:
     """The case's party names and their parts (words reach the model one per line), for `pii.strip`."""
-    crypto = current().words()
-    cur = await conn.execute("select name from app.case_parties where case_id = %s order by created_at, id", (case_id,))
-    names: list[str] = []
-    for (sealed,) in await cur.fetchall():
-        full = (await crypto.decrypt(conn, case_id, bytes(sealed), purpose=PARTY_NAME)).decode()
-        names += [full, *(part for part in full.split() if len(part) > 2)]
-    return names
+    return await case_names.party_names(conn, current().words(), case_id, with_parts=True)
 
 
 async def cited_words(
     conn: AsyncConnection, case_id: uuid.UUID, facts: Iterable[uuid.UUID]
 ) -> dict[uuid.UUID, list[tuple[str, str]]]:
     """(word id, text) of the words each fact cites, in reading order."""
-    crypto = current().words()
-    cur = await conn.execute(
-        "select f.id, w.page_id, w.word_id, w.text from app.facts f"
-        " join app.ocr_words w on w.page_id = f.page_id and w.word_id = any (f.word_ids)"
-        " where f.case_id = %s and f.id = any (%s) order by f.id, w.n",
-        (case_id, list(facts)),
-    )
-    out: dict[uuid.UUID, list[tuple[str, str]]] = {}
-    for fact_id, page_id, word_id, sealed in await cur.fetchall():
-        text = await crypto.decrypt(conn, case_id, bytes(sealed), purpose=word_purpose(page_id, word_id))
-        out.setdefault(fact_id, []).append((word_id, text.decode()))
-    return out
+    return await document_words.cited_words(conn, current().words(), case_id, facts)
 
 
 async def _checked_facts(conn: AsyncConnection, case_id: uuid.UUID) -> list[CheckFact]:
