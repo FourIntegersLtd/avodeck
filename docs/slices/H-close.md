@@ -32,7 +32,7 @@ None.
 
 ## Acceptance tests (write first)
 - [x] Export, retention change and deletion refuse without step-up (403 `step_up_required`)
-- [ ] Export ZIP contains every report version with matching SHA-256, the methodology log, the page-read log and the invoice; download works once and is audited (built: report versions, hashes, requests.csv, logs/page-reads.csv, logs/methodology.csv; only invoices.csv waits on slice F)
+- [ ] Export ZIP contains every report version with matching SHA-256, the methodology log, the page-read log and the invoice; download works once and is audited (built: report versions, hashes, requests.csv, logs/page-reads.csv, logs/methodology.csv, invoices.csv)
 - [x] `keep_default` sets `delete_after` to six years after settlement; `delete_now` schedules deletion today
 - [x] Deletion removes every row for the case from every table listed in `case_tables.py`, and every Storage object under the case prefix (verified by listing)
 - [x] A new case table added without registering in `case_tables.py` fails a core test
@@ -67,7 +67,7 @@ Producing the content being exported (other slices), invoice generation (F).
 - `POST /settle` takes no body; the database sets `settled_at`. `GET /close` returns the screen's summary.
 - The certificate is JSON (counts, hashes, log chain heads, dates, recipient role codes), or a PDF of the same values with `?format=pdf` or `Accept: application/pdf` (`app/core/pdf_document.py`; words in `features/close/words/`).
 - Backups are assumed gone 30 days after deletion (`BACKUP_RETENTION_DAYS` in `features/close/jobs.py`); settled or withdrawn cases archive after 30 days.
-- The export holds `requests.csv` (core/contracts `logged_requests`), `logs/page-reads.csv` (`page_read_log`: seq, prev_hash, hash) and `logs/methodology.csv` (`verification_counts`). Only `invoices.csv` is `not_built_yet` until slice F exposes a source.
+- The export holds `requests.csv` (core/contracts `logged_requests`), `logs/page-reads.csv` (`page_read_log`: seq, prev_hash, hash) and `logs/methodology.csv` (`verification_counts`). `invoices.csv` comes from `core/contracts/invoices.case_invoice_rows` (slice F's sent invoices with payments and credits; never drafts).
 - A deleted case answers only `deletion-certificate` (foundation 0018; the guard `test_only_the_certificate_passes_on_a_deleted_case` forbids widening it). `GET /close` is 404 there by decision, and S26 shows the certificate on its own when the case answers 404. The strict xfail `test_a_deleted_case_still_shows_its_close_summary` records that decision.
 - The certificate email goes to the named expert and each current instructing party with an email (`app.close_certificate_recipients`, 0804); org-admin recipients do not exist yet. `sent_to` keeps role codes only, so a retry never emails anyone twice.
 - A withdrawn case's retention counts from the day it was withdrawn: `cases.closed_at` (foundation 0022), read through `app.close_withdrawn_on` (0803 replaced H's audit-row trigger).

@@ -1,14 +1,17 @@
-// Quiet time-keeping for the four report screens: every 30 seconds say which screen is open, whether the tab is
+// Quiet time-keeping on every case screen (mounted by the case frame for any screen a pack step holds): every
+// 30 seconds say which screen is open, whether the tab is
 // visible and how long since the last key or touch. The server decides what counts (visible, recent input) and
 // which workflow step the screen belongs to; a refused beat is ignored.
 import { useEffect } from "react";
-import { api } from "../../foundation/platform-client";
+import { api } from "../platform-client";
 
 const BEAT_MS = 30_000;
 const INPUTS = ["keydown", "pointerdown", "pointermove", "wheel", "touchstart"] as const;
 
-export function useTimeHeartbeat(caseId: string, screen: string): void {
+/** Beats only while `screen` is set (a pack screen key); null keeps quiet. */
+export function useTimeHeartbeat(caseId: string, screen: string | null): void {
   useEffect(() => {
+    if (!screen) return undefined;
     let lastInput = Date.now();
     const touched = () => {
       lastInput = Date.now();

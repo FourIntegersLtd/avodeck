@@ -12,6 +12,7 @@ mounting it on the public router is a foundation request (slice F brief).
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import hashlib
 import io
@@ -305,3 +306,102 @@ async def test_a_spot_check_that_does_not_commit_mails_nobody(
         assert resp.status_code >= 500
     assert current().mailer.outbox == []
     assert admin.execute("select count(*) from app.spot_checks where case_id = %s", (built.case,)).fetchone() == (0,)
+
+
+# The colleague's public routes (foundation request): signed out, the token and code hashes are the gate --------
+
+CODE_HEADER = "X-Spot-Check-Code"
+
+
+def other(code: str) -> str:
+    return "000000" if code != "000000" else "111111"
+
+
+async def test_the_colleague_opens_the_link_signed_out_with_the_code(
+    client_for: ClientFor, admin: psycopg.Connection, built: World
+) -> None:
+    token, code = await started(client_for, built)
+    colleague = await client_for(None)
+    resp = await colleague.get(f"/v1/spot-checks/{token}", headers={CODE_HEADER: code})
+    assert resp.status_code == 200, resp.text
+    assert "no-store" in resp.headers["cache-control"]
+    body = resp.json()
+    assert body["status"] == "ok" and body["responded"] is False and body["expires_at"]
+    assert {item["value"] for item in body["items"]} == {"review 3/52 if no better", "Ferritin 9 ug/L"}
+    for item in body["items"]:
+        crop = png(base64.b64decode(item["crop"]))
+        assert crop.height < HEIGHT * 0.2, "a crop, never the full page"
+    assert (await colleague.get(f"/v1/spot-checks/{token}")).status_code == 422, "the code is required"
+    logged = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'spot_check.opened'", (built.case,)
+    ).fetchone()
+    assert logged == (1,)
+
+
+async def test_five_wrong_codes_through_http_lock_the_link(
+    client_for: ClientFor, admin: psycopg.Connection, built: World
+) -> None:
+    """Each wrong try commits its count and answers a status; it never raises (which would roll it back)."""
+    token, code = await started(client_for, built)
+    colleague = await client_for(None)
+    for _ in range(5):
+        resp = await colleague.get(f"/v1/spot-checks/{token}", headers={CODE_HEADER: other(code)})
+        assert resp.status_code == 200 and resp.json() == {
+            "status": "bad_code",
+            "expires_at": None,
+            "responded": False,
+            "items": [],
+        }
+    locked = await colleague.get(f"/v1/spot-checks/{token}", headers={CODE_HEADER: code})
+    assert locked.status_code == 200 and locked.json()["status"] == "locked" and locked.json()["items"] == []
+    answers = [{"fact_id": str(built.plan), "agrees": True}]
+    reply = await colleague.post(f"/v1/spot-checks/{token}/responses", json={"code": code, "answers": answers})
+    assert reply.status_code == 200 and reply.json() == {"status": "locked"}
+    attempts = admin.execute(
+        "select code_attempts from app.spot_checks where token_hash = %s", (hashlib.sha256(token.encode()).hexdigest(),)
+    ).fetchone()
+    assert attempts is not None and attempts[0] >= 5
+
+
+async def test_unknown_and_expired_links_answer_a_status(
+    client_for: ClientFor, admin: psycopg.Connection, built: World
+) -> None:
+    colleague = await client_for(None)
+    unknown = await colleague.get("/v1/spot-checks/zz-no-such-token-zz", headers={CODE_HEADER: "123456"})
+    assert unknown.status_code == 200 and unknown.json()["status"] == "unknown"
+    token, code = await started(client_for, built)
+    admin.execute(
+        "update app.spot_checks set expires_at = now() - interval '1 minute' where token_hash = %s",
+        (hashlib.sha256(token.encode()).hexdigest(),),
+    )
+    expired = await colleague.get(f"/v1/spot-checks/{token}", headers={CODE_HEADER: code})
+    assert expired.status_code == 200 and expired.json()["status"] == "expired"
+
+
+async def test_the_colleague_answers_once_through_http(client_for: ClientFor, built: World) -> None:
+    token, code = await started(client_for, built)
+    colleague = await client_for(None)
+    answers = [
+        {"fact_id": str(built.plan), "agrees": True},
+        {"fact_id": str(built.result), "agrees": False, "reason": "value_differs"},
+    ]
+    url = f"/v1/spot-checks/{token}/responses"
+    bad = await colleague.post(url, json={"code": other(code), "answers": answers})
+    assert bad.status_code == 200 and bad.json() == {"status": "bad_code"}
+    stray = [{"fact_id": str(uuid.uuid4()), "agrees": True}]
+    assert (await colleague.post(url, json={"code": code, "answers": stray})).json() == {"status": "invalid"}
+    assert (await colleague.post(url, json={"code": code, "answers": answers})).json() == {"status": "ok"}
+    assert (await colleague.post(url, json={"code": code, "answers": answers})).json() == {"status": "already"}
+    assert (await colleague.post(url, json={"code": "12", "answers": answers})).status_code == 422
+    opened = await colleague.get(f"/v1/spot-checks/{token}", headers={CODE_HEADER: code})
+    assert opened.json()["responded"] is True
+    listed = await (await client_for(built.expert)).get(built.url("spot-checks"))
+    assert listed.json()["spot_checks"][0]["responded_at"] is not None
+
+
+async def test_an_answer_must_say_true_or_false_not_a_number(client_for: ClientFor, built: World) -> None:
+    token, code = await started(client_for, built)
+    colleague = await client_for(None)
+    answers = [{"fact_id": str(built.plan), "agrees": 0}]
+    resp = await colleague.post(f"/v1/spot-checks/{token}/responses", json={"code": code, "answers": answers})
+    assert resp.status_code == 422

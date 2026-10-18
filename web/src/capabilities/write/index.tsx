@@ -8,8 +8,8 @@ import "./words";
 /** Slice E (write) screens, inside a case: S14 Points against and S15 Your opinion. The question is chosen
  * with ?q=<questionId>. Today's items open them through the screen keys below. */
 export const writeCaseRoutes: RouteObject[] = [
-  { path: "points", element: <Points />, handle: { screen: "S14" } },
-  { path: "opinion", element: <Opinion />, handle: { screen: "S15" } },
+  { path: "points", element: <Points />, handle: { screen: "points_against" } },
+  { path: "opinion", element: <Opinion />, handle: { screen: "opinion" } },
 ];
 
 const points = ({ caseId }: { caseId: string }) => `/cases/${caseId}/points`;

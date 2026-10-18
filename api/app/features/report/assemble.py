@@ -87,7 +87,7 @@ class Methodology:
 
 def appendices(pack: MergedPack) -> list[str]:
     """The case type's appendices. Packs have no public accessor yet (foundation request in the brief)."""
-    return [str(a["key"]) for a in pack._registry("report_sections.yaml", "appendices")]  # noqa: SLF001
+    return [str(a["key"]) for a in pack.report_appendices()]
 
 
 def section_keys(pack: MergedPack) -> list[str]:

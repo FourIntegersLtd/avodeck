@@ -71,6 +71,7 @@ class CasePack(BaseModel):
     workflow_steps: list[dict[str, Any]]
     question_types: list[dict[str, Any]]
     report_sections: list[dict[str, Any]]
+    report_appendices: list[dict[str, Any]] = []
     fact_kinds: list[dict[str, Any]]
     source_types: list[dict[str, Any]]
     lanes: list[dict[str, Any]]
@@ -119,6 +120,7 @@ def case_pack(pack: MergedPack) -> CasePack:
         workflow_steps=pack.workflow_steps(),
         question_types=pack.question_types(),
         report_sections=pack.report_sections(),
+        report_appendices=pack.report_appendices(),
         fact_kinds=pack.fact_kinds(),
         source_types=pack.source_types(),
         lanes=pack.lanes(),

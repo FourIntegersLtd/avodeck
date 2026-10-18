@@ -47,7 +47,7 @@ from app.core.packs import default_library
 from app.core.storage import SupabaseStorage, case_prefix
 from app.features.close import jobs as close_jobs
 from tests.support.case_rows import CaseWorld, fill_every_case_table
-from tests.support.contracts import add_fact, add_report_version
+from tests.support.contracts import add_fact, add_report_version, add_sent_invoice
 from tests.support.db import ClientFor
 from tests.support.files import build_app, local_storage
 from tests.support.jobs import isolated_registry, open_worker
@@ -511,6 +511,7 @@ async def test_the_export_carries_requests_page_reads_and_methodology_counts(
         " values (%s, %s, %s, %s, 'mailto', %s)",
         (request_id, case, subject, body, expert),
     )
+    add_sent_invoice(admin, case, expert, credited="4.00")
     client = await client_for(expert)
     job = uuid.UUID((await client.post(f"/v1/cases/{case}/export")).json()["job_id"])
     await run(close_jobs.export_case, case, "export_case", job=job)
@@ -530,8 +531,14 @@ async def test_the_export_carries_requests_page_reads_and_methodology_counts(
     assert [(r["seq"], r["page_no"], r["dwell_seconds"]) for r in reads] == [("1", "41", "20"), ("2", "41", "20")]
     assert reads[0]["prev_hash"] == "0" * 64 and reads[1]["prev_hash"] == reads[0]["hash"] != ""
     assert {(r["action"], r["count"]) for r in table("logs/methodology.csv")} == {("correct", "1")}
+    invoices = table("invoices.csv")
+    assert [
+        (r["number"], r["status"], r["total"], r["tax"], r["currency"], r["paid"], r["credited"]) for r in invoices
+    ] == [("ZZ-1", "sent", "120.00", "20.00", "XTS", "0.00", "4.00")], "sent invoices only, from slice F's contract"
+    assert invoices[0]["sent_at"]
     manifest = json.loads(archive.read("manifest.json"))
-    assert [e["path"] for e in manifest["not_yet_available"]] == ["invoices.csv"]
+    assert manifest["not_yet_available"] == [], "every part of the record of work is built"
+    assert "invoices.csv" in manifest["files"]
     assert "requests.csv" in manifest["files"] and "logs/page-reads.csv" in manifest["files"]
 
 

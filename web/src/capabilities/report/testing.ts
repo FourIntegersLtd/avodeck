@@ -15,6 +15,8 @@ export const SPOT = "d1111111-1111-4111-8111-111111111111";
 export const PARA = "e1111111-1111-4111-8111-111111111111";
 
 export const sectionKeys = (run: PackRun) => casePack(run).report_sections.map((s) => String((s as { key: string }).key));
+/** The heading the pack gives a report section (screens 16 and 17 show it, never the key). */
+export const sectionLabel = (run: PackRun, key: string) => String((casePack(run).report_sections as Array<{ key: string; label?: string }>).find((s) => s.key === key)?.label);
 export const stepKeys = (run: PackRun) => casePack(run).workflow_steps.map((s) => String((s as { key: string }).key));
 export const declarations = (run: PackRun) => (casePack(run) as unknown as { declarations: Array<{ key: string; text: string }> }).declarations;
 export const checklistItems = (run: PackRun) => (casePack(run) as unknown as { compliance_checklist: { items: Array<{ key: string; text?: string; text_key?: string }> } }).compliance_checklist.items;

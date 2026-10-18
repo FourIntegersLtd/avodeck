@@ -8,7 +8,6 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Dialog, LoadError, Loading, Notice, stepLabel, TextField } from "../../foundation/ui";
-import { useTimeHeartbeat } from "./heartbeat";
 import { longDate, money, useLocale } from "./shared";
 import { w } from "./words";
 
@@ -19,7 +18,6 @@ const STATUSES = ["draft", "sent", "part_paid", "paid", "written_off"] as const;
 
 export function InvoiceScreen() {
   const { caseId = "" } = useParams();
-  useTimeHeartbeat(caseId, "invoice");
   return (
     <div className="av-page av-stack">
       <h2>{w("invoice.title")}</h2>

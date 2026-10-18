@@ -27,6 +27,8 @@ SIGNED_OUT_ROUTES = {
     ("POST", "/v1/auth/password/forgot"),
     ("POST", "/v1/auth/password/reset"),
     ("POST", "/v1/me/email-change/confirm"),
+    # The colleague's spot-check answers: no session at all; the link token and the emailed code are the gate.
+    ("POST", "/v1/spot-checks/{token}/responses"),
 }
 
 

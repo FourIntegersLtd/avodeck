@@ -8,7 +8,6 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { useTimeHeartbeat } from "./heartbeat";
 import { downloadPath, longDate, today, useLocale } from "./shared";
 import { w } from "./words";
 
@@ -28,7 +27,6 @@ async function latestCheck(caseId: string): Promise<Schemas["FinalCheckOut"] | n
 
 export function SignSend() {
   const { caseId = "" } = useParams();
-  useTimeHeartbeat(caseId, "sign_send");
   const report = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
   const check = useResource(() => latestCheck(caseId), [caseId]);
   const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", { params: { path: { case_id: caseId } } })), [caseId]);

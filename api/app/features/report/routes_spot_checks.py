@@ -5,9 +5,8 @@
   `nothing_cited` until a report cites a fact.
 - `GET /cases/{id}/spot-checks` (`report.build`): each check with the colleague's answers.
 
-The colleague's routes (`GET /v1/spot-checks/{token}`, `POST /v1/spot-checks/{token}/responses`) need the
-public router, which is foundation's (slice F brief, foundation requests); `spot_checks.open_check` and
-`respond` are ready for them.
+The colleague's routes (`GET /v1/spot-checks/{token}`, `POST /v1/spot-checks/{token}/responses`) are on
+foundation's public router in `routes_colleague.py`.
 """
 
 from __future__ import annotations
@@ -21,11 +20,10 @@ from fastapi import BackgroundTasks
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
-from app.core.email import Mail
+from app.core.email import spot_check_code_mail
 from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.features.report.common import Build, Crypto, Pack, Storage
-from app.features.report.mail import SPOT_CHECK_CODE
 from app.features.report.router import router
 from app.features.report.services import current
 from app.features.report.spot_checks import LIFETIME, code_hash, new_code, prepare, sample, token_hash
@@ -100,7 +98,7 @@ async def start_spot_check(
     check_id: uuid.UUID = created[0]
     await prepare(conn, crypto, storage, pack, case_id, check_id, version_id, picked, token)
     await audit.record(conn, action="spot_check.created", target=f"spot_check:{check_id}", case_id=case_id)
-    after_commit.add_task(current().mailer.send, Mail(body.reviewer_email, SPOT_CHECK_CODE, {"code": code}))
+    after_commit.add_task(current().mailer.send, spot_check_code_mail(body.reviewer_email, code=code))
     return SpotCheckStarted(id=check_id, token=token, expires_at=created[1], fact_count=len(picked))
 
 

@@ -172,18 +172,28 @@
       "registration_bodies": [
         "ZZ-REG"
       ],
+      "report_appendices": [
+        {
+          "key": "methodology",
+          "label": "Zz method"
+        }
+      ],
       "report_sections": [
         {
-          "key": "introduction"
+          "key": "introduction",
+          "label": "Zz opening"
         },
         {
-          "key": "findings"
+          "key": "findings",
+          "label": "Zz findings"
         },
         {
-          "key": "opinion"
+          "key": "opinion",
+          "label": "Zz view"
         },
         {
-          "key": "declarations"
+          "key": "declarations",
+          "label": "Zz closing words"
         }
       ],
       "retention_years": 2,
@@ -830,33 +840,64 @@
       "registration_bodies": [
         "GMC"
       ],
+      "report_appendices": [
+        {
+          "key": "cv",
+          "label": "My CV"
+        },
+        {
+          "key": "glossary",
+          "label": "Glossary"
+        },
+        {
+          "key": "documents_list",
+          "label": "List of documents"
+        },
+        {
+          "key": "methodology",
+          "label": "How I carried out this review"
+        },
+        {
+          "key": "chronology",
+          "label": "Chronology"
+        }
+      ],
       "report_sections": [
         {
-          "key": "introduction"
+          "key": "introduction",
+          "label": "Introduction"
         },
         {
-          "key": "instructions"
+          "key": "instructions",
+          "label": "My instructions"
         },
         {
-          "key": "documents"
+          "key": "documents",
+          "label": "Documents I have seen"
         },
         {
-          "key": "background"
+          "key": "background",
+          "label": "Background"
         },
         {
-          "key": "what_happened"
+          "key": "what_happened",
+          "label": "What happened"
         },
         {
-          "key": "opinion"
+          "key": "opinion",
+          "label": "My opinion"
         },
         {
-          "key": "range_of_opinion"
+          "key": "range_of_opinion",
+          "label": "Range of opinion"
         },
         {
-          "key": "summary"
+          "key": "summary",
+          "label": "Summary of my conclusions"
         },
         {
-          "key": "declarations"
+          "key": "declarations",
+          "label": "Declarations"
         }
       ],
       "retention_years": 6,

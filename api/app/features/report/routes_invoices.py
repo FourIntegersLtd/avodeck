@@ -9,7 +9,7 @@
   `no_billing_profile` / `no_hourly_rate` otherwise.
 - `POST .../invoices/{inv}/send` (`invoice.send`, step-up): numbers the invoice from its issuer (gap-free, by
   the database), stores its PDF sealed under the case key and mails the recipient the case's id, the number
-  and the amount only (`mail.py`). A sent invoice never changes.
+  and the amount only (core template `invoice.sent`). A sent invoice never changes.
 - `PATCH .../invoices/{inv}/payment` (`invoice.record_payment`; writing off also needs `credit_note.issue`)
   and `POST .../invoices/{inv}/credit-notes` (`credit_note.issue`, step-up) record payment and corrections.
 - `GET .../invoices` and `GET .../invoices/{inv}/pdf` (a draft's PDF is drawn on request, never stored).
@@ -32,15 +32,15 @@ from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.auth.session import current_session
 from app.core.auth.step_up import check_step_up
+from app.core.contracts import profile
 from app.core.contracts.instructing_parties import instructing_party_contacts
-from app.core.email import Mail
+from app.core.email import invoice_sent_mail
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.packs import MergedPack
 from app.core.storage import case_prefix
 from app.features.report.common import Crypto, Pack, Storage, invalid, not_found
 from app.features.report.invoice_pdf import InvoiceDoc, render_invoice
-from app.features.report.mail import INVOICE_SENT
 from app.features.report.router import router
 from app.features.report.routes_time import totals
 from app.features.report.services import current
@@ -236,10 +236,9 @@ async def _issuer(conn: Any, case_id: uuid.UUID) -> dict[str, Any]:
 async def _hourly_rate(conn: Any, case_id: uuid.UUID, issuer: dict[str, Any]) -> Decimal:
     if issuer["hourly_rate"] is not None:
         return Decimal(issuer["hourly_rate"])
-    cur = await conn.execute("select hourly_rate, currency from app.report_named_expert(%s)", (case_id,))
-    row = await cur.fetchone()
-    if row is not None and row[0] is not None and row[1] == issuer["currency"]:
-        return Decimal(row[0])
+    expert = await profile.named_expert(conn, case_id)
+    if expert is not None and expert.hourly_rate is not None and expert.currency == issuer["currency"]:
+        return Decimal(expert.hourly_rate)
     raise ApiError("no_hourly_rate", "Add your hourly rate first.", 409)
 
 
@@ -357,13 +356,10 @@ async def send_invoice(
     await storage.put(path, await crypto.encrypt(conn, case_id, pdf, purpose=path))
     await conn.execute("update app.invoices set pdf_path = %s where id = %s", (path, invoice_id))
     await audit.record(conn, action="invoice.sent", target=f"invoice:{invoice_id}", case_id=case_id)
-    params = {
-        "case_ref": str(case_id),
-        "invoice_no": invoice.number_text,
-        "amount": f"{invoice.total:.2f}",
-        "currency": invoice.currency,
-    }
-    after_commit.add_task(current().mailer.send, Mail(to, INVOICE_SENT, params))  # runs after commit
+    mail = invoice_sent_mail(
+        to, case_id=case_id, invoice_no=invoice.number_text, amount=invoice.total, currency=invoice.currency
+    )
+    after_commit.add_task(current().mailer.send, mail)  # runs after commit
     return invoice
 
 

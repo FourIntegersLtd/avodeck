@@ -6,6 +6,7 @@ import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { expect, test } from "vitest";
 import { setupCaseRoutes, setupRoutes } from "../capabilities/setup";
 import { http, json, server, signedIn } from "../test/api";
+import { launchPack } from "../test/fixtures";
 import { AppProviders } from "./AppProviders";
 import { CaseLayout } from "./CaseLayout";
 import { capabilityCaseRoutes, capabilityRoutes } from "./capabilityRoutes";
@@ -44,4 +45,10 @@ test("slice C's signed-in and case routes are mounted by convention", () => {
   expect(capabilityRoutes).toEqual(expect.arrayContaining(setupRoutes));
   expect(capabilityCaseRoutes).toEqual(expect.arrayContaining(setupCaseRoutes));
   for (const r of setupCaseRoutes) expect(capabilityRoutes).not.toContain(r);
+});
+
+test("every case route names a screen key the launch pack's steps hold, so the frame marks its step and keeps time", () => {
+  const held = new Set((launchPack.workflow_steps as Array<{ screens?: string[] }>).flatMap((s) => s.screens ?? []));
+  const named = capabilityCaseRoutes.map((r) => (r.handle as { screen?: string } | undefined)?.screen).filter((k): k is string => Boolean(k));
+  expect(named.filter((k) => !held.has(k))).toEqual([]);
 });

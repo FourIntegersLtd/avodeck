@@ -1,14 +1,13 @@
 // S16 Your report: sections from the pack, what the court requires (from the pack), citation style, build and
-// rebuild, the expert's own sections, the methodology note and the time heartbeat.
-import { act, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+// rebuild, the expert's own sections, and the methodology note.
+import { screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, test } from "vitest";
 import { humanise } from "../../foundation/i18n";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { useTimeHeartbeat } from "./heartbeat";
-import { checklistItems, etagged, reportOut, sectionKeys, serve, settingsOut, V1, V2, versionOut, type PackRun } from "./testing";
+import { checklistItems, etagged, reportOut, sectionKeys, sectionLabel, serve, settingsOut, V1, V2, versionOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/report`;
@@ -18,7 +17,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     serve(run);
     const { container } = renderAt(url);
     expect(await screen.findByRole("heading", { level: 2, name: M["report.report.title"] })).toBeInTheDocument();
-    for (const key of sectionKeys(run)) expect(await screen.findByText(humanise(key))).toBeInTheDocument();
+    for (const key of sectionKeys(run)) expect(await screen.findByText(sectionLabel(run, key))).toBeInTheDocument();
     const checklist = screen.getByRole("region", { name: M["report.report.checklist"] });
     for (const item of checklistItems(run)) expect(within(checklist).getByText(item.text ?? humanise(item.key))).toBeInTheDocument();
     expect(within(checklist).getByText(`1 of ${checklistItems(run).length} done`)).toBeInTheDocument();
@@ -30,9 +29,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
 test("says which sections you wrote and which were built for you, and offers the final check", async () => {
   serve("launch");
   renderAt(url);
-  const first = await screen.findByRole("listitem", { name: humanise(sectionKeys("launch")[0]!) });
+  const first = await screen.findByRole("listitem", { name: sectionLabel("launch", sectionKeys("launch")[0]!) });
   expect(within(first).getByText(M["report.report.section.written"]!)).toBeInTheDocument();
-  const second = screen.getByRole("listitem", { name: humanise(sectionKeys("launch")[1]!) });
+  const second = screen.getByRole("listitem", { name: sectionLabel("launch", sectionKeys("launch")[1]!) });
   expect(within(second).getByText(M["report.report.section.generated"]!)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.report.final_check"]! })).toHaveAttribute("href", `/cases/${CASE_A}/final-check`);
   expect(screen.getByText("Draft 1 · 31 pages")).toBeInTheDocument();
@@ -85,8 +84,8 @@ test("you can write a section in your own words; it saves with the version you l
     http.put("/v1/cases/:caseId/report/sections/:key", async ({ request }) => (await record(request), etagged({ key, body: "Changed words", citations: [], version: 6 }, 6))),
   );
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("button", { name: `${M["report.report.section.edit"]} ${humanise(key)}` }));
-  const box = await screen.findByLabelText(`Your words for ${humanise(key)}`);
+  await user.click(await screen.findByRole("button", { name: `${M["report.report.section.edit"]} ${sectionLabel("launch", key)}` }));
+  const box = await screen.findByLabelText(`Your words for ${sectionLabel("launch", key)}`);
   expect(box).toHaveValue("My first words");
   await user.clear(box);
   await user.type(box, "Changed words");
@@ -103,8 +102,8 @@ test("a section changed in another window asks you to reload instead of overwrit
     http.put("/v1/cases/:caseId/report/sections/:key", () => apiError(412, "stale")),
   );
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("button", { name: `${M["report.report.section.edit"]} ${humanise(key)}` }));
-  await screen.findByLabelText(`Your words for ${humanise(key)}`);
+  await user.click(await screen.findByRole("button", { name: `${M["report.report.section.edit"]} ${sectionLabel("launch", key)}` }));
+  await screen.findByLabelText(`Your words for ${sectionLabel("launch", key)}`);
   await user.click(screen.getByRole("button", { name: M["report.report.section.save"]! }));
   expect(await screen.findByText(M["report.stale"]!)).toBeInTheDocument();
 });
@@ -118,42 +117,4 @@ test("shows the methodology note and a preview of the pages that moves on", asyn
   await user.click(screen.getByRole("button", { name: M["report.report.preview_next"]! }));
   expect(screen.getByRole("img", { name: "Page 2 of your report" })).toBeInTheDocument();
   expect(V1).toBeTruthy();
-});
-
-describe("the time heartbeat", () => {
-  afterEach(() => vi.useRealTimers());
-
-  function Beat() {
-    useTimeHeartbeat(CASE_A, "report");
-    return null;
-  }
-
-  test("posts the screen, whether the tab is visible and the seconds since the last input every 30 seconds", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const bodies: unknown[] = [];
-    server.use(http.post("/v1/cases/:caseId/time/heartbeat", async ({ request }) => (bodies.push(await request.json()), json({ counted: true, stage: "write" }))));
-    render(<Beat />);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]).toEqual({ screen: "report", visible: true, idle_seconds: 30 });
-    document.dispatchEvent(new Event("keydown"));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    await waitFor(() => expect(bodies).toHaveLength(2));
-    expect(bodies[1]).toEqual({ screen: "report", visible: true, idle_seconds: 30 });
-  });
-
-  test("a refused beat is ignored quietly", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    let calls = 0;
-    server.use(http.post("/v1/cases/:caseId/time/heartbeat", () => (calls++, apiError(400, "invalid"))));
-    render(<Beat />);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    await waitFor(() => expect(calls).toBe(1));
-  });
 });

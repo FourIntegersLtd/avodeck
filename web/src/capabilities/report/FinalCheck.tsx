@@ -8,8 +8,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { useTimeHeartbeat } from "./heartbeat";
-import { longDate, useLocale, useWaiting } from "./shared";
+import { longDate, useLocale, useSectionName, useWaiting } from "./shared";
 import { w } from "./words";
 
 type Check = Schemas["FinalCheckOut"];
@@ -29,7 +28,6 @@ async function latest(caseId: string): Promise<Check | null> {
 
 export function FinalCheck() {
   const { caseId = "" } = useParams();
-  useTimeHeartbeat(caseId, "final_check");
   const found = useResource(() => latest(caseId), [caseId]);
   const wait = useWaiting(found.reload, found.data?.id ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +124,7 @@ function Failed({ caseId, result }: { caseId: string; result: Result }) {
 }
 
 function Warnings({ warnings }: { warnings: Schemas["Warning"][] }) {
+  const nameOf = useSectionName();
   return (
     <section className="av-card av-stack" aria-labelledby="warn-title">
       <h3 id="warn-title">{w("check.warnings")}</h3>
@@ -136,7 +135,7 @@ function Warnings({ warnings }: { warnings: Schemas["Warning"][] }) {
           return (
             <li key={`${warning.paragraph_id}-${warning.type}-${warning.words}`} className="av-report-item">
               <p><strong>{known ? w(`check.warning.${warning.type as (typeof WARNING_TYPES)[number]}`) : humanise(warning.type)}</strong></p>
-              <p className="av-muted">{w("check.warning.where", { section: humanise(warning.section), para: warning.para_no })}</p>
+              <p className="av-muted">{w("check.warning.where", { section: nameOf(warning.section), para: warning.para_no })}</p>
               <p className="av-report-words">{warning.words}</p>
             </li>
           );

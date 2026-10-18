@@ -110,7 +110,7 @@ Every case carries three codes (jurisdiction, case type, specialty). The loader 
 packs/
   jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, holidays.yaml, meetings.yaml,
                             legal_tests.md, report.yaml (court compliance items), final_checks.yaml, identifiers.py
-  case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml, final_checks.yaml, opinion.yaml (point-side, opinion-view, loaded-word and range-note wording)
+  case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml (section and appendix keys with their headings), final_checks.yaml, opinion.yaml (point-side, opinion-view, loaded-word and range-note wording)
   specialty/general-practice/ pack.yaml (profession), facts.yaml, sources.yaml, lanes.yaml, checks.yaml, final_checks.yaml, vocabulary.yaml
   overlay/gb-eaw/general-practice/ records.yaml, guidelines.yaml, vocabulary.yaml, speech_phrases.yaml, drug_monitoring.yaml
   _fixtures/                 deliberately strange test packs (see 3.6); never allowed in a real cell
@@ -624,7 +624,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases/{case_id}/report/final-check` | Run 28 checks (26 code + T-17) → `final_check_runs` |
 | GET | `/cases/{case_id}/report/final-check/latest` | Results with "fix it" targets |
 | POST | `/cases/{case_id}/spot-checks` | Send 10 random cited facts to a colleague (expiring link + email code) |
-| GET / POST | `/spot-checks/{token}`, `/spot-checks/{token}/responses` | Colleague's view and answers (no login; page crops only) |
+| GET / POST | `/spot-checks/{token}`, `/spot-checks/{token}/responses` | Colleague's view (code in `X-Spot-Check-Code`) and answers (no login; public and token-gated: the link token and emailed code hashes are the gate, no `require_case_access`; every outcome is 200 with `status` `ok`, `bad_code`, `locked`, `expired` or `unknown`, answers also `already` or `invalid`, and a wrong code commits its count; page crops only) |
 
 **18 Sign and send**
 

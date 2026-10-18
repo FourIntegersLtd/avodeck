@@ -1,5 +1,7 @@
 // Small helpers the four report screens share: waiting for a queued job, version tags, dates and money.
 import { useEffect, useState } from "react";
+import { humanise } from "../../foundation/i18n";
+import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useSession } from "../../foundation/lib/session";
 
 export const versionTag = (version: number | string) => `"${version}"`;
@@ -56,4 +58,12 @@ export function today(): string {
 
 export function downloadPath(caseId: string, versionId: string, format: "docx" | "pdf"): string {
   return `/v1/cases/${caseId}/report/versions/${versionId}/download?format=${format}`;
+}
+
+/** Names a report section or appendix by the heading the case's pack gives it; a key the pack does not list
+ * (an expert's own heading) falls back to the key in plain words. */
+export function useSectionName(): (key: string) => string {
+  const { pack } = useCaseFrame();
+  const entries = [...pack.report_sections, ...(pack.report_appendices ?? [])] as Array<{ key: string; label?: string }>;
+  return (key) => entries.find((e) => e.key === key)?.label ?? humanise(key);
 }

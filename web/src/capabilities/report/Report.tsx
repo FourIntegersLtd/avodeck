@@ -1,4 +1,4 @@
-// S16 Your report (docs/design/screens/S16-Report.dc.html): the sections (names from the pack's keys), what the
+// S16 Your report (docs/design/screens/S16-Report.dc.html): the sections (headings from the pack's labels), what the
 // court requires (from the pack), the citation style, building and rebuilding, the expert's own sections and the
 // methodology note. The server decides every change; edits send the version this screen saw.
 import { useState } from "react";
@@ -8,8 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
-import { useTimeHeartbeat } from "./heartbeat";
-import { useWaiting, versionTag } from "./shared";
+import { useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
 type Report = Schemas["ReportOut"];
@@ -18,7 +17,6 @@ const ERRORS = { stale: "report.stale", not_built: "report.not_built" };
 
 export function ReportScreen() {
   const { caseId = "" } = useParams();
-  useTimeHeartbeat(caseId, "report");
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
   const settings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/settings", { params: { path: { case_id: caseId } } })), [caseId]);
   const wait = useWaiting(found.reload, found.data?.version?.id ?? null);
@@ -122,12 +120,13 @@ export function ReportScreen() {
 
 function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onSaved: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
+  const nameOf = useSectionName();
   return (
     <section className="av-card av-stack" aria-labelledby="sections-title">
       <h3 id="sections-title">{w("report.sections")}</h3>
       <ul className="av-report-list">
         {data.sections.map((section) => {
-          const name = humanise(section.key);
+          const name = nameOf(section.key);
           return (
             <li key={section.key} aria-label={name} className="av-report-item av-report-item--spread">
               <span>
@@ -158,6 +157,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
   const [version, setVersion] = useState(initial.version);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const nameOf = useSectionName();
   const save = async () => {
     setError(null);
     setSaved(false);
@@ -179,7 +179,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
   return (
     <div className="av-stack">
       {error && <Notice tone="error"><p>{error}</p></Notice>}
-      <DictationBox caseId={caseId} context="report_section" label={w("report.section.label", { name: humanise(initial.key) })} value={body} onChange={(value) => { setBody(value); setSaved(false); }} rows={10} />
+      <DictationBox caseId={caseId} context="report_section" label={w("report.section.label", { name: nameOf(initial.key) })} value={body} onChange={(value) => { setBody(value); setSaved(false); }} rows={10} />
       <div className="av-row">
         <Button onClick={() => void save()}>{w("report.section.save")}</Button>
         <Button variant="secondary" onClick={onClose}>{w("report.section.close")}</Button>
