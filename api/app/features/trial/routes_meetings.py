@@ -585,6 +585,8 @@ async def signed_external(
     meeting = await _meeting(conn, case_id, meeting_id)
     if meeting["status"] in SIGNED:
         raise conflict("signed", "This statement is signed and cannot change.")
+    if meeting["status"] != "draft":
+        raise conflict("not_draft", "This statement is out for signature. Wait for it, or change the agenda first.")
     data = await pdf_body(request)
     digest = sha256(data)
     path = trial_path(case_id, "meetings", meeting_id, f"signed-{digest}.pdf")
