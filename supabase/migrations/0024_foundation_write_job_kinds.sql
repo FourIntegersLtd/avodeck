@@ -1,4 +1,4 @@
--- 0023 foundation: the opinion jobs (slice E) are queued by whoever may write the opinion (`opinion.write`).
+-- 0024 foundation: the opinion jobs (slice E) are queued by whoever may write the opinion (`opinion.write`).
 -- suggest_points sorts verified facts for and against (T-14a/T-14b); compare_witness_statement checks a
 -- witness statement against verified facts (T-14c).
 

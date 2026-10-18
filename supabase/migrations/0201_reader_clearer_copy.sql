@@ -4,7 +4,7 @@
 --   instructing-party request draft lists it, as it lists unreadable pages.
 -- * `facts_guard` [foundation path, approved for slice B]: a fact may move to the page that
 --   supersedes its own page (the clearer copy) and to no other page. Status is kept; `version`
---   rises as on every change.
+--   rises as on every change. Keeps 0023's exception for `app.set_fact_availability()`.
 
 set role app_migrator;
 
@@ -39,6 +39,12 @@ begin
     ('verified', 'rejected'), ('edited', 'rejected'), ('rejected', 'verified')
   ) then
     perform app.refuse(format('fact status cannot change from %s to %s', old.status, new.status));
+  end if;
+  -- app.set_fact_availability() alone may change when an entry reached the clinician without a new version.
+  if current_setting('app.fact_availability_write', true) = new.id::text
+     and (to_jsonb(new) - '{available_at,availability_basis}'::text[])
+         = (to_jsonb(old) - '{available_at,availability_basis}'::text[]) then
+    return new;
   end if;
   new.version := old.version + 1;
   new.updated_at := now();

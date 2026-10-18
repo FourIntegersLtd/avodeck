@@ -1,4 +1,4 @@
--- 0200 down: back to the 0021 matrix (no `page.transcribe`).
+-- 0200 down: back to the 0023 matrix (no `page.transcribe`).
 
 set role app_migrator;
 
@@ -28,6 +28,11 @@ as $$
     ('page.rotate',               '{named_expert,assistant}', 'none'),
     ('page.review_duplicate',     '{named_expert,assistant}', 'none'),
     ('fact.verify',               '{named_expert}', 'none'),
+    ('link.suggest',              '{named_expert,co_expert,supervisor,assistant}', 'none'),
+    ('link.decide',               '{named_expert}', 'none'),
+    ('finding.decide',            '{named_expert}', 'none'),
+    ('availability.override',     '{named_expert}', 'none'),
+    ('consultation.note',         '{named_expert}', 'none'),
     ('question.confirm',          '{named_expert}', 'none'),
     ('opinion.write',             '{named_expert}', 'none'),
     ('comment.write',             '{named_expert,co_expert,supervisor,assistant}', 'none'),
