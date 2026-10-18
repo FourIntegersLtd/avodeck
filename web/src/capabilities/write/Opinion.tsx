@@ -43,7 +43,38 @@ type Fields = {
   provisional: boolean;
   test: string;
 };
-type Status = "saved" | "unsaved" | "saving" | "failed";
+type Status = "saved" | "unsaved" | "saving" | "failed" | "stopped";
+const MARKER = /\[\[cite:(\d+)\]\]/g;
+
+/** Drop the citations whose marker is gone from the text and renumber the rest in their order. */
+export function prune(body: string, refs: Citation[]): { body: string; refs: Citation[] } {
+  const used = new Set([...body.matchAll(MARKER)].map((m) => Number(m[1])));
+  const kept: Citation[] = [];
+  const renumber = new Map<number, number>();
+  refs.forEach((ref, i) => {
+    if (used.has(i + 1)) {
+      kept.push(ref);
+      renumber.set(i + 1, kept.length);
+    }
+  });
+  if (kept.length === refs.length) return { body, refs };
+  return {
+    body: body.replace(MARKER, (whole, n: string) => {
+      const next = renumber.get(Number(n));
+      return next === undefined ? whole : `[[cite:${next}]]`;
+    }),
+    refs: kept,
+  };
+}
+
+/** The plain words for a citation the server refused (rule 2): which one, and what to do. */
+function refusal(err: ApiError): string {
+  const number = Number(err.extra.citation ?? err.extra.marker ?? 0);
+  const reason = String(err.extra.reason ?? "");
+  if (reason === "unused_citation" || reason === "unknown_marker") return w("opinion.marker_refused", { number });
+  if (number > 0) return w("opinion.cite_refused", { number });
+  return w("opinion.cite_failed");
+}
 const AUTOSAVE_MS = 5000;
 const ISSUE_TYPES = new Set([
   "uncited_fact",
@@ -130,6 +161,9 @@ function Editor({
   );
   const [current, setCurrent] = useState(space.opinion?.version ?? 0);
   const [tick, setTick] = useState(0);
+  const [changedRefs, setChangedRefs] = useState<number[]>(
+    space.opinion?.changed_citations ?? [],
+  );
 
   const latest = useRef(fields);
   latest.current = fields;
@@ -137,6 +171,7 @@ function Editor({
   const changed = useRef(0);
   const saved = useRef(0);
   const busy = useRef(false);
+  const stoppedAt = useRef<number | null>(null);
   const box = useRef<HTMLDivElement>(null);
   const cursor = useRef<number | null>(null);
   const path = { case_id: caseId, question_id: questionId };
@@ -146,6 +181,7 @@ function Editor({
     setCurrent(o.version);
     setOpinionId(o.id);
     setIssues(o.lint ?? []);
+    setChangedRefs(o.changed_citations ?? []);
   };
 
   const lintAgain = async () => {
@@ -167,7 +203,12 @@ function Editor({
   };
 
   const save = useCallback(async (): Promise<void> => {
-    if (busy.current || saved.current === changed.current) return;
+    if (
+      busy.current ||
+      saved.current === changed.current ||
+      stoppedAt.current === changed.current
+    )
+      return;
     busy.current = true;
     const mark = changed.current;
     const f = latest.current;
@@ -194,6 +235,10 @@ function Editor({
       if (err instanceof ApiError && err.code === "stale") {
         setStale({ saved: (err.extra.saved as OpinionOut | null) ?? null });
         setStatus("unsaved");
+      } else if (err instanceof ApiError && err.status === 422) {
+        stoppedAt.current = mark;
+        setMessage(refusal(err));
+        setStatus("stopped");
       } else {
         setMessage(errorMessage(err, { invalid: "write.opinion.cite_failed" }));
         setStatus("failed");
@@ -213,9 +258,20 @@ function Editor({
     return () => clearTimeout(timer);
   }, [tick, save]);
 
-  const edit = (next: Partial<Fields>) => {
-    setFields({ ...latest.current, ...next });
-    latest.current = { ...latest.current, ...next };
+  const edit = (change: Partial<Fields>) => {
+    const next = { ...latest.current, ...change };
+    if (change.body !== undefined || change.refs !== undefined) {
+      const tidy = prune(next.body, next.refs);
+      const area = box.current?.querySelector("textarea");
+      if (tidy.body !== next.body && cursor.current === null && area) {
+        const at = area.selectionStart ?? next.body.length;
+        cursor.current = Math.max(0, at - (next.body.length - tidy.body.length));
+      }
+      next.body = tidy.body;
+      next.refs = tidy.refs;
+    }
+    setFields(next);
+    latest.current = next;
     changed.current += 1;
     setStatus("unsaved");
     setTick((n) => n + 1);
@@ -252,6 +308,7 @@ function Editor({
               fact_id: chip.fact_id,
               page_id: chip.page_id,
               quote_verbatim: chip.quote_verbatim,
+              fact_version: chip.fact_version,
             },
           ];
     const marker = `[[cite:${(known >= 0 ? known : refs.length - 1) + 1}]]`;
@@ -268,6 +325,25 @@ function Editor({
       cursor.current = null;
     }
   });
+
+  const chipFor = (n: number) =>
+    space.chips.find((c) => c.fact_id === latest.current.refs[n - 1]?.fact_id);
+  const recite = (n: number) => {
+    const found = chipFor(n);
+    if (!found) return;
+    const refs = latest.current.refs.map((r, i) =>
+      i === n - 1
+        ? {
+            fact_id: found.fact_id,
+            page_id: found.page_id,
+            quote_verbatim: found.quote_verbatim,
+            fact_version: found.fact_version,
+          }
+        : r,
+    );
+    edit({ refs });
+    void save();
+  };
 
   const keepSaved = () => {
     const mine = stale?.saved;
@@ -416,13 +492,31 @@ function Editor({
         <div className="av-stack" onBlur={(e) => void leave(e)}>
           <div>
             <p className="av-muted">
-              <span className="av-write-badge">Q{question.number}</span>
+              <span className="av-write-badge">
+                {w("tab.question_short", { number: question.number })}
+              </span>
             </p>
             <h3>{question.confirmed_text ?? question.text_verbatim}</h3>
           </div>
           {message && (
-            <Notice tone={status === "failed" ? "error" : "info"}>
+            <Notice
+              tone={status === "failed" || status === "stopped" ? "error" : "info"}
+            >
               <p>{message}</p>
+            </Notice>
+          )}
+          {changedRefs.length > 0 && (
+            <Notice tone="warning">
+              {changedRefs.map((n) => (
+                <div key={n} className="av-stack">
+                  <p>{w("opinion.changed_since_cited", { number: n })}</p>
+                  {chipFor(n) && (
+                    <Button variant="secondary" onClick={() => recite(n)}>
+                      {w("opinion.recite", { number: n })}
+                    </Button>
+                  )}
+                </div>
+              ))}
             </Notice>
           )}
           <section className="av-card av-stack">
@@ -509,7 +603,9 @@ function Editor({
                   ? w("opinion.saved")
                   : status === "failed"
                     ? w("opinion.save_failed")
-                    : w("opinion.unsaved")}
+                    : status === "stopped"
+                      ? w("opinion.save_stopped")
+                      : w("opinion.unsaved")}
             </p>
             <Button
               variant="secondary"

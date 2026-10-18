@@ -13,6 +13,9 @@ import { w } from "./words";
 
 type Data = Schemas["Points"];
 type Point = Schemas["PointOut"];
+const VERDICTS = ["supports", "contradicts", "not_addressed"] as const;
+const verdictLabel = (verdict: string) =>
+  (VERDICTS as readonly string[]).includes(verdict) ? w(`points.verdict.${verdict as (typeof VERDICTS)[number]}`) : verdict;
 
 export function Points() {
   const { caseId = "" } = useParams();
@@ -106,8 +109,9 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                       <span className="av-write-page">{pageLabel(point.fact.page_no)}</span>
                     </div>
                     {point.flagged && <p className="av-muted">{w("points.flagged")}</p>}
+                    {point.status === "stale" && <p className="av-write-badge">{w("points.stale_point")}</p>}
                     <div className="av-write-actions">
-                      {point.status === "suggested" && (
+                      {(point.status === "suggested" || point.status === "stale") && (
                         <Button variant="secondary" onClick={() => void change(point, { status: "accepted" })}>
                           {w("points.keep")}
                         </Button>
@@ -198,7 +202,11 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
           <h3 id="differ-title">{w("points.differ")}</h3>
           {data.claims.length === 0 && <p className="av-muted">{w("points.differ_none")}</p>}
           {data.claims.map((claim) => (
-            <article key={claim.id} className="av-stack">
+            <article key={claim.id} className="av-stack" aria-label={claim.text_verbatim}>
+              <p>
+                <span className="av-write-badge">{verdictLabel(claim.expert_verdict ?? claim.verdict)}</span>
+              </p>
+              {claim.status === "stale" && <p className="av-muted">{w("points.claim_stale")}</p>}
               <div className="av-write-pair">
                 <div>
                   <strong>{w("points.statement")}</strong>
