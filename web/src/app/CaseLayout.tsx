@@ -1,6 +1,7 @@
 import { useMatches, useOutlet, useParams } from "react-router-dom";
 import { t } from "../foundation/i18n";
 import { stepFor, type CaseFrame, type CaseScreenHandle } from "../foundation/lib/caseFrame";
+import { useTimeHeartbeat } from "../foundation/lib/timeHeartbeat";
 import { useResource } from "../foundation/lib/useResource";
 import { api, unwrap } from "../foundation/platform-client";
 import { CaseHeader, LinkButton, LoadError, Loading, Notice } from "../foundation/ui";
@@ -23,6 +24,8 @@ export function CaseLayout() {
     .map((m) => (m.handle as Partial<CaseScreenHandle> | undefined)?.screen)
     .filter(Boolean)
     .pop();
+  // Time is kept on every screen a pack step holds; the server decides what counts and which step it is.
+  useTimeHeartbeat(caseId, found.data && screenKey && stepFor(found.data.pack, screenKey) ? screenKey : null);
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!found.data) return <div className="av-page"><Loading /></div>;
   return (

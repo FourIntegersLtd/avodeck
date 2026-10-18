@@ -8,7 +8,6 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
-import { useTimeHeartbeat } from "./heartbeat";
 import { useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -18,7 +17,6 @@ const ERRORS = { stale: "report.stale", not_built: "report.not_built" };
 
 export function ReportScreen() {
   const { caseId = "" } = useParams();
-  useTimeHeartbeat(caseId, "report");
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
   const settings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/settings", { params: { path: { case_id: caseId } } })), [caseId]);
   const wait = useWaiting(found.reload, found.data?.version?.id ?? null);

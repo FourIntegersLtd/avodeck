@@ -8,7 +8,6 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { useTimeHeartbeat } from "./heartbeat";
 import { longDate, useLocale, useSectionName, useWaiting } from "./shared";
 import { w } from "./words";
 
@@ -29,7 +28,6 @@ async function latest(caseId: string): Promise<Check | null> {
 
 export function FinalCheck() {
   const { caseId = "" } = useParams();
-  useTimeHeartbeat(caseId, "final_check");
   const found = useResource(() => latest(caseId), [caseId]);
   const wait = useWaiting(found.reload, found.data?.id ?? null);
   const [error, setError] = useState<string | null>(null);
