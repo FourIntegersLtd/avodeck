@@ -169,3 +169,65 @@ test("Today's items open these screens", async () => {
   expect(screen.getByText("Mrs A: 1 point against not yet considered")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Look at the points" })).toHaveAttribute("href", `/cases/${CASE_A}/points`);
 });
+
+const REF_1 = { fact_id: FACT_1, page_id: PAGE_1, quote_verbatim: "bleeding for three weeks" };
+const REF_2 = { fact_id: "f2222222-2222-4222-8222-222222222222", page_id: "92222222-2222-4222-8222-222222222222", quote_verbatim: "iron deficiency anaemia" };
+
+test("a fact put in the text carries the fact's version as cited", async () => {
+  const { sent, record } = serve("launch");
+  save(sent, record);
+  const { user } = renderAt(url);
+  await screen.findByLabelText(M["write.opinion.editor"]!);
+  await user.click(screen.getByRole("button", { name: /Bleeding for 3 weeks/ }));
+  await user.tab();
+  await waitFor(() => expect(sent.at(-1)?.body).toMatchObject({ citation_refs: [{ ...REF_1, fact_version: 2 }] }));
+});
+
+test("deleting a marker removes its citation and renumbers the rest before saving", async () => {
+  const opinion = opinionOut({ body: "A [[cite:1]] B [[cite:2]].", citation_refs: [REF_1, REF_2], version: 2 });
+  const { sent, record } = serve("launch", { workspace: workspace("launch", { opinion }) });
+  save(sent, record, 3);
+  const { user } = renderAt(url);
+  const box = await screen.findByLabelText(M["write.opinion.editor"]!);
+  await user.click(box);
+  fireEvent.change(box, { target: { value: "A  B [[cite:2]]." } });
+  await user.tab();
+  await waitFor(() => expect(sent.at(-1)?.body).toMatchObject({ body: "A  B [[cite:1]].", citation_refs: [REF_2] }));
+  expect((box as HTMLTextAreaElement).value).toBe("A  B [[cite:1]].");
+});
+
+test("a refused citation stops the autosave, says which in plain words, and saves again after the next change", async () => {
+  const { sent, record } = serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ body: "Start [[cite:1]]", citation_refs: [REF_1], version: 4 }) }) });
+  let refuse = true;
+  server.use(http.put("/v1/cases/:caseId/questions/:q/opinion", async ({ request }) => {
+    await record(request);
+    if (refuse) return apiError(422, "invalid", { reason: "not_citable", citation: 1 });
+    return ok(opinionOut({ body: "x", version: 5 }), 5);
+  }));
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  renderAt(url);
+  const box = await screen.findByLabelText(M["write.opinion.editor"]!);
+  fireEvent.change(box, { target: { value: "Start more [[cite:1]]" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+  await waitFor(() => expect(sent).toHaveLength(1));
+  expect(await screen.findByText("Citation [1] doesn't match a fact you have checked. Remove it, or click the fact again to cite it as it is now.")).toBeInTheDocument();
+  expect(screen.getByText(M["write.opinion.save_stopped"]!)).toBeInTheDocument();
+  await act(async () => { await vi.advanceTimersByTimeAsync(16000); });
+  expect(sent).toHaveLength(1);
+  refuse = false;
+  fireEvent.change(box, { target: { value: "Start more again [[cite:1]]" } });
+  await act(async () => { await vi.advanceTimersByTimeAsync(5100); });
+  await waitFor(() => expect(sent).toHaveLength(2));
+});
+
+test("a citation whose fact changed since you cited it says so, and one click cites the fact as it is now", async () => {
+  const old = { fact_id: FACT_1, page_id: "93333333-3333-4333-8333-333333333333", quote_verbatim: "bleeding for three weeks" };
+  const opinion = opinionOut({ body: "See [[cite:1]].", citation_refs: [old], changed_citations: [1], stale: true, version: 2 });
+  const { sent, record } = serve("launch", { workspace: workspace("launch", { opinion }) });
+  save(sent, record, 3);
+  const { user } = renderAt(url);
+  expect(await screen.findByText("Citation [1] has changed since you cited it (for example, it moved to a clearer copy of the page).")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Cite [1] as it is now" }));
+  await waitFor(() => expect(sent.at(-1)?.body).toMatchObject({ body: "See [[cite:1]].", citation_refs: [{ ...REF_1, fact_version: 2 }] }));
+  await waitFor(() => expect(screen.queryByText(/has changed since you cited it/)).not.toBeInTheDocument());
+});

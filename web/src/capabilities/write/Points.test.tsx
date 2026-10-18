@@ -121,3 +121,31 @@ test("Write my opinion goes to the opinion screen for this question", async () =
   renderAt(`${url}?q=${Q2}`);
   expect(await screen.findByRole("link", { name: M["write.points.write"]! })).toHaveAttribute("href", `/cases/${CASE_A}/opinion?q=${Q2}`);
 });
+
+test("a point whose fact changed says so, and Keep accepts it again with the version you saw", async () => {
+  const stale = pointOut({ status: "stale", origin: "expert", version: 3 });
+  const { sent, record } = serve("launch", { points: pointsBody("launch", { points: [stale] }) });
+  server.use(http.patch("/v1/cases/:caseId/points/:id", async ({ request }) => (await record(request), ok(pointOut({ status: "accepted", version: 4 }), 4))));
+  const { user } = renderAt(`${url}?q=${Q1}`);
+  expect(await screen.findByText(M["write.points.stale_point"]!)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: M["write.points.keep"]! }));
+  await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "PATCH", body: { status: "accepted" }, ifMatch: '"3"' }));
+  await waitFor(() => expect(screen.queryByText(M["write.points.stale_point"]!)).not.toBeInTheDocument());
+});
+
+test("each account shows its label (the expert's own over the AI's) and says when the record changed", async () => {
+  const second = claim({ id: "c2222222-2222-4222-8222-222222222222", claim_index: 1, text_verbatim: "second claim", verdict: "supports", expert_verdict: "not_addressed", status: "stale", facts: [] });
+  serve("launch", { points: pointsBody("launch", { claims: [claim(), second] }) });
+  renderAt(`${url}?q=${Q1}`);
+  const differ = await screen.findByRole("region", { name: M["write.points.differ"] });
+  const [first, other] = within(differ).getAllByRole("article");
+  expect(within(first!).getByText(M["write.points.verdict.contradicts"]!)).toBeInTheDocument();
+  expect(within(first!).queryByText(M["write.points.claim_stale"]!)).not.toBeInTheDocument();
+  expect(within(other!).getByText(M["write.points.verdict.not_addressed"]!)).toBeInTheDocument();
+  expect(within(other!).queryByText(M["write.points.verdict.supports"]!)).not.toBeInTheDocument();
+  expect(within(other!).getByText(M["write.points.claim_stale"]!)).toBeInTheDocument();
+});
+
+test("the screens' own words name no court or judge (those come from the packs)", () => {
+  expect(Object.values(M).join(" ")).not.toMatch(/\b(court|judge)s?\b/i);
+});

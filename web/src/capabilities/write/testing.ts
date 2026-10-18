@@ -28,7 +28,7 @@ export function pointFact(over: Partial<Schemas["PointFact"]> = {}): Schemas["Po
 }
 
 export function chip(over: Partial<Schemas["Chip"]> = {}): Schemas["Chip"] {
-  return { fact_id: FACT_1, page_id: PAGE_1, page_no: 118, kind: "symptom", value: "Bleeding for 3 weeks", event_date: "2024-05-15", quote_verbatim: "bleeding for three weeks", ...over };
+  return { fact_id: FACT_1, page_id: PAGE_1, page_no: 118, kind: "symptom", value: "Bleeding for 3 weeks", event_date: "2024-05-15", quote_verbatim: "bleeding for three weeks", fact_version: 2, ...over };
 }
 
 export function pointOut(over: Partial<Schemas["PointOut"]> = {}): Schemas["PointOut"] {
@@ -58,7 +58,7 @@ export function claim(over: Partial<Schemas["ClaimOut"]> = {}): Schemas["ClaimOu
 export function opinionOut(over: Partial<Schemas["OpinionOut"]> = {}): Schemas["OpinionOut"] {
   return {
     id: "e1111111-1111-4111-8111-111111111111", question_id: Q1, body: "", citation_refs: [], view: null, provisional: false,
-    test_text: null, restored_from: null, version: 1, updated_at: "2026-10-18T09:00:00Z", lint: [], ...over,
+    test_text: null, restored_from: null, version: 1, updated_at: "2026-10-18T09:00:00Z", lint: [], changed_citations: [], stale: false, ...over,
   };
 }
 
