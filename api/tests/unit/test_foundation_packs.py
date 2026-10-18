@@ -164,7 +164,7 @@ def test_prompt_context_carries_pack_data_only(library: packs.PackLibrary) -> No
     assert context["language"] == FIXTURE.raw("jurisdiction", "pack.yaml")["language"]
     assert [k["key"] for k in context["fact_kinds"]] == ["session", "measurement"]
     assert context["fact_kinds"][0]["fields"] == {"duration_minutes": "integer"}
-    assert [s["key"] for s in context["source_types"]] == ["clinic_notes", "letters"]
+    assert [s["key"] for s in context["source_types"]] == ["clinic_notes", "letters", "zz_account"]
     assert context["vocabulary"]["clinician"] == "therapist"
 
 

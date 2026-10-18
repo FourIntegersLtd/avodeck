@@ -363,6 +363,15 @@ def test_own_record_sources_are_the_ones_the_pack_marks(library: packs.PackLibra
 
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+def test_statement_sources_are_the_ones_the_pack_marks(library: packs.PackLibrary, combo: Combo) -> None:
+    raw = raw_items(combo, "specialty", "sources.yaml", "source_types")
+    marked = frozenset(s["key"] for s in raw if s.get("statement") is True)
+    assert marked
+    assert merged(library, combo).statement_sources() == marked
+    assert not marked & merged(library, combo).own_record_sources()
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
 def test_arriving_kinds_are_the_fact_kinds_the_pack_marks(library: packs.PackLibrary, combo: Combo) -> None:
     raw = raw_items(combo, "specialty", "facts.yaml", "fact_kinds")
     marked = frozenset(k["key"] for k in raw if k.get("arrives") is True)
