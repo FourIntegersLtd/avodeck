@@ -124,12 +124,13 @@ TODO (law, data or money policy, founder to decide):
 - Fee-independence wording on invoices (not in the packs).
 - Bank details and a time estimate on invoices (no contract yet).
 
-Foundation requests (workarounds in slice F code):
-- Mail templates `invoice.sent` and `spot_check.code`, and attachments, in `app.core.email` (F keeps its own outbox in `mail.py` until then).
-- Mount the colleague's routes `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses` on the public router with a signed-out connection; they call `spot_checks.open_check` / `respond` (migration 0604 functions). A wrong code must still count: the public route must commit its transaction and answer with a status (401 `bad_code`, 423 `locked`, 410 `expired`, 404 `unknown`) and never raise on a bad code, or the attempt counter rolls back and the five-tries lock never trips (repository test `test_report_spot_check_lock.py` shows the database side holds when each try commits).
-- Wrap `app.case_invoice_rows` in `core/contracts` for slice H's `invoices.csv`.
-- Move `app.report_named_expert` into contracts; page-limit accessors and T-17 prompt context in packs; a CV snapshot source; section labels in the pack (the web shows a humanised key until then).
-- Mount `useTimeHeartbeat` in the case shell (it runs on F's four screens only).
+Foundation requests:
+- Done: mail templates `invoice.sent` and `spot_check.code` in `app.core.email` (F's own outbox is gone; the invoice email carries no attachment).
+- Done: the colleague's routes `GET /v1/spot-checks/{token}` (code in the `X-Spot-Check-Code` header) and `POST /v1/spot-checks/{token}/responses` on the public router (`routes_colleague.py`, mounted in `main.py`). Every outcome is 200 with a `status` (`ok`, `bad_code`, `locked`, `expired`, `unknown`); a wrong code commits so the five-tries lock trips.
+- Done: `core/contracts/invoices.case_invoice_rows` (slice H writes `invoices.csv` from it) and `core/contracts/profile.named_expert`.
+- Done: section and appendix labels in the pack (`report_sections.yaml` entries are `{key, label}`; `MergedPack.report_appendices()`; the case pack serves `report_appendices`); screens 16 and 17 show them.
+- Done: the case frame mounts `useTimeHeartbeat` (`foundation/lib/timeHeartbeat.ts`) for every screen a pack step holds; F's routes name pack screen keys (`report`, `final_check`, `sign_send`, `invoice`).
+- Still open: page-limit accessors and T-17 prompt context in packs; a CV snapshot source; email attachments; a per-address rate limit on the public spot-check routes (core has no limiter).
 
 ## Rules that apply
 1, 2, 4, 6, 7, 8, 9, 10, 11 from the root `AGENTS.md`.

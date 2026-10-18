@@ -1,7 +1,7 @@
 // S16 Your report: sections from the pack, what the court requires (from the pack), citation style, build and
 // rebuild, the expert's own sections, and the methodology note.
-import { act, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, test, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, test } from "vitest";
 import { humanise } from "../../foundation/i18n";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
