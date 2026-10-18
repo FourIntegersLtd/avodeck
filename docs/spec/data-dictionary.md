@@ -432,9 +432,9 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### fact_verifications
 | Field | In plain words |
 |---|---|
-| person_id | Who checked it |
+| person_id | Who checked it; empty only for `remapped` rows, which the reading job writes (0207) |
 | seq | Its place in the case's list of checks |
-| action | Correct, not right, changed, or moved to a clearer copy |
+| action | Correct, not right, changed, moved to a clearer copy, or `remapped`: the page was read again (turned or typed out) and the fact was moved onto the same words in the new reading (0207) |
 | old_value / new_value / reason | What it was, what it became, and why |
 | old_fields / new_fields | The details before and after a change |
 | old_word_ids / new_word_ids | The words it pointed to before and after a change |
@@ -454,8 +454,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### fact_flags
 | Field | In plain words |
 |---|---|
-| fact_id / person_id | Which fact, flagged by whom |
-| flagged_for | Why it was flagged (to consider under points against) |
+| fact_id / person_id | Which fact, flagged by whom; no person for `recheck` flags, which the reading job writes (0205) |
+| flagged_for | Why it was flagged: `points` (to consider under points against), or `recheck` ("Please check": its page was read again and its words were not found; the flag goes when the expert checks the fact again) (0205) |
 | at | When it was flagged |
 
 ### missing_items
