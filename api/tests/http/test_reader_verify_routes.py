@@ -232,15 +232,15 @@ async def clearer_copy(
     assert doc is not None
     new = seed.page(w["case"], doc[0], number)
     admin.execute("update app.pages set superseded_by_page_id = %s where id = %s", (new, w["page_id"]))
-    for n, word_id, text, polygon in admin.execute(
-        "select n, word_id, text, polygon from app.ocr_words where page_id = %s order by n", (w["page_id"],)
+    for n, word_id, text, polygon, source in admin.execute(
+        "select n, word_id, text, polygon, source from app.ocr_words where page_id = %s order by n", (w["page_id"],)
     ).fetchall():
         plain = await CRYPTO.decrypt(aconn, w["case"], bytes(text), purpose=word_purpose(w["page_id"], word_id))
         sealed = await CRYPTO.encrypt(aconn, w["case"], plain, purpose=word_purpose(new, word_id))
         admin.execute(
-            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence)"
-            " values (%s, %s, %s, %s, %s, %s, 0.99)",
-            (new, w["case"], n, word_id, sealed, polygon),
+            "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+            " values (%s, %s, %s, %s, %s, %s, 0.99, %s)",
+            (new, w["case"], n, word_id, sealed, polygon, source),
         )
     return new
 
