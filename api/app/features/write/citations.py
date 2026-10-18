@@ -16,6 +16,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import Sequence
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.ai.provenance import atoms
