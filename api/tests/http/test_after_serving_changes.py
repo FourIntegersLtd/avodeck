@@ -229,3 +229,15 @@ async def test_a_supplementary_report_holds_only_the_changes_and_is_signed_with_
     )
     assert late.status_code == 409, "a change in a signed supplementary report does not change"
     assert (await expert.post(url, json={"declaration_confirmed": True})).status_code == 409
+
+
+async def test_only_the_named_expert_queues_the_dependents_and_the_supplementary(
+    client_for: ClientFor, served: World
+) -> None:
+    """Both routes queue a job that needs `opinion.write`: the assistant and the co-expert are refused."""
+    for person in (served.assistant, served.co_expert):
+        client = await client_for(person)
+        added = await client.post(served.url("report-changes"), json=change_body(served))
+        assert added.status_code in (403, 404), (person, added.status_code)
+        built = await client.post(served.url("report-changes/supplementary"))
+        assert built.status_code in (403, 404), (person, built.status_code)
