@@ -14,6 +14,7 @@ from app.features.write import (  # noqa: E402, F401
     routes_range_note,
     routes_witness,
     routes_workspace,
+    today,
 )
 
 __all__ = ["router"]
