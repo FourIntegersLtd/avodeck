@@ -11,6 +11,8 @@ party's own reference can hold a name, so it stays in the PDF);
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
@@ -20,6 +22,7 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 
+import app.core.http as core_http
 from app.core.db import Database
 from app.core.packs import default_library
 from app.core.storage import SupabaseStorage
@@ -371,3 +374,67 @@ async def test_slice_h_reads_sent_invoices_for_the_export(
         " has_function_privilege('app_api', 'app.case_invoice_rows(uuid)', 'execute')"
     ).fetchone()
     assert grants == (True, True)
+
+
+# Sending once, after commit; writing off with step-up (review findings 2, 3 and 8) ------------------------
+
+
+async def test_two_sends_at_once_number_once_and_mail_once(
+    client_for: ClientFor,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    world: World,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    inv = await drafted(client_for, admin, world)
+    real_put = storage.put
+
+    async def slow_put(path: str, data: bytes) -> None:
+        await asyncio.sleep(0.3)  # the first send is still open when the second arrives
+        await real_put(path, data)
+
+    monkeypatch.setattr(storage, "put", slow_put)
+    url = world.url(f"invoices/{inv['id']}/send")
+    first, second = await client_for(world.expert), await client_for(world.expert)
+    answers = await asyncio.gather(first.post(url, json={}), second.post(url, json={}))
+    assert sorted(a.status_code for a in answers) == [200, 409], [a.text for a in answers]
+    assert next(a for a in answers if a.status_code == 409).json()["error"]["code"] == "already_sent"
+    assert len(current().mailer.outbox) == 1
+    sent = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'invoice.sent'", (world.case,)
+    ).fetchone()
+    assert sent == (1,)
+
+
+async def test_a_send_that_does_not_commit_mails_nobody(
+    client_for: ClientFor, admin: psycopg.Connection, world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    inv = await drafted(client_for, admin, world)
+
+    async def fail(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("the transaction does not commit")
+
+    monkeypatch.setattr(core_http, "_remember", fail)
+    client = await client_for(world.expert)
+    with contextlib.suppress(RuntimeError):
+        resp = await client.post(
+            world.url(f"invoices/{inv['id']}/send"), json={}, headers={"Idempotency-Key": "zz-send-once"}
+        )
+        assert resp.status_code >= 500
+    assert current().mailer.outbox == []
+    row = admin.execute("select status, number from app.invoices where id = %s", (inv["id"],)).fetchone()
+    assert row == ("draft", None)
+
+
+async def test_writing_off_needs_step_up(client_for: ClientFor, admin: psycopg.Connection, world: World) -> None:
+    inv = await drafted(client_for, admin, world)
+    expert = await client_for(world.expert)
+    assert (await expert.post(world.url(f"invoices/{inv['id']}/send"), json={})).status_code == 200
+    url = world.url(f"invoices/{inv['id']}/payment")
+    late = await client_for(world.expert, mfa_age=timedelta(minutes=15))
+    resp = await late.patch(url, json={"status": "written_off"})
+    assert resp.status_code == 403 and resp.json()["error"]["code"] == "step_up_required"
+    row = admin.execute("select status from app.invoices where id = %s", (inv["id"],)).fetchone()
+    assert row == ("sent",)
+    resp = await expert.patch(url, json={"status": "written_off"})
+    assert resp.status_code == 200 and resp.json()["status"] == "written_off", resp.text

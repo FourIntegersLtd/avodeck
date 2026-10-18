@@ -12,6 +12,7 @@ mounting it on the public router is a foundation request (slice F brief).
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import io
 import uuid
@@ -24,6 +25,7 @@ import pytest
 from fastapi import FastAPI
 from PIL import Image, ImageDraw
 
+import app.core.http as core_http
 from app.core.contracts.case_names import PARTY_NAME_PURPOSE
 from app.core.contracts.document_words import word_purpose
 from app.core.db import Database
@@ -286,3 +288,20 @@ async def test_answers_are_kept_once_and_the_expert_sees_them(
         (str(built.result), False),
     }
     assert (await (await client_for(built.viewer)).get(built.url("spot-checks"))).status_code == 403
+
+
+async def test_a_spot_check_that_does_not_commit_mails_nobody(
+    client_for: ClientFor, admin: psycopg.Connection, built: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    async def fail(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("the transaction does not commit")
+
+    monkeypatch.setattr(core_http, "_remember", fail)
+    client = await client_for(built.expert)
+    with contextlib.suppress(RuntimeError):
+        resp = await client.post(
+            built.url("spot-checks"), json={"reviewer_email": COLLEAGUE}, headers={"Idempotency-Key": "zz-spot-once"}
+        )
+        assert resp.status_code >= 500
+    assert current().mailer.outbox == []
+    assert admin.execute("select count(*) from app.spot_checks where case_id = %s", (built.case,)).fetchone() == (0,)
