@@ -6,7 +6,7 @@ import { t } from "../../foundation/i18n";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { LoadError, Loading, StatusBadge } from "../../foundation/ui";
-import { casePath, kindWord, longDate, pageLabel, statusOf } from "./shared";
+import { casePath, GuidanceChanged, kindWord, longDate, pageLabel, statusOf } from "./shared";
 import { w } from "./words";
 
 type Event = Schemas["Event"];
@@ -26,10 +26,13 @@ function EventRow({ caseId, event }: { caseId: string; event: Event }) {
   );
 }
 
-export function TimelineView({ caseId, data }: { caseId: string; data: Schemas["Timeline"] }) {
+type TimelineData = Omit<Schemas["Timeline"], "guidance_changed"> & { guidance_changed?: string[] };
+
+export function TimelineView({ caseId, data }: { caseId: string; data: TimelineData }) {
   const empty = data.lanes.every((l) => l.events.length === 0) && data.unplaced.length === 0;
   return (
     <div className="av-stack">
+      <GuidanceChanged codes={data.guidance_changed} />
       {empty && <p className="av-muted">{w("timeline.nothing")}</p>}
       {data.lanes.map((lane) => (
         <section key={lane.key} aria-labelledby={`lane-${lane.key}`} className="av-card av-understand-lane">

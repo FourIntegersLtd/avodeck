@@ -292,9 +292,9 @@ How facts relate to the questions, and what the checks found.
 | `check_config` | The expert's on/off choices for "Things to look at" checks, and any window they changed. | person_id, check_key, enabled, window_days |
 | `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, rule, gentle, evidence_fact_ids[], evidence_page_ids[], status (open, gone), decision, reason, run_id |
 | `check_runs` | Each time the checks ran on a case, with the pack version and which checks ran. | case_id, job_id, pack_version, checks |
-| `case_guideline_versions` | Which guideline version a case was shown, so a later change to the guidance table shows a notice. | case_id, code, version_label, table_reviewed_at |
+| `case_guideline_versions` | Which guideline version a case was shown, so a later change to the guidance table shows a notice. | case_id, code, version_label, table_reviewed_at, entry_hash |
 | `availability_overrides` | The expert's corrections to when an item became available to the clinician. | case_id, fact_id, available_at, unknown, reason, at |
-| `consultation_notes` | The expert's private notes on a consultation. | case_id, fact_id, text |
+| `consultation_notes` | Each person's private note on a consultation (only its author sees it). | case_id, fact_id, person_id, text |
 | `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). Not a database table: read from the overlay pack's `guidelines.yaml` with `pack.guidelines()` (ADR 0016). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
 | `comments` | Notes between people on a case (e.g. a supervisor's comment on a paragraph). Never in reports. | case_id, author_id, target_type, target_id, text, at, resolved_at |
 

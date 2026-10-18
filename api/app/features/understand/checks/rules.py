@@ -138,14 +138,17 @@ def _no_action_groups(ctx: _Ctx) -> list[tuple[list[CheckFact], list[CheckFact]]
     return out
 
 
+def _done(ctx: _Ctx, candidates: Sequence[CheckFact]) -> bool:
+    """With `label_spans` only an entry T-13a labelled as the action counts; otherwise any entry does."""
+    if ctx.check.get("label_spans"):
+        return any(ctx.labels.get(c.fact_id) == ACTION_TAKEN for c in candidates)
+    return bool(candidates)
+
+
 def _no_action_within(ctx: _Ctx) -> list[Hit]:
     hits = []
     for group, candidates in _no_action_groups(ctx):
-        if ctx.check.get("label_spans"):
-            done = any(ctx.labels.get(c.fact_id) == ACTION_TAKEN for c in candidates)
-        else:
-            done = bool(candidates)
-        if not done:
+        if not _done(ctx, candidates):
             hits.append(ctx.hit(*group))
     return hits
 
@@ -194,27 +197,31 @@ def _field_missing(ctx: _Ctx) -> list[Hit]:
     return hits
 
 
-def _nothing_after(ctx: _Ctx, kinds_param: str, needs_field: bool) -> list[Hit]:
+_AFTER = {"actions_not_done": ("action_kinds", True), "not_followed_up": ("followup_kinds", False)}
+
+
+def _after_groups(ctx: _Ctx) -> list[tuple[CheckFact, list[CheckFact]]]:
+    """(subject, candidate entries after it) for the rules that look for something done after."""
+    kinds_param, needs_field = _AFTER[str(ctx.check["rule"])]
     name = ctx.check.get("field")
     later = ctx.of_kinds(_kinds(ctx.check.get(kinds_param)))
-    hits = []
+    out = []
     for subject in _subjects(ctx):
         if needs_field and not (name and subject.fields.get(name)):
             continue
         start = subject.available_at or subject.event_date
         if start is None:
             continue
-        if not [f for f in _between(later, start, ctx.window) if f.fact_id != subject.fact_id]:
-            hits.append(ctx.hit(subject))
-    return hits
+        out.append((subject, [f for f in _between(later, start, ctx.window) if f.fact_id != subject.fact_id]))
+    return out
 
 
-def _actions_not_done(ctx: _Ctx) -> list[Hit]:
-    return _nothing_after(ctx, "action_kinds", needs_field=True)
+def _nothing_after(ctx: _Ctx) -> list[Hit]:
+    return [ctx.hit(subject) for subject, candidates in _after_groups(ctx) if not _done(ctx, candidates)]
 
 
-def _not_followed_up(ctx: _Ctx) -> list[Hit]:
-    return _nothing_after(ctx, "followup_kinds", needs_field=False)
+_actions_not_done = _nothing_after
+_not_followed_up = _nothing_after
 
 
 def _monitoring_overdue(ctx: _Ctx) -> list[Hit]:
@@ -264,11 +271,18 @@ def evaluate(
 
 
 def to_label(check: Check, facts: Iterable[CheckFact]) -> list[uuid.UUID]:
-    """The facts T-13a must label before `evaluate` can decide this check (only with `label_spans`)."""
+    """The facts T-13a must label before `evaluate` can decide this check (only with `label_spans`, on the
+    rules that look for something done: no_action_within, actions_not_done, not_followed_up)."""
     ctx = _ctx(check, facts, {}, {})
-    if not check.get("label_spans") or check["rule"] != "no_action_within":
+    if not check.get("label_spans"):
+        return []
+    if check["rule"] == "no_action_within":
+        groups = [candidates for _, candidates in _no_action_groups(ctx)]
+    elif check["rule"] in _AFTER:
+        groups = [candidates for _, candidates in _after_groups(ctx)]
+    else:
         return []
     seen: dict[uuid.UUID, None] = {}
-    for _, candidates in _no_action_groups(ctx):
+    for candidates in groups:
         seen.update(dict.fromkeys(c.fact_id for c in candidates))
     return list(seen)
