@@ -24,6 +24,7 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
 from app.core.contracts.instructing_parties import logged_requests
+from app.core.contracts.invoices import case_invoice_rows
 from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.email import deletion_certificate_mail
@@ -47,7 +48,7 @@ EXPORT_SWEEP_WINDOW_DAYS = 30
 PAUSED_KIND = "deletion_paused"
 VARIANTS = ("full", "admin")
 # Parts of the record of work whose slice is not built yet: exported as labelled empty files.
-NOT_YET_AVAILABLE = (("invoices.csv", "not_built_yet"),)
+NOT_YET_AVAILABLE: tuple[tuple[str, str], ...] = ()
 
 
 class _Services:
@@ -330,6 +331,11 @@ async def export_case(ctx: JobContext) -> None:
                 ["seq", "page_no", "person_id", "read_at", "dwell_seconds", "counts_for_citing", "prev_hash", "hash"],
                 [[e.seq, e.page_no, e.person_id, e.read_at.isoformat(), e.dwell_seconds, e.counts_for_citing,
                   e.prev_hash, e.hash] for e in await page_read_log(conn, ctx.case_id)],
+            ))  # fmt: skip
+            add("invoices.csv", None, _csv(
+                ["number", "status", "sent_at", "total", "tax", "currency", "paid", "credited"],
+                [[i.number_text, i.status, i.sent_at.isoformat(), f"{i.total:.2f}", f"{i.tax:.2f}", i.currency,
+                  f"{i.paid_amount:.2f}", f"{i.credited:.2f}"] for i in await case_invoice_rows(conn, ctx.case_id)],
             ))  # fmt: skip
             counts = await verification_counts(conn, ctx.case_id)
             add("logs/methodology.csv", None, _csv(["action", "count"], [[k, counts[k]] for k in sorted(counts)]))

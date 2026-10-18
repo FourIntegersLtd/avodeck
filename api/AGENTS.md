@@ -20,7 +20,8 @@ api/app/
                           # verification_counts (reading.py), events, case_tables,
                           # profile (named expert's template, declarations, signature, conflicts for a case),
                           # ai_calls (ai_call_summary: AI metadata per task for the methodology appendix),
-                          # latest_opinions (opinions.py), Citation + citation_problems (citations.py) for F
+                          # latest_opinions (opinions.py), Citation + citation_problems (citations.py) for F,
+                          case_invoice_rows (invoices.py: F's sent invoices, for H's invoices.csv)
     housekeeping.py       # daily schedules owned by foundation (expire_uploads)
     packs.py              # pack loader: merges jurisdiction + case-type + specialty packs for a case
     config.py             # cell config: REGION, endpoints, model IDs, allowed packs
