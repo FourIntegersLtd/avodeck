@@ -337,7 +337,8 @@ Time, invoices and corrections.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `time_entries` | Time the expert spent, by stage, for invoicing. | case_id, person_id, stage, started_at, ended_at, seconds, adjusted_by_expert |
-| `invoices` | Invoices sent to instructing parties; never changed once sent. | case_id, billing_profile_id, number, lines, total, currency, tax, status (draft/sent/part_paid/paid/written_off), pdf_path, sent_at |
+| `invoices` | Invoices sent to instructing parties; never changed once sent. | case_id, billing_profile_id, number, lines, total, currency, tax, tax_rate and issuer (snapshot when drafted), status (draft/sent/part_paid/paid/written_off), paid_amount (sum of payments), pdf_path, sent_at |
+| `invoice_payments` | Each payment received on a sent invoice; never changed or deleted. No case_id: seen and recorded through its invoice's case, and goes with the invoice (cascade). | invoice_id, amount (> 0), recorded_by, recorded_at |
 | `credit_notes` | Corrections to a sent invoice. | invoice_id, number, amount, reason, issued_at |
 
 ### 4.9 Court
@@ -1237,7 +1238,8 @@ Section 4 says what is stored; this section says how it behaves: who can do what
 
 - **Who issues invoices.** The organisation that owns the case, or the expert for personal cases. Each issuer has its own name, address and tax registration number, and its own gap-free invoice numbering.
 - **Sent invoices are immutable.** Corrections are credit notes.
-- **Payment status** is recorded by the expert (unpaid, part-paid, paid, written off). Overdue reminders are optional.
+- **Payment status** is recorded by the expert (unpaid, part-paid, paid, written off). Each payment is its own row (`invoice_payments`); the paid amount is their sum, never more than the total less credit notes, and the status follows the sums. Writing off needs step-up. Overdue reminders are optional.
+- **The invoice keeps its issuer.** The tax rate, name, address and tax number are copied onto the invoice when it is drafted; the PDF uses only those.
 - **Fee caps** (compensation schemes, later) come from the case-type pack.
 - **Avodeck's own subscription** is billed per organisation (seats) through Stripe and is separate from expert invoices.
 

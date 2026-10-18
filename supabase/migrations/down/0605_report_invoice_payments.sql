@@ -1,0 +1,12 @@
+set role app_migrator;
+drop trigger if exists credit_notes_balance on app.credit_notes;
+drop function if exists app.credit_notes_balance();
+drop trigger if exists invoices_balance on app.invoices;
+drop function if exists app.invoices_balance();
+drop table if exists app.invoice_payments;
+drop function if exists app.invoice_payments_apply();
+drop function if exists app.invoice_payments_guard();
+drop trigger if exists invoices_snapshot on app.invoices;
+drop function if exists app.invoices_snapshot();
+alter table app.invoices drop column if exists issuer, drop column if exists tax_rate;
+reset role;

@@ -730,8 +730,16 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | billing_profile_id | Who the invoice is from |
 | number | Invoice number (never skips or repeats) |
 | lines / total / currency / tax | What was charged, the total, currency and tax |
+| tax_rate / issuer | The tax rate and who it is from (name, address, tax number) as they were when it was drafted |
 | status | Draft, sent, part paid, paid, written off |
+| paid_amount | How much has been paid: the sum of its payments |
 | pdf_path / sent_at | The invoice file and when it was sent |
+
+### invoice_payments
+| Field | In plain words |
+|---|---|
+| invoice_id / amount | Which invoice was paid and how much (more than nothing, never more than is owed) |
+| recorded_by / recorded_at | Who recorded the payment and when |
 
 ### credit_notes
 | Field | In plain words |

@@ -264,7 +264,8 @@ async def draft_invoice(
     ]
     tax = cents((time_amount + expenses) * Decimal(issuer["tax_rate"]) / Decimal(100))
     total = time_amount + expenses + tax
-    values = (issuer["id"], Jsonb(lines), total, tax, issuer["currency"])
+    snapshot = {k: issuer[k] for k in ("legal_name", "address", "tax_number")}  # the PDF uses these, not the profile
+    values = (issuer["id"], Jsonb(lines), total, tax, issuer["currency"], issuer["tax_rate"], Jsonb(snapshot))
     cur = await conn.execute(
         "select id from app.invoices where case_id = %s and status = 'draft' order by created_at desc limit 1",
         (case_id,),
@@ -272,14 +273,14 @@ async def draft_invoice(
     draft = await cur.fetchone()
     if draft is None:
         cur = await conn.execute(
-            "insert into app.invoices (billing_profile_id, lines, total, tax, currency, case_id)"
-            " values (%s, %s, %s, %s, %s, %s) returning id",
+            "insert into app.invoices (billing_profile_id, lines, total, tax, currency, tax_rate, issuer, case_id)"
+            " values (%s, %s, %s, %s, %s, %s, %s, %s) returning id",
             (*values, case_id),
         )
     else:
         cur = await conn.execute(
             "update app.invoices set billing_profile_id = %s, lines = %s, total = %s, tax = %s, currency = %s,"
-            " version = version + 1 where id = %s returning id",
+            " tax_rate = %s, issuer = %s, version = version + 1 where id = %s returning id",
             (*values, draft[0]),
         )
     row = await cur.fetchone()
@@ -290,7 +291,11 @@ async def draft_invoice(
 async def _document(
     conn: Any, case_id: uuid.UUID, pack: MergedPack, invoice: InvoiceOut, issued_on: date
 ) -> InvoiceDoc:
-    issuer = await _issuer(conn, case_id)
+    cur = await conn.execute("select tax_rate, issuer from app.invoices where id = %s", (invoice.id,))
+    stored = await cur.fetchone()
+    if stored is None:
+        raise not_found()
+    tax_rate, issuer = stored  # as drafted: later changes to the billing profile never reach the invoice
     parties = [p for p in await instructing_party_contacts(conn, case_id)]
     party = parties[0] if parties else None
     return InvoiceDoc(
@@ -304,7 +309,7 @@ async def _document(
         recipient=f"{party.name}, {party.firm}" if party else None,
         reference=(party.reference if party and party.reference else str(case_id)),
         currency=invoice.currency,
-        tax_rate=Decimal(issuer["tax_rate"]),
+        tax_rate=Decimal(tax_rate),
         lines=invoice.lines,
         tax=invoice.tax,
         total=invoice.total,
@@ -391,26 +396,40 @@ async def invoice_pdf(
 async def record_payment(
     case_id: uuid.UUID, invoice_id: uuid.UUID, body: PaymentIn, access: RecordPayment, conn: DbConn, request: Request
 ) -> InvoiceOut:
-    invoice = await _one(conn, case_id, invoice_id)
-    if invoice.status == "draft":
+    cur = await conn.execute(
+        "select status, total, paid_amount from app.invoices where id = %s and case_id = %s for update",
+        (invoice_id, case_id),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        raise not_found()
+    status, total, paid = row
+    if status == "draft":
         raise ApiError("not_sent", "Send the invoice first.", 409)
-    paid = invoice.paid_amount
-    if body.status == "paid":
-        paid = body.paid_amount if body.paid_amount is not None else invoice.total
-    elif body.status == "part_paid":
-        if body.paid_amount is None or not (0 < body.paid_amount < invoice.total):
-            raise invalid("paid_amount")
-        paid = body.paid_amount
-    else:
+    if status not in ("sent", "part_paid"):
+        raise ApiError("settled", "This invoice is settled; correct it with a credit note.", 409)
+    if body.status == "written_off":
         check_step_up(current_session(request))  # writing off gives up money owed (rule 10)
         cur = await conn.execute("select app.can_access_case(%s, 'credit_note.issue')", (case_id,))
         allowed = await cur.fetchone()
         if not (allowed and allowed[0]):
             raise ApiError("forbidden", "You cannot do that on this case.", 403)
-    await conn.execute(
-        "update app.invoices set status = %s, paid_amount = %s, version = version + 1 where id = %s",
-        (body.status, paid, invoice_id),
-    )
+        await conn.execute(
+            "update app.invoices set status = 'written_off', version = version + 1 where id = %s", (invoice_id,)
+        )
+    else:
+        cur = await conn.execute(
+            "select coalesce(sum(amount), 0) from app.credit_notes where invoice_id = %s", (invoice_id,)
+        )
+        credited = await cur.fetchone()
+        left = Decimal(total) - Decimal(credited[0] if credited else 0) - Decimal(paid)
+        amount = body.paid_amount if body.paid_amount is not None or body.status == "part_paid" else left
+        if amount is None or amount <= 0 or amount > left or (body.status == "part_paid" and amount >= left):
+            raise invalid("paid_amount")
+        # The database adds it up: paid_amount becomes the sum of payments and the status follows.
+        await conn.execute(
+            "insert into app.invoice_payments (invoice_id, amount) values (%s, %s)", (invoice_id, amount)
+        )
     await audit.record(conn, action="invoice.payment_recorded", target=f"invoice:{invoice_id}", case_id=case_id)
     return await _one(conn, case_id, invoice_id)
 

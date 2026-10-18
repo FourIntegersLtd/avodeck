@@ -98,7 +98,7 @@ Core checks include:
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `report_snapshots`, `report_servings`, `credit_notes`, `report_settings`, `report_section_texts`, `report_builds`; personal `billing_profiles` (team ones in O). Colleague spot-check routes: `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses`.
+**Extra tables owned:** `report_snapshots`, `report_servings`, `credit_notes`, `invoice_payments` (insert-only, no case_id: purged with its invoice), `report_settings`, `report_section_texts`, `report_builds`; personal `billing_profiles` (team ones in O). Colleague spot-check routes: `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses`.
 
 **Extra endpoints:** `GET /v1/cases/{id}/report/versions/{v}/snapshots`, `GET/POST /v1/cases/{id}/report/versions/{v}/servings` 🔒, `POST /v1/cases/{id}/report/versions/{v}/withdraw` 🔒, `PATCH /v1/cases/{id}/invoices/{invoice_id}/payment`, `POST /v1/cases/{id}/invoices/{invoice_id}/credit-notes` 🔒.
 
