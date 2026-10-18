@@ -85,7 +85,7 @@ async def picture_size(h: Harness, page_id: uuid.UUID) -> tuple[int, int]:
 def add_fact(h: Harness, page_id: uuid.UUID, value: str, word_ids: list[str], status: str) -> uuid.UUID:
     row = h.admin.execute(
         "insert into app.facts (case_id, page_id, kind, value, word_ids, bbox) values (%s, %s, 'note', %s, %s,"
-        " '{\"x0\": 0, \"y0\": 0, \"x1\": 1, \"y1\": 1}') returning id",
+        ' \'{"x0": 0, "y0": 0, "x1": 1, "y1": 1}\') returning id',
         (h.case_id, page_id, value, word_ids),
     ).fetchone()
     assert row is not None
