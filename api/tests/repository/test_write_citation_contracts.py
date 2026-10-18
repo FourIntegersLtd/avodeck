@@ -92,7 +92,8 @@ async def save_opinion(
     )
     row = await cur.fetchone()
     assert row is not None
-    return row[0]
+    opinion_id: uuid.UUID = row[0]
+    return opinion_id
 
 
 def test_write_shares_the_contracts_citation_and_seals() -> None:
