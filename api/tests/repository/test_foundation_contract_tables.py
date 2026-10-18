@@ -469,3 +469,27 @@ async def test_a_confirmed_link_stops_counting_once_its_fact_is_no_longer_checke
 
     async with api_db.request(scope_for(case_page["viewer"])) as conn:
         assert await confirmed_links(conn, case) == {q: set(kept.values())}
+
+
+@pytest.mark.anyio
+async def test_a_confirmed_link_to_a_fact_flagged_please_check_does_not_count(
+    api_db: object, admin: psycopg.Connection, case_page: dict[str, uuid.UUID]
+) -> None:
+    """Like citable_facts: after a re-read the fact's word ids may be gone until the expert checks it."""
+    from app.core.contracts.fact_links import confirmed_links
+    from app.core.db import Database
+    from tests.support.db import scope_for
+
+    assert isinstance(api_db, Database)
+    case, page = case_page["case"], case_page["page"]
+    q = add_question(admin, case, number=1)
+    kept, flagged = add_fact(admin, case, page, status="verified"), add_fact(admin, case, page, status="verified")
+    for fact in (kept, flagged):
+        _link(admin, case, fact, q, "confirmed")
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, 'recheck', null)",
+        (case, flagged),
+    )
+
+    async with api_db.request(scope_for(case_page["viewer"])) as conn:
+        assert await confirmed_links(conn, case) == {q: {kept}}
