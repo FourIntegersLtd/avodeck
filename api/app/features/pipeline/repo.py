@@ -298,6 +298,17 @@ async def pages_without_words(conn: AsyncConnection, case_id: uuid.UUID) -> list
     return [r[0] for r in await cur.fetchall()]
 
 
+async def pages_without_language(conn: AsyncConnection, case_id: uuid.UUID, min_words: int) -> list[uuid.UUID]:
+    """Pages already read that have enough words to name a language but no language yet."""
+    cur = await conn.execute(
+        "select p.id from app.pages p where p.case_id = %s and p.text_source is not null and p.language is null"
+        " and not p.quarantined and (select count(*) from app.ocr_words w where w.page_id = p.id) >= %s"
+        " order by p.bundle_page_no",
+        (case_id, min_words),
+    )
+    return [r[0] for r in await cur.fetchall()]
+
+
 WordRow = tuple[uuid.UUID, uuid.UUID, int, str, bytes, list[float], float, bool, bool, str]
 
 
@@ -369,6 +380,27 @@ async def words_of(conn: AsyncConnection, page_id: uuid.UUID) -> list[StoredWord
         (page_id,),
     )
     return [StoredWord(r[0], bytes(r[1]), list(r[2]), bool(r[3]), bool(r[4])) for r in await cur.fetchall()]
+
+
+async def previous_page_words(
+    conn: AsyncConnection, page_id: uuid.UUID, limit: int
+) -> tuple[uuid.UUID, list[StoredWord]] | None:
+    """The first `limit` words of the page before this one in the same document, if it has any."""
+    cur = await conn.execute(
+        "select q.id from app.pages p join app.pages q on q.document_id = p.document_id"
+        " and q.bundle_page_no = p.bundle_page_no - 1 where p.id = %s and not q.quarantined",
+        (page_id,),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return None
+    cur = await conn.execute(
+        "select word_id, text, polygon, struck, handwritten from app.ocr_words where page_id = %s"
+        " and not struck order by n limit %s",
+        (row[0], limit),
+    )
+    words = [StoredWord(r[0], bytes(r[1]), list(r[2]), bool(r[3]), bool(r[4])) for r in await cur.fetchall()]
+    return (row[0], words) if words else None
 
 
 async def page_size(conn: AsyncConnection, page_id: uuid.UUID) -> tuple[float, float] | None:
@@ -928,7 +960,8 @@ def versions_of(rows: list[DocumentRow]) -> list[dict[str, Any]]:
                 "added_at": d.created_at,
             },
         )
-        v["documents"] += 1
+        if d.part_of is None:
+            v["documents"] += 1
         v["pages"] += d.pages or 0
         if d.first_page_no is not None:
             v["first_page_no"] = min(x for x in (v["first_page_no"], d.first_page_no) if x is not None)
@@ -1303,8 +1336,11 @@ async def quarantines_to_purge(conn: AsyncConnection, run_date: dt.date) -> list
     ]
 
 
-async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID) -> None:
-    await conn.execute("select app.purge_quarantined_page(%s)", (quarantine_id,))
+async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID) -> str | None:
+    """Deletes the page's text; returns where the uploaded file was kept once no page of it remains."""
+    cur = await conn.execute("select app.purge_quarantined_page(%s)", (quarantine_id,))
+    row = await cur.fetchone()
+    return None if row is None or row[0] is None else str(row[0])
 
 
 async def document_in_case(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> bool:

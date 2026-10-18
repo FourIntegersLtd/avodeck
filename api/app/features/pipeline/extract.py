@@ -20,11 +20,12 @@ from typing import Any
 
 from app.core.ai import provenance
 from app.core.ai.kit import AiTask
+from app.core.contracts.document_words import box as box  # used here as `extract.box`
 from app.core.packs import MergedPack
 from app.features.pipeline import dates
 
 TASK_ID = "T-07b"
-PROMPT_VERSION = "2026-10-17.1"
+PROMPT_VERSION = "2026-10-18.1"
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
@@ -132,6 +133,15 @@ def page_text(words: Sequence[tuple[str, str]], stripped: str) -> str:
     return "\n".join(f"{word_id} {' '.join(texts)}" for word_id, texts in seen.items())
 
 
+HEADER_WORDS = 15
+HEADER_MARK = "Previous page header (context only, words without IDs, never cite them):"
+
+
+def with_header(page: str, header: str) -> str:
+    """The page's lines, led by the already identifier-stripped top of the page before it."""
+    return f"{HEADER_MARK}\n{header}\n\n{page}" if header.strip() else page
+
+
 @dataclass(frozen=True)
 class Sorted:
     kept: list[Mapping[str, Any]]
@@ -181,20 +191,3 @@ def sort_evidence(
             {"kind": item["kind"], "date": value.isoformat() if value else None, "date_text": text, "word_ids": ids}
         )
     return kept
-
-
-def box(
-    word_ids: Sequence[str], polygons: Mapping[str, Sequence[float]], width: float, height: float
-) -> dict[str, float]:
-    xs = [x for w in word_ids for x in polygons[w][0::2]]
-    ys = [y for w in word_ids for y in polygons[w][1::2]]
-
-    def share(value: float, whole: float) -> float:
-        return round(min(1.0, max(0.0, value / whole)), 5)
-
-    return {
-        "x0": share(min(xs), width),
-        "y0": share(min(ys), height),
-        "x1": share(max(xs), width),
-        "y1": share(max(ys), height),
-    }

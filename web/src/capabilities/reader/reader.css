@@ -51,3 +51,11 @@
 .rd-queue__item { min-height: 52px; padding: 0 var(--space-4); font: inherit; font-weight: 700; color: var(--ink); background: var(--surface); border: 2px solid var(--line); border-radius: var(--radius); cursor: pointer; }
 .rd-queue__item[aria-current="true"] { border-color: var(--green); background: var(--mint, #E6F2EC); }
 .rd-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Word picker ("Change a detail"): each word on the page is a toggle; chosen words are highlighted. */
+.rd-word { position: absolute; padding: 0; margin: 0; background: transparent; border: 1px dashed rgba(29, 78, 216, 0.55); border-radius: 2px; cursor: pointer; }
+.rd-word:hover { background: rgba(29, 78, 216, 0.12); }
+.rd-word:focus-visible { outline: 3px solid #1D4ED8; outline-offset: 1px; }
+.rd-word--on { background: rgba(29, 78, 216, 0.28); border: 2px solid #1D4ED8; }
+.rd-typed { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.rd-typed--on { background: #DBEAFE; border-color: #1D4ED8; }

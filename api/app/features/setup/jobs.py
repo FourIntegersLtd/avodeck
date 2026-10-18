@@ -297,7 +297,7 @@ def check_suggestion(letter: Letter, pack: MergedPack, item: Mapping[str, Any]) 
             day = date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
         except ValueError:
             return None
-        written = list(pii._known_dates(cited, [day], pack.date_order, pack.language))
+        written = list(pii.known_dates(cited, [day], pack.date_order, pack.language))
         return (word_ids, value) if written else None
     labels = _labels(pack, field).get(value)
     if labels is None:

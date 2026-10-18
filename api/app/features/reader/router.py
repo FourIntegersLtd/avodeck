@@ -20,7 +20,9 @@ from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, stale
 from app.core.http import router as make_router
+from app.core.packs import PackLibrary
 from app.core.storage import SupabaseStorage
+from app.features.reader import fields as fact_fields
 from app.features.reader import repo, today  # noqa: F401 (registers the Today providers)
 from app.features.reader.schemas import (
     FactList,
@@ -32,6 +34,8 @@ from app.features.reader.schemas import (
     PageDetail,
     PageList,
     PageSummary,
+    PageWord,
+    PageWords,
     Progress,
     ReadIn,
     ReadOut,
@@ -164,6 +168,23 @@ async def page_facts(
     return FactList(facts=[FactOut(**f) for f in await repo.page_facts(conn, case_id, r["id"])])
 
 
+@router.get("/pages/{page_no}/words", response_model=PageWords)
+async def page_words(
+    case_id: uuid.UUID,
+    page_no: int,
+    access: Annotated[CaseAccess, Depends(require_page_read())],
+    request: Request,
+    response: Response,
+    conn: DbConn,
+    scope: CurrentScope,
+) -> PageWords:
+    """The page's words and their places, for choosing the words a changed fact cites (behind rule 3)."""
+    r = await _page(conn, case_id, page_no, scope)
+    response.headers["cache-control"] = "private, no-store"
+    words = await repo.page_word_boxes(conn, _crypto(request), case_id, r["id"])
+    return PageWords(words=[PageWord(**w) for w in words])
+
+
 @router.put("/pages/{page_no}/transcription", response_model=JobOut, status_code=202)
 async def save_transcription(
     case_id: uuid.UUID,
@@ -233,6 +254,17 @@ def _invalid() -> ApiError:
     return ApiError("invalid", "The words you chose do not show that.", 422)
 
 
+async def _check_fields(request: Request, conn: DbConn, case_id: uuid.UUID, kind: str, sent: dict) -> None:  # type: ignore[type-arg]
+    """422 unless every sent detail is one the case pack gives the fact's kind, with a value of its type."""
+    codes = await repo.case_codes(conn, case_id)
+    if codes is None:
+        raise _fact_not_found()
+    library: PackLibrary = request.app.state.packs
+    known = fact_fields.kinds(library.for_case(codes).fact_kinds())
+    if not fact_fields.fits(known.get(kind), sent):
+        raise ApiError("invalid_fields", "Those details don't fit this kind of fact.", 422)
+
+
 def _crypto(request: Request) -> CaseCrypto:
     crypto: CaseCrypto | None = getattr(request.app.state, "crypto", None)
     if crypto is None:
@@ -287,7 +319,7 @@ async def verify_fact(
         if not provenance.supported(value, word_ids, words):
             raise _invalid()
     if rechecking and body.action == "edit" and not body.word_ids:
-        raise _invalid()
+        raise ApiError("words_needed", "Choose the words on the page that show this.", 422)
     if body.action == "edit":
         if not body.new_value:
             raise _invalid()
@@ -298,6 +330,7 @@ async def verify_fact(
         if body.word_ids:
             bbox = await repo.word_box(conn, before["page_id"], word_ids)
         if body.fields is not None:
+            await _check_fields(request, conn, case_id, before["kind"], body.fields)
             fields = body.fields
         if "event_date" in body.model_fields_set:
             event_date = body.event_date

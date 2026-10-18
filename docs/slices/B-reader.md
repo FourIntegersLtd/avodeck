@@ -16,7 +16,8 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `GET /v1/cases/{id}/pages/{page_no}/image?zoom=`: streamed, `Cache-Control: private, no-store` (thumbnails are slice A's)
 - `POST /v1/cases/{id}/pages/{page_no}/read` `{dwell_seconds}`
 - `GET /v1/cases/{id}/pages/{page_no}/facts`: **423 `blind_read`** until read
-- `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, word_ids?, reason?}` (If-Match)
+- `GET /v1/cases/{id}/pages/{page_no}/words`: the page's words with boxes (null for typed words), for re-citing a changed fact; **423 `blind_read`** until read, `private, no-store`
+- `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, word_ids?, reason?, fields?, event_date?}` (If-Match; `fields` checked against the pack kind: 422 `invalid_fields`)
 - `POST` / `DELETE /v1/cases/{id}/facts/{fact_id}/flag-point`: marks a checked fact for screen 14, or takes it back (E reads the flags through `core/contracts/fact_flags.py`)
 - `GET /v1/cases/{id}/progress`
 - `GET /v1/cases/{id}/pages/unreadable`
@@ -48,7 +49,7 @@ The expert's text is authoritative. Machine words for that page are kept but no 
 - **In:** `pages`, `facts` (suggested) and `ocr_words` from A. Until A lands, use the stub loader `tests/fixtures/stub_facts.py`, built from `evals/gb-eaw/clin-neg-breach/general-practice/expected/facts.json`.
 - **Out:**
   - `core/contracts/facts.py: citable_facts(case_id)` returns verified facts whose page has a `page_reads` row. E, F, G and I may cite only these.
-  - The page-read log (F's methodology appendix and H's export).
+  - The page-read log (F's methodology appendix and H's export): `core/contracts/reading.py` `page_read_log(conn, case_id)` and `verification_counts(conn, case_id)`.
   - Fact flags (E).
   - Reading progress (Today).
 
@@ -92,6 +93,8 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] The fact card offers, by button and key, only what the state machine allows (Change only on suggestions; Correct on a checked fact only when it says "Please check")
 - [x] "Change a detail" updates `fields`, `event_date` and the box from the chosen words, and logs the real old and new details
 - [x] "Please check" (`recheck`) flags show as "Please check", never as "In Points against"; "Take out" removes only the points flag; checking the fact again removes the recheck flag
+- [x] "Change a detail" lets the expert choose the cited words over the page (`GET …/words`, toggles by mouse or keyboard); a "Please check" fact saves only with words chosen (422 `words_needed` otherwise)
+- [x] Changed `fields` must be fields of the fact's kind in the case pack, with values of their types (422 `invalid_fields`), under the launch and fixture packs
 - [x] A re-read re-maps a checked fact only when its words match under rule 2's normaliser ("1.5 mg" is not "15 mg"); each re-map appends a `remapped` verification row; typed words give no box
 
 ## Rules that apply

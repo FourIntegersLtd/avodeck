@@ -60,6 +60,15 @@ Core checks include:
 
 ## Contracts
 - **In:** opinions and citations (E), template, profile, signature, declaration and conflicts (C), `citable_facts()` and page-read log (B), findings (D), questions (C), pack sections, checks and declarations (foundation).
+  Each need maps to a `core/contracts` function (run on the caller's connection, API or the case's job):
+  - Template and heading map (C): `profile.report_template(conn, case_id)`: the named expert's latest template (`storage_path`, `sha256`, `heading_map`, `style_map`, `mapping`). Needs `report.build` or the case's job.
+  - Declarations (C): `profile.declarations(conn, case_id)`: the named expert's wording (`kind`, `text`, `locked_at`) for the case's jurisdiction; the fixed wording comes from the jurisdiction pack.
+  - Signature (C): `profile.signature(conn, case_id)`: the newest signature (`storage_path`, `sha256`, `method`, `width`, `height`). Needs `report.sign` or the case's job.
+  - Conflicts declaration (C): `profile.conflict_declaration(conn, case_id)`: latest `outcome`, `declared_at`, `out_of_date` and the answers (detail sealed under the case key).
+  - Methodology appendix: `ai_calls.ai_call_summary(conn, case_id)`: per task, model ID, region and prompt version, the number of calls and first and last time; no content.
+  - Verified facts and the read log (B): `facts.citable_facts()`, `reading.page_read_log` and `reading.verification_counts`; questions (C): `questions.confirmed_questions`; case people: `members.case_member_names`.
+  - Opinions (E): `opinions.latest_opinions(conn, case_id, crypto)` (never `app.opinions` directly).
+  - Citations (E): `citations.citation_problems(conn, case_id, reads)` in the final checks; signing is blocked while it returns any problem.
 - **Out:**
   - A **locked served `report_versions` row** with SHA-256 of the DOCX and PDF. G, I and H depend on it.
   - The `report_served` event in `core/contracts/events.py`: `{case_id, version_id, served_on}`. G subscribes to create deadlines; in the MVP nothing subscribes.

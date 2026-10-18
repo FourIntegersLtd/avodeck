@@ -97,11 +97,20 @@ async def test_ocr_words_carry_a_struck_out_flag(tmp_path: Path) -> None:
     store = FixtureStore(tmp_path)
     page = b"%PDF-1.7 synthetic struck page"
     words = [
-        {"id": "p1w1", "text": "aspirin", "polygon": [0, 0, 1, 0, 1, 1, 0, 1], "confidence": 0.8, "handwritten": True,
-         "struck": True},
+        {
+            "id": "p1w1",
+            "text": "aspirin",
+            "polygon": [0, 0, 1, 0, 1, 1, 0, 1],
+            "confidence": 0.8,
+            "handwritten": True,
+            "struck": True,
+        },
         {"id": "p1w2", "text": "paracetamol", "polygon": [0, 2, 1, 2, 1, 3, 0, 3], "confidence": 0.8},
     ]
-    store.record("ocr", RecordedOcr.request(page, "layout"), {"pages": [
-        {"number": 1, "width": 8.27, "height": 11.69, "words": words}]})
+    store.record(
+        "ocr",
+        RecordedOcr.request(page, "layout"),
+        {"pages": [{"number": 1, "width": 8.27, "height": 11.69, "words": words}]},
+    )
     [result] = (await RecordedOcr(cell(), store).analyse(page)).pages
     assert [(w.id, w.struck, w.handwritten) for w in result.words] == [("p1w1", True, True), ("p1w2", False, False)]

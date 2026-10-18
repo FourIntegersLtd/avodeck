@@ -8,7 +8,7 @@ caller's connection, so row-level security applies.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping, Sequence
 
 from psycopg import AsyncConnection
 
@@ -18,6 +18,24 @@ from app.core.crypto import CaseCrypto
 def word_purpose(page_id: uuid.UUID, word_id: str) -> str:
     """The purpose each word in `ocr_words` is sealed under (the same as slice A's)."""
     return f"ocr_words/{page_id}/{word_id}"
+
+
+def box(
+    word_ids: Sequence[str], polygons: Mapping[str, Sequence[float]], width: float, height: float
+) -> dict[str, float]:
+    """The words' box as a share of the page (0 to 1), from their polygons and the page size."""
+    xs = [x for w in word_ids for x in polygons[w][0::2]]
+    ys = [y for w in word_ids for y in polygons[w][1::2]]
+
+    def share(value: float, whole: float) -> float:
+        return round(min(1.0, max(0.0, value / whole)), 5)
+
+    return {
+        "x0": share(min(xs), width),
+        "y0": share(min(ys), height),
+        "x1": share(max(xs), width),
+        "y1": share(max(ys), height),
+    }
 
 
 async def document_words(

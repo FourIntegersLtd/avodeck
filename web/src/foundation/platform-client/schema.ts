@@ -1382,6 +1382,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/pages/{page_no}/words": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Page Words
+         * @description The page's words and their places, for choosing the words a changed fact cites (behind rule 3).
+         */
+        get: operations["page_words_v1_cases__case_id__pages__page_no__words_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/parties": {
         parameters: {
             query?: never;
@@ -4821,6 +4841,28 @@ export interface components {
             source_type: string | null;
             /** Unreadable */
             unreadable: boolean;
+        };
+        /** PageWord */
+        PageWord: {
+            /**
+             * Box
+             * @description The word's box as a share of the page (x0, y0, x1, y1); null for a typed-out word.
+             */
+            box: {
+                [key: string]: number;
+            } | null;
+            /** Text */
+            text: string;
+            /** Word Id */
+            word_id: string;
+        };
+        /**
+         * PageWords
+         * @description The page's words in reading order, for choosing the words a changed fact cites.
+         */
+        PageWords: {
+            /** Words */
+            words: components["schemas"]["PageWord"][];
         };
         /** Party */
         Party: {
@@ -9605,6 +9647,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    page_words_v1_cases__case_id__pages__page_no__words_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageWords"];
                 };
             };
             /** @description Validation Error */

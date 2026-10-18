@@ -23,6 +23,8 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 
+from app.core.contracts.instructing_parties import logged_requests
+from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.email import deletion_certificate_mail
 from app.core.jobs import JobContext, JobRegistry, registry
@@ -44,13 +46,8 @@ EXPORT_KEEP_DAYS = 7
 EXPORT_SWEEP_WINDOW_DAYS = 30
 PAUSED_KIND = "deletion_paused"
 VARIANTS = ("full", "admin")
-# Parts of the record of work whose slices are not built yet: exported as labelled empty files.
-NOT_YET_AVAILABLE = (
-    ("logs/methodology.csv", "not_built_yet"),
-    ("logs/page-reads.csv", "not_built_yet"),
-    ("invoices.csv", "not_built_yet"),
-    ("requests.csv", "not_built_yet"),
-)
+# Parts of the record of work whose slice is not built yet: exported as labelled empty files.
+NOT_YET_AVAILABLE = (("invoices.csv", "not_built_yet"),)
 
 
 class _Services:
@@ -324,6 +321,18 @@ async def export_case(ctx: JobContext) -> None:
                     names[v].append(name)
                     hashes[v].append(row)
 
+            add("requests.csv", None, _csv(
+                ["seq", "sent_at", "sent_via", "follow_up_on", "missing_item_count", "page_count", "subject", "body"],
+                [[q.seq, q.sent_at.isoformat(), q.sent_via, q.follow_up_on or "", q.missing_item_count, q.page_count,
+                  q.subject, q.body] for q in await logged_requests(conn, ctx.case_id, crypto)],
+            ))  # fmt: skip
+            add("logs/page-reads.csv", None, _csv(
+                ["seq", "page_no", "person_id", "read_at", "dwell_seconds", "counts_for_citing", "prev_hash", "hash"],
+                [[e.seq, e.page_no, e.person_id, e.read_at.isoformat(), e.dwell_seconds, e.counts_for_citing,
+                  e.prev_hash, e.hash] for e in await page_read_log(conn, ctx.case_id)],
+            ))  # fmt: skip
+            counts = await verification_counts(conn, ctx.case_id)
+            add("logs/methodology.csv", None, _csv(["action", "count"], [[k, counts[k]] for k in sorted(counts)]))
             for r in reports:
                 for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
                     if path is not None:
@@ -339,6 +348,14 @@ async def export_case(ctx: JobContext) -> None:
                 target = export_path(ctx.case_id, ctx.job_id, variant)
                 blob = await crypto.encrypt(conn, ctx.case_id, files[variant].read(), purpose=target)
                 await storage.put(target, blob)
+
+
+def _csv(header: list[str], rows: list[list[Any]]) -> bytes:
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(header)
+    writer.writerows(rows)
+    return out.getvalue().encode()
 
 
 def _hash_row(name: str, recorded: str | None, data: bytes) -> dict[str, str]:

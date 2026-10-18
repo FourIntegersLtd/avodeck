@@ -42,6 +42,8 @@ The loaded-language word list and opinion `view` options come from the case-type
 ## Contracts
 - **In:** `citable_facts()` and fact flags (B), confirmed questions (C), links and `available_at` (D), guidance in force (D endpoint), expert specialty (C). Stub with `stub_facts.py` (verified) until B lands.
 - **Out:** `opinions` with validated citations, points and range notes per question (F builds the report and runs final checks such as "points against considered").
+  - Through `core/contracts`: `opinions.latest_opinions()` (each question's latest opinion, opened, with its citations) and `citations.citation_problems()` (every saved citation re-checked, kept ones included: `missing`, `not_citable`, `changed_since_cited`). Write shares the `Citation` shape and helpers from `core/contracts/citations.py`.
+- **Questions are never hard-deleted by app code:** opinions cascade from questions (0502) and opinion versions are append-only (0508), so only the case purge removes a question (guard `tests/guards/test_write_questions_never_deleted.py`).
 
 ## Acceptance tests (write first)
 - [x] Citing a suggested, rejected or unread-page fact returns 422. Citing a verified fact whose quote is not in its words returns 422. A valid citation is stored and the marker round-trips.

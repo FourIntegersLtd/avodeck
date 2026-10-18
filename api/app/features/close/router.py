@@ -64,14 +64,20 @@ def _access(action: str) -> type[CaseAccess]:
 
 @router.get("/close", response_model=CloseSummary)
 async def close_summary(
-    case_id: uuid.UUID, conn: DbConn, packs: Packs, _: _access("case.view_metadata")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    conn: DbConn,
+    packs: Packs,
+    _: _access("case.view_metadata"),  # type: ignore[valid-type]
 ) -> CloseSummary:
     return await service.summary(conn, packs, case_id)
 
 
 @router.post("/settle", response_model=CloseSummary)
 async def settle(
-    case_id: uuid.UUID, conn: DbConn, packs: Packs, _: _access("case.settle")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    conn: DbConn,
+    packs: Packs,
+    _: _access("case.settle"),  # type: ignore[valid-type]
 ) -> CloseSummary:
     await service.settle(conn, packs, case_id)
     return await service.summary(conn, packs, case_id)
@@ -79,7 +85,10 @@ async def settle(
 
 @router.post("/archive", response_model=CloseSummary)
 async def archive(
-    case_id: uuid.UUID, conn: DbConn, packs: Packs, _: _access("case.archive")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    conn: DbConn,
+    packs: Packs,
+    _: _access("case.archive"),  # type: ignore[valid-type]
 ) -> CloseSummary:
     await service.archive(conn, packs, case_id)
     return await service.summary(conn, packs, case_id)
@@ -87,7 +96,10 @@ async def archive(
 
 @router.post("/reopen", response_model=CloseSummary)
 async def reopen(
-    case_id: uuid.UUID, conn: DbConn, packs: Packs, _: _access("case.reopen")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    conn: DbConn,
+    packs: Packs,
+    _: _access("case.reopen"),  # type: ignore[valid-type]
 ) -> CloseSummary:
     await service.reopen(conn, case_id)
     return await service.summary(conn, packs, case_id)
@@ -107,21 +119,29 @@ async def change_retention(
 
 @router.post("/legal-holds", status_code=201, response_model=Hold)
 async def set_legal_hold(
-    case_id: uuid.UUID, body: HoldCreate, conn: DbConn, _: _access("legal_hold.set")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    body: HoldCreate,
+    conn: DbConn,
+    _: _access("legal_hold.set"),  # type: ignore[valid-type]
 ) -> Hold:
     return await service.set_hold(conn, case_id, body.reason, body.until)
 
 
 @router.post("/legal-holds/{hold_id}/release", response_model=Hold)
 async def release_legal_hold(
-    case_id: uuid.UUID, hold_id: uuid.UUID, conn: DbConn, _: _access("legal_hold.release")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    hold_id: uuid.UUID,
+    conn: DbConn,
+    _: _access("legal_hold.release"),  # type: ignore[valid-type]
 ) -> Hold:
     return await service.release_hold(conn, case_id, hold_id)
 
 
 @router.get("/audit", response_model=AuditTrail)
 async def audit_trail(
-    case_id: uuid.UUID, conn: DbConn, _: _access("case.view_audit")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    conn: DbConn,
+    _: _access("case.view_audit"),  # type: ignore[valid-type]
 ) -> AuditTrail:
     return AuditTrail(entries=[AuditEntry(**row) for row in await repo.audit_trail(conn, case_id)])
 
@@ -159,7 +179,9 @@ async def deletion_certificate(
 
 @router.post("/export", status_code=202, response_model=JobQueued)
 async def request_export(
-    case_id: uuid.UUID, conn: DbConn, _: _access("case.export")  # type: ignore[valid-type]
+    case_id: uuid.UUID,
+    conn: DbConn,
+    _: _access("case.export"),  # type: ignore[valid-type]
 ) -> JobQueued:
     return JobQueued(job_id=await service.request_export(conn, case_id))
 

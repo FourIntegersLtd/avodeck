@@ -11,11 +11,10 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from app.core.contracts.document_words import box, word_purpose
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import transcription_purpose
 from app.core.crypto import CaseCrypto
-from app.features.pipeline.extract import box
-from app.features.pipeline.paths import word_purpose
 
 
 async def record_read(
@@ -214,6 +213,15 @@ async def change_fact(
     return _row(cur, row) if row else None
 
 
+async def _size(conn: AsyncConnection, page_id: uuid.UUID, polygons: dict[str, list[float]]) -> tuple[float, float]:
+    """The page's size in its polygons' units: from the page analysis, else the furthest word."""
+    cur = await conn.execute("select width, height from app.page_analysis where page_id = %s", (page_id,))
+    size = await cur.fetchone()
+    width = float(size[0]) if size and size[0] else max((x for p in polygons.values() for x in p[0::2]), default=1.0)
+    height = float(size[1]) if size and size[1] else max((y for p in polygons.values() for y in p[1::2]), default=1.0)
+    return width or 1.0, height or 1.0
+
+
 async def word_box(conn: AsyncConnection, page_id: uuid.UUID, word_ids: list[str]) -> dict[str, float] | None:
     """The cited words' box as a share of the page (as slice A boxes facts); None when the words have no
     place on the picture (typed out by the expert)."""
@@ -222,24 +230,35 @@ async def word_box(conn: AsyncConnection, page_id: uuid.UUID, word_ids: list[str
     cited = [w for w in word_ids if w in polygons]
     if not cited or not any(v for w in cited for v in polygons[w]):
         return None
-    cur = await conn.execute("select width, height from app.page_analysis where page_id = %s", (page_id,))
-    size = await cur.fetchone()
-    width = float(size[0]) if size and size[0] else max((x for p in polygons.values() for x in p[0::2]), default=1.0)
-    height = float(size[1]) if size and size[1] else max((y for p in polygons.values() for y in p[1::2]), default=1.0)
-    return box(cited, polygons, width or 1.0, height or 1.0)
+    return box(cited, polygons, *await _size(conn, page_id, polygons))
 
 
-async def log_remaps(
-    conn: AsyncConnection, case_id: uuid.UUID, moved: list[tuple[uuid.UUID, str | None, list[str], list[str]]]
-) -> None:
-    """One `remapped` row per fact (fact, value, old words, new words) a re-read moved onto new words.
-    Written by the job, so no person."""
-    async with conn.cursor() as cur:
-        await cur.executemany(
-            "insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value,"
-            " old_word_ids, new_word_ids) values (%s, %s, null, 'remapped', %s, %s, %s, %s)",
-            [(case_id, f, value, value, old, new) for f, value, old, new in moved],
-        )
+async def page_word_boxes(
+    conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID, page_id: uuid.UUID
+) -> list[dict[str, Any]]:
+    """Each word on the page in reading order: id, unsealed text (never logged) and its box as a share of
+    the page, or None for a word with no place on the picture (typed out by the expert)."""
+    cur = await conn.execute(
+        "select word_id, text, polygon from app.ocr_words where page_id = %s order by n", (page_id,)
+    )
+    rows = await cur.fetchall()
+    polygons = {w: [float(v) for v in p] for w, _, p in rows}
+    width, height = await _size(conn, page_id, polygons)
+    return [
+        {
+            "word_id": w,
+            "text": (await crypto.decrypt(conn, case_id, bytes(t), purpose=word_purpose(page_id, w))).decode(),
+            "box": box([w], polygons, width, height) if any(polygons[w]) else None,
+        }
+        for w, t, _ in rows
+    ]
+
+
+async def case_codes(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any] | None:
+    """The case's pack codes (jurisdiction, case type, specialty)."""
+    cur = await conn.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
+    row = await cur.fetchone()
+    return _row(cur, row) if row else None
 
 
 async def log_check(

@@ -6141,6 +6141,57 @@
         "title": "PageSummary",
         "type": "object"
       },
+      "PageWord": {
+        "properties": {
+          "box": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The word's box as a share of the page (x0, y0, x1, y1); null for a typed-out word.",
+            "title": "Box"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "word_id": {
+            "title": "Word Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "word_id",
+          "text",
+          "box"
+        ],
+        "title": "PageWord",
+        "type": "object"
+      },
+      "PageWords": {
+        "description": "The page's words in reading order, for choosing the words a changed fact cites.",
+        "properties": {
+          "words": {
+            "items": {
+              "$ref": "#/components/schemas/PageWord"
+            },
+            "title": "Words",
+            "type": "array"
+          }
+        },
+        "required": [
+          "words"
+        ],
+        "title": "PageWords",
+        "type": "object"
+      },
       "Party": {
         "properties": {
           "id": {
@@ -14972,6 +15023,69 @@
           }
         },
         "summary": "Save Transcription",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/pages/{page_no}/words": {
+      "get": {
+        "description": "The page's words and their places, for choosing the words a changed fact cites (behind rule 3).",
+        "operationId": "page_words_v1_cases__case_id__pages__page_no__words_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_no",
+            "required": true,
+            "schema": {
+              "title": "Page No",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageWords"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Page Words",
         "tags": [
           "reader"
         ]

@@ -155,6 +155,27 @@ async def test_a_job_reports_progress_and_sees_only_its_own_case(
     assert row == ("done", 100, 1, True, True, None)
 
 
+async def test_a_job_records_the_code_version_it_was_queued_under(
+    api_db: Database,
+    admin: psycopg.Connection,
+    expert_cases: Cases,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Architecture 10.9: every job row names the code version that queued it."""
+    expert, case_a, _ = expert_cases
+    registry = isolated_registry()
+
+    @registry.kind("zz_versioned")
+    async def versioned(ctx: JobContext) -> None:
+        return None
+
+    monkeypatch.setenv("CODE_VERSION", "build-1234")
+    async with api_db.request(scope_for(expert)) as conn:
+        job = await registry.enqueue(conn, case_a, "zz_versioned")
+    row = admin.execute("select code_version from app.jobs where id = %s", (job,)).fetchone()
+    assert row == ("build-1234",)
+
+
 async def test_a_job_that_keeps_failing_ends_failed_with_an_error_code_after_its_attempts(
     api_db: Database,
     worker_db: Database,

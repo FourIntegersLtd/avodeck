@@ -103,8 +103,7 @@ async def test_the_five_steps_are_recorded_in_order_and_the_job_ends_at_100(h: H
     await h.drain()
     job = bundle_job(h)
     steps = [
-        r[0]
-        for r in h.admin.execute("select step from app.job_steps where job_id = %s order by created_at", (job,))
+        r[0] for r in h.admin.execute("select step from app.job_steps where job_id = %s order by created_at", (job,))
     ]
     assert steps == PUBLIC_STEPS
     status, pct, step = h.admin.execute("select status, pct, step from app.jobs where id = %s", (job,)).fetchone()  # type: ignore[misc]
