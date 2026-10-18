@@ -751,10 +751,11 @@ def _fill(content: Any, values: Mapping[str, str], where: str) -> Any:
 
 
 class PackLibrary:
-    def __init__(self, roots: tuple[Path, ...]) -> None:
+    def __init__(self, roots: tuple[Path, ...], approved_only: bool = False) -> None:
         if not roots:
             raise PackError("no pack folder given")
         self.roots = roots
+        self.approved_only = approved_only
         self.schema_dir = _schema_dir(roots[0])
         self._words = lint_words(roots[0])
         self._raw: dict[str, dict[str, Pack]] = {layer: {} for layer in (*LAYERS, "overlay")}
@@ -765,6 +766,8 @@ class PackLibrary:
         for layer_packs in self._packs.values():
             for pack in layer_packs.values():
                 _validate(pack, self.schema_dir)
+                if approved_only:
+                    _check_approved(pack)
         self._check_overlays()
         self._lint()
         self._combined: dict[tuple[str, str, str], MergedPack] = {}
@@ -904,17 +907,27 @@ class PackLibrary:
         }
 
 
+def _check_approved(pack: Pack) -> None:
+    """Architecture 10.11: approval names the reviewer and the date in pack.yaml."""
+    meta = pack.meta
+    if meta.get("status") != "approved" or not meta.get("approved_by") or not meta.get("approved_on"):
+        raise PackError(f"{pack.rel('pack.yaml')}: not approved (needs status approved, approved_by and approved_on)")
+
+
 @cache
-def load_library(*roots: Path) -> PackLibrary:
+def load_library(*roots: Path, approved_only: bool = False) -> PackLibrary:
     """Load and check every pack under `roots` (each a pack set). Cached per set of roots."""
-    return PackLibrary(tuple(Path(r).resolve() for r in roots))
+    return PackLibrary(tuple(Path(r).resolve() for r in roots), approved_only)
 
 
 def default_library() -> PackLibrary:
-    """The cell's packs: `PACKS_DIR` (folders separated by the path separator), else the launch packs only."""
+    """The cell's packs: `PACKS_DIR` (folders separated by the path separator), else the launch packs only.
+
+    A production cell sets `PACKS_APPROVED_ONLY=1` and then refuses any pack that is not approved.
+    """
     configured = os.environ.get("PACKS_DIR", "")
     roots = [Path(p) for p in configured.split(os.pathsep) if p] or [REPO / "packs"]
-    return load_library(*roots)
+    return load_library(*roots, approved_only=os.environ.get("PACKS_APPROVED_ONLY") == "1")
 
 
 # --- rule 11 guard: forbidden words in slice code and prompt templates (architecture 3.5) -------------------------
