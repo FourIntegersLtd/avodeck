@@ -236,6 +236,7 @@ async def test_a_cited_fact_moved_to_a_clearer_copy_still_saves_and_shows_change
     assert (first.json()["changed_citations"], first.json()["stale"]) == ([], False)
     clearer = seed.page(world.case, world.document, 3)
     reads.rows.add((world.case, clearer, 3, world.expert))
+    admin.execute("update app.pages set superseded_by_page_id = %s where id = %s", (clearer, world.read_page))
     admin.execute("update app.facts set page_id = %s where id = %s", (clearer, world.verified))
 
     again = await save(client, world, '"1"', opinion(world, "My view, still [[cite:1]]."))
