@@ -116,7 +116,8 @@ def test_registries_come_from_the_packs(library: packs.PackLibrary, combo: Combo
     assert all(isinstance(f["fields"], dict) and f["fields"] for f in pack.fact_kinds())
     sources = combo.raw("specialty", "sources.yaml")["source_types"]
     assert keys(pack.source_types()) == [s["key"] for s in sources]
-    assert keys(pack.lanes()) == combo.raw("specialty", "lanes.yaml")["lanes"]
+    lanes = combo.raw("specialty", "lanes.yaml")["lanes"]
+    assert keys(pack.lanes()) == [lane if isinstance(lane, str) else lane["key"] for lane in lanes]
     checklist = combo.raw("jurisdiction", "report.yaml")
     assert keys(pack.compliance_checklist()["items"]) == [i["key"] for i in checklist["required_contents"]]
     assert pack.compliance_checklist()["rule_ref"] == checklist["rule_ref"]
