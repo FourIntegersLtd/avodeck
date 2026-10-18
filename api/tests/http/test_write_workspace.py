@@ -155,7 +155,7 @@ async def test_guidance_is_asked_for_the_latest_event_date_or_the_date_given(
 async def test_points_summary_counts_each_side_with_the_pack_labels_leaving_out_dismissed(
     client_for: ClientFor, world: World, combo: Combo, guidebook: Guidebook
 ) -> None:
-    pack = default_library().combine(*combo.codes())
+    pack = default_library().combine(*combo.codes)
     sides = pack.point_sides()
     expert = await client_for(world.expert)
     points = world.url(f"questions/{world.question}/points")
