@@ -27,6 +27,8 @@ export interface ReaderOpts {
   inPeriod?: boolean;
   facts?: Schemas["FactOut"][];
   queue?: Schemas["UnreadablePage"][];
+  /** The case's last page number (the page list answers no page after it). */
+  lastPage?: number;
 }
 
 /** Mounts every reader endpoint for a case; returns what it saw. */
@@ -48,7 +50,15 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
   server.use(
     http.get(c, () => json(theCase())),
     http.get(`${c}/pages/unreadable`, () => json({ pages: queue, done: queue.filter((p) => p.done).length, total: queue.length })),
-    http.get(`${c}/pages`, () => json({ pages: [{ page_no: pageNo, page_id: "x", source_type: null, read: false, in_period: true, unreadable: false, duplicate_of_page_no: null }], next_cursor: null })),
+    http.get(`${c}/pages`, ({ request }) => {
+      const cursor = new URL(request.url).searchParams.get("cursor");
+      if (cursor !== null) {
+        const next = Number(cursor) + 1;
+        const pages = next <= (opts.lastPage ?? 100_000) ? [{ page_no: next, page_id: "x", source_type: null, read: false, in_period: null, unreadable: false, duplicate_of_page_no: null }] : [];
+        return json({ pages, next_cursor: null });
+      }
+      return json({ pages: [{ page_no: pageNo, page_id: "x", source_type: null, read: false, in_period: true, unreadable: false, duplicate_of_page_no: null }], next_cursor: null });
+    }),
     http.get(`${c}/progress`, () => json({ read: 3, total: 10, seconds_left: 300 })),
     http.get(`${c}/pages/:n/image`, () => new HttpResponse(JPEG, { headers: { "Content-Type": "image/jpeg" } })),
     http.get(`${c}/pages/:n/facts`, () => {
@@ -66,7 +76,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       if (api.verifyStatus) return apiError(api.verifyStatus, api.verifyCode ?? "stale");
       const current = api.facts.find((f) => f.id === params.id)!;
       const status = body.action === "correct" ? "verified" : body.action === "not_right" ? "rejected" : "edited";
-      const next = { ...current, status, version: current.version + 1, value: body.action === "edit" ? String(body.new_value) : current.value };
+      const next = { ...current, status: body.action === "correct" && current.needs_recheck ? current.status : status, needs_recheck: false, version: current.version + 1, value: body.action === "edit" ? String(body.new_value) : current.value };
       api.facts = api.facts.map((f) => (f.id === next.id ? next : f));
       return json(next, 200);
     }),

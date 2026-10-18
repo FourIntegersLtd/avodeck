@@ -9,7 +9,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LoadError, Loading, Notice } from "../../foundation/ui";
 import { casePath, sourceLabel } from "./data";
-import { FactCard } from "./FactCard";
+import { allowed, FactCard } from "./FactCard";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
 import { w } from "./words";
@@ -49,6 +49,11 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const opened = useRef(Date.now());
   const detail = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: pageNo } } })), [caseId, pageNo]);
   const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/progress", casePath(caseId))), [caseId]);
+  // The next page that exists (none after the last page), so Next and J stop there.
+  const following = useResource(
+    () => unwrap(api.GET("/v1/cases/{case_id}/pages", { params: { path: { case_id: caseId }, query: { cursor: pageNo, limit: 1 } } })).then((r) => r.pages[0]?.page_no ?? null),
+    [caseId, pageNo],
+  );
   const queue = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/unreadable", casePath(caseId))).catch(() => null), [caseId]);
   const [read, setRead] = useState(false);
   const [facts, setFacts] = useState<Fact[] | null>(null);
@@ -151,9 +156,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     }
   }
 
-  const go = (n: number) => n >= 1 && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, facts, focus, read });
-  latest.current = { markRead, go, act, notRight, facts, focus, read };
+  const nextPage = following.data ?? null;
+  const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
+  const latest = useRef({ markRead, go, act, notRight, facts, focus, read, nextPage });
+  latest.current = { markRead, go, act, notRight, facts, focus, read, nextPage };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -161,12 +167,12 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       const s = latest.current;
       const key = e.key.toLowerCase();
       const target = s.facts?.find((f) => f.id === s.focus);
-      if (key === "j") s.go(pageNo + 1);
+      if (key === "j") s.go(s.nextPage ?? 0);
       else if (key === "k") s.go(pageNo - 1);
       else if (key === "r") void s.markRead();
-      else if (key === "1" && target) void s.act(target, "correct");
-      else if (key === "2" && target) void s.notRight(target);
-      else if (key === "3" && target) setEditing({ id: target.id, text: target.value ?? "" });
+      else if (key === "1" && target && allowed(target).correct) void s.act(target, "correct");
+      else if (key === "2" && target && allowed(target).notRight) void s.notRight(target);
+      else if (key === "3" && target && allowed(target).edit) setEditing({ id: target.id, text: target.value ?? "" });
       else return;
       e.preventDefault();
     }
@@ -266,7 +272,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             {w("read.couldnt_read", { count: hard })}
           </Link>
         )}
-        {read ? <Button onClick={() => go(pageNo + 1)}>{w("read.next")}</Button> : <Button disabled={busy} onClick={() => void markRead()}>{w("read.mark_read")}</Button>}
+        {read ? <Button disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>{w("read.next")}</Button> : <Button disabled={busy} onClick={() => void markRead()}>{w("read.mark_read")}</Button>}
       </footer>
     </div>
   );

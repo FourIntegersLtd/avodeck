@@ -88,6 +88,11 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] Moving a verified fact to a clearer copy keeps its history and bumps its `version`
 - [x] Editing a fact bumps `facts.version`; citations then show "changed since cited" (S8)
 - [x] Facts on a duplicate page appear only on the original
+- [x] Next and `J` stop at the last page (the next page comes from the page list)
+- [x] The fact card offers, by button and key, only what the state machine allows (Change only on suggestions; Correct on a checked fact only when it says "Please check")
+- [x] "Change a detail" updates `fields`, `event_date` and the box from the chosen words, and logs the real old and new details
+- [x] "Please check" (`recheck`) flags show as "Please check", never as "In Points against"; "Take out" removes only the points flag; checking the fact again removes the recheck flag
+- [x] A re-read re-maps a checked fact only when its words match under rule 2's normaliser ("1.5 mg" is not "15 mg"); each re-map appends a `remapped` verification row; typed words give no box
 
 ## Rules that apply
 1, 2, 3, 4, 6, 7, 9 from the root `AGENTS.md`.

@@ -39,6 +39,7 @@ const WORDS = {
   "fact.points_against": "Send to Points against",
   "fact.points_against_off": "Take out of Points against",
   "fact.in_points_against": "In Points against",
+  "fact.recheck": "This page was read again. Please check this is still right.",
 
   "unreadable.title": "Pages we couldn't read",
   "unreadable.lead": "You can read these better than we can. Tell us what's on each one, in a few words.",
