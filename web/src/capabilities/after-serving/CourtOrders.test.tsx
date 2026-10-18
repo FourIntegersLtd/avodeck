@@ -7,7 +7,8 @@ import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
 import { AFTER_MESSAGES as M } from "./words";
-import { D1, deadline, firstKind, serve, type PackRun } from "./testing";
+import { afterServingCaseRoutes } from "./index";
+import { casePack, D1, deadline, firstKind, serve, type PackRun } from "./testing";
 
 const url = `/cases/${CASE_A}/court-orders`;
 
@@ -102,4 +103,13 @@ test("the history of a moved date shows what it was and what it is now", async (
   expect(await screen.findByText(M["after_serving.deadlines.history"]!)).toBeInTheDocument();
   expect(await screen.findByText("Was 26 December 2026")).toBeInTheDocument();
   expect(screen.getByText("Now 9 January 2027")).toBeInTheDocument();
+});
+
+test("S29 opens under the pack's court orders screen", () => {
+  const route = afterServingCaseRoutes.find((r) => r.path === "court-orders");
+  expect((route?.handle as { screen?: string } | undefined)?.screen).toBe("court_orders");
+  for (const run of ["launch", "fixture"] as const) {
+    const screens = casePack(run).workflow_steps.flatMap((s) => (s as { screens: string[] }).screens);
+    expect(screens).toContain("court_orders");
+  }
 });

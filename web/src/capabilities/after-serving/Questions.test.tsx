@@ -7,7 +7,7 @@ import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
 import { AFTER_MESSAGES as M } from "./words";
-import { cap, declarations, DOC, partyName, question, questionsName, Q1, Q2, round, ROUND, serve, type PackRun } from "./testing";
+import { cap, casePack, declarations, DOC, partyName, question, questionsName, Q1, Q2, round, ROUND, serve, type PackRun } from "./testing";
 
 const url = `/cases/${CASE_A}/written-questions`;
 const suggestion = (run: PackRun) => (run === "launch" ? "clarifies" : "permitted");
@@ -146,4 +146,16 @@ test("Today's items open these screens", async () => {
   expect(screen.getByText("Mrs A: 14 new pages to read")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["after_serving.today.read_new_pages"]! })).toHaveAttribute("href", `/cases/${CASE_A}/new-material`);
   expect(screen.getByText("Mrs A: 3 statements in the other expert's report to check")).toBeInTheDocument();
+});
+
+describe.each<PackRun>(["launch", "fixture"])("the classification choices under the %s packs", (run) => {
+  test("are the pack's written-question types, even ones no question carries yet", async () => {
+    const kinds = casePack(run).written_question_classifications ?? [];
+    expect(kinds.length).toBeGreaterThan(1);
+    serve(run, { questions: [question({ suggested_classification: suggestion(run) })] });
+    renderAt(url);
+    const select = await screen.findByLabelText(M["after_serving.questions.classification"]!);
+    const values = within(select).getAllByRole("option").map((o) => (o as HTMLOptionElement).value).filter(Boolean);
+    expect(values).toEqual(kinds);
+  });
 });
