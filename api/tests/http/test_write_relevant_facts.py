@@ -71,6 +71,8 @@ def ref(request: ModelRequest, value: str) -> str:
 
 
 def safety_netting(request: ModelRequest) -> dict[str, Any]:
+    if not any(line.endswith(SAFETY) for line in fact_lines(request)):
+        return {"facts": []}
     return {"facts": [{"fact": ref(request, SAFETY), "why_relevant": "advice to return if worse"}]}
 
 
