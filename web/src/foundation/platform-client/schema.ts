@@ -1942,6 +1942,57 @@ export interface paths {
         patch: operations["change_settings_v1_cases__case_id__report_settings_patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/report/sign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sign Report */
+        post: operations["sign_report_v1_cases__case_id__report_sign_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/report/versions/{version_id}/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Version */
+        get: operations["download_version_v1_cases__case_id__report_versions__version_id__download_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/report/versions/{version_id}/snapshots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Version Snapshots */
+        get: operations["version_snapshots_v1_cases__case_id__report_versions__version_id__snapshots_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/report/word-import": {
         parameters: {
             query?: never;
@@ -5877,13 +5928,6 @@ export interface components {
             /** Label */
             label: string;
         };
-        /** SignIn */
-        SignIn: {
-            /** Email */
-            email: string;
-            /** Password */
-            password: string;
-        };
         /** SignInResult */
         SignInResult: {
             /** Mfa Enrolled */
@@ -5915,6 +5959,54 @@ export interface components {
             method: "drawn" | "photo";
             /** Width */
             width: number;
+        };
+        /** SignedOut */
+        SignedOut: {
+            version: components["schemas"]["SignedVersion"];
+        };
+        /** SignedVersion */
+        SignedVersion: {
+            /** Display Name */
+            display_name: string;
+            /** Docx Sha256 */
+            docx_sha256: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Locked At
+             * Format: date-time
+             */
+            locked_at: string;
+            /** Pdf Sha256 */
+            pdf_sha256: string;
+            /** Sha256 */
+            sha256: string;
+            /** Status */
+            status: string;
+            /** Version No */
+            version_no: number;
+        };
+        /** SnapshotOut */
+        SnapshotOut: {
+            /** Content */
+            content?: unknown;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Kind */
+            kind: string;
+            /** Sha256 */
+            sha256: string;
+        };
+        /** SnapshotsOut */
+        SnapshotsOut: {
+            /** Snapshots */
+            snapshots: components["schemas"]["SnapshotOut"][];
         };
         /** SortedPage */
         SortedPage: {
@@ -6371,6 +6463,13 @@ export interface components {
             /** Version Label */
             version_label: string;
         };
+        /** SignIn */
+        app__core__routes__auth__SignIn: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
+        };
         /** Hold */
         app__features__close__schemas__Hold: {
             /**
@@ -6394,6 +6493,14 @@ export interface components {
             set_by: string;
             /** Until */
             until: string | null;
+        };
+        /** SignIn */
+        app__features__report__routes_sign__SignIn: {
+            /**
+             * Declaration Confirmed
+             * @constant
+             */
+            declaration_confirmed: true;
         };
         /** Hold */
         app__features__setup__routes_case__Hold: {
@@ -6673,7 +6780,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["SignIn"];
+                "application/json": components["schemas"]["app__core__routes__auth__SignIn"];
             };
         };
         responses: {
@@ -11592,6 +11699,135 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    sign_report_v1_cases__case_id__report_sign_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__features__report__routes_sign__SignIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignedOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    download_version_v1_cases__case_id__report_versions__version_id__download_get: {
+        parameters: {
+            query: {
+                format: "docx" | "pdf";
+            };
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    version_snapshots_v1_cases__case_id__report_versions__version_id__snapshots_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnapshotsOut"];
                 };
             };
             /** @description Validation Error */

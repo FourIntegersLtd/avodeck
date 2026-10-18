@@ -19,6 +19,9 @@ from app.core.storage import SupabaseStorage
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Build = Annotated[CaseAccess, Depends(require_case_access("report.build"))]
 Write = Annotated[CaseAccess, Depends(require_case_access("opinion.write"))]
+Sign = Annotated[CaseAccess, Depends(require_case_access("report.sign"))]
+Serve = Annotated[CaseAccess, Depends(require_case_access("report.serve"))]
+Withdraw = Annotated[CaseAccess, Depends(require_case_access("report.withdraw"))]
 
 
 def not_found() -> ApiError:

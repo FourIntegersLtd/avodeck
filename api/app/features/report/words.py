@@ -7,6 +7,7 @@ No court, party or profession word appears here (rule 11); those come from the p
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Final
 
 _WORDS: Final[dict[str, dict[str, str]]] = {
@@ -21,6 +22,7 @@ _WORDS: Final[dict[str, dict[str, str]]] = {
         "no_tasks": "No automated reading was used.",
         "document": "{name}: pages {first} to {last}",
         "reference": "[{n}] p.{page}",
+        "signed_on": "Dated {date}",
     },
 }
 
@@ -58,6 +60,16 @@ _MONTHS: Final[dict[str, tuple[str, ...]]] = {
 
 def months(language: str) -> tuple[str, ...]:
     return _MONTHS.get(language.split("-")[0].lower(), _MONTHS["en"])
+
+
+def long_date(language: str, date_order: str, day: date) -> str:
+    """A date written out for a signed document, in the pack's date order ("18 October 2026")."""
+    month = months(language)[day.month - 1].capitalize()
+    if date_order.upper().startswith("M"):
+        return f"{month} {day.day}, {day.year}"
+    if date_order.upper().startswith("Y"):
+        return f"{day.year} {month} {day.day}"
+    return f"{day.day} {month} {day.year}"
 
 
 def word(language: str, key: str, **values: object) -> str:

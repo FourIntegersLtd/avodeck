@@ -8705,30 +8705,6 @@
         "title": "SideCount",
         "type": "object"
       },
-      "SignIn": {
-        "properties": {
-          "email": {
-            "maxLength": 320,
-            "minLength": 3,
-            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
-            "title": "Email",
-            "type": "string"
-          },
-          "password": {
-            "maxLength": 256,
-            "minLength": 1,
-            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
-            "title": "Password",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "password"
-        ],
-        "title": "SignIn",
-        "type": "object"
-      },
       "SignInResult": {
         "properties": {
           "mfa_enrolled": {
@@ -8788,6 +8764,111 @@
           "created_at"
         ],
         "title": "Signature",
+        "type": "object"
+      },
+      "SignedOut": {
+        "properties": {
+          "version": {
+            "$ref": "#/components/schemas/SignedVersion"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "SignedOut",
+        "type": "object"
+      },
+      "SignedVersion": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "docx_sha256": {
+            "title": "Docx Sha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locked_at": {
+            "format": "date-time",
+            "title": "Locked At",
+            "type": "string"
+          },
+          "pdf_sha256": {
+            "title": "Pdf Sha256",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_no",
+          "display_name",
+          "status",
+          "locked_at",
+          "sha256",
+          "docx_sha256",
+          "pdf_sha256"
+        ],
+        "title": "SignedVersion",
+        "type": "object"
+      },
+      "SnapshotOut": {
+        "properties": {
+          "content": {
+            "title": "Content"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "sha256",
+          "created_at"
+        ],
+        "title": "SnapshotOut",
+        "type": "object"
+      },
+      "SnapshotsOut": {
+        "properties": {
+          "snapshots": {
+            "items": {
+              "$ref": "#/components/schemas/SnapshotOut"
+            },
+            "title": "Snapshots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshots"
+        ],
+        "title": "SnapshotsOut",
         "type": "object"
       },
       "SortedPage": {
@@ -10061,6 +10142,30 @@
         "title": "WorkspaceGuidance",
         "type": "object"
       },
+      "app__core__routes__auth__SignIn": {
+        "properties": {
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "Email",
+            "type": "string"
+          },
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "password"
+        ],
+        "title": "SignIn",
+        "type": "object"
+      },
       "app__features__close__schemas__Hold": {
         "properties": {
           "created_at": {
@@ -10116,6 +10221,21 @@
           "released_at"
         ],
         "title": "Hold",
+        "type": "object"
+      },
+      "app__features__report__routes_sign__SignIn": {
+        "additionalProperties": false,
+        "properties": {
+          "declaration_confirmed": {
+            "const": true,
+            "title": "Declaration Confirmed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "declaration_confirmed"
+        ],
+        "title": "SignIn",
         "type": "object"
       },
       "app__features__setup__routes_case__Hold": {
@@ -10451,7 +10571,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SignIn"
+                "$ref": "#/components/schemas/app__core__routes__auth__SignIn"
               }
             }
           },
@@ -18013,6 +18133,205 @@
           }
         },
         "summary": "Change Settings",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/sign": {
+      "post": {
+        "operationId": "sign_report_v1_cases__case_id__report_sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__features__report__routes_sign__SignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignedOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Sign Report",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/versions/{version_id}/download": {
+      "get": {
+        "operationId": "download_version_v1_cases__case_id__report_versions__version_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "enum": [
+                "docx",
+                "pdf"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {},
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Download Version",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/versions/{version_id}/snapshots": {
+      "get": {
+        "operationId": "version_snapshots_v1_cases__case_id__report_versions__version_id__snapshots_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SnapshotsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Version Snapshots",
         "tags": [
           "report"
         ]
