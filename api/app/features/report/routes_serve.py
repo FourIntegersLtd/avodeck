@@ -137,7 +137,9 @@ async def serve_version(
     await conn.execute("update app.cases set status = 'served' where id = %s and status <> 'served'", (case_id,))
     await audit.record(conn, action="report.served", target=f"report_version:{version_id}", case_id=case_id)
     # Background tasks run once the response is ready, after the request's transaction committed.
-    after_commit.add_task(events.events.emit, events.ReportServed(case_id, version_id, body.served_on))
+    by = await (await conn.execute("select app.current_person_id()")).fetchone()
+    served = events.ReportServed(case_id, version_id, body.served_on, by[0] if by else None)
+    after_commit.add_task(events.events.emit, served)
     return VersionStatus(id=version_id, status="served")
 
 
