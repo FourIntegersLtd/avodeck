@@ -37,3 +37,10 @@ test("a bounced email address shows a banner on every signed-in screen", async (
   expect(await screen.findByText("We couldn't email you. Check your address.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Check your email address" })).toHaveAttribute("href", "/account");
 });
+
+test("the logo goes back to the Avodeck home page", async () => {
+  signedIn();
+  renderAt("/today");
+  const header = await screen.findByRole("banner");
+  expect(within(header).getByRole("link", { name: "Avodeck home page" })).toHaveAttribute("href", "http://localhost:3000");
+});

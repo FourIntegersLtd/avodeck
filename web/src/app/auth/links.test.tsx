@@ -48,3 +48,8 @@ test("confirming from both addresses changes the email", async () => {
   renderAt("/account/email/confirm?token=t2");
   expect(await screen.findByText("Your email address has been changed.")).toBeInTheDocument();
 });
+
+test("the sign-in logo goes back to the Avodeck home page", async () => {
+  renderAt("/sign-in");
+  expect(await screen.findByRole("link", { name: "Avodeck home page" })).toHaveAttribute("href", "http://localhost:3000");
+});
