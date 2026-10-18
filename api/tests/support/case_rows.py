@@ -353,6 +353,85 @@ def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
     }
 
 
+def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice F's case tables (migrations 0600-0699): one made-up row each, on a draft and a served version."""
+    doc = seed.document(w.case)
+    page = seed.page(w.case, doc, 601)
+    fact = add_fact(admin, w.case, page, status="verified")
+    question = add_question(admin, w.case, number=60, status="confirmed")
+    draft = add_report_version(admin, w.case, version_no=60)
+    served = add_report_version(admin, w.case, version_no=61, status="served")
+    row = admin.execute(
+        "insert into app.report_paragraphs (case_id, report_version_id, para_no, section, content_control_id, text,"
+        " question_id) values (%s, %s, 1, 'opinion', 'cc1', %s, %s) returning id",
+        (w.case, draft, b"sealed", question),
+    ).fetchone()
+    assert row is not None
+    admin.execute(
+        "insert into app.citations (case_id, report_version_id, paragraph_id, cite_no, fact_id, fact_version,"
+        " value_snapshot, quote_verbatim, page_id) values (%s, %s, %s, 1, %s, 2, %s, %s, %s)",
+        (w.case, draft, row[0], fact, b"sealed", b"sealed", page),
+    )
+    admin.execute(
+        "insert into app.final_check_runs (case_id, report_version_id, results, passed) values (%s, %s, '[]', false)",
+        (w.case, draft),
+    )
+    admin.execute(
+        "insert into app.report_snapshots (case_id, report_version_id, kind, sha256) values (%s, %s, 'zz_kind', %s)",
+        (w.case, draft, "b" * 64),
+    )
+    admin.execute(
+        "insert into app.report_servings (case_id, report_version_id, served_on, sent_via)"
+        " values (%s, %s, current_date, 'email')",
+        (w.case, served),
+    )
+    admin.execute(
+        "insert into app.spot_checks (case_id, report_version_id, reviewer_email, fact_ids, token_hash, expires_at,"
+        " created_by) values (%s, %s, 'z@example.test', array[%s]::uuid[], %s, now(), %s)",
+        (w.case, draft, fact, uuid.uuid4().hex * 2, w.expert),
+    )
+    admin.execute(
+        "insert into app.time_entries (case_id, person_id, stage, started_at, ended_at, seconds)"
+        " values (%s, %s, 'reading', now(), now(), 0)",
+        (w.case, w.expert),
+    )
+    admin.execute("insert into app.report_settings (case_id) values (%s)", (w.case,))
+    profile = admin.execute(
+        "insert into app.billing_profiles (owner_type, owner_id, legal_name, currency) values ('person', %s, 'Z', 'XTS')"
+        " on conflict (owner_type, owner_id) do update set legal_name = excluded.legal_name returning id",
+        (w.expert,),
+    ).fetchone()
+    assert profile is not None
+    invoice = admin.execute(
+        "insert into app.invoices (case_id, billing_profile_id, lines, total, currency) values (%s, %s, '[]', 10, 'XTS')"
+        " returning id",
+        (w.case, profile[0]),
+    ).fetchone()
+    assert invoice is not None
+    admin.execute("update app.invoices set status = 'sent' where id = %s", (invoice[0],))
+    admin.execute(
+        "insert into app.credit_notes (case_id, invoice_id, amount, reason) values (%s, %s, 1, 'zz_reason')",
+        (w.case, invoice[0]),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "questions": 1,
+        "report_versions": 2,
+        "report_paragraphs": 1,
+        "citations": 1,
+        "final_check_runs": 1,
+        "report_snapshots": 1,
+        "report_servings": 1,
+        "spot_checks": 1,
+        "time_entries": 1,
+        "report_settings": 1,
+        "invoices": 1,
+        "credit_notes": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -366,6 +445,7 @@ SEEDERS = (
     _reader_logs,
     _understand_rows,
     _write_tables,
+    _report_tables,
 )
 
 
