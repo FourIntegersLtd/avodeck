@@ -133,6 +133,8 @@ const WORDS = {
   "new.status.contradicted": "The records say the opposite",
   "new.status.unchecked": "Not checked yet",
   "new.error.not_checked": "This statement hasn't been checked yet.",
+  "new.error.read_first": "Read that page first, then confirm.",
+  "new.read_first": "Read page {{page}} first to see this check.",
 
   "change.title": "Correct or update your report",
   "change.intro": "Your served report stays as it is. Changes go in a short supplementary report, so everyone can see what changed and why.",

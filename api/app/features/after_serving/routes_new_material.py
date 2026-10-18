@@ -190,12 +190,45 @@ async def register_opposing_report(
     return OpposingQueued(id=row["id"], job_id=job_id)
 
 
-async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> OpposingClaimOut:
+READ_FIRST = "read_first"  # shown in place of the check's result until the viewer has read our page (rule 3)
+
+
+async def _evidence(conn: Any, case_id: uuid.UUID, row: dict[str, Any], reads: Any) -> tuple[int | None, bool]:
+    """Our page's number for a claim's evidence, and whether this viewer has read it (no evidence: nothing to read)."""
+    if row["evidence_page_id"] is None:
+        return None, True
+    page = await fetch_one(conn, "select bundle_page_no from app.pages where id = %s", (row["evidence_page_id"],))
+    page_no = int(page["bundle_page_no"]) if page and page["bundle_page_no"] is not None else None
+    me = await person_id(conn)
+    if page_no is None or reads is None or me is None:
+        return page_no, False
+    return page_no, bool(await reads.has_read(conn, case_id, page_no, me))
+
+
+async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any], reads: Any) -> OpposingClaimOut:
     our_quote: str | None = None
-    our_page_no: int | None = None
+    our_page_no, read = await _evidence(conn, case_id, row, reads)
+    text = await unseal(conn, crypto, case_id, row["text_verbatim"], CLAIM) or ""
+    their_quote = await unseal(conn, crypto, case_id, row["cited_value"], CLAIM_VALUE)
+    if not read:
+        return OpposingClaimOut(
+            id=row["id"],
+            claim_no=row["claim_no"],
+            paragraph_ref=row["paragraph_ref"],
+            text_verbatim=text,
+            their_quote=their_quote,
+            their_page_ref=row["cited_page_ref"],
+            our_quote=None,
+            our_page_no=our_page_no,
+            status=READ_FIRST,
+            checked_by=None,
+            reason=None,
+            expert_confirmed=row["expert_confirmed"],
+            confirmed_at=row["confirmed_at"],
+            discrepancy=False,
+            version=row["version"],
+        )
     if row["evidence_page_id"] is not None:
-        page = await fetch_one(conn, "select bundle_page_no from app.pages where id = %s", (row["evidence_page_id"],))
-        our_page_no = int(page["bundle_page_no"]) if page and page["bundle_page_no"] is not None else None
         wanted = set(row["evidence_word_ids"] or [])
         if wanted:
             words = await page_words(conn, crypto, case_id, row["evidence_page_id"])
@@ -204,8 +237,8 @@ async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, A
         id=row["id"],
         claim_no=row["claim_no"],
         paragraph_ref=row["paragraph_ref"],
-        text_verbatim=await unseal(conn, crypto, case_id, row["text_verbatim"], CLAIM) or "",
-        their_quote=await unseal(conn, crypto, case_id, row["cited_value"], CLAIM_VALUE),
+        text_verbatim=text,
+        their_quote=their_quote,
         their_page_ref=row["cited_page_ref"],
         our_quote=our_quote,
         our_page_no=our_page_no,
@@ -250,7 +283,7 @@ async def _positions(
 
 @router.get("/cases/{case_id}/opposing-reports/{document_id}", response_model=OpposingReport)
 async def opposing_report(
-    case_id: uuid.UUID, document_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto
+    case_id: uuid.UUID, document_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, reads: Reads
 ) -> OpposingReport:
     report = await fetch_one(
         conn,
@@ -265,7 +298,7 @@ async def opposing_report(
         f"select {_CLAIM} from app.opposing_claims where case_id = %s and document_id = %s order by claim_no",
         (case_id, document_id),
     )
-    claims = [await claim_out(conn, crypto, case_id, r) for r in rows]
+    claims = [await claim_out(conn, crypto, case_id, r, reads) for r in rows]
     return OpposingReport(
         id=report["id"],
         document_id=report["document_id"],
@@ -286,6 +319,7 @@ async def change_claim(
     if_match: IfMatch,
     conn: DbConn,
     crypto: Crypto,
+    reads: Reads,
     response: Response,
 ) -> OpposingClaimOut:
     row = await fetch_one(
@@ -297,6 +331,8 @@ async def change_claim(
         raise stale()
     if row["status"] == "unchecked":
         raise conflict("not_checked", "This claim has not been checked yet.")
+    if not (await _evidence(conn, case_id, row, reads))[1]:
+        raise conflict(READ_FIRST, "Read that page first.")
     sets: list[str] = []
     params: list[Any] = []
     if body.status is not None and body.status != row["status"]:
@@ -317,4 +353,4 @@ async def change_claim(
             )
         row = updated
     response.headers["etag"] = etag(row["version"])
-    return await claim_out(conn, crypto, case_id, row)
+    return await claim_out(conn, crypto, case_id, row, reads)

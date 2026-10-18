@@ -14,7 +14,11 @@ const ERRORS: Record<string, string> = {
   stale: "after_serving.error.stale",
   invalid: "after_serving.error.invalid",
   not_checked: "after_serving.new.error.not_checked",
+  read_first: "after_serving.new.error.read_first",
 };
+
+// A check's result shows only once it exists and the viewer has read our page (the server decides).
+const shown = (c: Claim) => c.status !== "matches" && c.status !== "unchecked" && c.status !== "read_first";
 
 export function NewMaterial() {
   const { caseId = "" } = useParams();
@@ -132,8 +136,8 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
             <li key={c.id} className="av-after-item av-stack">
               <p className="av-after-words">{c.text_verbatim}</p>
               {c.their_page_ref && <p className="av-after-mono">p.{c.their_page_ref}</p>}
-              <p><strong>{keyName("new.status", c.status)}</strong></p>
-              {c.status !== "matches" && c.status !== "unchecked" && (
+              <p><strong>{c.status === "read_first" ? w("new.read_first", { page: c.our_page_no ?? "" }) : keyName("new.status", c.status)}</strong></p>
+              {shown(c) && (
                 <div className="av-after-columns">
                   <div><h5>{w("new.their_quote")}</h5><p className="av-after-words">{c.their_quote}</p></div>
                   <div><h5>{w("new.our_quote", { page: c.our_page_no ?? "" })}</h5><p className="av-after-words">{c.our_quote}</p></div>
@@ -141,7 +145,7 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
               )}
               {c.expert_confirmed
                 ? <p role="status">{w("new.confirmed")}</p>
-                : c.discrepancy && c.status !== "matches" && c.status !== "unchecked" && <Button variant="secondary" onClick={() => void confirm(c)}>{w("new.confirm")}</Button>}
+                : c.discrepancy && shown(c) && <Button variant="secondary" onClick={() => void confirm(c)}>{w("new.confirm")}</Button>}
             </li>
           );
         })}
