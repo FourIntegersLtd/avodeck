@@ -1,7 +1,7 @@
 """The citation rule (rule 2, architecture 5 `PUT .../opinion`, slice E brief).
 
 An opinion cites facts with markers `[[cite:n]]` in its text, each one matching the n-th citation
-object `{fact_id, page_id, quote}`. A citation is accepted only when the fact is citable (verified or
+object `{fact_id, page_id, quote_verbatim}`. A citation is accepted only when the fact is citable (verified or
 edited, on a page the named expert has read), the page is the fact's page, and the quote is words
 the fact itself holds (compared after normalising case, spacing and number format). Markers and
 citation objects match one to one. Anything else is refused with 422 `invalid`, naming the
@@ -42,7 +42,9 @@ def fact(value: str = "review 3/52 if no better", page: uuid.UUID = PAGE, status
 
 
 def cite(f: Fact, quote: str | None = None, page: uuid.UUID | None = None) -> Citation:
-    return Citation(fact_id=f.id, page_id=page or f.page_id, quote=quote if quote is not None else str(f.value))
+    return Citation(
+        fact_id=f.id, page_id=page or f.page_id, quote_verbatim=quote if quote is not None else str(f.value)
+    )
 
 
 def refused(body: str, refs: list[Citation], citable: list[Fact]) -> dict[str, Any]:
