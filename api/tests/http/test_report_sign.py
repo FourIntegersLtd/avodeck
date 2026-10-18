@@ -18,6 +18,8 @@ is withdrawn with a reason, stays locked and readable, and cannot be served agai
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hashlib
 import io
 import uuid
@@ -30,6 +32,7 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 
+import app.core.http as core_http
 from app.core.ai.bedrock import ModelRequest, ModelResponse
 from app.core.ai.kit import AiKit
 from app.core.contracts import events
@@ -486,3 +489,85 @@ async def test_a_served_version_is_withdrawn_with_a_reason_and_stays_locked_and_
         "select count(*) from app.audit_log where case_id = %s and action = 'report.withdrawn'", (ready.case,)
     ).fetchone()
     assert audit is not None and audit[0] == 1
+
+
+# Two signs at once, signed downloads (review findings 1 and 9), serving after commit (finding 8) ----------
+
+
+async def test_two_signs_at_once_give_one_signed_version_whose_downloads_verify(
+    client_for: ClientFor,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    ready: World,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    real_put = storage.put
+
+    async def slow_put(path: str, data: bytes) -> None:
+        await asyncio.sleep(0.3)  # both requests are past their checks before either commits
+        await real_put(path, data)
+
+    monkeypatch.setattr(storage, "put", slow_put)
+    first, second = await client_for(ready.expert), await client_for(ready.expert)
+    answers = await asyncio.gather(
+        first.post(ready.url("report/sign"), json=SIGN), second.post(ready.url("report/sign"), json=SIGN)
+    )
+    assert sorted(a.status_code for a in answers) == [200, 409], [a.text for a in answers]
+    won = next(a for a in answers if a.status_code == 200).json()["version"]
+    monkeypatch.setattr(storage, "put", real_put)
+
+    locked = admin.execute(
+        "select count(*) from app.report_versions where case_id = %s and locked_at is not null", (ready.case,)
+    ).fetchone()
+    assert locked == (1,)
+    row = newest(admin, ready.case)
+    assert str(row["id"]) == won["id"]
+    assert row["docx_path"] != row["pdf_path"]
+    for fmt in ("docx", "pdf"):
+        download = await first.get(ready.url(f"report/versions/{row['id']}/download?format={fmt}"))
+        assert download.status_code == 200, download.text
+        assert hashlib.sha256(download.content).hexdigest() == won[f"{fmt}_sha256"]
+
+
+async def test_downloading_a_signed_version_needs_step_up(
+    client_for: ClientFor, admin: psycopg.Connection, ready: World
+) -> None:
+    version = await signed(client_for, ready)
+    late = await client_for(ready.expert, mfa_age=timedelta(minutes=15))
+    for fmt in ("docx", "pdf"):
+        resp = await late.get(ready.url(f"report/versions/{version}/download?format={fmt}"))
+        assert resp.status_code == 403 and code(resp) == "step_up_required", fmt
+    downloads = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'report.downloaded'", (ready.case,)
+    ).fetchone()
+    assert downloads == (0,)
+
+
+async def test_a_serve_that_does_not_commit_emits_nothing(
+    client_for: ClientFor, admin: psycopg.Connection, ready: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    version = await signed(client_for, ready)
+    heard: list[events.ReportServed] = []
+
+    def listen(event: events.ReportServed) -> None:
+        heard.append(event)
+
+    async def fail(*args: Any, **kwargs: Any) -> None:
+        raise RuntimeError("the transaction does not commit")
+
+    monkeypatch.setattr(core_http, "_remember", fail)
+    events.events.subscribe(events.ReportServed)(listen)
+    try:
+        client = await client_for(ready.expert)
+        with contextlib.suppress(RuntimeError):
+            resp = await client.post(
+                ready.url(f"report/versions/{version}/serve"),
+                json=served_body(),
+                headers={"Idempotency-Key": "zz-serve-once"},
+            )
+            assert resp.status_code >= 500
+    finally:
+        events.events.unsubscribe(events.ReportServed, listen)
+    assert heard == []
+    status = admin.execute("select status from app.report_versions where id = %s", (version,)).fetchone()
+    assert status == ("locked",)
