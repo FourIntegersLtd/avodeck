@@ -49,21 +49,30 @@ def _commit(repo: Path, msg: str, n: int) -> str:
     import subprocess
 
     (repo / f"f{n}.txt").write_text(msg)
-    env = {**os.environ, "GIT_AUTHOR_DATE": f"2026-01-01T00:00:{n:02d}", "GIT_COMMITTER_DATE": f"2026-01-01T00:00:{n:02d}"}
-    run = lambda *a: subprocess.run(["git", *a], cwd=repo, env=env, check=True, capture_output=True, text=True).stdout.strip()  # noqa: E731
+    when = f"2026-01-01T00:00:{n:02d}"
+    env = {**os.environ, "GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
+
+    def run(*a: str) -> str:
+        return subprocess.run(["git", *a], cwd=repo, env=env, check=True, capture_output=True, text=True).stdout.strip()
+
     run("add", "-A")
     run("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", msg)
     return run("rev-parse", "HEAD")
 
 
-def test_a_feat_is_paired_with_its_own_parent_across_merged_branches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_feat_is_paired_with_its_own_parent_across_merged_branches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Two branches merged in: the commit listed just before a feat may be the other branch's test."""
     import subprocess
 
     mod = _load()
     repo = tmp_path / "repo"
     repo.mkdir()
-    git = lambda *a: subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True)  # noqa: E731
+
+    def git(*a: str) -> None:
+        subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True)
+
     git("init", "-q", "-b", "main")
     base = _commit(repo, "chore: start", 1)
     git("checkout", "-q", "-b", "one")
