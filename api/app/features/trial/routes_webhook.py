@@ -1,9 +1,10 @@
 """The e-sign provider's webhook for joint statements, signed out (threat model: a new inbound flow).
 
 `POST /v1/webhooks/esign` carries `x-avodeck-signature: sha256=<hex>`, an HMAC of the raw body with the
-cell's `ESIGN_WEBHOOK_SECRET` (401 for everything when the cell has none). The body names the signing reference, never a
-case: migration 0900's security definer functions find the meeting by the reference's hash, move it and
-audit with no person. Unknown reference 404; a statement not out for signature 409 (a replay).
+cell's `ESIGN_WEBHOOK_SECRET`, read through `core.config.webhook_settings` (401 for everything when the cell
+has none). The body names the signing reference, never a case: migration 0900's security definer functions
+find the meeting by the reference's hash, move it and audit with no person.
+Unknown reference 404; a statement not out for signature 409 (a replay).
 """
 
 from __future__ import annotations
@@ -12,12 +13,12 @@ import base64
 import binascii
 import hashlib
 import hmac
-import os
 from typing import Literal
 
 from fastapi import Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from app.core.config import webhook_settings
 from app.core.db import Database
 from app.core.errors import ApiError
 from app.core.http import public_router
@@ -41,7 +42,7 @@ class EsignOutcome(BaseModel):
 
 def _checked(body: bytes, header: str | None) -> None:
     """401 unless the body is signed with the cell's secret; a cell with no secret accepts nothing."""
-    secret = os.environ.get("ESIGN_WEBHOOK_SECRET", "").strip()
+    secret = webhook_settings().esign_secret
     expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest() if secret else None
     if not expected or not header or not hmac.compare_digest(expected, header.strip()):
         raise ApiError("bad_signature", "The signature does not match.", 401)
