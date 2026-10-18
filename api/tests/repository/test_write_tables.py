@@ -217,7 +217,9 @@ async def test_a_point_or_claim_becomes_stale_when_its_fact_changes_until_review
     admin.execute(INSERTS["witness_claims"], params(world))
     admin.execute("update app.facts set status = 'rejected' where id = %s", (world["fact"],))
     rows = admin.execute(
-        "select (select status from app.points), (select status from app.witness_claims)"
+        "select (select status from app.points where case_id = %(c)s),"
+        " (select status from app.witness_claims where case_id = %(c)s)",
+        params(world),
     ).fetchone()
     assert rows == ("stale", "stale")
     admin.execute("update app.facts set status = 'verified' where id = %s", (world["fact"],))
