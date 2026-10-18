@@ -250,6 +250,7 @@ function OfflineCopy({ frame }: { frame: Frame }) {
   const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/offline-packages", { params: { path } })), [frame.caseId]);
   const [device, setDevice] = useState("");
   const [onDevice, setOnDevice] = useState(false);
+  const [removed, setRemoved] = useState(false);
   const [message, setMessage] = useState<Message>(null);
 
   useEffect(() => {
@@ -271,7 +272,9 @@ function OfflineCopy({ frame }: { frame: Frame }) {
       const made = await stepUp(() =>
         unwrap(api.POST("/v1/cases/{case_id}/offline-packages", { params: { path }, body: { device_label: device.trim(), include_images: false } as never })),
       );
-      if (made) list.reload();
+      if (!made) return;
+      setRemoved(false);
+      list.reload();
     } catch (error) {
       fail(error);
     }
@@ -302,6 +305,7 @@ function OfflineCopy({ frame }: { frame: Frame }) {
       if (!done) return;
       await forgetCopy(frame.caseId);
       setOnDevice(false);
+      setRemoved(true);
       setMessage({ tone: "success", text: w("pack.offline.deleted") });
     } catch (error) {
       fail(error);
@@ -309,7 +313,6 @@ function OfflineCopy({ frame }: { frame: Frame }) {
   };
 
   const copies = (list.data?.packages ?? []).filter((c) => c.status === "built" || c.status === "downloaded");
-  const removed = message?.tone === "success";
   const shown = removed ? [] : copies;
   return (
     <section aria-labelledby={id} className="av-card av-stack">
