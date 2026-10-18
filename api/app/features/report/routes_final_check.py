@@ -16,6 +16,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
+from app.core.contracts.reports import AFTER_SERVING_TYPES
 from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.core.jobs import registry
@@ -97,7 +98,8 @@ async def latest_final_check(
         raise not_found()
     run_id, version_id, at, passed, results, warnings, status, versions = row
     cur = await conn.execute(
-        "select id from app.report_versions where case_id = %s order by version_no desc limit 1", (case_id,)
+        "select id from app.report_versions where case_id = %s and type <> all(%s) order by version_no desc limit 1",
+        (case_id, list(AFTER_SERVING_TYPES)),
     )
     newest = await cur.fetchone()
     shown: list[Warning] = []
