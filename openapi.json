@@ -2184,6 +2184,14 @@
             "title": "Guidance",
             "type": "array"
           },
+          "guidance_changed": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Guidance Changed",
+            "type": "array"
+          },
           "later": {
             "items": {
               "$ref": "#/components/schemas/Entry"
@@ -2205,6 +2213,11 @@
               }
             ],
             "title": "Note"
+          },
+          "on": {
+            "format": "date",
+            "title": "On",
+            "type": "string"
           },
           "title": {
             "title": "Title",
@@ -2233,6 +2246,7 @@
           "later",
           "unknown",
           "guidance",
+          "on",
           "note"
         ],
         "title": "Consultation",
@@ -3235,6 +3249,15 @@
           },
           "rule": {
             "title": "Rule",
+            "type": "string"
+          },
+          "status": {
+            "default": "open",
+            "enum": [
+              "open",
+              "gone"
+            ],
+            "title": "Status",
             "type": "string"
           },
           "version": {
@@ -4343,6 +4366,18 @@
       },
       "LinkOut": {
         "properties": {
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
           "fact_id": {
             "format": "uuid",
             "title": "Fact Id",
@@ -4353,10 +4388,25 @@
             "title": "Id",
             "type": "string"
           },
-          "question_id": {
-            "format": "uuid",
-            "title": "Question Id",
+          "kind": {
+            "title": "Kind",
             "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
           },
           "reason": {
             "anyOf": [
@@ -4389,7 +4439,10 @@
           "source",
           "status",
           "reason",
-          "version"
+          "version",
+          "kind",
+          "page_no",
+          "event_date"
         ],
         "title": "LinkOut",
         "type": "object"
@@ -8481,6 +8534,14 @@
       },
       "Timeline": {
         "properties": {
+          "guidance_changed": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Guidance Changed",
+            "type": "array"
+          },
           "lanes": {
             "items": {
               "$ref": "#/components/schemas/Lane"
@@ -10813,6 +10874,25 @@
               "title": "As Seen",
               "type": "boolean"
             }
+          },
+          {
+            "description": "Show the record as it stood on this day (default: the visit).",
+            "in": "query",
+            "name": "on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Show the record as it stood on this day (default: the visit).",
+              "title": "On"
+            }
           }
         ],
         "responses": {
@@ -10855,6 +10935,7 @@
     },
     "/v1/cases/{case_id}/consultations/{fact_id}/note": {
       "put": {
+        "description": "Add a note (`consultation.note`) or change your own; the author keeps theirs if the named expert changes.",
         "operationId": "put_note_v1_cases__case_id__consultations__fact_id__note_put",
         "parameters": [
           {
