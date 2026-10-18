@@ -55,8 +55,7 @@ describe.each([
   });
 
   test("a 423 from the server shows no suggestions", async () => {
-    const api = mockReader(pack, { alreadyRead: true });
-    api.read = false; // the page says read, the server's blind-read record disagrees
+    const api = mockReader(pack, { pageSaysRead: true }); // the page says read, the server's blind-read record disagrees
     renderAt(PATH);
     await waitFor(() => expect(api.factRequests).toBeGreaterThan(0));
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
