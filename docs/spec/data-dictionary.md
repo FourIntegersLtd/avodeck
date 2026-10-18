@@ -520,6 +520,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | fact_id / text | Which consultation, and the expert's note |
 
 ### guideline_versions
+Not a database table: these fields are the rows of the overlay pack's `guidelines.yaml`, read with `pack.guidelines()` (ADR 0016).
+
 | Field | In plain words |
 |---|---|
 | jurisdiction / specialty / source | Which country, field and guidance body |
