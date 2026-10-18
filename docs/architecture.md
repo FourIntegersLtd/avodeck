@@ -531,8 +531,9 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/pages/{page_no}/thumbnail` | Small image streamed by the API | |
 | POST | `/cases/{case_id}/pages/{page_no}/read` | Record read `{dwell_seconds}` → appends to hash-chained log | Unlocks suggestions |
 | GET | `/cases/{case_id}/pages/{page_no}/facts` | Suggested + verified facts with bounding boxes | **423** until the page is read |
-| POST | `/cases/{case_id}/facts/{fact_id}/verify` | `{action: correct|not_right|edit, new_value?, reason?}` | Append-only history |
-| POST | `/cases/{case_id}/facts/{fact_id}/flag-point` | Send to Points against | |
+| POST | `/cases/{case_id}/facts/{fact_id}/verify` | `{action: correct|not_right|edit, new_value?, word_ids?, reason?}` | If-Match; append-only history; edit must be in the cited words (422) |
+| POST / DELETE | `/cases/{case_id}/facts/{fact_id}/flag-point` | Send to Points against, or take it back | Checked facts only (409); E reads `core/contracts/fact_flags.py` |
+| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_no, word_ids}`: move a fact to the clearer copy of its page | If-Match; other pages 409; clearer copy read first (423) |
 | GET | `/cases/{case_id}/progress` | Pages read / total, time estimate | |
 
 **10 Pages we couldn't read**

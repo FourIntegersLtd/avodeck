@@ -9,6 +9,10 @@ import uuid
 from typing import Any
 
 from psycopg import AsyncConnection
+from psycopg.types.json import Jsonb
+
+from app.core.crypto import CaseCrypto
+from app.features.pipeline.paths import word_purpose
 
 
 async def record_read(
@@ -104,11 +108,11 @@ async def page(conn: AsyncConnection, case_id: uuid.UUID, page_no: int, person_i
 
 
 async def page_facts(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> list[dict[str, Any]]:
-    """The page's suggestions and checked facts (not the ones marked not right), in reading order."""
+    """The page's facts in reading order, including ones marked not right (so that can be undone)."""
     cur = await conn.execute(
         """select f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.status, f.version,
                   exists (select 1 from app.fact_flags g where g.fact_id = f.id) as flagged
-           from app.facts f where f.case_id = %s and f.page_id = %s and f.status <> 'rejected'
+           from app.facts f where f.case_id = %s and f.page_id = %s
            order by (f.bbox ->> 'y0')::float nulls last, f.created_at, f.id""",
         (case_id, page_id),
     )
@@ -139,3 +143,108 @@ async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UU
 
 def _row(cur: Any, row: tuple[Any, ...]) -> dict[str, Any]:
     return {d.name: v for d, v in zip(cur.description, row, strict=True)}
+
+
+# Checking facts (S09) ------------------------------------------------------------------------------
+
+_FACT_COLUMNS = """f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.status, f.version,
+    exists (select 1 from app.fact_flags g where g.fact_id = f.id) as flagged"""
+
+
+async def fact(conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID) -> dict[str, Any] | None:
+    """A fact on a page that is not set aside, with its page's id, number and clearer copy."""
+    cur = await conn.execute(
+        f"""select {_FACT_COLUMNS}, f.page_id, p.bundle_page_no as page_no, p.superseded_by_page_id
+            from app.facts f join app.pages p on p.id = f.page_id
+            where f.case_id = %s and f.id = %s and not p.quarantined""",  # noqa: S608
+        (case_id, fact_id),
+    )
+    row = await cur.fetchone()
+    return _row(cur, row) if row else None
+
+
+async def page_words(
+    conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID, page_id: uuid.UUID
+) -> dict[str, str]:
+    """The page's words in reading order, unsealed (kept in memory only, never logged)."""
+    cur = await conn.execute("select word_id, text from app.ocr_words where page_id = %s order by n", (page_id,))
+    return {
+        w: (await crypto.decrypt(conn, case_id, bytes(t), purpose=word_purpose(page_id, w))).decode()
+        for w, t in await cur.fetchall()
+    }
+
+
+async def change_fact(
+    conn: AsyncConnection,
+    fact_id: uuid.UUID,
+    version: int,
+    *,
+    status: str,
+    value: str | None,
+    word_ids: list[str],
+    page_id: uuid.UUID,
+    bbox: Any,
+) -> dict[str, Any] | None:
+    """Apply a check if the fact is still at `version` (the database bumps it); None when it moved on."""
+    cur = await conn.execute(
+        f"""update app.facts f set status = %s, value = %s, word_ids = %s, page_id = %s, bbox = %s
+            where f.id = %s and f.version = %s returning {_FACT_COLUMNS}""",  # noqa: S608
+        (status, value, word_ids, page_id, Jsonb(bbox) if bbox is not None else None, fact_id, version),
+    )
+    row = await cur.fetchone()
+    return _row(cur, row) if row else None
+
+
+async def log_check(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    person_id: uuid.UUID,
+    action: str,
+    before: dict[str, Any],
+    after: dict[str, Any],
+    *,
+    reason: str | None = None,
+    new_page_id: uuid.UUID | None = None,
+) -> None:
+    """Append the check to the case's verification log (the database numbers and hashes it)."""
+    await conn.execute(
+        """insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value,
+               old_fields, new_fields, old_word_ids, new_word_ids, old_page_id, new_page_id, reason)
+           values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+        (
+            case_id,
+            before["id"],
+            person_id,
+            action,
+            before["value"],
+            after["value"],
+            Jsonb(before["fields"]),
+            Jsonb(after["fields"]),
+            before["word_ids"],
+            after["word_ids"],
+            before["page_id"] if new_page_id else None,
+            new_page_id,
+            reason,
+        ),
+    )
+
+
+async def set_flag(
+    conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID, flagged_for: str, person_id: uuid.UUID, on: bool
+) -> None:
+    if on:
+        await conn.execute(
+            "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, %s, %s)"
+            " on conflict (fact_id, flagged_for) do nothing",
+            (case_id, fact_id, flagged_for, person_id),
+        )
+    else:
+        await conn.execute("delete from app.fact_flags where fact_id = %s and flagged_for = %s", (fact_id, flagged_for))
+
+
+async def page_id_by_no(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
+    cur = await conn.execute(
+        "select id from app.pages where case_id = %s and bundle_page_no = %s and not quarantined", (case_id, page_no)
+    )
+    row = await cur.fetchone()
+    return row[0] if row else None

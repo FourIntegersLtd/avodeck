@@ -11,19 +11,45 @@ from typing import Annotated, Literal
 
 from fastapi import Depends, Query, Request, Response
 
+from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
-from app.core.contracts.reading import require_page_read
+from app.core.contracts.fact_flags import POINTS
+from app.core.contracts.reading import blind_read, require_page_read
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
-from app.core.http import CurrentScope, DbConn
+from app.core.http import CurrentScope, DbConn, IfMatch, etag, stale
 from app.core.http import router as make_router
 from app.core.storage import SupabaseStorage
 from app.features.reader import repo
-from app.features.reader.schemas import FactList, FactOut, PageDetail, PageList, PageSummary, Progress, ReadIn, ReadOut
+from app.features.reader.schemas import (
+    FactList,
+    FactOut,
+    FlagOut,
+    MoveIn,
+    PageDetail,
+    PageList,
+    PageSummary,
+    Progress,
+    ReadIn,
+    ReadOut,
+    VerifyIn,
+)
 
 router = make_router(prefix="/v1/cases/{case_id}", tags=["reader"])
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
+Verify = Annotated[CaseAccess, Depends(require_case_access("fact.verify"))]
+
+# (from, action) -> to, as docs/spec/state-machines.md allows
+_CHECKS = {
+    ("suggested", "correct"): "verified",
+    ("rejected", "correct"): "verified",
+    ("suggested", "edit"): "edited",
+    ("suggested", "not_right"): "rejected",
+    ("verified", "not_right"): "rejected",
+    ("edited", "not_right"): "rejected",
+}
+_CHECKED = ("verified", "edited")
 
 
 def _not_found() -> ApiError:
@@ -122,6 +148,154 @@ async def page_facts(
 async def progress(case_id: uuid.UUID, access: View, conn: DbConn, scope: CurrentScope) -> Progress:
     read, total, seconds_left = await repo.progress(conn, case_id, scope.person_id)
     return Progress(read=read, total=total, seconds_left=seconds_left)
+
+
+def _fact_not_found() -> ApiError:
+    return ApiError("not_found", "We couldn't find that fact.", 404)
+
+
+def _invalid() -> ApiError:
+    return ApiError("invalid", "The words you chose do not show that.", 422)
+
+
+def _crypto(request: Request) -> CaseCrypto:
+    crypto: CaseCrypto | None = getattr(request.app.state, "crypto", None)
+    if crypto is None:
+        raise ApiError("unavailable", "The case key service is not ready.", 503)
+    return crypto
+
+
+async def _checkable(conn: DbConn, case_id: uuid.UUID, fact_id: uuid.UUID, version: int, scope: CurrentScope) -> dict:  # type: ignore[type-arg]
+    """The fact, once the expert has read its page (rule 3) and holds its current version."""
+    found = await repo.fact(conn, case_id, fact_id)
+    if found is None:
+        raise _fact_not_found()
+    if not await repo.has_read(conn, case_id, found["page_no"], scope.person_id):
+        raise blind_read()
+    if found["version"] != version:
+        raise stale()
+    return found
+
+
+def _changed(response: Response, after: dict | None) -> FactOut:  # type: ignore[type-arg]
+    if after is None:
+        raise stale()
+    response.headers["etag"] = etag(after["version"])
+    return FactOut(**after)
+
+
+@router.post("/facts/{fact_id}/verify", response_model=FactOut)
+async def verify_fact(
+    case_id: uuid.UUID,
+    fact_id: uuid.UUID,
+    body: VerifyIn,
+    access: Verify,
+    version: IfMatch,
+    request: Request,
+    response: Response,
+    conn: DbConn,
+    scope: CurrentScope,
+) -> FactOut:
+    before = await _checkable(conn, case_id, fact_id, version, scope)
+    status = _CHECKS.get((before["status"], body.action))
+    if status is None:
+        raise ApiError("conflict", "This suggestion cannot be changed that way.", 409)
+    value, word_ids = before["value"], before["word_ids"]
+    if body.action == "edit":
+        if not body.new_value:
+            raise _invalid()
+        value, word_ids = body.new_value, body.word_ids or before["word_ids"]
+        words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
+        if not provenance.supported(value, word_ids, words):
+            raise _invalid()
+    after = await repo.change_fact(
+        conn,
+        fact_id,
+        version,
+        status=status,
+        value=value,
+        word_ids=word_ids,
+        page_id=before["page_id"],
+        bbox=before["bbox"],
+    )
+    out = _changed(response, after)
+    assert after is not None
+    await repo.log_check(
+        conn,
+        case_id,
+        scope.person_id,
+        body.action,
+        before,
+        {**after, "fields": before["fields"]},
+        reason=body.reason if body.action == "not_right" else None,
+    )
+    return out
+
+
+@router.post("/facts/{fact_id}/move", response_model=FactOut)
+async def move_fact(
+    case_id: uuid.UUID,
+    fact_id: uuid.UUID,
+    body: MoveIn,
+    access: Verify,
+    version: IfMatch,
+    request: Request,
+    response: Response,
+    conn: DbConn,
+    scope: CurrentScope,
+) -> FactOut:
+    """Move a fact to the clearer copy of its page, citing that page's words. History is kept."""
+    before = await _checkable(conn, case_id, fact_id, version, scope)
+    target = await repo.page_id_by_no(conn, case_id, body.to_page_no)
+    if target is None:
+        raise _not_found()
+    if not await repo.has_read(conn, case_id, body.to_page_no, scope.person_id):
+        raise blind_read()
+    if before["superseded_by_page_id"] != target:
+        raise ApiError("conflict", "A fact moves only to the clearer copy of its page.", 409)
+    words = await repo.page_words(conn, _crypto(request), case_id, target)
+    if not before["value"] or not provenance.supported(before["value"], body.word_ids, words):
+        raise _invalid()
+    after = await repo.change_fact(
+        conn,
+        fact_id,
+        version,
+        status=before["status"],
+        value=before["value"],
+        word_ids=body.word_ids,
+        page_id=target,
+        bbox=None,
+    )
+    out = _changed(response, after)
+    assert after is not None
+    await repo.log_check(
+        conn, case_id, scope.person_id, "move", before, {**after, "fields": before["fields"]}, new_page_id=target
+    )
+    return out
+
+
+@router.post("/facts/{fact_id}/flag-point", response_model=FlagOut)
+async def flag_point(
+    case_id: uuid.UUID, fact_id: uuid.UUID, access: Verify, conn: DbConn, scope: CurrentScope
+) -> FlagOut:
+    """Send a checked fact to Points against (slice E reads it through core/contracts/fact_flags)."""
+    found = await repo.fact(conn, case_id, fact_id)
+    if found is None:
+        raise _fact_not_found()
+    if found["status"] not in _CHECKED:
+        raise ApiError("conflict", "Check this suggestion first.", 409)
+    await repo.set_flag(conn, case_id, fact_id, POINTS, scope.person_id, on=True)
+    return FlagOut(fact_id=fact_id, flagged=True)
+
+
+@router.delete("/facts/{fact_id}/flag-point", response_model=FlagOut)
+async def unflag_point(
+    case_id: uuid.UUID, fact_id: uuid.UUID, access: Verify, conn: DbConn, scope: CurrentScope
+) -> FlagOut:
+    if await repo.fact(conn, case_id, fact_id) is None:
+        raise _fact_not_found()
+    await repo.set_flag(conn, case_id, fact_id, POINTS, scope.person_id, on=False)
+    return FlagOut(fact_id=fact_id, flagged=False)
 
 
 def _summary(r: dict) -> dict:  # type: ignore[type-arg]

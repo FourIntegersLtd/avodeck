@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -67,3 +67,20 @@ class Progress(BaseModel):
     read: int
     total: int
     seconds_left: int
+
+
+class VerifyIn(BaseModel):
+    action: Literal["correct", "not_right", "edit"]
+    new_value: str | None = Field(default=None, max_length=2000)
+    word_ids: list[str] | None = Field(default=None, min_length=1, max_length=400)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class MoveIn(BaseModel):
+    to_page_no: int = Field(gt=0)
+    word_ids: list[str] = Field(min_length=1, max_length=400)
+
+
+class FlagOut(BaseModel):
+    fact_id: uuid.UUID
+    flagged: bool
