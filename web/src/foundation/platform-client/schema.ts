@@ -1821,6 +1821,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/report/declarations/acknowledge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Acknowledge Declarations */
+        post: operations["acknowledge_declarations_v1_cases__case_id__report_declarations_acknowledge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/report/final-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Run Final Check */
+        post: operations["run_final_check_v1_cases__case_id__report_final_check_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/report/final-check/latest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Latest Final Check */
+        get: operations["latest_final_check_v1_cases__case_id__report_final_check_latest_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/report/methodology": {
         parameters: {
             query?: never;
@@ -2754,6 +2805,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Acknowledged */
+        Acknowledged: {
+            /** Acknowledged */
+            acknowledged: string;
+        };
         /** Addition */
         Addition: {
             /**
@@ -3310,6 +3366,24 @@ export interface components {
             };
             /** Sent To */
             sent_to: string[];
+        };
+        /** CheckResult */
+        CheckResult: {
+            /** Code */
+            code?: string | null;
+            /** Count */
+            count: number;
+            fix?: components["schemas"]["Fix"] | null;
+            /** Fixes */
+            fixes: components["schemas"]["Fix"][];
+            /** Key */
+            key: string;
+            /** Outcome */
+            outcome: string;
+            /** Source */
+            source: string;
+            /** Text */
+            text?: string | null;
         };
         /** Checklist */
         Checklist: {
@@ -3943,6 +4017,40 @@ export interface components {
                 [key: string]: boolean;
             };
         };
+        /** FinalCheckOut */
+        FinalCheckOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Current */
+            current: boolean;
+            /** Declaration Changed */
+            declaration_changed: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Pack Versions */
+            pack_versions: {
+                [key: string]: string;
+            };
+            /** Passed */
+            passed: boolean;
+            /**
+             * Report Version Id
+             * Format: uuid
+             */
+            report_version_id: string;
+            /** Results */
+            results: components["schemas"]["CheckResult"][];
+            /** Warnings */
+            warnings: components["schemas"]["Warning"][];
+            /** Warnings Status */
+            warnings_status: string;
+        };
         /** FindingDecision */
         FindingDecision: {
             /**
@@ -3987,6 +4095,13 @@ export interface components {
         Findings: {
             /** Findings */
             findings: components["schemas"]["FindingOut"][];
+        };
+        /** Fix */
+        Fix: {
+            /** Item */
+            item: string;
+            /** Screen */
+            screen: string;
         };
         /** FlagOut */
         FlagOut: {
@@ -6167,6 +6282,24 @@ export interface components {
             type: string;
             /** Version No */
             version_no: number;
+        };
+        /** Warning */
+        Warning: {
+            /** Para No */
+            para_no: number;
+            /**
+             * Paragraph Id
+             * Format: uuid
+             */
+            paragraph_id: string;
+            /** Question Id */
+            question_id?: string | null;
+            /** Section */
+            section: string;
+            /** Type */
+            type: string;
+            /** Words */
+            words: string;
         };
         /** WithdrawIn */
         WithdrawIn: {
@@ -11084,6 +11217,126 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    acknowledge_declarations_v1_cases__case_id__report_declarations_acknowledge_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Acknowledged"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    run_final_check_v1_cases__case_id__report_final_check_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    latest_final_check_v1_cases__case_id__report_final_check_latest_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FinalCheckOut"];
                 };
             };
             /** @description Validation Error */

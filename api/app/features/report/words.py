@@ -25,6 +25,41 @@ _WORDS: Final[dict[str, dict[str, str]]] = {
 }
 
 
+# Month names (full and short) a written date may use, by language, for the "every date is cited" check.
+_MONTHS: Final[dict[str, tuple[str, ...]]] = {
+    "en": (
+        "january",
+        "february",
+        "march",
+        "april",
+        "may",
+        "june",
+        "july",
+        "august",
+        "september",
+        "october",
+        "november",
+        "december",
+        "jan",
+        "feb",
+        "mar",
+        "apr",
+        "jun",
+        "jul",
+        "aug",
+        "sep",
+        "sept",
+        "oct",
+        "nov",
+        "dec",
+    ),
+}
+
+
+def months(language: str) -> tuple[str, ...]:
+    return _MONTHS.get(language.split("-")[0].lower(), _MONTHS["en"])
+
+
 def word(language: str, key: str, **values: object) -> str:
     table = _WORDS.get(language.split("-")[0].lower(), _WORDS["en"])
     return table[key].format(**values)

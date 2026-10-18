@@ -1,6 +1,19 @@
 {
   "components": {
     "schemas": {
+      "Acknowledged": {
+        "properties": {
+          "acknowledged": {
+            "title": "Acknowledged",
+            "type": "string"
+          }
+        },
+        "required": [
+          "acknowledged"
+        ],
+        "title": "Acknowledged",
+        "type": "object"
+      },
       "Addition": {
         "additionalProperties": false,
         "properties": {
@@ -1522,6 +1535,74 @@
           "sent_to"
         ],
         "title": "Certificate",
+        "type": "object"
+      },
+      "CheckResult": {
+        "properties": {
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "fix": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Fix"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "fixes": {
+            "items": {
+              "$ref": "#/components/schemas/Fix"
+            },
+            "title": "Fixes",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "outcome": {
+            "title": "Outcome",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "key",
+          "source",
+          "outcome",
+          "count",
+          "fixes"
+        ],
+        "title": "CheckResult",
         "type": "object"
       },
       "Checklist": {
@@ -3250,6 +3331,76 @@
         "title": "FeatureFlags",
         "type": "object"
       },
+      "FinalCheckOut": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "current": {
+            "title": "Current",
+            "type": "boolean"
+          },
+          "declaration_changed": {
+            "title": "Declaration Changed",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pack_versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Pack Versions",
+            "type": "object"
+          },
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "report_version_id": {
+            "format": "uuid",
+            "title": "Report Version Id",
+            "type": "string"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/Warning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          },
+          "warnings_status": {
+            "title": "Warnings Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "report_version_id",
+          "at",
+          "passed",
+          "current",
+          "results",
+          "warnings",
+          "warnings_status",
+          "pack_versions",
+          "declaration_changed"
+        ],
+        "title": "FinalCheckOut",
+        "type": "object"
+      },
       "FindingDecision": {
         "properties": {
           "decision": {
@@ -3378,6 +3529,24 @@
           "findings"
         ],
         "title": "Findings",
+        "type": "object"
+      },
+      "Fix": {
+        "properties": {
+          "item": {
+            "title": "Item",
+            "type": "string"
+          },
+          "screen": {
+            "title": "Screen",
+            "type": "string"
+          }
+        },
+        "required": [
+          "screen",
+          "item"
+        ],
+        "title": "Fix",
         "type": "object"
       },
       "FlagOut": {
@@ -9634,6 +9803,52 @@
           "created_at"
         ],
         "title": "VersionOut",
+        "type": "object"
+      },
+      "Warning": {
+        "properties": {
+          "para_no": {
+            "title": "Para No",
+            "type": "integer"
+          },
+          "paragraph_id": {
+            "format": "uuid",
+            "title": "Paragraph Id",
+            "type": "string"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "words": {
+            "title": "Words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paragraph_id",
+          "para_no",
+          "section",
+          "type",
+          "words"
+        ],
+        "title": "Warning",
         "type": "object"
       },
       "WithdrawIn": {
@@ -17250,6 +17465,165 @@
           }
         },
         "summary": "Build Report",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/declarations/acknowledge": {
+      "post": {
+        "operationId": "acknowledge_declarations_v1_cases__case_id__report_declarations_acknowledge_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Acknowledged"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Acknowledge Declarations",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/final-check": {
+      "post": {
+        "operationId": "run_final_check_v1_cases__case_id__report_final_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Run Final Check",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/final-check/latest": {
+      "get": {
+        "operationId": "latest_final_check_v1_cases__case_id__report_final_check_latest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FinalCheckOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Latest Final Check",
         "tags": [
           "report"
         ]

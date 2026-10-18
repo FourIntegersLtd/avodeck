@@ -1,4 +1,4 @@
-"""Slice F's worker jobs: `build_report` (screen 16).
+"""Slice F's worker jobs: `build_report` (screen 16) and `final_check` (screen 17).
 
 `build_report` assembles the case's report (`assemble.py`), lays it out in the named expert's own Word
 template (`docx_out.py`, falling back to the standard layout, F16) and as a PDF, and stores a new draft
@@ -7,6 +7,10 @@ paragraph (text sealed), one `citations` row per rendered citation (value and qu
 `report_builds` row (citation style, template, fallback, page count, pack versions). Older drafts and
 their files are kept. It runs once per job (a retried job does not build twice). No text reaches a log
 or a job row (rule 6).
+
+`final_check` runs the core and pack checks (`checks.py`) on the case's latest draft and T-17 over the
+expert's own paragraphs, and stores one `final_check_runs` row: results as keys, outcomes and "Fix it"
+targets, warnings as places in the draft (never words), whether it passed and the pack versions.
 """
 
 from __future__ import annotations
@@ -30,6 +34,7 @@ from app.features.report.assemble import (
     assemble,
     template_mapping,
 )
+from app.features.report.checks import gather, run_checks, tone_warnings
 from app.features.report.common import pack_for
 from app.features.report.docx_out import render_docx
 from app.features.report.pdf_out import render_pdf
@@ -155,3 +160,48 @@ async def build_report(ctx: JobContext) -> None:
         await build(conn, ctx.case_id, ctx.job_id)
 
     await ctx.step("build", work)
+
+
+async def latest_draft(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID | None:
+    cur = await conn.execute(
+        "select id from app.report_versions where case_id = %s and status = 'draft' order by version_no desc limit 1",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    return row[0] if row else None
+
+
+async def check(conn: AsyncConnection, case_id: uuid.UUID, job_id: uuid.UUID | None) -> uuid.UUID | None:
+    """Run the final check on the latest draft on the job's connection; returns the run's id."""
+    services = current()
+    version_id = await latest_draft(conn, case_id)
+    if version_id is None:
+        return None
+    pack = await pack_for(conn, services.packs, case_id)
+    inputs = await gather(conn, case_id, pack, services.case_crypto(), services.reads, version_id)
+    results = await run_checks(inputs)
+    warnings, status = await tone_warnings(inputs, services.kit)
+    cur = await conn.execute(
+        "insert into app.final_check_runs (case_id, report_version_id, results, warnings, warnings_status, passed,"
+        " pack_versions, job_id) values (%s, %s, %s, %s, %s, %s, %s, %s) returning id",
+        (
+            case_id,
+            version_id,
+            Jsonb([r.out() for r in results]),
+            Jsonb(warnings),
+            status,
+            all(r.outcome != "failed" for r in results),
+            Jsonb(pack.versions),
+            job_id,
+        ),
+    )
+    row = await cur.fetchone()
+    return row[0] if row else None
+
+
+@registry.kind("final_check", interactive=True, changes_case=False)
+async def final_check(ctx: JobContext) -> None:
+    async def work(conn: AsyncConnection) -> None:
+        await check(conn, ctx.case_id, ctx.job_id)
+
+    await ctx.step("check", work)
