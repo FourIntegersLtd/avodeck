@@ -103,14 +103,16 @@ def unseal(token: str, check_id: uuid.UUID, sealed: bytes) -> bytes:
     return AESGCM(_key(token, check_id)).decrypt(sealed[:12], sealed[12:], check_id.bytes)
 
 
-def _bare(text: str) -> str:
-    return _EDGE.sub("", text).casefold()
+def _name_patterns(names: Iterable[str]) -> list[re.Pattern[str]]:
+    """Each part of each name as a whole word, ignoring case, however short ("Wu" in "Wu", "WU." and "Wu's")."""
+    parts = {_EDGE.sub("", p) for n in names for p in n.split()}
+    return [re.compile(rf"(?i)\b{re.escape(p)}\b") for p in sorted(parts - {""}, key=len, reverse=True)]
 
 
 def masked_words(words: Sequence[tuple[str, str]], names: Iterable[str], recognise: Recognise) -> set[str]:
     """Ids of the words that are a party's name (or part of one) or part of an identifier."""
-    parts = {_bare(p) for n in names for p in n.split() if len(_bare(p)) > 2}
-    hidden = {wid for wid, text in words if _bare(text) in parts}
+    patterns = _name_patterns(names)
+    hidden = {wid for wid, text in words if any(p.search(text) for p in patterns)}
     joined, starts, at = [], [], 0
     for _, text in words:
         starts.append(at)
@@ -128,8 +130,8 @@ def masked_value(value: str, names: Iterable[str], recognise: Recognise) -> str:
     out = value
     for start, end, _ in sorted(recognise(out), reverse=True):
         out = out[:start] + MASK + out[end:]
-    for part in sorted({p for n in names for p in n.split() if len(_bare(p)) > 2}, key=len, reverse=True):
-        out = re.sub(rf"(?i)\b{re.escape(_EDGE.sub('', part))}\b", MASK, out)
+    for pattern in _name_patterns(names):
+        out = pattern.sub(MASK, out)
     return out
 
 
