@@ -691,7 +691,29 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | reviewer_email | The colleague asked to check |
 | fact_ids[] | The sample of facts sent |
 | token_hash / expires_at | The scrambled link code and when it stops working |
-| responses | The colleague's answers |
+| code_hash / code_sent_at | The scrambled emailed code and when it was sent |
+| code_attempts / verified_at | Wrong codes so far (five lock the link) and when the code was first right |
+| responses / responded_at | The colleague's answers (agrees or not, a short reason label) and when |
+
+### report_settings
+| Field | In plain words |
+|---|---|
+| citation_style | Page references or paragraph references |
+| acknowledged_declaration_version | The pack declaration version the expert has read |
+
+### report_section_texts
+| Field | In plain words |
+|---|---|
+| section | Which report section (a pack key) |
+| body | What the expert wrote, sealed |
+| citation_refs | The facts it cites |
+| version | Goes up on each save (for If-Match) |
+
+### report_builds
+| Field | In plain words |
+|---|---|
+| citation_style / template_id / template_fallback | How the draft was laid out, and whether the standard layout replaced an unusable template |
+| page_count / pack_versions | Length of the PDF and the pack versions used |
 
 ## Money
 
@@ -708,8 +730,16 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | billing_profile_id | Who the invoice is from |
 | number | Invoice number (never skips or repeats) |
 | lines / total / currency / tax | What was charged, the total, currency and tax |
+| tax_rate / issuer | The tax rate and who it is from (name, address, tax number) as they were when it was drafted |
 | status | Draft, sent, part paid, paid, written off |
+| paid_amount | How much has been paid: the sum of its payments |
 | pdf_path / sent_at | The invoice file and when it was sent |
+
+### invoice_payments
+| Field | In plain words |
+|---|---|
+| invoice_id / amount | Which invoice was paid and how much (more than nothing, never more than is owed) |
+| recorded_by / recorded_at | Who recorded the payment and when |
 
 ### credit_notes
 | Field | In plain words |

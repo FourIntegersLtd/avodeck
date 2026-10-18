@@ -98,17 +98,38 @@ Core checks include:
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `report_snapshots`, `report_servings`, `credit_notes`; personal `billing_profiles` (team ones in O). Colleague spot-check routes: `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses`.
+**Extra tables owned:** `report_snapshots`, `report_servings`, `credit_notes`, `invoice_payments` (insert-only, no case_id: purged with its invoice), `report_settings`, `report_section_texts`, `report_builds`; personal `billing_profiles` (team ones in O). Colleague spot-check routes: `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses`.
 
 **Extra endpoints:** `GET /v1/cases/{id}/report/versions/{v}/snapshots`, `GET/POST /v1/cases/{id}/report/versions/{v}/servings` 🔒, `POST /v1/cases/{id}/report/versions/{v}/withdraw` 🔒, `PATCH /v1/cases/{id}/invoices/{invoice_id}/payment`, `POST /v1/cases/{id}/invoices/{invoice_id}/credit-notes` 🔒.
 
-- [ ] Signing freezes CV, declarations, signature, template, pack, guideline-table and instruction versions and conflict answers; a later profile change doesn't alter the signed report
-- [ ] Served documents are named from the pack ("Report 1", "Supplementary report 1"…); drafts numbered per case
-- [ ] One serving row per recipient; deadlines use each service date (S4)
-- [ ] A served report can be withdrawn with a reason, stays locked and readable, and nothing builds on it
-- [ ] A citation whose fact changed or was rejected fails the final check until reviewed (S8)
-- [ ] A mandatory pack correction blocks signing until acknowledged (F34)
-- [ ] Invoices come from the case organisation's billing profile with gap-free numbering per issuer; sent invoices never change; corrections are credit notes
+- [x] Signing freezes CV, declarations, signature, template, pack, guideline-table and instruction versions and conflict answers; a later profile change doesn't alter the signed report
+- [x] Served documents are named from the pack ("Report 1", "Supplementary report 1"…); drafts numbered per case
+- [x] One serving row per recipient; deadlines use each service date (S4)
+- [x] A served report can be withdrawn with a reason, stays locked and readable, and nothing builds on it
+- [x] A citation whose fact changed or was rejected fails the final check until reviewed (S8)
+- [x] A mandatory pack correction blocks signing until acknowledged (F34)
+- [x] Invoices come from the case organisation's billing profile with gap-free numbering per issuer; sent invoices never change; corrections are credit notes
+
+## Build notes (2026-10-18, decisions taken while the founder was away)
+
+Decisions (defaults; change by decision record if wrong):
+- Signing runs in the request (no job); snapshots are taken at signing. PDFs are drawn with reportlab (LibreOffice PDF is a later request).
+- Invoice issuer: the organisation's billing profile for a team case, the named expert's own for a personal case (`app.case_billing_profile`). The rate falls back to the expert profile's hourly rate when the currency matches.
+- An invoice PDF is stored (sealed) only when sent, with its number; a draft PDF is drawn on request and never stored. The reference is the instructing party's reference, else the case id. The invoice mail carries the case id, number and amount only (no names); the PDF is not attached (the expert downloads it).
+- Time: only the named expert's time is billed; heartbeats count when the tab is visible and input was within 5 minutes; a break over 5 minutes starts a new entry.
+- Spot-check: up to 10 random cited facts from the latest report that cites anything; token and code kept as hashes; 7-day expiry; five wrong codes lock the link; crops around the cited words only (never the page), party names and pack identifiers blacked out, watermarked, sealed with a key derived from the link token; every opening or refusal is audited without a person; answers are kept once.
+- Web: S18 has no signature canvas (`SignIn` takes the confirm tick; the saved signature comes from slice C). Snapshots view and "add another recipient" form not built yet.
+
+TODO (law, data or money policy, founder to decide):
+- Fee-independence wording on invoices (not in the packs).
+- Bank details and a time estimate on invoices (no contract yet).
+
+Foundation requests (workarounds in slice F code):
+- Mail templates `invoice.sent` and `spot_check.code`, and attachments, in `app.core.email` (F keeps its own outbox in `mail.py` until then).
+- Mount the colleague's routes `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses` on the public router with a signed-out connection; they call `spot_checks.open_check` / `respond` (migration 0604 functions). A wrong code must still count: the public route must commit its transaction and answer with a status (401 `bad_code`, 423 `locked`, 410 `expired`, 404 `unknown`) and never raise on a bad code, or the attempt counter rolls back and the five-tries lock never trips (repository test `test_report_spot_check_lock.py` shows the database side holds when each try commits).
+- Wrap `app.case_invoice_rows` in `core/contracts` for slice H's `invoices.csv`.
+- Move `app.report_named_expert` into contracts; page-limit accessors and T-17 prompt context in packs; a CV snapshot source; section labels in the pack (the web shows a humanised key until then).
+- Mount `useTimeHeartbeat` in the case shell (it runs on F's four screens only).
 
 ## Rules that apply
 1, 2, 4, 6, 7, 8, 9, 10, 11 from the root `AGENTS.md`.

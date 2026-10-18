@@ -225,7 +225,7 @@ active → released (`released_at`, named expert or org owner, step-up) or → r
 
 ## Invoice (`invoices.status`)
 
-draft → sent (immutable from here) → part_paid → paid; sent/part_paid → written_off. Corrections are `credit_notes`, never edits. paid and written_off are terminal unless a credit note is issued (which is a new row).
+draft → sent (immutable from here) → part_paid → paid; sent/part_paid → written_off (step-up). part_paid and paid follow the sums: adding a payment (`invoice_payments`) or a credit note makes the invoice part_paid while something is owed and paid when payments reach the total less credit notes. Corrections are `credit_notes`, never edits. paid and written_off are terminal unless a credit note is issued (which is a new row).
 
 ## Court bundle version (`court_bundles`)
 

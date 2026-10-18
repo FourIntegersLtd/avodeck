@@ -81,10 +81,14 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `citations` | F | System at build from opinions | Many | Snapshot of the fact; "changed since cited" check | Case deletion |
 | `report_servings` | F | Named expert | One per recipient | Never edited; corrections are new rows | Case deletion |
 | `final_check_runs` | F | System | Many | Append only | Case deletion |
-| `spot_checks` | F | Named expert sends; colleague answers | Many | Link expires | Case deletion |
+| `spot_checks` | F | Named expert sends; colleague answers | Many | Link expires after 7 days; five wrong codes lock it; answers kept once | Case deletion |
+| `report_settings` | F | Named expert or helper (`report.build`) | One per case | Editable | Case deletion |
+| `report_section_texts` | F | Named expert (`opinion.write`) | One per section | Editable with If-Match; frozen into each build | Case deletion |
+| `report_builds` | F | System at build | One per draft | Never change | Case deletion |
 | `time_entries` | F | Person who worked; named expert adjusts | Many | Editable until invoiced | Case deletion; invoice keeps totals |
 | `invoices` | F | Issuer (named expert or org admin) | Many | Immutable once sent; state machine | Kept for tax beyond case deletion as metadata only (no patient data) |
 | `credit_notes` | F | Issuer | Many per invoice | Immutable | As invoices |
+| `invoice_payments` | F | People who record payments on the case | Many per invoice | Insert only; their sum is the invoice's paid amount, never above total less credit notes | Goes with its invoice (cascade) |
 | `court_directions` | G | Named expert or assistant | Many | Append only | Case deletion |
 | `deadlines` | G | System from pack or direction; named expert edits | Many | Every change in `deadline_changes` | Case deletion |
 | `deadline_changes` | G | System | Many per deadline | Append only | Case deletion |
