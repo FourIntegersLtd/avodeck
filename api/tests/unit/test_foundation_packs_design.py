@@ -144,7 +144,8 @@ def test_outside_expertise_words_differ_between_the_launch_and_fixture_packs(lib
 def test_an_outside_expertise_part_no_question_type_has_is_refused(tmp_path: Path) -> None:
     launch_root, fixture_root = copy_packs(tmp_path)
     path = fixture_root / "specialty" / FIXTURE.specialty / "pack.yaml"
-    path.write_text(path.read_text() + "outside_expertise_parts: [zz_no_such_part]\n")
+    lines = path.read_text().splitlines(keepends=True)
+    path.write_text("".join("outside_expertise_parts: [zz_no_such_part]\n" if l.startswith("outside_expertise_parts:") else l for l in lines))
     with pytest.raises(packs.PackError, match="zz_no_such_part"):
         packs.load_library(launch_root, fixture_root).combine(*FIXTURE.codes)
 
