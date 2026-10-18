@@ -11,20 +11,17 @@ No slice records them for a case yet, so it finds none until one does (docs/deci
 
 from __future__ import annotations
 
-import os
 import uuid
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
-from pathlib import Path
 
 from psycopg import AsyncConnection
 
-from app.core.ai.bedrock import RecordedBedrock
+from app.core.ai.clients import live_or_recorded
 from app.core.ai.embed import Embedder, embedder_from_env
 from app.core.ai.kit import AiKit
-from app.core.ai.recordings import FixtureStore
-from app.core.config import ConfigError, ai_settings
+from app.core.config import ConfigError
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
@@ -72,14 +69,7 @@ def configure(services: UnderstandServices | None) -> None:
 
 
 def from_env() -> UnderstandServices:
-    kit: AiKit | None = None
-    recordings = os.environ.get("AI_RECORDINGS_DIR", "").strip()
-    try:
-        settings = ai_settings()
-    except ConfigError:
-        settings = None
-    if settings is not None and recordings:
-        kit = AiKit(settings, RecordedBedrock(settings, FixtureStore(Path(recordings))))
+    kit: AiKit | None = live_or_recorded().kit
     try:
         crypto: CaseCrypto | None = CaseCrypto(key_provider_from_env())
     except ConfigError:

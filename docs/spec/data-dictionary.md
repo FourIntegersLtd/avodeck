@@ -696,6 +696,12 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | code_attempts / verified_at | Wrong codes so far (five lock the link) and when the code was first right |
 | responses / responded_at | The colleague's answers (agrees or not, a short reason label) and when |
 
+### spot_check_address_tries
+| Field | In plain words |
+|---|---|
+| address_hash | A scrambled copy of the internet address that opened or answered a spot-check link |
+| tries / window_started_at | How many tries from that address in the current 15 minutes (over 20 are refused) |
+
 ### report_settings
 | Field | In plain words |
 |---|---|

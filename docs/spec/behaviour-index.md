@@ -82,6 +82,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `report_servings` | F | Named expert | One per recipient | Never edited; corrections are new rows | Case deletion |
 | `final_check_runs` | F | System | Many | Append only | Case deletion |
 | `spot_checks` | F | Named expert sends; colleague answers | Many | Link expires after 7 days; five wrong codes lock it; answers kept once | Case deletion |
+| `spot_check_address_tries` | F | System (the colleague's signed-out routes) | One per address | Tries counted in a 15-minute window; over 20 refused (429) | Deleted a day after its window starts |
 | `report_settings` | F | Named expert or helper (`report.build`) | One per case | Editable | Case deletion |
 | `report_section_texts` | F | Named expert (`opinion.write`) | One per section | Editable with If-Match; frozen into each build | Case deletion |
 | `report_builds` | F | System at build | One per draft | Never change | Case deletion |

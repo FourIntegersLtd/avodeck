@@ -27677,6 +27677,9 @@
             },
             "description": "Validation Error"
           },
+          "429": {
+            "description": "Too many tries from this address; wait 15 minutes"
+          },
           "default": {
             "content": {
               "application/json": {
@@ -27740,6 +27743,9 @@
               }
             },
             "description": "Validation Error"
+          },
+          "429": {
+            "description": "Too many tries from this address; wait 15 minutes"
           },
           "default": {
             "content": {
