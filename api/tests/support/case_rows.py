@@ -450,6 +450,71 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
     }
 
 
+def _trial_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    doc = seed.document(w.case)
+    page = seed.page(w.case, doc, 901)  # past the other seeders' page numbers
+    version = add_report_version(admin, w.case, status="served", version_no=7)
+    row = admin.execute(
+        "insert into app.expert_meetings (case_id, type, discussion_on, sign_by, sign_rule_ref, send_by,"
+        " send_rule_ref) values (%s, 'zz_conference', '2026-11-02', '2026-11-09', 'Rule Z.9', '2026-11-23',"
+        " 'Rule Z.9') returning id",
+        (w.case,),
+    ).fetchone()
+    assert row is not None
+    meeting = row[0]
+    admin.execute(
+        "insert into app.expert_meeting_participants (case_id, meeting_id, name) values (%s, %s, 'Zz')",
+        (w.case, meeting),
+    )
+    row = admin.execute(
+        "insert into app.agenda_versions (case_id, meeting_id, version_no, storage_path, sha256)"
+        " values (%s, %s, 1, 'x', %s) returning id",
+        (w.case, meeting, "0" * 64),
+    ).fetchone()
+    assert row is not None
+    admin.execute(
+        "insert into app.agenda_items (case_id, meeting_id, agenda_version_id, number, text)"
+        " values (%s, %s, %s, 1, %s)",
+        (w.case, meeting, row[0], b"sealed"),
+    )
+    row = admin.execute(
+        "insert into app.court_bundles (case_id, storage_path, sha256) values (%s, 'x', %s) returning id",
+        (w.case, "0" * 64),
+    ).fetchone()
+    assert row is not None
+    bundle = row[0]
+    admin.execute(
+        "insert into app.concordance (case_id, court_bundle_id, page_id, page_no, method)"
+        " values (%s, %s, %s, 1, 'none')",
+        (w.case, bundle, page),
+    )
+    admin.execute("insert into app.trial_pack_settings (case_id) values (%s)", (w.case,))
+    admin.execute(
+        "insert into app.trial_packs (case_id, report_version_id, court_bundle_id, sections, sha256, storage_path,"
+        " page_count) values (%s, %s, %s, '{report}', 'x', 'x', 1)",
+        (w.case, version, bundle),
+    )
+    admin.execute(
+        "insert into app.offline_packages (case_id, report_version_id, device_label, format_version, expires_at)"
+        " values (%s, %s, 'zz', 1, now())",
+        (w.case, version),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "report_versions": 1,
+        "expert_meetings": 1,
+        "expert_meeting_participants": 1,
+        "agenda_versions": 1,
+        "agenda_items": 1,
+        "court_bundles": 1,
+        "concordance": 1,
+        "trial_pack_settings": 1,
+        "trial_packs": 1,
+        "offline_packages": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -464,6 +529,7 @@ SEEDERS = (
     _understand_rows,
     _write_tables,
     _report_tables,
+    _trial_tables,
 )
 
 
