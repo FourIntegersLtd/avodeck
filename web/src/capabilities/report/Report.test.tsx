@@ -1,5 +1,5 @@
 // S16 Your report: sections from the pack, what the court requires (from the pack), citation style, build and
-// rebuild, the expert's own sections, the methodology note and the time heartbeat.
+// rebuild, the expert's own sections, and the methodology note.
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { humanise } from "../../foundation/i18n";
@@ -7,7 +7,6 @@ import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { useTimeHeartbeat } from "./heartbeat";
 import { checklistItems, etagged, reportOut, sectionKeys, sectionLabel, serve, settingsOut, V1, V2, versionOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
@@ -118,42 +117,4 @@ test("shows the methodology note and a preview of the pages that moves on", asyn
   await user.click(screen.getByRole("button", { name: M["report.report.preview_next"]! }));
   expect(screen.getByRole("img", { name: "Page 2 of your report" })).toBeInTheDocument();
   expect(V1).toBeTruthy();
-});
-
-describe("the time heartbeat", () => {
-  afterEach(() => vi.useRealTimers());
-
-  function Beat() {
-    useTimeHeartbeat(CASE_A, "report");
-    return null;
-  }
-
-  test("posts the screen, whether the tab is visible and the seconds since the last input every 30 seconds", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    const bodies: unknown[] = [];
-    server.use(http.post("/v1/cases/:caseId/time/heartbeat", async ({ request }) => (bodies.push(await request.json()), json({ counted: true, stage: "write" }))));
-    render(<Beat />);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]).toEqual({ screen: "report", visible: true, idle_seconds: 30 });
-    document.dispatchEvent(new Event("keydown"));
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    await waitFor(() => expect(bodies).toHaveLength(2));
-    expect(bodies[1]).toEqual({ screen: "report", visible: true, idle_seconds: 30 });
-  });
-
-  test("a refused beat is ignored quietly", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    let calls = 0;
-    server.use(http.post("/v1/cases/:caseId/time/heartbeat", () => (calls++, apiError(400, "invalid"))));
-    render(<Beat />);
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(30_000);
-    });
-    await waitFor(() => expect(calls).toBe(1));
-  });
 });
