@@ -121,6 +121,8 @@ The worker is part of this package (`app/worker/`, run with `make -C api worker`
 | `process_pages` | A | Same, for appended pages only |
 | `extract_questions` | C | OCR letter of instruction → T-06 |
 | `rerun_checks` | D | Re-run "Things to look at" |
+| `suggest_points` | E | Sort verified facts for and against a question (T-14a/T-14b); queued by `opinion.write` |
+| `compare_witness_statement` | E | Check a witness statement against verified facts (T-14c); queued by `opinion.write` |
 | `build_report` | F | Assemble the report in the expert's Word template |
 | `final_check` | F | 28 checks |
 | `verify_opposing` | G | T-21b/c/d |
