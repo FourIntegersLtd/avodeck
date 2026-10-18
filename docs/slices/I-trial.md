@@ -94,6 +94,6 @@ Root checklist, plus: on staging the synthetic case produces a signed joint stat
 
 ## Scope notes (first build)
 
-- The witness-box copy (S25) is kept in memory on the device for this build. Keeping it across a browser restart needs IndexedDB, which the foundation guard `noTokenStorage` forbids today; the exception is requested from foundation (see avodeck-pending/cross-slice.md).
+- The witness-box copy (S25) is kept on the device in IndexedDB, still sealed (`web/src/capabilities/trial/witnessBoxStore.ts`, the only module the foundation storage guard and eslint allow IndexedDB in). It outlives a page load; removing it or opening it past its end date deletes it. Browsers with no IndexedDB keep it in memory.
 - Offline screens are exported as `trialOfflineRoutes` and mounted outside the signed-in guard by the foundation's `offlineRoutesFrom` convention (any capability export ending in `OfflineRoutes`).
 - Sending for signature returns the prepared statement and a signing reference; a copy signed elsewhere comes back through `signed-external`. The e-signature provider itself is not wired yet.
