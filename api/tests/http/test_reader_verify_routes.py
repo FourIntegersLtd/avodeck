@@ -31,6 +31,8 @@ from app.core.http import etag
 from app.features.pipeline.paths import word_purpose
 from tests.fixtures.stub_facts import load_stub_facts
 from tests.support.db import scope_for
+from tests.support.facts_seed import insert_fact
+from tests.support.packs import BOTH, LAUNCH, Combo
 from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
@@ -54,7 +56,10 @@ async def aconn(admin_dsn: str) -> AsyncIterator[psycopg.AsyncConnection]:
 @pytest.fixture
 async def world(seed: Seed, aconn: psycopg.AsyncConnection, client_for: Any) -> dict[str, Any]:
     expert, assistant = seed.person(), seed.person()
-    case = seed.case(seed.org(kind="personal", members={expert: "owner"}), expert, status="active")
+    # The stub facts are the launch packs' kinds, so the case is under the launch packs.
+    case = seed.case(
+        seed.org(kind="personal", members={expert: "owner"}), expert, status="active", packs=LAUNCH.case_row()
+    )
     seed.case_member(case, assistant, "assistant", added_by=expert)
     loaded = await load_stub_facts(aconn, case, pages=[118], crypto=CRYPTO)
     return {
@@ -283,7 +288,8 @@ async def test_a_change_updates_the_details_and_box_and_logs_old_and_new(
     client = world["client"]
     await read(client, world)
     first, second = [f for f in await facts(client, world) if f["value"]][:2]
-    new_fields = {"note": first["value"]}
+    string_key = next(k for k, t in kind_fields(LAUNCH)[second["kind"]].items() if t == "string")
+    new_fields = {string_key: first["value"]}
 
     response = await act(
         client,
@@ -414,3 +420,124 @@ async def test_a_please_check_fact_cannot_be_changed_without_choosing_words(
     verified = (await act(client, world, fact, action="correct")).json()
     recheck(admin, world, fact["id"])
     assert (await act(client, world, verified, action="edit", new_value=fact["value"])).status_code == 422
+
+
+# Changed details are checked against the case's pack -------------------------------------------------
+
+GOOD = {"string": "Alpha", "integer": 3, "number": 2.5, "date": "2024-05-15", "boolean": True}
+WRONG = {"string": 123, "integer": "many", "number": "lots", "date": "not a date", "boolean": "yes"}
+
+
+def kind_fields(combo: Combo) -> dict[str, dict[str, str]]:
+    """Each fact kind's fields, from the pack file as written (rule 11: never typed into the test)."""
+    return {k["key"]: dict(k.get("fields") or {}) for k in combo.raw("specialty", "facts.yaml")["fact_kinds"]}
+
+
+@pytest.fixture(params=BOTH, ids=lambda c: c.specialty)
+async def pack_world(
+    request: pytest.FixtureRequest,
+    seed: Seed,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    client_for: Any,
+) -> dict[str, Any]:
+    """A case under one pack set with a suggested fact of the pack's first kind that has fields."""
+    combo: Combo = request.param
+    expert = seed.person()
+    case = seed.case(
+        seed.org(kind="personal", members={expert: "owner"}), expert, status="active", packs=combo.case_row()
+    )
+    page = seed.page(case, seed.document(case), 7)
+    sealed = await CRYPTO.encrypt(aconn, case, b"Alpha", purpose=word_purpose(page, "w1"))
+    admin.execute(
+        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+        " values (%s, %s, 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
+        (page, case, sealed),
+    )
+    kind, fields = next((k, f) for k, f in kind_fields(combo).items() if f)
+    fact_id = insert_fact(admin, case, page, kind, value="Alpha", word_ids=["w1"], status="suggested")
+    w = {"case": case, "client": await client_for(expert), "fact_id": fact_id, "fields": fields, "combo": combo}
+    await read(w["client"], w, 7)
+    return w
+
+
+async def the_fact(w: dict[str, Any]) -> dict[str, Any]:
+    return next(f for f in await facts(w["client"], w, 7) if f["id"] == str(w["fact_id"]))
+
+
+async def test_a_change_naming_a_detail_the_pack_does_not_have_is_refused(pack_world: dict[str, Any]) -> None:
+    fact = await the_fact(pack_world)
+    response = await act(
+        pack_world["client"], pack_world, fact, action="edit", new_value="Alpha", fields={"zz_not_a_field": "Alpha"}
+    )
+    assert response.status_code == 422, response.text
+    assert response.json()["error"]["code"] == "invalid_fields"
+    assert (await the_fact(pack_world))["version"] == fact["version"]
+
+
+async def test_a_detail_of_the_wrong_type_is_refused(pack_world: dict[str, Any]) -> None:
+    """Each field type the pack uses: a value of another type is 422 (a date must be a real date)."""
+    fact = await the_fact(pack_world)
+    for key, kind_type in pack_world["fields"].items():
+        response = await act(
+            pack_world["client"], pack_world, fact, action="edit", new_value="Alpha", fields={key: WRONG[kind_type]}
+        )
+        assert response.status_code == 422, (key, kind_type, response.text)
+        assert response.json()["error"]["code"] == "invalid_fields"
+
+
+async def test_details_of_the_right_names_and_types_are_kept(
+    admin: psycopg.Connection, pack_world: dict[str, Any]
+) -> None:
+    sent = {key: GOOD[kind_type] for key, kind_type in pack_world["fields"].items()}
+    fact = await the_fact(pack_world)
+    response = await act(pack_world["client"], pack_world, fact, action="edit", new_value="Alpha", fields=sent)
+    assert response.status_code == 200, response.text
+    assert response.json()["fields"] == sent
+    row = admin.execute("select fields from app.facts where id = %s", (pack_world["fact_id"],)).fetchone()
+    assert row is not None and row[0] == sent
+
+
+async def test_a_wrong_date_or_yes_no_is_refused_under_the_launch_packs(
+    seed: Seed, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, client_for: Any
+) -> None:
+    """The launch packs use `date` and `boolean` fields; both are checked."""
+    kinds = kind_fields(LAUNCH)
+    kind = next(k for k, f in kinds.items() if "date" in f.values() and "boolean" in f.values())
+    date_key = next(k for k, t in kinds[kind].items() if t == "date")
+    bool_key = next(k for k, t in kinds[kind].items() if t == "boolean")
+    expert = seed.person()
+    case = seed.case(
+        seed.org(kind="personal", members={expert: "owner"}), expert, status="active", packs=LAUNCH.case_row()
+    )
+    page = seed.page(case, seed.document(case), 3)
+    sealed = await CRYPTO.encrypt(aconn, case, b"Alpha", purpose=word_purpose(page, "w1"))
+    admin.execute(
+        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+        " values (%s, %s, 1, 'w1', %s, '{10,10,60,10,60,30,10,30}', 0.99, 'ocr')",
+        (page, case, sealed),
+    )
+    fact_id = insert_fact(admin, case, page, kind, value="Alpha", word_ids=["w1"], status="suggested")
+    w = {"case": case, "client": await client_for(expert)}
+    await read(w["client"], w, 3)
+    fact = next(f for f in await facts(w["client"], w, 3) if f["id"] == str(fact_id))
+    for bad in ({date_key: "15th of May"}, {date_key: "2024-02-30"}, {bool_key: "yes"}, {bool_key: 1}):
+        response = await act(w["client"], w, fact, action="edit", new_value="Alpha", fields=bad)
+        assert response.status_code == 422, (bad, response.text)
+    good = await act(
+        w["client"], w, fact, action="edit", new_value="Alpha", fields={date_key: "2024-05-15", bool_key: False}
+    )
+    assert good.status_code == 200, good.text
+
+
+async def test_a_please_check_change_without_words_asks_for_words_by_code(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    """The screen shows its own words for `words_needed` (choose the words on the page)."""
+    client = world["client"]
+    await read(client, world)
+    fact = next(f for f in await facts(client, world) if f["value"] and f["word_ids"])
+    verified = (await act(client, world, fact, action="correct")).json()
+    recheck(admin, world, fact["id"])
+    response = await act(client, world, verified, action="edit", new_value=fact["value"])
+    assert response.status_code == 422 and response.json()["error"]["code"] == "words_needed"

@@ -51,9 +51,7 @@ def world(seed: Seed) -> dict[str, uuid.UUID]:
 async def add_words(aconn: psycopg.AsyncConnection, case: uuid.UUID, page: uuid.UUID, words: list[str]) -> None:
     for n, text in enumerate(words, start=1):
         word_id = f"w{n}"
-        sealed = await CRYPTO.encrypt(
-            aconn, case, text.encode(), purpose=document_words.word_purpose(page, word_id)
-        )
+        sealed = await CRYPTO.encrypt(aconn, case, text.encode(), purpose=document_words.word_purpose(page, word_id))
         await aconn.execute(
             "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
             " values (%s, %s, %s, %s, %s, '{0,0,1,0,1,1,0,1}', 0.99, 'ocr')",

@@ -12,6 +12,7 @@ import { casePath, sourceLabel } from "./data";
 import { allowed, FactCard } from "./FactCard";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
+import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
 
 type Fact = Schemas["FactOut"];
@@ -58,7 +59,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const [read, setRead] = useState(false);
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: string; text: string; words: string[] } | null>(null);
+  const [pageWords, setPageWords] = useState<PageWord[] | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -105,6 +107,22 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     }
   }
 
+  // "Change a detail": the cited words start chosen, except on a "Please check" fact, whose words must be
+  // chosen again (the server refuses its change without them). The page's words load once.
+  async function startEdit(fact: Fact) {
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids });
+    if (pageWords !== null) return;
+    try {
+      const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
+      setPageWords(words);
+    } catch (error) {
+      setNotice(errorMessage(error));
+    }
+  }
+
+  const toggleWord = (id: string) =>
+    setEditing((e) => e && { ...e, words: e.words.includes(id) ? e.words.filter((x) => x !== id) : [...e.words, id] });
+
   function advanceFrom(list: Fact[], id: string) {
     const after = list.slice(list.findIndex((f) => f.id === id) + 1).find((f) => f.status === "suggested");
     setFocus(after?.id ?? id);
@@ -131,7 +149,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         setNotice(w("read.error.stale"));
         await loadFacts();
       } else if (error instanceof ApiError && error.status === 422) {
-        setNotice(w("read.error.not_in_page"));
+        setNotice(w(error.code === "words_needed" ? "read.error.words_needed" : error.code === "invalid_fields" ? "read.error.invalid_fields" : "read.error.not_in_page"));
       } else {
         setNotice(errorMessage(error, {}));
       }
@@ -141,7 +159,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   }
 
   const notRight = (f: Fact) => act(f, "not_right", reasons[f.id]?.trim() ? { reason: reasons[f.id]!.trim() } : {});
-  const saveEdit = (f: Fact) => editing && editing.text.trim() && act(f, "edit", { new_value: editing.text.trim(), word_ids: f.word_ids });
+  const saveEdit = (f: Fact) =>
+    editing && editing.text.trim() && editing.words.length > 0 && act(f, "edit", { new_value: editing.text.trim(), word_ids: inPageOrder(editing.words, pageWords) });
 
   async function toggleFlag(fact: Fact) {
     if (busy) return;
@@ -160,8 +179,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, facts, focus, read, nextPage });
-  latest.current = { markRead, go, act, notRight, facts, focus, read, nextPage };
+  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage });
+  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -174,7 +193,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       else if (key === "r") void s.markRead();
       else if (key === "1" && target && allowed(target).correct) void s.act(target, "correct");
       else if (key === "2" && target && allowed(target).notRight) void s.notRight(target);
-      else if (key === "3" && target && allowed(target).edit) setEditing({ id: target.id, text: target.value ?? "" });
+      else if (key === "3" && target && allowed(target).edit) void s.startEdit(target);
       else return;
       e.preventDefault();
     }
@@ -216,6 +235,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           </div>
           <PageImage caseId={caseId} pageNo={pageNo} zoom={zoom}>
             <Highlights facts={facts ?? []} focus={focus} />
+            {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
           </PageImage>
         </section>
 
@@ -232,13 +252,15 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               focused={focus === f.id}
               busy={busy}
               editing={editing?.id === f.id ? editing.text : null}
+              canSave={editing?.id === f.id ? editing.words.length > 0 : undefined}
+              typedWords={editing?.id === f.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
               reason={reasons[f.id] ?? ""}
               onFocus={() => setFocus(f.id)}
               onReason={(text) => setReasons((r) => ({ ...r, [f.id]: text }))}
               onCorrect={() => act(f, "correct")}
               onNotRight={() => notRight(f)}
-              onStartEdit={() => setEditing({ id: f.id, text: f.value ?? "" })}
-              onEditText={(text) => setEditing({ id: f.id, text })}
+              onStartEdit={() => void startEdit(f)}
+              onEditText={(text) => setEditing((e) => e && { ...e, text })}
               onSaveEdit={() => saveEdit(f)}
               onCancelEdit={() => setEditing(null)}
               onFlag={() => toggleFlag(f)}
