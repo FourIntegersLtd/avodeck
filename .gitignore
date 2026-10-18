@@ -16,3 +16,4 @@ supabase/.temp/
 evals/**/bundles/
 evals/**/_tmp/
 *.tsbuildinfo
+.vercel

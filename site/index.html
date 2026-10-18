@@ -9,7 +9,7 @@
 <meta name="pilot-endpoint" content="">
 <meta name="pilot-email" content="">
 <!-- Where the Avodeck app lives. Links marked data-app-path open there (local dev: the Vite server). -->
-<meta name="app-url" content="http://localhost:5173">
+<meta name="app-url" content="">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -25,14 +25,19 @@
       <svg width="30.5" height="40" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#0F3D2C"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#E4F3D6"/><circle cx="50" cy="83" r="17" fill="#1E6B4E"/></svg>
       <span class="logo-word">Avodeck</span>
     </a>
-    <nav aria-label="Main" class="main-nav hide-sm">
+    <nav aria-label="Main" class="main-nav" id="main-nav">
       <a href="#how">How it works</a>
       <a href="#safeguards">Safeguards</a>
       <a href="#questions">Questions</a>
+      <a href="#pilot" class="btn btn-primary menu-only">Join the pilot</a>
     </nav>
     <div class="header-actions">
-      <a href="#pilot" class="btn btn-ghost btn-sm">Join the pilot</a>
-      <a href="http://localhost:5173/sign-in" data-app-path="/sign-in" class="btn btn-primary btn-sm">Sign in</a>
+      <a href="#pilot" class="btn btn-ghost btn-sm hide-sm">Join the pilot</a>
+      <a href="http://localhost:5173/sign-in" data-app-path="/sign-in" class="btn btn-primary btn-sm hide-sm">Sign in</a>
+      <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="main-nav" aria-label="Menu">
+      <svg class="icon-open" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      <svg class="icon-close" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
     </div>
   </div>
 </header>
@@ -76,10 +81,10 @@
 
   <section class="assurances" aria-label="What Avodeck promises">
     <div class="wrap">
-      <div class="assurance"><span class="assurance-h">Your opinion stays yours</span><span class="assurance-p">The software never writes conclusions or prose for you.</span></div>
-      <div class="assurance"><span class="assurance-h">Every fact has a page</span><span class="assurance-p">Each entry points to the exact words it came from.</span></div>
-      <div class="assurance"><span class="assurance-h">Kept in the UK</span><span class="assurance-p">Processed and stored in the UK, never used to train AI.</span></div>
-      <div class="assurance"><span class="assurance-h">Made by NHS GPs</span><span class="assurance-p">Built by doctors working in the NHS.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM16 11l2 2 4-4"/></svg></span><span class="assurance-h">Your opinion stays yours</span><span class="assurance-p">The software never writes conclusions or prose for you.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/></svg></span><span class="assurance-h">Every fact has a page</span><span class="assurance-p">Each entry points to the exact words it came from.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4"/></svg></span><span class="assurance-h">Kept in the UK</span><span class="assurance-p">Processed and stored in the UK, never used to train AI.</span></div>
+      <div class="assurance"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3H5a2 2 0 0 0-2 2v4a5 5 0 0 0 10 0V5a2 2 0 0 0-2-2h-1M8 14v1a6 6 0 0 0 12 0v-3M22 10a2 2 0 1 1-4 0 2 2 0 0 1 4 0z"/></svg></span><span class="assurance-h">Made by NHS GPs</span><span class="assurance-p">Built by doctors working in the NHS.</span></div>
     </div>
   </section>
 
@@ -105,11 +110,11 @@
         <h2 id="how-h" class="sec-h">The way you already work, with the drudgery taken out.</h2>
       </div>
       <ol class="steps">
-        <li><span class="step-n">01</span><span class="step-h">Prepare</span><span class="step-p">Drop in the letter and the records.</span></li>
-        <li><span class="step-n">02</span><span class="step-h">Read</span><span class="step-p">Read each page, then check what we found.</span></li>
-        <li><span class="step-n">03</span><span class="step-h">Understand</span><span class="step-p">See everything on one timeline.</span></li>
-        <li><span class="step-n">04</span><span class="step-h">Write</span><span class="step-p">Your words, citing only facts you've checked.</span></li>
-        <li><span class="step-n">05</span><span class="step-h">Court</span><span class="step-p">Ready for questions, meetings and the witness box.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></svg></span><span class="step-h">Prepare</span><span class="step-p">Drop in the letter and the records.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 4h6a4 4 0 0 1 4 4v13a3 3 0 0 0-3-3H2zM22 4h-6a4 4 0 0 0-4 4v13a3 3 0 0 1 3-3h7z"/></svg></span><span class="step-h">Read</span><span class="step-p">Read each page, then check what we found.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4M8 15l2.5 2.5L16 13"/></svg></span><span class="step-h">Understand</span><span class="step-p">See everything on one timeline.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.83 2.83 0 0 0-4-4L4 16zM13.5 6.5l4 4"/></svg></span><span class="step-h">Write</span><span class="step-p">Your words, citing only facts you've checked.</span></li>
+        <li><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 21h10M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0z"/></svg></span><span class="step-h">Court</span><span class="step-p">Ready for questions, meetings and the witness box.</span></li>
       </ol>
     </div>
   </section>
@@ -216,10 +221,10 @@
         <p class="on-dark">Your duty is to the court. Avodeck is built so you can say exactly how you used it, and so nothing in your report can be traced to anything other than you and the records.</p>
       </div>
       <div class="guard-grid">
-        <div class="guard"><h3 class="guard-h" style="margin:0;font-weight:400">You read first</h3><p class="guard-p">Suggestions for a page stay hidden until you've read it yourself. The record of pages you've read is kept for you.</p></div>
-        <div class="guard"><h3 class="guard-h" style="margin:0;font-weight:400">Only checked facts</h3><p class="guard-p">Your report can only cite entries you've checked against the page, with quotes matched word for word.</p></div>
-        <div class="guard"><h3 class="guard-h" style="margin:0;font-weight:400">A final check</h3><p class="guard-p">Before you sign, your report is checked against the mistakes judges most often criticise experts for.</p></div>
-        <div class="guard"><h3 class="guard-h" style="margin:0;font-weight:400">Nothing hidden</h3><p class="guard-p">A plain appendix explains what the software did and didn't do, ready for anyone who asks.</p></div>
+        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">You read first</h3><p class="guard-p">Suggestions for a page stay hidden until you've read it yourself. The record of pages you've read is kept for you.</p></div>
+        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.1V12a10 10 0 1 1-5.9-9.1M22 4L12 14l-3-3"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">Only checked facts</h3><p class="guard-p">Your report can only cite entries you've checked against the page, with quotes matched word for word.</p></div>
+        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6a1 1 0 0 1 1 1v1a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2M9 14l2 2 4-4"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">A final check</h3><p class="guard-p">Before you sign, your report is checked against the mistakes judges most often criticise experts for.</p></div>
+        <div class="guard"><span class="ico" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M8 13h8M8 17h8M8 9h2"/></svg></span><h3 class="guard-h" style="margin:0;font-weight:400">Nothing hidden</h3><p class="guard-p">A plain appendix explains what the software did and didn't do, ready for anyone who asks.</p></div>
       </div>
       <ul class="ticks">
         <li><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7CCFA6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Records processed and stored in the UK</li>
@@ -295,20 +300,42 @@
 <footer class="site-footer">
   <div class="wrap">
     <div class="closing">
-      <h2 class="sec-h">Spend your time on judgement, not on page numbers.</h2>
+      <h2 class="sec-h">Spend your time on forming your opinion, not on page numbers.</h2>
       <a href="#pilot" class="btn btn-light">Join the pilot <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
     </div>
-    <div class="footer-bar">
-      <span class="footer-brand">
-        <svg width="22.9" height="30" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#E6F2EC"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#2E7556"/><circle cx="50" cy="83" r="17" fill="#E6F2EC"/></svg>
-        <span class="logo-word">Avodeck</span>
-      </span>
-      <nav aria-label="Footer" class="footer-nav">
-        <a href="http://localhost:5173/sign-in" data-app-path="/sign-in">Sign in</a>
-        <a href="http://localhost:5173/today" data-app-path="/today">Open Avodeck</a>
-        <a href="#safeguards">Security</a>
+    <div class="footer-grid">
+      <div class="footer-about">
+        <a href="#top" class="footer-brand" aria-label="Avodeck home"><svg width="22.9" height="30" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#E6F2EC"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#2E7556"/><circle cx="50" cy="83" r="17" fill="#E6F2EC"/></svg><span class="logo-word">Avodeck</span></a>
+        <p>Records review for expert witnesses.</p>
+        <h3 class="footer-h">Address</h3>
+        <p>82a James Carter Road<br>Mildenhall, IP28 7DE<br>England, UK</p>
+      </div>
+      <nav aria-label="Footer" class="footer-cols">
+        <div>
+          <h3 class="footer-h">Product</h3>
+          <ul>
+            <li><a href="#how">How it works</a></li>
+            <li><a href="#safeguards">Safeguards</a></li>
+            <li><a href="#questions">Questions</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="footer-h">Experts</h3>
+          <ul>
+            <li><a href="#pilot">Join the pilot</a></li>
+            <li><a href="http://localhost:5173/sign-in" data-app-path="/sign-in">Sign in</a></li>
+            <li><a href="http://localhost:5173/today" data-app-path="/today">Open Avodeck</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3 class="footer-h">Legal</h3>
+          <ul>
+            <li><a href="privacy">Privacy</a></li>
+          </ul>
+        </div>
       </nav>
     </div>
+    <p class="footer-copy">© <span data-year>2026</span> Four Integers Ltd. All rights reserved.</p>
   </div>
 </footer>
 
@@ -318,10 +345,22 @@
   var status = document.getElementById('form-status');
   var meta = function (n) { var m = document.querySelector('meta[name="' + n + '"]'); return m ? m.content.trim() : ''; };
 
-  var appUrl = meta('app-url').replace(/\/+$/, '');
-  if (appUrl) {
-    document.querySelectorAll('[data-app-path]').forEach(function (a) { a.href = appUrl + a.getAttribute('data-app-path'); });
-  }
+  // Sign-in links go to the web app: localhost:5173 under `make dev`, app-url when live, hidden if neither.
+  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  var appUrl = (local ? 'http://localhost:5173' : meta('app-url')).replace(/\/+$/, '');
+  document.querySelectorAll('[data-app-path]').forEach(function (a) {
+    if (appUrl) a.href = appUrl + a.getAttribute('data-app-path'); else a.hidden = true;
+  });
+
+  // Phone menu: the hamburger opens the nav; choosing a link closes it.
+  var header = document.querySelector('.site-header');
+  var toggle = header.querySelector('.menu-toggle');
+  var setOpen = function (open) { header.classList.toggle('menu-open', open); document.documentElement.classList.toggle('menu-locked', open); toggle.setAttribute('aria-expanded', String(open)); toggle.setAttribute('aria-label', open ? 'Close menu' : 'Menu'); };
+  toggle.addEventListener('click', function () { setOpen(!header.classList.contains('menu-open')); });
+  header.querySelectorAll('.main-nav a').forEach(function (a) { a.addEventListener('click', function () { setOpen(false); }); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && header.classList.contains('menu-open')) { setOpen(false); toggle.focus(); } });
+
+  document.querySelectorAll('[data-year]').forEach(function (y) { y.textContent = new Date().getFullYear(); });
 
   form.addEventListener('submit', function (e) {
     e.preventDefault();

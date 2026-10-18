@@ -65,12 +65,15 @@ a:hover { color: var(--forest); }
 .logo-word { font-family: var(--brand); font-weight: 600; font-size: 26px; letter-spacing: -0.025em; }
 
 /* Header */
-.site-header { background: var(--ground); border-bottom: 1px solid var(--line); }
+.site-header { position: sticky; top: 0; z-index: 50; background: var(--ground); border-bottom: 1px solid var(--line); }
 .site-header .bar { max-width: 1360px; margin: 0 auto; padding: 18px 32px; display: flex; align-items: center; gap: 32px; flex-wrap: wrap; }
 .main-nav { display: flex; gap: 28px; font-size: 17px; font-weight: 700; margin-left: 24px; }
 .main-nav a { text-decoration: none; color: var(--muted); }
 .main-nav a:hover { color: var(--forest); }
+.main-nav .btn-primary { color: var(--white); }
 .header-actions { margin-left: auto; display: flex; align-items: center; gap: 18px; }
+.menu-toggle { display: none; align-items: center; justify-content: center; width: 52px; height: 52px; border: 1px solid var(--line); border-radius: 12px; background: transparent; color: var(--forest); cursor: pointer; }
+.menu-only { display: none; }
 .signin { font-size: 17px; font-weight: 700; text-decoration: none; }
 
 /* Hero */
@@ -106,6 +109,8 @@ a:hover { color: var(--forest); }
 .assurances { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--white); }
 .assurances .wrap { padding: 36px 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 28px 40px; }
 .assurance { display: flex; flex-direction: column; gap: 4px; }
+.ico { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 48px; height: 48px; border-radius: 14px; background: var(--mint); color: var(--pit); margin-bottom: 8px; }
+.guard .ico { background: rgba(255,255,255,0.1); color: #7CCFA6; }
 .assurance-h { font-family: var(--serif); font-size: 24px; color: var(--forest); }
 .assurance-p { font-size: 16px; color: var(--muted); }
 
@@ -195,7 +200,15 @@ a:hover { color: var(--forest); }
 .site-footer .wrap { padding: 88px 32px 40px; display: flex; flex-direction: column; gap: 64px; }
 .closing { display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; flex-wrap: wrap; }
 .closing .sec-h { color: var(--white); max-width: 16ch; }
-.footer-bar { display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 28px; font-size: 15px; color: #A9CDBB; }
+.footer-grid { display: grid; grid-template-columns: minmax(220px, 1fr) 2fr; gap: 48px; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 48px; font-size: 17px; color: #A9CDBB; }
+.footer-about { display: flex; flex-direction: column; gap: 12px; }
+.footer-about p { margin: 0; line-height: 1.6; }
+.footer-h { margin: 12px 0 4px; font-size: 13px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--white); }
+.footer-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; }
+.footer-cols ul { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.footer-cols a, .footer-brand { color: var(--on-dark); text-decoration: none; }
+.footer-cols a:hover { color: var(--white); text-decoration: underline; }
+.footer-copy { margin: 0; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 24px; text-align: center; font-size: 15px; color: #A9CDBB; }
 .footer-brand { display: inline-flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .footer-brand .logo-word { font-size: 20px; color: var(--white); }
 .footer-nav { display: flex; gap: 24px; flex-wrap: wrap; }
@@ -349,8 +362,18 @@ a:hover { color: var(--forest); }
   .wrap { padding: 72px 16px; }
   .site-header .bar { padding: 14px 16px; gap: 16px; }
   .hide-sm { display: none !important; }
+  .menu-toggle { display: inline-flex; }
+  .main-nav { display: none; position: fixed; top: 81px; left: 0; right: 0; bottom: 0; z-index: 60; margin: 0; flex-direction: column; gap: 4px; padding: 16px 16px 32px; background: var(--ground); overflow-y: auto; }
+  html.menu-locked { overflow: hidden; }
+  .menu-open .main-nav { display: flex; }
+  .main-nav a:not(.btn) { display: flex; align-items: center; min-height: 52px; font-size: 19px; color: var(--forest); }
+  .main-nav .menu-only { display: inline-flex; justify-content: center; margin-top: 8px; }
+  .menu-open .icon-open, .menu-toggle:not([aria-expanded="true"]) .icon-close { display: none; }
+  .footer-grid, .footer-cols { grid-template-columns: 1fr; gap: 32px; }
   .wrap.timeline-head { padding: 48px 16px 24px; }
-  .hero .wrap { padding: 56px 16px 64px; gap: 40px; }
+  .hero { min-height: 0; }
+  .hero .wrap { padding: 0 16px 64px; gap: 40px; }
+  .hero-copy { box-sizing: border-box; min-height: calc(100vh - 81px); min-height: calc(100svh - 81px); justify-content: center; padding: 24px 0; }
   .hero-h { font-size: 44px; }
   .sec-h, .showcase .sec-h, .faq .sec-h { font-size: 36px; }
   .founder blockquote { font-size: 23px; }
@@ -364,3 +387,21 @@ a:hover { color: var(--forest); }
   .connector, .connector-dot { display: none; }
   .faq summary { font-size: 20px; }
 }
+
+[hidden] { display: none !important; }
+
+/* Privacy policy */
+.policy { display: flex; flex-direction: column; gap: 40px; font-size: 18px; line-height: 1.65; }
+.policy h2 { margin: 0 0 12px; font-size: 26px; color: var(--forest); }
+.policy h3 { margin: 20px 0 8px; font-size: 19px; }
+.policy p, .policy ul, .policy ol { margin: 0 0 12px; }
+.policy ul, .policy ol { padding-left: 24px; }
+.policy li { margin-bottom: 6px; }
+.policy a { color: var(--pit); }
+.policy-dates { color: var(--muted); font-size: 16px; }
+.policy-toc { background: var(--mint); border-radius: 16px; padding: 24px 28px; }
+.policy-toc h2 { font-size: 20px; }
+.policy-table { overflow-x: auto; }
+.policy-table table { width: 100%; border-collapse: collapse; font-size: 16px; }
+.policy-table th, .policy-table td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.policy-table th { background: var(--mint); color: var(--forest); }
