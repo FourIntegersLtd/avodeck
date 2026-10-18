@@ -9,4 +9,4 @@ steps:
   - key: write
     screens: [points_against, opinion, report, final_check, sign_send, invoice]
   - key: court
-    screens: [after_serving, written_questions, new_material, correct_report, expert_meeting, court_bundle_pages, trial_pack, witness_box, close]
+    screens: [after_serving, court_orders, written_questions, new_material, correct_report, expert_meeting, court_bundle_pages, trial_pack, witness_box, close]
