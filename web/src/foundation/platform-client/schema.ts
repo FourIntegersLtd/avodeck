@@ -746,6 +746,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/lint-issues/{issue_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Dismiss Issue
+         * @description Dismiss a warning with the expert's reason; the dismissal is kept for the final check.
+         */
+        patch: operations["dismiss_issue_v1_cases__case_id__lint_issues__issue_id__patch"];
+        trace?: never;
+    };
     "/v1/cases/{case_id}/members": {
         parameters: {
             query?: never;
@@ -813,6 +833,46 @@ export interface paths {
         head?: never;
         /** Change Missing Item */
         patch: operations["change_missing_item_v1_cases__case_id__missing_items__item_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/opinions/{opinion_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Opinion Versions
+         * @description Every saved version of the opinion, newest first.
+         */
+        get: operations["opinion_versions_v1_cases__case_id__opinions__opinion_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/opinions/{opinion_id}/versions/{version_no}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Version
+         * @description Save an earlier version again as the newest one; the earlier version is not changed.
+         */
+        post: operations["restore_version_v1_cases__case_id__opinions__opinion_id__versions__version_no__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/v1/cases/{case_id}/oral-instructions": {
@@ -965,6 +1025,26 @@ export interface paths {
         patch: operations["update_party_v1_cases__case_id__parties__party_id__patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/points/{point_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change Point
+         * @description Move a point to another side, accept it, or remove it with a reason.
+         */
+        patch: operations["change_point_v1_cases__case_id__points__point_id__patch"];
+        trace?: never;
+    };
     "/v1/cases/{case_id}/prefill": {
         parameters: {
             query?: never;
@@ -1114,6 +1194,150 @@ export interface paths {
         head?: never;
         /** Update Question */
         patch: operations["update_question_v1_cases__case_id__questions__question_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/opinion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Opinion
+         * @description Autosave: the expert's text, citations, view and provisional flag. Every save is kept as a version.
+         */
+        put: operations["save_opinion_v1_cases__case_id__questions__question_id__opinion_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/opinion/lint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lint Opinion
+         * @description Ask the model which words in the saved opinion to check; the warnings open after it answers.
+         */
+        post: operations["lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Points
+         * @description The points on one question, flagged facts first, then by side; and the citable facts not yet used.
+         */
+        get: operations["list_points_v1_cases__case_id__questions__question_id__points_get"];
+        put?: never;
+        /**
+         * Add Point
+         * @description The expert adds a citable fact linked to the question as a point of their own.
+         */
+        post: operations["add_point_v1_cases__case_id__questions__question_id__points_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/points/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest
+         * @description Ask for the facts not yet points to be sorted by side (T-14a); the expert decides each one.
+         */
+        post: operations["suggest_v1_cases__case_id__questions__question_id__points_suggest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/range-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Range Note
+         * @description Save the expert's range note.
+         */
+        put: operations["save_range_note_v1_cases__case_id__questions__question_id__range_note_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workspace
+         * @description The chips, guidance on the day, points summary, views, legal test and saved opinion for one question.
+         */
+        get: operations["workspace_v1_cases__case_id__questions__question_id__workspace_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/relevant-facts/{relevant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Dismiss Relevant
+         * @description Dismiss a suggested relevant fact; the expert uses one by citing it in the draft.
+         */
+        patch: operations["dismiss_relevant_v1_cases__case_id__relevant_facts__relevant_id__patch"];
         trace?: never;
     };
     "/v1/cases/{case_id}/reopen": {
@@ -1289,6 +1513,46 @@ export interface paths {
         put?: never;
         /** Withdraw */
         post: operations["withdraw_v1_cases__case_id__withdraw_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/witness-claims/{claim_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Decide Claim
+         * @description Confirm a claim's label, give the expert's own verdict, or dismiss the claim.
+         */
+        patch: operations["decide_claim_v1_cases__case_id__witness_claims__claim_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/witness-statements/{document_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare
+         * @description Ask for a statement in the case to be set beside the records (T-14c); the expert decides each claim.
+         */
+        post: operations["compare_v1_cases__case_id__witness_statements__document_id__compare_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2383,10 +2647,87 @@ export interface components {
             /** Sent To */
             sent_to: string[];
         };
+        /** Chip */
+        Chip: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Quote Verbatim */
+            quote_verbatim: string;
+            /** Value */
+            value: string;
+        };
         /** ChunkReceived */
         ChunkReceived: {
             /** Received */
             received: number[];
+        };
+        /** Citation */
+        Citation: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Quote Verbatim */
+            quote_verbatim: string;
+        };
+        /** ClaimChange */
+        ClaimChange: {
+            /** Expert Verdict */
+            expert_verdict?: ("supports" | "contradicts" | "not_addressed") | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "confirmed" | "edited" | "dismissed";
+        };
+        /** ClaimOut */
+        ClaimOut: {
+            /** Claim Index */
+            claim_index: number;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Expert Verdict */
+            expert_verdict: string | null;
+            /** Facts */
+            facts: components["schemas"]["PointFact"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Text Verbatim */
+            text_verbatim: string;
+            /** Verdict */
+            verdict: string;
+            /** Version */
+            version: number;
+            /** Word Ids */
+            word_ids: string[];
         };
         /**
          * CloseSummary
@@ -2767,6 +3108,26 @@ export interface components {
             /** Email */
             email: string;
         };
+        /** Guidance */
+        Guidance: {
+            /** Code */
+            code: string;
+            /**
+             * In Force From
+             * Format: date
+             */
+            in_force_from: string;
+            /** In Force To */
+            in_force_to: string | null;
+            /** Source */
+            source: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string | null;
+            /** Version Label */
+            version_label: string;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3047,6 +3408,34 @@ export interface components {
             };
             /** Working Week */
             working_week: number[];
+        };
+        /** LintDismiss */
+        LintDismiss: {
+            /** Dismissed Reason */
+            dismissed_reason: string;
+        };
+        /** LintIssueOut */
+        LintIssueOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sentence Index */
+            sentence_index: number;
+            /** Source */
+            source: string;
+            /** Status */
+            status: string;
+            /** Type */
+            type: string;
+            /** Words */
+            words: string;
+        };
+        /** LintOut */
+        LintOut: {
+            /** Issues */
+            issues: components["schemas"]["LintIssueOut"][];
         };
         /** MappingItem */
         MappingItem: {
@@ -3337,6 +3726,92 @@ export interface components {
             /** Unread Count */
             unread_count: number;
         };
+        /** OpinionIn */
+        OpinionIn: {
+            /** Body */
+            body: string;
+            /** Citation Refs */
+            citation_refs?: components["schemas"]["Citation"][];
+            /**
+             * Provisional
+             * @default false
+             */
+            provisional: boolean;
+            /** Test Text */
+            test_text?: string | null;
+            /** View */
+            view?: string | null;
+        };
+        /** OpinionOut */
+        OpinionOut: {
+            /** Body */
+            body: string;
+            /** Citation Refs */
+            citation_refs: components["schemas"]["Citation"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lint */
+            lint?: components["schemas"]["LintIssueOut"][];
+            /** Provisional */
+            provisional: boolean;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Restored From */
+            restored_from: number | null;
+            /** Test Text */
+            test_text?: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /** View */
+            view: string | null;
+        };
+        /** OpinionVersion */
+        OpinionVersion: {
+            /** Body */
+            body: string;
+            /** Citation Refs */
+            citation_refs: components["schemas"]["Citation"][];
+            /** Provisional */
+            provisional: boolean;
+            /** Restored From */
+            restored_from: number | null;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Saved By */
+            saved_by: string | null;
+            /** Test Text */
+            test_text?: string | null;
+            /** Version No */
+            version_no: number;
+            /** View */
+            view: string | null;
+        };
+        /** OpinionVersions */
+        OpinionVersions: {
+            /** Versions */
+            versions: components["schemas"]["OpinionVersion"][];
+        };
+        /** OpinionView */
+        OpinionView: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+        };
         /** OralInstruction */
         OralInstruction: {
             /**
@@ -3480,6 +3955,90 @@ export interface components {
             locale: string | null;
             /** Timezone */
             timezone: string | null;
+        };
+        /** PointAdd */
+        PointAdd: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Side */
+            side: string;
+        };
+        /** PointChange */
+        PointChange: {
+            /** Dismissed Reason */
+            dismissed_reason?: string | null;
+            /** Side */
+            side?: string | null;
+            /** Status */
+            status?: ("accepted" | "dismissed") | null;
+        };
+        /** PointFact */
+        PointFact: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Value */
+            value: string | null;
+        };
+        /** PointOut */
+        PointOut: {
+            /** Dismissed Reason */
+            dismissed_reason: string | null;
+            fact: components["schemas"]["PointFact"];
+            /** Flagged */
+            flagged: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Origin */
+            origin: string;
+            /** Reason */
+            reason: string | null;
+            /** Side */
+            side: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+        };
+        /** Points */
+        Points: {
+            /** Claims */
+            claims: components["schemas"]["ClaimOut"][];
+            /** Points */
+            points: components["schemas"]["PointOut"][];
+            range_note: components["schemas"]["RangeNote"];
+            /** Relevant */
+            relevant: components["schemas"]["RelevantOut"][];
+            /** Sides */
+            sides: components["schemas"]["Side"][];
+            /** Unused */
+            unused: components["schemas"]["PointFact"][];
+        };
+        /** PointsSummary */
+        PointsSummary: {
+            /** Differ */
+            differ: number;
+            /** Sides */
+            sides: components["schemas"]["SideCount"][];
         };
         /** Prefill */
         Prefill: {
@@ -3693,6 +4252,28 @@ export interface components {
              */
             warnings: string[];
         };
+        /** Queued */
+        Queued: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+        };
+        /** RangeNote */
+        RangeNote: {
+            /** Prompt */
+            prompt: string;
+            /** Text */
+            text: string | null;
+            /** Version */
+            version: number;
+        };
+        /** RangeNoteIn */
+        RangeNoteIn: {
+            /** Text */
+            text: string;
+        };
         /** ReadAgain */
         ReadAgain: {
             /**
@@ -3730,6 +4311,29 @@ export interface components {
         RecoveryCodes: {
             /** Recovery Codes */
             recovery_codes: string[];
+        };
+        /** RelevantChange */
+        RelevantChange: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "dismissed";
+        };
+        /** RelevantOut */
+        RelevantOut: {
+            fact: components["schemas"]["PointFact"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+            /** Why Relevant */
+            why_relevant: string;
         };
         /** ReplaceAsk */
         ReplaceAsk: {
@@ -3908,6 +4512,22 @@ export interface components {
             minutes_until_timeout: number;
             /** Step Up Until */
             step_up_until: string | null;
+        };
+        /** Side */
+        Side: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+        };
+        /** SideCount */
+        SideCount: {
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
         };
         /** SignIn */
         SignIn: {
@@ -4224,6 +4844,26 @@ export interface components {
             text: string;
             /** Version */
             version?: string | null;
+        };
+        /** Workspace */
+        Workspace: {
+            /** Chips */
+            chips: components["schemas"]["Chip"][];
+            /** Guidance */
+            guidance: components["schemas"]["Guidance"][];
+            /** Guidance On */
+            guidance_on: string | null;
+            /** Legal Test */
+            legal_test: string;
+            opinion: components["schemas"]["OpinionOut"] | null;
+            points: components["schemas"]["PointsSummary"];
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Views */
+            views: components["schemas"]["OpinionView"][];
         };
         /** Hold */
         app__features__close__schemas__Hold: {
@@ -6140,6 +6780,51 @@ export interface operations {
             };
         };
     };
+    dismiss_issue_v1_cases__case_id__lint_issues__issue_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LintDismiss"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintIssueOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     list_members_v1_cases__case_id__members_get: {
         parameters: {
             query?: never;
@@ -6328,6 +7013,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MissingItem"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    opinion_versions_v1_cases__case_id__opinions__opinion_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                opinion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpinionVersions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    restore_version_v1_cases__case_id__opinions__opinion_id__versions__version_no__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                opinion_id: string;
+                version_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpinionOut"];
                 };
             };
             /** @description Validation Error */
@@ -6821,6 +7591,53 @@ export interface operations {
             };
         };
     };
+    change_point_v1_cases__case_id__points__point_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                point_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PointChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     get_prefill_v1_cases__case_id__prefill_get: {
         parameters: {
             query?: never;
@@ -7211,6 +8028,358 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_opinion_v1_cases__case_id__questions__question_id__opinion_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpinionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpinionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_points_v1_cases__case_id__questions__question_id__points_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Points"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    add_point_v1_cases__case_id__questions__question_id__points_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PointAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    suggest_v1_cases__case_id__questions__question_id__points_suggest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_range_note_v1_cases__case_id__questions__question_id__range_note_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RangeNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RangeNote"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    workspace_v1_cases__case_id__questions__question_id__workspace_get: {
+        parameters: {
+            query?: {
+                on?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    dismiss_relevant_v1_cases__case_id__relevant_facts__relevant_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                relevant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelevantChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelevantOut"];
                 };
             };
             /** @description Validation Error */
@@ -7629,6 +8798,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Withdrawn"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    decide_claim_v1_cases__case_id__witness_claims__claim_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    compare_v1_cases__case_id__witness_statements__document_id__compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
                 };
             };
             /** @description Validation Error */
