@@ -1,8 +1,11 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, beforeEach, expect } from "vitest";
 import { resetScreens } from "../foundation/lib/screens";
 import { server } from "./server";
+
+// CI runs every file in parallel under coverage, where a screen can take over the 1 s default to settle.
+configure({ asyncUtilTimeout: 5000 });
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 // The shell's own tests (src/app) start with no slice registered, whatever slices register when they load.

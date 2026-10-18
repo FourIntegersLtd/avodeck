@@ -60,3 +60,54 @@ def test_a_linked_worktree_on_the_main_project_is_refused(tmp_path: Path) -> Non
     main = _checkout(tmp_path / "main", "avodeck")
     (main / ".git").mkdir()
     mod.assert_own_project(str(main))
+
+
+def _commit(repo: Path, msg: str, n: int) -> str:
+    import os
+    import subprocess
+
+    (repo / f"f{n}.txt").write_text(msg)
+    when = f"2026-01-01T00:00:{n:02d}"
+    env = {**os.environ, "GIT_AUTHOR_DATE": when, "GIT_COMMITTER_DATE": when}
+
+    def run(*a: str) -> str:
+        return subprocess.run(["git", *a], cwd=repo, env=env, check=True, capture_output=True, text=True).stdout.strip()
+
+    run("add", "-A")
+    run("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", msg)
+    return run("rev-parse", "HEAD")
+
+
+def test_a_feat_is_paired_with_its_own_parent_across_merged_branches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Two branches merged in: the commit listed just before a feat may be the other branch's test."""
+    import subprocess
+
+    mod = _load()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+
+    def git(*a: str) -> None:
+        subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    base = _commit(repo, "chore: start", 1)
+    git("checkout", "-q", "-b", "one")
+    t1 = _commit(repo, "test(a): one", 2)
+    git("checkout", "-q", "-b", "two", base)
+    t2 = _commit(repo, "test(b): two", 3)
+    git("checkout", "-q", "one")
+    f1 = _commit(repo, "feat(a): one", 4)
+    git("checkout", "-q", "two")
+    f2 = _commit(repo, "feat(b): two", 5)
+    git("checkout", "-q", "main")
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "merge", "-q", "--no-ff", "-m", "Merge one", "one")
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "merge", "-q", "--no-ff", "-m", "Merge two", "two")
+    monkeypatch.chdir(repo)
+    assert dict(mod.feat_pairs(base)) == {f1: t1, f2: t2}
+
+
+def test_the_known_historic_commit_is_excused() -> None:
+    """d6784a1's tests failed only from a test-order bug, fixed in cac27bd; pushed history is not rewritten."""
+    assert "d6784a1789899552f84afb7a2078e9b2bfdeba7e" in _load().EXCUSED

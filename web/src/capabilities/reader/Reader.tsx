@@ -67,6 +67,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const loadFacts = useCallback(async () => {
     try {
       const { facts: list } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
+      // The server answers only once the page was read, so the page counts as read from here.
+      setRead(true);
       setFacts(list);
       setFocus((f) => f ?? list.find((x) => x.status === "suggested")?.id ?? list[0]?.id ?? null);
     } catch (error) {
