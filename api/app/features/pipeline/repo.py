@@ -338,6 +338,7 @@ async def store_extraction(
     model_id: str,
     prompt_version: str,
     printed_dates: list[dt.date] | None = None,
+    availability_evidence: list[dict[str, Any]] | None = None,
 ) -> None:
     async with conn.cursor() as cur:
         await cur.executemany(
@@ -365,11 +366,22 @@ async def store_extraction(
         await conn.execute("update app.pages set source_type = %s where id = %s", (source_type, page_id))
     await conn.execute(
         "insert into app.page_analysis (page_id, case_id, stage, extraction, needs_human, reason, model_id,"
-        " printed_dates, extracted_at) values (%s, %s, 'extract', %s, %s, %s, %s, %s, now())"
+        " printed_dates, availability_evidence, extracted_at)"
+        " values (%s, %s, 'extract', %s, %s, %s, %s, %s, %s, now())"
         " on conflict (page_id) do update set stage = excluded.stage, extraction = excluded.extraction,"
         " needs_human = excluded.needs_human, reason = excluded.reason, model_id = excluded.model_id,"
-        " printed_dates = excluded.printed_dates, extracted_at = excluded.extracted_at, updated_at = now()",
-        (page_id, case_id, sealed, needs_human, reason, model_id, printed_dates or []),
+        " printed_dates = excluded.printed_dates, availability_evidence = excluded.availability_evidence,"
+        " extracted_at = excluded.extracted_at, updated_at = now()",
+        (
+            page_id,
+            case_id,
+            sealed,
+            needs_human,
+            reason,
+            model_id,
+            printed_dates or [],
+            Jsonb(availability_evidence or []),
+        ),
     )
 
 
