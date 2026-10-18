@@ -25,7 +25,7 @@ from app.core.packs import MergedPack
 from app.features.pipeline import dates
 
 TASK_ID = "T-07b"
-PROMPT_VERSION = "2026-10-17.1"
+PROMPT_VERSION = "2026-10-18.1"
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
@@ -131,6 +131,15 @@ def page_text(words: Sequence[tuple[str, str]], stripped: str) -> str:
         word_id, _, text = line.partition(" ")
         seen.setdefault(word_id, []).append(text)
     return "\n".join(f"{word_id} {' '.join(texts)}" for word_id, texts in seen.items())
+
+
+HEADER_WORDS = 15
+HEADER_MARK = "Previous page header (context only, words without IDs, never cite them):"
+
+
+def with_header(page: str, header: str) -> str:
+    """The page's lines, led by the already identifier-stripped top of the page before it."""
+    return f"{HEADER_MARK}\n{header}\n\n{page}" if header.strip() else page
 
 
 @dataclass(frozen=True)

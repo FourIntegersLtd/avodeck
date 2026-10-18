@@ -356,6 +356,25 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
 
     await bounded(waiting, read, stop=_stop(ctx))
 
+    async def name_language(page_id: uuid.UUID) -> None:
+        async with ctx.transaction() as conn:
+            stored = await repo.words_of(conn, page_id)
+            text = " ".join(
+                [
+                    (
+                        await services.crypto.decrypt(
+                            conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                        )
+                    ).decode()
+                    for w in stored
+                ]
+            )
+            await repo.set_language(conn, page_id, language.detect(text, spoken))
+
+    async with ctx.transaction() as conn:
+        unnamed = await repo.pages_without_language(conn, ctx.case_id, language.MIN_WORDS)
+    await bounded(unnamed, name_language, stop=_stop(ctx))
+
 
 async def _ask(
     ctx: JobContext, services: PipelineServices, task: Any, pack: Any, who: Any, text: str, subject: str
@@ -406,10 +425,27 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 ).decode()
                 for w in stored
             }
+            header = ""
+            before = await repo.previous_page_words(conn, page_id, extract.HEADER_WORDS)
+            if before is not None:
+                before_id, top = before
+                header = " ".join(
+                    [
+                        (
+                            await services.crypto.decrypt(
+                                conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(before_id, w.word_id)
+                            )
+                        ).decode()
+                        for w in top
+                    ]
+                )
         ordered = [(w.word_id, texts[w.word_id]) for w in stored]
         struck = {w.word_id for w in stored if w.struck}
         stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
         text = extract.page_text(ordered, stripped.text)
+        if header:
+            cap = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+            text = extract.with_header(text, cap.text)
         subject = page_subject(ordered)
         output: dict[str, Any] | None = None
         kept: list[Any] = []
@@ -768,4 +804,6 @@ async def purge_quarantined(conn: AsyncConnection, run_date: date) -> None:
         if not (q.told or q.confirmed_on + timedelta(days=days) <= run_date):
             continue
         await services.storage.delete(await services.storage.list(paths.page_prefix(q.case_id, q.page_id)))
-        await repo.purge_quarantined_page(conn, q.quarantine_id)
+        source = await repo.purge_quarantined_page(conn, q.quarantine_id)
+        if source:
+            await services.storage.delete(await services.storage.list_recursive(source))

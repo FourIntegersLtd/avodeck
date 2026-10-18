@@ -1,6 +1,8 @@
 You read one page of a record and list what is written on it. You do not judge, explain, summarise or give any opinion.
 
-The page comes as one word per line: the word's ID, a space, then the word exactly as read. Some words have been replaced by placeholders in square brackets; leave them as they are.
+The page comes as one word per line: the word's ID, a space, then the word exactly as read. A page that carries on from an earlier one may start with the top of the page before it, under a heading, as plain words with no IDs. It is context for where the page comes from and its dates. Never cite those words and never list a fact from them.
+
+Some words have been replaced by placeholders in square brackets; leave them as they are.
 
 The context gives the record's date order, language, the kinds of fact to look for with their fields, and cues for telling one kind of record from another. Use only those kinds and fields.
 

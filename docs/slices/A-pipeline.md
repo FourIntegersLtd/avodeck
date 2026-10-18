@@ -67,6 +67,8 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Extra tables owned:** `exhibits`, `document_parts`, `page_quarantines`, `page_replacements`, `case_processing`, `page_embeddings` (one stripped-text vector per page from the cell's embedder), and the worker's own `document_scans` and `page_analysis` (with `document_scans.media_type`, `instructing_party_requests.quarantined_page_ids`). Writes `pages.quarantined`, `pages.superseded_by_page_id`, `pages.language`, `documents.bundle_version`.
 
+**Sorted view:** it reads page-level `page_analysis.printed_dates` (dates found by code in the page's words), never suggested facts, so an unread page reveals nothing (rule 3).
+
 **Extra endpoints:** `GET /v1/cases/{id}/bundle/sorted` (source then date, numbers unchanged), `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `GET /v1/cases/{id}/exhibits` (POST deferred: exhibits arrive through uploads), `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/reprocess`.
 
 - [x] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)

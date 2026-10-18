@@ -182,7 +182,8 @@ class ByWords:
         if request.task_id == "T-07c":
             matched = 2 if "Ultrasound" in request.text and "Colonoscopy" not in request.text else None
             return response({"reference_id": "r", "matched_page": matched, "confidence": 0.9})
-        if "Colonoscopy" not in request.text:
+        page = request.text.split("\n\n", 1)[-1] if request.text.startswith("Previous page header") else request.text
+        if "Colonoscopy" not in page:  # the previous page's header is context, not this page's words
             return empty_answer(self.source_key)
         return response(
             {
