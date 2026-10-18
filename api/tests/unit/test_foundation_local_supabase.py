@@ -14,6 +14,8 @@ import subprocess
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 from tests.support.local_supabase import DEFAULT_DB_PORT, db_port_from_status, local_db_port, test_dsns
 
 REPO = Path(__file__).resolve().parents[3]
@@ -40,11 +42,29 @@ def test_the_checkouts_own_port_is_used() -> None:
     assert local_db_port(REPO, run=runner(STATUS)) == "58422"
 
 
-def test_the_default_port_only_when_status_fails() -> None:
+def checkout(tmp_path: Path, linked: bool) -> Path:
+    """A main checkout has a `.git` directory; a linked worktree has a `.git` file."""
+    if linked:
+        (tmp_path / ".git").write_text("gitdir: /elsewhere/.git/worktrees/x\n")
+    else:
+        (tmp_path / ".git").mkdir()
+    return tmp_path
+
+
+def test_the_default_port_only_when_status_fails_in_the_main_checkout(tmp_path: Path) -> None:
+    main = checkout(tmp_path, linked=False)
     assert DEFAULT_DB_PORT == "55322"
-    assert local_db_port(REPO, run=runner("", code=1)) == DEFAULT_DB_PORT
-    assert local_db_port(REPO, run=failing) == DEFAULT_DB_PORT
-    assert local_db_port(REPO, run=runner("API_URL=x\n")) == DEFAULT_DB_PORT
+    assert local_db_port(main, run=runner("", code=1)) == DEFAULT_DB_PORT
+    assert local_db_port(main, run=failing) == DEFAULT_DB_PORT
+    assert local_db_port(main, run=runner("API_URL=x\n")) == DEFAULT_DB_PORT
+
+
+def test_a_linked_worktree_never_falls_back_to_the_main_checkouts_database(tmp_path: Path) -> None:
+    worktree = checkout(tmp_path, linked=True)
+    assert local_db_port(worktree, run=runner(STATUS)) == "58422"
+    for run in (runner("", code=1), failing, runner("API_URL=x\n")):
+        with pytest.raises(RuntimeError, match="TEST_DATABASE_"):
+            local_db_port(worktree, run=run)
 
 
 def test_the_dsns_use_the_port_unless_the_environment_names_them() -> None:
