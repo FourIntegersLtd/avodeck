@@ -157,7 +157,10 @@ async def test_the_case_pack_follows_the_cases_packs(client_for: ClientFor, seed
     assert [s["key"] for s in body["workflow_steps"]] == [
         s["key"] for s in combo.raw("case-type", "workflow.yaml")["steps"]
     ]
-    assert [lane["key"] for lane in body["lanes"]] == combo.raw("specialty", "lanes.yaml")["lanes"]
+    raw_lanes = combo.raw("specialty", "lanes.yaml")["lanes"]
+    assert [lane["key"] for lane in body["lanes"]] == [
+        lane if isinstance(lane, str) else lane["key"] for lane in raw_lanes
+    ]
     assert [q["key"] for q in body["question_types"]] == [
         q["key"] for q in combo.raw("case-type", "questions.yaml")["question_types"]
     ]
