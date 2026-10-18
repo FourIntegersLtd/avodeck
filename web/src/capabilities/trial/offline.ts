@@ -3,6 +3,7 @@
 // be opened with no connection but never read out as plain text from storage. Read-only (rule 9).
 import type { Schemas } from "../../foundation/platform-client";
 import type { CopyContent } from "./copy";
+import { deviceStore } from "./witnessBoxStore";
 
 export interface CopyMeta {
   label: string;
@@ -32,10 +33,7 @@ export type Opened = { state: "none" } | { state: "expired" } | { state: "broken
 
 const FORMAT_VERSION = 1;
 
-/**
- * Keeps copies in this tab's memory. A store that survives a reload needs the foundation's storage guard
- * to allow the witness-box copy (web/AGENTS.md's screen 25 exception); requested in cross-slice.md.
- */
+/** Keeps copies in this tab's memory (tests, and browsers with no IndexedDB). */
 export function memoryStore(): CopyStore {
   const copies = new Map<string, StoredCopy>();
   return {
@@ -47,13 +45,13 @@ export function memoryStore(): CopyStore {
 
 let store: CopyStore | null = null;
 
-/** Chooses where copies are kept (tests use `memoryStore()`). */
+/** Chooses where copies are kept: the device (`witnessBoxStore.ts`) by default; tests may use `memoryStore()`. */
 export function setCopyStore(next: CopyStore): void {
   store = next;
 }
 
 function current(): CopyStore {
-  if (!store) store = memoryStore();
+  if (!store) store = deviceStore() ?? memoryStore();
   return store;
 }
 
