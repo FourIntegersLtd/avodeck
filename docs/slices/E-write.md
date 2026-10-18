@@ -55,7 +55,7 @@ The loaded-language word list and opinion `view` options come from the case-type
 - [x] Lint returns in under 2 s at p95 (recorded responses plus timing budget).
 - [x] No lint response contains replacement text, and the lint schema has no free-prose field (core test).
 - [x] Dismissing a lint issue requires a reason and is kept for the final check.
-- [x] Autosave every 5 s and on blur. Two tabs editing the same opinion: the later save with a stale `updated_at` gets 412 `stale` with both versions (decision 2026-10-18).
+- [x] Autosave every 5 s and on blur. Two tabs editing the same opinion: the later save with a stale integer `version` (sent as the If-Match ETag) gets 412 `stale` with both versions (decision 2026-10-18).
 - [x] The workspace returns verified facts linked to the question as chips, the guidance in force on the consultation date, and the points summary.
 - [x] No slice code contains a clinician title, party or instructing-party word, or a fixed side or view list (core scan); the screens work unchanged with the fixture packs.
 - [ ] Screens 14 and 15 pass Playwright + axe and match their canvas boards.
@@ -72,6 +72,14 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] Two windows: the second save gets 412 and the keep-which prompt (S9)
 - [x] Only the named expert can write opinions (403 for co-experts, supervisors and assistants)
 - [x] Points and witness claims become `stale` when an underlying fact changes
+- [x] Worker jobs build their services from the cell config without `configure()`: slice B's read log and flags, slice D's confirmed links, the overlay pack's guidance, party names and statement words through `core/contracts` (fix 2026-10-18)
+- [x] Re-running the regex lint replaces only regex warnings; AI warnings stay while their words are still in the sentence
+- [x] A citation whose `[n]` marker is gone gets 422 naming `[n]`; the screen drops orphaned references and stops retrying until the next change
+- [x] A cited fact that changes, moves page or loses the quoted words marks the citation "changed since cited" (`changed_citations`, `stale`); the expert re-cites it as it is now; saved unchanged citations are accepted as they were
+- [x] Comparing a document that is not a statement source type (pack `statement: true`) gets 422 `not_a_statement`; only statement pages go to T-14c
+- [x] Known dates of birth go to `pii.strip` before every Claude call (none stored yet, so the port defaults to none)
+- [x] `opinion_versions` is append-only in the database (AV409), except the case purge
+- [x] Stale points can be kept; claims show the expert's verdict (else the suggested one) and a stale label
 
 ## Rules that apply
 1, 2, 4, 6, 7, 9, 11 from the root `AGENTS.md`.
