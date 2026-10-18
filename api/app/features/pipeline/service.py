@@ -356,6 +356,25 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
 
     await bounded(waiting, read, stop=_stop(ctx))
 
+    async def name_language(page_id: uuid.UUID) -> None:
+        async with ctx.transaction() as conn:
+            stored = await repo.words_of(conn, page_id)
+            text = " ".join(
+                [
+                    (
+                        await services.crypto.decrypt(
+                            conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                        )
+                    ).decode()
+                    for w in stored
+                ]
+            )
+            await repo.set_language(conn, page_id, language.detect(text, spoken))
+
+    async with ctx.transaction() as conn:
+        unnamed = await repo.pages_without_language(conn, ctx.case_id, language.MIN_WORDS)
+    await bounded(unnamed, name_language, stop=_stop(ctx))
+
 
 async def _ask(
     ctx: JobContext, services: PipelineServices, task: Any, pack: Any, who: Any, text: str, subject: str

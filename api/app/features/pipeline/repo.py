@@ -298,6 +298,17 @@ async def pages_without_words(conn: AsyncConnection, case_id: uuid.UUID) -> list
     return [r[0] for r in await cur.fetchall()]
 
 
+async def pages_without_language(conn: AsyncConnection, case_id: uuid.UUID, min_words: int) -> list[uuid.UUID]:
+    """Pages already read that have enough words to name a language but no language yet."""
+    cur = await conn.execute(
+        "select p.id from app.pages p where p.case_id = %s and p.text_source is not null and p.language is null"
+        " and not p.quarantined and (select count(*) from app.ocr_words w where w.page_id = p.id) >= %s"
+        " order by p.bundle_page_no",
+        (case_id, min_words),
+    )
+    return [r[0] for r in await cur.fetchall()]
+
+
 WordRow = tuple[uuid.UUID, uuid.UUID, int, str, bytes, list[float], float, bool, bool, str]
 
 
