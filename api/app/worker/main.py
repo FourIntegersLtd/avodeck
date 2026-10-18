@@ -19,7 +19,7 @@ import app.features.pipeline  # noqa: F401 - slice A's job kinds and its Documen
 from app.core.config import ConfigError, database_settings
 from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer
-from app.core.features import DEFAULT_PACKAGE, load_features
+from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
 from app.core.jobs import JobWorker, registry
 
 
@@ -39,12 +39,13 @@ def build_worker(
     )
 
 
-async def run(env: Mapping[str, str] | None = None) -> None:
-    worker = build_worker(env)
+async def run(env: Mapping[str, str] | None = None, *, features: str = DEFAULT_PACKAGE) -> None:
+    worker = build_worker(env, features=features)
     source = os.environ if env is None else env
     concurrency = int(source.get("WORKER_CONCURRENCY", "4"))
     await worker.database.open()
     try:
+        await start_features(features, worker, hook=WORKER_HOOK)  # each slice's `on_worker_start(worker)`
         async with worker:
             await worker.run(concurrency=concurrency, install_signal_handlers=True)
     finally:

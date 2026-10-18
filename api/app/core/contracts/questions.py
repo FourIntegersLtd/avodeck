@@ -1,4 +1,5 @@
-"""Questions asked (architecture 4): slice C extracts and confirms them; D, E and F read them.
+"""Questions asked (architecture 4): slice C extracts and confirms them; D, E and F read them
+through `confirmed_questions(conn, case_id)`.
 
 `text_verbatim` is the exact wording and never changes; an edited question keeps it and carries
 `confirmed_text` (state-machines.md "Question").
@@ -46,6 +47,30 @@ class Question(BaseModel):
     version: int
     created_at: datetime
     updated_at: datetime
+
+    @property
+    def wording(self) -> str:
+        """The words to use: the confirmed text of an edited question, otherwise the exact words."""
+        return self.confirmed_text if self.confirmed_text is not None else self.text_verbatim
+
+
+_QUESTION_COLUMNS = (
+    "id, case_id, instruction_version_id, number, text_verbatim, source_word_ids, para_ref, kind,"
+    " outside_expertise, status, confirmed_text, version, created_at, updated_at"
+)
+
+
+async def confirmed_questions(conn: AsyncConnection, case_id: uuid.UUID) -> list[Question]:
+    """The case's confirmed and edited questions in question order (number, then id).
+
+    Runs as the caller under row-level security, so someone who cannot see the content gets none."""
+    cur = await conn.execute(
+        f"select {_QUESTION_COLUMNS} from app.questions"
+        " where case_id = %s and status in ('confirmed', 'edited') order by number, id",
+        (case_id,),
+    )
+    names = [c.name for c in cur.description or []]
+    return [Question.model_validate(dict(zip(names, row, strict=True))) for row in await cur.fetchall()]
 
 
 # --- the question-set lock (slice C locks; D, E and F wait for it) ------------------------------------

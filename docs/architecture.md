@@ -128,6 +128,7 @@ packs/
 
 - **Registries the packs extend:** fact kinds (with field schemas), record source types, question types, party roles, instructing-party types, expert roles, document kinds, deadline kinds, timeline lanes, "Things to look at" checks, report sections, final checks, meeting types, court tracks, written-question classifications. Code never uses fixed lists for these.
 - **Rule types in code, rule instances in packs:** the checks engine implements a small set of generic rule types once (no_action_within, not_acknowledged_within, monitoring_overdue, not_reached_clinician, actions_not_done, field_missing, not_followed_up). Packs only choose and parameterise them, so a new specialty adds checks without new code. A genuinely new rule type is an engine change with its own tests.
+- **Lanes, sources and kinds carry their meaning:** a lane lists its fact `kinds` and may add `when: {field: value}`; a fact goes to the first lane whose kinds include its kind and whose `when` matches, else to the first lane listing its kind with no `when`. Lane labels and the "As the clinician saw it" title are vocabulary (`lanes`, `as_seen_title`). A source type may be `own_record` (the clinician's own record) and a fact kind may `arrive` from outside (results, letters: never available on their own event date). Each check row carries its rule's parameters (`checks.schema.json`). The overlay's `guidelines.yaml` lists guideline `versions` in force (labels, dates and links only, decision 0005).
 - **Expertise boundaries:** the specialty pack lists question types usually outside its expertise (general practice: causation); the case-type pack never names a specialty.
 - **Workflow from the case type:** the case header's steps and the screens inside each step come from `workflow.yaml`. Breach shows "As the clinician saw it" and "Points against"; a later condition-and-prognosis pack adds "Examination" and "Injuries and prognosis" and hides "As the clinician saw it".
 
@@ -174,7 +175,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 ### 3.5 How code uses packs
 
 - **One entry point:** `pack = packs.for_case(case)` (in `api/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
-- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
+- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.own_record_sources()`, `pack.arriving_kinds()`, `pack.guidelines()`, `pack.guideline_sources()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
 - **Never hard-code** in slice code, prompts, schemas, enums or tests outside fixtures: court or rule names (CPR, PD35, Part 35), guidance bodies (NICE), "statement of truth", party or instructing-party words (claimant, defendant, solicitor), clinician titles (GP), record systems (EMIS, SystmOne), identifier types (NHS number), currencies, date orders, timezones, holiday rules, retention periods or fixed lists of anything in a registry.
 - **Recorded on the report:** `cases.pack_versions` and each served report store the pack versions used, so later wording changes never alter old reports.
 - **Tested per combination:** `evals/<jurisdiction>/<case-type>/<specialty>/` holds synthetic bundles and expected facts.
@@ -292,7 +293,7 @@ How facts relate to the questions, and what the checks found.
 | `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, evidence_fact_ids[], decision, reason |
 | `availability_overrides` | The expert's corrections to when an item became available to the clinician. | case_id, fact_id, available_at, unknown, reason, at |
 | `consultation_notes` | The expert's private notes on a consultation. | case_id, fact_id, text |
-| `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
+| `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). Not a database table: read from the overlay pack's `guidelines.yaml` with `pack.guidelines()` (ADR 0016). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
 | `comments` | Notes between people on a case (e.g. a supervisor's comment on a paragraph). Never in reports. | case_id, author_id, target_type, target_id, text, at, resolved_at |
 
 ### 4.6 Write
@@ -1190,7 +1191,7 @@ Section 4 says what is stored; this section says how it behaves: who can do what
 ### 10.5 Writing
 
 - **Opinion history.** Every autosave keeps a version. Building a report names the versions used. Earlier versions can be viewed and restored, never edited.
-- **Guidance table changes.** `guideline_versions` rows are versioned. A case records the table version used; if a cited guideline's entry changes, the expert sees a notice.
+- **Guidance table changes.** Guideline versions come from the overlay pack (ADR 0016); the table version is the overlay pack version and its `reviewed_at`. A case records the version it was shown; if a cited guideline's entry changes, the expert sees a notice.
 - **Comments.** `comments` on a page, fact or paragraph, by case members. They never appear in reports. The screen warns that comments may be disclosable.
 - **Concurrent editing.** Every editable resource uses optimistic concurrency (ETag / If-Match; 412 on a stale write) with a "which version do you want to keep?" prompt. This applies to all editable resources, not only opinions.
 

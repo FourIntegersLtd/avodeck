@@ -19,7 +19,7 @@ from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer
 from app.core.errors import install_error_handlers
 from app.core.features import DEFAULT_PACKAGE as DEFAULT_FEATURES
-from app.core.features import feature_routers
+from app.core.features import feature_routers, start_features
 from app.core.packs import PackLibrary, default_library
 from app.core.routes.account import account_public, account_router
 from app.core.routes.auth import auth_pending, auth_public, auth_signed_in, auth_status
@@ -91,6 +91,7 @@ def create_app(
             except ConfigError:
                 app.state.crypto = None
         try:
+            await start_features(features, app)  # each slice's `on_startup(app)`, database ready
             yield
         finally:
             if owned_storage is not None:
