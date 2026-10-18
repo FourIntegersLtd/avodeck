@@ -20,7 +20,6 @@ from datetime import UTC, datetime, timedelta
 
 import psycopg
 import pytest
-from app.features.report.spot_checks import MAX_FACTS, open_check, respond, sample
 from fastapi import FastAPI
 from PIL import Image, ImageDraw
 
@@ -31,6 +30,7 @@ from app.core.jobs import JobContext
 from app.core.storage import SupabaseStorage
 from app.features.report.jobs import build_report
 from app.features.report.services import ReportServices, configure, current
+from app.features.report.spot_checks import MAX_FACTS, open_check, respond, sample
 from tests.fixtures.report.world import CRYPTO, Reads, World, app_for, build, make_ready
 from tests.support.db import ClientFor
 from tests.support.files import local_storage
