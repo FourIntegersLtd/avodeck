@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Things-to-look-at checks",
+  "description": "Each check is an instance of a rule type implemented once in the engine; packs only choose and parameterise. Every kind named (applies_to, action_kinds, acknowledged_kinds, followup_kinds, or_kinds) must be a fact kind of the merged pack.",
   "type": "object",
   "properties": {
     "checks": {
@@ -16,18 +17,192 @@
             "type": "boolean"
           },
           "rule": {
-            "type": "string",
-            "pattern": "^[a-z][a-z0-9_]*$"
+            "enum": [
+              "no_action_within",
+              "not_acknowledged_within",
+              "monitoring_overdue",
+              "not_reached_clinician",
+              "actions_not_done",
+              "field_missing",
+              "not_followed_up"
+            ]
           },
           "applies_to": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              }
+            ],
+            "description": "The fact kind (or kinds) the check looks at."
+          },
+          "when": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "type": [
+                "string",
+                "number",
+                "integer",
+                "boolean"
+              ]
+            },
+            "minProperties": 1,
+            "description": "Only facts whose fields have these values."
+          },
+          "window_days": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "flag": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "value": {
+                    "type": [
+                      "string",
+                      "number",
+                      "integer",
+                      "boolean"
+                    ]
+                  }
+                },
+                "required": [
+                  "field",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]*$"
+                  },
+                  "any_of": {
+                    "type": "array",
+                    "items": {
+                      "type": [
+                        "string",
+                        "number",
+                        "integer",
+                        "boolean"
+                      ]
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "field",
+                  "any_of"
+                ],
+                "additionalProperties": false
+              }
+            ],
+            "description": "Which facts count: a plain word, {field, value}, or {field, any_of: [...]} (the fact's field holds one of the values)."
+          },
+          "field": {
             "type": "string",
-            "pattern": "^[a-z][a-z0-9_]*$"
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "field_missing: the field that should be filled."
+          },
+          "table": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "monitoring_overdue: the overlay table with the intervals."
+          },
+          "action_kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "uniqueItems": true,
+            "minItems": 1,
+            "description": "no_action_within: kinds that count as an action."
+          },
+          "acknowledged_field": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "not_acknowledged_within: the applies_to kind's own date field."
+          },
+          "acknowledged_kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "uniqueItems": true,
+            "minItems": 1,
+            "description": "not_acknowledged_within: kinds that can acknowledge it."
+          },
+          "acknowledges_field": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "not_acknowledged_within: the date field on an acknowledging kind that names the date of what it acknowledges."
+          },
+          "followup_kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "uniqueItems": true,
+            "minItems": 1,
+            "description": "not_followed_up: kinds that count as a follow-up."
+          },
+          "or_kinds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "uniqueItems": true,
+            "minItems": 1,
+            "description": "field_missing: kinds on the same date that also satisfy the check."
+          },
+          "scope": {
+            "enum": [
+              "all",
+              "linked"
+            ],
+            "description": "field_missing: every fact, or only facts linked to a question."
+          },
+          "label_spans": {
+            "type": "boolean",
+            "description": "Ask T-13a to label the cited words of candidate actions."
+          },
+          "gentle": {
+            "type": "boolean"
           },
           "default_on": {
             "type": "boolean"
           }
         },
-        "additionalProperties": true,
+        "additionalProperties": false,
         "required": [
           "key"
         ]

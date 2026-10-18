@@ -422,7 +422,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | word_ids[] | The exact words on the page it came from, the proof |
 | bbox | The box drawn around it on the page |
 | event_date / date_basis | When it happened, and whether that date was printed or worked out |
-| available_at / availability_basis | When the clinician could first have seen it, and how we know |
+| available_at / availability_basis | When the clinician could first have seen it, and how we know. Set through `app.set_fact_availability()`, which keeps the fact version |
 | status | Suggested, checked by the expert, not right, or changed |
 | version | Goes up when the fact is changed, so citations know |
 | model_task / model_id / prompt_version | Which AI task, model and instructions suggested it |

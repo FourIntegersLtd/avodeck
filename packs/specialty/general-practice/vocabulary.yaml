@@ -3,3 +3,12 @@ clinician: general practitioner
 clinicians: general practitioners
 practice: general practice
 coverage_roles: {partner: partner, salaried: salaried general practitioner, locum: locum}
+# Screen 12 title ({clinician} is filled at merge) and timeline lane labels (the overlay may use local words).
+as_seen_title: "As the {clinician} saw it"
+lanes:
+  primary_care_visits: Practice visits
+  results: Results
+  out_of_hours: Out of hours
+  prescriptions: Prescriptions
+  hospital_and_letters: Hospital and letters
+  appointments: Appointments
