@@ -72,7 +72,7 @@ async def _decrypt(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, blob: Any) 
     return (await crypto.decrypt(conn, case_id, bytes(blob), purpose=BODY)).decode()
 
 
-async def _out(conn: DbConn, crypto: Crypto, row: dict[str, Any]) -> OpinionOut:
+async def opinion_out(conn: DbConn, crypto: Crypto, row: dict[str, Any]) -> OpinionOut:
     return OpinionOut(**{**row, "body": await _decrypt(conn, crypto, row["case_id"], row["body"])})
 
 
@@ -110,7 +110,7 @@ async def _relint(conn: DbConn, crypto: Crypto, row: dict[str, Any], body: str, 
             " values (%s, %s, %s, %s, %s, %s, 'regex')",
             (case_id, opinion_id, row["version"], issue.sentence_index, issue.type, sealed),
         )
-    out = await _out(conn, crypto, row)
+    out = await opinion_out(conn, crypto, row)
     out.lint = await open_issues(conn, crypto, case_id, opinion_id)
     return out
 
@@ -151,7 +151,7 @@ async def _write(
 
 
 async def _stale(conn: DbConn, crypto: Crypto, current: dict[str, Any] | None, yours: OpinionIn) -> ApiError:
-    saved = None if current is None else (await _out(conn, crypto, current)).model_dump(mode="json")
+    saved = None if current is None else (await opinion_out(conn, crypto, current)).model_dump(mode="json")
     return ApiError(
         "stale",
         "Someone else changed this first. Choose which version to keep.",

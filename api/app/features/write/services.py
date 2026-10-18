@@ -25,7 +25,9 @@ from app.features.write.ports import (
     AllLinked,
     CaseNames,
     FactFlags,
+    GuidanceInForce,
     NoFlags,
+    NoGuidance,
     OcrWords,
     PartyNames,
     QuestionLinks,
@@ -37,6 +39,7 @@ from app.features.write.ports import (
 class WriteServices:
     flags: FactFlags = field(default_factory=NoFlags)
     links: QuestionLinks = field(default_factory=AllLinked)
+    guidance: GuidanceInForce = field(default_factory=NoGuidance)
     kit: AiKit | None = None
     crypto: CaseCrypto | None = None
     reads: PageReadLog | None = None

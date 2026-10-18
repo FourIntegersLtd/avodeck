@@ -56,7 +56,7 @@ The loaded-language word list and opinion `view` options come from the case-type
 - [x] No lint response contains replacement text, and the lint schema has no free-prose field (core test).
 - [x] Dismissing a lint issue requires a reason and is kept for the final check.
 - [ ] Autosave every 5 s and on blur. Two tabs editing the same opinion: the later save with a stale `updated_at` gets 409 with both versions.
-- [ ] The workspace returns verified facts linked to the question as chips, the guidance in force on the consultation date, and the points summary.
+- [x] The workspace returns verified facts linked to the question as chips, the guidance in force on the consultation date, and the points summary.
 - [ ] No slice code contains a clinician title, party or instructing-party word, or a fixed side or view list (core scan); the screens work unchanged with the fixture packs.
 - [ ] Screens 14 and 15 pass Playwright + axe and match their canvas boards.
 

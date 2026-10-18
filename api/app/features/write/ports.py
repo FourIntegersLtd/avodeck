@@ -8,6 +8,8 @@
 - `StatementWords` (A): a document's words in reading order, for T-14c. The stand-in reads A's
   `ocr_words` the way A seals them, until a core contract exists; each word's reference is
   `<page_id>/<word_id>`.
+- `GuidanceInForce` (D, screen 12): the guidance in force on a date, from D's `guideline_versions` (shared,
+  not patient data). The stand-in returns none until D's table lands.
 When B or D land, only these adapters change (cross-slice.md, E -> B and E -> D).
 """
 
@@ -15,12 +17,15 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Sequence
+from datetime import date
 from typing import Protocol
 
 from psycopg import AsyncConnection
+from pydantic import BaseModel, ConfigDict
 
 from app.core.contracts.facts import Fact
 from app.core.crypto import CaseCrypto
+from app.core.packs import MergedPack
 
 PARTY_NAME = "party_name"  # slice C's encryption purpose for a party's name
 
@@ -55,6 +60,24 @@ class StatementWords(Protocol):
         ...
 
 
+class Guidance(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    source: str
+    code: str
+    title: str
+    version_label: str
+    in_force_from: date
+    in_force_to: date | None
+    url: str | None
+
+
+class GuidanceInForce(Protocol):
+    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[Guidance]:
+        """The guidance for the case's jurisdiction and specialty in force on `on`."""
+        ...
+
+
 class NoFlags:
     async def flagged_for_points(self, conn: AsyncConnection, case_id: uuid.UUID) -> set[uuid.UUID]:
         return set()
@@ -65,6 +88,11 @@ class AllLinked:
         self, conn: AsyncConnection, case_id: uuid.UUID, question_id: uuid.UUID, facts: Sequence[Fact]
     ) -> list[Fact]:
         return list(facts)
+
+
+class NoGuidance:
+    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[Guidance]:
+        return []
 
 
 class PartyNames:
