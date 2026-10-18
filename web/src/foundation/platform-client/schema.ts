@@ -3903,9 +3903,9 @@ export interface components {
             mfa_enrolled: boolean;
             /**
              * Status
-             * @constant
+             * @enum {string}
              */
-            status: "mfa_required";
+            status: "mfa_required" | "signed_in";
         };
         /** Signature */
         Signature: {

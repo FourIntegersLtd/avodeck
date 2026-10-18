@@ -5762,7 +5762,10 @@
             "type": "boolean"
           },
           "status": {
-            "const": "mfa_required",
+            "enum": [
+              "mfa_required",
+              "signed_in"
+            ],
             "title": "Status",
             "type": "string"
           }

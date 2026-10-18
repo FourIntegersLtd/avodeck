@@ -83,6 +83,20 @@ def auth_settings(env: Mapping[str, str] | None = None) -> AuthSettings:
     )
 
 
+_LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def local_mfa_skip(env: Mapping[str, str] | None = None) -> bool:
+    """`DEV_SKIP_MFA=1`: local development only, a password sign-in counts as a completed code
+    (rule 10 off). Refused unless Auth is a local Supabase, so no deployed cell can turn it on."""
+    source = os.environ if env is None else env
+    if source.get("DEV_SKIP_MFA", "").strip().lower() not in ("1", "true"):
+        return False
+    if urlsplit(source.get("SUPABASE_URL", "").strip()).hostname not in _LOCAL_HOSTS:
+        raise ConfigError("DEV_SKIP_MFA is only allowed against a local Supabase")
+    return True
+
+
 # --- AI cell: in-region models and endpoints (rule 5, architecture 2.3 and 6.1) ---------------------------------------
 
 MODEL_ROLES = {"sonnet": "BEDROCK_SONNET_MODEL_ID", "opus": "BEDROCK_OPUS_MODEL_ID"}

@@ -22,7 +22,10 @@ export function SignIn() {
 
   const go = (next: Step) => setStep(next);
   const finish = () => navigate(arrived.from && arrived.from !== "/sign-in" ? arrived.from : "/today", { replace: true });
-  const afterPassword = (result: Schemas["SignInResult"]) => go(result.mfa_enrolled ? "code" : "enrol");
+  const afterPassword = (result: Schemas["SignInResult"]) => {
+    if (result.status === "signed_in") finish(); // the local API skips the code (DEV_SKIP_MFA)
+    else go(result.mfa_enrolled ? "code" : "enrol");
+  };
   const afterCode = (result: Schemas["Verified"]) => {
     if (result.recovery_codes?.length) {
       setCodes(result.recovery_codes);
