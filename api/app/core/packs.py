@@ -514,6 +514,17 @@ class MergedPack:
     def checks(self) -> list[dict[str, Any]]:
         return self._registry("checks.yaml", "checks")
 
+    def reference_table(self, name: str) -> list[dict[str, Any]]:
+        """The rows of the reference table a check names (`table`), from `<name>.yaml` after the layer merge.
+
+        Rows are the file's list field, copied so callers cannot change the pack; no file means no rows.
+        KeyError for a name no check gives, so slices never read other pack files this way."""
+        if name not in {str(c["table"]) for c in self.checks() if c.get("table")}:
+            raise KeyError(f"no check names the reference table {name!r}")
+        content = self._files.get(f"{name}.yaml") or {}
+        rows = next((v for v in content.values() if isinstance(v, list)), [])
+        return copy.deepcopy(rows)
+
     def own_record_sources(self) -> frozenset[str]:
         """Source types marked `own_record`: the clinician's own record."""
         return frozenset(s["key"] for s in self.source_types() if s.get("own_record") is True)
