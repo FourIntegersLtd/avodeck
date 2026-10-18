@@ -1,1 +1,4 @@
-lanes: [sessions, measurements, letters]
+lanes:
+  - {key: sessions, kinds: [session]}
+  - {key: measurements, kinds: [measurement]}
+  - {key: letters, kinds: [measurement], when: {via: letter}}

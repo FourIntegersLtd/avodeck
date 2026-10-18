@@ -18,6 +18,31 @@
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]*$"
               },
+              "kinds": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "uniqueItems": true,
+                "minItems": 1
+              },
+              "when": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "additionalProperties": {
+                  "type": [
+                    "string",
+                    "number",
+                    "integer",
+                    "boolean"
+                  ]
+                },
+                "minProperties": 1
+              },
               "enabled": {
                 "type": "boolean"
               }
@@ -34,5 +59,6 @@
   "additionalProperties": false,
   "required": [
     "lanes"
-  ]
+  ],
+  "description": "Timeline lanes, top to bottom. A lane lists the fact kinds it shows and may add `when` ({field: value} on the fact's fields). A fact goes to the first lane whose kinds include its kind and whose `when` matches; if none matches, to the first lane listing its kind with no `when`. Every kind named must be a fact kind of the merged pack. A plain key is still a lane (with no kinds, for a later layer to fill)."
 }

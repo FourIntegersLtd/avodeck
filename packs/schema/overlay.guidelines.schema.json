@@ -31,7 +31,66 @@
         "type": "string",
         "minLength": 1
       }
+    },
+    "versions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]*$"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "version_label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "in_force_from": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "in_force_to": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "url": {
+            "type": "string",
+            "pattern": "^https://"
+          }
+        },
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "source",
+          "title",
+          "version_label",
+          "in_force_from",
+          "in_force_to"
+        ]
+      }
+    },
+    "reviewed_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "description": "Guideline sources and the versions in force, for the jurisdiction and specialty. Labels, dates and links only, never guideline text (decision 0005). in_force_to null means still in force."
 }

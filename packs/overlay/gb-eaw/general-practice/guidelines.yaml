@@ -7,3 +7,23 @@ sources:
     name: NICE Clinical Knowledge Summaries
     licence: Excluded from the open content licence; link only
 priority_guidelines: [NG12, NG51]   # extend in guideline_versions; see decision 0005
+# Versions in force: labels, dates and links only, never guideline text (decision 0005).
+# in_force_to: null means still in force. Slice D syncs these rows into guideline_versions at start-up.
+reviewed_at: "2026-10-18"
+versions:
+  # founder: confirm dates
+  - code: NG12
+    source: NICE
+    title: "Suspected cancer: recognition and referral"
+    version_label: NG12 (2015, as updated)
+    in_force_from: "2015-06-23"
+    in_force_to: null
+    url: https://www.nice.org.uk/guidance/ng12
+  # founder: confirm dates
+  - code: NG51
+    source: NICE
+    title: "Sepsis: recognition, diagnosis and early management"
+    version_label: NG51 (2016, as updated)
+    in_force_from: "2016-07-13"
+    in_force_to: null
+    url: https://www.nice.org.uk/guidance/ng51

@@ -31,6 +31,10 @@
                 "boolean"
               ]
             }
+          },
+          "arrives": {
+            "type": "boolean",
+            "description": "Arrives from outside (a result, a letter): never treated as available on its own event date."
           }
         },
         "additionalProperties": false,

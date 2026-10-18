@@ -18,6 +18,10 @@
           "colour": {
             "type": "string",
             "pattern": "^#[0-9A-Fa-f]{6}$"
+          },
+          "own_record": {
+            "type": "boolean",
+            "description": "The clinician's own record: an entry here was available to them when it was written."
           }
         },
         "additionalProperties": false,
