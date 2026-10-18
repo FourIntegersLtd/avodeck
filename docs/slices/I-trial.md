@@ -19,7 +19,7 @@ The expert prepares the joint statement with the other expert, with deviations f
 - `POST /v1/cases/{id}/offline-packages` 🔒; `GET …/offline-packages/{pkg_id}/download` 🔒; `DELETE …/offline-packages/{pkg_id}`
 
 ## Tables owned
-`expert_meetings`, `agenda_items`, `court_bundles`, `concordance`, `trial_packs`, `offline_packages`.
+`expert_meetings`, `agenda_items`, `court_bundles`, `concordance`, `trial_pack_settings`, `trial_packs`, `offline_packages` (plus `expert_meeting_participants` and `agenda_versions`).
 
 ## Worker jobs
 - **`match_trial_bundle`:**
@@ -91,3 +91,9 @@ Supplementary reports (G), deletion of packages on close (H calls our revoke), l
 
 ## Definition of done
 Root checklist, plus: on staging the synthetic case produces a signed joint statement, a confirmed concordance, a trial pack and an offline package that works in airplane mode.
+
+## Scope notes (first build)
+
+- The witness-box copy (S25) is kept in memory on the device for this build. Keeping it across a browser restart needs IndexedDB, which the foundation guard `noTokenStorage` forbids today; the exception is requested from foundation (see avodeck-pending/cross-slice.md).
+- Offline screens are exported as `trialOfflineRoutes` and mounted outside the signed-in guard by the foundation's `offlineRoutesFrom` convention (any capability export ending in `OfflineRoutes`).
+- Sending for signature returns the prepared statement and a signing reference; a copy signed elsewhere comes back through `signed-external`. The e-signature provider itself is not wired yet.

@@ -105,6 +105,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `agenda_items` | I | Named expert | Many per agenda version | Own positions editable until signed | Case deletion |
 | `court_bundles` | I | Named expert or assistant | Many versions | State machine; superseded kept | Case deletion |
 | `concordance` | I | Worker; named expert confirms | One set per court bundle version | Recomputed per version | Case deletion |
+| `trial_pack_settings` | I | Named expert | One per case | Edited with If-Match | Case deletion |
 | `trial_packs` | I | Named expert | Many per hearing | Stale when new material arrives | Case deletion |
 | `offline_packages` | I | Named expert | One per device per hearing | Expire; revocable | Expire; deleted with the case |
 | `legal_holds` | H | Named expert or org owner | Many; any active blocks deletion | State machine | Released before deletion can run |
