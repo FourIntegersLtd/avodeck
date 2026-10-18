@@ -82,7 +82,8 @@ def params(world: dict[str, uuid.UUID], **more: uuid.UUID) -> dict[str, uuid.UUI
 def add_opinion(admin: psycopg.Connection, world: dict[str, uuid.UUID]) -> uuid.UUID:
     row = admin.execute(INSERTS["opinions"] + " returning id", params(world)).fetchone()
     assert row is not None
-    return row[0]
+    opinion_id: uuid.UUID = row[0]
+    return opinion_id
 
 
 def insert_params(admin: psycopg.Connection, world: dict[str, uuid.UUID], table: str) -> dict[str, uuid.UUID]:

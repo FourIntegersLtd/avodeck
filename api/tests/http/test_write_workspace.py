@@ -183,7 +183,12 @@ async def test_the_saved_opinion_comes_back_with_its_open_warnings(
 ) -> None:
     expert = await client_for(world.expert)
     assert (await workspace(expert, world)).json()["opinion"] is None
-    payload = {"body": "Review was in 3 weeks.", "citation_refs": [], "view": None, "provisional": True}
+    payload: dict[str, object] = {
+        "body": "Review was in 3 weeks.",
+        "citation_refs": [],
+        "view": None,
+        "provisional": True,
+    }
     saved = await expert.put(
         world.url(f"questions/{world.question}/opinion"), json=payload, headers={"If-Match": '"0"'}
     )

@@ -77,7 +77,7 @@ async def test_questions_without_an_opinion_until_each_has_one(
     for person in (world.co_expert, world.supervisor, world.assistant, world.viewer, world.outsider):
         assert await items(await client_for(person), "write_questions_without_opinion") == []
 
-    payload = {"body": "My view.", "citation_refs": [], "view": None, "provisional": False}
+    payload: dict[str, object] = {"body": "My view.", "citation_refs": [], "view": None, "provisional": False}
     saved = await expert.put(
         world.url(f"questions/{world.question}/opinion"), json=payload, headers={"If-Match": '"0"'}
     )
