@@ -34,7 +34,7 @@ def an_app(storage: Any) -> Any:
         auth=auth,  # type: ignore[arg-type]
         storage=storage,
         crypto=SimpleNamespace(),  # type: ignore[arg-type]
-        features="app.no_such_features",
+        features="app.worker",  # a package with no features inside
     )
 
 

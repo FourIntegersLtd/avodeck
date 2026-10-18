@@ -56,11 +56,16 @@ def test_a_suggested_question_takes_both_and_the_source_is_pack_or_expert(
 def test_both_are_locked_once_the_question_is_confirmed(
     admin: psycopg.Connection, case: uuid.UUID, status: str
 ) -> None:
-    question = add_question(admin, case, status=status)
+    question = add_question(admin, case)
+    admin.execute(
+        "update app.questions set answer_parts = %s, outside_expertise_source = 'pack', status = %s where id = %s",
+        (["timing"], status, question),
+    )
     for change in (
-        "answer_parts = array['timing']",
+        "answer_parts = array['other']",
         "outside_expertise_source = 'expert'",
         "answer_parts = null",
+        "outside_expertise_source = null",
     ):
         with pytest.raises(Refused), admin.transaction():
             admin.execute(f"update app.questions set {change} where id = %s", (question,))
