@@ -105,9 +105,10 @@ a { color: var(--green); }
 .av-sign-in__promise { display: flex; flex-direction: column; gap: 28px; max-width: 520px; }
 .av-sign-in__tagline { margin: 0; font-size: 48px; line-height: 1.1; color: #FFFFFF; max-width: 9em; }
 .av-sign-in__points { margin: 0; padding: 0; list-style: none; display: grid; gap: 18px; font-size: 19px; color: #CFE6DA; }
-.av-sign-in__points li { display: flex; gap: 14px; align-items: flex-start; }
-.av-sign-in__points svg { flex: none; }
-.av-sign-in__footnote { margin: 0; font-size: var(--text-small); color: #A9CDBB; }
+.av-sign-in__points li { display: flex; gap: 16px; align-items: center; }
+.av-sign-in__icon { flex: none; width: 44px; height: 44px; border-radius: 12px; background: rgba(124, 207, 166, 0.14); color: #7CCFA6; display: inline-flex; align-items: center; justify-content: center; }
+.av-sign-in__footnote { margin: 0; font-size: var(--text-small); color: #A9CDBB; display: flex; gap: 10px; align-items: center; }
+.av-sign-in__footnote svg { flex: none; color: #7CCFA6; }
 .av-sign-in__main { padding: 64px 40px; display: flex; align-items: center; justify-content: center; }
 .av-sign-in__form { width: 100%; max-width: 440px; margin: 0 auto; }
 .av-codes { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); font-family: var(--font-mono); font-size: var(--text-large); }
