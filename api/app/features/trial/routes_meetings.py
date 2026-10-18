@@ -55,6 +55,7 @@ from app.features.trial.common import (
     sha256,
     trial_path,
 )
+from app.features.trial.ports import ReportChange
 from app.features.trial.router import router
 from app.features.trial.services import current
 from app.features.trial.statement import statement_pdf
@@ -241,6 +242,27 @@ async def _add_participant(conn: Any, case_id: uuid.UUID, meeting_id: uuid.UUID,
     row = await cur.fetchone()
     assert row is not None
     return row[0]  # type: ignore[no-any-return]
+
+
+def _report_changes(
+    served: ServedReport | None, row: dict[str, Any], position: str | None, note: str
+) -> list[ReportChange]:
+    """G `report_changes` rows for a changed position: one per served paragraph the item came from."""
+    if served is None or position is None:
+        return []
+    texts = {p.id: p.text for p in served.paragraphs}
+    return [
+        ReportChange(
+            served_version_id=served.version_id,
+            paragraph_id=paragraph_id,
+            kind="change_of_opinion",
+            old_text=texts[paragraph_id],
+            new_text=position,
+            reason=note,
+        )
+        for paragraph_id in row["served_paragraph_ids"]
+        if paragraph_id in texts
+    ]
 
 
 @router.post("/cases/{case_id}/expert-meetings", status_code=201, response_model=MeetingSummary)
@@ -489,7 +511,9 @@ async def change_item(
             and row["change_recorded_at"] is None
             and row["served_paragraph_ids"]
         ):
-            await current().changes.record(conn, case_id, item_id, list(row["served_paragraph_ids"]))
+            position = body.own_position if "own_position" in given else row["own_position"]
+            changed = _report_changes(served, row, position, body.change_note)
+            await current().changes.record(conn, crypto, case_id, changed)
             sets["change_recorded_at"] = datetime.now().astimezone()
     if sets:
         columns = ", ".join(f"{k} = %s" for k in sets)

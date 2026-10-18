@@ -28,6 +28,7 @@ from app.core.jobs import registry
 from app.features.trial import ai_tasks, repo
 from app.features.trial.common import NO_STORE, Build, Crypto, Pack, Storage, View, conflict, invalid, not_found
 from app.features.trial.pack_document import DEFAULT_SECTIONS
+from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
 
@@ -217,7 +218,7 @@ async def check_new_note(
 ) -> NoteChecked:
     sentences = sentences_of(body.text)
     served = await latest_served(conn, crypto, case_id)
-    answers = await current().answers.served(conn, crypto, case_id)
+    answers = answers_of(await current().answers.served(conn, crypto, case_id))
     sources: dict[str, Source] = {}
     lines = [f"s{i}\t{s}" for i, s in enumerate(sentences)]
     for paragraph in served.paragraphs if served else ():

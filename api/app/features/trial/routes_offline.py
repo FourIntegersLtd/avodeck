@@ -43,6 +43,7 @@ from app.features.trial.common import (
     sha256,
     trial_path,
 )
+from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
 
@@ -129,7 +130,7 @@ async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: 
 
     meeting = await repo.latest_meeting(conn, case_id)
     items = await repo.current_items(conn, crypto, case_id, meeting["id"]) if meeting else []
-    answers = await current().answers.served(conn, crypto, case_id)
+    answers = answers_of(await current().answers.served(conn, crypto, case_id))
     return {
         "format_version": FORMAT_VERSION,
         "case_id": str(case_id),

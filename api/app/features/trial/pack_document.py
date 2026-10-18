@@ -21,6 +21,7 @@ from app.core.contracts.served import latest_served
 from app.core.packs import MergedPack
 from app.features.trial import repo
 from app.features.trial.pdfs import Document
+from app.features.trial.ports import answers_of
 from app.features.trial.services import TrialServices
 from app.features.trial.words import word
 
@@ -129,7 +130,7 @@ async def pack_document(
                     doc.para(word(lang, "not_agreed", text=item["reason"] or ""))
         elif section == "written_answers":
             doc.heading(word(lang, "written_answers"))
-            answers = await services.answers.served(conn, crypto, case_id)
+            answers = answers_of(await services.answers.served(conn, crypto, case_id))
             if not answers:
                 doc.para(word(lang, "none_yet"))
             doc.paras(f"{a.question_no}. {with_trial_refs(pack, refs, a.text)}" for a in answers)
