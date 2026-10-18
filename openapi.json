@@ -121,6 +121,78 @@
         "title": "AnswersIn",
         "type": "object"
       },
+      "AnswersSignedVersion": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "prev_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Version Id"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_no",
+          "type",
+          "display_name",
+          "status",
+          "sha256",
+          "prev_version_id",
+          "locked_at"
+        ],
+        "title": "AnswersSignedVersion",
+        "type": "object"
+      },
       "ApiError": {
         "properties": {
           "error": {
@@ -2144,6 +2216,114 @@
         "title": "Citation",
         "type": "object"
       },
+      "ClaimChange": {
+        "additionalProperties": false,
+        "properties": {
+          "expert_verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "supports",
+                  "contradicts",
+                  "not_addressed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Verdict"
+          },
+          "status": {
+            "enum": [
+              "confirmed",
+              "edited",
+              "dismissed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ClaimChange",
+        "type": "object"
+      },
+      "ClaimOut": {
+        "properties": {
+          "claim_index": {
+            "title": "Claim Index",
+            "type": "integer"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "expert_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Verdict"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/PointFact"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "claim_index",
+          "text_verbatim",
+          "word_ids",
+          "verdict",
+          "expert_verdict",
+          "status",
+          "version",
+          "facts"
+        ],
+        "title": "ClaimOut",
+        "type": "object"
+      },
       "CloseSummary": {
         "description": "What screen 26 shows: where the case is, when it will be deleted, and what is holding it.",
         "properties": {
@@ -2988,6 +3168,97 @@
           }
         },
         "title": "DeadlineChange",
+        "type": "object"
+      },
+      "DeadlineChangeOut": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "new_due_on": {
+            "format": "date",
+            "title": "New Due On",
+            "type": "string"
+          },
+          "old_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Due On"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          }
+        },
+        "required": [
+          "id",
+          "old_due_on",
+          "new_due_on",
+          "reason",
+          "source",
+          "source_id",
+          "changed_by",
+          "at"
+        ],
+        "title": "DeadlineChangeOut",
+        "type": "object"
+      },
+      "DeadlineChanges": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/DeadlineChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changes"
+        ],
+        "title": "DeadlineChanges",
         "type": "object"
       },
       "DeadlineOut": {
@@ -7573,6 +7844,182 @@
         "title": "OpinionView",
         "type": "object"
       },
+      "OpposingClaimChange": {
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "matches",
+                  "wrong_page",
+                  "wrong_value",
+                  "not_on_page",
+                  "contradicted"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "OpposingClaimChange",
+        "type": "object"
+      },
+      "OpposingClaimOut": {
+        "properties": {
+          "checked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked By"
+          },
+          "claim_no": {
+            "title": "Claim No",
+            "type": "integer"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "discrepancy": {
+            "title": "Discrepancy",
+            "type": "boolean"
+          },
+          "expert_confirmed": {
+            "title": "Expert Confirmed",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "our_page_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Our Page No"
+          },
+          "our_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Our Quote"
+          },
+          "paragraph_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paragraph Ref"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "their_page_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Their Page Ref"
+          },
+          "their_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Their Quote"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "claim_no",
+          "paragraph_ref",
+          "text_verbatim",
+          "their_quote",
+          "their_page_ref",
+          "our_quote",
+          "our_page_no",
+          "status",
+          "checked_by",
+          "reason",
+          "expert_confirmed",
+          "confirmed_at",
+          "discrepancy",
+          "version"
+        ],
+        "title": "OpposingClaimOut",
+        "type": "object"
+      },
       "OpposingQueued": {
         "properties": {
           "id": {
@@ -7609,7 +8056,7 @@
           },
           "claims": {
             "items": {
-              "$ref": "#/components/schemas/app__features__after_serving__routes_new_material__ClaimOut"
+              "$ref": "#/components/schemas/OpposingClaimOut"
             },
             "title": "Claims",
             "type": "array"
@@ -8656,7 +9103,7 @@
         "properties": {
           "claims": {
             "items": {
-              "$ref": "#/components/schemas/app__features__write__routes_witness__ClaimOut"
+              "$ref": "#/components/schemas/ClaimOut"
             },
             "title": "Claims",
             "type": "array"
@@ -9314,6 +9761,95 @@
         "title": "QuestionChange",
         "type": "object"
       },
+      "QuestionOut": {
+        "properties": {
+          "confirmed_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Text"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "instruction_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction Version Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "outside_expertise": {
+            "title": "Outside Expertise",
+            "type": "boolean"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "source_word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Word Ids",
+            "type": "array"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "instruction_version_id",
+          "number",
+          "text_verbatim",
+          "confirmed_text",
+          "source_word_ids",
+          "para_ref",
+          "kind",
+          "outside_expertise",
+          "status",
+          "version"
+        ],
+        "title": "QuestionOut",
+        "type": "object"
+      },
       "QuestionUpdate": {
         "additionalProperties": false,
         "description": "`text` is the expert's own wording (the exact words stay); `confirm` accepts the exact words.",
@@ -9367,6 +9903,93 @@
           }
         },
         "title": "QuestionUpdate",
+        "type": "object"
+      },
+      "Questions": {
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/AssumptionOut"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "instruction_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instruction Version Id"
+          },
+          "locked": {
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "read_failed": {
+            "default": false,
+            "description": "Reading a letter failed; it can be read again.",
+            "title": "Read Failed",
+            "type": "boolean"
+          },
+          "reading": {
+            "description": "A letter is still being read.",
+            "title": "Reading",
+            "type": "boolean"
+          },
+          "rejected": {
+            "description": "Suggestions refused because their words were not in the letter.",
+            "title": "Rejected",
+            "type": "integer"
+          },
+          "reopened": {
+            "description": "A new letter added a question to a confirmed set; confirm again.",
+            "title": "Reopened",
+            "type": "boolean"
+          },
+          "version_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version No"
+          },
+          "warnings": {
+            "description": "i18n keys.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instruction_version_id",
+          "version_no",
+          "locked",
+          "reading",
+          "reopened",
+          "rejected",
+          "warnings",
+          "questions",
+          "assumptions"
+        ],
+        "title": "Questions",
         "type": "object"
       },
       "Queued": {
@@ -9630,6 +10253,116 @@
           "document_id"
         ],
         "title": "ReplaceAsk",
+        "type": "object"
+      },
+      "ReportChangeOut": {
+        "properties": {
+          "citation_refs": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citation Refs",
+            "type": "array"
+          },
+          "dependent_paragraph_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Dependent Paragraph Ids",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_text": {
+            "title": "New Text",
+            "type": "string"
+          },
+          "old_text": {
+            "title": "Old Text",
+            "type": "string"
+          },
+          "paragraph_id": {
+            "format": "uuid",
+            "title": "Paragraph Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "suggested_dependents": {
+            "items": {
+              "$ref": "#/components/schemas/Dependent"
+            },
+            "title": "Suggested Dependents",
+            "type": "array"
+          },
+          "supplementary_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplementary Version Id"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "paragraph_id",
+          "kind",
+          "old_text",
+          "new_text",
+          "reason",
+          "citation_refs",
+          "dependent_paragraph_ids",
+          "suggested_dependents",
+          "supplementary_version_id",
+          "version"
+        ],
+        "title": "ReportChangeOut",
+        "type": "object"
+      },
+      "ReportChanges": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ReportChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "supplementary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Supplementary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "changes",
+          "supplementary"
+        ],
+        "title": "ReportChanges",
         "type": "object"
       },
       "ReportOut": {
@@ -10953,7 +11686,7 @@
       "Signed": {
         "properties": {
           "version": {
-            "$ref": "#/components/schemas/app__features__after_serving__routes_questions__SignedVersion"
+            "$ref": "#/components/schemas/AnswersSignedVersion"
           }
         },
         "required": [
@@ -10965,13 +11698,63 @@
       "SignedOut": {
         "properties": {
           "version": {
-            "$ref": "#/components/schemas/app__features__report__routes_sign__SignedVersion"
+            "$ref": "#/components/schemas/SignedVersion"
           }
         },
         "required": [
           "version"
         ],
         "title": "SignedOut",
+        "type": "object"
+      },
+      "SignedVersion": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "docx_sha256": {
+            "title": "Docx Sha256",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locked_at": {
+            "format": "date-time",
+            "title": "Locked At",
+            "type": "string"
+          },
+          "pdf_sha256": {
+            "title": "Pdf Sha256",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_no",
+          "display_name",
+          "status",
+          "locked_at",
+          "sha256",
+          "docx_sha256",
+          "pdf_sha256"
+        ],
+        "title": "SignedVersion",
         "type": "object"
       },
       "SnapshotOut": {
@@ -11502,6 +12285,19 @@
           "locked_at"
         ],
         "title": "Supplementary",
+        "type": "object"
+      },
+      "SupplementarySignIn": {
+        "properties": {
+          "declaration_confirmed": {
+            "title": "Declaration Confirmed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "declaration_confirmed"
+        ],
+        "title": "SupplementarySignIn",
         "type": "object"
       },
       "TaskOut": {
@@ -12636,421 +13432,7 @@
         "title": "WorkspaceGuidance",
         "type": "object"
       },
-      "app__core__routes__auth__SignIn": {
-        "properties": {
-          "email": {
-            "maxLength": 320,
-            "minLength": 3,
-            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
-            "title": "Email",
-            "type": "string"
-          },
-          "password": {
-            "maxLength": 256,
-            "minLength": 1,
-            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
-            "title": "Password",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email",
-          "password"
-        ],
-        "title": "SignIn",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_changes__ChangeOut": {
-        "properties": {
-          "citation_refs": {
-            "items": {
-              "$ref": "#/components/schemas/Citation"
-            },
-            "title": "Citation Refs",
-            "type": "array"
-          },
-          "dependent_paragraph_ids": {
-            "items": {
-              "format": "uuid",
-              "type": "string"
-            },
-            "title": "Dependent Paragraph Ids",
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "kind": {
-            "title": "Kind",
-            "type": "string"
-          },
-          "new_text": {
-            "title": "New Text",
-            "type": "string"
-          },
-          "old_text": {
-            "title": "Old Text",
-            "type": "string"
-          },
-          "paragraph_id": {
-            "format": "uuid",
-            "title": "Paragraph Id",
-            "type": "string"
-          },
-          "reason": {
-            "title": "Reason",
-            "type": "string"
-          },
-          "suggested_dependents": {
-            "items": {
-              "$ref": "#/components/schemas/Dependent"
-            },
-            "title": "Suggested Dependents",
-            "type": "array"
-          },
-          "supplementary_version_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Supplementary Version Id"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "paragraph_id",
-          "kind",
-          "old_text",
-          "new_text",
-          "reason",
-          "citation_refs",
-          "dependent_paragraph_ids",
-          "suggested_dependents",
-          "supplementary_version_id",
-          "version"
-        ],
-        "title": "ChangeOut",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_changes__Changes": {
-        "properties": {
-          "changes": {
-            "items": {
-              "$ref": "#/components/schemas/app__features__after_serving__routes_changes__ChangeOut"
-            },
-            "title": "Changes",
-            "type": "array"
-          },
-          "supplementary": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/Supplementary"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "changes",
-          "supplementary"
-        ],
-        "title": "Changes",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_changes__SignIn": {
-        "properties": {
-          "declaration_confirmed": {
-            "title": "Declaration Confirmed",
-            "type": "boolean"
-          }
-        },
-        "required": [
-          "declaration_confirmed"
-        ],
-        "title": "SignIn",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_deadlines__ChangeOut": {
-        "properties": {
-          "at": {
-            "format": "date-time",
-            "title": "At",
-            "type": "string"
-          },
-          "changed_by": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Changed By"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "new_due_on": {
-            "format": "date",
-            "title": "New Due On",
-            "type": "string"
-          },
-          "old_due_on": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Old Due On"
-          },
-          "reason": {
-            "title": "Reason",
-            "type": "string"
-          },
-          "source": {
-            "title": "Source",
-            "type": "string"
-          },
-          "source_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Source Id"
-          }
-        },
-        "required": [
-          "id",
-          "old_due_on",
-          "new_due_on",
-          "reason",
-          "source",
-          "source_id",
-          "changed_by",
-          "at"
-        ],
-        "title": "ChangeOut",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_deadlines__Changes": {
-        "properties": {
-          "changes": {
-            "items": {
-              "$ref": "#/components/schemas/app__features__after_serving__routes_deadlines__ChangeOut"
-            },
-            "title": "Changes",
-            "type": "array"
-          }
-        },
-        "required": [
-          "changes"
-        ],
-        "title": "Changes",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_new_material__ClaimChange": {
-        "properties": {
-          "confirm": {
-            "anyOf": [
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirm"
-          },
-          "status": {
-            "anyOf": [
-              {
-                "enum": [
-                  "matches",
-                  "wrong_page",
-                  "wrong_value",
-                  "not_on_page",
-                  "contradicted"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Status"
-          }
-        },
-        "title": "ClaimChange",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_new_material__ClaimOut": {
-        "properties": {
-          "checked_by": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Checked By"
-          },
-          "claim_no": {
-            "title": "Claim No",
-            "type": "integer"
-          },
-          "confirmed_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirmed At"
-          },
-          "discrepancy": {
-            "title": "Discrepancy",
-            "type": "boolean"
-          },
-          "expert_confirmed": {
-            "title": "Expert Confirmed",
-            "type": "boolean"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "our_page_no": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Our Page No"
-          },
-          "our_quote": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Our Quote"
-          },
-          "paragraph_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Paragraph Ref"
-          },
-          "reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Reason"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "text_verbatim": {
-            "title": "Text Verbatim",
-            "type": "string"
-          },
-          "their_page_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Their Page Ref"
-          },
-          "their_quote": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Their Quote"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "claim_no",
-          "paragraph_ref",
-          "text_verbatim",
-          "their_quote",
-          "their_page_ref",
-          "our_quote",
-          "our_page_no",
-          "status",
-          "checked_by",
-          "reason",
-          "expert_confirmed",
-          "confirmed_at",
-          "discrepancy",
-          "version"
-        ],
-        "title": "ClaimOut",
-        "type": "object"
-      },
-      "app__features__after_serving__routes_questions__QuestionOut": {
+      "WrittenQuestionOut": {
         "properties": {
           "answer_text": {
             "anyOf": [
@@ -13199,14 +13581,14 @@
           "told_instructing_party_at",
           "version"
         ],
-        "title": "QuestionOut",
+        "title": "WrittenQuestionOut",
         "type": "object"
       },
-      "app__features__after_serving__routes_questions__Questions": {
+      "WrittenQuestions": {
         "properties": {
           "questions": {
             "items": {
-              "$ref": "#/components/schemas/app__features__after_serving__routes_questions__QuestionOut"
+              "$ref": "#/components/schemas/WrittenQuestionOut"
             },
             "title": "Questions",
             "type": "array"
@@ -13215,79 +13597,31 @@
         "required": [
           "questions"
         ],
-        "title": "Questions",
+        "title": "WrittenQuestions",
         "type": "object"
       },
-      "app__features__after_serving__routes_questions__SignedVersion": {
+      "app__core__routes__auth__SignIn": {
         "properties": {
-          "display_name": {
-            "title": "Display Name",
+          "email": {
+            "maxLength": 320,
+            "minLength": 3,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "Email",
             "type": "string"
           },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
+          "password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "Password",
             "type": "string"
-          },
-          "locked_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Locked At"
-          },
-          "prev_version_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Prev Version Id"
-          },
-          "sha256": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sha256"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "type": {
-            "title": "Type",
-            "type": "string"
-          },
-          "version_no": {
-            "title": "Version No",
-            "type": "integer"
           }
         },
         "required": [
-          "id",
-          "version_no",
-          "type",
-          "display_name",
-          "status",
-          "sha256",
-          "prev_version_id",
-          "locked_at"
+          "email",
+          "password"
         ],
-        "title": "SignedVersion",
+        "title": "SignIn",
         "type": "object"
       },
       "app__features__close__schemas__Hold": {
@@ -13377,56 +13711,6 @@
         "title": "SignIn",
         "type": "object"
       },
-      "app__features__report__routes_sign__SignedVersion": {
-        "properties": {
-          "display_name": {
-            "title": "Display Name",
-            "type": "string"
-          },
-          "docx_sha256": {
-            "title": "Docx Sha256",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "locked_at": {
-            "format": "date-time",
-            "title": "Locked At",
-            "type": "string"
-          },
-          "pdf_sha256": {
-            "title": "Pdf Sha256",
-            "type": "string"
-          },
-          "sha256": {
-            "title": "Sha256",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "version_no": {
-            "title": "Version No",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "version_no",
-          "display_name",
-          "status",
-          "locked_at",
-          "sha256",
-          "docx_sha256",
-          "pdf_sha256"
-        ],
-        "title": "SignedVersion",
-        "type": "object"
-      },
       "app__features__setup__routes_case__Hold": {
         "properties": {
           "on_hold": {
@@ -13454,290 +13738,6 @@
           "reason"
         ],
         "title": "WithdrawIn",
-        "type": "object"
-      },
-      "app__features__setup__routes_questions__QuestionOut": {
-        "properties": {
-          "confirmed_text": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Confirmed Text"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "instruction_version_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instruction Version Id"
-          },
-          "kind": {
-            "title": "Kind",
-            "type": "string"
-          },
-          "number": {
-            "title": "Number",
-            "type": "integer"
-          },
-          "outside_expertise": {
-            "title": "Outside Expertise",
-            "type": "boolean"
-          },
-          "para_ref": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Para Ref"
-          },
-          "source_word_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Source Word Ids",
-            "type": "array"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "text_verbatim": {
-            "title": "Text Verbatim",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "id",
-          "instruction_version_id",
-          "number",
-          "text_verbatim",
-          "confirmed_text",
-          "source_word_ids",
-          "para_ref",
-          "kind",
-          "outside_expertise",
-          "status",
-          "version"
-        ],
-        "title": "QuestionOut",
-        "type": "object"
-      },
-      "app__features__setup__routes_questions__Questions": {
-        "properties": {
-          "assumptions": {
-            "items": {
-              "$ref": "#/components/schemas/AssumptionOut"
-            },
-            "title": "Assumptions",
-            "type": "array"
-          },
-          "instruction_version_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Instruction Version Id"
-          },
-          "locked": {
-            "title": "Locked",
-            "type": "boolean"
-          },
-          "questions": {
-            "items": {
-              "$ref": "#/components/schemas/app__features__setup__routes_questions__QuestionOut"
-            },
-            "title": "Questions",
-            "type": "array"
-          },
-          "read_failed": {
-            "default": false,
-            "description": "Reading a letter failed; it can be read again.",
-            "title": "Read Failed",
-            "type": "boolean"
-          },
-          "reading": {
-            "description": "A letter is still being read.",
-            "title": "Reading",
-            "type": "boolean"
-          },
-          "rejected": {
-            "description": "Suggestions refused because their words were not in the letter.",
-            "title": "Rejected",
-            "type": "integer"
-          },
-          "reopened": {
-            "description": "A new letter added a question to a confirmed set; confirm again.",
-            "title": "Reopened",
-            "type": "boolean"
-          },
-          "version_no": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Version No"
-          },
-          "warnings": {
-            "description": "i18n keys.",
-            "items": {
-              "type": "string"
-            },
-            "title": "Warnings",
-            "type": "array"
-          }
-        },
-        "required": [
-          "instruction_version_id",
-          "version_no",
-          "locked",
-          "reading",
-          "reopened",
-          "rejected",
-          "warnings",
-          "questions",
-          "assumptions"
-        ],
-        "title": "Questions",
-        "type": "object"
-      },
-      "app__features__write__routes_witness__ClaimChange": {
-        "additionalProperties": false,
-        "properties": {
-          "expert_verdict": {
-            "anyOf": [
-              {
-                "enum": [
-                  "supports",
-                  "contradicts",
-                  "not_addressed"
-                ],
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expert Verdict"
-          },
-          "status": {
-            "enum": [
-              "confirmed",
-              "edited",
-              "dismissed"
-            ],
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "status"
-        ],
-        "title": "ClaimChange",
-        "type": "object"
-      },
-      "app__features__write__routes_witness__ClaimOut": {
-        "properties": {
-          "claim_index": {
-            "title": "Claim Index",
-            "type": "integer"
-          },
-          "document_id": {
-            "format": "uuid",
-            "title": "Document Id",
-            "type": "string"
-          },
-          "expert_verdict": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Expert Verdict"
-          },
-          "facts": {
-            "items": {
-              "$ref": "#/components/schemas/PointFact"
-            },
-            "title": "Facts",
-            "type": "array"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "status": {
-            "title": "Status",
-            "type": "string"
-          },
-          "text_verbatim": {
-            "title": "Text Verbatim",
-            "type": "string"
-          },
-          "verdict": {
-            "title": "Verdict",
-            "type": "string"
-          },
-          "version": {
-            "title": "Version",
-            "type": "integer"
-          },
-          "word_ids": {
-            "items": {
-              "type": "string"
-            },
-            "title": "Word Ids",
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "document_id",
-          "claim_index",
-          "text_verbatim",
-          "word_ids",
-          "verdict",
-          "expert_verdict",
-          "status",
-          "version",
-          "facts"
-        ],
-        "title": "ClaimOut",
         "type": "object"
       }
     }
@@ -15690,7 +15690,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__after_serving__routes_deadlines__Changes"
+                  "$ref": "#/components/schemas/DeadlineChanges"
                 }
               }
             },
@@ -19274,7 +19274,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__features__after_serving__routes_new_material__ClaimChange"
+                "$ref": "#/components/schemas/OpposingClaimChange"
               }
             }
           },
@@ -19285,7 +19285,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__after_serving__routes_new_material__ClaimOut"
+                  "$ref": "#/components/schemas/OpposingClaimOut"
                 }
               }
             },
@@ -21372,7 +21372,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__setup__routes_questions__Questions"
+                  "$ref": "#/components/schemas/Questions"
                 }
               }
             },
@@ -21568,7 +21568,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__setup__routes_questions__QuestionOut"
+                  "$ref": "#/components/schemas/QuestionOut"
                 }
               }
             },
@@ -22342,7 +22342,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__after_serving__routes_changes__Changes"
+                  "$ref": "#/components/schemas/ReportChanges"
                 }
               }
             },
@@ -22519,7 +22519,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__after_serving__routes_changes__ChangeOut"
+                  "$ref": "#/components/schemas/ReportChangeOut"
                 }
               }
             },
@@ -22606,7 +22606,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__after_serving__routes_changes__ChangeOut"
+                  "$ref": "#/components/schemas/ReportChangeOut"
                 }
               }
             },
@@ -23665,7 +23665,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__features__after_serving__routes_changes__SignIn"
+                "$ref": "#/components/schemas/SupplementarySignIn"
               }
             }
           },
@@ -24946,7 +24946,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/app__features__write__routes_witness__ClaimChange"
+                "$ref": "#/components/schemas/ClaimChange"
               }
             }
           },
@@ -24957,7 +24957,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__write__routes_witness__ClaimOut"
+                  "$ref": "#/components/schemas/ClaimOut"
                 }
               }
             },
@@ -25205,7 +25205,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__after_serving__routes_questions__Questions"
+                  "$ref": "#/components/schemas/WrittenQuestions"
                 }
               }
             },
@@ -25420,7 +25420,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__after_serving__routes_questions__QuestionOut"
+                  "$ref": "#/components/schemas/WrittenQuestionOut"
                 }
               }
             },

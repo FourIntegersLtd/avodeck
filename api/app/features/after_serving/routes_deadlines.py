@@ -83,7 +83,7 @@ class DeadlineChange(BaseModel):
     done: bool | None = None
 
 
-class ChangeOut(BaseModel):
+class DeadlineChangeOut(BaseModel):
     id: uuid.UUID
     old_due_on: date | None
     new_due_on: date
@@ -94,8 +94,8 @@ class ChangeOut(BaseModel):
     at: datetime
 
 
-class Changes(BaseModel):
-    changes: list[ChangeOut]
+class DeadlineChanges(BaseModel):
+    changes: list[DeadlineChangeOut]
 
 
 class DirectionDeadline(BaseModel):
@@ -331,8 +331,8 @@ async def change_deadline(
     return deadline_out(row)
 
 
-@router.get("/cases/{case_id}/deadlines/{deadline_id}/changes", response_model=Changes)
-async def deadline_changes(case_id: uuid.UUID, deadline_id: uuid.UUID, access: View, conn: DbConn) -> Changes:
+@router.get("/cases/{case_id}/deadlines/{deadline_id}/changes", response_model=DeadlineChanges)
+async def deadline_changes(case_id: uuid.UUID, deadline_id: uuid.UUID, access: View, conn: DbConn) -> DeadlineChanges:
     await _deadline(conn, case_id, deadline_id)
     rows = await fetch_all(
         conn,
@@ -340,7 +340,7 @@ async def deadline_changes(case_id: uuid.UUID, deadline_id: uuid.UUID, access: V
         " where deadline_id = %s and case_id = %s order by at, old_due_on nulls first, id",
         (deadline_id, case_id),
     )
-    return Changes(changes=[ChangeOut(**r) for r in rows])
+    return DeadlineChanges(changes=[DeadlineChangeOut(**r) for r in rows])
 
 
 # --- court directions -----------------------------------------------------------------------------------

@@ -96,7 +96,7 @@ class ImportIn(BaseModel):
     round_id: uuid.UUID
 
 
-class QuestionOut(BaseModel):
+class WrittenQuestionOut(BaseModel):
     id: uuid.UUID
     round_id: uuid.UUID
     number: int
@@ -115,8 +115,8 @@ class QuestionOut(BaseModel):
     version: int
 
 
-class Questions(BaseModel):
-    questions: list[QuestionOut]
+class WrittenQuestions(BaseModel):
+    questions: list[WrittenQuestionOut]
 
 
 class QuestionChange(BaseModel):
@@ -136,7 +136,7 @@ class SignAnswers(BaseModel):
     declaration_confirmed: bool
 
 
-class SignedVersion(BaseModel):
+class AnswersSignedVersion(BaseModel):
     id: uuid.UUID
     version_no: int
     type: str
@@ -148,7 +148,7 @@ class SignedVersion(BaseModel):
 
 
 class Signed(BaseModel):
-    version: SignedVersion
+    version: AnswersSignedVersion
 
 
 # --- rounds ---------------------------------------------------------------------------------------------
@@ -222,17 +222,17 @@ async def import_questions(case_id: uuid.UUID, body: ImportIn, access: Upload, c
 # --- questions ------------------------------------------------------------------------------------------
 
 
-async def question_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> QuestionOut:
+async def question_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> WrittenQuestionOut:
     values = dict(row)
     values["text_verbatim"] = await unseal(conn, crypto, case_id, row["text_verbatim"], QUESTION) or ""
     values["answer_text"] = await unseal(conn, crypto, case_id, row["answer_text"], ANSWER)
-    return QuestionOut(**values)
+    return WrittenQuestionOut(**values)
 
 
-@router.get("/cases/{case_id}/written-questions", response_model=Questions)
+@router.get("/cases/{case_id}/written-questions", response_model=WrittenQuestions)
 async def list_questions(
     case_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, round_id: uuid.UUID | None = None
-) -> Questions:
+) -> WrittenQuestions:
     rows = await fetch_all(
         conn,
         f"select {', '.join('q.' + c.strip() for c in _QUESTION.split(','))} from app.written_questions q"
@@ -240,7 +240,7 @@ async def list_questions(
         " where q.case_id = %s and (%s::uuid is null or q.round_id = %s) order by r.number, q.number",
         (case_id, round_id, round_id),
     )
-    return Questions(questions=[await question_out(conn, crypto, case_id, r) for r in rows])
+    return WrittenQuestions(questions=[await question_out(conn, crypto, case_id, r) for r in rows])
 
 
 async def _question(conn: Any, case_id: uuid.UUID, question_id: uuid.UUID) -> dict[str, Any]:
@@ -252,7 +252,7 @@ async def _question(conn: Any, case_id: uuid.UUID, question_id: uuid.UUID) -> di
     return row
 
 
-@router.patch("/cases/{case_id}/written-questions/{question_id}", response_model=QuestionOut)
+@router.patch("/cases/{case_id}/written-questions/{question_id}", response_model=WrittenQuestionOut)
 async def change_question(
     case_id: uuid.UUID,
     question_id: uuid.UUID,
@@ -264,7 +264,7 @@ async def change_question(
     reads: Reads,
     pack: Pack,
     response: Response,
-) -> QuestionOut:
+) -> WrittenQuestionOut:
     row = await _question(conn, case_id, question_id)
     if row["version"] != if_match:
         raise stale()
@@ -465,4 +465,4 @@ async def sign_answers(
             "update app.deadlines set done_at = now() where id = %s and done_at is null", (found["deadline_id"],)
         )
     await audit.record(conn, action="written_questions.signed", target=f"report_version:{version_id}", case_id=case_id)
-    return Signed(version=SignedVersion(**version))
+    return Signed(version=AnswersSignedVersion(**version))

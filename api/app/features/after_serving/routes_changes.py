@@ -48,7 +48,7 @@ from app.features.after_serving.common import (
     unseal,
 )
 from app.features.after_serving.router import router
-from app.features.after_serving.routes_questions import Signed, SignedVersion, court_today, lock_version
+from app.features.after_serving.routes_questions import AnswersSignedVersion, Signed, court_today, lock_version
 from app.features.after_serving.words import long_date, word
 
 Kind = Literal["correction", "change_of_opinion"]
@@ -128,7 +128,7 @@ class Dependent(BaseModel):
     reason: str
 
 
-class ChangeOut(BaseModel):
+class ReportChangeOut(BaseModel):
     id: uuid.UUID
     paragraph_id: uuid.UUID
     kind: str
@@ -157,13 +157,13 @@ class Supplementary(BaseModel):
     locked_at: datetime | None
 
 
-class Changes(BaseModel):
-    changes: list[ChangeOut]
+class ReportChanges(BaseModel):
+    changes: list[ReportChangeOut]
     supplementary: Supplementary | None
 
 
-async def change_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> ChangeOut:
-    return ChangeOut(
+async def change_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> ReportChangeOut:
+    return ReportChangeOut(
         id=row["id"],
         paragraph_id=row["paragraph_id"],
         kind=row["kind"],
@@ -229,10 +229,10 @@ async def _change(conn: Any, case_id: uuid.UUID, change_id: uuid.UUID) -> dict[s
     return row
 
 
-@router.get("/cases/{case_id}/report-changes/{change_id}", response_model=ChangeOut)
+@router.get("/cases/{case_id}/report-changes/{change_id}", response_model=ReportChangeOut)
 async def get_change(
     case_id: uuid.UUID, change_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, response: Response
-) -> ChangeOut:
+) -> ReportChangeOut:
     row = await _change(conn, case_id, change_id)
     response.headers["etag"] = etag(row["version"])
     return await change_out(conn, crypto, case_id, row)
@@ -245,7 +245,7 @@ async def _locked(conn: Any, version_id: uuid.UUID | None) -> bool:
     return row is None or row["status"] != "draft"
 
 
-@router.patch("/cases/{case_id}/report-changes/{change_id}", response_model=ChangeOut)
+@router.patch("/cases/{case_id}/report-changes/{change_id}", response_model=ReportChangeOut)
 async def edit_change(
     case_id: uuid.UUID,
     change_id: uuid.UUID,
@@ -256,7 +256,7 @@ async def edit_change(
     crypto: Crypto,
     reads: Reads,
     response: Response,
-) -> ChangeOut:
+) -> ReportChangeOut:
     row = await _change(conn, case_id, change_id)
     if row["version"] != if_match:
         raise stale()
@@ -301,14 +301,14 @@ async def latest_supplementary(conn: Any, case_id: uuid.UUID, served: uuid.UUID)
     )
 
 
-@router.get("/cases/{case_id}/report-changes", response_model=Changes)
-async def list_changes(case_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto) -> Changes:
+@router.get("/cases/{case_id}/report-changes", response_model=ReportChanges)
+async def list_changes(case_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto) -> ReportChanges:
     rows = await fetch_all(
         conn, f"select {_CHANGE} from app.report_changes where case_id = %s order by created_at, id", (case_id,)
     )
     served = await served_version(conn, case_id)
     latest = await latest_supplementary(conn, case_id, served) if served else None
-    return Changes(
+    return ReportChanges(
         changes=[await change_out(conn, crypto, case_id, r) for r in rows],
         supplementary=Supplementary(**latest) if latest else None,
     )
@@ -329,7 +329,7 @@ async def build_supplementary(case_id: uuid.UUID, access: Write, conn: DbConn) -
     return Queued(job_id=await registry.enqueue(conn, case_id, "build_supplementary"))
 
 
-class SignIn(BaseModel):
+class SupplementarySignIn(BaseModel):
     declaration_confirmed: bool
 
 
@@ -337,7 +337,7 @@ class SignIn(BaseModel):
 async def sign_supplementary(
     case_id: uuid.UUID,
     version_id: uuid.UUID,
-    body: SignIn,
+    body: SupplementarySignIn,
     access: Sign,
     conn: DbConn,
     crypto: Crypto,
@@ -359,4 +359,4 @@ async def sign_supplementary(
     path = report_file(case_id, version_id, "supplementary-signed.docx")
     version = await lock_version(conn, storage, crypto, case_id, version_id, path, docs.build(blocks))
     await audit.record(conn, action="supplementary.signed", target=f"report_version:{version_id}", case_id=case_id)
-    return Signed(version=SignedVersion(**version))
+    return Signed(version=AnswersSignedVersion(**version))

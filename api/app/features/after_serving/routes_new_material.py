@@ -118,7 +118,7 @@ class OpposingQueued(BaseModel):
     job_id: uuid.UUID
 
 
-class ClaimOut(BaseModel):
+class OpposingClaimOut(BaseModel):
     id: uuid.UUID
     claim_no: int
     paragraph_ref: str | None
@@ -159,11 +159,11 @@ class OpposingReport(BaseModel):
     received_on: date
     checked_at: datetime | None
     claims_found: int | None
-    claims: list[ClaimOut]
+    claims: list[OpposingClaimOut]
     positions: list[Position]
 
 
-class ClaimChange(BaseModel):
+class OpposingClaimChange(BaseModel):
     confirm: bool | None = None
     status: ClaimResult | None = None
 
@@ -190,7 +190,7 @@ async def register_opposing_report(
     return OpposingQueued(id=row["id"], job_id=job_id)
 
 
-async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> ClaimOut:
+async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> OpposingClaimOut:
     our_quote: str | None = None
     our_page_no: int | None = None
     if row["evidence_page_id"] is not None:
@@ -200,7 +200,7 @@ async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, A
         if wanted:
             words = await page_words(conn, crypto, case_id, row["evidence_page_id"])
             our_quote = " ".join(text for wid, text in words if wid in wanted) or None
-    return ClaimOut(
+    return OpposingClaimOut(
         id=row["id"],
         claim_no=row["claim_no"],
         paragraph_ref=row["paragraph_ref"],
@@ -219,7 +219,9 @@ async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, A
     )
 
 
-async def _positions(conn: Any, crypto: Any, case_id: uuid.UUID, stored: Any, claims: list[ClaimOut]) -> list[Position]:
+async def _positions(
+    conn: Any, crypto: Any, case_id: uuid.UUID, stored: Any, claims: list[OpposingClaimOut]
+) -> list[Position]:
     served = await served_version(conn, case_id)
     own = {p.id: p for p in (await paragraphs(conn, crypto, case_id, served) if served else [])}
     theirs: dict[str, str] = {}
@@ -275,17 +277,17 @@ async def opposing_report(
     )
 
 
-@router.patch("/cases/{case_id}/opposing-claims/{claim_id}", response_model=ClaimOut)
+@router.patch("/cases/{case_id}/opposing-claims/{claim_id}", response_model=OpposingClaimOut)
 async def change_claim(
     case_id: uuid.UUID,
     claim_id: uuid.UUID,
-    body: ClaimChange,
+    body: OpposingClaimChange,
     access: Write,
     if_match: IfMatch,
     conn: DbConn,
     crypto: Crypto,
     response: Response,
-) -> ClaimOut:
+) -> OpposingClaimOut:
     row = await fetch_one(
         conn, f"select {_CLAIM} from app.opposing_claims where id = %s and case_id = %s", (claim_id, case_id)
     )

@@ -127,7 +127,7 @@ function AddChange({ caseId, paras, onDone }: { caseId: string; paras: Schemas["
   );
 }
 
-function Sign({ caseId, sup, declarations, onDone }: { caseId: string; sup: NonNullable<Schemas["app__features__after_serving__routes_changes__Changes"]["supplementary"]>; declarations: Schemas["CasePack"]["declarations"]; onDone: () => void }) {
+function Sign({ caseId, sup, declarations, onDone }: { caseId: string; sup: NonNullable<Schemas["ReportChanges"]["supplementary"]>; declarations: Schemas["CasePack"]["declarations"]; onDone: () => void }) {
   const stepUp = useStepUp();
   const [confirmed, setConfirmed] = useState(false);
   const [signed, setSigned] = useState(false);

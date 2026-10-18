@@ -16,7 +16,7 @@ export const afterServingCaseRoutes: RouteObject[] = [
   { path: "written-questions", element: <QuestionsScreen />, handle: { screen: "written_questions" } },
   { path: "new-material", element: <NewMaterial />, handle: { screen: "new_material" } },
   { path: "correct-report", element: <AddendumScreen />, handle: { screen: "correct_report" } },
-  { path: "court-orders", element: <CourtOrders />, handle: { screen: "court_orders" } },
+  { path: "court-orders", element: <CourtOrders />, handle: { screen: "after_serving" } },
 ];
 
 const at = (segment: string) => ({ caseId }: { caseId: string }) => `/cases/${caseId}/${segment}`;

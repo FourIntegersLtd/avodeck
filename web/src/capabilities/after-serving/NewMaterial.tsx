@@ -9,7 +9,7 @@ import { Button, LinkButton, LoadError, Loading, Notice, TextField } from "../..
 import { keyName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
-type Claim = Schemas["app__features__after_serving__routes_new_material__ClaimOut"];
+type Claim = Schemas["OpposingClaimOut"];
 const ERRORS: Record<string, string> = {
   stale: "after_serving.error.stale",
   invalid: "after_serving.error.invalid",

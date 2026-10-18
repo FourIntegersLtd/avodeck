@@ -15,7 +15,7 @@ import { capitalise, declarationParts, keyName, longDate, Select, useLocale, use
 import { w } from "./words";
 
 type Round = Schemas["RoundOut"];
-type Question = Schemas["app__features__after_serving__routes_questions__QuestionOut"];
+type Question = Schemas["WrittenQuestionOut"];
 const ERRORS: Record<string, string> = {
   stale: "after_serving.error.stale",
   invalid: "after_serving.error.invalid",

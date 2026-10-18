@@ -3592,6 +3592,28 @@ export interface components {
             /** Answers */
             answers: components["schemas"]["Answer"][];
         };
+        /** AnswersSignedVersion */
+        AnswersSignedVersion: {
+            /** Display Name */
+            display_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Locked At */
+            locked_at: string | null;
+            /** Prev Version Id */
+            prev_version_id: string | null;
+            /** Sha256 */
+            sha256: string | null;
+            /** Status */
+            status: string;
+            /** Type */
+            type: string;
+            /** Version No */
+            version_no: number;
+        };
         /** ApiError */
         ApiError: {
             error: components["schemas"]["ApiErrorDetail"];
@@ -4296,6 +4318,45 @@ export interface components {
             /** Quote Verbatim */
             quote_verbatim: string;
         };
+        /** ClaimChange */
+        ClaimChange: {
+            /** Expert Verdict */
+            expert_verdict?: ("supports" | "contradicts" | "not_addressed") | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "confirmed" | "edited" | "dismissed";
+        };
+        /** ClaimOut */
+        ClaimOut: {
+            /** Claim Index */
+            claim_index: number;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Expert Verdict */
+            expert_verdict: string | null;
+            /** Facts */
+            facts: components["schemas"]["PointFact"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Text Verbatim */
+            text_verbatim: string;
+            /** Verdict */
+            verdict: string;
+            /** Version */
+            version: number;
+            /** Word Ids */
+            word_ids: string[];
+        };
         /**
          * CloseSummary
          * @description What screen 26 shows: where the case is, when it will be deleted, and what is holding it.
@@ -4592,6 +4653,39 @@ export interface components {
             due_on?: string | null;
             /** Reason */
             reason?: string | null;
+        };
+        /** DeadlineChangeOut */
+        DeadlineChangeOut: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /** Changed By */
+            changed_by: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * New Due On
+             * Format: date
+             */
+            new_due_on: string;
+            /** Old Due On */
+            old_due_on: string | null;
+            /** Reason */
+            reason: string;
+            /** Source */
+            source: string;
+            /** Source Id */
+            source_id: string | null;
+        };
+        /** DeadlineChanges */
+        DeadlineChanges: {
+            /** Changes */
+            changes: components["schemas"]["DeadlineChangeOut"][];
         };
         /** DeadlineOut */
         DeadlineOut: {
@@ -6269,6 +6363,49 @@ export interface components {
             /** Label */
             label: string;
         };
+        /** OpposingClaimChange */
+        OpposingClaimChange: {
+            /** Confirm */
+            confirm?: boolean | null;
+            /** Status */
+            status?: ("matches" | "wrong_page" | "wrong_value" | "not_on_page" | "contradicted") | null;
+        };
+        /** OpposingClaimOut */
+        OpposingClaimOut: {
+            /** Checked By */
+            checked_by: string | null;
+            /** Claim No */
+            claim_no: number;
+            /** Confirmed At */
+            confirmed_at: string | null;
+            /** Discrepancy */
+            discrepancy: boolean;
+            /** Expert Confirmed */
+            expert_confirmed: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Our Page No */
+            our_page_no: number | null;
+            /** Our Quote */
+            our_quote: string | null;
+            /** Paragraph Ref */
+            paragraph_ref: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Status */
+            status: string;
+            /** Text Verbatim */
+            text_verbatim: string;
+            /** Their Page Ref */
+            their_page_ref: string | null;
+            /** Their Quote */
+            their_quote: string | null;
+            /** Version */
+            version: number;
+        };
         /** OpposingQueued */
         OpposingQueued: {
             /**
@@ -6287,7 +6424,7 @@ export interface components {
             /** Checked At */
             checked_at: string | null;
             /** Claims */
-            claims: components["schemas"]["app__features__after_serving__routes_new_material__ClaimOut"][];
+            claims: components["schemas"]["OpposingClaimOut"][];
             /** Claims Found */
             claims_found: number | null;
             /**
@@ -6640,7 +6777,7 @@ export interface components {
         /** Points */
         Points: {
             /** Claims */
-            claims: components["schemas"]["app__features__write__routes_witness__ClaimOut"][];
+            claims: components["schemas"]["ClaimOut"][];
             /** Points */
             points: components["schemas"]["PointOut"][];
             range_note: components["schemas"]["RangeNote"];
@@ -6821,6 +6958,34 @@ export interface components {
             /** Paragraph Ids */
             paragraph_ids?: string[] | null;
         };
+        /** QuestionOut */
+        QuestionOut: {
+            /** Confirmed Text */
+            confirmed_text: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Instruction Version Id */
+            instruction_version_id: string | null;
+            /** Kind */
+            kind: string;
+            /** Number */
+            number: number;
+            /** Outside Expertise */
+            outside_expertise: boolean;
+            /** Para Ref */
+            para_ref: string | null;
+            /** Source Word Ids */
+            source_word_ids: string[];
+            /** Status */
+            status: string;
+            /** Text Verbatim */
+            text_verbatim: string;
+            /** Version */
+            version: number;
+        };
         /**
          * QuestionUpdate
          * @description `text` is the expert's own wording (the exact words stay); `confirm` accepts the exact words.
@@ -6834,6 +6999,45 @@ export interface components {
             outside_expertise?: boolean | null;
             /** Text */
             text?: string | null;
+        };
+        /** Questions */
+        Questions: {
+            /** Assumptions */
+            assumptions: components["schemas"]["AssumptionOut"][];
+            /** Instruction Version Id */
+            instruction_version_id: string | null;
+            /** Locked */
+            locked: boolean;
+            /** Questions */
+            questions: components["schemas"]["QuestionOut"][];
+            /**
+             * Read Failed
+             * @description Reading a letter failed; it can be read again.
+             * @default false
+             */
+            read_failed: boolean;
+            /**
+             * Reading
+             * @description A letter is still being read.
+             */
+            reading: boolean;
+            /**
+             * Rejected
+             * @description Suggestions refused because their words were not in the letter.
+             */
+            rejected: number;
+            /**
+             * Reopened
+             * @description A new letter added a question to a confirmed set; confirm again.
+             */
+            reopened: boolean;
+            /** Version No */
+            version_no: number | null;
+            /**
+             * Warnings
+             * @description i18n keys.
+             */
+            warnings: string[];
         };
         /** Queued */
         Queued: {
@@ -6942,6 +7146,43 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
+        };
+        /** ReportChangeOut */
+        ReportChangeOut: {
+            /** Citation Refs */
+            citation_refs: components["schemas"]["Citation"][];
+            /** Dependent Paragraph Ids */
+            dependent_paragraph_ids: string[];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** New Text */
+            new_text: string;
+            /** Old Text */
+            old_text: string;
+            /**
+             * Paragraph Id
+             * Format: uuid
+             */
+            paragraph_id: string;
+            /** Reason */
+            reason: string;
+            /** Suggested Dependents */
+            suggested_dependents: components["schemas"]["Dependent"][];
+            /** Supplementary Version Id */
+            supplementary_version_id: string | null;
+            /** Version */
+            version: number;
+        };
+        /** ReportChanges */
+        ReportChanges: {
+            /** Changes */
+            changes: components["schemas"]["ReportChangeOut"][];
+            supplementary: components["schemas"]["Supplementary"] | null;
         };
         /** ReportOut */
         ReportOut: {
@@ -7403,11 +7644,36 @@ export interface components {
         };
         /** Signed */
         Signed: {
-            version: components["schemas"]["app__features__after_serving__routes_questions__SignedVersion"];
+            version: components["schemas"]["AnswersSignedVersion"];
         };
         /** SignedOut */
         SignedOut: {
-            version: components["schemas"]["app__features__report__routes_sign__SignedVersion"];
+            version: components["schemas"]["SignedVersion"];
+        };
+        /** SignedVersion */
+        SignedVersion: {
+            /** Display Name */
+            display_name: string;
+            /** Docx Sha256 */
+            docx_sha256: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Locked At
+             * Format: date-time
+             */
+            locked_at: string;
+            /** Pdf Sha256 */
+            pdf_sha256: string;
+            /** Sha256 */
+            sha256: string;
+            /** Status */
+            status: string;
+            /** Version No */
+            version_no: number;
         };
         /** SnapshotOut */
         SnapshotOut: {
@@ -7604,6 +7870,11 @@ export interface components {
             status: string;
             /** Version No */
             version_no: number;
+        };
+        /** SupplementarySignIn */
+        SupplementarySignIn: {
+            /** Declaration Confirmed */
+            declaration_confirmed: boolean;
         };
         /** TaskOut */
         TaskOut: {
@@ -8012,133 +8283,8 @@ export interface components {
             /** Version Label */
             version_label: string;
         };
-        /** SignIn */
-        app__core__routes__auth__SignIn: {
-            /** Email */
-            email: string;
-            /** Password */
-            password: string;
-        };
-        /** ChangeOut */
-        app__features__after_serving__routes_changes__ChangeOut: {
-            /** Citation Refs */
-            citation_refs: components["schemas"]["Citation"][];
-            /** Dependent Paragraph Ids */
-            dependent_paragraph_ids: string[];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Kind */
-            kind: string;
-            /** New Text */
-            new_text: string;
-            /** Old Text */
-            old_text: string;
-            /**
-             * Paragraph Id
-             * Format: uuid
-             */
-            paragraph_id: string;
-            /** Reason */
-            reason: string;
-            /** Suggested Dependents */
-            suggested_dependents: components["schemas"]["Dependent"][];
-            /** Supplementary Version Id */
-            supplementary_version_id: string | null;
-            /** Version */
-            version: number;
-        };
-        /** Changes */
-        app__features__after_serving__routes_changes__Changes: {
-            /** Changes */
-            changes: components["schemas"]["app__features__after_serving__routes_changes__ChangeOut"][];
-            supplementary: components["schemas"]["Supplementary"] | null;
-        };
-        /** SignIn */
-        app__features__after_serving__routes_changes__SignIn: {
-            /** Declaration Confirmed */
-            declaration_confirmed: boolean;
-        };
-        /** ChangeOut */
-        app__features__after_serving__routes_deadlines__ChangeOut: {
-            /**
-             * At
-             * Format: date-time
-             */
-            at: string;
-            /** Changed By */
-            changed_by: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * New Due On
-             * Format: date
-             */
-            new_due_on: string;
-            /** Old Due On */
-            old_due_on: string | null;
-            /** Reason */
-            reason: string;
-            /** Source */
-            source: string;
-            /** Source Id */
-            source_id: string | null;
-        };
-        /** Changes */
-        app__features__after_serving__routes_deadlines__Changes: {
-            /** Changes */
-            changes: components["schemas"]["app__features__after_serving__routes_deadlines__ChangeOut"][];
-        };
-        /** ClaimChange */
-        app__features__after_serving__routes_new_material__ClaimChange: {
-            /** Confirm */
-            confirm?: boolean | null;
-            /** Status */
-            status?: ("matches" | "wrong_page" | "wrong_value" | "not_on_page" | "contradicted") | null;
-        };
-        /** ClaimOut */
-        app__features__after_serving__routes_new_material__ClaimOut: {
-            /** Checked By */
-            checked_by: string | null;
-            /** Claim No */
-            claim_no: number;
-            /** Confirmed At */
-            confirmed_at: string | null;
-            /** Discrepancy */
-            discrepancy: boolean;
-            /** Expert Confirmed */
-            expert_confirmed: boolean;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Our Page No */
-            our_page_no: number | null;
-            /** Our Quote */
-            our_quote: string | null;
-            /** Paragraph Ref */
-            paragraph_ref: string | null;
-            /** Reason */
-            reason: string | null;
-            /** Status */
-            status: string;
-            /** Text Verbatim */
-            text_verbatim: string;
-            /** Their Page Ref */
-            their_page_ref: string | null;
-            /** Their Quote */
-            their_quote: string | null;
-            /** Version */
-            version: number;
-        };
-        /** QuestionOut */
-        app__features__after_serving__routes_questions__QuestionOut: {
+        /** WrittenQuestionOut */
+        WrittenQuestionOut: {
             /** Answer Text */
             answer_text: string | null;
             /** Citation Refs */
@@ -8181,32 +8327,17 @@ export interface components {
             /** Version */
             version: number;
         };
-        /** Questions */
-        app__features__after_serving__routes_questions__Questions: {
+        /** WrittenQuestions */
+        WrittenQuestions: {
             /** Questions */
-            questions: components["schemas"]["app__features__after_serving__routes_questions__QuestionOut"][];
+            questions: components["schemas"]["WrittenQuestionOut"][];
         };
-        /** SignedVersion */
-        app__features__after_serving__routes_questions__SignedVersion: {
-            /** Display Name */
-            display_name: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Locked At */
-            locked_at: string | null;
-            /** Prev Version Id */
-            prev_version_id: string | null;
-            /** Sha256 */
-            sha256: string | null;
-            /** Status */
-            status: string;
-            /** Type */
-            type: string;
-            /** Version No */
-            version_no: number;
+        /** SignIn */
+        app__core__routes__auth__SignIn: {
+            /** Email */
+            email: string;
+            /** Password */
+            password: string;
         };
         /** Hold */
         app__features__close__schemas__Hold: {
@@ -8245,31 +8376,6 @@ export interface components {
              */
             declaration_confirmed: true;
         };
-        /** SignedVersion */
-        app__features__report__routes_sign__SignedVersion: {
-            /** Display Name */
-            display_name: string;
-            /** Docx Sha256 */
-            docx_sha256: string;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Locked At
-             * Format: date-time
-             */
-            locked_at: string;
-            /** Pdf Sha256 */
-            pdf_sha256: string;
-            /** Sha256 */
-            sha256: string;
-            /** Status */
-            status: string;
-            /** Version No */
-            version_no: number;
-        };
         /** Hold */
         app__features__setup__routes_case__Hold: {
             /** On Hold */
@@ -8279,112 +8385,6 @@ export interface components {
         app__features__setup__routes_conflicts__WithdrawIn: {
             /** Reason */
             reason: string;
-        };
-        /** QuestionOut */
-        app__features__setup__routes_questions__QuestionOut: {
-            /** Confirmed Text */
-            confirmed_text: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Instruction Version Id */
-            instruction_version_id: string | null;
-            /** Kind */
-            kind: string;
-            /** Number */
-            number: number;
-            /** Outside Expertise */
-            outside_expertise: boolean;
-            /** Para Ref */
-            para_ref: string | null;
-            /** Source Word Ids */
-            source_word_ids: string[];
-            /** Status */
-            status: string;
-            /** Text Verbatim */
-            text_verbatim: string;
-            /** Version */
-            version: number;
-        };
-        /** Questions */
-        app__features__setup__routes_questions__Questions: {
-            /** Assumptions */
-            assumptions: components["schemas"]["AssumptionOut"][];
-            /** Instruction Version Id */
-            instruction_version_id: string | null;
-            /** Locked */
-            locked: boolean;
-            /** Questions */
-            questions: components["schemas"]["app__features__setup__routes_questions__QuestionOut"][];
-            /**
-             * Read Failed
-             * @description Reading a letter failed; it can be read again.
-             * @default false
-             */
-            read_failed: boolean;
-            /**
-             * Reading
-             * @description A letter is still being read.
-             */
-            reading: boolean;
-            /**
-             * Rejected
-             * @description Suggestions refused because their words were not in the letter.
-             */
-            rejected: number;
-            /**
-             * Reopened
-             * @description A new letter added a question to a confirmed set; confirm again.
-             */
-            reopened: boolean;
-            /** Version No */
-            version_no: number | null;
-            /**
-             * Warnings
-             * @description i18n keys.
-             */
-            warnings: string[];
-        };
-        /** ClaimChange */
-        app__features__write__routes_witness__ClaimChange: {
-            /** Expert Verdict */
-            expert_verdict?: ("supports" | "contradicts" | "not_addressed") | null;
-            /**
-             * Status
-             * @enum {string}
-             */
-            status: "confirmed" | "edited" | "dismissed";
-        };
-        /** ClaimOut */
-        app__features__write__routes_witness__ClaimOut: {
-            /** Claim Index */
-            claim_index: number;
-            /**
-             * Document Id
-             * Format: uuid
-             */
-            document_id: string;
-            /** Expert Verdict */
-            expert_verdict: string | null;
-            /** Facts */
-            facts: components["schemas"]["PointFact"][];
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Status */
-            status: string;
-            /** Text Verbatim */
-            text_verbatim: string;
-            /** Verdict */
-            verdict: string;
-            /** Version */
-            version: number;
-            /** Word Ids */
-            word_ids: string[];
         };
     };
     responses: never;
@@ -9758,7 +9758,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__after_serving__routes_deadlines__Changes"];
+                    "application/json": components["schemas"]["DeadlineChanges"];
                 };
             };
             /** @description Validation Error */
@@ -12097,7 +12097,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__features__after_serving__routes_new_material__ClaimChange"];
+                "application/json": components["schemas"]["OpposingClaimChange"];
             };
         };
         responses: {
@@ -12107,7 +12107,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__after_serving__routes_new_material__ClaimOut"];
+                    "application/json": components["schemas"]["OpposingClaimOut"];
                 };
             };
             /** @description Validation Error */
@@ -13462,7 +13462,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__setup__routes_questions__Questions"];
+                    "application/json": components["schemas"]["Questions"];
                 };
             };
             /** @description Validation Error */
@@ -13589,7 +13589,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__setup__routes_questions__QuestionOut"];
+                    "application/json": components["schemas"]["QuestionOut"];
                 };
             };
             /** @description Validation Error */
@@ -14061,7 +14061,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__after_serving__routes_changes__Changes"];
+                    "application/json": components["schemas"]["ReportChanges"];
                 };
             };
             /** @description Validation Error */
@@ -14186,7 +14186,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__after_serving__routes_changes__ChangeOut"];
+                    "application/json": components["schemas"]["ReportChangeOut"];
                 };
             };
             /** @description Validation Error */
@@ -14233,7 +14233,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__after_serving__routes_changes__ChangeOut"];
+                    "application/json": components["schemas"]["ReportChangeOut"];
                 };
             };
             /** @description Validation Error */
@@ -14942,7 +14942,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__features__after_serving__routes_changes__SignIn"];
+                "application/json": components["schemas"]["SupplementarySignIn"];
             };
         };
         responses: {
@@ -15794,7 +15794,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["app__features__write__routes_witness__ClaimChange"];
+                "application/json": components["schemas"]["ClaimChange"];
             };
         };
         responses: {
@@ -15804,7 +15804,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__write__routes_witness__ClaimOut"];
+                    "application/json": components["schemas"]["ClaimOut"];
                 };
             };
             /** @description Validation Error */
@@ -15971,7 +15971,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__after_serving__routes_questions__Questions"];
+                    "application/json": components["schemas"]["WrittenQuestions"];
                 };
             };
             /** @description Validation Error */
@@ -16106,7 +16106,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__after_serving__routes_questions__QuestionOut"];
+                    "application/json": components["schemas"]["WrittenQuestionOut"];
                 };
             };
             /** @description Validation Error */
