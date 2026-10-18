@@ -23,7 +23,7 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: ./.github/actions/api-install
       - uses: supabase/setup-cli@v1
-        with: { version: latest }
+        with: { version: 2.121.0 }  # pinned: "latest" asks the GitHub API and hits its rate limit
       # Postgres with every migration and supabase/seed.sql, plus Auth, Storage and the mailer the tests use.
       - run: supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy
       # Node and pnpm: the red-then-green check runs web test commits with vitest.

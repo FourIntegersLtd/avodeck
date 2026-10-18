@@ -116,7 +116,8 @@ def test_registries_come_from_the_packs(library: packs.PackLibrary, combo: Combo
     assert all(isinstance(f["fields"], dict) and f["fields"] for f in pack.fact_kinds())
     sources = combo.raw("specialty", "sources.yaml")["source_types"]
     assert keys(pack.source_types()) == [s["key"] for s in sources]
-    assert keys(pack.lanes()) == combo.raw("specialty", "lanes.yaml")["lanes"]
+    lanes = combo.raw("specialty", "lanes.yaml")["lanes"]
+    assert keys(pack.lanes()) == [lane if isinstance(lane, str) else lane["key"] for lane in lanes]
     checklist = combo.raw("jurisdiction", "report.yaml")
     assert keys(pack.compliance_checklist()["items"]) == [i["key"] for i in checklist["required_contents"]]
     assert pack.compliance_checklist()["rule_ref"] == checklist["rule_ref"]
@@ -163,7 +164,7 @@ def test_prompt_context_carries_pack_data_only(library: packs.PackLibrary) -> No
     assert context["language"] == FIXTURE.raw("jurisdiction", "pack.yaml")["language"]
     assert [k["key"] for k in context["fact_kinds"]] == ["session", "measurement"]
     assert context["fact_kinds"][0]["fields"] == {"duration_minutes": "integer"}
-    assert [s["key"] for s in context["source_types"]] == ["clinic_notes", "letters"]
+    assert [s["key"] for s in context["source_types"]] == ["clinic_notes", "letters", "zz_account"]
     assert context["vocabulary"]["clinician"] == "therapist"
 
 
@@ -395,11 +396,12 @@ def test_word_matching_respects_acronym_case_and_word_edges() -> None:
 def test_the_app_refuses_to_start_with_an_invalid_pack(
     tree: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from app.main import create_app  # importing builds the module-level app: do it before breaking the pack
+
     launch, _ = tree
     meta = launch / "jurisdiction/gb-eaw/pack.yaml"
     meta.write_text(meta.read_text().replace("date_order: DMY", "date_order: 42"))
     monkeypatch.setenv("PACKS_DIR", str(launch))
-    from app.main import create_app
 
     with pytest.raises(packs.PackError, match="date_order"):
         create_app()

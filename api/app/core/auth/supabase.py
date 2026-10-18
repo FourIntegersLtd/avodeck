@@ -141,6 +141,10 @@ class SupabaseAuth:
     # --- MFA --------------------------------------------------------------------------------------
 
     async def enroll_totp(self, access_token: str) -> dict[str, str]:
+        # A setup left half-done blocks a new one (Supabase refuses a second unnamed factor): clear it.
+        for factor in await self.factors(access_token):
+            if factor.get("status") == "unverified":
+                self._check(await self._call("DELETE", f"/factors/{factor['id']}", token=access_token))
         body = self._check(await self._call("POST", "/factors", token=access_token, json={"factor_type": "totp"}))
         totp = body.get("totp") or {}
         return {"factor_id": str(body["id"]), "qr_code": totp["qr_code"], "secret": totp["secret"], "uri": totp["uri"]}

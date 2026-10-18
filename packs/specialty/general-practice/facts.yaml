@@ -1,20 +1,24 @@
 # Fact kinds this specialty adds, with the fields extracted for each (values are copied words from
 # the page, never prose). Field types: string, integer, number, date, boolean.
+# arrives: true marks a kind that comes from outside the clinician (it is never treated as available
+# on its own event date). `setting` is optional (e.g. out_of_hours) and chooses a conditional lane.
 fact_kinds:
   - key: consultation
-    fields: {date: date, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
+    fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
   - key: phone_consultation
-    fields: {date: date, clinician_name: string, reason: string, history: string, plan: string, safety_netting: string}
+    fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, plan: string, safety_netting: string}
   - key: home_visit
-    fields: {date: date, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
+    fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
   - key: result
+    arrives: true
     fields: {date: date, test: string, value: string, unit: string, reference_range: string, flag: string, received_on: date, actioned_on: date}
   - key: prescription
     fields: {date: date, drug: string, dose: string, quantity: string, repeat: boolean}
   - key: referral
     fields: {date: date, to: string, reason: string, urgency: string, acknowledged_on: date}
   - key: letter
-    fields: {date: date, from: string, to: string, received_on: date, actions_requested: string}
+    arrives: true
+    fields: {date: date, from: string, to: string, received_on: date, actions_requested: string, acknowledges_referral_dated: date}
   - key: examination
     fields: {date: date, finding: string, value: string, unit: string}
   - key: safety_netting

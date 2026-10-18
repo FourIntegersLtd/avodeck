@@ -358,6 +358,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Comments */
+        get: operations["list_comments_v1_cases__case_id__comments_get"];
+        put?: never;
+        /** Add Comment */
+        post: operations["add_comment_v1_cases__case_id__comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change Comment */
+        patch: operations["change_comment_v1_cases__case_id__comments__comment_id__patch"];
+        trace?: never;
+    };
     "/v1/cases/{case_id}/conflicts": {
         parameters: {
             query?: never;
@@ -387,6 +422,43 @@ export interface paths {
         put?: never;
         /** Declare */
         post: operations["declare_v1_cases__case_id__conflicts_declare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/consultations/{fact_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consultation */
+        get: operations["consultation_v1_cases__case_id__consultations__fact_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/consultations/{fact_id}/note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Put Note
+         * @description Add a note (`consultation.note`) or change your own; the author keeps theirs if the named expert changes.
+         */
+        put: operations["put_note_v1_cases__case_id__consultations__fact_id__note_put"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -533,6 +605,184 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/fact-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Links */
+        get: operations["list_links_v1_cases__case_id__fact_links_get"];
+        put?: never;
+        /** Add Link */
+        post: operations["add_link_v1_cases__case_id__fact_links_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/fact-links/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggest */
+        post: operations["suggest_v1_cases__case_id__fact_links_suggest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/fact-links/{link_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Decide */
+        patch: operations["decide_v1_cases__case_id__fact_links__link_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/facts/{fact_id}/availability": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change Availability */
+        patch: operations["change_availability_v1_cases__case_id__facts__fact_id__availability_patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/facts/{fact_id}/flag-point": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Flag Point
+         * @description Send a checked fact to Points against (slice E reads it through core/contracts/fact_flags).
+         */
+        post: operations["flag_point_v1_cases__case_id__facts__fact_id__flag_point_post"];
+        /** Unflag Point */
+        delete: operations["unflag_point_v1_cases__case_id__facts__fact_id__flag_point_delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/facts/{fact_id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move Fact
+         * @description Move a fact to the clearer copy of its page, citing that page's words. History is kept.
+         */
+        post: operations["move_fact_v1_cases__case_id__facts__fact_id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/facts/{fact_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Verify Fact */
+        post: operations["verify_fact_v1_cases__case_id__facts__fact_id__verify_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Findings */
+        get: operations["list_findings_v1_cases__case_id__findings_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/findings/rerun": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rerun */
+        post: operations["rerun_v1_cases__case_id__findings_rerun_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/findings/{finding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Decide */
+        patch: operations["decide_v1_cases__case_id__findings__finding_id__patch"];
         trace?: never;
     };
     "/v1/cases/{case_id}/hold": {
@@ -746,6 +996,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/lint-issues/{issue_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Dismiss Issue
+         * @description Dismiss a warning with the expert's reason; the dismissal is kept for the final check.
+         */
+        patch: operations["dismiss_issue_v1_cases__case_id__lint_issues__issue_id__patch"];
+        trace?: never;
+    };
     "/v1/cases/{case_id}/members": {
         parameters: {
             query?: never;
@@ -815,6 +1085,46 @@ export interface paths {
         patch: operations["change_missing_item_v1_cases__case_id__missing_items__item_id__patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/opinions/{opinion_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Opinion Versions
+         * @description Every saved version of the opinion, newest first.
+         */
+        get: operations["opinion_versions_v1_cases__case_id__opinions__opinion_id__versions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/opinions/{opinion_id}/versions/{version_no}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Version
+         * @description Save an earlier version again as the newest one; the earlier version is not changed.
+         */
+        post: operations["restore_version_v1_cases__case_id__opinions__opinion_id__versions__version_no__restore_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/oral-instructions": {
         parameters: {
             query?: never;
@@ -844,6 +1154,40 @@ export interface paths {
         };
         /** Get Case Pack */
         get: operations["get_case_pack_v1_cases__case_id__pack_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Pages */
+        get: operations["list_pages_v1_cases__case_id__pages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages/unreadable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Unreadable Pages */
+        get: operations["unreadable_pages_v1_cases__case_id__pages_unreadable_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -912,6 +1256,95 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/pages/{page_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate Page
+         * @description Turns the page and reads it again; its number stays (slice A re-maps or flags its checked facts).
+         */
+        post: operations["rotate_page_v1_cases__case_id__pages__page_id__rotate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages/{page_no}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Page */
+        get: operations["get_page_v1_cases__case_id__pages__page_no__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change Page */
+        patch: operations["change_page_v1_cases__case_id__pages__page_no__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages/{page_no}/facts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page Facts */
+        get: operations["page_facts_v1_cases__case_id__pages__page_no__facts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages/{page_no}/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Page Image */
+        get: operations["page_image_v1_cases__case_id__pages__page_no__image_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages/{page_no}/read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark Read */
+        post: operations["mark_read_v1_cases__case_id__pages__page_no__read_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/pages/{page_no}/thumbnail": {
         parameters: {
             query?: never;
@@ -922,6 +1355,26 @@ export interface paths {
         /** Page Thumbnail */
         get: operations["page_thumbnail_v1_cases__case_id__pages__page_no__thumbnail_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages/{page_no}/transcription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Transcription
+         * @description The expert's own typing of the page: it counts as reading it, and the page is read again from it.
+         */
+        put: operations["save_transcription_v1_cases__case_id__pages__page_no__transcription_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -963,6 +1416,26 @@ export interface paths {
         head?: never;
         /** Update Party */
         patch: operations["update_party_v1_cases__case_id__parties__party_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/points/{point_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change Point
+         * @description Move a point to another side, accept it, or remove it with a reason.
+         */
+        patch: operations["change_point_v1_cases__case_id__points__point_id__patch"];
         trace?: never;
     };
     "/v1/cases/{case_id}/prefill": {
@@ -1045,6 +1518,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Progress */
+        get: operations["progress_v1_cases__case_id__progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/questions": {
         parameters: {
             query?: never;
@@ -1114,6 +1604,150 @@ export interface paths {
         head?: never;
         /** Update Question */
         patch: operations["update_question_v1_cases__case_id__questions__question_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/opinion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Opinion
+         * @description Autosave: the expert's text, citations, view and provisional flag. Every save is kept as a version.
+         */
+        put: operations["save_opinion_v1_cases__case_id__questions__question_id__opinion_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/opinion/lint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Lint Opinion
+         * @description Ask the model which words in the saved opinion to check; the warnings open after it answers.
+         */
+        post: operations["lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Points
+         * @description The points on one question, flagged facts first, then by side; and the citable facts not yet used.
+         */
+        get: operations["list_points_v1_cases__case_id__questions__question_id__points_get"];
+        put?: never;
+        /**
+         * Add Point
+         * @description The expert adds a citable fact linked to the question as a point of their own.
+         */
+        post: operations["add_point_v1_cases__case_id__questions__question_id__points_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/points/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest
+         * @description Ask for the facts not yet points to be sorted by side (T-14a); the expert decides each one.
+         */
+        post: operations["suggest_v1_cases__case_id__questions__question_id__points_suggest_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/range-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Range Note
+         * @description Save the expert's range note.
+         */
+        put: operations["save_range_note_v1_cases__case_id__questions__question_id__range_note_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/questions/{question_id}/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Workspace
+         * @description The chips, guidance on the day, points summary, views, legal test and saved opinion for one question.
+         */
+        get: operations["workspace_v1_cases__case_id__questions__question_id__workspace_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/relevant-facts/{relevant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Dismiss Relevant
+         * @description Dismiss a suggested relevant fact; the expert uses one by citing it in the draft.
+         */
+        patch: operations["dismiss_relevant_v1_cases__case_id__relevant_facts__relevant_id__patch"];
         trace?: never;
     };
     "/v1/cases/{case_id}/reopen": {
@@ -1244,6 +1878,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Timeline */
+        get: operations["timeline_v1_cases__case_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/transcripts": {
         parameters: {
             query?: never;
@@ -1295,6 +1946,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/witness-claims/{claim_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Decide Claim
+         * @description Confirm a claim's label, give the expert's own verdict, or dismiss the claim.
+         */
+        patch: operations["decide_claim_v1_cases__case_id__witness_claims__claim_id__patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/witness-statements/{document_id}/compare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Compare
+         * @description Ask for a statement in the case to be set beside the records (T-14c); the expert decides each claim.
+         */
+        post: operations["compare_v1_cases__case_id__witness_statements__document_id__compare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/feature-flags": {
         parameters: {
             query?: never;
@@ -1304,6 +1995,23 @@ export interface paths {
         };
         /** Feature Flags */
         get: operations["feature_flags_v1_feature_flags_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/guidelines/in-force": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Guideline In Force */
+        get: operations["guideline_in_force_v1_guidelines_in_force_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1391,6 +2099,41 @@ export interface paths {
         get: operations["get_me_v1_me_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** My Checks */
+        get: operations["my_checks_v1_me_checks_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change Check */
+        patch: operations["change_check_v1_me_checks_patch"];
+        trace?: never;
+    };
+    "/v1/me/checks/custom": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Custom Check */
+        post: operations["custom_check_v1_me_checks_custom_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1975,6 +2718,30 @@ export interface components {
             /** Entries */
             entries: components["schemas"]["AuditEntry"][];
         };
+        /** AvailabilityChange */
+        AvailabilityChange: {
+            /** Available At */
+            available_at?: string | null;
+            /** Reason */
+            reason: string;
+            /**
+             * Unknown
+             * @default false
+             */
+            unknown: boolean;
+        };
+        /** AvailabilityOut */
+        AvailabilityOut: {
+            /** Available At */
+            available_at: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Unknown */
+            unknown: boolean;
+        };
         /** Balance */
         Balance: {
             /**
@@ -2144,6 +2911,26 @@ export interface components {
             /** Your Role */
             your_role: string | null;
         };
+        /** CaseCheck */
+        CaseCheck: {
+            /** Default On */
+            default_on: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Gentle */
+            gentle: boolean;
+            /** Key */
+            key: string;
+            /** Rule */
+            rule: string;
+            /** Window Days */
+            window_days: number | null;
+        };
+        /** CaseChecks */
+        CaseChecks: {
+            /** Checks */
+            checks: components["schemas"]["CaseCheck"][];
+        };
         /**
          * CaseCreate
          * @description A draft case. Every pack value is a key of a combination this cell offers (rule 11).
@@ -2268,8 +3055,22 @@ export interface components {
             legal_tests: string | null;
             /** Locale */
             locale: string;
+            /**
+             * Opinion Views
+             * @default []
+             */
+            opinion_views: {
+                [key: string]: string;
+            }[];
             /** Party Roles */
             party_roles: {
+                [key: string]: string;
+            }[];
+            /**
+             * Point Sides
+             * @default []
+             */
+            point_sides: {
                 [key: string]: string;
             }[];
             /** Profession */
@@ -2280,6 +3081,11 @@ export interface components {
             question_types: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Range Note Prompt
+             * @default
+             */
+            range_note_prompt: string;
             /** Registration Bodies */
             registration_bodies: string[];
             /** Report Sections */
@@ -2364,10 +3170,91 @@ export interface components {
             /** Sent To */
             sent_to: string[];
         };
+        /** Chip */
+        Chip: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Fact Version */
+            fact_version: number;
+            /** Kind */
+            kind: string;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Quote Verbatim */
+            quote_verbatim: string;
+            /** Value */
+            value: string;
+        };
         /** ChunkReceived */
         ChunkReceived: {
             /** Received */
             received: number[];
+        };
+        /** Citation */
+        Citation: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Fact Version */
+            fact_version?: number | null;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Quote Verbatim */
+            quote_verbatim: string;
+        };
+        /** ClaimChange */
+        ClaimChange: {
+            /** Expert Verdict */
+            expert_verdict?: ("supports" | "contradicts" | "not_addressed") | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "confirmed" | "edited" | "dismissed";
+        };
+        /** ClaimOut */
+        ClaimOut: {
+            /** Claim Index */
+            claim_index: number;
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Expert Verdict */
+            expert_verdict: string | null;
+            /** Facts */
+            facts: components["schemas"]["PointFact"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Text Verbatim */
+            text_verbatim: string;
+            /** Verdict */
+            verdict: string;
+            /** Version */
+            version: number;
+            /** Word Ids */
+            word_ids: string[];
         };
         /**
          * CloseSummary
@@ -2406,6 +3293,60 @@ export interface components {
         Code: {
             /** Code */
             code: string;
+        };
+        /** CommentChange */
+        CommentChange: {
+            /** Body */
+            body?: string | null;
+            /** Resolved */
+            resolved?: boolean | null;
+        };
+        /** CommentIn */
+        CommentIn: {
+            /** Body */
+            body: string;
+            /** Target Id */
+            target_id: string;
+            /**
+             * Target Kind
+             * @enum {string}
+             */
+            target_kind: "page" | "fact" | "paragraph";
+        };
+        /** CommentOut */
+        CommentOut: {
+            /**
+             * Author Id
+             * Format: uuid
+             */
+            author_id: string;
+            /** Body */
+            body: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Mine */
+            mine: boolean;
+            /** Resolved At */
+            resolved_at: string | null;
+            /** Target Id */
+            target_id: string;
+            /** Target Kind */
+            target_kind: string;
+            /** Version */
+            version: number;
+        };
+        /** Comments */
+        Comments: {
+            /** Comments */
+            comments: components["schemas"]["CommentOut"][];
         };
         /** ConfirmationSent */
         ConfirmationSent: {
@@ -2472,6 +3413,34 @@ export interface components {
              * @description i18n keys.
              */
             warnings: string[];
+        };
+        /** Consultation */
+        Consultation: {
+            entry: components["schemas"]["Entry"];
+            /** Guidance */
+            guidance: components["schemas"]["Guidance"][];
+            /**
+             * Guidance Changed
+             * @default []
+             */
+            guidance_changed: string[];
+            /** Later */
+            later: components["schemas"]["Entry"][];
+            /** Later Count */
+            later_count: number;
+            /** Note */
+            note: string | null;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
+            /** Title */
+            title: string;
+            /** Unknown */
+            unknown: components["schemas"]["Entry"][];
+            /** Visible */
+            visible: components["schemas"]["Entry"][];
         };
         /** Coverage */
         Coverage: {
@@ -2679,6 +3648,46 @@ export interface components {
             /** Uri */
             uri: string;
         };
+        /** Entry */
+        Entry: {
+            /** Available At */
+            available_at: string | null;
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Kind */
+            kind: string;
+            /** Page No */
+            page_no: number;
+            /** Status */
+            status: string;
+        };
+        /** Event */
+        Event: {
+            /** Available At */
+            available_at: string | null;
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Has Finding */
+            has_finding: boolean;
+            /** Kind */
+            kind: string;
+            /** Page No */
+            page_no: number;
+            /** Question Ids */
+            question_ids: string[];
+            /** Status */
+            status: string;
+        };
         /**
          * Exhibit
          * @description A file Avodeck keeps and lists but cannot read: audio, video, imaging. Never paged.
@@ -2724,12 +3733,111 @@ export interface components {
             /** Specialties */
             specialties: string[];
         };
+        /** FactList */
+        FactList: {
+            /** Facts */
+            facts: components["schemas"]["FactOut"][];
+        };
+        /** FactOut */
+        FactOut: {
+            /** Bbox */
+            bbox: {
+                [key: string]: unknown;
+            } | null;
+            /** Event Date */
+            event_date: string | null;
+            /** Fields */
+            fields: {
+                [key: string]: unknown;
+            };
+            /**
+             * Flagged
+             * @description Sent to Points against (a 'points' flag) only.
+             */
+            flagged: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Needs Recheck
+             * @description Flagged 'Please check': its page was read again and its words were not found.
+             * @default false
+             */
+            needs_recheck: boolean;
+            /** Status */
+            status: string;
+            /** Value */
+            value: string | null;
+            /** Version */
+            version: number;
+            /** Word Ids */
+            word_ids: string[];
+        };
         /** FeatureFlags */
         FeatureFlags: {
             /** Flags */
             flags: {
                 [key: string]: boolean;
             };
+        };
+        /** FindingDecision */
+        FindingDecision: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "relevant" | "not_relevant" | "explained_elsewhere";
+            /** Reason */
+            reason?: string | null;
+        };
+        /** FindingOut */
+        FindingOut: {
+            /** Check Key */
+            check_key: string;
+            /** Decision */
+            decision: string | null;
+            /** Evidence Fact Ids */
+            evidence_fact_ids: string[];
+            /** Evidence Pages */
+            evidence_pages: number[];
+            /** Gentle */
+            gentle: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string | null;
+            /** Rule */
+            rule: string;
+            /**
+             * Status
+             * @default open
+             * @enum {string}
+             */
+            status: "open" | "gone";
+            /** Version */
+            version: number;
+        };
+        /** Findings */
+        Findings: {
+            /** Findings */
+            findings: components["schemas"]["FindingOut"][];
+        };
+        /** FlagOut */
+        FlagOut: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Flagged */
+            flagged: boolean;
         };
         /** ForeignPage */
         ForeignPage: {
@@ -2747,6 +3855,17 @@ export interface components {
         Forgot: {
             /** Email */
             email: string;
+        };
+        /** Guidance */
+        Guidance: {
+            /** Code */
+            code: string;
+            /** Title */
+            title: string | null;
+            /** Url */
+            url: string | null;
+            /** Version Label */
+            version_label: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -2774,6 +3893,24 @@ export interface components {
             reason: string;
             /** Until */
             until?: string | null;
+        };
+        /** InForce */
+        InForce: {
+            /** Code */
+            code: string;
+            /**
+             * In Force From
+             * Format: date
+             */
+            in_force_from: string;
+            /** In Force To */
+            in_force_to: string | null;
+            /** Title */
+            title: string | null;
+            /** Url */
+            url: string | null;
+            /** Version Label */
+            version_label: string;
         };
         /** InstructingParties */
         InstructingParties: {
@@ -2962,6 +4099,14 @@ export interface components {
             /** Step */
             step: string | null;
         };
+        /** JobOut */
+        JobOut: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+        };
         /** JobQueued */
         JobQueued: {
             /**
@@ -3028,6 +4173,98 @@ export interface components {
             };
             /** Working Week */
             working_week: number[];
+        };
+        /** Lane */
+        Lane: {
+            /** Events */
+            events: components["schemas"]["Event"][];
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
+        /** LinkDecision */
+        LinkDecision: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "confirmed" | "rejected";
+        };
+        /** LinkIn */
+        LinkIn: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+        };
+        /** LinkOut */
+        LinkOut: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Page No */
+            page_no: number;
+            /** Question Id */
+            question_id: string | null;
+            /** Reason */
+            reason: string | null;
+            /** Source */
+            source: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+        };
+        /** Links */
+        Links: {
+            /** Links */
+            links: components["schemas"]["LinkOut"][];
+        };
+        /** LintDismiss */
+        LintDismiss: {
+            /** Dismissed Reason */
+            dismissed_reason: string;
+        };
+        /** LintIssueOut */
+        LintIssueOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Sentence Index */
+            sentence_index: number;
+            /** Source */
+            source: string;
+            /** Status */
+            status: string;
+            /** Type */
+            type: string;
+            /** Words */
+            words: string;
+        };
+        /** LintOut */
+        LintOut: {
+            /** Issues */
+            issues: components["schemas"]["LintIssueOut"][];
         };
         /** MappingItem */
         MappingItem: {
@@ -3158,6 +4395,13 @@ export interface components {
             /** Missing Items */
             missing_items: components["schemas"]["MissingItem"][];
         };
+        /** MoveIn */
+        MoveIn: {
+            /** To Page No */
+            to_page_no: number;
+            /** Word Ids */
+            word_ids: string[];
+        };
         /** NeedsYouItem */
         NeedsYouItem: {
             /** Action Key */
@@ -3213,6 +4457,11 @@ export interface components {
              */
             topic: "outside_expertise" | "questions_reopened" | "conflict_declared" | "withdrawal";
         };
+        /** NoteIn */
+        NoteIn: {
+            /** Body */
+            body: string;
+        };
         /** NoteItem */
         NoteItem: {
             /**
@@ -3236,6 +4485,16 @@ export interface components {
              * @description The question's exact words, or the expert's own detail.
              */
             text?: string | null;
+        };
+        /** NoteOut */
+        NoteOut: {
+            /** Body */
+            body: string;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
         };
         /** NoteRequest */
         NoteRequest: {
@@ -3318,6 +4577,99 @@ export interface components {
             /** Unread Count */
             unread_count: number;
         };
+        /** OpinionIn */
+        OpinionIn: {
+            /** Body */
+            body: string;
+            /** Citation Refs */
+            citation_refs?: components["schemas"]["Citation"][];
+            /**
+             * Provisional
+             * @default false
+             */
+            provisional: boolean;
+            /** Test Text */
+            test_text?: string | null;
+            /** View */
+            view?: string | null;
+        };
+        /** OpinionOut */
+        OpinionOut: {
+            /** Body */
+            body: string;
+            /** Changed Citations */
+            changed_citations?: number[];
+            /** Citation Refs */
+            citation_refs: components["schemas"]["Citation"][];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lint */
+            lint?: components["schemas"]["LintIssueOut"][];
+            /** Provisional */
+            provisional: boolean;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Restored From */
+            restored_from: number | null;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+            /** Test Text */
+            test_text?: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Version */
+            version: number;
+            /** View */
+            view: string | null;
+        };
+        /** OpinionVersion */
+        OpinionVersion: {
+            /** Body */
+            body: string;
+            /** Citation Refs */
+            citation_refs: components["schemas"]["Citation"][];
+            /** Provisional */
+            provisional: boolean;
+            /** Restored From */
+            restored_from: number | null;
+            /**
+             * Saved At
+             * Format: date-time
+             */
+            saved_at: string;
+            /** Saved By */
+            saved_by: string | null;
+            /** Test Text */
+            test_text?: string | null;
+            /** Version No */
+            version_no: number;
+            /** View */
+            view: string | null;
+        };
+        /** OpinionVersions */
+        OpinionVersions: {
+            /** Versions */
+            versions: components["schemas"]["OpinionVersion"][];
+        };
+        /** OpinionView */
+        OpinionView: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+        };
         /** OralInstruction */
         OralInstruction: {
             /**
@@ -3382,6 +4734,57 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** PageChange */
+        PageChange: {
+            /** Needs Clearer Copy */
+            needs_clearer_copy?: boolean | null;
+            /** Relevance */
+            relevance?: ("relevant" | "background") | null;
+        };
+        /**
+         * PageDetail
+         * @description One page. Never carries facts: they come from `/facts`, behind the blind-read gate (rule 3).
+         */
+        PageDetail: {
+            /** Duplicate Of Page No */
+            duplicate_of_page_no: number | null;
+            /** First Read At */
+            first_read_at: string | null;
+            /** Handwriting */
+            handwriting: boolean | null;
+            /** Has Transcription */
+            has_transcription: boolean;
+            /** In Period */
+            in_period: boolean | null;
+            /** Needs Clearer Copy */
+            needs_clearer_copy: boolean;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Read */
+            read: boolean;
+            /** Relevance */
+            relevance: string | null;
+            /** Rotation */
+            rotation: number;
+            /** Source Type */
+            source_type: string | null;
+            /** Superseded By Page No */
+            superseded_by_page_no: number | null;
+            /** Unreadable */
+            unreadable: boolean;
+        };
+        /** PageList */
+        PageList: {
+            /** Next Cursor */
+            next_cursor: number | null;
+            /** Pages */
+            pages: components["schemas"]["PageSummary"][];
+        };
         /** PageReplacement */
         PageReplacement: {
             /**
@@ -3398,6 +4801,26 @@ export interface components {
              * Format: uuid
              */
             page_id: string;
+        };
+        /** PageSummary */
+        PageSummary: {
+            /** Duplicate Of Page No */
+            duplicate_of_page_no: number | null;
+            /** In Period */
+            in_period: boolean | null;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Read */
+            read: boolean;
+            /** Source Type */
+            source_type: string | null;
+            /** Unreadable */
+            unreadable: boolean;
         };
         /** Party */
         Party: {
@@ -3461,6 +4884,90 @@ export interface components {
             locale: string | null;
             /** Timezone */
             timezone: string | null;
+        };
+        /** PointAdd */
+        PointAdd: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Side */
+            side: string;
+        };
+        /** PointChange */
+        PointChange: {
+            /** Dismissed Reason */
+            dismissed_reason?: string | null;
+            /** Side */
+            side?: string | null;
+            /** Status */
+            status?: ("accepted" | "dismissed") | null;
+        };
+        /** PointFact */
+        PointFact: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Value */
+            value: string | null;
+        };
+        /** PointOut */
+        PointOut: {
+            /** Dismissed Reason */
+            dismissed_reason: string | null;
+            fact: components["schemas"]["PointFact"];
+            /** Flagged */
+            flagged: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Origin */
+            origin: string;
+            /** Reason */
+            reason: string | null;
+            /** Side */
+            side: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+        };
+        /** Points */
+        Points: {
+            /** Claims */
+            claims: components["schemas"]["ClaimOut"][];
+            /** Points */
+            points: components["schemas"]["PointOut"][];
+            range_note: components["schemas"]["RangeNote"];
+            /** Relevant */
+            relevant: components["schemas"]["RelevantOut"][];
+            /** Sides */
+            sides: components["schemas"]["Side"][];
+            /** Unused */
+            unused: components["schemas"]["PointFact"][];
+        };
+        /** PointsSummary */
+        PointsSummary: {
+            /** Differ */
+            differ: number;
+            /** Sides */
+            sides: components["schemas"]["SideCount"][];
         };
         /** Prefill */
         Prefill: {
@@ -3561,6 +5068,15 @@ export interface components {
             registration_number?: string | null;
             /** Specialties */
             specialties?: string[] | null;
+        };
+        /** Progress */
+        Progress: {
+            /** Read */
+            read: number;
+            /** Seconds Left */
+            seconds_left: number;
+            /** Total */
+            total: number;
         };
         /** ProvenanceChange */
         ProvenanceChange: {
@@ -3674,6 +5190,28 @@ export interface components {
              */
             warnings: string[];
         };
+        /** Queued */
+        Queued: {
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+        };
+        /** RangeNote */
+        RangeNote: {
+            /** Prompt */
+            prompt: string;
+            /** Text */
+            text: string | null;
+            /** Version */
+            version: number;
+        };
+        /** RangeNoteIn */
+        RangeNoteIn: {
+            /** Text */
+            text: string;
+        };
         /** ReadAgain */
         ReadAgain: {
             /**
@@ -3681,6 +5219,23 @@ export interface components {
              * Format: uuid
              */
             job_id: string;
+        };
+        /** ReadIn */
+        ReadIn: {
+            /** Dwell Seconds */
+            dwell_seconds: number;
+        };
+        /** ReadOut */
+        ReadOut: {
+            /**
+             * First Read At
+             * Format: date-time
+             */
+            first_read_at: string;
+            /** Page No */
+            page_no: number;
+            /** Read */
+            read: boolean;
         };
         /** Recipient */
         Recipient: {
@@ -3711,6 +5266,29 @@ export interface components {
         RecoveryCodes: {
             /** Recovery Codes */
             recovery_codes: string[];
+        };
+        /** RelevantChange */
+        RelevantChange: {
+            /**
+             * Status
+             * @constant
+             */
+            status: "dismissed";
+        };
+        /** RelevantOut */
+        RelevantOut: {
+            fact: components["schemas"]["PointFact"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Version */
+            version: number;
+            /** Why Relevant */
+            why_relevant: string;
         };
         /** ReplaceAsk */
         ReplaceAsk: {
@@ -3847,6 +5425,14 @@ export interface components {
              */
             started_on: string;
         };
+        /** RotateIn */
+        RotateIn: {
+            /**
+             * Degrees
+             * @enum {integer}
+             */
+            degrees: 90 | 180 | 270;
+        };
         /** SectionSuggestion */
         SectionSuggestion: {
             /** Index */
@@ -3890,6 +5476,45 @@ export interface components {
             /** Step Up Until */
             step_up_until: string | null;
         };
+        /** Setting */
+        Setting: {
+            /** Check Key */
+            check_key: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Window Days */
+            window_days: number | null;
+        };
+        /** SettingChange */
+        SettingChange: {
+            /** Check Key */
+            check_key: string;
+            /** Enabled */
+            enabled?: boolean | null;
+            /** Window Days */
+            window_days?: number | null;
+        };
+        /** Settings */
+        Settings: {
+            /** Settings */
+            settings: components["schemas"]["Setting"][];
+        };
+        /** Side */
+        Side: {
+            /** Code */
+            code: string;
+            /** Label */
+            label: string;
+        };
+        /** SideCount */
+        SideCount: {
+            /** Code */
+            code: string;
+            /** Count */
+            count: number;
+            /** Label */
+            label: string;
+        };
         /** SignIn */
         SignIn: {
             /** Email */
@@ -3903,9 +5528,9 @@ export interface components {
             mfa_enrolled: boolean;
             /**
              * Status
-             * @constant
+             * @enum {string}
              */
-            status: "mfa_required";
+            status: "mfa_required" | "signed_in";
         };
         /** Signature */
         Signature: {
@@ -4033,6 +5658,18 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** Timeline */
+        Timeline: {
+            /**
+             * Guidance Changed
+             * @default []
+             */
+            guidance_changed: string[];
+            /** Lanes */
+            lanes: components["schemas"]["Lane"][];
+            /** Unplaced */
+            unplaced: components["schemas"]["Event"][];
+        };
         /** Today */
         Today: {
             /** Cases */
@@ -4094,6 +5731,44 @@ export interface components {
              * Format: uuid
              */
             id: string;
+        };
+        /** TranscriptionIn */
+        TranscriptionIn: {
+            /** Relevance */
+            relevance?: ("relevant" | "background") | null;
+            /** Text */
+            text: string;
+        };
+        /** UnreadablePage */
+        UnreadablePage: {
+            /** Done */
+            done: boolean;
+            /** Handwriting */
+            handwriting: boolean | null;
+            /** Has Transcription */
+            has_transcription: boolean;
+            /** Needs Clearer Copy */
+            needs_clearer_copy: boolean;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+            /** Page No */
+            page_no: number;
+            /** Relevance */
+            relevance: string | null;
+            /** Source Type */
+            source_type: string | null;
+        };
+        /** UnreadableQueue */
+        UnreadableQueue: {
+            /** Done */
+            done: number;
+            /** Pages */
+            pages: components["schemas"]["UnreadablePage"][];
+            /** Total */
+            total: number;
         };
         /** Upload */
         Upload: {
@@ -4176,6 +5851,26 @@ export interface components {
              */
             status: "signed_in";
         };
+        /** VerifyIn */
+        VerifyIn: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "correct" | "not_right" | "edit";
+            /** Event Date */
+            event_date?: string | null;
+            /** Fields */
+            fields?: {
+                [key: string]: unknown;
+            } | null;
+            /** New Value */
+            new_value?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Word Ids */
+            word_ids?: string[] | null;
+        };
         /** WithdrawIn */
         WithdrawIn: {
             /** Reason */
@@ -4205,6 +5900,46 @@ export interface components {
             text: string;
             /** Version */
             version?: string | null;
+        };
+        /** Workspace */
+        Workspace: {
+            /** Chips */
+            chips: components["schemas"]["Chip"][];
+            /** Guidance */
+            guidance: components["schemas"]["WorkspaceGuidance"][];
+            /** Guidance On */
+            guidance_on: string | null;
+            /** Legal Test */
+            legal_test: string;
+            opinion: components["schemas"]["OpinionOut"] | null;
+            points: components["schemas"]["PointsSummary"];
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Views */
+            views: components["schemas"]["OpinionView"][];
+        };
+        /** WorkspaceGuidance */
+        WorkspaceGuidance: {
+            /** Code */
+            code: string;
+            /**
+             * In Force From
+             * Format: date
+             */
+            in_force_from: string;
+            /** In Force To */
+            in_force_to: string | null;
+            /** Source */
+            source: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string | null;
+            /** Version Label */
+            version_label: string;
         };
         /** Hold */
         app__features__close__schemas__Hold: {
@@ -5025,6 +6760,140 @@ export interface operations {
             };
         };
     };
+    list_comments_v1_cases__case_id__comments_get: {
+        parameters: {
+            query?: {
+                target_kind?: ("page" | "fact" | "paragraph") | null;
+                target_id?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comments"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    add_comment_v1_cases__case_id__comments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    change_comment_v1_cases__case_id__comments__comment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     get_conflicts_v1_cases__case_id__conflicts_get: {
         parameters: {
             query?: never;
@@ -5127,6 +6996,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Declared"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    consultation_v1_cases__case_id__consultations__fact_id__get: {
+        parameters: {
+            query?: {
+                /** @description The basic view always shows the day as seen. */
+                as_seen?: boolean;
+                /** @description Show the record as it stood on this day (default: the visit). */
+                on?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Consultation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    put_note_v1_cases__case_id__consultations__fact_id__note_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NoteOut"];
                 };
             };
             /** @description Validation Error */
@@ -5458,6 +7418,525 @@ export interface operations {
                 };
                 content: {
                     "application/zip": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_links_v1_cases__case_id__fact_links_get: {
+        parameters: {
+            query?: {
+                status?: ("suggested" | "confirmed" | "rejected" | "stale") | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Links"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    add_link_v1_cases__case_id__fact_links_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    suggest_v1_cases__case_id__fact_links_suggest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    decide_v1_cases__case_id__fact_links__link_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                link_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LinkDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    change_availability_v1_cases__case_id__facts__fact_id__availability_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AvailabilityChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AvailabilityOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    flag_point_v1_cases__case_id__facts__fact_id__flag_point_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlagOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    unflag_point_v1_cases__case_id__facts__fact_id__flag_point_delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FlagOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    move_fact_v1_cases__case_id__facts__fact_id__move_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    verify_fact_v1_cases__case_id__facts__fact_id__verify_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VerifyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_findings_v1_cases__case_id__findings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Findings"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    rerun_v1_cases__case_id__findings_rerun_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    decide_v1_cases__case_id__findings__finding_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                finding_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindingDecision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingOut"];
                 };
             };
             /** @description Validation Error */
@@ -6121,6 +8600,51 @@ export interface operations {
             };
         };
     };
+    dismiss_issue_v1_cases__case_id__lint_issues__issue_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                issue_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LintDismiss"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintIssueOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     list_members_v1_cases__case_id__members_get: {
         parameters: {
             query?: never;
@@ -6331,6 +8855,91 @@ export interface operations {
             };
         };
     };
+    opinion_versions_v1_cases__case_id__opinions__opinion_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                opinion_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpinionVersions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    restore_version_v1_cases__case_id__opinions__opinion_id__versions__version_no__restore_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                opinion_id: string;
+                version_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpinionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     save_oral_instructions_v1_cases__case_id__oral_instructions_put: {
         parameters: {
             query?: never;
@@ -6393,6 +9002,91 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CasePack"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_pages_v1_cases__case_id__pages_get: {
+        parameters: {
+            query?: {
+                filter?: ("unread" | "period" | "source") | null;
+                source?: string | null;
+                cursor?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    unreadable_pages_v1_cases__case_id__pages_unreadable_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UnreadableQueue"];
                 };
             };
             /** @description Validation Error */
@@ -6593,6 +9287,262 @@ export interface operations {
             };
         };
     };
+    rotate_page_v1_cases__case_id__pages__page_id__rotate_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_page_v1_cases__case_id__pages__page_no__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    change_page_v1_cases__case_id__pages__page_no__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PageChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    page_facts_v1_cases__case_id__pages__page_no__facts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FactList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    page_image_v1_cases__case_id__pages__page_no__image_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    mark_read_v1_cases__case_id__pages__page_no__read_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReadIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReadOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     page_thumbnail_v1_cases__case_id__pages__page_no__thumbnail_get: {
         parameters: {
             query?: never;
@@ -6611,6 +9561,51 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_transcription_v1_cases__case_id__pages__page_no__transcription_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TranscriptionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -6780,6 +9775,53 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Party"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    change_point_v1_cases__case_id__points__point_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                point_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PointChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointOut"];
                 };
             };
             /** @description Validation Error */
@@ -7047,6 +10089,46 @@ export interface operations {
             };
         };
     };
+    progress_v1_cases__case_id__progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Progress"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     list_questions_v1_cases__case_id__questions_get: {
         parameters: {
             query?: never;
@@ -7192,6 +10274,358 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["QuestionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_opinion_v1_cases__case_id__questions__question_id__opinion_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpinionIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OpinionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_points_v1_cases__case_id__questions__question_id__points_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Points"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    add_point_v1_cases__case_id__questions__question_id__points_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PointAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    suggest_v1_cases__case_id__questions__question_id__points_suggest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    save_range_note_v1_cases__case_id__questions__question_id__range_note_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RangeNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RangeNote"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    workspace_v1_cases__case_id__questions__question_id__workspace_get: {
+        parameters: {
+            query?: {
+                on?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workspace"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    dismiss_relevant_v1_cases__case_id__relevant_facts__relevant_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                relevant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RelevantChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RelevantOut"];
                 };
             };
             /** @description Validation Error */
@@ -7500,6 +10934,51 @@ export interface operations {
             };
         };
     };
+    timeline_v1_cases__case_id__timeline_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+                status?: ("suggested" | "verified" | "edited") | null;
+                question_id?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Timeline"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     save_transcript_v1_cases__case_id__transcripts_post: {
         parameters: {
             query?: never;
@@ -7632,6 +11111,94 @@ export interface operations {
             };
         };
     };
+    decide_claim_v1_cases__case_id__witness_claims__claim_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                case_id: string;
+                claim_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClaimChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClaimOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    compare_v1_cases__case_id__witness_statements__document_id__compare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     feature_flags_v1_feature_flags_get: {
         parameters: {
             query?: never;
@@ -7648,6 +11215,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FeatureFlags"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    guideline_in_force_v1_guidelines_in_force_get: {
+        parameters: {
+            query: {
+                code: string;
+                date: string;
+                case_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InForce"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
@@ -7824,6 +11433,117 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    my_checks_v1_me_checks_get: {
+        parameters: {
+            query?: {
+                case_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Settings"] | components["schemas"]["CaseChecks"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    change_check_v1_me_checks_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SettingChange"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setting"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    custom_check_v1_me_checks_custom_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

@@ -233,6 +233,126 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
     }
 
 
+def _reader_logs(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    page = seed.page(w.case, seed.document(w.case), 900)
+    fact = add_fact(admin, w.case, page, status="verified")
+    admin.execute(
+        "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)",
+        (w.case, page, w.expert),
+    )
+    admin.execute(
+        "insert into app.fact_verifications (case_id, fact_id, person_id, action) values (%s, %s, %s, 'correct')",
+        (w.case, fact, w.expert),
+    )
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, 'points', %s)",
+        (w.case, fact, w.expert),
+    )
+    return {"documents": 1, "pages": 1, "facts": 1, "page_reads": 1, "fact_verifications": 1, "fact_flags": 1}
+
+
+def _understand_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice D's case tables (migration 0400)."""
+    page = seed.page(w.case, seed.document(w.case), 9)
+    fact = add_fact(admin, w.case, page, status="verified")
+    question = add_question(admin, w.case)
+    admin.execute(
+        "insert into app.fact_question_links (case_id, fact_id, question_id, source) values (%s, %s, %s, 'ai')",
+        (w.case, fact, question),
+    )
+    admin.execute(
+        "insert into app.availability_overrides (case_id, fact_id, unknown, reason, person_id)"
+        " values (%s, %s, true, 'zz', %s)",
+        (w.case, fact, w.expert),
+    )
+    run = admin.execute(
+        "insert into app.check_runs (case_id, pack_version) values (%s, 'zz@1') returning id", (w.case,)
+    ).fetchone()
+    assert run is not None
+    admin.execute(
+        "insert into app.findings (case_id, check_key, rule, evidence_fact_ids, evidence_page_ids, pack_version,"
+        " run_id) values (%s, 'zz_check', 'zz_rule', %s, %s, 'zz@1', %s)",
+        (w.case, [fact], [page], run[0]),
+    )
+    admin.execute(
+        "insert into app.case_guideline_versions (case_id, code, version_label) values (%s, 'zz_g1', 'v1')",
+        (w.case,),
+    )
+    admin.execute(
+        "insert into app.consultation_notes (case_id, fact_id, body, person_id) values (%s, %s, %s, %s)",
+        (w.case, fact, "zz note", w.expert),
+    )
+    admin.execute(
+        "insert into app.comments (case_id, target_kind, target_id, body, author_id) values (%s, 'page', %s, 'zz', %s)",
+        (w.case, str(page), w.expert),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "questions": 1,
+        "fact_question_links": 1,
+        "availability_overrides": 1,
+        "check_runs": 1,
+        "findings": 1,
+        "case_guideline_versions": 1,
+        "consultation_notes": 1,
+        "comments": 1,
+    }
+
+
+def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice E's case tables (migrations 0500-0599): one made-up row each; the opinion's version comes
+    from its trigger."""
+    doc = seed.document(w.case)
+    page = seed.page(w.case, doc, 501)
+    fact = add_fact(admin, w.case, page, status="verified")
+    question = add_question(admin, w.case, number=50, status="confirmed")
+    admin.execute(
+        "insert into app.points (case_id, question_id, fact_id, side, status, origin, fact_version)"
+        " values (%s, %s, %s, 'neutral', 'accepted', 'expert', 2)",
+        (w.case, question, fact),
+    )
+    admin.execute(
+        "insert into app.range_notes (case_id, question_id, text) values (%s, %s, %s)", (w.case, question, b"sealed")
+    )
+    admin.execute(
+        "insert into app.witness_claims (case_id, document_id, claim_index, text_verbatim, word_ids, verdict,"
+        " fact_ids, fact_versions) values (%s, %s, 0, %s, '{w1}', 'contradicts', array[%s]::uuid[], '{2}')",
+        (w.case, doc, b"sealed", fact),
+    )
+    row = admin.execute(
+        "insert into app.opinions (case_id, question_id, body) values (%s, %s, %s) returning id",
+        (w.case, question, b"sealed"),
+    ).fetchone()
+    assert row is not None
+    admin.execute(
+        "insert into app.lint_issues (case_id, opinion_id, opinion_version, sentence_index, type, words, source)"
+        " values (%s, %s, 1, 0, 'uncited_fact', %s, 'regex')",
+        (w.case, row[0], b"sealed"),
+    )
+    admin.execute(
+        "insert into app.relevant_facts (case_id, question_id, fact_id, why_relevant, fact_version)"
+        " values (%s, %s, %s, 'advice to return', 2)",
+        (w.case, question, fact),
+    )
+    admin.execute("insert into app.witness_comparisons (case_id, document_id) values (%s, %s)", (w.case, doc))
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "questions": 1,
+        "points": 1,
+        "range_notes": 1,
+        "witness_claims": 1,
+        "opinions": 1,
+        "opinion_versions": 1,
+        "lint_issues": 1,
+        "relevant_facts": 1,
+        "witness_comparisons": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -243,6 +363,9 @@ SEEDERS = (
     _deletion_certificates,
     _setup_rows,
     _pipeline_tables,
+    _reader_logs,
+    _understand_rows,
+    _write_tables,
 )
 
 

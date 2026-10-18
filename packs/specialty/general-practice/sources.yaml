@@ -1,7 +1,9 @@
 # Record source types for this specialty (local names come from the overlay vocabulary).
+# own_record: true marks the clinician's own record (an entry there was available when it was written).
 source_types:
-  - {key: primary_care_record, colour: "#1E6B4E"}
+  - {key: primary_care_record, colour: "#1E6B4E", own_record: true}
   - {key: hospital, colour: "#4C6E91"}
   - {key: out_of_hours, colour: "#2C8C99"}
   - {key: results, colour: "#7A6BA8"}
   - {key: letters, colour: "#8C7556"}
+  - {key: witness_statement, colour: "#A8577E", statement: true}

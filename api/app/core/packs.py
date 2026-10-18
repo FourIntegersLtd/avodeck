@@ -48,7 +48,7 @@ REQUIRED: dict[str, frozenset[str]] = {
 }
 OPTIONAL: dict[str, frozenset[str]] = {
     "jurisdiction": frozenset({"meetings.yaml", "legal_tests.md", "final_checks.yaml", "conflicts.yaml"}),
-    "case-type": frozenset({"final_checks.yaml", "declarations.md"}),
+    "case-type": frozenset({"final_checks.yaml", "declarations.md", "opinion.yaml"}),
     "specialty": frozenset({"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}),
     "overlay": frozenset(
         {"records.yaml", "guidelines.yaml", "vocabulary.yaml", "speech_phrases.yaml", "drug_monitoring.yaml"}
@@ -60,6 +60,8 @@ REGISTRIES = frozenset(
     {"fact_kinds", "source_types", "lanes", "checks", "sections", "appendices", "question_types", "steps"}
     | {"required_contents", "types", "deadlines", "sources"}
 )
+_SCREEN_ONLY_VOCABULARY = frozenset({"request_notes", "lanes", "as_seen_title"})
+CHECK_KIND_LISTS = ("action_kinds", "acknowledged_kinds", "followup_kinds", "or_kinds")
 IGNORED = frozenset({"README.md", "__pycache__", ".DS_Store"})
 PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
 END_OF_DAY = time(23, 59, 59)
@@ -354,7 +356,11 @@ class MergedPack:
                 raise PackError(f"{label}: coverage_roles '{key}' has no label in the vocabulary")
         values = {k: v for k, v in self.vocabulary.items() if isinstance(v, str)}
         values.setdefault("instructing_party", self.instructing_party_types()[0]["label"])
+        for key, word in list(self.vocabulary.items()):  # top-level words and lane labels name other words
+            if isinstance(word, str) or key == "lanes":
+                self.vocabulary[key] = _fill(word, values, f"{label}: vocabulary {key}")
         self._files = {name: _fill(content, values, f"{label}: {name}") for name, content in files.items()}
+        self._check_kinds(label)
 
     # settings
     @property
@@ -502,10 +508,69 @@ class MergedPack:
         return self._registry("sources.yaml", "source_types")
 
     def lanes(self) -> list[dict[str, Any]]:
-        return self._registry("lanes.yaml", "lanes")
+        """Lanes top to bottom, each with its `kinds` (empty if none) and optional `when` (lanes.schema.json)."""
+        return [{**lane, "kinds": lane.get("kinds", [])} for lane in self._registry("lanes.yaml", "lanes")]
 
     def checks(self) -> list[dict[str, Any]]:
         return self._registry("checks.yaml", "checks")
+
+    def reference_table(self, name: str) -> list[dict[str, Any]]:
+        """The rows of the reference table a check names (`table`), from `<name>.yaml` after the layer merge.
+
+        Rows are the file's list field, copied so callers cannot change the pack; no file means no rows.
+        KeyError for a name no check gives, so slices never read other pack files this way."""
+        if name not in {str(c["table"]) for c in self.checks() if c.get("table")}:
+            raise KeyError(f"no check names the reference table {name!r}")
+        content = self._files.get(f"{name}.yaml") or {}
+        rows = next((v for v in content.values() if isinstance(v, list)), [])
+        return copy.deepcopy(rows)
+
+    def own_record_sources(self) -> frozenset[str]:
+        """Source types marked `own_record`: the clinician's own record."""
+        return frozenset(s["key"] for s in self.source_types() if s.get("own_record") is True)
+
+    def statement_sources(self) -> frozenset[str]:
+        """Source types marked `statement`: a witness's own account, not a record."""
+        return frozenset(s["key"] for s in self.source_types() if s.get("statement") is True)
+
+    def arriving_kinds(self) -> frozenset[str]:
+        """Fact kinds marked `arrives`: never available on their own event date."""
+        return frozenset(k["key"] for k in self.fact_kinds() if k.get("arrives") is True)
+
+    def guideline_sources(self) -> list[dict[str, Any]]:
+        """The overlay's guideline sources (empty without an overlay)."""
+        return self._registry("guidelines.yaml", "sources")
+
+    def guidelines(self) -> list[dict[str, Any]]:
+        """Guideline versions from the overlay, each with its jurisdiction, specialty and `reviewed_at`.
+
+        Labels, dates (ISO strings; `in_force_to` None = still in force) and links only (decision 0005)."""
+        data = self._files.get("guidelines.yaml", {})
+        scope = {"jurisdiction": self.codes[0], "specialty": self.codes[2], "reviewed_at": data.get("reviewed_at")}
+        return [{**copy.deepcopy(v), **scope} for v in data.get("versions", [])]
+
+    def _check_kinds(self, label: str) -> None:
+        """Every fact kind a lane or check names, and every source a guideline version names, exists."""
+        kinds = {k["key"] for k in self.fact_kinds()}
+        named: list[tuple[str, str, str]] = []
+        for lane in self.lanes():
+            named += [("lanes.yaml", f"lane '{lane['key']}'", k) for k in lane.get("kinds", [])]
+        for check in self.checks():
+            applies = check.get("applies_to", [])
+            for field_name in ("applies_to", *CHECK_KIND_LISTS):
+                value = applies if field_name == "applies_to" else check.get(field_name, [])
+                for kind in [value] if isinstance(value, str) else value:
+                    named.append(("checks.yaml", f"check '{check['key']}' {field_name}", kind))
+        for name, where, kind in named:
+            if kind not in kinds:
+                raise PackError(f"{label}: {name}: {where} names '{kind}', which is not a fact kind")
+        sources = {s["key"] for s in self.guideline_sources()}
+        for version in self.guidelines():
+            if version["source"] not in sources:
+                raise PackError(
+                    f"{label}: guidelines.yaml: {version['code']} names source '{version['source']}', "
+                    "which is not listed"
+                )
 
     def final_checks(self) -> list[dict[str, Any]]:
         return self._registry("final_checks.yaml", "checks")
@@ -538,12 +603,41 @@ class MergedPack:
         result = normalise(value)
         return result if isinstance(result, str) and result else None
 
+    def _opinion_words(self) -> dict[str, Any]:
+        words: dict[str, Any] = self._files.get("opinion.yaml", {})
+        return words
+
+    def point_sides(self) -> list[dict[str, str]]:
+        """The three sides a fact can support (core codes) with this case type's labels."""
+        return [{"code": s["code"], "label": s["label"]} for s in self._opinion_words().get("point_sides", [])]
+
+    def opinion_views(self) -> list[dict[str, str]]:
+        """The views an opinion on a question can take (case type), as {code, label}."""
+        return [{"code": v["code"], "label": v["label"]} for v in self._opinion_words().get("opinion_views", [])]
+
+    def loaded_language(self) -> list[str]:
+        """Phrases the opinion lint flags as loaded."""
+        return list(self._opinion_words().get("loaded_language", []))
+
+    def range_note_prompt(self) -> str:
+        """The heading over the note on what other practitioners might reasonably do."""
+        return str(self._opinion_words().get("range_note_prompt", ""))
+
+    def _who(self) -> dict[str, Any]:
+        return {
+            "language": self.language,
+            "profession": self.profession,
+            "clinician": self.term("clinician"),
+            "clinicians": self.term("clinicians"),
+        }
+
     def record_hints(self) -> dict[str, Any]:
         return copy.deepcopy(self._files.get("records.yaml", {}))
 
     def _prompt_vocabulary(self) -> dict[str, Any]:
-        """The vocabulary a prompt may see: `request_notes` are email paragraphs, not prompt words."""
-        return {k: copy.deepcopy(v) for k, v in self.vocabulary.items() if k != "request_notes"}
+        """The vocabulary a prompt may see: `request_notes` are email paragraphs and `lanes` / `as_seen_title`
+        are screen labels, not prompt words."""
+        return {k: copy.deepcopy(v) for k, v in self.vocabulary.items() if k not in _SCREEN_ONLY_VOCABULARY}
 
     def prompt_context(self, task: str | None = None) -> dict[str, Any]:
         """Pack data injected into neutral prompt templates (no patient data). T-02, T-04 and T-06 get what
@@ -562,6 +656,16 @@ class MergedPack:
                 "instructing_party_types": self.instructing_party_types(),
                 "party_roles": self.party_roles(),
                 "court_tracks": list(self._j.get("court_tracks", [])),
+            }
+        if task in ("T-14a", "T-14b", "T-14c"):
+            sides = {"point_sides": self.point_sides()} if task == "T-14a" else {}
+            return {**self._who(), **sides}
+        if task == "T-15a":
+            return {
+                **self._who(),
+                "specialty": str(self._sp["name"]),
+                "outside_expertise_question_types": self.outside_expertise_question_types(),
+                "loaded_language": self.loaded_language(),
             }
         if task == "T-02":
             sections = [s["key"] for s in self.report_sections()]

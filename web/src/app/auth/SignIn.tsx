@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "../../foundation/i18n";
-import { DevSkipCode } from "../../foundation/lib/DevSkipCode";
+import { DevSkipCode, rememberDevEmail } from "../../foundation/lib/DevSkipCode";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, CodeField, Loading, Notice, TextField } from "../../foundation/ui";
@@ -22,7 +22,10 @@ export function SignIn() {
 
   const go = (next: Step) => setStep(next);
   const finish = () => navigate(arrived.from && arrived.from !== "/sign-in" ? arrived.from : "/today", { replace: true });
-  const afterPassword = (result: Schemas["SignInResult"]) => go(result.mfa_enrolled ? "code" : "enrol");
+  const afterPassword = (result: Schemas["SignInResult"]) => {
+    if (result.status === "signed_in") finish(); // the local API skips the code (DEV_SKIP_MFA)
+    else go(result.mfa_enrolled ? "code" : "enrol");
+  };
   const afterCode = (result: Schemas["Verified"]) => {
     if (result.recovery_codes?.length) {
       setCodes(result.recovery_codes);
@@ -73,7 +76,14 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
-  const { error, busy, submit } = useSubmit(() => unwrap(api.POST("/v1/auth/sign-in", { body: { email, password } })), onDone, CREDENTIAL_ERRORS);
+  const { error, busy, submit } = useSubmit(
+    () => {
+      rememberDevEmail(email);
+      return unwrap(api.POST("/v1/auth/sign-in", { body: { email, password } }));
+    },
+    onDone,
+    CREDENTIAL_ERRORS,
+  );
   return (
     <>
       <h1>{t("sign_in.password.title")}</h1>
@@ -120,7 +130,7 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
   );
 }
 
-function CodeForm({ onDone, submitLabel }: { onDone: (r: Schemas["Verified"]) => void; submitLabel: string }) {
+function CodeForm({ onDone, submitLabel, secret }: { onDone: (r: Schemas["Verified"]) => void; submitLabel: string; secret?: string }) {
   const [code, setCode] = useState("");
   const { error, busy, submit } = useSubmit(() => unwrap(api.POST("/v1/auth/mfa/verify", { body: { code } })), onDone);
   return (
@@ -131,7 +141,7 @@ function CodeForm({ onDone, submitLabel }: { onDone: (r: Schemas["Verified"]) =>
         <Button type="submit" wide disabled={busy}>
           {submitLabel}
         </Button>
-        <DevSkipCode onVerified={onDone} />
+        <DevSkipCode onVerified={onDone} secret={secret} />
       </form>
     </>
   );
@@ -183,7 +193,7 @@ function EnrolStep({ onDone }: { onDone: (r: Schemas["Verified"]) => void }) {
             </li>
             <li>{t("sign_in.enrol.step_code")}</li>
           </ol>
-          <CodeForm onDone={onDone} submitLabel={t("sign_in.code.submit")} />
+          <CodeForm onDone={onDone} submitLabel={t("sign_in.code.submit")} secret={setup.secret} />
         </>
       )}
     </>

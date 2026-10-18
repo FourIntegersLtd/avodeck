@@ -116,6 +116,19 @@ def test_every_cell_in_code_matches_the_document(action: str) -> None:
     assert wrong == []
 
 
+@pytest.mark.parametrize("action", ["link.decide", "finding.decide", "availability.override", "consultation.note"])
+def test_understand_decisions_are_the_named_experts_alone(action: str) -> None:
+    """Slice D: only the named expert accepts links, decides findings, corrects availability and keeps notes."""
+    assert [r for r in CASE_ROLES if allowed(action, r, "owner", "team")] == ["named_expert"]
+
+
+def test_suggesting_links_is_open_to_case_readers_but_not_viewers() -> None:
+    assert [r for r in CASE_ROLES if allowed("link.suggest", r, None, "team")] == [
+        r for r in CASE_ROLES if allowed("page.read", r, None, "team")
+    ]
+    assert not allowed("link.suggest", "viewer", "owner", "team")
+
+
 def test_unknown_actions_are_refused() -> None:
     assert allowed("case.anything_else", "named_expert", "owner", "team") is False
 

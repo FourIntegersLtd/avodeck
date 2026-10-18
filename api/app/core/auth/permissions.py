@@ -1,6 +1,6 @@
 """The case permissions matrix from docs/spec/permissions.md, as one table.
 
-`app.case_action_allowed()` (migration 0003, redefined in 0017 and 0019) mirrors this table; the guard test
+`app.case_action_allowed()` (migration 0003, redefined in 0017, 0019, 0021 and 0200) mirrors this table; the guard test
 `tests/guards/test_permissions.py` checks both against the document, cell by cell.
 """
 
@@ -46,7 +46,13 @@ CASE_ACTIONS: dict[str, ActionRule] = {
     "page.replace": ActionRule(_HELPERS),
     "page.rotate": ActionRule(_HELPERS),
     "page.review_duplicate": ActionRule(_HELPERS),
+    "page.transcribe": ActionRule(_HELPERS),
     "fact.verify": ActionRule(_NAMED),
+    "link.suggest": ActionRule(_READERS),
+    "link.decide": ActionRule(_NAMED),
+    "finding.decide": ActionRule(_NAMED),
+    "availability.override": ActionRule(_NAMED),
+    "consultation.note": ActionRule(_NAMED),
     "question.confirm": ActionRule(_NAMED),
     "opinion.write": ActionRule(_NAMED),
     "comment.write": ActionRule(_READERS),

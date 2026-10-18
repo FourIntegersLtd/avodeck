@@ -51,23 +51,27 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `page_replacements` | A | Named expert or assistant (page.replace) | One per page; one per copy | Link set once; nothing moves by itself | Case deletion |
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
 | `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion |
-| `fact_verifications` | B | Named expert (append only) | Many per fact | Append only | Case deletion; chain head on certificate |
+| `fact_verifications` | B | Named expert (append only); the reading job adds `remapped` rows with no person (0207) | Many per fact | Append only | Case deletion; chain head on certificate |
 | `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
-| `fact_flags` | B | Named expert | Many | Add or remove | Case deletion |
+| `fact_flags` | B | Named expert (`points`); the reading job adds `recheck` with no person (0205), removed when the expert checks the fact again | Many | Add or remove | Case deletion |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |
 | `check_config` | D | The expert | One per check per expert | Edit freely | With the person |
-| `findings` | D | Worker; named expert decides | Many | Decisions kept across re-runs | Case deletion |
+| `findings` | D | Worker; named expert decides | Many | Decisions kept across re-runs; gone, never deleted; decided gone stays listed | Case deletion |
+| `check_runs` | D | Worker | One per run | Append only | Case deletion |
+| `case_guideline_versions` | D | API when first shown; worker on re-run | One per guideline version per case | Fingerprint kept; a change shows a notice until checks run again | Case deletion |
 | `availability_overrides` | D | Named expert | One per fact | Latest wins; history audited | Case deletion |
-| `consultation_notes` | D | Named expert | One per consultation | Edit freely | Case deletion |
-| `guideline_versions` | D | Avodeck clinical reviewer only | Many; table versions | New table version per change; cases record theirs | Shared, never deleted |
+| `consultation_notes` | D | Each case member allowed to add notes | One per consultation per person | Private to its author; edit freely | Case deletion |
+| `guideline_versions` | D | Pack release (overlay `guidelines.yaml`, ADR 0016) | Many; one set per overlay pack version | New pack version per change; cases record theirs | Shared, never deleted |
 | `comments` | D | Any case member (own comments) | Many | Edit own; resolve | Case deletion; may be disclosable |
 | `points` | E | Named expert | Many | State machine; stale on fact change | Case deletion |
 | `range_notes` | E | Named expert | One per question | Edit freely | Case deletion |
+| `relevant_facts` | E | Worker; named expert dismisses | One per question and fact | State machine | Case deletion |
 | `witness_claims` | E | Worker; named expert confirms | Many per statement | State machine | Case deletion |
+| `witness_comparisons` | E | Named expert asks; worker finishes | One per request | State machine | Case deletion |
 | `opinions` | E | Named expert only | One per question | ETag on every save; versions kept | Case deletion |
 | `opinion_versions` | E | System on save | Many | Append only | Case deletion |
 | `lint_issues` | E | Worker; named expert dismisses | Many | Recalculated on save; dismissals kept | Case deletion |

@@ -1,0 +1,40 @@
+"""Link candidates for T-11: the facts most like each question, best first, cut to k, then reranked.
+
+Vectors come from `core/ai/embed.py` (identifier-stripped text). The reranker is a seam: the cell's
+reranker when foundation provides one, else `IdentityReranker`, which keeps the embedding order.
+"""
+
+from __future__ import annotations
+
+import math
+import uuid
+from collections.abc import Sequence
+from typing import Protocol
+
+Vector = Sequence[float]
+
+
+class Reranker(Protocol):
+    def rerank(self, query: str, ranked: list[tuple[uuid.UUID, str]]) -> list[uuid.UUID]: ...
+
+
+class IdentityReranker:
+    def rerank(self, query: str, ranked: list[tuple[uuid.UUID, str]]) -> list[uuid.UUID]:
+        return [fid for fid, _ in ranked]
+
+
+def _cosine(a: Vector, b: Vector) -> float:
+    norm = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
+    return sum(x * y for x, y in zip(a, b, strict=True)) / norm if norm else 0.0
+
+
+def candidates(
+    query: tuple[Vector, str],
+    facts: Sequence[tuple[uuid.UUID, Vector, str]],
+    *,
+    k: int,
+    reranker: Reranker,
+) -> list[uuid.UUID]:
+    vector, text = query
+    scored = sorted(facts, key=lambda f: -_cosine(vector, f[1]))[:k]
+    return reranker.rerank(text, [(fid, words) for fid, _, words in scored]) if scored else []

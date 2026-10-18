@@ -51,6 +51,7 @@ api/tests/                # grouped by kind; files named test_<feature>_<area>_*
 - State-changing routes depend on `require_csrf`.
 - Long work returns `202` + `{"job_id": ...}` and enqueues a job. Never do OCR, AI or document building inside a request.
 - Page-content routes that show suggestions depend on `require_page_read()` (`core/contracts/reading.py`): 423 `blind_read` until the person has read the page (rule 3). Slice B provides the read log as `app.state.page_reads`.
+- Start-up work: a feature package may define `on_startup(app)` (API, database ready) and `on_worker_start(worker)` (worker); sync or async, run in feature name order (`core/features.py`).
 - Today items: register a provider with `@needs_you.provider("<name>")` returning `NeedsYouItem`s (`core/contracts/today.py`); it runs as the signed-in person under RLS.
 - A locked `report_versions` row raises SQLSTATE `AVLCK` in the database, returned as 409 `locked`.
 - Errors use `ApiError(code, message, status)`. Codes: `not_found`, `blind_read`, `locked`, `step_up_required`, `conflict`, `invalid`.
@@ -65,7 +66,7 @@ api/tests/                # grouped by kind; files named test_<feature>_<area>_*
 
 ## Country-neutral code
 
-- Get every legal or clinical rule from `pack = packs.for_case(case)`: `pack.deadline("written_questions", served_on)`, `pack.declarations()`, `pack.term("subject")`, `pack.compliance_checklist()`, `pack.workflow_steps()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.timezone`, `pack.speech()`, `pack.prompt_context()`.
+- Get every legal or clinical rule from `pack = packs.for_case(case)`: `pack.deadline("written_questions", served_on)`, `pack.declarations()`, `pack.term("subject")`, `pack.compliance_checklist()`, `pack.workflow_steps()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.own_record_sources()`, `pack.arriving_kinds()`, `pack.guidelines()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.timezone`, `pack.speech()`, `pack.prompt_context()`.
 - Never hard-code the forbidden words in architecture 3.5 (rule names, guidance bodies, declarations, party and instructing-party words, clinician titles, record systems, identifier types), a currency, date order, timezone, holiday rule, retention period, or a fixed list of fact kinds, source types, question types, party roles, lanes, checks, deadline kinds or document kinds.
 - Store times in UTC; compute deadlines with `pack.deadline()` (calendar and timezone aware).
 - Build AI prompts from neutral templates plus `pack.prompt_context()`; generate output schemas from pack registries.
@@ -120,6 +121,8 @@ The worker is part of this package (`app/worker/`, run with `make -C api worker`
 | `process_pages` | A | Same, for appended pages only |
 | `extract_questions` | C | OCR letter of instruction → T-06 |
 | `rerun_checks` | D | Re-run "Things to look at" |
+| `suggest_points` | E | Sort verified facts for and against a question (T-14a/T-14b); queued by `opinion.write` |
+| `compare_witness_statement` | E | Check a witness statement against verified facts (T-14c); queued by `opinion.write` |
 | `build_report` | F | Assemble the report in the expert's Word template |
 | `final_check` | F | 28 checks |
 | `verify_opposing` | G | T-21b/c/d |

@@ -20,6 +20,7 @@ from fastapi import Request, Response
 from psycopg import AsyncConnection
 
 from app.core.auth.supabase import AuthTokens
+from app.core.config import local_mfa_skip
 from app.core.crypto import CiphertextInvalid, cell_secret_box
 from app.core.db import Database
 from app.core.errors import ApiError
@@ -97,6 +98,8 @@ async def resolve(database: Database, token: str | None, *, touch: bool) -> Sess
     if state != "active":
         raise not_signed_in()
     session = Session(*fields)
+    if local_mfa_skip():
+        session = replace(session, aal="aal2", mfa_enrolled=True, mfa_verified_at=datetime.now(UTC))
     return replace(
         session,
         auth_access_token=_open(session.auth_access_token, "access", session.person_id),

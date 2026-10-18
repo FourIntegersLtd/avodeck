@@ -46,6 +46,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
 | `duplicate_of_page_id` | null → page (worker suggestion or expert); page → null (expert undo) | A, B |
 | `relevance` | null → yes/background; any → any by the expert | B |
+| `needs_clearer_copy` | false → true → false (expert, `PATCH …/pages/{n}`); true puts the page on the instructing-party request draft (08b) | B |
 | read state | unread → read (append-only `page_reads`); never back to unread | B |
 
 ## Fact (`facts.status`)
@@ -62,6 +63,10 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 | suggested → verified / edited / rejected | Expert on screen 09 | Page has a `page_reads` row (else 423); edited values must pass value-in-span or new word selection | Append `fact_verifications` |
 | verified/edited → rejected | Expert | If cited in an opinion: warn, list the citing paragraphs, require confirmation | Citations marked broken; final check fails until fixed |
 | rejected → verified | Expert | Page read | Append history |
+| verified/edited → same (correct again) | Expert confirms a fact flagged "Please check" (`fact_flags.flagged_for = 'recheck'`) | Only while that flag exists (else 409); the cited words must still show the value (else 422) | `version` rises; recheck flag removed; append `fact_verifications` (correct). Any other check also removes the flag |
+| verified → edited (change during "Please check") | Expert | Only while a recheck flag exists; new `word_ids` required and the value must be in them (else 422); `facts_guard` 0208 allows verified → edited only while the recheck flag exists (the API removes it after the change) | `version` rises; recheck flag removed; append `fact_verifications` (edit) |
+| (page read again) checked fact → same status | Slice A's job after a turn or a typed-out page | Its cited words read the same in the new words under rule 2's normaliser (`provenance.atoms`) and the value still passes the provenance check | `word_ids` and `bbox` (null for typed words) re-mapped; append `fact_verifications` (`remapped`, no person). Otherwise flagged `recheck` |
+| (page) old → clearer copy | Expert moves a fact (`POST …/facts/{id}/move`) | Only to the page that supersedes its own (`superseded_by_page_id`); status kept | `version` rises; append `fact_verifications` (move, old and new page) |
 | any → (deleted) | Never | — | Facts are only rejected, never deleted (except case deletion) |
 
 `citable_facts()` = status in (verified, edited) **and** the page has been read.
@@ -120,6 +125,12 @@ Chunks can be sent (and re-sent) only while `open`. Completing twice returns the
 
 null → relevant / not_relevant / explained_elsewhere (reason required for the last two). The expert can change a decision at any time; every change is audited. A re-run keeps decisions on findings that still exist.
 
+Status (`findings.status`): open → gone when a re-run of the same check no longer finds it; gone → open if a later run finds it again (its decision is kept). Code never decides or deletes a finding. A `gone` finding the expert has decided stays listed on screen 13, marked "no longer found"; an undecided `gone` finding is hidden. One finding per check and set of evidence facts (`findings_one_each`).
+
+## Comment (`comments.resolved_at`)
+
+open → resolved (any case reader); resolved → open (any case reader). Only the author changes the words; every change is audited. Comments never appear in a report.
+
 ## Expert meeting (`expert_meetings.status`)
 
 draft → out_for_signature (step-up) → signed (e-sign webhook). draft → signed_external when a document signed outside Avodeck is uploaded (hash stored). out_for_signature → draft if a participant declines or the agenda changes (new agenda version). Signed and signed_external are immutable.
@@ -160,15 +171,23 @@ Items start `open` (the worker, T-07c). `received` is final. `PATCH /cases/{id}/
 
 ## Fact–question link (`fact_question_links.status`)
 
-suggested → confirmed / rejected (expert); confirmed ↔ rejected (expert, audited). If the fact is later rejected, the link becomes `stale` and the expert is shown it on screen 13. A new instruction version never deletes links; links to removed questions become `stale`.
+suggested → confirmed / rejected (expert); confirmed ↔ rejected (expert, audited). If the fact is later rejected, the link becomes `stale` and the expert is shown it on screen 13. A new instruction version never deletes links; links to removed questions become `stale` (their `question_id` is cleared; the database guard sets `stale`). A `stale` link cannot be confirmed (409 `stale_link`) and never returns to `suggested`. A link whose fact is rejected reads as `stale` on screen 13; its row keeps its status until foundation's `confirmed_links` keeps to checked facts (see `docs/decisions/deferred.md`).
 
 ## Point (`points.status`)
 
 suggested → accepted / dismissed (reason) by the expert; either can be changed back. If the underlying fact is rejected or changes version, the point becomes `stale` until reviewed.
 
+## Relevant fact (`relevant_facts.status`)
+
+suggested → dismissed (named expert). Final. A suggestion is no longer shown once the draft cites the fact or the fact stops being citable; it is never suggested again for that question.
+
 ## Witness claim (`witness_claims.status`)
 
-suggested → confirmed / edited / dismissed (expert). Becomes `stale` if any fact it relies on changes. A new version of the witness statement adds new claims; old claims stay for the record.
+suggested → confirmed / edited / dismissed (expert). Becomes `stale` if any fact it relies on changes. A new version of the witness statement adds new claims; old claims stay for the record. Once confirmed, edited or dismissed, a claim changes again only after it becomes `stale`.
+
+## Witness comparison (`witness_comparisons.status`)
+
+queued (named expert asks) → done (claims kept, possibly none) / refused (the model's answer failed twice). Set by the worker only. Final. Comparing the same statement again adds no claims.
 
 ## Written question (`written_questions.status`)
 

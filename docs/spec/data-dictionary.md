@@ -357,9 +357,10 @@ A joint expert is one with two or more current instructing parties; no separate 
 | superseded_by_page_id | If a clearer copy arrived, which page replaces it |
 | quarantined | Marked as another person's record: hidden, and when, why and by whom |
 | unreadable | The computer couldn't read it; it's in "Pages we couldn't read" |
+| needs_clearer_copy | The expert asked for a clearer copy; the page goes on the next request to the instructing party |
 | relevance | The expert's judgement: relevant or background |
 | language | The page's language, if not the pack's |
-| transcribed_by_expert_text | The expert's own typing of a page the computer couldn't read |
+| transcribed_by_expert_text | The expert's own typing of a page the computer couldn't read, sealed with the case key (never stored as plain text) |
 
 ### page_analysis
 | Field | In plain words |
@@ -369,6 +370,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | phash / minhash | Fingerprints of the picture and the words, used to find duplicates |
 | printed_dates | Dates printed on the page (used to find gaps) |
 | extraction | What was read from the page, sealed with the case key |
+| availability_evidence | When the page was received, filed, seen or sent to the clinician: each with its words on the page and the date read by code in the pack's date order (empty when the printed date could be read two ways) |
 | needs_human / reason | Whether a person must check the page, with a short reason |
 | model_id | Which model read the page |
 | duplicate_status / duplicate_by / duplicate_at / duplicate_version | Whether it was set aside as a duplicate, who decided and when (If-Match) |
@@ -422,7 +424,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | word_ids[] | The exact words on the page it came from, the proof |
 | bbox | The box drawn around it on the page |
 | event_date / date_basis | When it happened, and whether that date was printed or worked out |
-| available_at / availability_basis | When the clinician could first have seen it, and how we know |
+| available_at / availability_basis | When the clinician could first have seen it, and how we know. Set through `app.set_fact_availability()`, which keeps the fact version |
 | status | Suggested, checked by the expert, not right, or changed |
 | version | Goes up when the fact is changed, so citations know |
 | model_task / model_id / prompt_version | Which AI task, model and instructions suggested it |
@@ -430,21 +432,31 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### fact_verifications
 | Field | In plain words |
 |---|---|
-| person_id | Who checked it |
-| action | Correct, not right, or changed |
+| person_id | Who checked it; empty only for `remapped` rows, which the reading job writes (0207) |
+| seq | Its place in the case's list of checks |
+| action | Correct, not right, changed, moved to a clearer copy, or `remapped`: the page was read again (turned or typed out) and the fact was moved onto the same words in the new reading (0207) |
 | old_value / new_value / reason | What it was, what it became, and why |
+| old_fields / new_fields | The details before and after a change |
+| old_word_ids / new_word_ids | The words it pointed to before and after a change |
+| old_page_id / new_page_id | The page it was on before and after a move to a clearer copy |
+| at | When the check was made |
+| prev_hash / hash | Links to the previous check so any tampering is obvious |
 
 ### page_reads
 | Field | In plain words |
 |---|---|
 | page_id / person_id | Which page was read, by whom |
-| read_at / dwell_seconds | When, and how long they spent on it |
+| seq | Its place in the case's list of reads |
+| at / dwell_seconds | When, and how long they spent on it |
+| counts_for_citing | Whether it was the named expert's read (only those let a fact be cited) |
 | prev_hash / hash | Links to the previous entry so any tampering is obvious |
 
 ### fact_flags
 | Field | In plain words |
 |---|---|
-| flagged_for | Why it was flagged (to consider under points against) |
+| fact_id / person_id | Which fact, flagged by whom; no person for `recheck` flags, which the reading job writes (0205) |
+| flagged_for | Why it was flagged: `points` (to consider under points against), or `recheck` ("Please check": its page was read again and its words were not found; the flag goes when the expert checks the fact again) (0205) |
+| at | When it was flagged |
 
 ### missing_items
 | Field | In plain words |
@@ -492,14 +504,15 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### fact_question_links
 | Field | In plain words |
 |---|---|
-| fact_id / question_id | Which fact relates to which question |
-| status / reason | Suggested, confirmed or rejected, and the short reason |
+| fact_id / question_id | Which fact relates to which question (the question is cleared, and the link turns stale, if the question is removed) |
+| status / reason | Suggested, confirmed, rejected or stale, and the short reason |
 
 ### check_config
 | Field | In plain words |
 |---|---|
 | check_key | Which "Things to look at" check |
-| enabled / gentle | On or off, and whether it uses softer wording |
+| enabled | On or off (a check the pack starts off stays off until switched on) |
+| window_days | The expert's own number of days for the check, if they changed it |
 
 ### findings
 | Field | In plain words |
@@ -507,6 +520,21 @@ A joint expert is one with two or more current instructing parties; no separate 
 | check_key | Which check found it |
 | evidence_fact_ids[] | The facts behind it |
 | decision / reason | The expert's decision (relevant, not relevant, explained elsewhere) and why |
+| status | Open, or gone when a later run no longer finds it (never deleted; a decided gone finding stays listed). One finding per check and set of evidence facts |
+| gentle | Whether the screen uses the softer wording |
+
+### check_runs
+| Field | In plain words |
+|---|---|
+| pack_version | Which version of the packs the checks came from |
+| checks | Which checks ran |
+
+### case_guideline_versions
+| Field | In plain words |
+|---|---|
+| code / version_label | Which guideline and which version the case was shown |
+| table_reviewed_at | When that entry of the guidance table was last reviewed |
+| entry_hash | A fingerprint of the guidance entry as the case was shown it; a different fingerprint now shows a notice until checks are run again |
 
 ### availability_overrides
 | Field | In plain words |
@@ -517,9 +545,12 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### consultation_notes
 | Field | In plain words |
 |---|---|
-| fact_id / text | Which consultation, and the expert's note |
+| fact_id / text | Which consultation, and the note |
+| person_id | Who wrote it: each person keeps their own note, and only they see it |
 
 ### guideline_versions
+Not a database table: these fields are the rows of the overlay pack's `guidelines.yaml`, read with `pack.guidelines()` (ADR 0016).
+
 | Field | In plain words |
 |---|---|
 | jurisdiction / specialty / source | Which country, field and guidance body |
@@ -551,13 +582,40 @@ A joint expert is one with two or more current instructing parties; no separate 
 |---|---|
 | question_id / text | The expert's note on what other reasonable clinicians might have done |
 
+### relevant_facts
+| Field | In plain words |
+|---|---|
+| question_id / fact_id | Which checked fact, for which question's draft |
+| why_relevant | A short label for what the fact may bear on (never wording for the draft) |
+| status | Still suggested, or dismissed by the expert |
+| fact_version | The fact as it was when suggested |
+| job_id / model_task / prompt_version | Which run suggested it |
+| decided_by / decided_at | Who dismissed it and when |
+| version | A stamp that stops two windows overwriting each other |
+
 ### witness_claims
 | Field | In plain words |
 |---|---|
 | document_id | Which witness statement |
 | text_verbatim / word_ids[] | The exact statement and where it is |
 | verdict / fact_ids[] | Whether the records support or contradict it, and which facts |
-| status | Whether the expert has confirmed it |
+| claim_index | The claim's place in the list the model returned |
+| status | Whether the expert has confirmed it, given their own verdict, or dismissed it |
+| expert_verdict | The expert's own verdict, when they disagree with the label |
+| fact_versions | The facts as they were when compared |
+| job_id / model_task / prompt_version | Which run found it |
+| decided_by / decided_at | Who decided it and when |
+| version | A stamp that stops two windows overwriting each other |
+
+### witness_comparisons
+| Field | In plain words |
+|---|---|
+| document_id | Which witness statement the expert asked to compare |
+| job_id | The background job doing the comparison |
+| requested_by | Who asked |
+| status | Waiting, done, or refused (the answer could not be checked) |
+| claims | How many claims were kept |
+| created_at / finished_at | When asked and when finished |
 
 ### opinions
 | Field | In plain words |
@@ -573,8 +631,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### opinion_versions
 | Field | In plain words |
 |---|---|
-| version_no / body / citation_refs | Each saved version of the text and its references |
-| saved_at / saved_by | When and by whom |
+| version_no / body / citation_refs / test_text | Each saved version of the text, its references and the test in the expert's words |
+| created_at / saved_by | When and by whom it was saved |
 
 ### lint_issues
 | Field | In plain words |

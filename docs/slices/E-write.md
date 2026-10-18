@@ -19,7 +19,7 @@ For each question, the expert sees the facts for and against, notes what other r
 - `POST /v1/cases/{id}/questions/{q_id}/opinion/lint`; `PATCH /v1/cases/{id}/lint-issues/{issue_id}`
 
 ## Tables owned
-`points` (side: supports_claim / supports_clinician / neutral; labels from the pack), `range_notes`, `witness_claims`, `opinions` (body, citation_refs, view, provisional, test_text), `lint_issues` (keyed by `opinion_id` here; F adds `paragraph_id` rows for the whole report).
+`points` (side: supports_claim / supports_clinician / neutral; labels from the pack), `range_notes`, `relevant_facts` (T-14b suggestions, dismissible), `witness_claims`, `witness_comparisons` (one per compare request), `opinions` (body, citation_refs, view, provisional, test_text), `lint_issues` (keyed by `opinion_id` here; F adds `paragraph_id` rows for the whole report).
 
 ## Citation rule (the heart of this slice)
 A citation is a structured object `{fact_id, quote_verbatim, page_id}` stored in `citation_refs`, with a marker in `body`. The server accepts it only if:
@@ -44,20 +44,20 @@ The loaded-language word list and opinion `view` options come from the case-type
 - **Out:** `opinions` with validated citations, points and range notes per question (F builds the report and runs final checks such as "points against considered").
 
 ## Acceptance tests (write first)
-- [ ] Citing a suggested, rejected or unread-page fact returns 422. Citing a verified fact whose quote is not in its words returns 422. A valid citation is stored and the marker round-trips.
-- [ ] T-14a output containing a fact ID that was not supplied is rejected and retried once. The recorded request contains only verified facts with identifiers stripped.
-- [ ] Moving a point between sides, accepting and removing are audited. Side labels come from the pack (the gb-eaw/general-practice packs show "supports the GP").
-- [ ] Facts flagged on screen 09 appear first under the question they're linked to.
-- [ ] T-14b suggests the planted unused fact (safety-netting entry on page 117) after a draft that ignores it.
-- [ ] T-14c on the synthetic witness statement finds the planted contradiction ("I was never told to come back" vs page 118 "review 3/52 if no better"). Claims are exact substrings, and the expert's decision is stored.
-- [ ] The regex lint flags a sentence with a date or number but no citation, and words from the pack's loaded-language list ("clearly negligent", "obviously"), in under 200 ms.
-- [ ] The AI lint flags a causation statement as `outside_expertise` for a general-practice expert (rule from the case-type pack).
-- [ ] Lint returns in under 2 s at p95 (recorded responses plus timing budget).
-- [ ] No lint response contains replacement text, and the lint schema has no free-prose field (core test).
-- [ ] Dismissing a lint issue requires a reason and is kept for the final check.
-- [ ] Autosave every 5 s and on blur. Two tabs editing the same opinion: the later save with a stale `updated_at` gets 409 with both versions.
-- [ ] The workspace returns verified facts linked to the question as chips, the guidance in force on the consultation date, and the points summary.
-- [ ] No slice code contains a clinician title, party or instructing-party word, or a fixed side or view list (core scan); the screens work unchanged with the fixture packs.
+- [x] Citing a suggested, rejected or unread-page fact returns 422. Citing a verified fact whose quote is not in its words returns 422. A valid citation is stored and the marker round-trips.
+- [x] T-14a output containing a fact ID that was not supplied is rejected and retried once. The recorded request contains only verified facts with identifiers stripped.
+- [x] Moving a point between sides, accepting and removing are audited. Side labels come from the pack (the gb-eaw/general-practice packs show "supports the GP").
+- [x] Facts flagged on screen 09 appear first under the question they're linked to.
+- [x] T-14b suggests the planted unused fact (safety-netting entry on page 117) after a draft that ignores it.
+- [x] T-14c on the synthetic witness statement finds the planted contradiction ("I was never told to come back" vs page 118 "review 3/52 if no better"). Claims are exact substrings, and the expert's decision is stored.
+- [x] The regex lint flags a sentence with a date or number but no citation, and words from the pack's loaded-language list ("clearly negligent", "obviously"), in under 200 ms.
+- [x] The AI lint flags a causation statement as `outside_expertise` for a general-practice expert (rule from the case-type pack).
+- [x] Lint returns in under 2 s at p95 (recorded responses plus timing budget).
+- [x] No lint response contains replacement text, and the lint schema has no free-prose field (core test).
+- [x] Dismissing a lint issue requires a reason and is kept for the final check.
+- [x] Autosave every 5 s and on blur. Two tabs editing the same opinion: the later save with a stale integer `version` (sent as the If-Match ETag) gets 412 `stale` with both versions (decision 2026-10-18).
+- [x] The workspace returns verified facts linked to the question as chips, the guidance in force on the consultation date, and the points summary.
+- [x] No slice code contains a clinician title, party or instructing-party word, or a fixed side or view list (core scan); the screens work unchanged with the fixture packs.
 - [ ] Screens 14 and 15 pass Playwright + axe and match their canvas boards.
 
 ## Behaviour rules this slice must build (architecture 10, 5.4)
@@ -68,10 +68,18 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Extra endpoints:** `GET /v1/cases/{id}/opinions/{opinion_id}/versions`, `POST /v1/cases/{id}/opinions/{opinion_id}/versions/{version_no}/restore`.
 
-- [ ] Every autosave makes a version; restoring creates a new version, never edits an old one
-- [ ] Two windows: the second save gets 412 and the keep-which prompt (S9)
-- [ ] Only the named expert can write opinions (403 for co-experts, supervisors and assistants)
-- [ ] Points and witness claims become `stale` when an underlying fact changes
+- [x] Every autosave makes a version; restoring creates a new version, never edits an old one
+- [x] Two windows: the second save gets 412 and the keep-which prompt (S9)
+- [x] Only the named expert can write opinions (403 for co-experts, supervisors and assistants)
+- [x] Points and witness claims become `stale` when an underlying fact changes
+- [x] Worker jobs build their services from the cell config without `configure()`: slice B's read log and flags, slice D's confirmed links, the overlay pack's guidance, party names and statement words through `core/contracts` (fix 2026-10-18)
+- [x] Re-running the regex lint replaces only regex warnings; AI warnings stay while their words are still in the sentence
+- [x] A citation whose `[n]` marker is gone gets 422 naming `[n]`; the screen drops orphaned references and stops retrying until the next change
+- [x] A cited fact that changes, moves page or loses the quoted words marks the citation "changed since cited" (`changed_citations`, `stale`); the expert re-cites it as it is now; saved unchanged citations are accepted as they were
+- [x] Comparing a document that is not a statement source type (pack `statement: true`) gets 422 `not_a_statement`; only statement pages go to T-14c
+- [x] Known dates of birth go to `pii.strip` before every Claude call (none stored yet, so the port defaults to none)
+- [x] `opinion_versions` is append-only in the database (AV409), except the case purge
+- [x] Stale points can be kept; claims show the expert's verdict (else the suggested one) and a stale label
 
 ## Rules that apply
 1, 2, 4, 6, 7, 9, 11 from the root `AGENTS.md`.

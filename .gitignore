@@ -17,3 +17,5 @@ evals/**/bundles/
 evals/**/_tmp/
 *.tsbuildinfo
 .vercel
+# Local authenticator keys kept by the dev server (web/devMfa.ts)
+web/.dev-mfa.json

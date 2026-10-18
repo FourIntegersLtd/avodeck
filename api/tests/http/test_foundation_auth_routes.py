@@ -156,6 +156,36 @@ async def test_first_sign_in_enrols_mfa_and_issues_ten_recovery_codes(
     assert session["aal"] == "aal2" and session["mfa_complete"] is True and session["step_up_until"]
 
 
+async def test_with_the_local_skip_a_password_alone_signs_in_fully(
+    browser: Browser, auth_admin: AuthAdmin, auth_env: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DEV_SKIP_MFA", "1")
+    monkeypatch.setenv("SUPABASE_URL", auth_env["SUPABASE_URL"])
+    email = new_email()
+    auth_admin.create_user(email)
+    client = await browser()
+    resp = await client.post("/v1/auth/sign-in", json={"email": email, "password": PASSWORD})
+    assert resp.json()["status"] == "signed_in", resp.text
+    assert (await client.get("/v1/me")).status_code == 200
+    session = (await client.get("/v1/auth/session")).json()
+    assert session["mfa_complete"] is True and session["step_up_until"]
+
+
+async def test_setup_left_half_done_can_be_started_again(browser: Browser, auth_admin: AuthAdmin) -> None:
+    email = new_email()
+    auth_admin.create_user(email)
+    first = await browser()
+    await first.post("/v1/auth/sign-in", json={"email": email, "password": PASSWORD})
+    assert (await first.post("/v1/auth/mfa/enroll")).status_code == 200
+
+    again = await browser()
+    await again.post("/v1/auth/sign-in", json={"email": email, "password": PASSWORD})
+    enrol = await again.post("/v1/auth/mfa/enroll")
+    assert enrol.status_code == 200, enrol.text
+    ok = await again.post("/v1/auth/mfa/verify", json={"code": totp(enrol.json()["secret"])})
+    assert ok.status_code == 200, ok.text
+
+
 async def test_mfa_verification_gives_a_new_session_cookie(browser: Browser, auth_admin: AuthAdmin) -> None:
     email = new_email()
     auth_admin.create_user(email)

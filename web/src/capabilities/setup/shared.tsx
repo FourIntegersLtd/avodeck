@@ -125,14 +125,17 @@ export function Section({ id, title, intro, children }: { id: string; title: str
 }
 
 /** How often the expert has acted for each side lately (judges notice one-sided experts). */
+const BALANCE_MONTHS = 12;
+
+/** The heading shows at once; the counts fill in when they arrive. */
 export function Balance({ words }: { words: Record<string, string> }) {
-  const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: 12 } } })), []);
-  if (!found.data) return null;
-  const counts = Object.entries(found.data.counts);
+  const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: BALANCE_MONTHS } } })), []);
+  if (found.error) return null;
+  const counts = Object.entries(found.data?.counts ?? {});
   return (
     <section aria-labelledby="setup-balance" className="av-card av-stack">
       <div>
-        <h2 id="setup-balance">{t("setup.balance.title", { months: found.data.months })}</h2>
+        <h2 id="setup-balance">{t("setup.balance.title", { months: found.data?.months ?? BALANCE_MONTHS })}</h2>
         <p className="av-muted">{t("setup.balance.intro")}</p>
       </div>
       <ul className="av-setup-balance">
@@ -198,7 +201,8 @@ const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.to
 /** Sends a file to the API in parts and returns the document it became. */
 export async function uploadFile(caseId: string, file: File, kind: string): Promise<string> {
   const bytes = await bytesOf(file);
-  const sha256 = hex(await crypto.subtle.digest("SHA-256", bytes));
+  // A typed array view: a FileReader result can come from another realm, which digest refuses as a bare ArrayBuffer.
+  const sha256 = hex(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
   const started = await unwrap(
     api.POST("/v1/cases/{case_id}/uploads", { params: { path: { case_id: caseId } }, body: { filename: file.name, kind, sha256, size: bytes.byteLength } }),
   );

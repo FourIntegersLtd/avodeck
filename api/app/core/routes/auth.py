@@ -21,6 +21,7 @@ from app.core import audit
 from app.core.auth import session as sessions
 from app.core.auth.step_up import require_step_up
 from app.core.auth.supabase import AuthError, AuthTokens, SupabaseAuth
+from app.core.config import local_mfa_skip
 from app.core.db import Database, RequestScope
 from app.core.email import RECOVERY_CODE_USED, Mail, Mailer
 from app.core.errors import ApiError
@@ -152,7 +153,7 @@ class SignIn(BaseModel):
 
 
 class SignInResult(BaseModel):
-    status: Literal["mfa_required"]
+    status: Literal["mfa_required", "signed_in"]
     mfa_enrolled: bool
 
 
@@ -218,7 +219,8 @@ async def sign_in(body: SignIn, request: Request, response: Response) -> SignInR
             await audit_anonymous(database, "auth.sign_in_failed", body.email)
         raise
     await _start_session(request, response, database, tokens, "auth.sign_in")
-    return SignInResult(status="mfa_required", mfa_enrolled=tokens.mfa_enrolled)
+    status: Literal["mfa_required", "signed_in"] = "signed_in" if local_mfa_skip() else "mfa_required"
+    return SignInResult(status=status, mfa_enrolled=tokens.mfa_enrolled)
 
 
 @auth_pending.post("/mfa/enroll", response_model=Enrolment)

@@ -2,3 +2,5 @@ clinician: therapist
 clinicians: therapists
 practice: clinic
 coverage_roles: {practitioner: zz practitioner, supervisor: zz supervisor}
+as_seen_title: "What the {clinician} had in hand"
+lanes: {sessions: zz sessions, measurements: zz measurements, letters: zz letters}

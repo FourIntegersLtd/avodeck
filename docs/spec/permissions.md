@@ -27,7 +27,10 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — |
 | `page.quarantine`, `page.replace`, `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — |
 | `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — |
-| `fact.verify` | ✓ | — | — | — | — | — |
+| `page.transcribe` (type out a page we couldn't read, ask for a second reading, mark relevance or ask for a clearer copy) | ✓ | — | — | ✓ | — | — |
+| `fact.verify` (also flag a fact for points against, move it to a clearer copy) | ✓ | — | — | — | — | — |
+| `link.suggest` (ask for suggested links between entries and the questions) | ✓ | ✓ | ✓ | ✓ | — | — |
+| `link.decide` (accept or reject a suggested link), `finding.decide` (keep or dismiss a thing to look at; run the checks again), `availability.override` (correct when an entry reached the clinician), `consultation.note` (private notes on one consultation) | ✓ | — | — | — | — | — |
 | `question.confirm` | ✓ | — | — | — | — | — |
 | `opinion.write` | ✓ | — | — | — | — | — |
 | `comment.write` | ✓ | ✓ | ✓ | ✓ | — | — |
@@ -65,6 +68,8 @@ Row-level security lets a person update a row; triggers then check each change a
 - `app.purge_case()`: only the worker, inside the case's own job (`app.job_case_id`); refused while the case is on hold or under an active legal hold.
 - `missing_items`: status, reason and received page change only with `request.draft`; the description and the page it cites never change; the worker inserts.
 - `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one. `jobs.requested_by` is the signed-in person, set by the database; nobody sets it by hand.
+- `fact_flags` `recheck` and `fact_verifications` `remapped` rows: only the worker inside the case's own job, with no person; the expert's `fact.verify` removes a recheck flag by checking the fact again.
+- `app.set_fact_availability()`: changes only `facts.available_at` and `availability_basis` (no new fact version, no status change); the worker inside the case's own job, or `availability.override`.
 - `app.release_case_hold()`: `case.hold` (or the case's own job), and only once the case is off hold (409 otherwise).
 - `app.case_member_names()`: `case.view_metadata` (or the case's own job); anyone else gets no names.
 - An export (`export_case`) is downloaded only by the person who asked for it (`jobs.requested_by`); anyone else gets 404.

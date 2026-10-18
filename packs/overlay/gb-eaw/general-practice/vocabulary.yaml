@@ -5,3 +5,4 @@ source_types:
   primary_care_record: GP record
 lanes:
   primary_care_visits: GP visits
+  out_of_hours: Out of hours and NHS 111

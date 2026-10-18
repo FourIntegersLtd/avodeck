@@ -2,7 +2,8 @@
 
 Slice A suggests them; slice B's expert verifies them; slices D, E and F read them. Only
 `citable_facts()` may be cited in a report: verified (or edited, which counts as verified) facts
-on pages the named expert has read (state-machines.md "Fact").
+on pages the named expert has read (state-machines.md "Fact"), leaving out facts flagged for a
+recheck after their page was read again (their word ids may be gone).
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.contracts.fact_flags import RECHECK
 from app.core.contracts.reading import PageReadLog
 
 FactStatus = Literal["suggested", "verified", "edited", "rejected"]
@@ -58,8 +60,9 @@ async def citable_facts(conn: AsyncConnection, case_id: uuid.UUID, reads: PageRe
         return []
     async with conn.cursor(row_factory=dict_row) as rows:
         await rows.execute(
-            "select * from app.facts where case_id = %s and status = any(%s) and page_id = any(%s)"
-            " order by created_at, id",
-            (case_id, sorted(CITABLE_STATUSES), list(read)),
+            "select * from app.facts f where f.case_id = %s and f.status = any(%s) and f.page_id = any(%s)"
+            " and not exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %s)"
+            " order by f.created_at, f.id",
+            (case_id, sorted(CITABLE_STATUSES), list(read), RECHECK),
         )
         return [Fact(**r) for r in await rows.fetchall()]

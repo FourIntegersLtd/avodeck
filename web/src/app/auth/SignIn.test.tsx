@@ -66,6 +66,19 @@ test("password then code signs in and opens Today", async () => {
   await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
 });
 
+test("when the local API skips the code, the password alone opens Today", async () => {
+  signedOutAtFirst();
+  server.use(
+    http.post("/v1/auth/sign-in", () => {
+      signedIn();
+      return json({ status: "signed_in", mfa_enrolled: true });
+    }),
+  );
+  const { user, router } = renderAt("/sign-in");
+  await enterPassword(user);
+  await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
+});
+
 test("a wrong password says so plainly, with no technical code", async () => {
   signedOutAtFirst();
   server.use(http.post("/v1/auth/sign-in", () => apiError(401, "invalid_credentials")));

@@ -110,7 +110,7 @@ Every case carries three codes (jurisdiction, case type, specialty). The loader 
 packs/
   jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, holidays.yaml, meetings.yaml,
                             legal_tests.md, report.yaml (court compliance items), final_checks.yaml, identifiers.py
-  case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml, final_checks.yaml
+  case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml, final_checks.yaml, opinion.yaml (point-side, opinion-view, loaded-word and range-note wording)
   specialty/general-practice/ pack.yaml (profession), facts.yaml, sources.yaml, lanes.yaml, checks.yaml, final_checks.yaml, vocabulary.yaml
   overlay/gb-eaw/general-practice/ records.yaml, guidelines.yaml, vocabulary.yaml, speech_phrases.yaml, drug_monitoring.yaml
   _fixtures/                 deliberately strange test packs (see 3.6); never allowed in a real cell
@@ -128,6 +128,7 @@ packs/
 
 - **Registries the packs extend:** fact kinds (with field schemas), record source types, question types, party roles, instructing-party types, expert roles, document kinds, deadline kinds, timeline lanes, "Things to look at" checks, report sections, final checks, meeting types, court tracks, written-question classifications. Code never uses fixed lists for these.
 - **Rule types in code, rule instances in packs:** the checks engine implements a small set of generic rule types once (no_action_within, not_acknowledged_within, monitoring_overdue, not_reached_clinician, actions_not_done, field_missing, not_followed_up). Packs only choose and parameterise them, so a new specialty adds checks without new code. A genuinely new rule type is an engine change with its own tests.
+- **Lanes, sources and kinds carry their meaning:** a lane lists its fact `kinds` and may add `when: {field: value}`; a fact goes to the first lane whose kinds include its kind and whose `when` matches, else to the first lane listing its kind with no `when`. Lane labels and the "As the clinician saw it" title are vocabulary (`lanes`, `as_seen_title`). A source type may be `own_record` (the clinician's own record) and a fact kind may `arrive` from outside (results, letters: never available on their own event date). Each check row carries its rule's parameters (`checks.schema.json`). The overlay's `guidelines.yaml` lists guideline `versions` in force (labels, dates and links only, decision 0005).
 - **Expertise boundaries:** the specialty pack lists question types usually outside its expertise (general practice: causation); the case-type pack never names a specialty.
 - **Workflow from the case type:** the case header's steps and the screens inside each step come from `workflow.yaml`. Breach shows "As the clinician saw it" and "Points against"; a later condition-and-prognosis pack adds "Examination" and "Injuries and prognosis" and hides "As the clinician saw it".
 
@@ -174,7 +175,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 ### 3.5 How code uses packs
 
 - **One entry point:** `pack = packs.for_case(case)` (in `api/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
-- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
+- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.own_record_sources()`, `pack.arriving_kinds()`, `pack.guidelines()`, `pack.guideline_sources()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
 - **Never hard-code** in slice code, prompts, schemas, enums or tests outside fixtures: court or rule names (CPR, PD35, Part 35), guidance bodies (NICE), "statement of truth", party or instructing-party words (claimant, defendant, solicitor), clinician titles (GP), record systems (EMIS, SystmOne), identifier types (NHS number), currencies, date orders, timezones, holiday rules, retention periods or fixed lists of anything in a registry.
 - **Recorded on the report:** `cases.pack_versions` and each served report store the pack versions used, so later wording changes never alter old reports.
 - **Tested per combination:** `evals/<jurisdiction>/<case-type>/<specialty>/` holds synthetic bundles and expected facts.
@@ -266,16 +267,16 @@ The records received, every page and word, and the facts found on them.
 | `document_scans` | The safety scan of each received file, what kind of file it turned out to be, and when it was split into pages. | document_id, case_id, clean, signature, media_type, scanned_at, split_at |
 | `document_parts` | Which files came inside another file (an email's attachments, a zip's files), in order. Each part is a document of its own. | case_id, parent_document_id, document_id, part_no, media_type |
 | `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, size, storage_path, sha256, note |
-| `pages` | Every page of every document, with its permanent page number. Facts and reads point at pages. | case_id, document_id, bundle_page_no, source_type, image_path, text_source, ocr_confidence, handwriting, rotation, duplicate_of_page_id, superseded_by_page_id, quarantined (reason, by, at), unreadable, relevance, language, transcribed_by_expert_text |
-| `page_analysis` | The worker's working notes on each page: how far it got, the fingerprints used to find duplicates, printed dates, the sealed extraction and whether a person must check it. | page_id, case_id, stage, word_count, typed_words, phash, minhash, printed_dates, extraction (sealed), needs_human, reason, model_id, duplicate_status, duplicate_version, references_checked_at |
+| `pages` | Every page of every document, with its permanent page number. Facts and reads point at pages. | case_id, document_id, bundle_page_no, source_type, image_path, text_source, ocr_confidence, handwriting, rotation, duplicate_of_page_id, superseded_by_page_id, quarantined (reason, by, at), unreadable, needs_clearer_copy, relevance, language, transcribed_by_expert_text |
+| `page_analysis` | The worker's working notes on each page: how far it got, the fingerprints used to find duplicates, printed dates, the sealed extraction and whether a person must check it. | page_id, case_id, stage, word_count, typed_words, phash, minhash, printed_dates, availability_evidence, extraction (sealed), needs_human, reason, model_id, duplicate_status, duplicate_version, references_checked_at |
 | `page_embeddings` | One search vector per page, made from the page's words after identifiers are stripped, with the embedder that made it; a page embedded by an older model is embedded again. | page_id, case_id, model, embedding, created_at, updated_at |
 | `page_quarantines` | Pages that may belong to someone else: suggested, confirmed by the named expert or undone; once the instructing party is told or the pack's days pass, the page's image and text are deleted and it keeps its number. | case_id, page_id, status, reason, suggested_by, confirmed_by, confirmed_at, closed_by, closed_at, purged_at, prior_facts, version |
 | `page_replacements` | A clearer copy of a page: the later document that replaces it and, once split, the new page that supersedes it. | case_id, page_id, document_id, new_page_id, requested_by, linked_at |
 | `ocr_words` | Every word read on a page, with where it sits. Facts cite these words, which is how every fact points to its exact place. | page_id, word_index, text, polygon, confidence, source (ocr/embedded/expert) |
 | `facts` | A single thing found on a page (a consultation, a result, a prescription…), linked to the exact words it came from. Suggested by the computer, then checked by the expert. | case_id, page_id, kind, fields, value, word_ids[], bbox, event_date, date_basis, available_at, availability_basis, status, version, model_task, model_id, prompt_version |
-| `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | fact_id, person_id, action, old_value, new_value, reason, at |
-| `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, read_at, dwell_seconds, prev_hash, hash |
-| `fact_flags` | Facts the expert marked to come back to under "points against". | case_id, fact_id, person_id, flagged_for, at |
+| `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | case_id, fact_id, person_id, seq, action (correct/not_right/edit/move/remapped; `remapped` rows come from the reading job with no person), old_value, new_value, old_fields, new_fields, old_word_ids, new_word_ids, old_page_id, new_page_id, reason, at, prev_hash, hash |
+| `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, seq, at, dwell_seconds, counts_for_citing, prev_hash, hash |
+| `fact_flags` | Facts the expert marked to come back to under "points against" (`points`), and checked facts the reading job flagged "Please check" after a page was read again (`recheck`, no person). | case_id, fact_id, person_id, flagged_for, at |
 | `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description (sealed), citing_page_id, reference_key, word_ids, reference_date, status, reason (sealed), received_page_id, version |
 | `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
 | `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on, quarantined_page_ids |
@@ -288,11 +289,13 @@ How facts relate to the questions, and what the checks found.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `fact_question_links` | Which facts relate to which question (suggested by the computer, confirmed by the expert). | fact_id, question_id, status, reason |
-| `check_config` | The expert's on/off choices for "Things to look at" checks. | expert_id, check_key, enabled, gentle |
-| `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, evidence_fact_ids[], decision, reason |
+| `check_config` | The expert's on/off choices for "Things to look at" checks, and any window they changed. | person_id, check_key, enabled, window_days |
+| `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, rule, gentle, evidence_fact_ids[], evidence_page_ids[], status (open, gone), decision, reason, run_id |
+| `check_runs` | Each time the checks ran on a case, with the pack version and which checks ran. | case_id, job_id, pack_version, checks |
+| `case_guideline_versions` | Which guideline version a case was shown, so a later change to the guidance table shows a notice. | case_id, code, version_label, table_reviewed_at, entry_hash |
 | `availability_overrides` | The expert's corrections to when an item became available to the clinician. | case_id, fact_id, available_at, unknown, reason, at |
-| `consultation_notes` | The expert's private notes on a consultation. | case_id, fact_id, text |
-| `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
+| `consultation_notes` | Each person's private note on a consultation (only its author sees it). | case_id, fact_id, person_id, text |
+| `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). Not a database table: read from the overlay pack's `guidelines.yaml` with `pack.guidelines()` (ADR 0016). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
 | `comments` | Notes between people on a case (e.g. a supervisor's comment on a paragraph). Never in reports. | case_id, author_id, target_type, target_id, text, at, resolved_at |
 
 ### 4.6 Write
@@ -303,9 +306,11 @@ The expert's own reasoning and words.
 |---|---|---|
 | `points` | Facts sorted for or against, for each question. | case_id, question_id, fact_id, side, status, reason |
 | `range_notes` | The expert's note on what other reasonable clinicians might have done. | case_id, question_id, text |
+| `relevant_facts` | Checked facts the draft does not use yet that may bear on it (T-14b), until used or dismissed. | case_id, question_id, fact_id, why_relevant, status |
 | `witness_claims` | Statements in a witness statement compared with the records. | case_id, document_id, text_verbatim, word_ids[], verdict, fact_ids[], status |
+| `witness_comparisons` | Each request to compare a witness statement with the records (T-14c job). | case_id, document_id, job_id, status, claims |
 | `opinions` | The expert's own words answering each question, with citations to checked facts. | case_id, question_id, body, citation_refs, view, provisional, test_text, updated_at, etag |
-| `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, saved_at, saved_by |
+| `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, test_text, saved_at, saved_by |
 | `lint_issues` | Gentle warnings about wording (uncited facts, loaded words, outside expertise) and why the expert dismissed them. | case_id, opinion_id or paragraph_id, sentence_index, type, words, dismissed_reason |
 
 ### 4.7 Report
@@ -531,27 +536,29 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/pages/{page_no}/thumbnail` | Small image streamed by the API | |
 | POST | `/cases/{case_id}/pages/{page_no}/read` | Record read `{dwell_seconds}` → appends to hash-chained log | Unlocks suggestions |
 | GET | `/cases/{case_id}/pages/{page_no}/facts` | Suggested + verified facts with bounding boxes | **423** until the page is read |
-| POST | `/cases/{case_id}/facts/{fact_id}/verify` | `{action: correct|not_right|edit, new_value?, reason?}` | Append-only history |
-| POST | `/cases/{case_id}/facts/{fact_id}/flag-point` | Send to Points against | |
+| POST | `/cases/{case_id}/facts/{fact_id}/verify` | `{action: correct|not_right|edit, new_value?, word_ids?, reason?}` | If-Match; append-only history; edit must be in the cited words (422) |
+| POST / DELETE | `/cases/{case_id}/facts/{fact_id}/flag-point` | Send to Points against, or take it back | Checked facts only (409); E reads `core/contracts/fact_flags.py` |
+| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_no, word_ids}`: move a fact to the clearer copy of its page | If-Match; other pages 409; clearer copy read first (423) |
 | GET | `/cases/{case_id}/progress` | Pages read / total, time estimate | |
 
 **10 Pages we couldn't read**
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count | |
-| PUT | `/cases/{case_id}/pages/{page_no}/transcription` | Save expert's text + relevance; re-runs T-07b on it | 202 + job |
+| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out or clearer copy asked for) | |
+| PUT | `/cases/{case_id}/pages/{page_no}/transcription` | `{text, relevance?}`: save expert's text; counts as read; re-runs T-07b on it through `extract_page_text` (core/contracts/pipeline.py) | 202 + job; 503 while A's entry point is missing |
 | GET | `/cases/{case_id}/pages/{page_no}/second-reading` | T-10 comparison | Only after a transcription exists, or on request |
-| PATCH | `/cases/{case_id}/pages/{page_no}` | `{duplicate_of?, relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b |
+| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
 
 **11 Timeline**
 
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=` | Events by lane with verification status and links |
-| POST | `/cases/{case_id}/links/suggest` | Run T-11 (202 + job) |
-| PATCH | `/cases/{case_id}/links/{link_id}` | Confirm / reject suggested link |
-| POST | `/cases/{case_id}/links` | Add a link by hand |
+| GET | `/cases/{case_id}/fact-links?status=` | Fact–question links (`stale` when the fact was rejected) |
+| POST | `/cases/{case_id}/fact-links/suggest` | Run T-11 (202 + job) |
+| PATCH | `/cases/{case_id}/fact-links/{link_id}` | Confirm / reject suggested link |
+| POST | `/cases/{case_id}/fact-links` | Add a link by hand (checked facts only) |
 
 **12 One consultation, as the clinician saw it**
 
@@ -577,11 +584,13 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/questions/{q_id}/points` | Facts by side + unused relevant facts + accounts that differ |
+| POST | `/cases/{case_id}/questions/{q_id}/points` | Add an unused citable fact as a point (starts accepted) |
 | POST | `/cases/{case_id}/questions/{q_id}/points/suggest` | T-14a / T-14b (202 + job) |
 | PATCH | `/cases/{case_id}/points/{point_id}` | Move side / accept / remove |
+| PATCH | `/cases/{case_id}/relevant-facts/{relevant_id}` | Dismiss a fact T-14b suggested |
 | PUT | `/cases/{case_id}/questions/{q_id}/range-note` | "What other {clinicians} might reasonably do" (wording from the pack) |
 | POST | `/cases/{case_id}/witness-statements/{doc_id}/compare` | T-14c (202 + job) |
-| PATCH | `/cases/{case_id}/witness-claims/{claim_id}` | Confirm / dismiss |
+| PATCH | `/cases/{case_id}/witness-claims/{claim_id}` | Confirm / own verdict (edited) / dismiss |
 
 **15 Your opinion**
 
@@ -730,7 +739,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/webhooks/esign` | E-signature status | Signature-verified |
 | GET | `/jobs/{job_id}` | Job status | Anyone who can see the job's case (`case.view_metadata`), else 404 |
 | | *Scheduled jobs (App Platform or pg_cron)* | Deadline reminders (daily), deletion run (daily), offline package expiry, guideline table review reminder (quarterly) | Call FastAPI with a service token |
-| | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
+| | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `suggest_points`, `compare_witness_statement`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
 
 ### 5.4 Endpoints for accounts, organisations and the behaviour rules
 
@@ -798,8 +807,8 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/cases/{case_id}/pages/{page_id}/quarantine` | "Not this person's record" `{reason}` | A; audited; drafts the note |
 | DELETE | `/cases/{case_id}/pages/{page_id}/quarantine` | Undo, until the image is deleted | A |
 | POST | `/cases/{case_id}/pages/{page_id}/replace` | Upload a clearer copy (new number; old one superseded) | A |
-| POST | `/cases/{case_id}/pages/{page_id}/rotate` | Rotate and re-read; number kept | B |
-| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_id}` move a checked fact to the clearer copy | B; expert only |
+| POST | `/cases/{case_id}/pages/{page_id}/rotate` | `{degrees: 90\|180\|270}` clockwise; re-read through `process_pages`; number kept | B; 202 + job |
+| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_no, word_ids}` move a checked fact to the clearer copy | B; expert only |
 | GET / POST | `/cases/{case_id}/exhibits` | Audio, video, imaging: listed, never paged | A |
 | GET | `/cases/{case_id}/bundle/versions` | What each delivery of records added | A |
 | POST | `/cases/{case_id}/process/cancel` | Stop processing at a page boundary | A |
@@ -1190,7 +1199,7 @@ Section 4 says what is stored; this section says how it behaves: who can do what
 ### 10.5 Writing
 
 - **Opinion history.** Every autosave keeps a version. Building a report names the versions used. Earlier versions can be viewed and restored, never edited.
-- **Guidance table changes.** `guideline_versions` rows are versioned. A case records the table version used; if a cited guideline's entry changes, the expert sees a notice.
+- **Guidance table changes.** Guideline versions come from the overlay pack (ADR 0016); the table version is the overlay pack version and its `reviewed_at`. A case records the version it was shown; if a cited guideline's entry changes, the expert sees a notice.
 - **Comments.** `comments` on a page, fact or paragraph, by case members. They never appear in reports. The screen warns that comments may be disclosable.
 - **Concurrent editing.** Every editable resource uses optimistic concurrency (ETag / If-Match; 412 on a stale write) with a "which version do you want to keep?" prompt. This applies to all editable resources, not only opinions.
 

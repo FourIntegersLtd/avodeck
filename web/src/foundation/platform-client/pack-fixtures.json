@@ -1,7 +1,36 @@
 {
   "fixture": {
     "case_pack": {
-      "checks": [],
+      "checks": [
+        {
+          "action_kinds": [
+            "session"
+          ],
+          "applies_to": "measurement",
+          "flag": {
+            "any_of": [
+              "zz_high",
+              "zz_low"
+            ],
+            "field": "unit"
+          },
+          "key": "zz_measurement_unanswered",
+          "label_spans": true,
+          "rule": "no_action_within",
+          "window_days": 3
+        },
+        {
+          "applies_to": "session",
+          "field": "duration_minutes",
+          "gentle": true,
+          "key": "zz_session_length_recorded",
+          "or_kinds": [
+            "measurement"
+          ],
+          "rule": "field_missing",
+          "scope": "linked"
+        }
+      ],
       "compliance_checklist": {
         "items": [
           {
@@ -46,10 +75,12 @@
           "key": "session"
         },
         {
+          "arrives": true,
           "fields": {
             "name": "string",
             "unit": "string",
-            "value": "string"
+            "value": "string",
+            "via": "string"
           },
           "key": "measurement"
         }
@@ -63,18 +94,44 @@
       ],
       "lanes": [
         {
-          "key": "sessions"
+          "key": "sessions",
+          "kinds": [
+            "session"
+          ]
         },
         {
-          "key": "measurements"
+          "key": "measurements",
+          "kinds": [
+            "measurement"
+          ]
         },
         {
-          "key": "letters"
+          "key": "letters",
+          "kinds": [
+            "measurement"
+          ],
+          "when": {
+            "via": "letter"
+          }
         }
       ],
       "language": "en",
       "legal_tests": null,
       "locale": "en-ZZ",
+      "opinion_views": [
+        {
+          "code": "zz_view_ok",
+          "label": "Zz acceptable"
+        },
+        {
+          "code": "zz_view_edge",
+          "label": "Zz borderline"
+        },
+        {
+          "code": "zz_view_poor",
+          "label": "Zz below what a therapist should do"
+        }
+      ],
       "party_roles": [
         {
           "key": "instructing_side",
@@ -83,6 +140,20 @@
         {
           "key": "other_side",
           "label": "respondent"
+        }
+      ],
+      "point_sides": [
+        {
+          "code": "supports_claim",
+          "label": "Zz favours the petitioner"
+        },
+        {
+          "code": "supports_clinician",
+          "label": "Zz favours the therapist"
+        },
+        {
+          "code": "neutral",
+          "label": "Zz neither side"
         }
       ],
       "profession": "therapist",
@@ -97,6 +168,7 @@
           "label_key": "zz.question_type.liability"
         }
       ],
+      "range_note_prompt": "Zz what other therapists might do",
       "registration_bodies": [
         "ZZ-REG"
       ],
@@ -118,11 +190,17 @@
       "source_types": [
         {
           "colour": "#5A4A9E",
-          "key": "clinic_notes"
+          "key": "clinic_notes",
+          "own_record": true
         },
         {
           "colour": "#8C7556",
           "key": "letters"
+        },
+        {
+          "colour": "#6B6B2E",
+          "key": "zz_account",
+          "statement": true
         }
       ],
       "timezone": "America/Halifax",
@@ -132,6 +210,7 @@
         "specialty": "zz-specialty@0.0.2"
       },
       "vocabulary": {
+        "as_seen_title": "What the therapist had in hand",
         "clinician": "therapist",
         "clinicians": "therapists",
         "court_bundle": "hearing binder",
@@ -150,6 +229,11 @@
         "instructing_party_types": {
           "insurer": "carrier",
           "lawyer": "counsel"
+        },
+        "lanes": {
+          "letters": "zz letters",
+          "measurements": "zz measurements",
+          "sessions": "zz sessions"
         },
         "party_roles": {
           "instructing_side": "petitioner",
@@ -289,13 +373,35 @@
     "case_pack": {
       "checks": [
         {
+          "action_kinds": [
+            "prescription",
+            "referral",
+            "task",
+            "consultation",
+            "phone_consultation"
+          ],
           "applies_to": "result",
-          "flag": "abnormal",
+          "flag": {
+            "any_of": [
+              "L",
+              "H",
+              "LL",
+              "HH",
+              "A"
+            ],
+            "field": "flag"
+          },
           "key": "abnormal_result_no_action",
+          "label_spans": true,
           "rule": "no_action_within",
           "window_days": 14
         },
         {
+          "acknowledged_field": "acknowledged_on",
+          "acknowledged_kinds": [
+            "letter"
+          ],
+          "acknowledges_field": "acknowledges_referral_dated",
           "applies_to": "referral",
           "key": "referral_acknowledged",
           "rule": "not_acknowledged_within",
@@ -308,14 +414,28 @@
           "table": "drug_monitoring"
         },
         {
-          "applies_to": "out_of_hours",
+          "applies_to": [
+            "consultation",
+            "phone_consultation",
+            "home_visit"
+          ],
           "key": "ooh_reached_clinician",
           "rule": "not_reached_clinician",
+          "when": {
+            "setting": "out_of_hours"
+          },
           "window_days": 2
         },
         {
+          "action_kinds": [
+            "prescription",
+            "referral",
+            "task"
+          ],
           "applies_to": "letter",
+          "field": "actions_requested",
           "key": "hospital_letter_actions",
+          "label_spans": true,
           "rule": "actions_not_done"
         },
         {
@@ -323,18 +443,32 @@
           "field": "examination",
           "gentle": true,
           "key": "examination_recorded",
-          "rule": "field_missing"
+          "or_kinds": [
+            "examination"
+          ],
+          "rule": "field_missing",
+          "scope": "linked"
         },
         {
           "applies_to": "consultation",
           "field": "safety_netting",
           "gentle": true,
           "key": "safety_netting_recorded",
-          "rule": "field_missing"
+          "or_kinds": [
+            "safety_netting"
+          ],
+          "rule": "field_missing",
+          "scope": "linked"
         },
         {
           "applies_to": "missed_appointment",
           "default_on": false,
+          "followup_kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "task"
+          ],
           "key": "missed_appointment_followed_up",
           "rule": "not_followed_up",
           "window_days": 14
@@ -439,7 +573,8 @@
             "history": "string",
             "plan": "string",
             "reason": "string",
-            "safety_netting": "string"
+            "safety_netting": "string",
+            "setting": "string"
           },
           "key": "consultation"
         },
@@ -450,7 +585,8 @@
             "history": "string",
             "plan": "string",
             "reason": "string",
-            "safety_netting": "string"
+            "safety_netting": "string",
+            "setting": "string"
           },
           "key": "phone_consultation"
         },
@@ -462,11 +598,13 @@
             "history": "string",
             "plan": "string",
             "reason": "string",
-            "safety_netting": "string"
+            "safety_netting": "string",
+            "setting": "string"
           },
           "key": "home_visit"
         },
         {
+          "arrives": true,
           "fields": {
             "actioned_on": "date",
             "date": "date",
@@ -500,7 +638,9 @@
           "key": "referral"
         },
         {
+          "arrives": true,
           "fields": {
+            "acknowledges_referral_dated": "date",
             "actions_requested": "string",
             "date": "date",
             "from": "string",
@@ -575,27 +715,73 @@
       ],
       "lanes": [
         {
-          "key": "primary_care_visits"
+          "key": "primary_care_visits",
+          "kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "examination",
+            "safety_netting",
+            "task"
+          ]
         },
         {
-          "key": "results"
+          "key": "results",
+          "kinds": [
+            "result"
+          ]
         },
         {
-          "key": "out_of_hours"
+          "key": "out_of_hours",
+          "kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "examination",
+            "safety_netting",
+            "task"
+          ],
+          "when": {
+            "setting": "out_of_hours"
+          }
         },
         {
-          "key": "prescriptions"
+          "key": "prescriptions",
+          "kinds": [
+            "prescription"
+          ]
         },
         {
-          "key": "hospital_and_letters"
+          "key": "hospital_and_letters",
+          "kinds": [
+            "letter",
+            "referral"
+          ]
         },
         {
-          "key": "appointments"
+          "key": "appointments",
+          "kinds": [
+            "missed_appointment"
+          ]
         }
       ],
       "language": "en",
       "legal_tests": "## Breach of duty\nWould a responsible body of GPs have acted as this GP did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
       "locale": "en-GB",
+      "opinion_views": [
+        {
+          "code": "within_range",
+          "label": "Within the range of reasonable practice"
+        },
+        {
+          "code": "at_limit",
+          "label": "At the limit of reasonable practice"
+        },
+        {
+          "code": "below_standard",
+          "label": "Below the standard of a reasonable GP"
+        }
+      ],
       "party_roles": [
         {
           "key": "instructing_side",
@@ -608,6 +794,20 @@
         {
           "key": "joint",
           "label": "jointly instructed"
+        }
+      ],
+      "point_sides": [
+        {
+          "code": "supports_claim",
+          "label": "Supports the claim"
+        },
+        {
+          "code": "supports_clinician",
+          "label": "Supports the GP"
+        },
+        {
+          "code": "neutral",
+          "label": "Neutral"
         }
       ],
       "profession": "doctor",
@@ -626,6 +826,7 @@
           "label_key": "question_type.other"
         }
       ],
+      "range_note_prompt": "What other GPs might reasonably do",
       "registration_bodies": [
         "GMC"
       ],
@@ -662,7 +863,8 @@
       "source_types": [
         {
           "colour": "#1E6B4E",
-          "key": "primary_care_record"
+          "key": "primary_care_record",
+          "own_record": true
         },
         {
           "colour": "#4C6E91",
@@ -679,6 +881,11 @@
         {
           "colour": "#8C7556",
           "key": "letters"
+        },
+        {
+          "colour": "#A8577E",
+          "key": "witness_statement",
+          "statement": true
         }
       ],
       "timezone": "Europe/London",
@@ -689,6 +896,7 @@
         "specialty": "general-practice@2026.10.2"
       },
       "vocabulary": {
+        "as_seen_title": "As the GP saw it",
         "clinician": "GP",
         "clinicians": "GPs",
         "court_bundle": "trial bundle",
@@ -711,7 +919,12 @@
           "lawyer": "solicitor"
         },
         "lanes": {
-          "primary_care_visits": "GP visits"
+          "appointments": "Appointments",
+          "hospital_and_letters": "Hospital and letters",
+          "out_of_hours": "Out of hours and NHS 111",
+          "prescriptions": "Prescriptions",
+          "primary_care_visits": "GP visits",
+          "results": "Results"
         },
         "party_roles": {
           "instructing_side": "claimant",
