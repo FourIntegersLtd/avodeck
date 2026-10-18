@@ -28,7 +28,9 @@ jobs:
         with: { node-version: "20", cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
       - run: pnpm install --frozen-lockfile
         working-directory: web
-      - run: pnpm lint && pnpm typecheck && pnpm vitest run --coverage
+      - run: pnpm lint && pnpm typecheck && pnpm vitest run --coverage --exclude src/capabilities/understand/Timeline.test.tsx
+      # The timeline's 1,500-event time budget is measured alone and without coverage instrumentation.
+      - run: pnpm vitest run src/capabilities/understand/Timeline.test.tsx
         working-directory: web
       - run: pnpm build
         working-directory: web
