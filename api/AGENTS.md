@@ -19,7 +19,8 @@ api/app/
                           # NeedsYouItem + needs_you registry, require_page_read (423 gate), page_read_log +
                           # verification_counts (reading.py), events, case_tables,
                           # profile (named expert's template, declarations, signature, conflicts for a case),
-                          # ai_calls (ai_call_summary: AI metadata per task for the methodology appendix)
+                          # ai_calls (ai_call_summary: AI metadata per task for the methodology appendix),
+                          # latest_opinions (opinions.py), Citation + citation_problems (citations.py) for F
     housekeeping.py       # daily schedules owned by foundation (expire_uploads)
     packs.py              # pack loader: merges jurisdiction + case-type + specialty packs for a case
     config.py             # cell config: REGION, endpoints, model IDs, allowed packs

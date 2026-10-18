@@ -23,6 +23,7 @@ from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.contracts.facts import Fact
+from app.core.contracts.opinions import TEST_TEXT_PURPOSE
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag
 from app.core.packs import MergedPack
@@ -33,7 +34,7 @@ from app.features.write.lint_store import BODY, LintIssueOut, dismissed_issues, 
 from app.features.write.quotes import locate, same_words
 from app.features.write.router import router
 
-TEST_TEXT = "opinion_test_text"
+TEST_TEXT = TEST_TEXT_PURPOSE
 
 
 class OpinionIn(BaseModel):

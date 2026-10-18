@@ -66,8 +66,9 @@ Core checks include:
   - Signature (C): `profile.signature(conn, case_id)`: the newest signature (`storage_path`, `sha256`, `method`, `width`, `height`). Needs `report.sign` or the case's job.
   - Conflicts declaration (C): `profile.conflict_declaration(conn, case_id)`: latest `outcome`, `declared_at`, `out_of_date` and the answers (detail sealed under the case key).
   - Methodology appendix: `ai_calls.ai_call_summary(conn, case_id)`: per task, model ID, region and prompt version, the number of calls and first and last time; no content.
-  - Verified facts and the read log (B): `facts.citable_facts()`, `reading.PageReads`; questions (C): `questions.confirmed_questions`; case people: `members.case_member_names`.
-  - Opinions and citations (E): `opinions.latest_opinions` and `citations.citation_problems` (arriving from another branch).
+  - Verified facts and the read log (B): `facts.citable_facts()`, `reading.page_read_log` and `reading.verification_counts`; questions (C): `questions.confirmed_questions`; case people: `members.case_member_names`.
+  - Opinions (E): `opinions.latest_opinions(conn, case_id, crypto)` (never `app.opinions` directly).
+  - Citations (E): `citations.citation_problems(conn, case_id, reads)` in the final checks; signing is blocked while it returns any problem.
 - **Out:**
   - A **locked served `report_versions` row** with SHA-256 of the DOCX and PDF. G, I and H depend on it.
   - The `report_served` event in `core/contracts/events.py`: `{case_id, version_id, served_on}`. G subscribes to create deadlines; in the MVP nothing subscribes.
