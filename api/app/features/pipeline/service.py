@@ -425,10 +425,27 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 ).decode()
                 for w in stored
             }
+            header = ""
+            before = await repo.previous_page_words(conn, page_id, extract.HEADER_WORDS)
+            if before is not None:
+                before_id, top = before
+                header = " ".join(
+                    [
+                        (
+                            await services.crypto.decrypt(
+                                conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(before_id, w.word_id)
+                            )
+                        ).decode()
+                        for w in top
+                    ]
+                )
         ordered = [(w.word_id, texts[w.word_id]) for w in stored]
         struck = {w.word_id for w in stored if w.struck}
         stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
         text = extract.page_text(ordered, stripped.text)
+        if header:
+            top = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+            text = extract.with_header(text, top.text)
         subject = page_subject(ordered)
         output: dict[str, Any] | None = None
         kept: list[Any] = []

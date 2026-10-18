@@ -382,6 +382,27 @@ async def words_of(conn: AsyncConnection, page_id: uuid.UUID) -> list[StoredWord
     return [StoredWord(r[0], bytes(r[1]), list(r[2]), bool(r[3]), bool(r[4])) for r in await cur.fetchall()]
 
 
+async def previous_page_words(
+    conn: AsyncConnection, page_id: uuid.UUID, limit: int
+) -> tuple[uuid.UUID, list[StoredWord]] | None:
+    """The first `limit` words of the page before this one in the same document, if it has any."""
+    cur = await conn.execute(
+        "select q.id from app.pages p join app.pages q on q.document_id = p.document_id"
+        " and q.bundle_page_no = p.bundle_page_no - 1 where p.id = %s and not q.quarantined",
+        (page_id,),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return None
+    cur = await conn.execute(
+        "select word_id, text, polygon, struck, handwritten from app.ocr_words where page_id = %s"
+        " and not struck order by n limit %s",
+        (row[0], limit),
+    )
+    words = [StoredWord(r[0], bytes(r[1]), list(r[2]), bool(r[3]), bool(r[4])) for r in await cur.fetchall()]
+    return (row[0], words) if words else None
+
+
 async def page_size(conn: AsyncConnection, page_id: uuid.UUID) -> tuple[float, float] | None:
     cur = await conn.execute("select width, height from app.page_analysis where page_id = %s", (page_id,))
     row = await cur.fetchone()
