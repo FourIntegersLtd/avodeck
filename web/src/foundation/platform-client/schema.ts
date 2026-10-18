@@ -2268,8 +2268,22 @@ export interface components {
             legal_tests: string | null;
             /** Locale */
             locale: string;
+            /**
+             * Opinion Views
+             * @default []
+             */
+            opinion_views: {
+                [key: string]: string;
+            }[];
             /** Party Roles */
             party_roles: {
+                [key: string]: string;
+            }[];
+            /**
+             * Point Sides
+             * @default []
+             */
+            point_sides: {
                 [key: string]: string;
             }[];
             /** Profession */
@@ -2280,6 +2294,11 @@ export interface components {
             question_types: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Range Note Prompt
+             * @default
+             */
+            range_note_prompt: string;
             /** Registration Bodies */
             registration_bodies: string[];
             /** Report Sections */

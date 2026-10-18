@@ -1104,6 +1104,17 @@
             "title": "Locale",
             "type": "string"
           },
+          "opinion_views": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Opinion Views",
+            "type": "array"
+          },
           "party_roles": {
             "items": {
               "additionalProperties": {
@@ -1112,6 +1123,17 @@
               "type": "object"
             },
             "title": "Party Roles",
+            "type": "array"
+          },
+          "point_sides": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Point Sides",
             "type": "array"
           },
           "profession": {
@@ -1129,6 +1151,11 @@
             },
             "title": "Question Types",
             "type": "array"
+          },
+          "range_note_prompt": {
+            "default": "",
+            "title": "Range Note Prompt",
+            "type": "string"
           },
           "registration_bodies": {
             "items": {
