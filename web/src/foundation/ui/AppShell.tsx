@@ -36,9 +36,7 @@ export function AppShell({ children, name }: AppShellProps) {
       <header className="av-shell__header">
         <div className="av-shell__bar">
           <div className="av-shell__left">
-            <NavLink to="/today" className="av-logo">
-              <Logo />
-            </NavLink>
+            <Logo />
             <nav className="av-shell__nav" aria-label={t("app.nav.label")}>
               <ul>
                 <li>

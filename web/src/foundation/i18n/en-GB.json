@@ -1,5 +1,6 @@
 {
   "app.name": "Avodeck",
+  "app.logo_home": "Avodeck home page",
   "app.skip_to_content": "Skip to main content",
   "app.nav.label": "Main",
   "app.nav.today": "Today",
