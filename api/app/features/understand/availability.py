@@ -106,9 +106,9 @@ def compute(
         chosen = latest.get(fact.fact_id)
         if chosen is not None:
             out[fact.fact_id] = (
-                Availability(None, "override_unknown")
+                Availability(None, "expert_unknown")
                 if chosen.unknown
-                else Availability(chosen.available_at, "override")
+                else Availability(chosen.available_at, "expert_override")
             )
         elif not _arrives(fact, arriving_kinds):
             out[fact.fact_id] = Availability(fact.event_date, "own_record" if fact.event_date else None)
