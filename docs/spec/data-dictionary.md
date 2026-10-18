@@ -800,6 +800,13 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | paragraph_ids[] | Which report paragraphs it relates to |
 | answer_text / status | The expert's answer and whether it's done |
 
+### opposing_reports
+| Field | In plain words |
+|---|---|
+| document_id / received_on | The other expert's report (an uploaded document) and when it arrived |
+| job_id / checked_at / claims_found | The check that read it, when it finished and how many statements it found |
+| positions | Each question's answer in their report beside ours, for the expert to compare (no new wording) |
+
 ### opposing_claims
 | Field | In plain words |
 |---|---|

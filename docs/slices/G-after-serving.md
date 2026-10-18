@@ -11,17 +11,21 @@ After the report is served, the expert keeps track of court deadlines and answer
 - 20 Questions from the other side (`S20-Questions35`): pack label "Part 35 questions"
 - 21 New records and the other expert's report (`S21-NewMaterial`)
 - 21b Correct or update your report (`S21b-Addendum`)
+- 29 Court orders and dates (`S29-CourtOrders`): court directions, hearings, deadlines and their history; a stay puts the case on hold
 - Today cards: registers "written questions due", "new pages to read" and "other expert's report to check"
 
 ## Endpoints (architecture 5.2)
-- `GET /v1/cases/{id}/deadlines`; `POST/PATCH /v1/cases/{id}/deadlines[/{id}]`; `GET /v1/cases/{id}/report/served`
+- `GET /v1/cases/{id}/deadlines`; `POST/PATCH /v1/cases/{id}/deadlines[/{id}]`; `GET /v1/cases/{id}/deadlines/{id}/changes`; `GET/POST /v1/cases/{id}/court-directions`; `GET/POST /v1/cases/{id}/hearings`; `PATCH /v1/cases/{id}/hearings/{id}`; `GET /v1/cases/{id}/report/served`
+- `GET/POST /v1/cases/{id}/written-question-rounds`
 - `POST /v1/cases/{id}/written-questions/import` → 202; `GET /v1/cases/{id}/written-questions`; `PATCH /v1/cases/{id}/written-questions/{q_id}`; `POST …/{q_id}/tell-instructing-party`; `POST /v1/cases/{id}/written-questions/answers/sign` 🔒
-- `POST /v1/cases/{id}/documents/append` (A's route, reused); `GET /v1/cases/{id}/new-since-served`
+- `POST /v1/cases/{id}/documents/append` (A's route, reused); `GET /v1/cases/{id}/new-since-served`; `POST /v1/cases/{id}/new-since-served/check` → 202
 - `POST /v1/cases/{id}/opposing-reports` → 202; `GET /v1/cases/{id}/opposing-reports/{doc_id}`; `PATCH /v1/cases/{id}/opposing-claims/{claim_id}`
-- `POST /v1/cases/{id}/report-changes`; `GET/PATCH /v1/cases/{id}/report-changes/{change_id}`; `POST /v1/cases/{id}/report-changes/supplementary` → 202; `POST /v1/cases/{id}/report/versions/{v}/sign` 🔒
+- `POST/GET /v1/cases/{id}/report-changes`; `GET/PATCH /v1/cases/{id}/report-changes/{change_id}`; `POST /v1/cases/{id}/report-changes/supplementary` → 202; `POST /v1/cases/{id}/report/versions/{v}/sign` 🔒
 
 ## Tables owned
-`deadlines` (rule_ref from the pack), `written_questions`, `opposing_claims`, `report_changes`, `may_matter` (fact_id, question_id, why, seen_at).
+`deadlines` (rule_ref from the pack), `deadline_changes`, `court_directions`, `hearings`, `written_question_rounds`, `written_questions`, `opposing_reports`, `opposing_claims`, `report_changes`, `may_matter` (fact_id, question_id, why, seen_at).
+
+Also writes, for its own documents only: `report_versions` and `report_snapshots` rows of type `written_answers` and `supplementary` (never a served row; the database refuses with `AVLCK`), and `cases.on_hold` when a court direction stays the case.
 
 ## Worker jobs
 - **`verify_opposing`:**
@@ -79,6 +83,13 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 ## Rules that apply
 1, 2, 3, 4, 6, 7, 8, 9, 10, 11 from the root `AGENTS.md`.
+
+## Decisions taken while building
+- The answers document and the signed supplementary file are built inside the sign request (small Word files, no AI); the draft supplementary is a 202 job (`build_supplementary`).
+- Deadline kinds come from the pack; answers have their own kind `written_question_answers`. Reminder emails carry `deadline.<kind>` only and go three days ahead, once per deadline (`last_reminded_on`).
+- The `report_served` event handler runs after F commits, acting for the case (`Database.job`), and makes the pack's deadlines counted from serving.
+- S20 and S21 take the document id from the URL until there is a documents list for these screens; there is no list of opposing reports yet.
+- Job kinds `find_dependents` and `build_supplementary` should be queued by `opinion.write` (foundation `job_kind_actions` rows; asked for in cross-slice).
 
 ## Out of scope
 Expert meetings and joint statements (I), trial bundles (I), Gmail/Outlook sending (separate Phase 2 item in slice A).

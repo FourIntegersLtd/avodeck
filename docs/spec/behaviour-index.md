@@ -96,6 +96,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `hearings` | G | Named expert or assistant | Many | State machine; adjournment links the new date | Case deletion |
 | `written_question_rounds` | G | Named expert or assistant | Many | State machine | Case deletion |
 | `written_questions` | G | Named expert answers | Many per round | State machine; locked when served | Case deletion |
+| `opposing_reports` | G | Named expert or assistant registers; worker checks | One per document | Checked once; checked_at set by the worker | Case deletion |
 | `opposing_claims` | G | Worker; named expert confirms | Many | State machine | Case deletion |
 | `report_changes` | G | Named expert | Many | Go into a supplementary report | Case deletion |
 | `expert_meetings` | I | Named expert | Many | State machine | Case deletion |
