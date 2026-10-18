@@ -65,12 +65,20 @@ DOCUMENT = "Questions to the expert\n" + "\n".join(f"{n}. {q}" for n, q in enume
 _LINE = re.compile(r"^\[(question|paragraph) ([0-9a-f-]{36})\] (.*)$", re.M)
 
 
+def _ids(text: str, phrase: str) -> list[str] | None:
+    try:
+        return ids_for(text, phrase)
+    except ValueError:
+        return None
+
+
 def t20a(request: ModelRequest) -> dict[str, Any]:
+    found = [(q, _ids(request.text, q)) for q in QUESTIONS]
     return {
         "questions": [
-            {"text_verbatim": q, "word_ids": ids_for(request.text, q), "para_ref": None, "reason": "question"}
-            for q in QUESTIONS
-            if q.split()[2] in request.text
+            {"text_verbatim": q, "word_ids": ids, "para_ref": None, "reason": "question"}
+            for q, ids in found
+            if ids is not None
         ]
     }
 
@@ -176,7 +184,7 @@ async def test_t20a_finds_the_six_questions_as_exact_words_of_the_document(
     assert [q["number"] for q in questions] == [1, 2, 3, 4, 5, 6]
     assert [q["para_ref"] for q in questions] == ["1", "2", "3", "4", "5", "6"], "read from the layout by code"
     assert all(q["status"] == "received" and q["round_id"] == made["id"] for q in questions)
-    rule = [r for r in served.combo.raw("jurisdiction", "deadlines.yaml")["rules"] if r["key"] == "written_questions"]
+    rule = [r for r in served.combo.raw("jurisdiction", "deadlines.yaml")["deadlines"] if r["key"] == "written_questions"]
     assert all(q["rule_ref"] == rule[0]["rule_ref"] for q in questions)
     for request in model.by_task("T-20a"):
         for words in PAGE_TEXT.values():
