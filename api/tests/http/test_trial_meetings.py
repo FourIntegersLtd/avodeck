@@ -319,6 +319,22 @@ async def test_a_statement_signed_elsewhere_is_recorded_with_its_hash(
     assert meeting["signed_sha256"] == hashlib.sha256(signed).hexdigest()
 
 
+
+async def test_a_statement_out_for_signature_cannot_be_recorded_as_signed_elsewhere(
+    client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
+) -> None:
+    """state-machines.md: only a draft moves to signed_external; out for signature waits for the webhook."""
+    created = await create(client_for, world)
+    await agenda(client_for, worker_db, world, created["id"])
+    url = world.url(f"expert-meetings/{created['id']}")
+    client = await client_for(world.expert)
+    assert (await client.post(f"{url}/prepare")).status_code == 200
+    assert (await client.post(f"{url}/send-for-signature")).status_code == 200
+    signed = pdf_of([["zz", "signed", "on", "paper"]])
+    resp = await client.post(f"{url}/signed-external", content=signed, headers={"content-type": "application/pdf"})
+    assert resp.status_code == 409 and code(resp) == "not_draft"
+    assert (await get(client_for, world, created["id"])).json()["status"] == "out_for_signature"
+
 async def test_a_new_agenda_version_shows_differences_and_moves_the_statement_back_to_draft(
     client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
 ) -> None:
