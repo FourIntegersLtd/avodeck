@@ -22,7 +22,7 @@ from app.core.auth.access import require_case_access
 from app.core.contracts.reading import PageReadLog, require_page_read
 from app.core.db import Database
 from app.core.http import CurrentScope, router
-from app.main import create_app, mount
+from app.main import create_app
 from tests.support.files import build_app
 from tests.support.seed import Seed
 
@@ -62,7 +62,8 @@ def stub_routes(reads: StubReads) -> APIRouter:
 
 def make_app(api_db: Database, auth_env: dict[str, str], reads: PageReadLog | None) -> FastAPI:
     app = build_app(api_db, auth_env, page_reads=reads)
-    mount(app, stub_routes(reads if isinstance(reads, StubReads) else StubReads()))
+    # The stub routes go first so they answer even now slice B's real routes share these paths.
+    app.router.routes[:0] = stub_routes(reads if isinstance(reads, StubReads) else StubReads()).routes
     return app
 
 

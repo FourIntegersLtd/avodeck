@@ -357,6 +357,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | superseded_by_page_id | If a clearer copy arrived, which page replaces it |
 | quarantined | Marked as another person's record: hidden, and when, why and by whom |
 | unreadable | The computer couldn't read it; it's in "Pages we couldn't read" |
+| needs_clearer_copy | The expert asked for a clearer copy; the page goes on the next request to the instructing party |
 | relevance | The expert's judgement: relevant or background |
 | language | The page's language, if not the pack's |
 | transcribed_by_expert_text | The expert's own typing of a page the computer couldn't read |
@@ -432,20 +433,30 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | person_id | Who checked it |
-| action | Correct, not right, or changed |
+| seq | Its place in the case's list of checks |
+| action | Correct, not right, changed, or moved to a clearer copy |
 | old_value / new_value / reason | What it was, what it became, and why |
+| old_fields / new_fields | The details before and after a change |
+| old_word_ids / new_word_ids | The words it pointed to before and after a change |
+| old_page_id / new_page_id | The page it was on before and after a move to a clearer copy |
+| at | When the check was made |
+| prev_hash / hash | Links to the previous check so any tampering is obvious |
 
 ### page_reads
 | Field | In plain words |
 |---|---|
 | page_id / person_id | Which page was read, by whom |
-| read_at / dwell_seconds | When, and how long they spent on it |
+| seq | Its place in the case's list of reads |
+| at / dwell_seconds | When, and how long they spent on it |
+| counts_for_citing | Whether it was the named expert's read (only those let a fact be cited) |
 | prev_hash / hash | Links to the previous entry so any tampering is obvious |
 
 ### fact_flags
 | Field | In plain words |
 |---|---|
+| fact_id / person_id | Which fact, flagged by whom |
 | flagged_for | Why it was flagged (to consider under points against) |
+| at | When it was flagged |
 
 ### missing_items
 | Field | In plain words |

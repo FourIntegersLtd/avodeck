@@ -267,15 +267,15 @@ The records received, every page and word, and the facts found on them.
 | `document_scans` | The safety scan of each received file, what kind of file it turned out to be, and when it was split into pages. | document_id, case_id, clean, signature, media_type, scanned_at, split_at |
 | `document_parts` | Which files came inside another file (an email's attachments, a zip's files), in order. Each part is a document of its own. | case_id, parent_document_id, document_id, part_no, media_type |
 | `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, size, storage_path, sha256, note |
-| `pages` | Every page of every document, with its permanent page number. Facts and reads point at pages. | case_id, document_id, bundle_page_no, source_type, image_path, text_source, ocr_confidence, handwriting, rotation, duplicate_of_page_id, superseded_by_page_id, quarantined (reason, by, at), unreadable, relevance, language, transcribed_by_expert_text |
+| `pages` | Every page of every document, with its permanent page number. Facts and reads point at pages. | case_id, document_id, bundle_page_no, source_type, image_path, text_source, ocr_confidence, handwriting, rotation, duplicate_of_page_id, superseded_by_page_id, quarantined (reason, by, at), unreadable, needs_clearer_copy, relevance, language, transcribed_by_expert_text |
 | `page_analysis` | The worker's working notes on each page: how far it got, the fingerprints used to find duplicates, printed dates, the sealed extraction and whether a person must check it. | page_id, case_id, stage, word_count, typed_words, phash, minhash, printed_dates, availability_evidence, extraction (sealed), needs_human, reason, model_id, duplicate_status, duplicate_version, references_checked_at |
 | `page_embeddings` | One search vector per page, made from the page's words after identifiers are stripped, with the embedder that made it; a page embedded by an older model is embedded again. | page_id, case_id, model, embedding, created_at, updated_at |
 | `page_quarantines` | Pages that may belong to someone else: suggested, confirmed by the named expert or undone; once the instructing party is told or the pack's days pass, the page's image and text are deleted and it keeps its number. | case_id, page_id, status, reason, suggested_by, confirmed_by, confirmed_at, closed_by, closed_at, purged_at, prior_facts, version |
 | `page_replacements` | A clearer copy of a page: the later document that replaces it and, once split, the new page that supersedes it. | case_id, page_id, document_id, new_page_id, requested_by, linked_at |
 | `ocr_words` | Every word read on a page, with where it sits. Facts cite these words, which is how every fact points to its exact place. | page_id, word_index, text, polygon, confidence, source (ocr/embedded/expert) |
 | `facts` | A single thing found on a page (a consultation, a result, a prescription…), linked to the exact words it came from. Suggested by the computer, then checked by the expert. | case_id, page_id, kind, fields, value, word_ids[], bbox, event_date, date_basis, available_at, availability_basis, status, version, model_task, model_id, prompt_version |
-| `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | fact_id, person_id, action, old_value, new_value, reason, at |
-| `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, read_at, dwell_seconds, prev_hash, hash |
+| `fact_verifications` | The history of every check the expert made on a fact (correct, not right, changed). Never edited. | case_id, fact_id, person_id, seq, action (correct/not_right/edit/move), old_value, new_value, old_fields, new_fields, old_word_ids, new_word_ids, old_page_id, new_page_id, reason, at, prev_hash, hash |
+| `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, seq, at, dwell_seconds, counts_for_citing, prev_hash, hash |
 | `fact_flags` | Facts the expert marked to come back to under "points against". | case_id, fact_id, person_id, flagged_for, at |
 | `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description (sealed), citing_page_id, reference_key, word_ids, reference_date, status, reason (sealed), received_page_id, version |
 | `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
@@ -532,18 +532,19 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/pages/{page_no}/thumbnail` | Small image streamed by the API | |
 | POST | `/cases/{case_id}/pages/{page_no}/read` | Record read `{dwell_seconds}` → appends to hash-chained log | Unlocks suggestions |
 | GET | `/cases/{case_id}/pages/{page_no}/facts` | Suggested + verified facts with bounding boxes | **423** until the page is read |
-| POST | `/cases/{case_id}/facts/{fact_id}/verify` | `{action: correct|not_right|edit, new_value?, reason?}` | Append-only history |
-| POST | `/cases/{case_id}/facts/{fact_id}/flag-point` | Send to Points against | |
+| POST | `/cases/{case_id}/facts/{fact_id}/verify` | `{action: correct|not_right|edit, new_value?, word_ids?, reason?}` | If-Match; append-only history; edit must be in the cited words (422) |
+| POST / DELETE | `/cases/{case_id}/facts/{fact_id}/flag-point` | Send to Points against, or take it back | Checked facts only (409); E reads `core/contracts/fact_flags.py` |
+| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_no, word_ids}`: move a fact to the clearer copy of its page | If-Match; other pages 409; clearer copy read first (423) |
 | GET | `/cases/{case_id}/progress` | Pages read / total, time estimate | |
 
 **10 Pages we couldn't read**
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count | |
-| PUT | `/cases/{case_id}/pages/{page_no}/transcription` | Save expert's text + relevance; re-runs T-07b on it | 202 + job |
+| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out or clearer copy asked for) | |
+| PUT | `/cases/{case_id}/pages/{page_no}/transcription` | `{text, relevance?}`: save expert's text; counts as read; re-runs T-07b on it through `extract_page_text` (core/contracts/pipeline.py) | 202 + job; 503 while A's entry point is missing |
 | GET | `/cases/{case_id}/pages/{page_no}/second-reading` | T-10 comparison | Only after a transcription exists, or on request |
-| PATCH | `/cases/{case_id}/pages/{page_no}` | `{duplicate_of?, relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b |
+| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
 
 **11 Timeline**
 
@@ -799,8 +800,8 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/cases/{case_id}/pages/{page_id}/quarantine` | "Not this person's record" `{reason}` | A; audited; drafts the note |
 | DELETE | `/cases/{case_id}/pages/{page_id}/quarantine` | Undo, until the image is deleted | A |
 | POST | `/cases/{case_id}/pages/{page_id}/replace` | Upload a clearer copy (new number; old one superseded) | A |
-| POST | `/cases/{case_id}/pages/{page_id}/rotate` | Rotate and re-read; number kept | B |
-| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_id}` move a checked fact to the clearer copy | B; expert only |
+| POST | `/cases/{case_id}/pages/{page_id}/rotate` | `{degrees: 90\|180\|270}` clockwise; re-read through `process_pages`; number kept | B; 202 + job |
+| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_no, word_ids}` move a checked fact to the clearer copy | B; expert only |
 | GET / POST | `/cases/{case_id}/exhibits` | Audio, video, imaging: listed, never paged | A |
 | GET | `/cases/{case_id}/bundle/versions` | What each delivery of records added | A |
 | POST | `/cases/{case_id}/process/cancel` | Stop processing at a page boundary | A |

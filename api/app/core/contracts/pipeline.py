@@ -6,6 +6,11 @@ Queue with `registry.enqueue(conn, case_id, PROCESS_BUNDLE)` (whole bundle) or `
 Typed entry point: slice A registers its implementation with `@register_process_pages`; slices B
 (rotation, transcription) and G (new records) call `await process_pages(conn, case_id, page_ids)`
 without importing slice A. It queues the work on the caller's connection and returns the job ID.
+
+`extract_page_text(conn, case_id, page_id)`: slice B calls it after the expert types out a page the
+computer couldn't read. Slice A registers it with `@register_extract_page_text`: it queues a job that
+splits `pages.transcribed_by_expert_text` into `ocr_words` with `source = 'expert'`, strips identifiers,
+runs extraction on those words only and checks provenance against them; new facts start `suggested`.
 """
 
 from __future__ import annotations
@@ -19,11 +24,18 @@ from psycopg import AsyncConnection
 
 PROCESS_BUNDLE = "process_bundle"
 PROCESS_PAGES = "process_pages"
+EXTRACT_PAGE_TEXT = "extract_page_text"
 
 
 class ProcessPages(Protocol):
     def __call__(
         self, conn: AsyncConnection, case_id: uuid.UUID, page_ids: Sequence[uuid.UUID]
+    ) -> Coroutine[Any, Any, uuid.UUID]: ...
+
+
+class ExtractPageText(Protocol):
+    def __call__(
+        self, conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID
     ) -> Coroutine[Any, Any, uuid.UUID]: ...
 
 
@@ -72,3 +84,14 @@ def register_process_pages(fn: ProcessPages) -> ProcessPages:
 
 async def process_pages(conn: AsyncConnection, case_id: uuid.UUID, page_ids: Sequence[uuid.UUID]) -> uuid.UUID:
     return await process_pages_entry.get()(conn, case_id, page_ids)
+
+
+extract_page_text_entry: EntryPoint[ExtractPageText] = EntryPoint(EXTRACT_PAGE_TEXT)
+
+
+def register_extract_page_text(fn: ExtractPageText) -> ExtractPageText:
+    return extract_page_text_entry.register(fn)
+
+
+async def extract_page_text(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> uuid.UUID:
+    return await extract_page_text_entry.get()(conn, case_id, page_id)

@@ -921,9 +921,11 @@ async def open_missing(conn: AsyncConnection, case_id: uuid.UUID) -> list[Missin
 
 
 async def clearer_copy_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, int]]:
-    """Unreadable pages still in the bundle (not set aside), as (id, page number)."""
+    """Unreadable pages, and pages the expert asked a clearer copy of, still in the bundle (not set aside),
+    as (id, page number)."""
     cur = await conn.execute(
-        "select id, bundle_page_no from app.pages where case_id = %s and unreadable and not quarantined"
+        "select id, bundle_page_no from app.pages"
+        " where case_id = %s and (unreadable or needs_clearer_copy) and not quarantined"
         " order by bundle_page_no",
         (case_id,),
     )

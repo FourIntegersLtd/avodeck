@@ -16,3 +16,5 @@ Things we chose not to build yet, and what would make us build them. Review at e
 | Slice J (examination and prognosis) | Not needed for breach of duty | First causation, condition-and-prognosis or IME pack |
 | Offline editing (beyond witness-box search) | Complexity and conflict risk | Experts working regularly without connection |
 | IAM Roles Anywhere for App Platform → AWS | Scoped, rotated access keys are simpler to run alone | Before the first paying customer, or if a security review asks for short-lived credentials |
+| T-10 second reading of a typed-out page (slice B) | The AI kit sends text only, and identifier masking on page images (M9) is not built | Foundation adds image input to `core/ai/kit.py` with M9 masking |
+| Marking a page as a copy from screen 10 (`duplicate_of` on `PATCH …/pages/{page_no}`) | Slice A's copy review (`PATCH …/pages/{page_id}/duplicate`) already does it with history | Experts ask to mark copies while typing pages out |

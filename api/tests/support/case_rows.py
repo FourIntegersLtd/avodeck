@@ -233,6 +233,24 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
     }
 
 
+def _reader_logs(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    page = seed.page(w.case, seed.document(w.case), 900)
+    fact = add_fact(admin, w.case, page, status="verified")
+    admin.execute(
+        "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)",
+        (w.case, page, w.expert),
+    )
+    admin.execute(
+        "insert into app.fact_verifications (case_id, fact_id, person_id, action) values (%s, %s, %s, 'correct')",
+        (w.case, fact, w.expert),
+    )
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, 'points', %s)",
+        (w.case, fact, w.expert),
+    )
+    return {"documents": 1, "pages": 1, "facts": 1, "page_reads": 1, "fact_verifications": 1, "fact_flags": 1}
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -243,6 +261,7 @@ SEEDERS = (
     _deletion_certificates,
     _setup_rows,
     _pipeline_tables,
+    _reader_logs,
 )
 
 

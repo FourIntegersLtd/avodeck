@@ -34,6 +34,10 @@ from app.core.routes.uploads import uploads_router
 from app.core.speech import SpeechClient
 from app.core.storage import SupabaseStorage, storage_settings
 from app.features.pipeline import pipeline_router
+from app.features.reader.log import ReaderPageReadLog
+
+# Slice B's read log is the app's own; a test passing `page_reads=None` gets a gate that stays shut.
+READER_LOG = ReaderPageReadLog()
 
 
 def create_app(
@@ -47,7 +51,7 @@ def create_app(
     crypto: CaseCrypto | None = None,
     speech: SpeechClient | None = None,
     needs_you: NeedsYouRegistry | None = None,
-    page_reads: PageReadLog | None = None,
+    page_reads: PageReadLog | None = READER_LOG,
     features: str = DEFAULT_FEATURES,
 ) -> FastAPI:
     """Without a database, region or Supabase Auth they are read from the environment at start-up.
@@ -58,7 +62,8 @@ def create_app(
 
     Without a mailer, mail goes to the in-memory stand-in (`OutboxMailer`) until the cell has Resend.
     Today lists the "needs you" items registered on `needs_you` (the app's own registry unless a test
-    passes one). Without `page_reads` (slice B's read log) the blind-read gate stays shut (rule 3).
+    passes one). `page_reads` is slice B's read log unless a test passes another; with `None` the
+    blind-read gate stays shut (rule 3).
     Packs load here, not in the lifespan: an invalid pack stops the app being built at all.
     Each slice's router under `features` (`app.features.<name>.router`) is mounted with `mount()`.
     """

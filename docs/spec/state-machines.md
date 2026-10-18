@@ -46,6 +46,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
 | `duplicate_of_page_id` | null → page (worker suggestion or expert); page → null (expert undo) | A, B |
 | `relevance` | null → yes/background; any → any by the expert | B |
+| `needs_clearer_copy` | false → true → false (expert, `PATCH …/pages/{n}`); true puts the page on the instructing-party request draft (08b) | B |
 | read state | unread → read (append-only `page_reads`); never back to unread | B |
 
 ## Fact (`facts.status`)
@@ -62,6 +63,7 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 | suggested → verified / edited / rejected | Expert on screen 09 | Page has a `page_reads` row (else 423); edited values must pass value-in-span or new word selection | Append `fact_verifications` |
 | verified/edited → rejected | Expert | If cited in an opinion: warn, list the citing paragraphs, require confirmation | Citations marked broken; final check fails until fixed |
 | rejected → verified | Expert | Page read | Append history |
+| (page) old → clearer copy | Expert moves a fact (`POST …/facts/{id}/move`) | Only to the page that supersedes its own (`superseded_by_page_id`); status kept | `version` rises; append `fact_verifications` (move, old and new page) |
 | any → (deleted) | Never | — | Facts are only rejected, never deleted (except case deletion) |
 
 `citable_facts()` = status in (verified, edited) **and** the page has been read.
