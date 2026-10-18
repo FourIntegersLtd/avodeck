@@ -130,23 +130,25 @@ async def reading_state(conn: AsyncConnection, page_id: uuid.UUID) -> ReadingSta
     return ReadingState(int(row[0]), row[1], bool(row[2]), bool(row[3]))
 
 
-async def checked_facts(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[uuid.UUID, list[str]]]:
+async def checked_facts(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[uuid.UUID, list[str], str | None]]:
+    """(fact, cited words, value) for the page's checked facts."""
     cur = await conn.execute(
-        "select id, word_ids from app.facts where page_id = %s and status in ('verified', 'edited')"
+        "select id, word_ids, value from app.facts where page_id = %s and status in ('verified', 'edited')"
         " order by created_at",
         (page_id,),
     )
-    return [(r[0], list(r[1])) for r in await cur.fetchall()]
+    return [(r[0], list(r[1]), r[2]) for r in await cur.fetchall()]
 
 
 async def settle_facts(
-    conn: AsyncConnection, page_id: uuid.UUID, moved: dict[uuid.UUID, tuple[list[str], dict[str, float]]]
+    conn: AsyncConnection, page_id: uuid.UUID, moved: dict[uuid.UUID, tuple[list[str], dict[str, float] | None]]
 ) -> None:
     """After a page is read again: checked facts move onto their words in the new reading, unchecked
     suggestions are superseded (rejected), and the page is extracted again."""
     for fact_id, (word_ids, bbox) in moved.items():
         await conn.execute(
-            "update app.facts set word_ids = %s, bbox = %s where id = %s", (word_ids, Jsonb(bbox), fact_id)
+            "update app.facts set word_ids = %s, bbox = %s where id = %s",
+            (word_ids, Jsonb(bbox) if bbox is not None else None, fact_id),
         )
     await conn.execute(
         "update app.facts set status = 'rejected' where page_id = %s and status = 'suggested'", (page_id,)

@@ -34,7 +34,7 @@ from typing import Any
 from psycopg import AsyncConnection
 
 from app.core import audit, notifications
-from app.core.ai import pii
+from app.core.ai import pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
@@ -48,6 +48,7 @@ from app.features.pipeline import convert, dates, duplicates, extract, gaps, lan
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, turned, typed, usable_text_layer
+from app.features.reader import repo as reader_repo
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
@@ -240,37 +241,53 @@ async def _opened_words(
     ]
 
 
-def _key(text: str) -> str:
-    return "".join(c for c in text.casefold() if c.isalnum())
-
-
-def _same_words(wanted: Sequence[str], words: Sequence[tuple[str, str]]) -> list[str] | None:
-    """The ids of the first run of `words` that reads `wanted` (case and punctuation aside)."""
-    keys = [_key(w) for w in wanted]
-    found = [_key(text) for _, text in words]
-    for start in range(len(found) - len(keys) + 1):
-        if found[start : start + len(keys)] == keys:
-            return [word_id for word_id, _ in words[start : start + len(keys)]]
+def _same_words(wanted: Sequence[str], value: str | None, words: Sequence[tuple[str, str]]) -> list[str] | None:
+    """The ids of the first unbroken run of `words` that reads exactly as `wanted` once both are cut
+    into rule 2's atoms (`provenance.atoms`: "1.5" is not "15", "<60" is not "60"), and in which the
+    fact's value still passes the provenance check."""
+    target = provenance.atoms(" ".join(wanted))
+    if not target:
+        return None
+    texts = dict(words)
+    for start in range(len(words)):
+        for end in range(start, len(words)):
+            found = provenance.atoms(" ".join(text for _, text in words[start : end + 1]))
+            if len(found) >= len(target):
+                break
+        if found == target:
+            ids = [word_id for word_id, _ in words[start : end + 1]]
+            if value is None or provenance.supported(value, ids, texts):
+                return ids
     return None
 
 
 async def _settle(
-    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, before: list[tuple[str, str]], page: OcrPage
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    before: list[tuple[str, str]],
+    page: OcrPage,
+    placed: bool = True,
 ) -> None:
-    """A page read again: each checked fact moves onto the same words, or is flagged "Please check"."""
+    """A page read again: each checked fact moves onto the same words (logged as `remapped`), or is
+    flagged "Please check". Words with no place on the picture (`placed=False`, typed out) give no box."""
     old = dict(before)
     new = [(w.id, w.text) for w in page.words]
     polygons = {w.id: list(w.polygon) for w in page.words}
-    moved: dict[uuid.UUID, tuple[list[str], dict[str, float]]] = {}
+    moved: dict[uuid.UUID, tuple[list[str], dict[str, float] | None]] = {}
+    logged: list[tuple[uuid.UUID, str | None, list[str], list[str]]] = []
     lost: list[uuid.UUID] = []
-    for fact_id, word_ids in await repo.checked_facts(conn, page_id):
+    for fact_id, word_ids, value in await repo.checked_facts(conn, page_id):
         wanted = [old[w] for w in word_ids if w in old]
-        found = _same_words(wanted, new) if len(wanted) == len(word_ids) else None
+        found = _same_words(wanted, value, new) if len(wanted) == len(word_ids) else None
         if found is None:
             lost.append(fact_id)
         else:
-            moved[fact_id] = (found, extract.box(found, polygons, page.width, page.height))
+            moved[fact_id] = (found, extract.box(found, polygons, page.width, page.height) if placed else None)
+            logged.append((fact_id, value, word_ids, found))
     await repo.settle_facts(conn, page_id, moved)
+    if logged:
+        await reader_repo.log_remaps(conn, case_id, logged)
     if lost:
         await flag_for_recheck(conn, case_id, lost)
 
@@ -330,7 +347,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
             )
             await repo.set_language(conn, page_id, language.detect(" ".join(w.text for w in page.words), spoken))
             if before:
-                await _settle(conn, ctx.case_id, page_id, before, page)
+                await _settle(conn, ctx.case_id, page_id, before, page, placed=source != "expert")
 
     await bounded(waiting, read, stop=_stop(ctx))
 
