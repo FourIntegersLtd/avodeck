@@ -10,7 +10,7 @@ import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-cl
 import { Button, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { longDate, saveBlob, tag, vocab } from "./data";
 import { TrialFrame, TrialHeader, type Frame } from "./frame";
-import { forgetCopy, hasCopy, saveCopy } from "./offline";
+import { forgetCopy, hasCopy, PIN_PATTERN, saveCopy } from "./offline";
 import { w, type TrialKey } from "./words";
 
 type Section = Schemas["TrialPackSettingsIn"]["sections"][number];
@@ -249,6 +249,8 @@ function OfflineCopy({ frame }: { frame: Frame }) {
   const stepUp = useStepUp();
   const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/offline-packages", { params: { path } })), [frame.caseId]);
   const [device, setDevice] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinAgain, setPinAgain] = useState("");
   const [onDevice, setOnDevice] = useState(false);
   const [removed, setRemoved] = useState(false);
   const [message, setMessage] = useState<Message>(null);
@@ -287,7 +289,9 @@ function OfflineCopy({ frame }: { frame: Frame }) {
         unwrap(api.GET("/v1/cases/{case_id}/offline-packages/{package_id}/download", { params: { path: { ...path, package_id: copy.id } } })),
       );
       if (!sealed) return;
-      await saveCopy(sealed, { label: copy.device_label, locale: frame.locale, expiresAt: copy.expires_at, kinds });
+      await saveCopy(sealed, { label: copy.device_label, locale: frame.locale, expiresAt: copy.expires_at, kinds }, pin);
+      setPin("");
+      setPinAgain("");
       setOnDevice(true);
       list.reload();
     } catch (error) {
@@ -312,6 +316,8 @@ function OfflineCopy({ frame }: { frame: Frame }) {
     }
   };
 
+  const mismatch = pinAgain !== "" && pinAgain.length >= pin.length && pinAgain !== pin;
+  const pinReady = PIN_PATTERN.test(pin) && pin === pinAgain;
   const copies = (list.data?.packages ?? []).filter((c) => c.status === "built" || c.status === "downloaded");
   const shown = removed ? [] : copies;
   return (
@@ -327,9 +333,24 @@ function OfflineCopy({ frame }: { frame: Frame }) {
             <p className="av-trial-strong">{w("pack.offline.copy_line", { device: copy.device_label, date: until })}</p>
             {copy.status === "downloaded" && onDevice && <p>{w("pack.offline.on_device", { date: until })}</p>}
             {copy.status === "downloaded" && !onDevice && <p>{w("pack.offline.gone")}</p>}
+            {copy.status === "built" && (
+              <>
+                <TextField label={w("pack.offline.pin")} hint={w("pack.offline.pin_hint")} name="pin" type="password" inputMode="numeric" autoComplete="new-password" value={pin} onChange={(e) => setPin(e.target.value)} />
+                <TextField
+                  label={w("pack.offline.pin_again")}
+                  name="pin_again"
+                  type="password"
+                  inputMode="numeric"
+                  autoComplete="new-password"
+                  value={pinAgain}
+                  onChange={(e) => setPinAgain(e.target.value)}
+                  error={mismatch ? w("pack.offline.pin_mismatch") : undefined}
+                />
+              </>
+            )}
             <div className="av-trial-actions">
               <Button variant="danger" onClick={() => remove(copy)}>{w("pack.offline.delete")}</Button>
-              {copy.status === "built" && <Button onClick={() => download(copy)}>{w("pack.offline.download")}</Button>}
+              {copy.status === "built" && <Button onClick={() => download(copy)} disabled={!pinReady}>{w("pack.offline.download")}</Button>}
               {copy.status === "downloaded" && onDevice && (
                 <LinkButton to={`/cases/${frame.caseId}/witness-box`}>{w("pack.offline.open")}</LinkButton>
               )}

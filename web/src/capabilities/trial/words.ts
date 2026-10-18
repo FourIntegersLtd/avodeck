@@ -135,6 +135,10 @@ const WORDS = {
   "pack.offline.open": "Open the witness box search",
   "pack.offline.delete": "Remove the copy",
   "pack.offline.deleted": "Removed. It can no longer be opened.",
+  "pack.offline.pin": "Choose a PIN for this copy (at least 6 numbers)",
+  "pack.offline.pin_hint": "You will need it to open the copy in the witness box. It is not kept anywhere, so it cannot be sent to you if you forget it.",
+  "pack.offline.pin_again": "Type the PIN again",
+  "pack.offline.pin_mismatch": "The two PINs are not the same.",
   "pack.offline.gone": "This copy was already put on a device. Remove it and make a new one if you need it again.",
 
   // S25: in the witness box (works with no connection)
@@ -156,6 +160,12 @@ const WORDS = {
   "lookup.none": "There is no copy for the witness box on this device. Make one from your trial pack while you are online.",
   "lookup.expired": "This copy has passed its end date and has been removed from this device.",
   "lookup.broken": "This copy can't be opened. Make a new one from your trial pack.",
+  "lookup.revoked": "This copy has been removed or has ended, so it has been wiped from this device.",
+  "lookup.pin.label": "Your PIN for this copy",
+  "lookup.pin.open": "Open the copy",
+  "lookup.pin.wrong_one": "That PIN is not right. {{count}} try left before the copy is wiped from this device.",
+  "lookup.pin.wrong_other": "That PIN is not right. {{count}} tries left before the copy is wiped from this device.",
+  "lookup.pin.wiped": "The PIN was wrong 5 times, so the copy has been wiped from this device. Make a new one from your trial pack while you are online.",
   "lookup.opening": "Opening the copy on this device…",
   "lookup.footer": "Use only where the court allows a device in the witness box. Nothing can be edited here, and nothing is sent anywhere.",
 

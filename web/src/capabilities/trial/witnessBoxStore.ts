@@ -1,6 +1,6 @@
 // Where the S25 copy lives on this device: IndexedDB, the one storage the foundation guard allows, and
-// only here (web/AGENTS.md, screen 25). It keeps exactly what `offline.ts` hands it: the sealed bytes,
-// the IV and a non-extractable CryptoKey, so nothing readable is ever written to the device.
+// only here (web/AGENTS.md, screen 25). It keeps exactly what `offline.ts` hands it: the sealed bytes, the
+// IV, the copy's key wrapped by the PIN, and the PIN's salt. No usable key is ever written to the device.
 import type { CopyStore, StoredCopy } from "./offline";
 
 export const WITNESS_BOX_DB = "avodeck-witness-box";
