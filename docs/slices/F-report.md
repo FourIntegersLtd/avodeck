@@ -126,7 +126,7 @@ TODO (law, data or money policy, founder to decide):
 
 Foundation requests (workarounds in slice F code):
 - Mail templates `invoice.sent` and `spot_check.code`, and attachments, in `app.core.email` (F keeps its own outbox in `mail.py` until then).
-- Mount the colleague's routes `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses` on the public router with a signed-out connection; they call `spot_checks.open_check` / `respond` (migration 0604 functions).
+- Mount the colleague's routes `GET /v1/spot-checks/{token}` and `POST /v1/spot-checks/{token}/responses` on the public router with a signed-out connection; they call `spot_checks.open_check` / `respond` (migration 0604 functions). A wrong code must still count: the public route must commit its transaction and answer with a status (401 `bad_code`, 423 `locked`, 410 `expired`, 404 `unknown`) and never raise on a bad code, or the attempt counter rolls back and the five-tries lock never trips (repository test `test_report_spot_check_lock.py` shows the database side holds when each try commits).
 - Wrap `app.case_invoice_rows` in `core/contracts` for slice H's `invoices.csv`.
 - Move `app.report_named_expert` into contracts; page-limit accessors and T-17 prompt context in packs; a CV snapshot source; section labels in the pack (the web shows a humanised key until then).
 - Mount `useTimeHeartbeat` in the case shell (it runs on F's four screens only).
