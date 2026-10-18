@@ -307,3 +307,29 @@ async def make_ready(
     await save_opinion(aconn, w.case, w.question, body, ready_refs(w))
     finding: uuid.UUID = row[0]
     return finding
+
+
+def signature_png() -> bytes:
+    from PIL import Image
+
+    out = io.BytesIO()
+    Image.new("RGB", (60, 20), "white").save(out, format="PNG")
+    return out.getvalue()
+
+
+async def store_signature(storage: SupabaseStorage, admin: psycopg.Connection, w: World) -> bytes:
+    """Seal the expert's signature image as slice C stores it (cell box, subject person:signature)."""
+    import hashlib
+
+    row = admin.execute(
+        "select id, storage_path from app.signatures where expert_id = %s order by created_at desc limit 1",
+        (w.expert,),
+    ).fetchone()
+    assert row is not None
+    png = signature_png()
+    sealed = SecretBox(CRYPTO.provider).seal(
+        base64.b64encode(png).decode(), purpose="signature", subject=f"{w.expert}:{row[0]}"
+    )
+    await storage.put(row[1], sealed.encode())
+    admin.execute("update app.signatures set sha256 = %s where id = %s", (hashlib.sha256(png).hexdigest(), row[0]))
+    return png
