@@ -397,3 +397,11 @@ async def test_the_colleague_answers_once_through_http(client_for: ClientFor, bu
     assert opened.json()["responded"] is True
     listed = await (await client_for(built.expert)).get(built.url("spot-checks"))
     assert listed.json()["spot_checks"][0]["responded_at"] is not None
+
+
+async def test_an_answer_must_say_true_or_false_not_a_number(client_for: ClientFor, built: World) -> None:
+    token, code = await started(client_for, built)
+    colleague = await client_for(None)
+    answers = [{"fact_id": str(built.plan), "agrees": 0}]
+    resp = await colleague.post(f"/v1/spot-checks/{token}/responses", json={"code": code, "answers": answers})
+    assert resp.status_code == 422
