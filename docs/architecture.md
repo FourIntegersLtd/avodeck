@@ -726,8 +726,9 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 |---|---|---|---|
 | POST | `/cases/{case_id}/offline-packages` | Build encrypted package `{device_label, expires_at}` | 🔒 |
 | GET | `/cases/{case_id}/offline-packages` and `/{pkg_id}` | This case's copies and their state | |
+| GET | `/cases/{case_id}/offline-packages/{pkg_id}/status` | The copy's status only, no case content and no step-up; the witness box wipes its copy on revoked, expired or 404 | |
 | GET | `/cases/{case_id}/offline-packages/{pkg_id}/download` | Encrypted package streamed once by the API | 🔒 |
-| DELETE | `/cases/{case_id}/offline-packages/{pkg_id}` | Revoke (device refuses to open after next check-in) | 🔒 |
+| DELETE | `/cases/{case_id}/offline-packages/{pkg_id}` | Revoke (the device wipes its copy at the next online status check) | 🔒 |
 | | *(on device, the one unavoidable exception)* | Search runs locally in the browser (SQLite-WASM FTS5) because courtrooms may have no connection; package encrypted, read-only, auto-expires | |
 
 **26 Close the case**
