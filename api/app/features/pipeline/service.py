@@ -11,6 +11,11 @@
   one that is not printed in full is marked `please_check` and never guessed. Then each new page is
   compared with the case's pages (picture and word hashes, then word by word) and a copy is set
   aside pointing at the earliest page it copies; it keeps its number, pictures and facts (F13).
+- `process_pages` with named pages (`queue_pages`) reads them again: new pictures in the page's
+  `rotation`, words read again and turned with it. `extract_page_text` (`queue_page_text`) takes the
+  page's words from the expert's typed-out text instead. A page read again keeps its number; its
+  unchecked suggestions are superseded and it is extracted again; each checked fact moves onto the
+  same words in the new reading, or is flagged "Please check" when they are gone.
 
 Every step checks what already exists, so a retried or repeated job changes nothing. Job rows and
 logs carry numbers and step codes only (rule 6).
@@ -34,6 +39,7 @@ from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
 from app.core.ai.ocr import OcrPage
+from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
@@ -41,7 +47,7 @@ from app.core.pdf import split_pages
 from app.features.pipeline import convert, dates, duplicates, extract, gaps, language, missing, paths, quarantine, repo
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
-from app.features.pipeline.words import assess, usable_text_layer
+from app.features.pipeline.words import assess, turned, typed, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
@@ -159,7 +165,7 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
                 data = await _read_document(conn, services, ctx.case_id, prefix)
                 cache[page.document_id] = _pages_of(convert.unpack(data, filename, LIMITS))
             page_pdf = cache[page.document_id][page.bundle_page_no - page.first_page_no]
-            pictures = render(page_pdf)
+            pictures = render(page_pdf, page.rotation)
             await _put_sealed(conn, services, ctx.case_id, paths.page_pdf_path(ctx.case_id, page.id), page_pdf)
             await _put_sealed(
                 conn, services, ctx.case_id, paths.thumbnail_path(ctx.case_id, page.id), pictures.thumbnail
@@ -220,6 +226,55 @@ async def _page_pdf(conn: AsyncConnection, services: PipelineServices, case_id: 
     return await services.crypto.decrypt(conn, case_id, await services.storage.get(path), purpose=path)
 
 
+async def _opened_words(
+    conn: AsyncConnection, services: PipelineServices, case_id: uuid.UUID, page_id: uuid.UUID
+) -> list[tuple[str, str]]:
+    return [
+        (
+            w.word_id,
+            (
+                await services.crypto.decrypt(conn, case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id))
+            ).decode(),
+        )
+        for w in await repo.words_of(conn, page_id)
+    ]
+
+
+def _key(text: str) -> str:
+    return "".join(c for c in text.casefold() if c.isalnum())
+
+
+def _same_words(wanted: Sequence[str], words: Sequence[tuple[str, str]]) -> list[str] | None:
+    """The ids of the first run of `words` that reads `wanted` (case and punctuation aside)."""
+    keys = [_key(w) for w in wanted]
+    found = [_key(text) for _, text in words]
+    for start in range(len(found) - len(keys) + 1):
+        if found[start : start + len(keys)] == keys:
+            return [word_id for word_id, _ in words[start : start + len(keys)]]
+    return None
+
+
+async def _settle(
+    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, before: list[tuple[str, str]], page: OcrPage
+) -> None:
+    """A page read again: each checked fact moves onto the same words, or is flagged "Please check"."""
+    old = dict(before)
+    new = [(w.id, w.text) for w in page.words]
+    polygons = {w.id: list(w.polygon) for w in page.words}
+    moved: dict[uuid.UUID, tuple[list[str], dict[str, float]]] = {}
+    lost: list[uuid.UUID] = []
+    for fact_id, word_ids in await repo.checked_facts(conn, page_id):
+        wanted = [old[w] for w in word_ids if w in old]
+        found = _same_words(wanted, new) if len(wanted) == len(word_ids) else None
+        if found is None:
+            lost.append(fact_id)
+        else:
+            moved[fact_id] = (found, extract.box(found, polygons, page.width, page.height))
+    await repo.settle_facts(conn, page_id, moved)
+    if lost:
+        await flag_for_recheck(conn, case_id, lost)
+
+
 async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_words(conn, ctx.case_id)
@@ -227,14 +282,20 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
 
     async def read(page_id: uuid.UUID) -> None:
         async with ctx.transaction() as conn:
-            page_pdf = await _page_pdf(conn, services, ctx.case_id, page_id)
-        page: OcrPage | None = usable_text_layer(page_pdf)
-        source = "embedded"
-        if page is None:
-            if services.ocr is None:
-                raise ProcessingPaused("model_unavailable")
-            page = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
-            source = "ocr"
+            state = await repo.reading_state(conn, page_id)
+            before = await _opened_words(conn, services, ctx.case_id, page_id)
+            page_pdf = None if state.typed is not None else await _page_pdf(conn, services, ctx.case_id, page_id)
+        if page_pdf is None:
+            page, source = typed(state.typed or ""), "expert"
+        else:
+            found: OcrPage | None = usable_text_layer(page_pdf)
+            source = "embedded"
+            if found is None:
+                if services.ocr is None:
+                    raise ProcessingPaused("model_unavailable")
+                found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+                source = "ocr"
+            page = turned(found, state.rotation)
         reading = assess(page, source)
         async with ctx.transaction() as conn:
             rows: list[repo.WordRow] = []
@@ -263,11 +324,13 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 rows,
                 source=source,
                 confidence=reading.confidence,
-                handwriting=reading.handwriting,
-                unreadable=reading.unreadable,
-                size=(page.width, page.height),
+                handwriting=reading.handwriting or state.handwriting,
+                unreadable=reading.unreadable or (state.unreadable and source != "expert"),
+                size=None if source == "expert" else (page.width, page.height),
             )
             await repo.set_language(conn, page_id, language.detect(" ".join(w.text for w in page.words), spoken))
+            if before:
+                await _settle(conn, ctx.case_id, page_id, before, page)
 
     await bounded(waiting, read, stop=_stop(ctx))
 
@@ -653,10 +716,22 @@ async def reprocess_case(ctx: JobContext) -> None:
     await ctx.progress(100, step="sort")
 
 
-async def queue_pages(conn: AsyncConnection, case_id: uuid.UUID, page_ids: object) -> uuid.UUID:
-    """The `process_pages` entry point other slices call (core/contracts/pipeline.py)."""
+async def queue_pages(conn: AsyncConnection, case_id: uuid.UUID, page_ids: Sequence[uuid.UUID]) -> uuid.UUID:
+    """The `process_pages` entry point other slices call (core/contracts/pipeline.py): the named
+    pages are read again (a new page has nothing to read again)."""
     from app.features.pipeline.wiring import registry
 
+    await repo.read_again(conn, case_id, list(page_ids))
+    return await registry().enqueue(conn, case_id, PROCESS_PAGES)
+
+
+async def queue_page_text(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> uuid.UUID:
+    """The `extract_page_text` entry point (core/contracts/pipeline.py): the page's words come from
+    the expert's typed-out text on the next run, which also extracts it again."""
+    from app.features.pipeline.wiring import registry
+
+    if not await repo.read_typed_again(conn, case_id, page_id):
+        raise LookupError("the page has no typed-out text")
     return await registry().enqueue(conn, case_id, PROCESS_PAGES)
 
 

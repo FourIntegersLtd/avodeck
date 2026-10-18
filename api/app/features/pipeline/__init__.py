@@ -1,7 +1,7 @@
 """Slice A, the bundle pipeline: scanning, splitting, reading and sorting an uploaded bundle.
 
 Importing this package registers its job kinds on the app's registry, subscribes to
-`DocumentUploaded` and fills the `process_pages` entry point. `mount_on(app)` adds its routes.
+`DocumentUploaded` and fills the `process_pages` and `extract_page_text` entry points. `mount_on(app)` adds its routes.
 """
 
 from __future__ import annotations
@@ -11,7 +11,12 @@ from psycopg import AsyncConnection
 
 from app.core import jobs
 from app.core.contracts.events import DocumentUploaded, events
-from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, register_process_pages
+from app.core.contracts.pipeline import (
+    PROCESS_BUNDLE,
+    PROCESS_PAGES,
+    register_extract_page_text,
+    register_process_pages,
+)
 from app.features.pipeline import repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
@@ -20,6 +25,7 @@ from app.features.pipeline.service import (
     SCAN_DOCUMENT,
     process_bundle,
     purge_quarantined,
+    queue_page_text,
     queue_pages,
     reprocess_case,
     scan_document,
@@ -54,3 +60,4 @@ async def queue_scan(conn: AsyncConnection, event: DocumentUploaded) -> None:
 if SCAN_DOCUMENT not in jobs.registry.kinds:
     register(jobs.registry)
 register_process_pages(queue_pages)
+register_extract_page_text(queue_page_text)

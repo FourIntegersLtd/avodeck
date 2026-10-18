@@ -81,16 +81,77 @@ class PageRow:
     document_id: uuid.UUID
     bundle_page_no: int
     first_page_no: int
+    rotation: int = 0
 
 
 async def pages_without_image(conn: AsyncConnection, case_id: uuid.UUID) -> list[PageRow]:
     cur = await conn.execute(
         "select p.id, p.document_id, p.bundle_page_no,"
-        " (select min(q.bundle_page_no) from app.pages q where q.document_id = p.document_id)"
+        " (select min(q.bundle_page_no) from app.pages q where q.document_id = p.document_id), p.rotation"
         " from app.pages p where p.case_id = %s and p.image_path is null order by p.bundle_page_no",
         (case_id,),
     )
-    return [PageRow(r[0], r[1], r[2], r[3]) for r in await cur.fetchall()]
+    return [PageRow(r[0], r[1], r[2], r[3], r[4]) for r in await cur.fetchall()]
+
+
+async def read_again(conn: AsyncConnection, case_id: uuid.UUID, page_ids: list[uuid.UUID]) -> None:
+    """The named pages (not quarantined) get new pictures and their words read again on the next run."""
+    await conn.execute(
+        "update app.pages set image_path = null, text_source = null"
+        " where case_id = %s and id = any(%s) and not quarantined",
+        (case_id, page_ids),
+    )
+
+
+async def read_typed_again(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> bool:
+    """The page's words are taken again from the expert's typed-out text on the next run."""
+    cur = await conn.execute(
+        "update app.pages set text_source = null where case_id = %s and id = %s and not quarantined"
+        " and transcribed_by_expert_text is not null returning id",
+        (case_id, page_id),
+    )
+    return await cur.fetchone() is not None
+
+
+@dataclass(frozen=True)
+class ReadingState:
+    rotation: int
+    typed: str | None
+    unreadable: bool
+    handwriting: bool
+
+
+async def reading_state(conn: AsyncConnection, page_id: uuid.UUID) -> ReadingState:
+    cur = await conn.execute(
+        "select rotation, transcribed_by_expert_text, unreadable, handwriting from app.pages where id = %s", (page_id,)
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return ReadingState(int(row[0]), row[1], bool(row[2]), bool(row[3]))
+
+
+async def checked_facts(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[uuid.UUID, list[str]]]:
+    cur = await conn.execute(
+        "select id, word_ids from app.facts where page_id = %s and status in ('verified', 'edited')"
+        " order by created_at",
+        (page_id,),
+    )
+    return [(r[0], list(r[1])) for r in await cur.fetchall()]
+
+
+async def settle_facts(
+    conn: AsyncConnection, page_id: uuid.UUID, moved: dict[uuid.UUID, tuple[list[str], dict[str, float]]]
+) -> None:
+    """After a page is read again: checked facts move onto their words in the new reading, unchecked
+    suggestions are superseded (rejected), and the page is extracted again."""
+    for fact_id, (word_ids, bbox) in moved.items():
+        await conn.execute(
+            "update app.facts set word_ids = %s, bbox = %s where id = %s", (word_ids, Jsonb(bbox), fact_id)
+        )
+    await conn.execute(
+        "update app.facts set status = 'rejected' where page_id = %s and status = 'suggested'", (page_id,)
+    )
+    await conn.execute("update app.page_analysis set extracted_at = null where page_id = %s", (page_id,))
 
 
 async def document_file(conn: AsyncConnection, document_id: uuid.UUID) -> tuple[str, str]:
@@ -249,6 +310,7 @@ async def store_words(
     unreadable: bool,
     size: tuple[float, float] | None = None,
 ) -> None:
+    await conn.execute("delete from app.ocr_words where page_id = %s", (page_id,))
     async with conn.cursor() as cur:
         await cur.executemany(
             "insert into app.ocr_words"

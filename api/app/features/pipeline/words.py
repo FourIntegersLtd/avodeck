@@ -4,16 +4,20 @@ The text layer is unusable when the page is empty of text, when most of its char
 letters or digits, or when an image covers most of the page (a scan, perhaps under a typed header).
 Words are kept exactly as read; the page's confidence and handwriting come from them, and a page
 read with low confidence is marked unreadable for the expert (screen 10). Nothing is corrected.
+
+A page the expert turned is read as it was scanned and its words are turned with it (`turned`), so
+they sit where the turned picture shows them. A page the expert typed out takes its words from that
+text (`typed`), with no place on the picture.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import pypdfium2 as pdfium
 import pypdfium2.raw as pdfium_c
 
-from app.core.ai.ocr import OcrPage
+from app.core.ai.ocr import OcrPage, OcrWord
 from app.core.pdf import embedded_words
 
 IMAGE_COVERS = 0.5  # share of the page an image must cover to count as a scan
@@ -56,7 +60,7 @@ class Reading:
 
 
 def assess(page: OcrPage, source: str) -> Reading:
-    if source == "embedded":
+    if source in ("embedded", "expert"):
         return Reading(confidence=1.0, handwriting=False, unreadable=False)
     words = page.words
     if not words:
@@ -64,3 +68,35 @@ def assess(page: OcrPage, source: str) -> Reading:
     confidence = sum(w.confidence for w in words) / len(words)
     handwriting = sum(w.handwritten for w in words) / len(words) >= HANDWRITTEN_SHARE
     return Reading(confidence=confidence, handwriting=handwriting, unreadable=confidence < UNREADABLE_BELOW)
+
+
+def _turn(polygon: tuple[float, ...], rotation: int, width: float, height: float) -> tuple[float, ...]:
+    """One polygon (x down the page from the left, y down from the top) turned clockwise."""
+    out: list[float] = []
+    for x, y in zip(polygon[0::2], polygon[1::2], strict=True):
+        if rotation == 90:
+            x, y = height - y, x
+        elif rotation == 180:
+            x, y = width - x, height - y
+        elif rotation == 270:
+            x, y = y, width - x
+        out += [x, y]
+    return tuple(out)
+
+
+def turned(page: OcrPage, rotation: int) -> OcrPage:
+    """The page's words as they sit on the picture turned clockwise by `rotation` degrees."""
+    if rotation % 360 == 0:
+        return page
+    words = tuple(replace(w, polygon=_turn(w.polygon, rotation, page.width, page.height)) for w in page.words)
+    width, height = (page.height, page.width) if rotation in (90, 270) else (page.width, page.height)
+    return OcrPage(page.number, width, height, words)
+
+
+EXPERT_ID = "e{n}"
+
+
+def typed(text: str) -> OcrPage:
+    """The expert's typed-out text as words `e1`, `e2`, ... (no place on the picture, full confidence)."""
+    words = tuple(OcrWord(EXPERT_ID.format(n=n), word, (0.0,) * 8, 1.0) for n, word in enumerate(text.split(), start=1))
+    return OcrPage(1, 1.0, 1.0, words)
