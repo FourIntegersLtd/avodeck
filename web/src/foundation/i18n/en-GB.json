@@ -359,5 +359,11 @@
   "setup.today.questions_to_confirm_action": "Check the questions",
   "setup.today.profile_incomplete_one": "Your profile has {{count}} thing missing",
   "setup.today.profile_incomplete_other": "Your profile has {{count}} things missing",
-  "setup.today.profile_incomplete_action": "Finish your profile"
+  "setup.today.profile_incomplete_action": "Finish your profile",
+  "reader.today.pages_to_read_one": "{{count}} page left to read",
+  "reader.today.pages_to_read_other": "{{count}} pages left to read",
+  "reader.today.pages_to_read_action": "Carry on reading",
+  "reader.today.pages_to_type_one": "{{count}} page to type out",
+  "reader.today.pages_to_type_other": "{{count}} pages to type out",
+  "reader.today.pages_to_type_action": "Type them out"
 }
