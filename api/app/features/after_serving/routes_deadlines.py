@@ -39,8 +39,8 @@ from app.features.after_serving.router import router
 
 SERVED_FROM = "report_served"
 _DEADLINE = (
-    "id, kind, due_on, rule_ref, calendar, timezone, created_from, source, pack_version, hearing_id, done_at, cancelled_at,"
-    " last_reminded_on, version"
+    "id, kind, due_on, rule_ref, calendar, timezone, created_from, source, pack_version, hearing_id, done_at,"
+    " cancelled_at, last_reminded_on, version"
 )
 _HEARING = "id, type, starts_on, ends_on, venue, status, replaced_by_hearing_id, direction_id, version, changed_at"
 

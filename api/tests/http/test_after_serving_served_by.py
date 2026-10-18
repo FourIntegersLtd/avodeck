@@ -39,7 +39,9 @@ def pack_deadlines(admin: psycopg.Connection, w: World) -> int:
     return int(row[0]) if row else 0
 
 
-async def test_slice_f_names_who_served(client_for: ClientFor, admin: psycopg.Connection, aconn, world: World) -> None:
+async def test_slice_f_names_who_served(
+    client_for: ClientFor, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: World
+) -> None:
     seen: list[events.ReportServed] = []
     version = await make_version(admin, aconn, world, status="locked")
     events.events.subscribe(events.ReportServed)(seen.append)
@@ -55,7 +57,7 @@ async def test_slice_f_names_who_served(client_for: ClientFor, admin: psycopg.Co
 
 
 async def test_the_handler_acts_as_served_by_whoever_served_last(
-    client_for: ClientFor, admin: psycopg.Connection, aconn, world: World
+    client_for: ClientFor, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: World
 ) -> None:
     await client_for(world.expert)  # the app is up
     version = await make_version(admin, aconn, world)
@@ -68,7 +70,7 @@ async def test_the_handler_acts_as_served_by_whoever_served_last(
 
 
 async def test_a_served_event_naming_nobody_is_refused(
-    client_for: ClientFor, admin: psycopg.Connection, aconn, world: World
+    client_for: ClientFor, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: World
 ) -> None:
     await client_for(world.expert)
     version = await make_version(admin, aconn, world)
@@ -81,7 +83,7 @@ async def test_a_served_event_naming_nobody_is_refused(
 
 
 async def test_a_served_event_naming_someone_off_the_case_makes_nothing(
-    client_for: ClientFor, admin: psycopg.Connection, aconn, world: World
+    client_for: ClientFor, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: World
 ) -> None:
     await client_for(world.expert)
     version = await make_version(admin, aconn, world)
