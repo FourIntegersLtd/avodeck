@@ -60,7 +60,7 @@ class StatementWords(Protocol):
         ...
 
 
-class Guidance(BaseModel):
+class WorkspaceGuidance(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     source: str
@@ -72,8 +72,11 @@ class Guidance(BaseModel):
     url: str | None
 
 
+Guidance = WorkspaceGuidance  # the name slice D's consultation Guidance already takes in OpenAPI
+
+
 class GuidanceInForce(Protocol):
-    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[Guidance]:
+    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[WorkspaceGuidance]:
         """The guidance for the case's jurisdiction and specialty in force on `on`."""
         ...
 
@@ -91,7 +94,7 @@ class AllLinked:
 
 
 class NoGuidance:
-    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[Guidance]:
+    async def in_force(self, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, on: date) -> list[WorkspaceGuidance]:
         return []
 
 

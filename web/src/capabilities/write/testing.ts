@@ -67,7 +67,7 @@ export function workspace(run: PackRun, over: Partial<Schemas["Workspace"]> = {}
     question_id: Q1,
     chips: [chip(), chip({ fact_id: FACT_2, page_id: PAGE_2, page_no: 214, value: "Iron deficiency on file", quote_verbatim: "iron deficiency anaemia" })],
     guidance_on: "2024-05-15",
-    guidance: [{ code: "g1", title: "Guidance one", source: "Source one", url: null, in_force_from: "2023-08-01", in_force_to: null }] as Schemas["Guidance"][],
+    guidance: [{ code: "g1", title: "Guidance one", source: "Source one", url: null, in_force_from: "2023-08-01", in_force_to: null }] as Schemas["WorkspaceGuidance"][],
     points: { sides: sides(run).map((s, i) => ({ ...s, count: i + 2 })), differ: 1 },
     views: views(run),
     legal_test: "The pack's own test of what a reasonable practitioner does.",

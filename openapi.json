@@ -2179,7 +2179,7 @@
           },
           "guidance": {
             "items": {
-              "$ref": "#/components/schemas/app__features__understand__routes_consultation__Guidance"
+              "$ref": "#/components/schemas/Guidance"
             },
             "title": "Guidance",
             "type": "array"
@@ -3329,6 +3329,48 @@
           "email"
         ],
         "title": "Forgot",
+        "type": "object"
+      },
+      "Guidance": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version_label": {
+            "title": "Version Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "title",
+          "version_label",
+          "url"
+        ],
+        "title": "Guidance",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -9112,7 +9154,7 @@
           },
           "guidance": {
             "items": {
-              "$ref": "#/components/schemas/app__features__write__ports__Guidance"
+              "$ref": "#/components/schemas/WorkspaceGuidance"
             },
             "title": "Guidance",
             "type": "array"
@@ -9170,6 +9212,65 @@
           "opinion"
         ],
         "title": "Workspace",
+        "type": "object"
+      },
+      "WorkspaceGuidance": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "in_force_from": {
+            "format": "date",
+            "title": "In Force From",
+            "type": "string"
+          },
+          "in_force_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Force To"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version_label": {
+            "title": "Version Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "code",
+          "title",
+          "version_label",
+          "in_force_from",
+          "in_force_to",
+          "url"
+        ],
+        "title": "WorkspaceGuidance",
         "type": "object"
       },
       "app__features__close__schemas__Hold": {
@@ -9240,107 +9341,6 @@
           "on_hold"
         ],
         "title": "Hold",
-        "type": "object"
-      },
-      "app__features__understand__routes_consultation__Guidance": {
-        "properties": {
-          "code": {
-            "title": "Code",
-            "type": "string"
-          },
-          "title": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Title"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
-          },
-          "version_label": {
-            "title": "Version Label",
-            "type": "string"
-          }
-        },
-        "required": [
-          "code",
-          "title",
-          "version_label",
-          "url"
-        ],
-        "title": "Guidance",
-        "type": "object"
-      },
-      "app__features__write__ports__Guidance": {
-        "properties": {
-          "code": {
-            "title": "Code",
-            "type": "string"
-          },
-          "in_force_from": {
-            "format": "date",
-            "title": "In Force From",
-            "type": "string"
-          },
-          "in_force_to": {
-            "anyOf": [
-              {
-                "format": "date",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "In Force To"
-          },
-          "source": {
-            "title": "Source",
-            "type": "string"
-          },
-          "title": {
-            "title": "Title",
-            "type": "string"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
-          },
-          "version_label": {
-            "title": "Version Label",
-            "type": "string"
-          }
-        },
-        "required": [
-          "source",
-          "code",
-          "title",
-          "version_label",
-          "in_force_from",
-          "in_force_to",
-          "url"
-        ],
-        "title": "Guidance",
         "type": "object"
       }
     }

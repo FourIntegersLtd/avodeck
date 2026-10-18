@@ -286,6 +286,19 @@ def _understand_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         "insert into app.comments (case_id, target_kind, target_id, body, author_id) values (%s, 'page', %s, 'zz', %s)",
         (w.case, str(page), w.expert),
     )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "questions": 1,
+        "fact_question_links": 1,
+        "availability_overrides": 1,
+        "check_runs": 1,
+        "findings": 1,
+        "case_guideline_versions": 1,
+        "consultation_notes": 1,
+        "comments": 1,
+    }
 
 
 def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:

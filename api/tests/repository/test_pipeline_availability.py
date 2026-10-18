@@ -72,7 +72,7 @@ async def test_evidence_is_checked_and_its_date_read_in_the_packs_date_order(
     storage: SupabaseStorage,
 ) -> None:
     order = default_library().combine(*combo.codes).date_order
-    evidence = [
+    evidence: list[dict[str, Any]] = [
         {"kind": "received", "date": "2024-05-22", "word_ids": ["p1w1", "p1w2"]},
         {"kind": "filed", "date": None, "word_ids": ["p1w3", "p1w4"]},  # two-digit year: ambiguous
         {"kind": "seen", "date": None, "word_ids": ["p1w5", "p1w6"]},

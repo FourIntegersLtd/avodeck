@@ -3411,7 +3411,7 @@ export interface components {
         Consultation: {
             entry: components["schemas"]["Entry"];
             /** Guidance */
-            guidance: components["schemas"]["app__features__understand__routes_consultation__Guidance"][];
+            guidance: components["schemas"]["Guidance"][];
             /** Later */
             later: components["schemas"]["Entry"][];
             /** Later Count */
@@ -3823,6 +3823,17 @@ export interface components {
         Forgot: {
             /** Email */
             email: string;
+        };
+        /** Guidance */
+        Guidance: {
+            /** Code */
+            code: string;
+            /** Title */
+            title: string | null;
+            /** Url */
+            url: string | null;
+            /** Version Label */
+            version_label: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -5842,7 +5853,7 @@ export interface components {
             /** Chips */
             chips: components["schemas"]["Chip"][];
             /** Guidance */
-            guidance: components["schemas"]["app__features__write__ports__Guidance"][];
+            guidance: components["schemas"]["WorkspaceGuidance"][];
             /** Guidance On */
             guidance_on: string | null;
             /** Legal Test */
@@ -5856,6 +5867,26 @@ export interface components {
             question_id: string;
             /** Views */
             views: components["schemas"]["OpinionView"][];
+        };
+        /** WorkspaceGuidance */
+        WorkspaceGuidance: {
+            /** Code */
+            code: string;
+            /**
+             * In Force From
+             * Format: date
+             */
+            in_force_from: string;
+            /** In Force To */
+            in_force_to: string | null;
+            /** Source */
+            source: string;
+            /** Title */
+            title: string;
+            /** Url */
+            url: string | null;
+            /** Version Label */
+            version_label: string;
         };
         /** Hold */
         app__features__close__schemas__Hold: {
@@ -5885,37 +5916,6 @@ export interface components {
         app__features__setup__routes_case__Hold: {
             /** On Hold */
             on_hold: boolean;
-        };
-        /** Guidance */
-        app__features__understand__routes_consultation__Guidance: {
-            /** Code */
-            code: string;
-            /** Title */
-            title: string | null;
-            /** Url */
-            url: string | null;
-            /** Version Label */
-            version_label: string;
-        };
-        /** Guidance */
-        app__features__write__ports__Guidance: {
-            /** Code */
-            code: string;
-            /**
-             * In Force From
-             * Format: date
-             */
-            in_force_from: string;
-            /** In Force To */
-            in_force_to: string | null;
-            /** Source */
-            source: string;
-            /** Title */
-            title: string;
-            /** Url */
-            url: string | null;
-            /** Version Label */
-            version_label: string;
         };
     };
     responses: never;

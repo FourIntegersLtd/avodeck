@@ -20,7 +20,7 @@ from app.core.http import DbConn
 from app.features.write import services
 from app.features.write.common import Crypto, View, case_pack, citable, require_question
 from app.features.write.lint_store import open_issues
-from app.features.write.ports import Guidance
+from app.features.write.ports import WorkspaceGuidance
 from app.features.write.router import router
 from app.features.write.routes_opinion import OpinionOut, opinion_out
 from app.features.write.routes_witness import open_claims
@@ -56,7 +56,7 @@ class Workspace(BaseModel):
     question_id: uuid.UUID
     chips: list[Chip]
     guidance_on: date | None
-    guidance: list[Guidance]
+    guidance: list[WorkspaceGuidance]
     points: PointsSummary
     views: list[OpinionView]
     legal_test: str
