@@ -36,14 +36,14 @@ _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 MAX_SENTENCES = 60
 
 
-class SettingsIn(BaseModel):
+class TrialPackSettingsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sections: list[Section] = Field(min_length=1, max_length=6)
     include_guidance: bool = False
     hearing_id: uuid.UUID | None = None
 
 
-class SettingsOut(BaseModel):
+class TrialPackSettingsOut(BaseModel):
     sections: list[Section]
     include_guidance: bool
     hearing_id: uuid.UUID | None
@@ -62,7 +62,7 @@ class PackOut(BaseModel):
 
 
 class LatestOut(BaseModel):
-    settings: SettingsOut
+    settings: TrialPackSettingsOut
     pack: PackOut | None
 
 
@@ -70,7 +70,7 @@ class BuildQueued(BaseModel):
     job_id: uuid.UUID
 
 
-class NoteIn(BaseModel):
+class TrialNoteIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
     text: str = Field(min_length=1, max_length=20_000)
 
@@ -100,10 +100,10 @@ class NoteChecked(BaseModel):
     sentences: list[SentenceOut]
 
 
-def _settings(row: dict[str, Any] | None) -> SettingsOut:
+def _settings(row: dict[str, Any] | None) -> TrialPackSettingsOut:
     if row is None:
-        return SettingsOut(sections=list(DEFAULT_SECTIONS), include_guidance=False, hearing_id=None, version=0)  # type: ignore[arg-type]
-    return SettingsOut(
+        return TrialPackSettingsOut(sections=list(DEFAULT_SECTIONS), include_guidance=False, hearing_id=None, version=0)  # type: ignore[arg-type]
+    return TrialPackSettingsOut(
         sections=list(row["sections"]),
         include_guidance=row["include_guidance"],
         hearing_id=row["hearing_id"],
@@ -119,17 +119,17 @@ async def _row(conn: Any, case_id: uuid.UUID, lock: bool = False) -> dict[str, A
     )
 
 
-@router.get("/cases/{case_id}/trial-pack/settings", response_model=SettingsOut)
-async def get_settings(case_id: uuid.UUID, conn: DbConn, access: View, response: Response) -> SettingsOut:
+@router.get("/cases/{case_id}/trial-pack/settings", response_model=TrialPackSettingsOut)
+async def get_settings(case_id: uuid.UUID, conn: DbConn, access: View, response: Response) -> TrialPackSettingsOut:
     out = _settings(await _row(conn, case_id))
     response.headers["ETag"] = etag(out.version)
     return out
 
 
-@router.put("/cases/{case_id}/trial-pack/settings", response_model=SettingsOut)
+@router.put("/cases/{case_id}/trial-pack/settings", response_model=TrialPackSettingsOut)
 async def put_settings(
-    case_id: uuid.UUID, body: SettingsIn, conn: DbConn, access: Build, if_match: IfMatch, response: Response
-) -> SettingsOut:
+    case_id: uuid.UUID, body: TrialPackSettingsIn, conn: DbConn, access: Build, if_match: IfMatch, response: Response
+) -> TrialPackSettingsOut:
     row = await _row(conn, case_id, lock=True)
     if (row["version"] if row else 0) != if_match:
         raise stale()
@@ -213,7 +213,7 @@ def sentences_of(text: str) -> list[str]:
 
 @router.post("/cases/{case_id}/trial-pack/check-new", response_model=NoteChecked)
 async def check_new_note(
-    case_id: uuid.UUID, body: NoteIn, request: Request, conn: DbConn, access: Build, pack: Pack, crypto: Crypto
+    case_id: uuid.UUID, body: TrialNoteIn, request: Request, conn: DbConn, access: Build, pack: Pack, crypto: Crypto
 ) -> NoteChecked:
     sentences = sentences_of(body.text)
     served = await latest_served(conn, crypto, case_id)
