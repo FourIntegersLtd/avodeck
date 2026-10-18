@@ -25,6 +25,7 @@ from pathlib import Path
 
 TEST_PREFIXES = ("api/tests/", "web/")
 DEFAULT_DB_PORT = "55322"
+MAIN_PROJECT = "avodeck"  # the committed project_id: the main checkout's local database
 DB_ROLES = {
     "TEST_DATABASE_ADMIN_URL": "postgres:postgres",
     "TEST_DATABASE_URL": "app_api:app_api_local",
@@ -79,6 +80,13 @@ def assert_same_project(root: str, workdir: str) -> None:
                  f"differs from {project_id(root)!r} in the invoking checkout.")
 
 
+def assert_own_project(root: str) -> None:
+    """A linked worktree on the committed project_id shares the main checkout's database; never reset it."""
+    if (Path(root) / ".git").is_file() and project_id(root) == MAIN_PROJECT:
+        sys.exit(f"Refusing to reset: this worktree uses the main checkout's project {MAIN_PROJECT!r}. "
+                 "Give it its own project_id and ports in supabase/config.toml first.")
+
+
 def test_env(root: str, base: dict[str, str], port: str | None = None) -> dict[str, str]:
     """The environment for a commit's api tests: the checkout's database, never an inherited PACKS_DIR."""
     # An inherited PACKS_DIR (e.g. from scripts/local_api_env.sh) points at the current
@@ -103,6 +111,7 @@ def reset_db(sha: str, workdir: str, root: str) -> None:
     tree = git("rev-parse", f"{sha}:supabase")
     if _loaded_db and _loaded_db[-1] == tree:
         return
+    assert_own_project(root)
     use_checkout_config(root, workdir)
     assert_same_project(root, workdir)
     subprocess.run(["supabase", "db", "reset", "--workdir", workdir], check=True, capture_output=True)
