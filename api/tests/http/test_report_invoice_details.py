@@ -19,6 +19,7 @@ import io
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import timedelta
+
 import psycopg
 import pytest
 from fastapi import FastAPI
@@ -201,9 +202,7 @@ async def test_the_expert_adds_bank_details_with_step_up_and_an_audit_row_withou
         ("account_name", "z" * 141),
     ],
 )
-async def test_bank_details_are_checked_loosely(
-    client_for: ClientFor, world: World, field: str, value: str
-) -> None:
+async def test_bank_details_are_checked_loosely(client_for: ClientFor, world: World, field: str, value: str) -> None:
     tag = await own_profile(client_for, world.expert)
     client = await client_for(world.expert)
     resp = await client.put(
