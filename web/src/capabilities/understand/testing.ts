@@ -24,7 +24,12 @@ export function launchWords(): RegExp {
   return new RegExp(`\\b(${words.join("|")})\\b`, "i");
 }
 
-function caseItem(run: PackRun): Schemas["Case"] {
+/** What the named expert may do on slice D's screens (docs/spec/permissions.md). */
+export const EXPERT_ACTIONS = ["case.view_content", "finding.decide", "consultation.note", "availability.override", "link.suggest", "link.decide", "comment.write"];
+/** An assistant reads, comments and asks for suggestions; nothing else. */
+export const ASSISTANT_ACTIONS = ["case.view_content", "link.suggest", "comment.write"];
+
+function caseItem(run: PackRun, actions: string[]): Schemas["Case"] {
   const j = packFixtures[run].jurisdiction as unknown as Schemas["JurisdictionSummary"];
   const launch = run === "launch";
   return {
@@ -42,7 +47,7 @@ function caseItem(run: PackRun): Schemas["Case"] {
     due_date: "2026-11-30",
     status: "open",
     on_hold: false,
-    allowed_actions: [],
+    allowed_actions: actions,
     period_start: "2024-02-01",
     period_end: "2024-08-31",
     subject_status: null,
@@ -51,11 +56,11 @@ function caseItem(run: PackRun): Schemas["Case"] {
   };
 }
 
-/** Signed in, with one case open under the given pack run. */
-export function inCase(run: PackRun) {
+/** Signed in, with one case open under the given pack run (as the named expert unless told otherwise). */
+export function inCase(run: PackRun, actions: string[] = EXPERT_ACTIONS) {
   signedIn({ me: me(), pack: casePack(run) });
   server.use(
-    http.get("/v1/cases/:caseId", () => json(caseItem(run))),
+    http.get("/v1/cases/:caseId", () => json(caseItem(run, actions))),
     http.get("/v1/cases/:caseId/questions", () => json(questions())),
   );
 }
@@ -97,6 +102,7 @@ export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Time
       { key: "lane_two", label: "Lane two words", events: [event({ fact_id: FACT_2, kind: "result", page_no: 214, event_date: "2024-02-19", status: "suggested", question_ids: [Q_1, Q_2], has_finding: true })] },
     ],
     unplaced: [],
+    guidance_changed: [],
     ...over,
   };
 }
@@ -114,6 +120,8 @@ export function consultation(over: Partial<Schemas["Consultation"]> = {}): Schem
     later: [entry({ fact_id: FACT_3, kind: "letter", page_no: 301, event_date: "2024-05-10", available_at: "2024-05-22" })],
     unknown: [entry({ fact_id: "f4444444-4444-4444-8444-444444444444", kind: "referral", page_no: 150, event_date: "2024-05-01", available_at: null })],
     guidance: [{ code: "G1", title: "Guidance title", version_label: "2023 edition", url: "https://example.test/g1" }],
+    guidance_changed: [],
+    on: "2024-05-15",
     note: null,
     ...over,
   };
@@ -130,6 +138,25 @@ export function finding(over: Partial<Schemas["FindingOut"]> = {}): Schemas["Fin
     decision: null,
     reason: null,
     version: 1,
+    status: "open",
+    ...over,
+  };
+}
+
+export const LINK_1 = "b2111111-1111-4111-8111-111111111111";
+
+export function link(over: Partial<Schemas["LinkOut"]> = {}): Schemas["LinkOut"] {
+  return {
+    id: LINK_1,
+    fact_id: FACT_2,
+    question_id: Q_1,
+    source: "ai",
+    status: "suggested",
+    reason: "same matter",
+    version: 1,
+    kind: "result",
+    page_no: 214,
+    event_date: "2024-02-19",
     ...over,
   };
 }

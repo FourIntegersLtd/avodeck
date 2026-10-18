@@ -22,7 +22,7 @@
   ]
  },
  {
-  "check": "ooh_reached_gp",
+  "check": "ooh_reached_clinician",
   "should_fire": false,
   "planted": "13",
   "evidence_pages": [

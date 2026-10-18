@@ -79,7 +79,7 @@ def page_ids(h: Harness) -> list[uuid.UUID]:
 async def picture_size(h: Harness, page_id: uuid.UUID) -> tuple[int, int]:
     path = paths.page_image_path(h.case_id, page_id)
     image = await h.decrypt(await h.storage.get(path), path)
-    return Image.open(io.BytesIO(image)).size  # type: ignore[no-any-return]
+    return Image.open(io.BytesIO(image)).size
 
 
 def add_fact(h: Harness, page_id: uuid.UUID, value: str, word_ids: list[str], status: str) -> uuid.UUID:

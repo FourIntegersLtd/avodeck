@@ -4,13 +4,21 @@ Jobs run in the worker, which has no `app.state`, so they get these from here. `
 the cell config on first use; tests and the eval harness call `configure()` with stand-ins. Without a model
 for the cell (no cloud accounts yet, unless `AI_RECORDINGS_DIR` names recorded responses) a job that needs
 one pauses with `model_unavailable` instead of guessing (F24).
+
+`dates_of_birth` is the seam for the case's known dates of birth, stripped before T-11 and T-13a (rule 7).
+No slice records them for a case yet, so it finds none until one does (docs/decisions/deferred.md).
 """
 
 from __future__ import annotations
 
 import os
+import uuid
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
+from datetime import date
 from pathlib import Path
+
+from psycopg import AsyncConnection
 
 from app.core.ai.bedrock import RecordedBedrock
 from app.core.ai.embed import Embedder, embedder_from_env
@@ -22,6 +30,12 @@ from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
 from app.features.understand.links import IdentityReranker, Reranker
 
+BirthDates = Callable[[AsyncConnection, uuid.UUID], Awaitable[Sequence[date]]]
+
+
+async def no_birth_dates(conn: AsyncConnection, case_id: uuid.UUID) -> Sequence[date]:
+    return ()
+
 
 @dataclass
 class UnderstandServices:
@@ -30,6 +44,7 @@ class UnderstandServices:
     embedder: Embedder | None
     packs: PackLibrary
     reranker: Reranker = field(default_factory=IdentityReranker)
+    dates_of_birth: BirthDates = no_birth_dates
 
     def ai(self) -> AiKit:
         if self.kit is None:

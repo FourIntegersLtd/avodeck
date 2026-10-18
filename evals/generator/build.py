@@ -944,7 +944,7 @@ def write_expected(exp_dir, rows):
     j("findings.json", [
         {"check": "abnormal_result_no_action", "should_fire": True, "planted": "11", "evidence_pages": planted.get("11", [])},
         {"check": "referral_acknowledged", "should_fire": True, "planted": "12", "evidence_pages": planted.get("12", [])},
-        {"check": "ooh_reached_gp", "should_fire": False, "planted": "13", "evidence_pages": planted.get("13", [])},
+        {"check": "ooh_reached_clinician", "should_fire": False, "planted": "13", "evidence_pages": planted.get("13", [])},
     ])
     j("case.json", {"case_names": CASE_NAMES, "nhs_number": PATIENT["nhs"], "dob": PATIENT["dob"],
                     "postcode": PATIENT["address"][-1], "period_start": "2024-02-01", "period_end": "2024-09-30"})

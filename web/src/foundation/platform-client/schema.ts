@@ -453,7 +453,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Put Note */
+        /**
+         * Put Note
+         * @description Add a note (`consultation.note`) or change your own; the author keeps theirs if the named expert changes.
+         */
         put: operations["put_note_v1_cases__case_id__consultations__fact_id__note_put"];
         post?: never;
         delete?: never;
@@ -3416,12 +3419,22 @@ export interface components {
             entry: components["schemas"]["Entry"];
             /** Guidance */
             guidance: components["schemas"]["Guidance"][];
+            /**
+             * Guidance Changed
+             * @default []
+             */
+            guidance_changed: string[];
             /** Later */
             later: components["schemas"]["Entry"][];
             /** Later Count */
             later_count: number;
             /** Note */
             note: string | null;
+            /**
+             * On
+             * Format: date
+             */
+            on: string;
             /** Title */
             title: string;
             /** Unknown */
@@ -3802,6 +3815,12 @@ export interface components {
             reason: string | null;
             /** Rule */
             rule: string;
+            /**
+             * Status
+             * @default open
+             * @enum {string}
+             */
+            status: "open" | "gone";
             /** Version */
             version: number;
         };
@@ -4187,6 +4206,8 @@ export interface components {
         };
         /** LinkOut */
         LinkOut: {
+            /** Event Date */
+            event_date: string | null;
             /**
              * Fact Id
              * Format: uuid
@@ -4197,11 +4218,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /**
-             * Question Id
-             * Format: uuid
-             */
-            question_id: string;
+            /** Kind */
+            kind: string;
+            /** Page No */
+            page_no: number;
+            /** Question Id */
+            question_id: string | null;
             /** Reason */
             reason: string | null;
             /** Source */
@@ -5638,6 +5660,11 @@ export interface components {
         };
         /** Timeline */
         Timeline: {
+            /**
+             * Guidance Changed
+             * @default []
+             */
+            guidance_changed: string[];
             /** Lanes */
             lanes: components["schemas"]["Lane"][];
             /** Unplaced */
@@ -6996,6 +7023,8 @@ export interface operations {
             query?: {
                 /** @description The basic view always shows the day as seen. */
                 as_seen?: boolean;
+                /** @description Show the record as it stood on this day (default: the visit). */
+                on?: string | null;
             };
             header?: never;
             path: {

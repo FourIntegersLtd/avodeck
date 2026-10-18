@@ -6,9 +6,10 @@ sources:
   - key: CKS
     name: NICE Clinical Knowledge Summaries
     licence: Excluded from the open content licence; link only
-priority_guidelines: [NG12, NG51]   # extend in guideline_versions; see decision 0005
+priority_guidelines: [NG12, NG51]   # extend by adding rows under versions; see decision 0005
 # Versions in force: labels, dates and links only, never guideline text (decision 0005).
-# in_force_to: null means still in force. Slice D syncs these rows into guideline_versions at start-up.
+# in_force_to: null means still in force. Read straight from this file with pack.guidelines() (ADR 0016);
+# there is no database copy. Each case records the entry it was shown in case_guideline_versions.
 reviewed_at: "2026-10-18"
 versions:
   # founder: confirm dates

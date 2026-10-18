@@ -8,6 +8,7 @@ no kind, source, check or lane is written here (rule 11). No text reaches a log 
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 import uuid
 from collections.abc import AsyncIterator, Sequence
@@ -33,7 +34,7 @@ from tests.support.ai import ScriptedBedrock, cell, response
 from tests.support.contracts import QUESTION_PATH
 from tests.support.db import scope_for
 from tests.support.facts_seed import insert_fact
-from tests.support.packs import BOTH, Combo
+from tests.support.packs import BOTH, LAUNCH, Combo
 from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
@@ -639,3 +640,78 @@ async def test_identifiers_are_out_before_the_embedder_and_the_model_and_nothing
     assert row is not None
     for secret in ("Zorbulon", "Ashworth"):
         assert secret not in row[0] and secret not in caplog.text
+
+
+# --- dates of birth and guideline text never reach the model (launch packs) ---------------------------------
+
+BORN = "14/03/1961"
+
+
+def _with_birth_dates(*days: date) -> None:
+    async def known(conn: Any, case_id: uuid.UUID) -> list[date]:
+        return list(days)
+
+    configure(dataclasses.replace(current(), dates_of_birth=known))
+
+
+@pytest.fixture
+def launch(seed: Seed, worker_db: Database, crypto: CaseCrypto) -> Bundle:
+    return build(seed, worker_db, crypto, LAUNCH)
+
+
+async def test_the_case_s_dates_of_birth_are_out_before_labelling(launch: Bundle) -> None:
+    b = launch
+    page = await b.page(b.other_source, ["w1", BORN, "treated", "x", "x", "x", "x", "x"])
+    abnormal(b, page)
+    done = action(b, page, 1)
+    model = use_kit(b, labels((done, "action_taken", ["w2", "w3"])))
+    _with_birth_dates(date(1961, 3, 14))
+    await b.run()
+    sent = model.requests[0].text
+    assert BORN not in sent and "treated" in sent
+
+
+async def test_the_case_s_dates_of_birth_are_out_before_suggesting_links(launch: Bundle) -> None:
+    b = launch
+    mine = entry(b, await b.page(b.other_source), f"Zorbulon result {BORN}")
+    asked = ask(b, words=f"Was the Zorbulon result of {BORN} acted on?")
+    model = offers(b, (mine, asked, True))
+    _with_birth_dates(date(1961, 3, 14))
+    await b.run("suggest_links")
+    assert BORN not in model.requests[0].text and "Zorbulon" in model.requests[0].text
+    embedder = current().embedder
+    assert isinstance(embedder, SpyEmbedder) and all(BORN not in t for t in embedder.seen)
+
+
+async def test_no_guideline_text_is_ever_sent_to_the_model(launch: Bundle) -> None:
+    """Decision 0005: guidance is shown to the expert by code, never given to the AI."""
+    b = launch
+    page = await b.page(b.other_source, ["w1", "seen", "treated", "x", "x", "x", "x", "x"])
+    abnormal(b, page)
+    done = action(b, page, 1)
+    labelling = use_kit(b, labels((done, "action_taken", ["w2", "w3"])))
+    await b.run()
+    mine = entry(b, page, "potassium result raised")
+    linking = offers(b, (mine, ask(b), True))
+    await b.run("suggest_links")
+    sent = [r.text for r in labelling.requests + linking.requests]
+    assert sent
+    for row in b.pack.guidelines():
+        for value in (row["title"], row.get("url")):
+            assert not value or all(str(value) not in text for text in sent)
+
+
+async def test_a_rerun_takes_the_pack_s_current_guidance_as_shown(launch: Bundle) -> None:
+    from app.features.understand.guidelines import entry_hash
+
+    b = launch
+    row = b.pack.guidelines()[0]
+    b.seed.admin.execute(
+        "insert into app.case_guideline_versions (case_id, code, version_label, entry_hash) values (%s, %s, %s, 'old')",
+        (b.case, row["code"], row["version_label"]),
+    )
+    await b.run()
+    got = b.seed.admin.execute(
+        "select entry_hash from app.case_guideline_versions where case_id = %s and code = %s", (b.case, row["code"])
+    ).fetchall()
+    assert got == [(entry_hash(row),)]

@@ -448,3 +448,24 @@ async def test_confirmed_links_are_only_the_links_the_expert_confirmed(
         assert await confirmed_links(conn, case, q2) == {q2: {facts["a"]}}
     async with api_db.request(scope_for(case_page["outsider"])) as conn:
         assert await confirmed_links(conn, case) == {}, "row-level security applies on the caller's connection"
+
+
+@pytest.mark.anyio
+async def test_a_confirmed_link_stops_counting_once_its_fact_is_no_longer_checked(
+    api_db: object, admin: psycopg.Connection, case_page: dict[str, uuid.UUID]
+) -> None:
+    """Slice D cannot hook slice B's fact changes, so a rejected fact's link stays 'confirmed' in the table."""
+    from app.core.contracts.fact_links import confirmed_links
+    from app.core.db import Database
+    from tests.support.db import scope_for
+
+    assert isinstance(api_db, Database)
+    case, page = case_page["case"], case_page["page"]
+    q = add_question(admin, case, number=1)
+    kept = {s: add_fact(admin, case, page, status=s) for s in ("verified", "edited")}
+    dropped = {s: add_fact(admin, case, page, status=s) for s in ("rejected", "suggested")}
+    for fact in (*kept.values(), *dropped.values()):
+        _link(admin, case, fact, q, "confirmed")
+
+    async with api_db.request(scope_for(case_page["viewer"])) as conn:
+        assert await confirmed_links(conn, case) == {q: set(kept.values())}

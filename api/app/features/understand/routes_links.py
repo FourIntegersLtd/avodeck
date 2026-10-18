@@ -2,13 +2,16 @@
 
 Served under `/fact-links`: `/links` already serves linked cases (slice C). Any reader asks for
 suggestions (`link.suggest`, a `suggest_links` job); only the named expert confirms, rejects or adds a
-link by hand (`link.decide`), and only on a checked fact (409 `not_checked`). Every decision is
-audited. A link whose fact was later rejected reads as `stale`.
+link by hand (`link.decide`), only on a checked fact (409 `not_checked`) and a confirmed question
+(read through `confirmed_questions`). Every decision is audited. A link whose fact was later rejected,
+or whose question was removed (the link is kept, with no question), reads as `stale` and cannot be
+confirmed (409 `stale_link`). Each link carries its entry's kind, page and date for review.
 """
 
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import Depends, Response
@@ -17,6 +20,7 @@ from pydantic import BaseModel
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts.questions import confirmed_questions
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
@@ -35,11 +39,14 @@ LinkStatus = Literal["suggested", "confirmed", "rejected", "stale"]
 class LinkOut(BaseModel):
     id: uuid.UUID
     fact_id: uuid.UUID
-    question_id: uuid.UUID
+    question_id: uuid.UUID | None
     source: str
     status: str
     reason: str | None
     version: int
+    kind: str
+    page_no: int
+    event_date: date | None
 
 
 class Links(BaseModel):
@@ -61,8 +68,9 @@ class Queued(BaseModel):
 
 _L = (
     "select l.id, l.fact_id, l.question_id, l.source,"
-    " case when f.status = 'rejected' then 'stale' else l.status end as status, l.reason, l.version"
-    " from app.fact_question_links l join app.facts f on f.id = l.fact_id"
+    " case when f.status = 'rejected' or l.question_id is null then 'stale' else l.status end as status,"
+    " l.reason, l.version, f.kind, p.bundle_page_no as page_no, f.event_date"
+    " from app.fact_question_links l join app.facts f on f.id = l.fact_id join app.pages p on p.id = f.page_id"
 )
 
 
@@ -100,8 +108,7 @@ async def _fact_checked(conn: DbConn, case_id: uuid.UUID, fact_id: uuid.UUID) ->
 @router.post("/cases/{case_id}/fact-links", status_code=201, response_model=LinkOut)
 async def add_link(case_id: uuid.UUID, body: LinkIn, access: Decide, response: Response, conn: DbConn) -> LinkOut:
     await _fact_checked(conn, case_id, body.fact_id)
-    cur = await conn.execute("select 1 from app.questions where id = %s and case_id = %s", (body.question_id, case_id))
-    if await cur.fetchone() is None:
+    if body.question_id not in {q.id for q in await confirmed_questions(conn, case_id)}:
         raise not_found()
     cur = await conn.execute(
         "insert into app.fact_question_links (case_id, fact_id, question_id, source, status, decided_by, decided_at)"
@@ -133,6 +140,8 @@ async def decide(
     if current.version != if_match:
         raise stale()
     if body.status == "confirmed":
+        if current.status == "stale":
+            raise ApiError("stale_link", "This link's entry or question has gone.", 409)
         await _fact_checked(conn, case_id, current.fact_id)
     cur = await conn.execute(
         "update app.fact_question_links set status = %s, decided_by = app.current_person_id(), decided_at = now(),"

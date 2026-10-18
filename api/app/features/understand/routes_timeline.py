@@ -16,7 +16,7 @@ from pydantic import BaseModel
 
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.http import DbConn
-from app.features.understand import repo
+from app.features.understand import guidelines, repo
 from app.features.understand.common import case_pack
 from app.features.understand.lanes import arrange
 from app.features.understand.router import router
@@ -45,6 +45,7 @@ class Lane(BaseModel):
 class Timeline(BaseModel):
     lanes: list[Lane]
     unplaced: list[Event]
+    guidance_changed: list[str] = []
 
 
 @router.get("/cases/{case_id}/timeline", response_model=Timeline)
@@ -72,7 +73,9 @@ async def timeline(
             return False
         if until is not None and (fact.event_date is None or fact.event_date > until):
             return False
-        if status is not None and fact.status != status:
+        if status == "verified" and fact.status not in repo.CHECKED:
+            return False
+        if status not in (None, "verified") and fact.status != status:
             return False
         return question_id is None or question_id in links.get(fact.fact_id, [])
 
@@ -94,4 +97,5 @@ async def timeline(
     return Timeline(
         lanes=[Lane(key=key, label=str(labels.get(key, key)), events=[event(f) for f in got]) for key, got in placed],
         unplaced=[event(f) for f in unplaced],
+        guidance_changed=await guidelines.changed(conn, case_id, pack.guidelines()),
     )
