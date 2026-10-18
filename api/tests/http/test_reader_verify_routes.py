@@ -370,3 +370,47 @@ async def test_rejecting_a_fact_flagged_please_check_takes_the_flag_off(
     recheck(admin, world, fact["id"])
     rejected = await act(client, world, verified, action="not_right")
     assert rejected.status_code == 200 and rejected.json()["needs_recheck"] is False
+
+
+async def test_a_please_check_fact_whose_words_are_gone_cannot_be_confirmed_as_it_was(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    """Rule 2: after a re-read the old word ids may point at nothing or at other text."""
+    client = world["client"]
+    await read(client, world)
+    fact = next(f for f in await facts(client, world) if f["value"] and f["word_ids"])
+    verified = (await act(client, world, fact, action="correct")).json()
+    recheck(admin, world, fact["id"])
+    admin.execute(
+        "delete from app.ocr_words where page_id = %s and word_id = any(%s)", (world["page_id"], fact["word_ids"])
+    )
+    again = await act(client, world, verified, action="correct")
+    assert again.status_code == 422, again.text
+    shown = {f["id"]: f for f in await facts(client, world)}[fact["id"]]
+    assert shown["needs_recheck"] is True and shown["version"] == verified["version"]
+
+
+async def test_a_please_check_fact_can_be_changed_to_cite_the_words_on_the_page_now(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    client = world["client"]
+    await read(client, world)
+    fact = next(f for f in await facts(client, world) if f["value"] and f["word_ids"])
+    verified = (await act(client, world, fact, action="correct")).json()
+    recheck(admin, world, fact["id"])
+    changed = await act(
+        client, world, verified, action="edit", new_value=fact["value"].upper(), word_ids=fact["word_ids"]
+    )
+    assert changed.status_code == 200, changed.text
+    assert (changed.json()["status"], changed.json()["needs_recheck"]) == ("edited", False)
+
+
+async def test_a_please_check_fact_cannot_be_changed_without_choosing_words(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    client = world["client"]
+    await read(client, world)
+    fact = next(f for f in await facts(client, world) if f["value"] and f["word_ids"])
+    verified = (await act(client, world, fact, action="correct")).json()
+    recheck(admin, world, fact["id"])
+    assert (await act(client, world, verified, action="edit", new_value=fact["value"])).status_code == 422
