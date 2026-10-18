@@ -23,6 +23,7 @@ from app.core import audit
 from app.core.contracts.facts import Fact
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
+from app.core.jobs import registry
 from app.features.write import services
 from app.features.write.common import Crypto, View, Write, case_pack, citable, invalid, not_found, require_question
 from app.features.write.router import router
@@ -65,6 +66,10 @@ class Points(BaseModel):
     points: list[PointOut]
     unused: list[PointFact]
     range_note: RangeNote
+
+
+class Queued(BaseModel):
+    job_id: uuid.UUID
 
 
 class PointChange(BaseModel):
@@ -174,6 +179,13 @@ async def add_point(
     out = (await _rows(conn, _POINT + " where p.id = %s", (row[0],)))[0]
     response.headers["ETag"] = etag(out["version"])
     return _point(out, await services.current().flags.flagged_for_points(conn, case_id))
+
+
+@router.post("/cases/{case_id}/questions/{question_id}/points/suggest", response_model=Queued, status_code=202)
+async def suggest(case_id: uuid.UUID, question_id: uuid.UUID, access: Write, conn: DbConn) -> Queued:
+    """Ask for the facts not yet points to be sorted by side (T-14a); the expert decides each one."""
+    await require_question(conn, case_id, question_id)
+    return Queued(job_id=await registry.enqueue(conn, case_id, "suggest_points"))
 
 
 @router.patch("/cases/{case_id}/points/{point_id}", response_model=PointOut)
