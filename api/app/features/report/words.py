@@ -23,6 +23,18 @@ _WORDS: Final[dict[str, dict[str, str]]] = {
         "document": "{name}: pages {first} to {last}",
         "reference": "[{n}] p.{page}",
         "signed_on": "Dated {date}",
+        "invoice": "Invoice {number}",
+        "invoice_draft": "Draft invoice",
+        "invoice_from": "From: {name}",
+        "invoice_to": "To: {name}",
+        "invoice_ref": "Reference: {ref}",
+        "invoice_date": "Date: {date}",
+        "invoice_tax_number": "Tax number: {number}",
+        "invoice_time": "{hours} hours at {rate}",
+        "invoice_expenses": "Expenses",
+        "invoice_tax": "Tax at {rate}%",
+        "invoice_total": "Total due",
+        "invoice_credit": "Credit note {number}",
     },
 }
 

@@ -906,6 +906,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Invoices */
+        get: operations["list_invoices_v1_cases__case_id__invoices_get"];
+        put?: never;
+        /** Draft Invoice */
+        post: operations["draft_invoice_v1_cases__case_id__invoices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/invoices/{invoice_id}/credit-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Issue Credit Note */
+        post: operations["issue_credit_note_v1_cases__case_id__invoices__invoice_id__credit_notes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/invoices/{invoice_id}/payment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Record Payment */
+        patch: operations["record_payment_v1_cases__case_id__invoices__invoice_id__payment_patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/invoices/{invoice_id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Invoice Pdf */
+        get: operations["invoice_pdf_v1_cases__case_id__invoices__invoice_id__pdf_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/invoices/{invoice_id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Send Invoice */
+        post: operations["send_invoice_v1_cases__case_id__invoices__invoice_id__send_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/jurisdiction": {
         parameters: {
             query?: never;
@@ -2451,6 +2537,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/billing-profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Billing Profile */
+        get: operations["get_billing_profile_v1_me_billing_profile_get"];
+        /** Put Billing Profile */
+        put: operations["put_billing_profile_v1_me_billing_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/checks": {
         parameters: {
             query?: never;
@@ -3113,6 +3217,61 @@ export interface components {
             };
             /** Months */
             months: number;
+        };
+        /** BillingProfile */
+        BillingProfile: {
+            /** Address */
+            address?: string | null;
+            /** Currency */
+            currency: string;
+            /** Hourly Rate */
+            hourly_rate?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Invoice Prefix
+             * @default
+             */
+            invoice_prefix: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Tax Number */
+            tax_number?: string | null;
+            /**
+             * Tax Rate
+             * @default 0
+             */
+            tax_rate: string;
+        };
+        /** BillingProfileIn */
+        BillingProfileIn: {
+            /** Address */
+            address?: string | null;
+            /** Currency */
+            currency: string;
+            /** Hourly Rate */
+            hourly_rate?: number | string | null;
+            /**
+             * Invoice Prefix
+             * @default
+             */
+            invoice_prefix: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Tax Number */
+            tax_number?: string | null;
+            /**
+             * Tax Rate
+             * @default 0
+             */
+            tax_rate: number | string;
+        };
+        /** BillingProfileOut */
+        BillingProfileOut: {
+            profile: components["schemas"]["BillingProfile"] | null;
         };
         /** BundleSummary */
         BundleSummary: {
@@ -3850,6 +4009,32 @@ export interface components {
              */
             status: "covered" | "partial" | "none" | "unknown";
         };
+        /** CreditIn */
+        CreditIn: {
+            /** Amount */
+            amount: number | string;
+            /** Reason */
+            reason: string;
+        };
+        /** CreditNoteOut */
+        CreditNoteOut: {
+            /** Amount */
+            amount: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Issued At
+             * Format: date-time
+             */
+            issued_at: string;
+            /** Number Text */
+            number_text: string | null;
+            /** Reason */
+            reason: string;
+        };
         /** DecisionIn */
         DecisionIn: {
             /**
@@ -4517,6 +4702,57 @@ export interface components {
             kind: "letter" | "supplementary";
             /** Received On */
             received_on?: string | null;
+        };
+        /** InvoiceIn */
+        InvoiceIn: {
+            /**
+             * Expenses
+             * @default 0
+             */
+            expenses: number | string;
+        };
+        /** InvoiceOut */
+        InvoiceOut: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Credit Notes
+             * @default []
+             */
+            credit_notes: components["schemas"]["CreditNoteOut"][];
+            /** Currency */
+            currency: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Lines */
+            lines: {
+                [key: string]: unknown;
+            }[];
+            /** Number Text */
+            number_text: string | null;
+            /** Paid Amount */
+            paid_amount: string;
+            /** Sent At */
+            sent_at: string | null;
+            /** Sent To */
+            sent_to: string | null;
+            /** Status */
+            status: string;
+            /** Tax */
+            tax: string;
+            /** Total */
+            total: string;
+        };
+        /** InvoicesOut */
+        InvoicesOut: {
+            /** Invoices */
+            invoices: components["schemas"]["InvoiceOut"][];
         };
         /** Job */
         Job: {
@@ -5346,6 +5582,16 @@ export interface components {
              */
             status: "password_changed";
         };
+        /** PaymentIn */
+        PaymentIn: {
+            /** Paid Amount */
+            paid_amount?: number | string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "part_paid" | "paid" | "written_off";
+        };
         /** Person */
         Person: {
             /**
@@ -5971,6 +6217,11 @@ export interface components {
             key: string;
             /** Version */
             version: number;
+        };
+        /** SendIn */
+        SendIn: {
+            /** To */
+            to?: string | null;
         };
         /** Sent */
         Sent: {
@@ -9085,6 +9336,266 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstructionCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_invoices_v1_cases__case_id__invoices_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoicesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    draft_invoice_v1_cases__case_id__invoices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    issue_credit_note_v1_cases__case_id__invoices__invoice_id__credit_notes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreditIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreditNoteOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    record_payment_v1_cases__case_id__invoices__invoice_id__payment_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PaymentIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    invoice_pdf_v1_cases__case_id__invoices__invoice_id__pdf_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    send_invoice_v1_cases__case_id__invoices__invoice_id__send_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SendIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InvoiceOut"];
                 };
             };
             /** @description Validation Error */
@@ -13163,6 +13674,79 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_billing_profile_v1_me_billing_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingProfileOut"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    put_billing_profile_v1_me_billing_profile_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BillingProfileIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

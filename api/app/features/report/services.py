@@ -2,7 +2,8 @@
 the packs.
 
 Jobs run in the worker, which has no `app.state`, so they get these from here. `current()` builds them from
-the cell config on first use; tests call `configure()` with stand-ins. Without encryption or storage a job
+the cell config on first use; tests call `configure()` with stand-ins. `mailer` takes slice F's mails
+(`mail.py`). Without encryption or storage a job
 pauses (`storage_unavailable`); without a read log nothing is citable (fail closed, rule 2). Without the AI
 kit the final check still runs its code checks and records that T-17 did not run (warnings never block).
 """
@@ -22,6 +23,7 @@ from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
 from app.core.storage import SupabaseStorage, storage_settings
+from app.features.report.mail import ReportOutbox
 
 
 @dataclass
@@ -31,6 +33,7 @@ class ReportServices:
     reads: PageReadLog | None = None
     kit: AiKit | None = None
     packs: PackLibrary = field(default_factory=default_library)
+    mailer: ReportOutbox = field(default_factory=ReportOutbox)
 
     def case_crypto(self) -> CaseCrypto:
         if self.crypto is None:

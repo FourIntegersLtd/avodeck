@@ -10,6 +10,7 @@ from app.features.report import (  # noqa: E402, F401
     jobs,
     routes_build,
     routes_final_check,
+    routes_invoices,
     routes_sections,
     routes_serve,
     routes_sign,
