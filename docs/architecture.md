@@ -734,7 +734,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/webhooks/esign` | E-signature status | Signature-verified |
 | GET | `/jobs/{job_id}` | Job status | Anyone who can see the job's case (`case.view_metadata`), else 404 |
 | | *Scheduled jobs (App Platform or pg_cron)* | Deadline reminders (daily), deletion run (daily), offline package expiry, guideline table review reminder (quarterly) | Call FastAPI with a service token |
-| | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
+| | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `suggest_points`, `compare_witness_statement`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
 
 ### 5.4 Endpoints for accounts, organisations and the behaviour rules
 

@@ -16,3 +16,4 @@ Things we chose not to build yet, and what would make us build them. Review at e
 | Slice J (examination and prognosis) | Not needed for breach of duty | First causation, condition-and-prognosis or IME pack |
 | Offline editing (beyond witness-box search) | Complexity and conflict risk | Experts working regularly without connection |
 | IAM Roles Anywhere for App Platform → AWS | Scoped, rotated access keys are simpler to run alone | Before the first paying customer, or if a security review asks for short-lived credentials |
+| Embedding pre-ranking for unused facts (T-14b) | The cell has no in-region embedder yet; the model ranks the pack-ordered candidates directly | A case has more unused citable facts per question than the model call can take, or the in-region embedder lands (stage 2) |
