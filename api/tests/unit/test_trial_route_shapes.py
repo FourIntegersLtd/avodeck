@@ -60,3 +60,17 @@ async def test_a_signed_but_malformed_event_is_422(body: bytes, monkeypatch: pyt
     async with client() as c:
         res = await c.post("/v1/webhooks/esign", content=body, headers={"x-avodeck-signature": signature})
     assert res.status_code == 422
+
+
+async def test_the_webhook_secret_comes_from_the_cell_config(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Read through `core.config.webhook_settings`, not the process environment directly (rule 5)."""
+    from app.core.config import WebhookSettings
+    from app.features.trial import routes_webhook
+
+    monkeypatch.delenv("ESIGN_WEBHOOK_SECRET", raising=False)
+    monkeypatch.setattr(routes_webhook, "webhook_settings", lambda: WebhookSettings(esign_secret=SECRET))
+    body = b"not json"
+    signature = "sha256=" + hmac.new(SECRET.encode(), body, hashlib.sha256).hexdigest()
+    async with client() as c:
+        res = await c.post("/v1/webhooks/esign", content=body, headers={"x-avodeck-signature": signature})
+    assert res.status_code == 422
