@@ -438,3 +438,102 @@ async def test_writing_off_needs_step_up(client_for: ClientFor, admin: psycopg.C
     assert row == ("sent",)
     resp = await expert.patch(url, json={"status": "written_off"})
     assert resp.status_code == 200 and resp.json()["status"] == "written_off", resp.text
+
+
+# Payments add up; the sent PDF keeps what was drafted (review findings 4 and 5) ---------------------------
+
+
+async def sent(client_for: ClientFor, admin: psycopg.Connection, w: World) -> tuple[dict[str, Any], Any]:
+    inv = await drafted(client_for, admin, w)
+    expert = await client_for(w.expert)
+    resp = await expert.post(w.url(f"invoices/{inv['id']}/send"), json={})
+    assert resp.status_code == 200, resp.text
+    return inv, expert
+
+
+async def test_paid_with_no_amount_pays_what_is_left_after_payments_and_credits(
+    client_for: ClientFor, admin: psycopg.Connection, world: World
+) -> None:
+    inv, expert = await sent(client_for, admin, world)
+    credit = await expert.post(
+        world.url(f"invoices/{inv['id']}/credit-notes"), json={"amount": "10.00", "reason": "zz_reason"}
+    )
+    assert credit.status_code == 201, credit.text
+    url = world.url(f"invoices/{inv['id']}/payment")
+    assert (await expert.patch(url, json={"status": "part_paid", "paid_amount": "100.00"})).status_code == 200
+    paid = await expert.patch(url, json={"status": "paid"})
+    assert paid.status_code == 200, paid.text
+    assert (paid.json()["status"], paid.json()["paid_amount"]) == ("paid", "4364.00")
+    payments = admin.execute(
+        "select amount from app.invoice_payments where invoice_id = %s order by recorded_at, amount", (inv["id"],)
+    ).fetchall()
+    assert [str(p[0]) for p in payments] == ["100.00", "4264.00"]
+
+
+async def test_payments_are_bounded_and_the_status_follows_the_sums(
+    client_for: ClientFor, admin: psycopg.Connection, world: World
+) -> None:
+    inv, expert = await sent(client_for, admin, world)
+    url = world.url(f"invoices/{inv['id']}/payment")
+    for body in (
+        {"status": "part_paid", "paid_amount": "0.00"},
+        {"status": "part_paid"},
+        {"status": "part_paid", "paid_amount": "4374.00"},
+        {"status": "paid", "paid_amount": "4374.01"},
+        {"status": "paid", "paid_amount": "0.00"},
+    ):
+        resp = await expert.patch(url, json=body)
+        assert resp.status_code == 422, (body, resp.text)
+    smaller = await expert.patch(url, json={"status": "paid", "paid_amount": "374.00"})
+    assert smaller.status_code == 200, smaller.text
+    assert (smaller.json()["status"], smaller.json()["paid_amount"]) == ("part_paid", "374.00")
+    over = await expert.patch(url, json={"status": "part_paid", "paid_amount": "4000.00"})
+    assert over.status_code == 422, "a part payment leaves something owed"
+    rest = await expert.patch(url, json={"status": "paid", "paid_amount": "4000.00"})
+    assert (rest.json()["status"], rest.json()["paid_amount"]) == ("paid", "4374.00")
+    again = await expert.patch(url, json={"status": "part_paid", "paid_amount": "1.00"})
+    assert again.status_code == 409, "a settled invoice takes no more payments"
+    off = await expert.patch(url, json={"status": "written_off"})
+    assert off.status_code == 409
+
+
+async def test_the_export_rows_add_up_payments_and_credits(
+    client_for: ClientFor, admin: psycopg.Connection, world: World
+) -> None:
+    inv, expert = await sent(client_for, admin, world)
+    for amount in ("4.00", "6.00"):
+        resp = await expert.post(
+            world.url(f"invoices/{inv['id']}/credit-notes"), json={"amount": amount, "reason": "zz_reason"}
+        )
+        assert resp.status_code == 201, resp.text
+    url = world.url(f"invoices/{inv['id']}/payment")
+    for amount in ("100.00", "200.00"):
+        resp = await expert.patch(url, json={"status": "part_paid", "paid_amount": amount})
+        assert resp.status_code == 200, resp.text
+    rows = admin.execute(
+        "select status, paid_amount, credited from app.case_invoice_rows(%s)", (world.case,)
+    ).fetchall()
+    assert [(r[0], str(r[1]), str(r[2])) for r in rows] == [("part_paid", "300.00", "10.00")]
+
+
+async def test_the_sent_pdf_keeps_the_tax_rate_and_issuer_of_the_draft(
+    client_for: ClientFor, admin: psycopg.Connection, world: World
+) -> None:
+    import io
+
+    from pypdf import PdfReader
+
+    inv = await drafted(client_for, admin, world)
+    admin.execute(
+        "update app.billing_profiles set tax_rate = 0, legal_name = 'Zz Renamed Ltd'"
+        " where owner_type = 'organisation' and owner_id = %s",
+        (world.org,),
+    )
+    expert = await client_for(world.expert)
+    resp = await expert.post(world.url(f"invoices/{inv['id']}/send"), json={})
+    assert resp.status_code == 200, resp.text
+    pdf = await expert.get(world.url(f"invoices/{inv['id']}/pdf"))
+    assert pdf.status_code == 200
+    text = " ".join(page.extract_text() for page in PdfReader(io.BytesIO(pdf.content)).pages)
+    assert "Zz Team Ltd" in text and "Zz Renamed Ltd" not in text
+    assert "20.00" in text and "XTS 729.00" in text
