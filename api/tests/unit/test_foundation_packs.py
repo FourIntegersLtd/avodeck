@@ -396,11 +396,12 @@ def test_word_matching_respects_acronym_case_and_word_edges() -> None:
 def test_the_app_refuses_to_start_with_an_invalid_pack(
     tree: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch
 ) -> None:
+    from app.main import create_app  # importing builds the module-level app: do it before breaking the pack
+
     launch, _ = tree
     meta = launch / "jurisdiction/gb-eaw/pack.yaml"
     meta.write_text(meta.read_text().replace("date_order: DMY", "date_order: 42"))
     monkeypatch.setenv("PACKS_DIR", str(launch))
-    from app.main import create_app
 
     with pytest.raises(packs.PackError, match="date_order"):
         create_app()
