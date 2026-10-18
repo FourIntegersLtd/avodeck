@@ -1,10 +1,9 @@
 """Slice G's `report_served` handler: when a report is served, the pack's deadlines counted from serving are
 made at once (once per kind), and when an answers document is served its round and questions are served.
 
-Slice F emits the event after its transaction commits, from a worker thread. The event names no person and
-only the worker role may act as a job (migration 0027), so the handler asks who made the serving just now
-(`app.after_serving_served_by`) and runs its own transaction as that person; a serving older than ten minutes
-names nobody and the handler does nothing (the deadline backfill on the next read covers it).
+Slice F emits the event after its transaction commits, from a worker thread, naming who served
+(`served_by`). The handler runs its own transaction as that person; an event naming nobody is refused, never
+guessed. `CaseWithdrawn` (slice C, in its transaction) cancels the case's open deadlines and adds the count.
 Only exception types are logged (rule 6).
 """
 
@@ -15,6 +14,7 @@ import logging
 from typing import Any
 
 import anyio.from_thread
+from psycopg import AsyncConnection
 
 from app.core.contracts import events
 from app.core.db import RequestScope
@@ -37,20 +37,23 @@ def current_app() -> Any:
 async def handle_served(event: events.ReportServed) -> None:
     from app.features.after_serving.routes_deadlines import ensure_pack_deadlines
 
+    if event.served_by is None:
+        raise ValueError("report_served needs served_by")
     app = _app
     if app is None or getattr(app.state, "database", None) is None:
         return
     database = app.state.database
-    async with database.anonymous("report_served") as conn:
-        cur = await conn.execute("select app.after_serving_served_by(%s, %s)", (event.case_id, event.report_version_id))
-        row = await cur.fetchone()
-    person = row[0] if row else None
-    if person is None:
-        return
-    async with database.request(RequestScope(person, (), "report_served")) as conn:
+    async with database.request(RequestScope(event.served_by, (), "report_served")) as conn:
         pack = await pack_for(conn, app.state.packs, event.case_id)
         await ensure_pack_deadlines(conn, pack, event.case_id)
         await conn.execute("select app.after_serving_answers_served(%s, %s)", (event.case_id, event.report_version_id))
+
+
+@events.events.subscribe_in_transaction(events.CaseWithdrawn)
+async def on_case_withdrawn(conn: AsyncConnection, event: events.CaseWithdrawn) -> None:
+    cur = await conn.execute("select app.after_serving_cancel_deadlines(%s)", (event.case_id,))
+    row = await cur.fetchone()
+    event.cancelled.append(int(row[0]) if row else 0)
 
 
 @events.events.subscribe(events.ReportServed)
