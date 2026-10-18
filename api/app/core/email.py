@@ -11,6 +11,7 @@ import uuid
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Protocol
 
 EMAIL_CHANGE_CONFIRM_OLD = "email_change.confirm_old"
@@ -19,6 +20,8 @@ RECOVERY_CODE_USED = "mfa.recovery_code_used"
 NOTIFICATION_NEW = "notification.new"
 NOTIFICATION_DIGEST = "notification.digest"
 DELETION_CERTIFICATE = "deletion.certificate"
+INVOICE_SENT = "invoice.sent"
+SPOT_CHECK_CODE = "spot_check.code"
 TEMPLATES = frozenset(
     {
         EMAIL_CHANGE_CONFIRM_OLD,
@@ -27,10 +30,16 @@ TEMPLATES = frozenset(
         NOTIFICATION_NEW,
         NOTIFICATION_DIGEST,
         DELETION_CERTIFICATE,
+        INVOICE_SENT,
+        SPOT_CHECK_CODE,
     }
 )
 
 _TABLE = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
+_AMOUNT = re.compile(r"^\d{1,10}\.\d{2}$")
+_CURRENCY = re.compile(r"^[A-Z]{3}$")
+_INVOICE_NO = re.compile(r"^[A-Za-z0-9/_.-]{1,40}$")
+_CODE = re.compile(r"^\d{6}$")
 _COUNTS = re.compile(r"^([a-z][a-z0-9_]{0,62}:[0-9]{1,12})(,[a-z][a-z0-9_]{0,62}:[0-9]{1,12})*$")
 
 
@@ -63,6 +72,15 @@ TEMPLATE_PARAMS: dict[str, dict[str, Callable[[str], bool]]] = {
         "deleted_at": _is_time,
         "backup_expiry_on": _is_date,
     },
+    # An invoice was sent (slice F): no names and no attachment; the expert downloads the invoice.
+    INVOICE_SENT: {
+        "case_ref": _is_uuid,
+        "invoice_no": lambda v: bool(_INVOICE_NO.match(v)),
+        "amount": lambda v: bool(_AMOUNT.match(v)),
+        "currency": lambda v: bool(_CURRENCY.match(v)),
+    },
+    # A colleague's spot-check code (slice F): the code only; the link reaches them from the expert.
+    SPOT_CHECK_CODE: {"code": lambda v: bool(_CODE.match(v))},
 }
 
 
@@ -99,6 +117,24 @@ def deletion_certificate_mail(
             "backup_expiry_on": backup_expiry_on.isoformat(),
         },
     )
+    check_params(mail)
+    return mail
+
+
+def invoice_sent_mail(to: str, *, case_id: uuid.UUID, invoice_no: str, amount: Decimal, currency: str) -> Mail:
+    """An invoice was sent: the case's reference id, the invoice number, the amount and the currency."""
+    mail = Mail(
+        to,
+        INVOICE_SENT,
+        {"case_ref": str(case_id), "invoice_no": invoice_no, "amount": f"{amount:.2f}", "currency": currency},
+    )
+    check_params(mail)
+    return mail
+
+
+def spot_check_code_mail(to: str, *, code: str) -> Mail:
+    """The 6-digit code a colleague needs to open a spot-check link."""
+    mail = Mail(to, SPOT_CHECK_CODE, {"code": code})
     check_params(mail)
     return mail
 
