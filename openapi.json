@@ -8456,6 +8456,193 @@
         "title": "Sent",
         "type": "object"
       },
+      "ServeIn": {
+        "additionalProperties": false,
+        "properties": {
+          "recipient_party_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Party Id"
+          },
+          "sent_via": {
+            "enum": [
+              "email",
+              "post",
+              "portal",
+              "hand",
+              "other"
+            ],
+            "title": "Sent Via",
+            "type": "string"
+          },
+          "served_on": {
+            "format": "date",
+            "title": "Served On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "served_on",
+          "sent_via"
+        ],
+        "title": "ServeIn",
+        "type": "object"
+      },
+      "ServingIn": {
+        "additionalProperties": false,
+        "properties": {
+          "correction_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Of"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recipient_party_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Party Id"
+          },
+          "sent_via": {
+            "enum": [
+              "email",
+              "post",
+              "portal",
+              "hand",
+              "other"
+            ],
+            "title": "Sent Via",
+            "type": "string"
+          },
+          "served_on": {
+            "format": "date",
+            "title": "Served On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "served_on",
+          "sent_via"
+        ],
+        "title": "ServingIn",
+        "type": "object"
+      },
+      "ServingOut": {
+        "properties": {
+          "correction_of": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correction Of"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recipient_party_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recipient Party Id"
+          },
+          "sent_via": {
+            "title": "Sent Via",
+            "type": "string"
+          },
+          "served_on": {
+            "format": "date",
+            "title": "Served On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "served_on",
+          "sent_via",
+          "recipient_party_id",
+          "correction_of",
+          "reason",
+          "created_at"
+        ],
+        "title": "ServingOut",
+        "type": "object"
+      },
+      "ServingsOut": {
+        "properties": {
+          "servings": {
+            "items": {
+              "$ref": "#/components/schemas/ServingOut"
+            },
+            "title": "Servings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "servings"
+        ],
+        "title": "ServingsOut",
+        "type": "object"
+      },
       "SessionStatus": {
         "properties": {
           "aal": {
@@ -9886,6 +10073,25 @@
         "title": "VersionOut",
         "type": "object"
       },
+      "VersionStatus": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status"
+        ],
+        "title": "VersionStatus",
+        "type": "object"
+      },
       "Warning": {
         "properties": {
           "para_no": {
@@ -9930,22 +10136,6 @@
           "words"
         ],
         "title": "Warning",
-        "type": "object"
-      },
-      "WithdrawIn": {
-        "additionalProperties": false,
-        "properties": {
-          "reason": {
-            "maxLength": 4000,
-            "minLength": 1,
-            "title": "Reason",
-            "type": "string"
-          }
-        },
-        "required": [
-          "reason"
-        ],
-        "title": "WithdrawIn",
         "type": "object"
       },
       "Withdrawn": {
@@ -10223,6 +10413,21 @@
         "title": "Hold",
         "type": "object"
       },
+      "app__features__report__routes_serve__WithdrawIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "WithdrawIn",
+        "type": "object"
+      },
       "app__features__report__routes_sign__SignIn": {
         "additionalProperties": false,
         "properties": {
@@ -10249,6 +10454,22 @@
           "on_hold"
         ],
         "title": "Hold",
+        "type": "object"
+      },
+      "app__features__setup__routes_conflicts__WithdrawIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "WithdrawIn",
         "type": "object"
       }
     }
@@ -18274,6 +18495,213 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/report/versions/{version_id}/serve": {
+      "post": {
+        "operationId": "serve_version_v1_cases__case_id__report_versions__version_id__serve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServeIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Serve Version",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/versions/{version_id}/servings": {
+      "get": {
+        "operationId": "list_servings_v1_cases__case_id__report_versions__version_id__servings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Servings",
+        "tags": [
+          "report"
+        ]
+      },
+      "post": {
+        "operationId": "add_serving_v1_cases__case_id__report_versions__version_id__servings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Serving",
+        "tags": [
+          "report"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/report/versions/{version_id}/snapshots": {
       "get": {
         "operationId": "version_snapshots_v1_cases__case_id__report_versions__version_id__snapshots_get",
@@ -18332,6 +18760,79 @@
           }
         },
         "summary": "Version Snapshots",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/versions/{version_id}/withdraw": {
+      "post": {
+        "operationId": "withdraw_version_v1_cases__case_id__report_versions__version_id__withdraw_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/app__features__report__routes_serve__WithdrawIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VersionStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Withdraw Version",
         "tags": [
           "report"
         ]
@@ -18992,7 +19493,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/WithdrawIn"
+                "$ref": "#/components/schemas/app__features__setup__routes_conflicts__WithdrawIn"
               }
             }
           },

@@ -1976,6 +1976,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/report/versions/{version_id}/serve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Serve Version */
+        post: operations["serve_version_v1_cases__case_id__report_versions__version_id__serve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/report/versions/{version_id}/servings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Servings */
+        get: operations["list_servings_v1_cases__case_id__report_versions__version_id__servings_get"];
+        put?: never;
+        /** Add Serving */
+        post: operations["add_serving_v1_cases__case_id__report_versions__version_id__servings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/report/versions/{version_id}/snapshots": {
         parameters: {
             query?: never;
@@ -1987,6 +2022,23 @@ export interface paths {
         get: operations["version_snapshots_v1_cases__case_id__report_versions__version_id__snapshots_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/report/versions/{version_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Withdraw Version */
+        post: operations["withdraw_version_v1_cases__case_id__report_versions__version_id__withdraw_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5852,6 +5904,71 @@ export interface components {
              */
             status: "sent";
         };
+        /** ServeIn */
+        ServeIn: {
+            /** Recipient Party Id */
+            recipient_party_id?: string | null;
+            /**
+             * Sent Via
+             * @enum {string}
+             */
+            sent_via: "email" | "post" | "portal" | "hand" | "other";
+            /**
+             * Served On
+             * Format: date
+             */
+            served_on: string;
+        };
+        /** ServingIn */
+        ServingIn: {
+            /** Correction Of */
+            correction_of?: string | null;
+            /** Reason */
+            reason?: string | null;
+            /** Recipient Party Id */
+            recipient_party_id?: string | null;
+            /**
+             * Sent Via
+             * @enum {string}
+             */
+            sent_via: "email" | "post" | "portal" | "hand" | "other";
+            /**
+             * Served On
+             * Format: date
+             */
+            served_on: string;
+        };
+        /** ServingOut */
+        ServingOut: {
+            /** Correction Of */
+            correction_of: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string | null;
+            /** Recipient Party Id */
+            recipient_party_id: string | null;
+            /** Sent Via */
+            sent_via: string;
+            /**
+             * Served On
+             * Format: date
+             */
+            served_on: string;
+        };
+        /** ServingsOut */
+        ServingsOut: {
+            /** Servings */
+            servings: components["schemas"]["ServingOut"][];
+        };
         /** SessionStatus */
         SessionStatus: {
             /**
@@ -6375,6 +6492,16 @@ export interface components {
             /** Version No */
             version_no: number;
         };
+        /** VersionStatus */
+        VersionStatus: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+        };
         /** Warning */
         Warning: {
             /** Para No */
@@ -6392,11 +6519,6 @@ export interface components {
             type: string;
             /** Words */
             words: string;
-        };
-        /** WithdrawIn */
-        WithdrawIn: {
-            /** Reason */
-            reason: string;
         };
         /** Withdrawn */
         Withdrawn: {
@@ -6494,6 +6616,11 @@ export interface components {
             /** Until */
             until: string | null;
         };
+        /** WithdrawIn */
+        app__features__report__routes_serve__WithdrawIn: {
+            /** Reason */
+            reason: string;
+        };
         /** SignIn */
         app__features__report__routes_sign__SignIn: {
             /**
@@ -6506,6 +6633,11 @@ export interface components {
         app__features__setup__routes_case__Hold: {
             /** On Hold */
             on_hold: boolean;
+        };
+        /** WithdrawIn */
+        app__features__setup__routes_conflicts__WithdrawIn: {
+            /** Reason */
+            reason: string;
         };
     };
     responses: never;
@@ -11809,6 +11941,137 @@ export interface operations {
             };
         };
     };
+    serve_version_v1_cases__case_id__report_versions__version_id__serve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServeIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionStatus"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_servings_v1_cases__case_id__report_versions__version_id__servings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    add_serving_v1_cases__case_id__report_versions__version_id__servings_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ServingIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ServingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     version_snapshots_v1_cases__case_id__report_versions__version_id__snapshots_get: {
         parameters: {
             query?: never;
@@ -11828,6 +12091,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SnapshotsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    withdraw_version_v1_cases__case_id__report_versions__version_id__withdraw_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["app__features__report__routes_serve__WithdrawIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionStatus"];
                 };
             };
             /** @description Validation Error */
@@ -12280,7 +12588,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["WithdrawIn"];
+                "application/json": components["schemas"]["app__features__setup__routes_conflicts__WithdrawIn"];
             };
         };
         responses: {
