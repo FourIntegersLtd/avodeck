@@ -32,7 +32,7 @@ from app.core.contracts import availability as evidence
 from app.core.contracts import questions
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
-from app.features.understand import ai_tasks, availability, links
+from app.features.understand import ai_tasks, availability, guidelines, links
 from app.features.understand.checks.engine import configured_checks
 from app.features.understand.checks.rules import CheckFact, Hit, evaluate, to_label
 from app.features.understand.repo import CHECKED
@@ -158,8 +158,11 @@ async def _labels(
         if not words:
             return {}
         names = await party_names(conn, ctx.case_id)
+        born = await current().dates_of_birth(conn, ctx.case_id)
         text = ai_tasks.t13a_text(str(check["key"]), list(words.items()))
-        out = await kit.run(conn, ai_tasks.t13a(pack), pack=pack, text=text, case_id=ctx.case_id, names=names)
+        out = await kit.run(
+            conn, ai_tasks.t13a(pack), pack=pack, text=text, case_id=ctx.case_id, names=names, dates_of_birth=born
+        )
     return ai_tasks.accept_labels(out, {f: [wid for wid, _ in w] for f, w in words.items()})
 
 
@@ -196,7 +199,9 @@ async def _save(
         evidence_pages = list(dict.fromkeys(pages[f] for f in hit.evidence))
         await conn.execute(
             "insert into app.findings (case_id, check_key, rule, gentle, evidence_fact_ids, evidence_page_ids,"
-            " pack_version, run_id) values (%s, %s, %s, %s, %s, %s, %s, %s)",
+            " pack_version, run_id) values (%s, %s, %s, %s, %s, %s, %s, %s)"
+            " on conflict (case_id, check_key, app.sorted_uuids(evidence_fact_ids))"
+            " do update set status = 'open', run_id = excluded.run_id, pack_version = excluded.pack_version",
             (
                 ctx.case_id,
                 hit.check_key,
@@ -235,12 +240,13 @@ async def suggest_links(ctx: JobContext) -> None:
         questions = await _confirmed_questions(conn, ctx.case_id)
         facts = [f for f in await _checked_facts(conn, ctx.case_id) if f.value]
         names = await party_names(conn, ctx.case_id)
+        born = await services.dates_of_birth(conn, ctx.case_id)
     if not questions or not facts:
         return
     kit, embedder = services.ai(), services.embed()
 
     def stripped(text: str) -> pii.Stripped:
-        return pii.strip(text, pack=pack, names=names)
+        return pii.strip(text, pack=pack, names=names, dates_of_birth=born)
 
     fact_vectors = embedder.embed([stripped(f"{f.kind} {f.value}") for f in facts])
     question_vectors = embedder.embed([stripped(words) for _, words in questions])
@@ -253,7 +259,9 @@ async def suggest_links(ctx: JobContext) -> None:
     text = ai_tasks.t11_text(questions, [(f, by_id[f].kind, _day(by_id[f].event_date), by_id[f].value) for f in shown])
     await ctx.progress(50, step="links")
     async with ctx.transaction() as conn:
-        out = await kit.run(conn, ai_tasks.t11(pack), pack=pack, text=text, case_id=ctx.case_id, names=names)
+        out = await kit.run(
+            conn, ai_tasks.t11(pack), pack=pack, text=text, case_id=ctx.case_id, names=names, dates_of_birth=born
+        )
         for fact_id, question_id, reason in ai_tasks.accept_links(out, offered):
             await conn.execute(
                 "insert into app.fact_question_links (case_id, fact_id, question_id, source, status, reason)"
@@ -279,3 +287,4 @@ async def rerun_checks(ctx: JobContext) -> None:
     pages = {f.fact_id: f.page_id for f in facts}
     async with ctx.transaction() as conn:
         await _save(conn, ctx, pack, ran, hits, pages)
+        await guidelines.rebaseline(conn, ctx.case_id, pack.guidelines())

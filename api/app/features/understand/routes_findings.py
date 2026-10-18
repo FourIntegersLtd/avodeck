@@ -2,7 +2,8 @@
 
 Open findings with the pages they rest on. Only the named expert decides (`finding.decide`); "not
 relevant" and "explained elsewhere" need a reason. Nothing closes a finding on its own: a re-run marks
-findings no longer found as gone and keeps decisions on the ones still found.
+findings no longer found as gone and keeps decisions on the ones still found. A decided finding that is
+gone stays listed (`status: gone`, "no longer found") so the expert's decision never vanishes.
 """
 
 from __future__ import annotations
@@ -39,6 +40,7 @@ class FindingOut(BaseModel):
     decision: str | None
     reason: str | None
     version: int
+    status: Literal["open", "gone"] = "open"
 
 
 class Findings(BaseModel):
@@ -64,13 +66,14 @@ _F = (
     "select f.id, f.check_key, f.rule, f.gentle, f.evidence_fact_ids,"
     " array(select p.bundle_page_no from unnest(f.evidence_page_ids) with ordinality e(id, n)"
     "   join app.pages p on p.id = e.id order by e.n) as evidence_pages,"
-    " f.decision, f.reason, f.version from app.findings f"
+    " f.decision, f.reason, f.version, f.status from app.findings f"
 )
+_SHOWN = "(f.status = 'open' or f.decision is not null)"
 
 
 async def _one(conn: DbConn, case_id: uuid.UUID, finding_id: uuid.UUID) -> FindingOut:
     async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(f"{_F} where f.id = %s and f.case_id = %s and f.status = 'open'", (finding_id, case_id))
+        await cur.execute(f"{_F} where f.id = %s and f.case_id = %s and {_SHOWN}", (finding_id, case_id))
         row = await cur.fetchone()
     if row is None:
         raise not_found()
@@ -80,7 +83,9 @@ async def _one(conn: DbConn, case_id: uuid.UUID, finding_id: uuid.UUID) -> Findi
 @router.get("/cases/{case_id}/findings", response_model=Findings)
 async def list_findings(case_id: uuid.UUID, access: View, conn: DbConn) -> Findings:
     async with conn.cursor(row_factory=dict_row) as cur:
-        await cur.execute(f"{_F} where f.case_id = %s and f.status = 'open' order by f.created_at, f.id", (case_id,))
+        await cur.execute(
+            f"{_F} where f.case_id = %s and {_SHOWN} order by f.status desc, f.created_at, f.id", (case_id,)
+        )
         rows = await cur.fetchall()
     return Findings(findings=[FindingOut(**r) for r in rows])
 
