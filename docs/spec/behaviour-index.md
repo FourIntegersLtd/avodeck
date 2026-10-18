@@ -65,7 +65,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `case_guideline_versions` | D | Worker | One per guideline per case | Updated when the case is shown a newer version | Case deletion |
 | `availability_overrides` | D | Named expert | One per fact | Latest wins; history audited | Case deletion |
 | `consultation_notes` | D | Named expert | One per consultation | Edit freely | Case deletion |
-| `guideline_versions` | D | Avodeck clinical reviewer only | Many; table versions | New table version per change; cases record theirs | Shared, never deleted |
+| `guideline_versions` | D | Pack release (overlay `guidelines.yaml`, ADR 0016) | Many; one set per overlay pack version | New pack version per change; cases record theirs | Shared, never deleted |
 | `comments` | D | Any case member (own comments) | Many | Edit own; resolve | Case deletion; may be disclosable |
 | `points` | E | Named expert | Many | State machine; stale on fact change | Case deletion |
 | `range_notes` | E | Named expert | One per question | Edit freely | Case deletion |

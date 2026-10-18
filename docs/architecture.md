@@ -295,7 +295,7 @@ How facts relate to the questions, and what the checks found.
 | `case_guideline_versions` | Which guideline version a case was shown, so a later change to the guidance table shows a notice. | case_id, code, version_label, table_reviewed_at |
 | `availability_overrides` | The expert's corrections to when an item became available to the clinician. | case_id, fact_id, available_at, unknown, reason, at |
 | `consultation_notes` | The expert's private notes on a consultation. | case_id, fact_id, text |
-| `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
+| `guideline_versions` | Which version of a guideline was in force on which dates (shared, not patient data). Not a database table: read from the overlay pack's `guidelines.yaml` with `pack.guidelines()` (ADR 0016). | jurisdiction, specialty, source, guideline_code, title, version_label, in_force_from, in_force_to, url, licence, table_version, reviewed_at |
 | `comments` | Notes between people on a case (e.g. a supervisor's comment on a paragraph). Never in reports. | case_id, author_id, target_type, target_id, text, at, resolved_at |
 
 ### 4.6 Write
@@ -1194,7 +1194,7 @@ Section 4 says what is stored; this section says how it behaves: who can do what
 ### 10.5 Writing
 
 - **Opinion history.** Every autosave keeps a version. Building a report names the versions used. Earlier versions can be viewed and restored, never edited.
-- **Guidance table changes.** `guideline_versions` rows are versioned. A case records the table version used; if a cited guideline's entry changes, the expert sees a notice.
+- **Guidance table changes.** Guideline versions come from the overlay pack (ADR 0016); the table version is the overlay pack version and its `reviewed_at`. A case records the version it was shown; if a cited guideline's entry changes, the expert sees a notice.
 - **Comments.** `comments` on a page, fact or paragraph, by case members. They never appear in reports. The screen warns that comments may be disclosable.
 - **Concurrent editing.** Every editable resource uses optimistic concurrency (ETag / If-Match; 412 on a stale write) with a "which version do you want to keep?" prompt. This applies to all editable resources, not only opinions.
 
