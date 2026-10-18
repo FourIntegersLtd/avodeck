@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -24,6 +25,7 @@ from app.core.packs import PackLibrary, default_library
 from app.core.routes.account import account_public, account_router
 from app.core.routes.auth import auth_pending, auth_public, auth_signed_in, auth_status
 from app.core.routes.cases import cases_router
+from app.core.routes.cell import cell_public_router
 from app.core.routes.dictation import dictation_socket, transcripts_router
 from app.core.routes.jobs import jobs_router
 from app.core.routes.me import me_router
@@ -96,6 +98,11 @@ def create_app(
                 app.state.crypto = CaseCrypto(key_provider_from_env())
             except ConfigError:
                 app.state.crypto = None
+        if app.state.storage is not None:
+            try:
+                await app.state.storage.ensure_bucket()
+            except Exception as exc:  # noqa: BLE001 - start-up goes on; file routes answer for themselves
+                logging.getLogger(__name__).warning("storage bucket check failed: %s", type(exc).__name__)
         try:
             await start_features(features, app)  # each slice's `on_startup(app)`, database ready
             yield
@@ -122,7 +129,7 @@ def create_app(
     logs.configure(app.state.packs.identifier_finders())
     app.add_middleware(logs.RequestLog)
     install_error_handlers(app)
-    routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
+    routers = (cell_public_router, auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
     people = (me_router, today_router, notifications_router)
     slices = (pipeline_router, colleague_router)  # the colleague's spot-check routes are public (token-gated)

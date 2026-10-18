@@ -94,6 +94,10 @@ def configure(finders: Sequence[Finder] | None = None) -> None:
         logging.getLogger(name).setLevel(logging.WARNING)
     # The server's access lines carry raw paths and queries; `RequestLog` logs by route template.
     logging.getLogger("uvicorn.access").disabled = True
+    access = logging.getLogger("app.request")
+    access.setLevel(logging.INFO)
+    if not access.handlers:
+        access.addHandler(logging.StreamHandler())  # on by default, whatever the root logger is set to
     if finders is not None:
         _finders = list(finders)
     if _base_factory is None:

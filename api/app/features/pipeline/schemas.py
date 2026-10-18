@@ -207,6 +207,8 @@ class ProcessingJob(BaseModel):
     step: str | None
     pct: int | None
     eta_seconds: int | None
+    step_done: int | None = None
+    step_total: int | None = None
     error_code: str | None
 
 

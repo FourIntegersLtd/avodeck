@@ -26,7 +26,7 @@ from app.core.http import CurrentScope, DbConn, router
 
 jobs_router = router(prefix="/v1/jobs", tags=["jobs"])
 
-_PROGRESS = ("status", "step", "pct", "eta_seconds", "error_code")
+_PROGRESS = ("status", "step", "pct", "eta_seconds", "error_code")  # the stream keeps these
 _FINISHED = {"done", "failed"}
 
 
@@ -38,6 +38,8 @@ class Job(BaseModel):
     step: str | None
     pct: int | None
     eta_seconds: int | None
+    step_done: int | None = None
+    step_total: int | None = None
     error_code: str | None
     created_at: datetime
     started_at: datetime | None
@@ -47,7 +49,7 @@ class Job(BaseModel):
 async def _job(conn: AsyncConnection, job_id: uuid.UUID) -> dict[str, object]:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            "select id, case_id, kind, status, step, pct, eta_seconds, error_code, created_at, started_at,"
+            "select id, case_id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code, created_at, started_at,"
             " finished_at from app.jobs where id = %s",
             (job_id,),
         )
