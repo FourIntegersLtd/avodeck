@@ -238,6 +238,30 @@ async def checked_report(
     return document, resp.json()
 
 
+async def test_t21a_is_never_offered_a_fact_the_expert_rejected(
+    client_for: ClientFor,
+    seed: Seed,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    pages = await add_new_pages(seed, admin, aconn, served)
+    kept = add_fact(admin, served.case, pages[9], value=PLANTED, word_ids=["w1", "w2", "w3"])
+    rejected = add_fact(admin, served.case, pages[9], status="rejected", value="repeat 9", word_ids=["w4", "w5"])
+
+    def t21a(request: ModelRequest) -> dict[str, Any]:
+        assert str(kept) in request.text
+        assert str(rejected) not in request.text, "a rejected fact is not offered"
+        return {"items": []}
+
+    model.answers["T-21a"] = t21a
+    expert = await client_for(served.expert)
+    await run_job(worker_db, served, await expert.post(served.url("new-since-served/check")), "find_may_matter")
+    assert len(model.by_task("T-21a")) == 1
+
+
 async def test_code_settles_nine_claims_and_only_three_go_to_the_larger_model(
     client_for: ClientFor,
     storage: SupabaseStorage,
