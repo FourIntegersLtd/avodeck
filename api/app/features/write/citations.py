@@ -16,9 +16,7 @@ from __future__ import annotations
 import re
 import uuid
 from collections.abc import Sequence
-from typing import Any
-
-from pydantic import BaseModel, ConfigDict, Field, SerializerFunctionWrapHandler, model_serializer
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.ai.provenance import atoms
 from app.core.contracts.facts import Fact
@@ -33,14 +31,7 @@ class Citation(BaseModel):
     fact_id: uuid.UUID
     page_id: uuid.UUID
     quote_verbatim: str = Field(max_length=2000)
-    fact_version: int | None = Field(default=None, ge=1)
-
-    @model_serializer(mode="wrap")
-    def _without_unknown_version(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        out: dict[str, Any] = handler(self)
-        if out.get("fact_version") is None:
-            out.pop("fact_version", None)
-        return out
+    fact_version: int | None = Field(default=None, ge=1, exclude_if=lambda v: v is None)
 
 
 def markers(body: str) -> list[int]:

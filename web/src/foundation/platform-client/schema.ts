@@ -3176,6 +3176,8 @@ export interface components {
              * Format: uuid
              */
             fact_id: string;
+            /** Fact Version */
+            fact_version: number;
             /** Kind */
             kind: string;
             /**
@@ -3202,6 +3204,8 @@ export interface components {
              * Format: uuid
              */
             fact_id: string;
+            /** Fact Version */
+            fact_version?: number | null;
             /**
              * Page Id
              * Format: uuid
@@ -4571,6 +4575,8 @@ export interface components {
         OpinionOut: {
             /** Body */
             body: string;
+            /** Changed Citations */
+            changed_citations?: number[];
             /** Citation Refs */
             citation_refs: components["schemas"]["Citation"][];
             /**
@@ -4589,6 +4595,11 @@ export interface components {
             question_id: string;
             /** Restored From */
             restored_from: number | null;
+            /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
             /** Test Text */
             test_text?: string | null;
             /**

@@ -1543,6 +1543,10 @@
             "title": "Fact Id",
             "type": "string"
           },
+          "fact_version": {
+            "title": "Fact Version",
+            "type": "integer"
+          },
           "kind": {
             "title": "Kind",
             "type": "string"
@@ -1572,7 +1576,8 @@
           "kind",
           "value",
           "event_date",
-          "quote_verbatim"
+          "quote_verbatim",
+          "fact_version"
         ],
         "title": "Chip",
         "type": "object"
@@ -1600,6 +1605,18 @@
             "format": "uuid",
             "title": "Fact Id",
             "type": "string"
+          },
+          "fact_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fact Version"
           },
           "page_id": {
             "format": "uuid",
@@ -5381,6 +5398,13 @@
             "title": "Body",
             "type": "string"
           },
+          "changed_citations": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Changed Citations",
+            "type": "array"
+          },
           "citation_refs": {
             "items": {
               "$ref": "#/components/schemas/Citation"
@@ -5419,6 +5443,11 @@
               }
             ],
             "title": "Restored From"
+          },
+          "stale": {
+            "default": false,
+            "title": "Stale",
+            "type": "boolean"
           },
           "test_text": {
             "anyOf": [
