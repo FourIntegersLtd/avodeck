@@ -15,9 +15,13 @@ from pydantic import BaseModel, ConfigDict
 
 from app.core.errors import ApiError, locked
 
-__all__ = ["ReportVersion", "ReportVersionStatus", "ensure_unlocked", "locked"]
+__all__ = ["AFTER_SERVING_TYPES", "ReportVersion", "ReportVersionStatus", "ensure_unlocked", "locked"]
 
 ReportVersionStatus = Literal["draft", "locked", "served", "withdrawn"]
+
+# Version types slice G writes after serving (answers to written questions, supplementary reports). Slice F's
+# "latest draft" and "newest version" skip them: F builds, checks and signs only its own report.
+AFTER_SERVING_TYPES: tuple[str, ...] = ("answers", "supplementary")
 
 
 class ReportVersion(BaseModel):
