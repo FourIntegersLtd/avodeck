@@ -145,3 +145,31 @@ async def test_an_expired_package_no_longer_downloads(
     assert resp.status_code == 410 and code(resp) == "expired"
     unknown = await (await client_for(world.expert)).get(world.url(f"offline-packages/{uuid.uuid4()}"))
     assert unknown.status_code == 404
+
+
+async def test_the_status_check_says_only_whether_the_copy_may_still_be_opened(
+    client_for: ClientFor, world: World, admin: psycopg.Connection
+) -> None:
+    """Screen 25 asks this when online and wipes the copy on revoked, expired or 404 (threat model T10).
+
+    It needs case access but not step-up (the expert may be in court hours after signing in), and it
+    returns the status alone: no case content, no device name.
+    """
+    made = await create(client_for, world)
+    url = world.url(f"offline-packages/{made['id']}/status")
+    fresh = await (await client_for(world.expert, mfa_age=LAPSED)).get(url)
+    assert fresh.status_code == 200, fresh.text
+    assert fresh.json() == {"status": "built"}
+    assert fresh.headers["cache-control"] == "private, no-store"
+    assert (await (await client_for(world.outsider)).get(url)).status_code == 404
+    assert (
+        await (await client_for(world.expert)).get(world.url(f"offline-packages/{uuid.uuid4()}/status"))
+    ).status_code == 404
+    admin.execute(
+        "update app.offline_packages set expires_at = now() - interval '1 minute' where id = %s", (made["id"],)
+    )
+    assert (await (await client_for(world.expert)).get(url)).json() == {"status": "expired"}
+    other = await create(client_for, world)
+    other_url = world.url(f"offline-packages/{other['id']}")
+    assert (await (await client_for(world.expert)).delete(other_url)).status_code == 204
+    assert (await (await client_for(world.expert)).get(f"{other_url}/status")).json() == {"status": "revoked"}
