@@ -1,3 +1,4 @@
 source_types:
   - {key: clinic_notes, colour: "#5A4A9E", own_record: true}
   - {key: letters, colour: "#8C7556"}
+  - {key: zz_account, colour: "#6B6B2E", statement: true}

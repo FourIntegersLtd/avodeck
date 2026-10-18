@@ -6,3 +6,4 @@ source_types:
   - {key: out_of_hours, colour: "#2C8C99"}
   - {key: results, colour: "#7A6BA8"}
   - {key: letters, colour: "#8C7556"}
+  - {key: witness_statement, colour: "#A8577E", statement: true}

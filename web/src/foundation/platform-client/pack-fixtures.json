@@ -196,6 +196,11 @@
         {
           "colour": "#8C7556",
           "key": "letters"
+        },
+        {
+          "colour": "#6B6B2E",
+          "key": "zz_account",
+          "statement": true
         }
       ],
       "timezone": "America/Halifax",
@@ -876,6 +881,11 @@
         {
           "colour": "#8C7556",
           "key": "letters"
+        },
+        {
+          "colour": "#A8577E",
+          "key": "witness_statement",
+          "statement": true
         }
       ],
       "timezone": "Europe/London",

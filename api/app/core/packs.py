@@ -529,6 +529,10 @@ class MergedPack:
         """Source types marked `own_record`: the clinician's own record."""
         return frozenset(s["key"] for s in self.source_types() if s.get("own_record") is True)
 
+    def statement_sources(self) -> frozenset[str]:
+        """Source types marked `statement`: a witness's own account, not a record."""
+        return frozenset(s["key"] for s in self.source_types() if s.get("statement") is True)
+
     def arriving_kinds(self) -> frozenset[str]:
         """Fact kinds marked `arrives`: never available on their own event date."""
         return frozenset(k["key"] for k in self.fact_kinds() if k.get("arrives") is True)

@@ -22,6 +22,10 @@
           "own_record": {
             "type": "boolean",
             "description": "The clinician's own record: an entry here was available to them when it was written."
+          },
+          "statement": {
+            "type": "boolean",
+            "description": "A witness's own account (a statement), not a record: screen 14 compares these pages with the records (T-14c)."
           }
         },
         "additionalProperties": false,
