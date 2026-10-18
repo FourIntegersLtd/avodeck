@@ -74,19 +74,21 @@ def use(services: PipelineServices) -> Iterator[PipelineServices]:
 
 
 def from_env() -> PipelineServices:
-    """The cell's own services. OCR and the model client arrive with the cloud cell (none yet)."""
+    """The cell's own services; OCR and the model client are live, recorded or none (`live_or_recorded`)."""
+    from app.core.ai.clients import live_or_recorded
     from app.core.ai.embed import embedder_from_env
     from app.core.crypto import key_provider_from_env
     from app.core.packs import default_library
     from app.core.scan import scanner_from_env
     from app.core.storage import SupabaseStorage, storage_settings
 
+    ai = live_or_recorded()
     return PipelineServices(
         storage=SupabaseStorage(storage_settings()),
         crypto=CaseCrypto(key_provider_from_env()),
         scanner=scanner_from_env(),
-        ocr=None,
-        kit=None,
+        ocr=ai.ocr,
+        kit=ai.kit,
         packs=default_library(),
         registry=jobs.registry,
         embedder=embedder_from_env(),

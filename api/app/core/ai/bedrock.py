@@ -1,15 +1,16 @@
 """The model client interface and its recorded stand-in (architecture 6.1).
 
-The real client (AWS Bedrock, the cell's in-region model IDs only) arrives with the cloud cell
-and implements `BedrockClient`. Every client refuses an endpoint off the cell's allow-list when
-it is made and a model ID off it before anything is sent.
+The live client (AWS Bedrock Converse, the cell's in-region model IDs only) is
+`bedrock_live.LiveBedrock`; `clients.live_or_recorded` picks it or this stand-in. Every client
+refuses an endpoint off the cell's allow-list when it is made and a model ID off it before anything
+is sent.
 """
 
 from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from app.core.ai.cell import check_endpoint, check_model
 from app.core.ai.recordings import FixtureStore
@@ -54,6 +55,7 @@ class ModelUnavailable(Exception):
     """The in-region model is gone or withdrawn (F24). Never retried elsewhere."""
 
 
+@runtime_checkable
 class BedrockClient(Protocol):
     endpoint: str
 

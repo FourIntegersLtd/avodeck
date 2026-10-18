@@ -1,6 +1,6 @@
 """The OCR client interface and its recorded stand-in (architecture 7: Layout and Read models).
 
-The real client (Azure AI Document Intelligence in the cell's region) arrives with the cloud cell.
+The live client is `azure_ocr.AzureOcr` (Azure AI Document Intelligence in the cell's region).
 Word text is hidden from every repr so OCR output can never reach a log line by accident.
 
 Word IDs are `p<page>w<n>`: the page's number within the analysed document (1 for a single page,
@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass, field
-from typing import Any, Literal, Protocol
+from typing import Any, Literal, Protocol, runtime_checkable
 
 from app.core.ai.cell import check_endpoint
 from app.core.ai.recordings import FixtureStore
@@ -51,6 +51,11 @@ class OcrResult:
     pages: tuple[OcrPage, ...]
 
 
+class OcrFailed(Exception):
+    """The service refused or could not analyse the document. The message is a status or error code only."""
+
+
+@runtime_checkable
 class OcrClient(Protocol):
     endpoint: str
 

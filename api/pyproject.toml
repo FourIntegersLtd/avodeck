@@ -3,7 +3,7 @@ name = "avodeck-api"
 version = "0.1.0"
 description = "Avodeck API (FastAPI) and background worker, one package"
 requires-python = ">=3.12,<3.13"
-dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)", "psycopg[binary] (>=3.2,<4.0)", "psycopg-pool (>=3.2,<4.0)", "httpx (>=0.28.1,<0.29.0)", "pyjwt[crypto] (>=2.10,<3.0)", "pyyaml (>=6.0,<7.0)", "jsonschema-rs (>=0.58,<0.59)", "tzdata (>=2025.2)", "presidio-analyzer (>=2.2.364,<3.0.0)", "cryptography (>=44)", "sentry-sdk[fastapi] (>=2.72.0,<3.0.0)", "procrastinate (>=3.5,<4.0)", "pikepdf (>=10.17.0,<11.0.0)", "pypdfium2 (>=5.14.0,<6.0.0)", "pillow (>=13.0.0,<14.0.0)", "imagehash (>=4.3.2,<5.0.0)", "datasketch (>=2.0.0,<3.0.0)", "rapidfuzz (>=3.14.6,<4.0.0)", "dateparser (>=1.4.3,<2.0.0)", "python-docx (>=1.2.0,<2.0.0)", "langdetect (==1.0.9)", "reportlab (>=5.0.1,<6.0.0)"]
+dependencies = ["fastapi (>=0.143.3,<0.144.0)", "uvicorn[standard] (>=0.54.0,<0.55.0)", "psycopg[binary] (>=3.2,<4.0)", "psycopg-pool (>=3.2,<4.0)", "httpx (>=0.28.1,<0.29.0)", "pyjwt[crypto] (>=2.10,<3.0)", "pyyaml (>=6.0,<7.0)", "jsonschema-rs (>=0.58,<0.59)", "tzdata (>=2025.2)", "presidio-analyzer (>=2.2.364,<3.0.0)", "cryptography (>=44)", "sentry-sdk[fastapi] (>=2.72.0,<3.0.0)", "procrastinate (>=3.5,<4.0)", "pikepdf (>=10.17.0,<11.0.0)", "pypdfium2 (>=5.14.0,<6.0.0)", "pillow (>=13.0.0,<14.0.0)", "imagehash (>=4.3.2,<5.0.0)", "datasketch (>=2.0.0,<3.0.0)", "rapidfuzz (>=3.14.6,<4.0.0)", "dateparser (>=1.4.3,<2.0.0)", "python-docx (>=1.2.0,<2.0.0)", "langdetect (==1.0.9)", "reportlab (>=5.0.1,<6.0.0)", "boto3 (>=1.40,<2.0)"]
 
 [tool.poetry]
 packages = [{ include = "app" }]
@@ -47,7 +47,7 @@ mypy_path = "."
 explicit_package_bases = true
 
 [[tool.mypy.overrides]]
-module = ["pypdfium2", "pypdfium2.*", "reportlab", "reportlab.*", "dateparser", "dateparser.*", "datasketch", "datasketch.*"]
+module = ["pypdfium2", "pypdfium2.*", "reportlab", "reportlab.*", "dateparser", "dateparser.*", "datasketch", "datasketch.*", "boto3", "boto3.*", "botocore", "botocore.*"]
 ignore_missing_imports = true
 
 [tool.coverage.report]

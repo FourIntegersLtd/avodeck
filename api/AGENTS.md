@@ -102,6 +102,7 @@ accepted, rejected = provenance.check_items(out["items"], ocr_words)  # values n
 ```
 
 - `run()` checks the endpoint and model against the cell allow-list, applies the cost guard (F11), strips identifiers, validates the answer against the schema (`InvalidOutput`), backs off on `ServiceBusy` and raises `ProcessingPaused` (503 `processing_paused` with a `reason`) when the service stays busy, the model is unavailable (F24, no fallback) or the key service is unreachable.
+- Live clients: `LiveBedrock` (`core/ai/bedrock_live.py`) and `AzureOcr` (`core/ai/azure_ocr.py`); `core/ai/clients.py` `live_or_recorded()` picks live (keys set), recorded (`AI_RECORDINGS_DIR`) or none. Features call only that factory.
 - Stand-ins: `RecordedBedrock`, `RecordedOcr` (`core/ai/ocr.py`) and `RecordedSpeech` (`core/speech.py`) replay recordings in `tests/fixtures/ai/` keyed by a request hash and refuse anything unrecorded.
 - `ai_calls` logs task, model ID, region, prompt version, token counts and outcome. It never logs content. Logs are scrubbed by `core/logs.py`; scrubbing is a safety net, not permission to log patient values.
 - Per-case data is encrypted with `core/crypto.py` `CaseCrypto` (one key per case, fail closed).
