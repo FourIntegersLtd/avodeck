@@ -66,6 +66,20 @@ class FactList(BaseModel):
     facts: list[FactOut]
 
 
+class PageWord(BaseModel):
+    word_id: str
+    text: str
+    box: dict[str, float] | None = Field(
+        description="The word's box as a share of the page (x0, y0, x1, y1); null for a typed-out word."
+    )
+
+
+class PageWords(BaseModel):
+    """The page's words in reading order, for choosing the words a changed fact cites."""
+
+    words: list[PageWord]
+
+
 class Progress(BaseModel):
     read: int
     total: int

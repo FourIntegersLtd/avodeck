@@ -1,5 +1,5 @@
 // One suggestion: what we found, its state, and the actions the expert can take on it.
-import { useId } from "react";
+import { useId, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { Button, StatusBadge } from "../../foundation/ui";
 import { kindLabel } from "./data";
@@ -11,6 +11,10 @@ export interface FactCardProps {
   focused: boolean;
   busy: boolean;
   editing: string | null;
+  /** While changing: whether Save may go (a "Please check" fact needs words chosen first). */
+  canSave?: boolean;
+  /** While changing: toggles for typed words that have no place on the picture. */
+  typedWords?: ReactNode;
   reason: string;
   onFocus: () => void;
   onReason: (text: string) => void;
@@ -24,13 +28,13 @@ export interface FactCardProps {
 }
 
 /** What the server's state machine lets the expert do with this fact (docs/spec/state-machines.md "Fact").
- * A checked fact flagged "Please check" may be confirmed again. */
+ * A checked fact flagged "Please check" may be confirmed again, or changed to cite words chosen again. */
 export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight: boolean; edit: boolean } {
   const checked = fact.status === "verified" || fact.status === "edited";
   return {
     correct: fact.status === "suggested" || fact.status === "rejected" || (checked && fact.needs_recheck === true),
     notRight: fact.status === "suggested" || checked,
-    edit: fact.status === "suggested",
+    edit: fact.status === "suggested" || (checked && fact.needs_recheck === true),
   };
 }
 
@@ -74,8 +78,10 @@ export function FactCard(p: FactCardProps) {
               if (e.key === "Enter") p.onSaveEdit();
             }}
           />
+          <p className="rd-note">{w("fact.choose_words")}</p>
+          {p.typedWords}
           <div className="rd-actions">
-            <Button disabled={p.busy || !p.editing.trim()} onClick={p.onSaveEdit}>
+            <Button disabled={p.busy || !p.editing.trim() || p.canSave === false} onClick={p.onSaveEdit}>
               {w("fact.save_change")}
             </Button>
             <Button variant="secondary" onClick={p.onCancelEdit}>
