@@ -40,7 +40,7 @@ from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
 from app.core.ai.ocr import OcrPage
 from app.core.contracts.fact_flags import flag_for_recheck
-from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
+from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
@@ -284,9 +284,14 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
         async with ctx.transaction() as conn:
             state = await repo.reading_state(conn, page_id)
             before = await _opened_words(conn, services, ctx.case_id, page_id)
-            page_pdf = None if state.typed is not None else await _page_pdf(conn, services, ctx.case_id, page_id)
+            typing = None
+            if state.typed is not None:
+                typing = await services.crypto.decrypt(
+                    conn, ctx.case_id, state.typed, purpose=transcription_purpose(page_id)
+                )
+            page_pdf = None if typing is not None else await _page_pdf(conn, services, ctx.case_id, page_id)
         if page_pdf is None:
-            page, source = typed(state.typed or ""), "expert"
+            page, source = typed((typing or b"").decode()), "expert"
         else:
             found: OcrPage | None = usable_text_layer(page_pdf)
             source = "embedded"

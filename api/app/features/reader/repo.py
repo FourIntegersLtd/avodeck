@@ -11,6 +11,7 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from app.core.contracts.pipeline import transcription_purpose
 from app.core.crypto import CaseCrypto
 from app.features.pipeline.paths import word_purpose
 
@@ -262,10 +263,19 @@ async def unreadable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[di
     return [_row(cur, r) for r in await cur.fetchall()]
 
 
-async def save_transcription(conn: AsyncConnection, page_id: uuid.UUID, text: str, relevance: str | None) -> None:
+async def save_transcription(
+    conn: AsyncConnection,
+    crypto: CaseCrypto,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    text: str,
+    relevance: str | None,
+) -> None:
+    """Stores the expert's typing sealed with the case key (never plain, like every OCR word)."""
+    sealed = await crypto.encrypt(conn, case_id, text.encode(), purpose=transcription_purpose(page_id))
     await conn.execute(
         "update app.pages set transcribed_by_expert_text = %s, relevance = coalesce(%s, relevance) where id = %s",
-        (text, relevance, page_id),
+        (sealed, relevance, page_id),
     )
 
 

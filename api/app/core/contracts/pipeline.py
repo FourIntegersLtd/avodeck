@@ -11,6 +11,10 @@ without importing slice A. It queues the work on the caller's connection and ret
 computer couldn't read. Slice A registers it with `@register_extract_page_text`: it queues a job that
 splits `pages.transcribed_by_expert_text` into `ocr_words` with `source = 'expert'`, strips identifiers,
 runs extraction on those words only and checks provenance against them; new facts start `suggested`.
+
+`pages.transcribed_by_expert_text` is sealed with the case key like every OCR word: slice B writes it
+with `CaseCrypto.encrypt(conn, case_id, text.encode(), purpose=transcription_purpose(page_id))` and
+slice A opens it with the same purpose. It is never stored or logged as plain text.
 """
 
 from __future__ import annotations
@@ -25,6 +29,11 @@ from psycopg import AsyncConnection
 PROCESS_BUNDLE = "process_bundle"
 PROCESS_PAGES = "process_pages"
 EXTRACT_PAGE_TEXT = "extract_page_text"
+
+
+def transcription_purpose(page_id: uuid.UUID) -> str:
+    """The purpose the expert's typed page text is sealed under, so it cannot be moved to another page."""
+    return f"pages/{page_id}/transcribed_by_expert_text"
 
 
 class ProcessPages(Protocol):
