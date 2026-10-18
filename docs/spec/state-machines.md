@@ -122,6 +122,12 @@ Chunks can be sent (and re-sent) only while `open`. Completing twice returns the
 
 null → relevant / not_relevant / explained_elsewhere (reason required for the last two). The expert can change a decision at any time; every change is audited. A re-run keeps decisions on findings that still exist.
 
+Status (`findings.status`): open → gone when a re-run of the same check no longer finds it; gone → open if a later run finds it again (its decision is kept). Code never decides or deletes a finding.
+
+## Comment (`comments.resolved_at`)
+
+open → resolved (any case reader); resolved → open (any case reader). Only the author changes the words; every change is audited. Comments never appear in a report.
+
 ## Expert meeting (`expert_meetings.status`)
 
 draft → out_for_signature (step-up) → signed (e-sign webhook). draft → signed_external when a document signed outside Avodeck is uploaded (hash stored). out_for_signature → draft if a participant declines or the agenda changes (new agenda version). Signed and signed_external are immutable.

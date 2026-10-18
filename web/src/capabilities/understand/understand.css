@@ -1,0 +1,11 @@
+/* Slice D's layout helpers. Colours, sizes and type come from the design tokens (foundation/ui/tokens.css). */
+.av-understand-filters { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: flex-end; }
+.av-understand-lane h3 { margin: 0 0 var(--space-3); }
+.av-understand-list { list-style: none; margin: 0; padding: 0; }
+.av-understand-event { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); padding: var(--space-2) 0; border-top: 1px solid var(--surface-muted); }
+.av-understand-event a { display: inline-flex; align-items: center; min-height: var(--button-min-height); }
+.av-understand-later > summary { cursor: pointer; display: flex; align-items: center; min-height: var(--button-min-height); font-weight: 700; }
+.av-understand-textarea { min-height: 6em; }
+.av-understand-choice { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.av-understand-choice__options { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.av-understand-option { min-height: var(--button-min-height); align-items: center; }

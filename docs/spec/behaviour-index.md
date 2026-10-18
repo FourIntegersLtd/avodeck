@@ -60,7 +60,9 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |
 | `check_config` | D | The expert | One per check per expert | Edit freely | With the person |
-| `findings` | D | Worker; named expert decides | Many | Decisions kept across re-runs | Case deletion |
+| `findings` | D | Worker; named expert decides | Many | Decisions kept across re-runs; gone, never deleted | Case deletion |
+| `check_runs` | D | Worker | One per run | Append only | Case deletion |
+| `case_guideline_versions` | D | Worker | One per guideline per case | Updated when the case is shown a newer version | Case deletion |
 | `availability_overrides` | D | Named expert | One per fact | Latest wins; history audited | Case deletion |
 | `consultation_notes` | D | Named expert | One per consultation | Edit freely | Case deletion |
 | `guideline_versions` | D | Pack release (overlay `guidelines.yaml`, ADR 0016) | Many; one set per overlay pack version | New pack version per change; cases record theirs | Shared, never deleted |

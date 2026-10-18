@@ -1,0 +1,172 @@
+"""Screen 12: one consultation as the clinician saw it (architecture 5.2 "12 One consultation").
+
+What had arrived by the day of the visit, what came later (counted, kept apart) and what nobody can
+tell ("not known", never placed before the visit). The title and the guidance in force on the day
+come from the pack. The named expert changes when something arrived (`availability.override`, always
+with a reason, appended and audited; the latest wins) and keeps a note on the visit (`consultation.note`).
+"""
+
+from __future__ import annotations
+
+import uuid
+from datetime import date
+from typing import Annotated
+
+from fastapi import Depends, Query, Request
+from pydantic import BaseModel, Field, model_validator
+
+from app.core import audit
+from app.core.auth.access import CaseAccess, require_case_access
+from app.core.http import DbConn
+from app.features.understand import repo
+from app.features.understand.as_seen import SeenItem
+from app.features.understand.as_seen import as_seen as seen_on
+from app.features.understand.common import case_pack, invalid, not_found
+from app.features.understand.guidelines import in_force
+from app.features.understand.router import router
+
+View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
+Override = Annotated[CaseAccess, Depends(require_case_access("availability.override"))]
+Note = Annotated[CaseAccess, Depends(require_case_access("consultation.note"))]
+
+
+class Entry(BaseModel):
+    fact_id: uuid.UUID
+    kind: str
+    page_no: int
+    event_date: date | None
+    available_at: date | None
+    status: str
+
+
+class Guidance(BaseModel):
+    code: str
+    title: str | None
+    version_label: str
+    url: str | None
+
+
+class Consultation(BaseModel):
+    title: str
+    entry: Entry
+    visible: list[Entry]
+    later_count: int
+    later: list[Entry]
+    unknown: list[Entry]
+    guidance: list[Guidance]
+    note: str | None
+
+
+def _entry(fact: repo.SeenFact) -> Entry:
+    return Entry(
+        fact_id=fact.fact_id,
+        kind=fact.kind,
+        page_no=fact.page_no,
+        event_date=fact.event_date,
+        available_at=fact.available_at,
+        status=fact.status,
+    )
+
+
+@router.get("/cases/{case_id}/consultations/{fact_id}", response_model=Consultation)
+async def consultation(
+    case_id: uuid.UUID,
+    fact_id: uuid.UUID,
+    access: View,
+    request: Request,
+    conn: DbConn,
+    as_seen: Annotated[bool, Query(description="The basic view always shows the day as seen.")] = True,
+) -> Consultation:
+    pack = await case_pack(request, conn, case_id)
+    facts = await repo.visible_facts(request, conn, case_id)
+    by_id = {f.fact_id: f for f in facts}
+    visit = by_id.get(fact_id)
+    if visit is None:
+        raise not_found()
+    on = visit.event_date or visit.available_at
+    if on is None:
+        raise invalid("fact_id", message="This entry has no date.")
+    view = seen_on(on, (SeenItem(f.fact_id, f.available_at, f.status) for f in facts), exclude=fact_id)
+
+    def pick(items: list[SeenItem]) -> list[Entry]:
+        return [_entry(by_id[i.fact_id]) for i in items]
+
+    guidance = [
+        Guidance(code=str(r["code"]), title=r.get("title"), version_label=str(r["version_label"]), url=r.get("url"))
+        for r in pack.guidelines()
+        if in_force([r], str(r["code"]), on)
+    ]
+    cur = await conn.execute("select body from app.consultation_notes where case_id = %s and fact_id = %s",
+                             (case_id, fact_id))  # fmt: skip
+    note = await cur.fetchone()
+    return Consultation(
+        title=pack.term("as_seen_title"),
+        entry=_entry(visit),
+        visible=pick(view.visible),
+        later_count=len(view.later),
+        later=pick(view.later),
+        unknown=pick(view.unknown),
+        guidance=guidance,
+        note=note[0] if note else None,
+    )
+
+
+class AvailabilityChange(BaseModel):
+    available_at: date | None = None
+    unknown: bool = False
+    reason: str = Field(min_length=1, max_length=200)
+
+    @model_validator(mode="after")
+    def _one(self) -> AvailabilityChange:
+        if self.unknown == (self.available_at is not None) or not self.reason.strip():
+            raise ValueError("give a date or say it is not known, with a reason")
+        return self
+
+
+class AvailabilityOut(BaseModel):
+    fact_id: uuid.UUID
+    available_at: date | None
+    unknown: bool
+
+
+@router.patch("/cases/{case_id}/facts/{fact_id}/availability", response_model=AvailabilityOut)
+async def change_availability(
+    case_id: uuid.UUID, fact_id: uuid.UUID, body: AvailabilityChange, access: Override, conn: DbConn
+) -> AvailabilityOut:
+    cur = await conn.execute("select 1 from app.facts where id = %s and case_id = %s", (fact_id, case_id))
+    if await cur.fetchone() is None:
+        raise not_found()
+    await conn.execute(
+        "insert into app.availability_overrides (case_id, fact_id, available_at, unknown, reason, person_id)"
+        " values (%s, %s, %s, %s, %s, app.current_person_id())",
+        (case_id, fact_id, body.available_at, body.unknown, body.reason.strip()),
+    )
+    basis = "expert_unknown" if body.unknown else "expert_override"
+    await conn.execute("select app.set_fact_availability(%s, %s, %s)", (fact_id, body.available_at, basis))
+    await audit.record(conn, action="fact.availability_changed", target=f"fact:{fact_id}", case_id=case_id)
+    return AvailabilityOut(fact_id=fact_id, available_at=body.available_at, unknown=body.unknown)
+
+
+class NoteIn(BaseModel):
+    body: str = Field(max_length=20000)
+
+
+class NoteOut(BaseModel):
+    fact_id: uuid.UUID
+    body: str
+
+
+@router.put("/cases/{case_id}/consultations/{fact_id}/note", response_model=NoteOut)
+async def put_note(case_id: uuid.UUID, fact_id: uuid.UUID, body: NoteIn, access: Note, conn: DbConn) -> NoteOut:
+    cur = await conn.execute("select 1 from app.facts where id = %s and case_id = %s", (fact_id, case_id))
+    if await cur.fetchone() is None:
+        raise not_found()
+    await conn.execute(
+        "insert into app.consultation_notes (case_id, fact_id, body, person_id)"
+        " values (%s, %s, %s, app.current_person_id())"
+        " on conflict (case_id, fact_id) do update set body = excluded.body,"
+        " version = app.consultation_notes.version + 1",
+        (case_id, fact_id, body.body),
+    )
+    await audit.record(conn, action="consultation.noted", target=f"fact:{fact_id}", case_id=case_id)
+    return NoteOut(fact_id=fact_id, body=body.body)
