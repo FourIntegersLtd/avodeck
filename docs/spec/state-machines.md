@@ -166,6 +166,10 @@ suggested → confirmed / rejected (expert); confirmed ↔ rejected (expert, aud
 
 suggested → accepted / dismissed (reason) by the expert; either can be changed back. If the underlying fact is rejected or changes version, the point becomes `stale` until reviewed.
 
+## Relevant fact (`relevant_facts.status`)
+
+suggested → dismissed (named expert). Final. A suggestion is no longer shown once the draft cites the fact or the fact stops being citable; it is never suggested again for that question.
+
 ## Witness claim (`witness_claims.status`)
 
 suggested → confirmed / edited / dismissed (expert). Becomes `stale` if any fact it relies on changes. A new version of the witness statement adds new claims; old claims stay for the record.

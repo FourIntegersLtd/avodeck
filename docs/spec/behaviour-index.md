@@ -67,6 +67,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `comments` | D | Any case member (own comments) | Many | Edit own; resolve | Case deletion; may be disclosable |
 | `points` | E | Named expert | Many | State machine; stale on fact change | Case deletion |
 | `range_notes` | E | Named expert | One per question | Edit freely | Case deletion |
+| `relevant_facts` | E | Worker; named expert dismisses | One per question and fact | State machine | Case deletion |
 | `witness_claims` | E | Worker; named expert confirms | Many per statement | State machine | Case deletion |
 | `opinions` | E | Named expert only | One per question | ETag on every save; versions kept | Case deletion |
 | `opinion_versions` | E | System on save | Many | Append only | Case deletion |

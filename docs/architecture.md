@@ -303,6 +303,7 @@ The expert's own reasoning and words.
 |---|---|---|
 | `points` | Facts sorted for or against, for each question. | case_id, question_id, fact_id, side, status, reason |
 | `range_notes` | The expert's note on what other reasonable clinicians might have done. | case_id, question_id, text |
+| `relevant_facts` | Checked facts the draft does not use yet that may bear on it (T-14b), until used or dismissed. | case_id, question_id, fact_id, why_relevant, status |
 | `witness_claims` | Statements in a witness statement compared with the records. | case_id, document_id, text_verbatim, word_ids[], verdict, fact_ids[], status |
 | `opinions` | The expert's own words answering each question, with citations to checked facts. | case_id, question_id, body, citation_refs, view, provisional, test_text, updated_at, etag |
 | `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, saved_at, saved_by |
@@ -577,8 +578,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/questions/{q_id}/points` | Facts by side + unused relevant facts + accounts that differ |
+| POST | `/cases/{case_id}/questions/{q_id}/points` | Add an unused citable fact as a point (starts accepted) |
 | POST | `/cases/{case_id}/questions/{q_id}/points/suggest` | T-14a / T-14b (202 + job) |
 | PATCH | `/cases/{case_id}/points/{point_id}` | Move side / accept / remove |
+| PATCH | `/cases/{case_id}/relevant-facts/{relevant_id}` | Dismiss a fact T-14b suggested |
 | PUT | `/cases/{case_id}/questions/{q_id}/range-note` | "What other {clinicians} might reasonably do" (wording from the pack) |
 | POST | `/cases/{case_id}/witness-statements/{doc_id}/compare` | T-14c (202 + job) |
 | PATCH | `/cases/{case_id}/witness-claims/{claim_id}` | Confirm / dismiss |

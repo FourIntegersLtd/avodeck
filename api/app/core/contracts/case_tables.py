@@ -55,6 +55,7 @@ CASE_TABLES: frozenset[str] = frozenset(
         "opinions",
         "points",
         "range_notes",
+        "relevant_facts",
         "witness_claims",
     }
 )
@@ -81,6 +82,7 @@ PURGE_ORDER: tuple[str, ...] = (
     "opinion_versions",
     "opinions",
     "points",
+    "relevant_facts",
     "range_notes",
     "witness_claims",
     "jobs",

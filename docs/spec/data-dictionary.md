@@ -551,6 +551,17 @@ A joint expert is one with two or more current instructing parties; no separate 
 |---|---|
 | question_id / text | The expert's note on what other reasonable clinicians might have done |
 
+### relevant_facts
+| Field | In plain words |
+|---|---|
+| question_id / fact_id | Which checked fact, for which question's draft |
+| why_relevant | A short label for what the fact may bear on (never wording for the draft) |
+| status | Still suggested, or dismissed by the expert |
+| fact_version | The fact as it was when suggested |
+| job_id / model_task / prompt_version | Which run suggested it |
+| decided_by / decided_at | Who dismissed it and when |
+| version | A stamp that stops two windows overwriting each other |
+
 ### witness_claims
 | Field | In plain words |
 |---|---|

@@ -1,4 +1,5 @@
-"""Slice E's AI tasks (architecture 6.3): T-14a sorts facts by side.
+"""Slice E's AI tasks (architecture 6.3): T-14a sorts facts by side, T-14b picks
+citable facts the draft does not use yet.
 
 Prompts are neutral templates in `prompts/*.md` (first line `version: ...`); the pack's prompt context
 and the output schemas (built from the pack's registries and the references a request supplies) carry
@@ -50,3 +51,21 @@ def t14a(pack: MergedPack, refs: Sequence[str]) -> AiTask:
         "properties": {"points": {"type": "array", "maxItems": len(refs), "items": point}},
     }
     return AiTask(task_id="T-14a", prompt_version=version, model="sonnet", system=system, schema=schema)
+
+
+def t14b(pack: MergedPack, refs: Sequence[str]) -> AiTask:
+    """Pick the supplied facts (by reference) that bear on the draft; a reference not supplied fails the schema."""
+    version, system = prompt("t14b")
+    fact = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["fact", "why_relevant"],
+        "properties": {"fact": {"type": "string", "enum": list(refs)}, "why_relevant": REASON},
+    }
+    schema: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["facts"],
+        "properties": {"facts": {"type": "array", "maxItems": len(refs), "items": fact}},
+    }
+    return AiTask(task_id="T-14b", prompt_version=version, model="sonnet", system=system, schema=schema)

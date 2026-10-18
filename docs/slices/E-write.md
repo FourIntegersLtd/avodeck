@@ -19,7 +19,7 @@ For each question, the expert sees the facts for and against, notes what other r
 - `POST /v1/cases/{id}/questions/{q_id}/opinion/lint`; `PATCH /v1/cases/{id}/lint-issues/{issue_id}`
 
 ## Tables owned
-`points` (side: supports_claim / supports_clinician / neutral; labels from the pack), `range_notes`, `witness_claims`, `opinions` (body, citation_refs, view, provisional, test_text), `lint_issues` (keyed by `opinion_id` here; F adds `paragraph_id` rows for the whole report).
+`points` (side: supports_claim / supports_clinician / neutral; labels from the pack), `range_notes`, `relevant_facts` (T-14b suggestions, dismissible), `witness_claims`, `opinions` (body, citation_refs, view, provisional, test_text), `lint_issues` (keyed by `opinion_id` here; F adds `paragraph_id` rows for the whole report).
 
 ## Citation rule (the heart of this slice)
 A citation is a structured object `{fact_id, quote_verbatim, page_id}` stored in `citation_refs`, with a marker in `body`. The server accepts it only if:
@@ -45,10 +45,10 @@ The loaded-language word list and opinion `view` options come from the case-type
 
 ## Acceptance tests (write first)
 - [ ] Citing a suggested, rejected or unread-page fact returns 422. Citing a verified fact whose quote is not in its words returns 422. A valid citation is stored and the marker round-trips.
-- [ ] T-14a output containing a fact ID that was not supplied is rejected and retried once. The recorded request contains only verified facts with identifiers stripped.
+- [x] T-14a output containing a fact ID that was not supplied is rejected and retried once. The recorded request contains only verified facts with identifiers stripped.
 - [ ] Moving a point between sides, accepting and removing are audited. Side labels come from the pack (the gb-eaw/general-practice packs show "supports the GP").
 - [ ] Facts flagged on screen 09 appear first under the question they're linked to.
-- [ ] T-14b suggests the planted unused fact (safety-netting entry on page 117) after a draft that ignores it.
+- [x] T-14b suggests the planted unused fact (safety-netting entry on page 117) after a draft that ignores it.
 - [ ] T-14c on the synthetic witness statement finds the planted contradiction ("I was never told to come back" vs page 118 "review 3/52 if no better"). Claims are exact substrings, and the expert's decision is stored.
 - [ ] The regex lint flags a sentence with a date or number but no citation, and words from the pack's loaded-language list ("clearly negligent", "obviously"), in under 200 ms.
 - [ ] The AI lint flags a causation statement as `outside_expertise` for a general-practice expert (rule from the case-type pack).

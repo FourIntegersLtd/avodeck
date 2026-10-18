@@ -3,8 +3,9 @@
 A point is a verified fact placed on a side; the sides' codes are the core's and their labels the case
 type's (`pack.point_sides()`). Facts the expert flagged on screen 09 come first, then points by side.
 The named expert moves a point, accepts it or removes it with a reason (If-Match on the point's
-version), or adds an unused citable fact as a point; each is audited. The database keeps the allowed
-status changes (migration 0500) and marks a point stale when its fact changes (0504).
+version), or adds an unused citable fact as a point; each is audited. Citable facts the draft does not
+cite that T-14b picked show as relevant facts until the draft cites them; the expert can dismiss one.
+The database keeps the allowed status changes (migration 0500) and marks a point stale when its fact changes (0504).
 """
 
 from __future__ import annotations
@@ -61,10 +62,19 @@ class PointOut(BaseModel):
     fact: PointFact
 
 
+class RelevantOut(BaseModel):
+    id: uuid.UUID
+    status: str
+    why_relevant: str
+    version: int
+    fact: PointFact
+
+
 class Points(BaseModel):
     sides: list[Side]
     points: list[PointOut]
     unused: list[PointFact]
+    relevant: list[RelevantOut]
     range_note: RangeNote
 
 
@@ -78,6 +88,12 @@ class PointChange(BaseModel):
     side: str | None = Field(default=None, max_length=40)
     status: Literal["accepted", "dismissed"] | None = None
     dismissed_reason: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class RelevantChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["dismissed"]
 
 
 class PointAdd(BaseModel):
@@ -145,7 +161,28 @@ async def list_points(
         for f in sorted(spare, key=lambda f: (f.id not in flagged, pages[f.page_id]))
     ]
     note = await range_note(conn, crypto, case_id, question_id, pack.range_note_prompt())
-    return Points(sides=[Side(**s) for s in sides], points=points, unused=unused, range_note=note)
+    relevant = await _relevant(conn, case_id, question_id, {f.id: f for f in unused})
+    return Points(sides=[Side(**s) for s in sides], points=points, unused=unused, relevant=relevant, range_note=note)
+
+
+async def _relevant(
+    conn: DbConn, case_id: uuid.UUID, question_id: uuid.UUID, unused: dict[uuid.UUID, PointFact]
+) -> list[RelevantOut]:
+    """T-14b's suggestions still open: the fact still citable, not a point and not cited by the draft."""
+    cur = await conn.execute("select citation_refs from app.opinions where question_id = %s", (question_id,))
+    opinion = await cur.fetchone()
+    cited = {str(c["fact_id"]) for c in opinion[0]} if opinion else set()
+    rows = await _rows(
+        conn,
+        "select * from app.relevant_facts where case_id = %s and question_id = %s and status = 'suggested'"
+        " order by created_at, id",
+        (case_id, question_id),
+    )
+    return [
+        RelevantOut(**{k: r[k] for k in ("id", "status", "why_relevant", "version")}, fact=unused[r["fact_id"]])
+        for r in rows
+        if r["fact_id"] in unused and str(r["fact_id"]) not in cited
+    ]
 
 
 @router.post("/cases/{case_id}/questions/{question_id}/points", response_model=PointOut, status_code=201)
@@ -229,3 +266,42 @@ async def change_point(
     out = (await _rows(conn, _POINT + " where p.id = %s", (point_id,)))[0]
     response.headers["ETag"] = etag(out["version"])
     return _point(out, await services.current().flags.flagged_for_points(conn, case_id))
+
+
+@router.patch("/cases/{case_id}/relevant-facts/{relevant_id}", response_model=RelevantOut)
+async def dismiss_relevant(
+    case_id: uuid.UUID,
+    relevant_id: uuid.UUID,
+    change: RelevantChange,
+    if_match: IfMatch,
+    request: Request,
+    response: Response,
+    access: Write,
+    conn: DbConn,
+) -> RelevantOut:
+    """Dismiss a suggested relevant fact; the expert uses one by citing it in the draft."""
+    found = await _rows(
+        conn, "select * from app.relevant_facts where case_id = %s and id = %s for update", (case_id, relevant_id)
+    )
+    if not found:
+        raise not_found()
+    if found[0]["version"] != if_match:
+        raise stale()
+    try:
+        async with conn.transaction():
+            await conn.execute("update app.relevant_facts set status = %s where id = %s", (change.status, relevant_id))
+    except psycopg.Error as exc:
+        raise _refused(exc) from None
+    await audit.record(conn, action="relevant_fact.dismissed", target=f"relevant_fact:{relevant_id}", case_id=case_id)
+    row = (
+        await _rows(
+            conn,
+            "select r.*, f.page_id, f.kind, f.value, f.event_date, pg.bundle_page_no as page_no"
+            " from app.relevant_facts r join app.facts f on f.id = r.fact_id join app.pages pg on pg.id = f.page_id"
+            " where r.id = %s",
+            (relevant_id,),
+        )
+    )[0]
+    response.headers["ETag"] = etag(row["version"])
+    fact = PointFact(id=row["fact_id"], **{k: row[k] for k in ("page_id", "page_no", "kind", "value", "event_date")})
+    return RelevantOut(**{k: row[k] for k in ("id", "status", "why_relevant", "version")}, fact=fact)

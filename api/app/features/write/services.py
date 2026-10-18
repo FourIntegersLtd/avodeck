@@ -39,12 +39,15 @@ class WriteServices:
             raise ProcessingPaused("model_unavailable")
         return self.kit
 
+    def case_crypto(self) -> CaseCrypto:
+        if self.crypto is None:
+            raise ProcessingPaused("storage_unavailable")
+        return self.crypto
+
     def party_names(self) -> CaseNames:
         if self.names is not None:
             return self.names
-        if self.crypto is None:
-            raise ProcessingPaused("storage_unavailable")
-        return PartyNames(self.crypto)
+        return PartyNames(self.case_crypto())
 
 
 _current: WriteServices | None = None
