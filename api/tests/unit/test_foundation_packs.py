@@ -111,7 +111,9 @@ def test_registries_come_from_the_packs(library: packs.PackLibrary, combo: Combo
     assert keys(pack.workflow_steps()) == [s["key"] for s in combo.raw("case-type", "workflow.yaml")["steps"]]
     assert pack.workflow_steps()[0]["screens"] == combo.raw("case-type", "workflow.yaml")["steps"][0]["screens"]
     assert keys(pack.question_types()) == [q["key"] for q in combo.raw("case-type", "questions.yaml")["question_types"]]
-    assert keys(pack.report_sections()) == [s["key"] for s in combo.raw("case-type", "report_sections.yaml")["sections"]]
+    assert keys(pack.report_sections()) == [
+        s["key"] for s in combo.raw("case-type", "report_sections.yaml")["sections"]
+    ]
     assert keys(pack.fact_kinds()) == [f["key"] for f in combo.raw("specialty", "facts.yaml")["fact_kinds"]]
     assert all(isinstance(f["fields"], dict) and f["fields"] for f in pack.fact_kinds())
     sources = combo.raw("specialty", "sources.yaml")["source_types"]
