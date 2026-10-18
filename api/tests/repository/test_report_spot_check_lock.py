@@ -15,7 +15,7 @@ from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
 
-TOKEN = hashlib.sha256(b"zz-token").hexdigest()
+TOKEN = hashlib.sha256(uuid.uuid4().bytes).hexdigest()  # rows from earlier runs stay committed
 RIGHT = hashlib.sha256(b"zz-right").hexdigest()
 WRONG = hashlib.sha256(b"zz-wrong").hexdigest()
 
