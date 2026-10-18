@@ -30,6 +30,8 @@ from app.features.write.lint_store import BODY, LintIssueOut, dismissed_issues, 
 from app.features.write.quotes import same_words
 from app.features.write.router import router
 
+TEST_TEXT = "opinion_test_text"
+
 
 class OpinionIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -38,6 +40,7 @@ class OpinionIn(BaseModel):
     citation_refs: list[Citation] = Field(default_factory=list, max_length=500)
     view: str | None = Field(default=None, max_length=40)
     provisional: bool = False
+    test_text: str | None = Field(default=None, max_length=2000)
 
 
 class OpinionOut(BaseModel):
@@ -47,6 +50,7 @@ class OpinionOut(BaseModel):
     citation_refs: list[Citation]
     view: str | None
     provisional: bool
+    test_text: str | None = None
     restored_from: int | None
     version: int
     updated_at: datetime
@@ -59,6 +63,7 @@ class OpinionVersion(BaseModel):
     citation_refs: list[Citation]
     view: str | None
     provisional: bool
+    test_text: str | None = None
     restored_from: int | None
     saved_by: uuid.UUID | None
     saved_at: datetime
@@ -72,8 +77,21 @@ async def _decrypt(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, blob: Any) 
     return (await crypto.decrypt(conn, case_id, bytes(blob), purpose=BODY)).decode()
 
 
+async def _test_text(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, blob: Any) -> str | None:
+    if blob is None:
+        return None
+    return (await crypto.decrypt(conn, case_id, bytes(blob), purpose=TEST_TEXT)).decode()
+
+
 async def opinion_out(conn: DbConn, crypto: Crypto, row: dict[str, Any]) -> OpinionOut:
-    return OpinionOut(**{**row, "body": await _decrypt(conn, crypto, row["case_id"], row["body"])})
+    case_id = row["case_id"]
+    return OpinionOut(
+        **{
+            **row,
+            "body": await _decrypt(conn, crypto, case_id, row["body"]),
+            "test_text": await _test_text(conn, crypto, case_id, row["test_text"]),
+        }
+    )
 
 
 async def _current(
@@ -129,20 +147,26 @@ async def _write(
         "refs": Jsonb([c.model_dump(mode="json") for c in saving.citation_refs]),
         "view": saving.view,
         "provisional": saving.provisional,
+        "test_text": None
+        if saving.test_text is None
+        else await crypto.encrypt(conn, case_id, saving.test_text.encode(), purpose=TEST_TEXT),
         "restored_from": restored_from,
     }
     async with conn.cursor(row_factory=dict_row) as cur:
         if current is None:
             await cur.execute(
-                "insert into app.opinions (case_id, question_id, body, citation_refs, view, provisional, restored_from)"
-                " values (%(case)s, %(question)s, %(body)s, %(refs)s, %(view)s, %(provisional)s, %(restored_from)s)"
+                "insert into app.opinions"
+                " (case_id, question_id, body, citation_refs, view, provisional, test_text, restored_from)"
+                " values (%(case)s, %(question)s, %(body)s, %(refs)s, %(view)s, %(provisional)s, %(test_text)s,"
+                " %(restored_from)s)"
                 " returning *",
                 {**values, "case": case_id, "question": question_id},
             )
         else:
             await cur.execute(
                 "update app.opinions set body = %(body)s, citation_refs = %(refs)s, view = %(view)s,"
-                " provisional = %(provisional)s, restored_from = %(restored_from)s where id = %(id)s returning *",
+                " provisional = %(provisional)s, test_text = %(test_text)s, restored_from = %(restored_from)s"
+                " where id = %(id)s returning *",
                 {**values, "id": current["id"]},
             )
         row = await cur.fetchone()
@@ -212,6 +236,7 @@ async def opinion_versions(
                     k: r[k] for k in ("version_no", "citation_refs", "view", "provisional", "restored_from", "saved_by")
                 },
                 body=await _decrypt(conn, crypto, case_id, r["body"]),
+                test_text=await _test_text(conn, crypto, case_id, r["test_text"]),
                 saved_at=r["created_at"],
             )
             for r in rows
@@ -247,6 +272,7 @@ async def restore_version(
         citation_refs=old["citation_refs"],
         view=old["view"],
         provisional=old["provisional"],
+        test_text=await _test_text(conn, crypto, case_id, old["test_text"]),
     )
     if current["version"] != if_match:
         raise await _stale(conn, crypto, current, restoring)

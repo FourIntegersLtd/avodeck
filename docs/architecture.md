@@ -307,7 +307,7 @@ The expert's own reasoning and words.
 | `witness_claims` | Statements in a witness statement compared with the records. | case_id, document_id, text_verbatim, word_ids[], verdict, fact_ids[], status |
 | `witness_comparisons` | Each request to compare a witness statement with the records (T-14c job). | case_id, document_id, job_id, status, claims |
 | `opinions` | The expert's own words answering each question, with citations to checked facts. | case_id, question_id, body, citation_refs, view, provisional, test_text, updated_at, etag |
-| `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, saved_at, saved_by |
+| `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, test_text, saved_at, saved_by |
 | `lint_issues` | Gentle warnings about wording (uncited facts, loaded words, outside expertise) and why the expert dismissed them. | case_id, opinion_id or paragraph_id, sentence_index, type, words, dismissed_reason |
 
 ### 4.7 Report

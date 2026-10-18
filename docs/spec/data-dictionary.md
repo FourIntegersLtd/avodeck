@@ -600,7 +600,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 ### opinion_versions
 | Field | In plain words |
 |---|---|
-| version_no / body / citation_refs | Each saved version of the text and its references |
+| version_no / body / citation_refs / test_text | Each saved version of the text, its references and the test in the expert's words |
 | created_at / saved_by | When and by whom it was saved |
 
 ### lint_issues
