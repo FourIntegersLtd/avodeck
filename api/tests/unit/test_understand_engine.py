@@ -14,12 +14,13 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, date, datetime
+from typing import Any
 
 from app.features.understand.as_seen import SeenItem, as_seen
 from app.features.understand.availability import Mark, Override, Placed, compute
 from app.features.understand.lanes import arrange, lane_for
 
-LANES = [
+LANES: list[Any] = [
     {"key": "visits", "kinds": ["consultation", "phone_consultation"]},
     {"key": "after_hours", "kinds": ["consultation", "phone_consultation"], "when": {"setting": "out_of_hours"}},
     {"key": "tests", "kinds": ["result"]},
@@ -52,7 +53,12 @@ def test_plain_string_lanes_have_no_kinds() -> None:
 
 
 def test_arrange_keeps_the_pack_order_and_every_fact() -> None:
-    facts = [("a", "letter", {}), ("b", "result", {}), ("c", "prescription", {}), ("d", "consultation", {})]
+    facts: list[tuple[str, str, dict[str, Any]]] = [
+        ("a", "letter", {}),
+        ("b", "result", {}),
+        ("c", "prescription", {}),
+        ("d", "consultation", {}),
+    ]
     lanes, unplaced = arrange(facts, LANES, kind=lambda f: f[1], fields=lambda f: f[2])
     assert [lane for lane, _ in lanes] == ["visits", "after_hours", "tests", "post"]
     assert dict(lanes)["post"] == [facts[0]]
@@ -62,7 +68,7 @@ def test_arrange_keeps_the_pack_order_and_every_fact() -> None:
 
 def test_arrange_follows_a_different_pack_without_code_change() -> None:
     other = [{"key": "measurements", "kinds": ["measurement"]}, {"key": "sessions", "kinds": ["session"]}]
-    facts = [("a", "session", {}), ("b", "measurement", {})]
+    facts: list[tuple[str, str, dict[str, Any]]] = [("a", "session", {}), ("b", "measurement", {})]
     lanes, unplaced = arrange(facts, other, kind=lambda f: f[1], fields=lambda f: f[2])
     assert [lane for lane, _ in lanes] == ["measurements", "sessions"]
     assert unplaced == []
