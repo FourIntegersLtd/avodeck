@@ -1,7 +1,7 @@
 """The e-sign provider's webhook for joint statements, signed out (threat model: a new inbound flow).
 
 `POST /v1/webhooks/esign` carries `x-avodeck-signature: sha256=<hex>`, an HMAC of the raw body with the
-cell's `ESIGN_WEBHOOK_SECRET` (503 when the cell has none). The body names the signing reference, never a
+cell's `ESIGN_WEBHOOK_SECRET` (401 for everything when the cell has none). The body names the signing reference, never a
 case: migration 0900's security definer functions find the meeting by the reference's hash, move it and
 audit with no person. Unknown reference 404; a statement not out for signature 409 (a replay).
 """
@@ -39,26 +39,20 @@ class EsignOutcome(BaseModel):
     status: Literal["signed", "declined"]
 
 
-def _secret() -> bytes:
+def _checked(body: bytes, header: str | None) -> None:
+    """401 unless the body is signed with the cell's secret; a cell with no secret accepts nothing."""
     secret = os.environ.get("ESIGN_WEBHOOK_SECRET", "").strip()
-    if not secret:
-        raise ApiError("unavailable", "Signing is not set up.", 503)
-    return secret.encode()
-
-
-def _checked(secret: bytes, body: bytes, header: str | None) -> None:
-    expected = "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
-    if not header or not hmac.compare_digest(expected, header.strip()):
+    expected = "sha256=" + hmac.new(secret.encode(), body, hashlib.sha256).hexdigest() if secret else None
+    if not expected or not header or not hmac.compare_digest(expected, header.strip()):
         raise ApiError("bad_signature", "The signature does not match.", 401)
 
 
 @webhook_router.post("/webhooks/esign", response_model=EsignOutcome)
 async def esign_webhook(request: Request) -> EsignOutcome:
-    secret = _secret()
     body = await request.body()
     if len(body) > MAX_BODY:
         raise ApiError("invalid", "Too large.", 413)
-    _checked(secret, body, request.headers.get("x-avodeck-signature"))
+    _checked(body, request.headers.get("x-avodeck-signature"))
     try:
         event = EsignEvent.model_validate_json(body)
     except ValidationError:
