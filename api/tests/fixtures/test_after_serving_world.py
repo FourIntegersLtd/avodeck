@@ -388,7 +388,10 @@ async def world(
     built = await build(seed, admin, aconn, combo, reads)
     yield built
     # The daily reminder scan reads every case; close this case's deadlines so later tests start clean.
-    admin.execute("update app.deadlines set done_at = now() where case_id = %s and done_at is null", (built.case,))
+    admin.execute(
+        "update app.deadlines set done_at = now() where case_id = %s and done_at is null and cancelled_at is null",
+        (built.case,),
+    )
 
 
 @pytest.fixture
