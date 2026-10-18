@@ -27,7 +27,8 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — |
 | `page.quarantine`, `page.replace`, `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — |
 | `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — |
-| `fact.verify` | ✓ | — | — | — | — | — |
+| `page.transcribe` (type out a page we couldn't read, ask for a second reading, mark relevance or ask for a clearer copy) | ✓ | — | — | ✓ | — | — |
+| `fact.verify` (also flag a fact for points against, move it to a clearer copy) | ✓ | — | — | — | — | — |
 | `question.confirm` | ✓ | — | — | — | — | — |
 | `opinion.write` | ✓ | — | — | — | — | — |
 | `comment.write` | ✓ | ✓ | ✓ | ✓ | — | — |
