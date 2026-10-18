@@ -29,6 +29,7 @@ from psycopg.types.json import Jsonb
 
 from app.core.ai import pii
 from app.core.contracts import availability as evidence
+from app.core.contracts import questions
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
 from app.features.understand import ai_tasks, availability, links
@@ -140,13 +141,8 @@ async def _expert_settings(conn: AsyncConnection, case_id: uuid.UUID) -> dict[st
 
 
 def _tables(pack: MergedPack, checks: Sequence[Mapping[str, Any]]) -> dict[str, list[Mapping[str, Any]]]:
-    """The pack's reference tables the checks name (`table`): the first list in the table's file."""
-    files: Mapping[str, Any] = getattr(pack, "_files", {})
-    out: dict[str, list[Mapping[str, Any]]] = {}
-    for name in {str(c["table"]) for c in checks if c.get("table")}:
-        content = files.get(f"{name}.yaml") or {}
-        out[name] = next((v for v in content.values() if isinstance(v, list)), [])
-    return out
+    """The pack's reference tables the checks name (`table`)."""
+    return {name: list(pack.reference_table(name)) for name in {str(c["table"]) for c in checks if c.get("table")}}
 
 
 async def _labels(
@@ -219,12 +215,7 @@ async def _save(
 
 
 async def _confirmed_questions(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
-    cur = await conn.execute(
-        "select id, coalesce(confirmed_text, text_verbatim) from app.questions"
-        " where case_id = %s and status in ('confirmed', 'edited') order by number, id",
-        (case_id,),
-    )
-    return [(r[0], str(r[1])) for r in await cur.fetchall()]
+    return [(q.id, q.wording) for q in await questions.confirmed_questions(conn, case_id)]
 
 
 def _day(value: date | None) -> str | None:
