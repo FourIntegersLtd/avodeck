@@ -191,3 +191,59 @@ async def test_quarantined_pages_are_not_read_again(h: Harness) -> None:
     await h.drain()
     assert await picture_size(h, first) == size
     assert len(t07b_requests(h)) == asked
+
+
+def remaps(h: Harness, fact_id: uuid.UUID) -> list[tuple[Any, ...]]:
+    return h.admin.execute(
+        "select action, person_id, old_word_ids, new_word_ids, old_value, new_value"
+        " from app.fact_verifications where fact_id = %s order by seq",
+        (fact_id,),
+    ).fetchall()
+
+
+async def type_out(h: Harness, page_id: uuid.UUID, text: str) -> None:
+    h.admin.execute(
+        "update app.pages set unreadable = true, transcribed_by_expert_text = %s where id = %s", (text, page_id)
+    )
+    async with h.api_db.request(scope_for(h.expert)) as conn:
+        await extract_page_text(conn, h.case_id, page_id)
+    assert set((await h.drain()).values()) == {"done"}
+
+
+async def test_a_re_mapped_value_must_match_as_the_provenance_check_reads_it(h: Harness) -> None:
+    """Rule 2's normaliser decides: "1.5 mg" is not "15 mg", so the fact is flagged, not re-mapped."""
+    first, _ = page_ids(h)
+    await type_out(h, first, "Amoxicillin 1.5 mg daily")
+    dose = add_fact(h, first, "1.5 mg", await words_for(h, first, "1.5 mg"), "verified")
+    name = add_fact(h, first, "Amoxicillin", await words_for(h, first, "Amoxicillin"), "verified")
+    await type_out(h, first, "AMOXICILLIN 15 mg daily")
+
+    assert fact(h, dose)["word_ids"] == ["e2", "e3"]
+    assert rechecks(h) == [(dose, None)]
+    assert fact(h, name)["status"] == "verified"
+    assert remaps(h, dose) == []
+
+
+async def test_every_re_mapped_fact_is_logged_and_typed_words_have_no_box(h: Harness) -> None:
+    first, _ = page_ids(h)
+    cited = await words_for(h, first, "chest clear")
+    kept = add_fact(h, first, "chest clear", cited, "verified")
+    await type_out(h, first, "review chest clear")
+
+    moved = fact(h, kept)
+    assert moved["word_ids"] == ["e2", "e3"] and moved["bbox"] is None
+    assert remaps(h, kept) == [("remapped", None, cited, ["e2", "e3"], "chest clear", "chest clear")]
+    ok = h.admin.execute("select app.fact_verifications_chain_ok(%s)", (h.case_id,)).fetchone()
+    assert ok == (True,)
+
+
+async def test_a_turned_page_logs_each_re_mapped_fact(h: Harness) -> None:
+    first, _ = page_ids(h)
+    cited = await words_for(h, first, "chest clear")
+    kept = add_fact(h, first, "chest clear", cited, "verified")
+    h.admin.execute("update app.pages set rotation = 90 where id = %s", (first,))
+    async with h.api_db.request(scope_for(h.expert)) as conn:
+        await process_pages(conn, h.case_id, [first])
+    assert set((await h.drain()).values()) == {"done"}
+    assert [r[0] for r in remaps(h, kept)] == ["remapped"]
+    assert fact(h, kept)["bbox"] is not None
