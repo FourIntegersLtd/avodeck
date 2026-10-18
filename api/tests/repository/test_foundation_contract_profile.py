@@ -182,3 +182,51 @@ async def test_no_template_signature_or_declaration_yet_is_none(api_db: Database
         assert await profile.signature(conn, case) is None
         assert await profile.declarations(conn, case) == []
         assert await profile.conflict_declaration(conn, case) is None
+
+
+# The named expert's name, registration and fee details (`profile.named_expert`; request from slice F) --------
+
+
+def add_expert_details(admin: psycopg.Connection, person: uuid.UUID) -> None:
+    admin.execute(
+        "insert into app.experts (person_id, registration_body, registration_number, hourly_rate, currency)"
+        " values (%s, 'zz_body', 'ZZ123', 150.00, 'XTS')"
+        " on conflict (person_id) do update set registration_body = excluded.registration_body,"
+        " registration_number = excluded.registration_number, hourly_rate = excluded.hourly_rate,"
+        " currency = excluded.currency",
+        (person,),
+    )
+
+
+async def test_whoever_may_see_the_case_gets_the_named_experts_details(
+    api_db: Database, worker_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID]
+) -> None:
+    add_expert_details(admin, world["expert"])
+    async with api_db.request(scope_for(world["assistant"])) as conn:
+        expert = await profile.named_expert(conn, world["case"])
+    async with worker_db.job(world["case"]) as conn:
+        from_job = await profile.named_expert(conn, world["case"])
+    assert expert is not None and expert == from_job
+    assert isinstance(expert, profile.NamedExpert)
+    assert (expert.person_id, expert.full_name) == (world["expert"], "Test Person")
+    assert (expert.registration_body, expert.registration_number) == ("zz_body", "ZZ123")
+    assert (str(expert.hourly_rate), expert.currency) == ("150.00", "XTS")
+
+
+async def test_an_outsider_gets_no_named_expert_details(
+    api_db: Database, worker_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID]
+) -> None:
+    add_expert_details(admin, world["expert"])
+    async with api_db.request(scope_for(world["outsider"])) as conn:
+        assert await profile.named_expert(conn, world["case"]) is None
+    async with worker_db.job(world["elsewhere"]) as conn:
+        assert await profile.named_expert(conn, world["case"]) is None
+
+
+async def test_a_named_expert_without_a_profile_row_still_has_a_name(
+    api_db: Database, world: dict[str, uuid.UUID]
+) -> None:
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        expert = await profile.named_expert(conn, world["case"])
+    assert expert is not None and expert.full_name == "Test Person"
+    assert (expert.registration_body, expert.hourly_rate, expert.currency) == (None, None, None)
