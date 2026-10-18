@@ -104,6 +104,22 @@ test("a statement that hasn't been checked yet says so and can't be confirmed", 
   expect(screen.queryByRole("button", { name: M["after_serving.new.confirm"]! })).toBeNull();
 });
 
+test("a statement checked against a page you haven't read asks you to read that page first and shows nothing else", async () => {
+  serve("launch", { opposing: report([claim({ status: "read_first", our_quote: null, our_page_no: 214, checked_by: null, discrepancy: false })]) });
+  renderAt(`${url}?document=${DOC}`);
+  expect(await screen.findByText("Read page 214 first to see this check.")).toBeInTheDocument();
+  expect(screen.queryByText(M["after_serving.new.their_quote"]!)).toBeNull();
+  expect(screen.queryByRole("button", { name: M["after_serving.new.confirm"]! })).toBeNull();
+});
+
+test("a refused confirmation (page not read yet) is explained", async () => {
+  serve("launch", { opposing: report([claim()]) });
+  server.use(http.patch("/v1/cases/:caseId/opposing-claims/:id", () => apiError(409, "read_first")));
+  const { user } = renderAt(`${url}?document=${DOC}`);
+  await user.click(await screen.findByRole("button", { name: M["after_serving.new.confirm"]! }));
+  expect(await screen.findByText("Read that page first, then confirm.")).toBeInTheDocument();
+});
+
 test("a refused confirmation (not checked) is explained", async () => {
   serve("launch", { opposing: report([claim()]) });
   server.use(http.patch("/v1/cases/:caseId/opposing-claims/:id", () => apiError(409, "not_checked")));

@@ -368,3 +368,40 @@ async def test_registering_their_report_needs_upload_rights_and_happens_once(
     assert (await (await client_for(served.expert)).post(served.url("opposing-reports"), json=body)).status_code == 409
     listed = await (await client_for(served.viewer)).get(served.url(f"opposing-reports/{document}"))
     assert listed.status_code == 200 and listed.json()["claims"] == [] and listed.json()["checked_at"] is None
+
+
+async def test_a_claims_check_stays_hidden_until_the_viewer_has_read_its_page(
+    client_for: ClientFor,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    reads: Reads,
+    served: World,
+) -> None:
+    """Blind read (rule 3): what our page says, and the check's result, wait until this viewer has read it."""
+    page = admin.execute(
+        "select id from app.pages where case_id = %s and bundle_page_no = 2", (served.case,)
+    ).fetchone()
+    assert page is not None
+    reads.rows.discard((served.case, page[0], 2, served.expert))
+    document, _ = await checked_report(client_for, storage, admin, aconn, worker_db, model, served)
+    expert = await client_for(served.expert)
+    report = (await expert.get(served.url(f"opposing-reports/{document}"))).json()
+    by_no = {c["claim_no"]: c for c in report["claims"]}
+    hidden = by_no[3]
+    assert hidden["status"] == "read_first" and hidden["our_page_no"] == 2
+    assert hidden["our_quote"] is None and hidden["checked_by"] is None and hidden["reason"] is None
+    assert hidden["discrepancy"] is False
+    assert by_no[8]["status"] == "not_on_page", "no page of ours was found: nothing to read first"
+
+    url = served.url(f"opposing-claims/{hidden['id']}")
+    blocked = await expert.patch(url, json={"confirm": True}, headers={"If-Match": etag(hidden["version"])})
+    assert blocked.status_code == 409 and blocked.json()["error"]["code"] == "read_first", blocked.text
+
+    reads.rows.add((served.case, page[0], 2, served.expert))
+    shown = {c["claim_no"]: c for c in (await expert.get(served.url(f"opposing-reports/{document}"))).json()["claims"]}
+    assert shown[3]["status"] == "matches" and shown[3]["our_quote"] == "Ferritin 9 ug/L"
+    other = await (await client_for(served.assistant)).get(served.url(f"opposing-reports/{document}"))
+    assert {c["claim_no"]: c for c in other.json()["claims"]}[3]["status"] == "read_first", "each viewer reads"
