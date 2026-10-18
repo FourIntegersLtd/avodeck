@@ -77,8 +77,9 @@ _WRITERS: dict = {}
 
 def writer_for(hand, messy, ink):
     key = (hand, round(messy, 2), ink)
-    if key not in _WRITERS:
-        _WRITERS[key] = Writer(str(key), messy, hand, ink)
+    if key not in _WRITERS:     # seeded by the font's name, not its path, so every checkout draws the same hand
+        seed = (os.path.basename(hand) if hand else hand, round(messy, 2), ink)
+        _WRITERS[key] = Writer(str(seed), messy, hand, ink)
     return _WRITERS[key]
 
 

@@ -182,8 +182,10 @@ class EmisPrint:
                    [[emis_date(a["d"]), a["t"], a["slot"], a["with"], a["outcome"]] for a in appts], size=8, on_row=rec)
 
     def tasks(self, tasks):
-        def rec(r):
-            self.doc.fact("task", r[2], event_date=None, created=r[0], status=r[4])
+        created = {emis_date(t["d"]): t["d"] for t in tasks}
+
+        def rec(r):     # each task is dated by its printed "Created" date
+            self.doc.fact("task", r[2], event_date=created[r[0]], created=r[0], status=r[4])
         self.section("Tasks")
         self.table([("Created", 24), ("Type", 28), ("Description", 74), ("Assigned to", 28), ("Status", 20)],
                    [[emis_date(t["d"]), t["type"], t["desc"], t["to"], t["status"]] for t in tasks], size=8, on_row=rec)

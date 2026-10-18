@@ -45,6 +45,7 @@ from app.core.pdf import embedded_words, split_pages  # noqa: E402
 
 BUNDLE = "bundles/synthetic-mrs-a"
 PAGE_W, PAGE_H = 595.2756 / 72, 841.8898 / 72
+RETRY_AT, BAD_TWICE_AT = 113, 701                 # planted retry and wrong-twice pages
 AVAILABILITY = {"sent_to_gp": "sent_to_clinician"}      # generator label -> T-07b kind
 FIELD_ALIASES = {"clinician": "clinician_name"}
 
@@ -122,7 +123,8 @@ class Stats(dict):
         self[key] = self.get(key, 0) + 1
 
 
-def t07b_output(row: dict, words: list[tuple[str, str]], kinds: dict, stats: Stats) -> dict:
+def t07b_output(row: dict, words: list[tuple[str, str]], kinds: dict, stats: Stats, source: str | None) -> dict:
+    """The ideal T-07b answer; `source` is the specialty pack's source key for the page."""
     facts = []
     for f in row.get("facts", []):
         value, ids = f["value"], find_run(words, f["value"])
@@ -151,7 +153,7 @@ def t07b_output(row: dict, words: list[tuple[str, str]], kinds: dict, stats: Sta
             avail.append({"kind": AVAILABILITY.get(a["kind"], a["kind"]), "date": a["date"], "word_ids": ids})
         else:
             stats.bump("availability_not_on_page")
-    return {"source_type": row.get("source_type"), "printed_dates": list(row.get("printed_dates", [])),
+    return {"source_type": source, "printed_dates": list(row.get("printed_dates", [])),
             "facts": facts, "references_out": refs, "availability_evidence": avail,
             "actions_requested_of_clinician": []}
 
@@ -216,6 +218,7 @@ def main():
     references = json.loads((exp / "references.json").read_text())
     missing = json.loads((exp / "missing.json").read_text())
     appended = json.loads((exp / "appended.json").read_text())
+    source_keys = {r["page"]: r["source_type"] for r in json.loads((exp / "sources.json").read_text())}
     stats = Stats()
     manifest = {"pages": [], "planted": {}, "references": []}
     page_data: dict[int, dict] = {}
@@ -245,7 +248,7 @@ def main():
                 words = [{"id": w.id, "text": w.text, "struck": False} for w in text_layer]
             pairs = [(w["id"], w["text"]) for w in words]
             subject = page_subject(pairs)
-            output = t07b_output(row, pairs, kinds, stats)
+            output = t07b_output(row, pairs, kinds, stats, source_keys.get(number) if name == "records" else None)
             stats["facts"] = stats.get("facts", 0) + len(output["facts"])
             page_data[number] = {"info": info, "pdf": pdf, "words": words, "pairs": pairs, "subject": subject,
                                  "output": output}
@@ -257,7 +260,9 @@ def main():
     plain = [n for n, d in page_data.items() if d["info"]["text_source"] == "embedded" and d["info"]["file"] ==
              "records" and not d["output"]["references_out"] and not d["info"]["duplicate_of_page"]]
     spoiled = [(n, s) for n in plain if (s := spoil(page_data[n]["output"], dict(page_data[n]["pairs"])))]
-    (retry, bad1), (twice, bad2) = spoiled[0], spoiled[len(spoiled) // 2]
+    # pinned like build.py's TARGETS, so regenerating the bundle never moves them: each is the first
+    # spoilable page from its target (slice A's tests name these pages)
+    (retry, bad1), (twice, bad2) = (next((n, s) for n, s in spoiled if n >= at) for at in (RETRY_AT, BAD_TWICE_AT))
     struck = next(n for n, d in page_data.items() if d["info"]["text_source"] == "ocr" and
                   not d["info"]["unreadable"] and len(struck_run(d["words"])) >= 2)
     ids = struck_run(page_data[struck]["words"])

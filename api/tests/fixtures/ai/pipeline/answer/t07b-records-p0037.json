@@ -46,7 +46,7 @@
             "1993-04-03"
           ],
           "references_out": [],
-          "source_type": "gp_record"
+          "source_type": "primary_care_record"
         },
         "output_tokens": 128
       }
