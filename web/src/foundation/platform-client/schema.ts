@@ -4166,6 +4166,11 @@ export interface components {
             workflow_steps: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Written Question Classifications
+             * @default []
+             */
+            written_question_classifications: string[];
         };
         /**
          * CaseUpdate
@@ -4691,6 +4696,8 @@ export interface components {
         DeadlineOut: {
             /** Calendar */
             calendar: string | null;
+            /** Cancelled At */
+            cancelled_at?: string | null;
             /** Created From */
             created_from: string;
             /** Done At */
@@ -8222,7 +8229,7 @@ export interface components {
         Withdrawn: {
             /**
              * Deadlines Cancelled
-             * @description Deadlines stop through the case status; nothing is cancelled here.
+             * @description Open deadlines cancelled by the slices that own them (CaseWithdrawn).
              */
             deadlines_cancelled: number;
             note: components["schemas"]["NoteDraft"];

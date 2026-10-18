@@ -1720,6 +1720,14 @@
             },
             "title": "Workflow Steps",
             "type": "array"
+          },
+          "written_question_classifications": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Written Question Classifications",
+            "type": "array"
           }
         },
         "required": [
@@ -3273,6 +3281,18 @@
               }
             ],
             "title": "Calendar"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
           },
           "created_from": {
             "title": "Created From",
@@ -13241,7 +13261,7 @@
       "Withdrawn": {
         "properties": {
           "deadlines_cancelled": {
-            "description": "Deadlines stop through the case status; nothing is cancelled here.",
+            "description": "Open deadlines cancelled by the slices that own them (CaseWithdrawn).",
             "title": "Deadlines Cancelled",
             "type": "integer"
           },
