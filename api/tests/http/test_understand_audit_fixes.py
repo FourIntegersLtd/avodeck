@@ -134,7 +134,7 @@ async def test_a_link_whose_question_was_removed_is_kept_as_stale_and_cannot_be_
     [listed] = (await expert.get(f"/v1/cases/{case.id}/fact-links")).json()["links"]
     assert (listed["id"], listed["status"], listed["question_id"]) == (str(link), "stale", None)
     resp = await expert.patch(
-        f"/v1/cases/{case.id}/fact-links/{link}", json={"status": "confirmed"}, headers={"If-Match": '"%d"' % 2}
+        f"/v1/cases/{case.id}/fact-links/{link}", json={"status": "confirmed"}, headers={"If-Match": '"2"'}
     )
     assert resp.status_code == 409 and _code(resp) == "stale_link"
 
