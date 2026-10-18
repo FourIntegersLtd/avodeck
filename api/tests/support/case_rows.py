@@ -268,6 +268,7 @@ def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         " values (%s, %s, %s, 'advice to return', 2)",
         (w.case, question, fact),
     )
+    admin.execute("insert into app.witness_comparisons (case_id, document_id) values (%s, %s)", (w.case, doc))
     return {
         "documents": 1,
         "pages": 1,
@@ -280,6 +281,7 @@ def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         "opinion_versions": 1,
         "lint_issues": 1,
         "relevant_facts": 1,
+        "witness_comparisons": 1,
     }
 
 

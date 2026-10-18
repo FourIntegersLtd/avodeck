@@ -36,6 +36,7 @@ INSERTS = {
     " source) values (%(c)s, %(o)s, 1, 0, 'loaded_language', '\\x00', 'regex')",
     "relevant_facts": "insert into app.relevant_facts (case_id, question_id, fact_id, why_relevant, fact_version)"
     " values (%(c)s, %(q)s, %(f)s, 'advice to return', 2)",
+    "witness_comparisons": "insert into app.witness_comparisons (case_id, document_id) values (%(c)s, %(d)s)",
 }
 SUGGEST_POINT = (
     "insert into app.points (case_id, question_id, fact_id, side, status, origin, fact_version, reason)"
@@ -146,7 +147,9 @@ async def test_an_expert_cannot_change_another_persons_view_of_a_claim(
     assert decided == [(world["expert"],)]
 
 
-@pytest.mark.parametrize("table", ["points", "witness_claims", "opinions", "range_notes", "relevant_facts"])
+@pytest.mark.parametrize(
+    "table", ["points", "witness_claims", "opinions", "range_notes", "relevant_facts", "witness_comparisons"]
+)
 async def test_points_claims_opinions_and_notes_are_never_deleted(
     api_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID], table: str
 ) -> None:
