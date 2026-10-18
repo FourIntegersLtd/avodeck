@@ -273,12 +273,21 @@ async def verify_fact(
 ) -> FactOut:
     before = await _checkable(conn, case_id, fact_id, version, scope)
     status = _CHECKS.get((before["status"], body.action))
-    if status is None and body.action == "correct" and before["needs_recheck"] and before["status"] in _CHECKED:
-        status = before["status"]  # "Please check": the expert confirms a checked fact again
+    rechecking = before["needs_recheck"] and before["status"] in _CHECKED
+    if status is None and rechecking and body.action in ("correct", "edit"):
+        # "Please check" after a re-read: confirm as it was, or change it to cite the words there now.
+        status = before["status"] if body.action == "correct" else "edited"
     if status is None:
         raise ApiError("conflict", "This suggestion cannot be changed that way.", 409)
     value, word_ids, bbox = before["value"], before["word_ids"], before["bbox"]
     fields, event_date = before["fields"], before["event_date"]
+    if rechecking and body.action == "correct":
+        # Rule 2: the page's words were replaced, so the old word ids must still show the value.
+        words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
+        if not provenance.supported(value, word_ids, words):
+            raise _invalid()
+    if rechecking and body.action == "edit" and not body.word_ids:
+        raise _invalid()
     if body.action == "edit":
         if not body.new_value:
             raise _invalid()
