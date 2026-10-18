@@ -354,3 +354,14 @@ async def test_the_statement_to_sign_shows_on_today_with_its_date(
         item["due_at"][:10]
     ) >= date.fromisoformat(created["sign_by"])
     assert io  # noqa: B018 - keeps the import list stable for the pdf helpers
+
+
+async def test_the_meeting_types_offered_come_from_the_pack(client_for: ClientFor, world: World) -> None:
+    resp = await (await client_for(world.viewer)).get(world.url("expert-meetings/types"))
+    assert resp.status_code == 200, resp.text
+    [first, *_] = resp.json()["types"]
+    kind = meeting_type(world.combo)
+    assert first["key"] == kind["key"] and first["label"] == kind["label"]
+    assert first["declarations"] == list(kind["standard_declarations"])  # type: ignore[call-overload]
+    assert first["notes"] == kind.get("notes")
+    assert (await (await client_for(world.outsider)).get(world.url("expert-meetings/types"))).status_code == 404
