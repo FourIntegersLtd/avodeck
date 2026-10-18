@@ -1502,6 +1502,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/offline-packages/{package_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Package Status */
+        get: operations["package_status_v1_cases__case_id__offline_packages__package_id__status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/opinions/{opinion_id}/versions": {
         parameters: {
             query?: never;
@@ -6516,6 +6533,14 @@ export interface components {
             revoked_at: string | null;
             /** Sha256 */
             sha256: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "built" | "downloaded" | "revoked" | "expired";
+        };
+        /** PackageStatus */
+        PackageStatus: {
             /**
              * Status
              * @enum {string}
@@ -12415,6 +12440,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Download"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    package_status_v1_cases__case_id__offline_packages__package_id__status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                package_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackageStatus"];
                 };
             };
             /** @description Validation Error */

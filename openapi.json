@@ -8143,6 +8143,25 @@
         "title": "PackageOut",
         "type": "object"
       },
+      "PackageStatus": {
+        "properties": {
+          "status": {
+            "enum": [
+              "built",
+              "downloaded",
+              "revoked",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PackageStatus",
+        "type": "object"
+      },
       "PackagesOut": {
         "properties": {
           "packages": {
@@ -19469,6 +19488,69 @@
           }
         },
         "summary": "Download Package",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/offline-packages/{package_id}/status": {
+      "get": {
+        "operationId": "package_status_v1_cases__case_id__offline_packages__package_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Package Status",
         "tags": [
           "trial"
         ]

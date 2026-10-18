@@ -8,6 +8,8 @@
 - `GET .../{id}/download` (step-up): releases the key once, then forgets it (410 afterwards, or once
   revoked or expired).
 - `DELETE .../{id}` (step-up): revokes, deletes the file and the key.
+- `GET .../{id}/status`: the status alone (no case content), which screen 25 asks when online and wipes the
+  copy on revoked, expired or 404. Case access but no step-up: the expert may be in court hours later.
 """
 
 from __future__ import annotations
@@ -75,6 +77,10 @@ class PackageOut(BaseModel):
 
 class PackagesOut(BaseModel):
     packages: list[PackageOut]
+
+
+class PackageStatus(BaseModel):
+    status: Status
 
 
 class Download(BaseModel):
@@ -249,6 +255,14 @@ async def _package(conn: Any, case_id: uuid.UUID, package_id: uuid.UUID, lock: b
 @router.get("/cases/{case_id}/offline-packages/{package_id}", response_model=PackageOut)
 async def get_package(case_id: uuid.UUID, package_id: uuid.UUID, conn: DbConn, access: View) -> PackageOut:
     return _out(await _package(conn, case_id, package_id))
+
+
+@router.get("/cases/{case_id}/offline-packages/{package_id}/status", response_model=PackageStatus)
+async def package_status(
+    case_id: uuid.UUID, package_id: uuid.UUID, conn: DbConn, access: View, response: Response
+) -> PackageStatus:
+    response.headers.update(NO_STORE)
+    return PackageStatus(status=status_of(await _package(conn, case_id, package_id)))
 
 
 @router.get("/cases/{case_id}/offline-packages/{package_id}/download", response_model=Download)
