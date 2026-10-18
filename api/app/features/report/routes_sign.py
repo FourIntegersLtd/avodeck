@@ -18,10 +18,12 @@ from datetime import datetime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import Response
+from fastapi import Request, Response
 from pydantic import BaseModel, ConfigDict
 
 from app.core import audit
+from app.core.auth.session import current_session
+from app.core.auth.step_up import check_step_up
 from app.core.contracts import profile
 from app.core.contracts.citations import citation_problems
 from app.core.errors import ApiError
@@ -123,6 +125,15 @@ async def sign_report(
     version_id = await latest_draft(conn, case_id)
     if version_id is None:
         raise conflict("not_built", "Build the report first.")
+    # Lock the draft: a second sign waits here, then finds it no longer a draft.
+    cur = await conn.execute(
+        "select version_no, type, docx_path, pdf_path from app.report_versions"
+        " where id = %s and status = 'draft' for update",
+        (version_id,),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        raise conflict("not_built", "Build the report first.")
     await _final_check_gate(conn, case_id, version_id)
     if await citation_problems(conn, case_id, reads):
         raise conflict("citation_problems", "A cited fact has changed since the final check.")
@@ -147,12 +158,6 @@ async def sign_report(
     if sha256(image) != signature.sha256:
         raise conflict("signature_unavailable", "Your signature could not be opened.")
 
-    cur = await conn.execute(
-        "select version_no, type, docx_path, pdf_path from app.report_versions where id = %s", (version_id,)
-    )
-    row = await cur.fetchone()
-    if row is None:
-        raise not_found()
     version_no, kind, docx_draft, pdf_draft = row
     today = datetime.now(ZoneInfo(pack.timezone)).date()
     lines = [
@@ -163,7 +168,8 @@ async def sign_report(
     for fmt, draft in (("docx", docx_draft), ("pdf", pdf_draft)):
         data = await crypto.decrypt(conn, case_id, await storage.get(draft), purpose=draft)
         files[fmt] = stamp_docx(data, image, lines) if fmt == "docx" else stamp_pdf(data, image, lines)
-    paths = {fmt: file_path(case_id, version_id, f"signed.{fmt}") for fmt in FILE_KINDS}
+    attempt = uuid.uuid4().hex  # each attempt writes its own files; the row records the ones that won
+    paths = {fmt: file_path(case_id, version_id, f"signed-{attempt}.{fmt}") for fmt in FILE_KINDS}
     hashes = {fmt: sha256(files[fmt]) for fmt in FILE_KINDS}
     for fmt in FILE_KINDS:
         await storage.put(paths[fmt], await crypto.encrypt(conn, case_id, files[fmt], purpose=paths[fmt]))
@@ -219,6 +225,7 @@ async def download_version(
     case_id: uuid.UUID,
     version_id: uuid.UUID,
     format: Literal["docx", "pdf"],
+    request: Request,
     access: View,
     conn: DbConn,
     crypto: Crypto,
@@ -234,6 +241,8 @@ async def download_version(
     path = row[0] if format == "docx" else row[1]
     if path is None:
         raise not_found()
+    if row[2] is not None:
+        check_step_up(current_session(request))  # a signed report leaving Avodeck is an export (rule 10)
     data = await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
     if row[2] is not None:
         cur = await conn.execute(

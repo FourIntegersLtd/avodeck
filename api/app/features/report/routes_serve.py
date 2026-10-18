@@ -16,6 +16,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 from zoneinfo import ZoneInfo
 
+from fastapi import BackgroundTasks
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.core import audit
@@ -117,7 +118,13 @@ async def _add_serving(conn: Any, case_id: uuid.UUID, version_id: uuid.UUID, bod
 
 @router.post("/cases/{case_id}/report/versions/{version_id}/serve", response_model=VersionStatus)
 async def serve_version(
-    case_id: uuid.UUID, version_id: uuid.UUID, body: ServeIn, access: Serve, conn: DbConn, pack: Pack
+    case_id: uuid.UUID,
+    version_id: uuid.UUID,
+    body: ServeIn,
+    access: Serve,
+    conn: DbConn,
+    pack: Pack,
+    after_commit: BackgroundTasks,
 ) -> VersionStatus:
     status = await _status(conn, case_id, version_id)
     if status == "draft":
@@ -129,7 +136,8 @@ async def serve_version(
     await _add_serving(conn, case_id, version_id, body)
     await conn.execute("update app.cases set status = 'served' where id = %s and status <> 'served'", (case_id,))
     await audit.record(conn, action="report.served", target=f"report_version:{version_id}", case_id=case_id)
-    events.events.emit(events.ReportServed(case_id, version_id, body.served_on))
+    # Background tasks run once the response is ready, after the request's transaction committed.
+    after_commit.add_task(events.events.emit, events.ReportServed(case_id, version_id, body.served_on))
     return VersionStatus(id=version_id, status="served")
 
 
