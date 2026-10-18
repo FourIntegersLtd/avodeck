@@ -86,7 +86,7 @@ def suggest(admin: psycopg.Connection, w: World, fact: uuid.UUID, side: str) -> 
 
 def audited(admin: psycopg.Connection, w: World, point: uuid.UUID) -> list[str]:
     rows = admin.execute(
-        "select action from app.audit_log where case_id = %s and target = %s order by id", (w.case, f"point:{point}")
+        "select action from app.audit_log where case_id = %s and target = %s order by seq", (w.case, f"point:{point}")
     ).fetchall()
     return [r[0] for r in rows]
 
