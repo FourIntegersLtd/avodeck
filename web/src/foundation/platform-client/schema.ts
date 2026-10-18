@@ -2173,6 +2173,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/time": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Case Time */
+        get: operations["case_time_v1_cases__case_id__time_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/time/adjust": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Adjust Time */
+        patch: operations["adjust_time_v1_cases__case_id__time_adjust_patch"];
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/time/heartbeat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Heartbeat */
+        post: operations["heartbeat_v1_cases__case_id__time_heartbeat_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/timeline": {
         parameters: {
             query?: never;
@@ -2922,6 +2973,15 @@ export interface components {
             kind: string;
             /** Text */
             text: string;
+        };
+        /** AdjustIn */
+        AdjustIn: {
+            /** Reason */
+            reason: string;
+            /** Seconds */
+            seconds: number;
+            /** Stage */
+            stage: string;
         };
         /** Answer */
         Answer: {
@@ -4260,6 +4320,22 @@ export interface components {
             style: string;
             /** Text */
             text: string;
+        };
+        /** HeartbeatIn */
+        HeartbeatIn: {
+            /** Idle Seconds */
+            idle_seconds: number;
+            /** Screen */
+            screen: string;
+            /** Visible */
+            visible: boolean;
+        };
+        /** HeartbeatOut */
+        HeartbeatOut: {
+            /** Counted */
+            counted: boolean;
+            /** Stage */
+            stage?: string | null;
         };
         /**
          * HoldCreate
@@ -6151,6 +6227,13 @@ export interface components {
             /** Source Type */
             source_type: string | null;
         };
+        /** StageTime */
+        StageTime: {
+            /** Seconds */
+            seconds: number;
+            /** Stage */
+            stage: string;
+        };
         /** Subject */
         Subject: {
             /** Label */
@@ -6251,6 +6334,15 @@ export interface components {
             styles: string[];
             /** Version */
             version: number;
+        };
+        /** TimeOut */
+        TimeOut: {
+            /** Adjusted */
+            adjusted: boolean;
+            /** Stages */
+            stages: components["schemas"]["StageTime"][];
+            /** Total Seconds */
+            total_seconds: number;
         };
         /** Timeline */
         Timeline: {
@@ -12423,6 +12515,134 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    case_time_v1_cases__case_id__time_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    adjust_time_v1_cases__case_id__time_adjust_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    heartbeat_v1_cases__case_id__time_heartbeat_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HeartbeatIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HeartbeatOut"];
+                };
             };
             /** @description Validation Error */
             422: {

@@ -37,6 +37,34 @@
         "title": "Addition",
         "type": "object"
       },
+      "AdjustIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reason": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Reason",
+            "type": "string"
+          },
+          "seconds": {
+            "maximum": 360000.0,
+            "minimum": -360000.0,
+            "title": "Seconds",
+            "type": "integer"
+          },
+          "stage": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "seconds",
+          "reason"
+        ],
+        "title": "AdjustIn",
+        "type": "object"
+      },
       "Answer": {
         "additionalProperties": false,
         "properties": {
@@ -3685,6 +3713,56 @@
           "style"
         ],
         "title": "Heading",
+        "type": "object"
+      },
+      "HeartbeatIn": {
+        "additionalProperties": false,
+        "properties": {
+          "idle_seconds": {
+            "minimum": 0.0,
+            "title": "Idle Seconds",
+            "type": "integer"
+          },
+          "screen": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Screen",
+            "type": "string"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "screen",
+          "visible",
+          "idle_seconds"
+        ],
+        "title": "HeartbeatIn",
+        "type": "object"
+      },
+      "HeartbeatOut": {
+        "properties": {
+          "counted": {
+            "title": "Counted",
+            "type": "boolean"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          }
+        },
+        "required": [
+          "counted"
+        ],
+        "title": "HeartbeatOut",
         "type": "object"
       },
       "HoldCreate": {
@@ -9143,6 +9221,24 @@
         "title": "SourceCount",
         "type": "object"
       },
+      "StageTime": {
+        "properties": {
+          "seconds": {
+            "title": "Seconds",
+            "type": "integer"
+          },
+          "stage": {
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "seconds"
+        ],
+        "title": "StageTime",
+        "type": "object"
+      },
       "Subject": {
         "properties": {
           "label": {
@@ -9381,6 +9477,32 @@
           "created_at"
         ],
         "title": "Template",
+        "type": "object"
+      },
+      "TimeOut": {
+        "properties": {
+          "adjusted": {
+            "title": "Adjusted",
+            "type": "boolean"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/StageTime"
+            },
+            "title": "Stages",
+            "type": "array"
+          },
+          "total_seconds": {
+            "title": "Total Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stages",
+          "total_seconds",
+          "adjusted"
+        ],
+        "title": "TimeOut",
         "type": "object"
       },
       "Timeline": {
@@ -19220,6 +19342,185 @@
         "summary": "Save Subject Key",
         "tags": [
           "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/time": {
+      "get": {
+        "operationId": "case_time_v1_cases__case_id__time_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Case Time",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/time/adjust": {
+      "patch": {
+        "operationId": "adjust_time_v1_cases__case_id__time_adjust_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Adjust Time",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/time/heartbeat": {
+      "post": {
+        "operationId": "heartbeat_v1_cases__case_id__time_heartbeat_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HeartbeatIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HeartbeatOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Heartbeat",
+        "tags": [
+          "report"
         ]
       }
     },
