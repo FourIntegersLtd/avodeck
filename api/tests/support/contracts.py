@@ -90,3 +90,35 @@ def add_instruction_version(
         (vid, case, version_no, kind),
     )
     return vid
+
+
+def add_sent_invoice(
+    admin: psycopg.Connection, case: uuid.UUID, owner: uuid.UUID, *, credited: str | None = None
+) -> uuid.UUID:
+    """A sent invoice of 100.00 + 20.00 tax (XTS) from the person's billing profile (numbered `ZZ-<n>` when
+    sent), a draft beside it that is never exported, and optionally a credit note against the sent one."""
+    admin.execute(
+        "insert into app.billing_profiles (owner_type, owner_id, legal_name, currency, invoice_prefix)"
+        " values ('person', %s, 'Zz Issuer', 'XTS', 'ZZ-') on conflict (owner_type, owner_id) do nothing",
+        (owner,),
+    )
+    row = admin.execute(
+        "select id from app.billing_profiles where owner_type = 'person' and owner_id = %s", (owner,)
+    ).fetchone()
+    assert row is not None
+    ids = []
+    for _ in range(2):
+        made = admin.execute(
+            "insert into app.invoices (case_id, billing_profile_id, lines, total, tax, currency)"
+            " values (%s, %s, '[]', 120.00, 20.00, 'XTS') returning id",
+            (case, row[0]),
+        ).fetchone()
+        assert made is not None
+        ids.append(made[0])
+    admin.execute("update app.invoices set status = 'sent', sent_to = 'zz-payer@example.test' where id = %s", (ids[0],))
+    if credited is not None:
+        admin.execute(
+            "insert into app.credit_notes (case_id, invoice_id, amount, reason) values (%s, %s, %s, 'zz_reason')",
+            (case, ids[0], credited),
+        )
+    return uuid.UUID(str(ids[0]))
