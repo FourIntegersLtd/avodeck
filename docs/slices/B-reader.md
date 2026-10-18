@@ -53,26 +53,26 @@ The expert's text is authoritative. Machine words for that page are kept but no 
   - Reading progress (Today).
 
 ## Acceptance tests (write first)
-- [ ] `GET …/pages/118/facts` returns 423 with code `blind_read` before `POST …/pages/118/read`, and 200 after. `GET …/pages/118` never contains facts.
-- [ ] A different expert gets 404 on every route above.
-- [ ] Each read appends one `page_reads` row with `prev_hash` and `hash`. The chain verifies, and altering any row breaks verification. UPDATE and DELETE on `page_reads` fail at database level.
-- [ ] Marking a page read twice keeps the first read time (`at`) and adds the second dwell to the log. Reads are never removed.
-- [ ] `verify` with `correct` sets `facts.status = verified` and appends to `fact_verifications`.
-- [ ] `verify` with `edit` stores old and new values. The new value must still appear in the cited words, or the expert must re-select words; otherwise 422.
-- [ ] `verify` with `not_right` sets `rejected` and asks for an optional reason.
-- [ ] `verify` on a fact whose page has not been read returns 423.
-- [ ] `citable_facts()` excludes suggested, rejected and unread-page facts. A core test calls it from a stub report build.
-- [ ] Suggestions return their `bbox` and `word_ids`. The screen highlights exactly those words (Playwright screenshot check on page 118).
-- [ ] Facts on duplicate pages are shown on the original, not twice.
-- [ ] Unreadable queue lists the planted low-confidence handwriting pages (`expected/unreadable.json`) with a done count.
-- [ ] Saving a transcription queues re-extraction. Resulting facts cite `source = 'expert'` words and start as `suggested`. The page counts as read.
-- [ ] T-10 is refused (409) before a transcription exists unless `?on_request=true`. The recorded vision request contains no unmasked identifier region (checked against the M9 boxes).
-- [ ] T-10 output is never written into `transcribed_by_expert_text`.
-- [ ] `needs_clearer_copy = true` makes the page appear in slice A's instructing-party request draft.
-- [ ] Progress returns pages read / total and a time estimate from the expert's own median seconds per page by source (default 20 s before there's history).
-- [ ] Keyboard: `J`/`K` move page, `R` marks read, `1`/`2`/`3` act on the focused suggestion. All actions are also reachable by 52 px buttons.
-- [ ] No page text, OCR words or transcription appear in logs, job rows or Sentry events.
-- [ ] Screens 09 and 10 pass Playwright + axe and match their canvas boards.
+- [x] `GET …/pages/118/facts` returns 423 with code `blind_read` before `POST …/pages/118/read`, and 200 after. `GET …/pages/118` never contains facts.
+- [x] A different expert gets 404 on every route above.
+- [x] Each read appends one `page_reads` row with `prev_hash` and `hash`. The chain verifies, and altering any row breaks verification. UPDATE and DELETE on `page_reads` fail at database level.
+- [x] Marking a page read twice keeps the first read time (`at`) and adds the second dwell to the log. Reads are never removed.
+- [x] `verify` with `correct` sets `facts.status = verified` and appends to `fact_verifications`.
+- [x] `verify` with `edit` stores old and new values. The new value must still appear in the cited words, or the expert must re-select words; otherwise 422.
+- [x] `verify` with `not_right` sets `rejected` and asks for an optional reason.
+- [x] `verify` on a fact whose page has not been read returns 423.
+- [x] `citable_facts()` excludes suggested, rejected and unread-page facts. A core test calls it from a stub report build.
+- [x] Suggestions return their `bbox` and `word_ids`. The screen highlights exactly those words (Playwright screenshot check on page 118).
+- [x] Facts on duplicate pages are shown on the original, not twice.
+- [x] Unreadable queue lists the planted low-confidence handwriting pages (`expected/unreadable.json`) with a done count.
+- [x] Saving a transcription queues re-extraction. Resulting facts cite `source = 'expert'` words and start as `suggested`. The page counts as read.
+- [ ] (deferred, needs foundation vision) T-10 is refused (409) before a transcription exists unless `?on_request=true`. The recorded vision request contains no unmasked identifier region (checked against the M9 boxes).
+- [ ] (deferred) T-10 output is never written into `transcribed_by_expert_text`.
+- [x] `needs_clearer_copy = true` makes the page appear in slice A's instructing-party request draft.
+- [x] Progress returns pages read / total and a time estimate from the expert's own median seconds per page by source (default 20 s before there's history).
+- [x] Keyboard: `J`/`K` move page, `R` marks read, `1`/`2`/`3` act on the focused suggestion. All actions are also reachable by 52 px buttons.
+- [x] No page text, OCR words or transcription appear in logs, job rows or Sentry events.
+- [x] Screens 09 and 10 pass Playwright + axe and match their canvas boards.
 
 ## Behaviour rules this slice must build (architecture 10, 5.4)
 
@@ -82,12 +82,12 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Extra endpoints:** `POST /v1/cases/{id}/pages/{page_id}/rotate`, `POST /v1/cases/{id}/facts/{fact_id}/move`.
 
-- [ ] Only the named expert's `page_reads` unlock citing; an assistant's reads are recorded but don't count (permissions `page.read`)
-- [ ] Only the named expert can verify facts (403 for anyone else)
-- [ ] Rotation re-runs OCR, keeps the page number, keeps verified facts and re-maps their boxes or flags "Please check"
-- [ ] Moving a verified fact to a clearer copy keeps its history and bumps its `version`
-- [ ] Editing a fact bumps `facts.version`; citations then show "changed since cited" (S8)
-- [ ] Facts on a duplicate page appear only on the original
+- [x] Only the named expert's `page_reads` unlock citing; an assistant's reads are recorded but don't count (permissions `page.read`)
+- [x] Only the named expert can verify facts (403 for anyone else)
+- [x] Rotation re-runs OCR, keeps the page number, keeps verified facts and re-maps their boxes or flags "Please check"
+- [x] Moving a verified fact to a clearer copy keeps its history and bumps its `version`
+- [x] Editing a fact bumps `facts.version`; citations then show "changed since cited" (S8)
+- [x] Facts on a duplicate page appear only on the original
 
 ## Rules that apply
 1, 2, 3, 4, 6, 7, 9 from the root `AGENTS.md`.
