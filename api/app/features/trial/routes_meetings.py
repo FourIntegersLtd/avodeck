@@ -285,6 +285,33 @@ async def list_meetings(case_id: uuid.UUID, conn: DbConn, access: View, pack: Pa
     return MeetingsOut(meetings=[_summary(pack, r) for r in rows])
 
 
+class MeetingTypeOut(BaseModel):
+    key: str
+    label: str
+    declarations: list[str]
+    notes: str | None
+
+
+class MeetingTypesOut(BaseModel):
+    types: list[MeetingTypeOut]
+
+
+@router.get("/cases/{case_id}/expert-meetings/types", response_model=MeetingTypesOut)
+async def list_meeting_types(case_id: uuid.UUID, access: View, pack: Pack) -> MeetingTypesOut:
+    """The kinds of expert meeting the case's packs know, with their wording (rule 11)."""
+    return MeetingTypesOut(
+        types=[
+            MeetingTypeOut(
+                key=str(t["key"]),
+                label=str(t["label"]),
+                declarations=[str(d) for d in t.get("standard_declarations", [])],
+                notes=str(t["notes"]) if t.get("notes") else None,
+            )
+            for t in pack.meeting_types()
+        ]
+    )
+
+
 @router.get("/cases/{case_id}/expert-meetings/{meeting_id}", response_model=MeetingOut)
 async def get_meeting(
     case_id: uuid.UUID,
