@@ -1,0 +1,11 @@
+{
+ "suggestions": [
+  {"field": "instructing_party_name", "value": "Harland & Price LLP", "para_ref": "letterhead"},
+  {"field": "instructing_party_type", "value": "lawyer", "para_ref": "letterhead"},
+  {"field": "party_role", "value": "instructing_side", "para_ref": "1"}
+ ],
+ "must_not_suggest": [
+  {"field": "due_date", "reason": "the letter says 'within 8 weeks' and writes out no date"},
+  {"field": "court_track", "reason": "the letter names no track"}
+ ]
+}

@@ -99,6 +99,7 @@ Small separate test cases for the behaviour rules (architecture section 10). Exp
 | `availability.json` | Available-on date per letter or result |
 | `findings.json` | Checks that should and shouldn't fire |
 | `questions.json` | T-06 expected output |
+| `prefill.json` | T-04 expected output for `letter-of-instruction.pdf`: the three fields the letter supports, and the two it must not fill (no written-out date, no track) |
 | `planted.json` | Planted item number to pages |
 | `struck_out.json` | Text crossed out on handwritten pages (must not become facts) |
 | `references.json`, `gaps.json` | Documents referred to; the planted records gap |
