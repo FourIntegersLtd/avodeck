@@ -50,7 +50,7 @@ class ColleagueView(BaseModel):
 class ColleagueAnswer(BaseModel):
     model_config = ConfigDict(extra="forbid")
     fact_id: uuid.UUID
-    agrees: bool
+    agrees: bool = Field(strict=True)
     reason: str | None = Field(default=None, pattern=_REASON)
 
 
