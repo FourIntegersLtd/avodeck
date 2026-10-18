@@ -240,7 +240,7 @@ async def test_a_link_whose_fact_was_rejected_shows_as_stale(client_for: ClientF
 def _visit_kind(pack: Any) -> str:
     """A kind the pack does not mark as arriving: the clinician's own entry."""
     arriving = set(pack.arriving_kinds())
-    return next(k["key"] for k in pack.fact_kinds() if k["key"] not in arriving)
+    return str(next(k["key"] for k in pack.fact_kinds() if k["key"] not in arriving))
 
 
 async def test_as_seen_shows_what_had_arrived_keeps_later_apart_and_never_guesses(
@@ -346,4 +346,6 @@ async def test_launch_guidance_for_the_planted_consultation_date(client_for: Cli
         "/v1/guidelines/in-force", params={"code": code, "date": "2024-05-15", "case_id": str(case.id)}
     )
     assert resp.status_code == 200
-    assert resp.json()["version_label"] == in_force(case.pack.guidelines(), code, date(2024, 5, 15))["version_label"]
+    expected = in_force(case.pack.guidelines(), code, date(2024, 5, 15))
+    assert expected is not None
+    assert resp.json()["version_label"] == expected["version_label"]

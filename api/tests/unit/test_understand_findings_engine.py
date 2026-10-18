@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
+from typing import Any
 
 from app.features.understand.checks.engine import Decided, carry_decisions, configured_checks
 from app.features.understand.checks.rules import Hit
@@ -30,7 +31,10 @@ def test_the_pack_s_checks_run_except_those_starting_off() -> None:
 
 
 def test_an_expert_switches_checks_on_and_off_and_may_change_a_window() -> None:
-    config = {"a": {"enabled": False}, "c": {"enabled": True, "window_days": 30, "rule": "made_up"}}
+    config: dict[str, dict[str, Any]] = {
+        "a": {"enabled": False},
+        "c": {"enabled": True, "window_days": 30, "rule": "made_up"},
+    }
     got = configured_checks(PACK_CHECKS, config)
     assert [c["key"] for c in got] == ["b", "c"]
     assert got[1]["window_days"] == 30
@@ -59,7 +63,7 @@ def test_a_rerun_keeps_decisions_on_the_same_facts_and_drops_the_rest() -> None:
     ]
 
 
-ROWS = [
+ROWS: list[dict[str, Any]] = [
     {"code": "G1", "version_label": "2015", "in_force_from": "2015-06-23", "in_force_to": "2021-01-01"},
     {"code": "G1", "version_label": "2021", "in_force_from": "2021-01-01", "in_force_to": None},
     {"code": "G2", "version_label": "2016", "in_force_from": "2016-07-13", "in_force_to": None},
@@ -67,9 +71,8 @@ ROWS = [
 
 
 def test_the_version_in_force_on_a_date() -> None:
-    assert in_force(ROWS, "G1", date(2020, 12, 31))["version_label"] == "2015"
-    assert in_force(ROWS, "G1", date(2021, 1, 1))["version_label"] == "2021"
-    assert in_force(ROWS, "G1", date(2030, 1, 1))["version_label"] == "2021"
+    labels = [in_force(ROWS, "G1", day) for day in (date(2020, 12, 31), date(2021, 1, 1), date(2030, 1, 1))]
+    assert [row["version_label"] if row else None for row in labels] == ["2015", "2021", "2021"]
 
 
 def test_no_version_before_the_first_or_for_an_unknown_code() -> None:

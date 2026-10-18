@@ -9,6 +9,8 @@ points at. Both only suggest: the expert confirms every link and decides every f
 from __future__ import annotations
 
 import uuid
+from collections.abc import Mapping
+from typing import Any
 
 import pytest
 
@@ -20,7 +22,7 @@ Q1, Q2 = uuid.uuid4(), uuid.uuid4()
 F1, F2, F3 = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
 
 
-def _strings(schema: dict) -> set[str]:
+def _strings(schema: Mapping[str, Any]) -> set[str]:
     """Every free string property, anywhere in the schema."""
     found: set[str] = set()
     for name, prop in schema.get("properties", {}).items():
