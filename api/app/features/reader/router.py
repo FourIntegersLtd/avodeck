@@ -166,11 +166,17 @@ async def page_facts(
 
 @router.put("/pages/{page_no}/transcription", response_model=JobOut, status_code=202)
 async def save_transcription(
-    case_id: uuid.UUID, page_no: int, body: TranscriptionIn, access: Transcribe, conn: DbConn, scope: CurrentScope
+    case_id: uuid.UUID,
+    page_no: int,
+    body: TranscriptionIn,
+    access: Transcribe,
+    conn: DbConn,
+    scope: CurrentScope,
+    request: Request,
 ) -> JobOut:
     """The expert's own typing of the page: it counts as reading it, and the page is read again from it."""
     r = await _page(conn, case_id, page_no, scope)
-    await repo.save_transcription(conn, r["id"], body.text, body.relevance)
+    await repo.save_transcription(conn, _crypto(request), case_id, r["id"], body.text, body.relevance)
     await repo.record_read(conn, case_id, r["id"], scope.person_id, 0)
     try:
         job_id = await extract_page_text(conn, case_id, r["id"])

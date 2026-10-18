@@ -29,20 +29,29 @@ test("a button is type=button unless it submits", () => {
 });
 
 test("a text field is labelled and shows its error to assistive technology", () => {
-  renderUi(<TextField label="Email address" name="email" error="That didn't work." />);
+  renderUi(
+    <TextField label="Email address" name="email" error="That didn't work." />,
+  );
   const input = screen.getByLabelText("Email address");
   expect(input).toHaveAttribute("aria-invalid", "true");
   expect(input).toHaveAccessibleDescription("That didn't work.");
 });
 
 test("the case header marks done steps with a tick and the current step for screen readers", () => {
-  renderUi(<CaseHeader steps={[{ key: "prepare" }, { key: "read" }, { key: "write" }]} current="read" />);
+  renderUi(
+    <CaseHeader
+      steps={[{ key: "prepare" }, { key: "read" }, { key: "write" }]}
+      current="read"
+    />,
+  );
   const [prepare, read, write] = screen.getAllByRole("listitem");
   expect(prepare).toHaveTextContent("✓Prepare");
   expect(read).toHaveAttribute("aria-current", "step");
   expect(read).toHaveTextContent("2Read");
   expect(write).not.toHaveAttribute("aria-current");
-  expect(screen.getByRole("navigation")).toHaveAccessibleName("Steps for this case");
+  expect(screen.getByRole("navigation")).toHaveAccessibleName(
+    "Steps for this case",
+  );
 });
 
 test("status badges use the glossary words, never colour alone", () => {
@@ -54,7 +63,23 @@ test("status badges use the glossary words, never colour alone", () => {
       <StatusBadge status="look" />
     </>,
   );
-  for (const words of ["Checked by you", "Please check", "Not right", "Thing to look at"]) {
+  for (const words of [
+    "Checked by you",
+    "Please check",
+    "Not right",
+    "Thing to look at",
+  ]) {
     expect(screen.getByText(words)).toBeInTheDocument();
   }
+});
+
+test("a checkbox's whole label is a hit area at least 52px tall (U2)", () => {
+  const styles = readFileSync(join(__dirname, "styles.css"), "utf8");
+  const rule = styles.match(/\.av-checkbox\s*\{([^}]*)\}/)?.[1] ?? "";
+  const height = rule.match(/min-height:\s*([^;]+);/)?.[1]?.trim() ?? "";
+  const px =
+    height === "var(--button-min-height)"
+      ? Number(css.match(/--button-min-height:\s*(\d+)px/)?.[1])
+      : Number(height.match(/^(\d+)px$/)?.[1]);
+  expect(px).toBeGreaterThanOrEqual(52);
 });

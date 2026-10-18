@@ -49,7 +49,7 @@ a { color: var(--green); }
 .av-input[aria-invalid="true"] { border-color: var(--red); }
 .av-input--code { font-family: var(--font-mono); font-size: var(--text-h2); letter-spacing: 0.2em; max-width: 14ch; }
 .av-textarea { min-height: 180px; width: 100%; resize: vertical; }
-.av-checkbox { display: inline-flex; align-items: center; gap: var(--space-3); min-height: 44px; cursor: pointer; }
+.av-checkbox { display: inline-flex; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); cursor: pointer; }
 .av-checkbox input { width: 24px; height: 24px; accent-color: var(--green); }
 
 /* Notices */
