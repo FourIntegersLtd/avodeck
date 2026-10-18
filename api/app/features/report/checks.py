@@ -9,6 +9,7 @@ does not know fails as `unknown_check` so a new pack rule never passes silently.
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import re
@@ -361,16 +362,8 @@ async def _conflicts_declared(i: Inputs, r: Result) -> Result:
 
 
 async def named_expert(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any] | None:
-    cur = await conn.execute(
-        "select person_id, full_name, registration_body, registration_number, hourly_rate, currency"
-        " from app.report_named_expert(%s)",
-        (case_id,),
-    )
-    row = await cur.fetchone()
-    if row is None:
-        return None
-    keys = ("person_id", "full_name", "registration_body", "registration_number", "hourly_rate", "currency")
-    return dict(zip(keys, row, strict=True))
+    expert = await profile.named_expert(conn, case_id)
+    return dataclasses.asdict(expert) if expert is not None else None
 
 
 async def _expert_details(i: Inputs, r: Result) -> Result:

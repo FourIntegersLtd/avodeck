@@ -12,6 +12,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 from psycopg import AsyncConnection
@@ -110,3 +111,27 @@ async def conflict_declaration(conn: AsyncConnection, case_id: uuid.UUID) -> Con
         for key, answer, detail in await cur.fetchall()
     )
     return ConflictDeclaration(row[0], row[1], bool(row[2]), answers)
+
+
+@dataclass(frozen=True)
+class NamedExpert:
+    """The case's named expert: name, registration and fee details (the profile row may be missing)."""
+
+    person_id: uuid.UUID
+    full_name: str
+    registration_body: str | None
+    registration_number: str | None
+    hourly_rate: Decimal | None
+    currency: str | None
+
+
+async def named_expert(conn: AsyncConnection, case_id: uuid.UUID) -> NamedExpert | None:
+    """For the case's own job or a caller who may see the case's content (`case.view_content`); else None.
+    Wraps `app.report_named_expert` (migration 0602), which reads `people` and `experts`."""
+    cur = await conn.execute(
+        "select person_id, full_name, registration_body, registration_number, hourly_rate, currency"
+        " from app.report_named_expert(%s)",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    return NamedExpert(*row) if row is not None else None

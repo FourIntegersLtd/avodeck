@@ -32,6 +32,7 @@ from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.auth.session import current_session
 from app.core.auth.step_up import check_step_up
+from app.core.contracts import profile
 from app.core.contracts.instructing_parties import instructing_party_contacts
 from app.core.email import invoice_sent_mail
 from app.core.errors import ApiError
@@ -235,10 +236,9 @@ async def _issuer(conn: Any, case_id: uuid.UUID) -> dict[str, Any]:
 async def _hourly_rate(conn: Any, case_id: uuid.UUID, issuer: dict[str, Any]) -> Decimal:
     if issuer["hourly_rate"] is not None:
         return Decimal(issuer["hourly_rate"])
-    cur = await conn.execute("select hourly_rate, currency from app.report_named_expert(%s)", (case_id,))
-    row = await cur.fetchone()
-    if row is not None and row[0] is not None and row[1] == issuer["currency"]:
-        return Decimal(row[0])
+    expert = await profile.named_expert(conn, case_id)
+    if expert is not None and expert.hourly_rate is not None and expert.currency == issuer["currency"]:
+        return Decimal(expert.hourly_rate)
     raise ApiError("no_hourly_rate", "Add your hourly rate first.", 409)
 
 
