@@ -33,7 +33,7 @@ from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.packs import default_library
 from app.features.trial.jobs import read_agenda
-from app.features.trial.ports import RecordedChanges
+from app.features.trial.ports import RecordedChanges, ReportChange
 from tests.fixtures.trial.fixtures import (  # noqa: F401
     Scripted,
     aconn,
@@ -226,7 +226,21 @@ async def test_the_planted_changed_position_needs_a_note_before_the_statement_is
     assert refused.json()["error"]["items"] == [item["id"]]
     noted = await edit(client_for, world, item, change_note="Zz new results since the report.")
     assert noted.status_code == 200, noted.text
-    assert changes.rows == [(world.case, uuid.UUID(item["id"]), [world.paragraphs[0]])]
+    served = world.report
+    assert served is not None
+    assert changes.rows == [
+        (
+            world.case,
+            ReportChange(
+                served_version_id=served,
+                paragraph_id=world.paragraphs[0],
+                kind="change_of_opinion",
+                old_text=SERVED_VIEW,
+                new_text=CHANGED_VIEW,
+                reason="Zz new results since the report.",
+            ),
+        )
+    ]
     prepared = await client.post(world.url(f"expert-meetings/{created['id']}/prepare"))
     assert prepared.status_code == 200, prepared.text
     assert len(prepared.json()["sha256"]) == 64
@@ -319,7 +333,6 @@ async def test_a_statement_signed_elsewhere_is_recorded_with_its_hash(
     assert meeting["signed_sha256"] == hashlib.sha256(signed).hexdigest()
 
 
-
 async def test_a_statement_out_for_signature_cannot_be_recorded_as_signed_elsewhere(
     client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
 ) -> None:
@@ -334,6 +347,7 @@ async def test_a_statement_out_for_signature_cannot_be_recorded_as_signed_elsewh
     resp = await client.post(f"{url}/signed-external", content=signed, headers={"content-type": "application/pdf"})
     assert resp.status_code == 409 and code(resp) == "not_draft"
     assert (await get(client_for, world, created["id"])).json()["status"] == "out_for_signature"
+
 
 async def test_a_new_agenda_version_shows_differences_and_moves_the_statement_back_to_draft(
     client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
