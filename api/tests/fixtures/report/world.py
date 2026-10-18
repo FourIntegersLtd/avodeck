@@ -234,3 +234,76 @@ def body_paragraphs(data: bytes) -> list[tuple[str, str, str]]:
             parent = parent.getparent()
         out.append((str(name), text, tag))
     return out
+
+
+CLEAN = "The plan was written down [[cite:1]]. The result was low [[cite:2]]."
+UNCITED_DATE = "Seen again on 12 March 2024 with no change."
+
+
+def ready_refs(w: World) -> list[dict[str, Any]]:
+    return [cite(w.plan, w.pages[0], "review 3/52"), cite(w.result, w.pages[1], "Ferritin 9")]
+
+
+async def make_ready(
+    seed: Seed,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    w: World,
+    reads: Reads,
+    *,
+    read_all: bool = True,
+    decided: bool = True,
+    body: str = CLEAN,
+) -> uuid.UUID:
+    """Everything a report needs before signing, as the other slices leave it: the expert's details,
+    conflicts declared, a signature on file, questions locked, every written section saved, the
+    checklist ticked and an opinion citing facts on read pages. Returns the case's one finding."""
+    from app.features.report.assemble import SECTION_PURPOSE, writable_keys
+
+    pack = default_library().combine(*w.combo.codes)
+    if read_all:
+        reads.rows.add((w.case, w.pages[2], 3, w.expert))
+    admin.execute(
+        "insert into app.experts (person_id, registration_body, registration_number) values (%s, 'zz_body', 'ZZ123')"
+        " on conflict (person_id) do update set registration_body = 'zz_body', registration_number = 'ZZ123'",
+        (w.expert,),
+    )
+    admin.execute(
+        "insert into app.conflict_declarations (case_id, outcome, declared_by) values (%s, 'none', %s)",
+        (w.case, w.expert),
+    )
+    admin.execute(
+        "insert into app.signatures (expert_id, method, storage_path, sha256, width, height)"
+        " values (%s, 'drawn', %s, %s, 400, 100)",
+        (w.expert, f"people/{w.expert}/signature-1", "b" * 64),
+    )
+    admin.execute(
+        "insert into app.instruction_versions (case_id, version_no, kind, received_on)"
+        " values (%s, 1, 'letter', '2026-01-05')",
+        (w.case,),
+    )
+    admin.execute("update app.instruction_versions set locked_at = now() where case_id = %s", (w.case,))
+    for key in writable_keys(pack):
+        sealed = await CRYPTO.encrypt(aconn, w.case, b"Noted as set out.", purpose=SECTION_PURPOSE)
+        await aconn.execute(
+            "insert into app.report_section_texts (case_id, section, body) values (%s, %s, %s)", (w.case, key, sealed)
+        )
+    items = [i["key"] for i in pack.compliance_checklist()["items"]]
+    admin.execute(
+        "insert into app.report_settings (case_id, addressed_contents) values (%s, %s)"
+        " on conflict (case_id) do update set addressed_contents = excluded.addressed_contents",
+        (w.case, items),
+    )
+    row = admin.execute(
+        "insert into app.findings (case_id, check_key, rule, evidence_fact_ids, evidence_page_ids, pack_version)"
+        " values (%s, 'zz_check', 'zz_rule', %s, %s, 'zz@1') returning id",
+        (w.case, [w.plan], [w.pages[0]]),
+    ).fetchone()
+    if decided and row is not None:
+        with admin.transaction():
+            admin.execute("select set_config('app.person_id', %s, true)", (str(w.expert),))
+            admin.execute("update app.findings set decision = 'relevant' where id = %s", (row[0],))
+    assert row is not None
+    await save_opinion(aconn, w.case, w.question, body, ready_refs(w))
+    finding: uuid.UUID = row[0]
+    return finding

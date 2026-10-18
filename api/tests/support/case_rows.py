@@ -406,13 +406,15 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
         (w.case, b"sealed"),
     )
     profile = admin.execute(
-        "insert into app.billing_profiles (owner_type, owner_id, legal_name, currency) values ('person', %s, 'Z', 'XTS')"
+        "insert into app.billing_profiles (owner_type, owner_id, legal_name, currency)"
+        " values ('person', %s, 'Z', 'XTS')"
         " on conflict (owner_type, owner_id) do update set legal_name = excluded.legal_name returning id",
         (w.expert,),
     ).fetchone()
     assert profile is not None
     invoice = admin.execute(
-        "insert into app.invoices (case_id, billing_profile_id, lines, total, currency) values (%s, %s, '[]', 10, 'XTS')"
+        "insert into app.invoices (case_id, billing_profile_id, lines, total, currency)"
+        " values (%s, %s, '[]', 10, 'XTS')"
         " returning id",
         (w.case, profile[0]),
     ).fetchone()
