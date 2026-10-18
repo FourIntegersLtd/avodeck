@@ -42,3 +42,21 @@ def test_guard_refuses_a_different_project(tmp_path: Path) -> None:
     assert exc.value.code != 0
     mod.use_root_supabase_config(str(root), str(temp))
     mod.assert_same_project(str(root), str(temp))
+
+
+def test_a_linked_worktree_on_the_main_project_is_refused(tmp_path: Path) -> None:
+    """A worktree still on the committed project_id would reset the main checkout's database."""
+    mod = _load()
+    worktree = _checkout(tmp_path / "wt", "avodeck")
+    (worktree / ".git").write_text("gitdir: /elsewhere/.git/worktrees/wt\n")
+    with pytest.raises(SystemExit) as exc:
+        mod.assert_own_project(str(worktree))
+    assert exc.value.code != 0
+
+    own = _checkout(tmp_path / "own", "avodeck-a")
+    (own / ".git").write_text("gitdir: /elsewhere/.git/worktrees/own\n")
+    mod.assert_own_project(str(own))
+
+    main = _checkout(tmp_path / "main", "avodeck")
+    (main / ".git").mkdir()
+    mod.assert_own_project(str(main))
