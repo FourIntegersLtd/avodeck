@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
+from fastapi import BackgroundTasks
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
@@ -67,7 +68,14 @@ class SpotCheckList(BaseModel):
 
 @router.post("/cases/{case_id}/spot-checks", status_code=201, response_model=SpotCheckStarted)
 async def start_spot_check(
-    case_id: uuid.UUID, body: SpotCheckIn, access: Build, conn: DbConn, crypto: Crypto, storage: Storage, pack: Pack
+    case_id: uuid.UUID,
+    body: SpotCheckIn,
+    access: Build,
+    conn: DbConn,
+    crypto: Crypto,
+    storage: Storage,
+    pack: Pack,
+    after_commit: BackgroundTasks,
 ) -> SpotCheckStarted:
     cur = await conn.execute(
         "select c.report_version_id from app.citations c join app.report_versions v on v.id = c.report_version_id"
@@ -92,7 +100,7 @@ async def start_spot_check(
     check_id: uuid.UUID = created[0]
     await prepare(conn, crypto, storage, pack, case_id, check_id, version_id, picked, token)
     await audit.record(conn, action="spot_check.created", target=f"spot_check:{check_id}", case_id=case_id)
-    await current().mailer.send(Mail(body.reviewer_email, SPOT_CHECK_CODE, {"code": code}))
+    after_commit.add_task(current().mailer.send, Mail(body.reviewer_email, SPOT_CHECK_CODE, {"code": code}))
     return SpotCheckStarted(id=check_id, token=token, expires_at=created[1], fact_count=len(picked))
 
 

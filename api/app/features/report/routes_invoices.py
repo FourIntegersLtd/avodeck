@@ -23,7 +23,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Annotated, Any, Literal
 from zoneinfo import ZoneInfo
 
-from fastapi import Depends, Request, Response
+from fastapi import BackgroundTasks, Depends, Request, Response
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field
@@ -326,19 +326,24 @@ async def send_invoice(
     pack: Pack,
     crypto: Crypto,
     storage: Storage,
+    after_commit: BackgroundTasks,
 ) -> InvoiceOut:
+    already_sent = ApiError("already_sent", "This invoice was sent; correct it with a credit note.", 409)
     invoice = await _one(conn, case_id, invoice_id)
     if invoice.status != "draft":
-        raise ApiError("already_sent", "This invoice was sent; correct it with a credit note.", 409)
+        raise already_sent
     to = body.to
     if to is None:
         to = next((p.email for p in await instructing_party_contacts(conn, case_id) if p.email), None)
     if to is None:
         raise invalid("to")
-    await conn.execute(
-        "update app.invoices set status = 'sent', sent_to = %s, version = version + 1 where id = %s",
+    cur = await conn.execute(
+        "update app.invoices set status = 'sent', sent_to = %s, version = version + 1"
+        " where id = %s and status = 'draft' returning id",
         (to, invoice_id),
     )
+    if await cur.fetchone() is None:  # another send got there first (it held the row until it committed)
+        raise already_sent
     invoice = await _one(conn, case_id, invoice_id)
     assert invoice.sent_at is not None and invoice.number_text is not None
     issued_on = invoice.sent_at.astimezone(ZoneInfo(pack.timezone)).date()
@@ -353,7 +358,7 @@ async def send_invoice(
         "amount": f"{invoice.total:.2f}",
         "currency": invoice.currency,
     }
-    await current().mailer.send(Mail(to, INVOICE_SENT, params))
+    after_commit.add_task(current().mailer.send, Mail(to, INVOICE_SENT, params))  # runs after commit
     return invoice
 
 
@@ -384,7 +389,7 @@ async def invoice_pdf(
 
 @router.patch("/cases/{case_id}/invoices/{invoice_id}/payment", response_model=InvoiceOut)
 async def record_payment(
-    case_id: uuid.UUID, invoice_id: uuid.UUID, body: PaymentIn, access: RecordPayment, conn: DbConn
+    case_id: uuid.UUID, invoice_id: uuid.UUID, body: PaymentIn, access: RecordPayment, conn: DbConn, request: Request
 ) -> InvoiceOut:
     invoice = await _one(conn, case_id, invoice_id)
     if invoice.status == "draft":
@@ -397,6 +402,7 @@ async def record_payment(
             raise invalid("paid_amount")
         paid = body.paid_amount
     else:
+        check_step_up(current_session(request))  # writing off gives up money owed (rule 10)
         cur = await conn.execute("select app.can_access_case(%s, 'credit_note.issue')", (case_id,))
         allowed = await cur.fetchone()
         if not (allowed and allowed[0]):
