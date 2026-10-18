@@ -654,4 +654,21 @@ $$;
 revoke all on function app.after_serving_due_deadlines(date, integer) from public, app_api;
 grant execute on function app.after_serving_due_deadlines(date, integer) to app_worker;
 
+
+-- The case's pack codes, for the report-served handler, which acts for the case (not a person) and so
+-- cannot read the cases table.
+create function app.after_serving_case_packs(p_case uuid)
+  returns table (jurisdiction text, case_type text, specialty text)
+  language sql
+  stable
+  security definer
+  set search_path = ''
+as $$
+  select c.jurisdiction, c.case_type, c.specialty from app.cases c
+  where c.id = p_case
+    and (app.current_job_case_id() = p_case or app.can_access_case(p_case, 'case.view_content'))
+$$;
+revoke all on function app.after_serving_case_packs(uuid) from public;
+grant execute on function app.after_serving_case_packs(uuid) to app_api, app_worker;
+
 reset role;

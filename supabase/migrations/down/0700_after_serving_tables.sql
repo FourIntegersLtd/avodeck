@@ -1,6 +1,7 @@
 -- Down for 0700 after serving: drop slice G's tables and functions.
 set role app_migrator;
 
+drop function if exists app.after_serving_case_packs(uuid);
 drop function if exists app.after_serving_due_deadlines(date, integer);
 drop function if exists app.after_serving_answers_served(uuid, uuid);
 drop function if exists app.after_serving_pack_deadline(uuid, text, text, date, text, text, text);
