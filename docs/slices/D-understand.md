@@ -23,14 +23,14 @@ The expert sees the whole story on a timeline, opens any consultation exactly as
 - `POST /v1/me/checks/custom` (later; returns 501 in MVP)
 
 ## Tables owned
-`fact_question_links`, `check_config`, `findings`, `consultation_notes`, `availability_overrides` (fact_id, available_at, unknown, reason, at; append-only), `check_runs` (one row per run of the checks), `case_guideline_versions` (the guideline version each case was shown). Guideline versions are read from the overlay pack's `guidelines.yaml` (`pack.guidelines()`) rather than a seeded `guideline_versions` table; a case records the version it was shown in `case_guideline_versions` (decision noted in `avodeck-pending/cross-slice.md`, 2026-10-18).
+`fact_question_links`, `check_config`, `findings`, `consultation_notes`, `availability_overrides` (fact_id, available_at, unknown, reason, at; append-only), `check_runs` (one row per run of the checks), `case_guideline_versions` (the guideline version each case was shown). Guideline versions are read from the overlay pack's `guidelines.yaml` (`pack.guidelines()`) rather than a seeded `guideline_versions` table; a case records the version it was shown in `case_guideline_versions` (ADR 0016).
 
 Writes on the contract table: `facts.available_at`, `facts.availability_basis`, computed by code.
 
 ## Code, not AI
 - **Availability:** for each fact, `available_at` = the earliest `availability_evidence` date (received, filed, seen, sent to the clinician) from T-07b. Otherwise `unknown`. Never the event date of a letter, and never decided by the model.
 - **As seen on a date:** visible = verified or suggested facts whose `available_at` ≤ the consultation date. Later entries are counted but hidden behind "Show what came later". Unknown is shown as unknown.
-- **Guidance in force:** a `guideline_versions` row where `in_force_from` ≤ date < `in_force_to`. Show the version label and link only. **No guideline text goes to any AI** until the licence allows it (decision 0005).
+- **Guidance in force:** a version in the overlay pack's guideline table (ADR 0016) where `in_force_from` ≤ date < `in_force_to`. Show the version label and link only. **No guideline text goes to any AI** until the licence allows it (decision 0005).
 - **Checks engine:** rules come from the packs (`checks.yaml` in the specialty pack, plus the expert's `check_config`). Each rule is code over facts: kinds, time windows, conditions. T-13a only labels the text spans a rule points at.
 
 ## AI tasks (architecture 6.3)
@@ -49,8 +49,8 @@ Writes on the contract table: `facts.available_at`, `facts.availability_basis`, 
 - [ ] Synthetic case: the consultation on page 118 (15 May 2024). The hospital letter dated 10 May but stamped received 22 May is hidden "as seen" and listed under "What came later". The blood result filed 14 May is visible.
 - [ ] A letter with no availability evidence shows "Not known when this arrived". It is never placed before the consultation automatically.
 - [ ] Overriding availability requires a reason, appends to `availability_overrides`, and is audited. The latest override wins.
-- [ ] `GET /guidelines/in-force?code=NG12&date=2024-05-15` returns the version in force on that date from the seeded table. A date before the first version returns `not_found`.
-- [ ] Recorded AI requests from this slice never contain text from `guideline_versions` beyond the code and title.
+- [ ] `GET /guidelines/in-force?code=NG12&date=2024-05-15` returns the version in force on that date from the overlay pack's guideline table. A date before the first version returns `not_found`.
+- [ ] Recorded AI requests from this slice never contain guideline text beyond the code and title.
 - [ ] T-11 is refused for unverified facts and only suggests links. Confirming or rejecting is audited. Manual links can be added.
 - [ ] Planted case: an abnormal result (planted ferritin 9 µg/L on page 402) with no action within 14 days produces an `abnormal_result_no_action` finding with evidence pages.
 - [ ] Turning that check off in `/me/checks` affects only new runs. `rerun` recreates findings and keeps decisions on findings that still exist.
