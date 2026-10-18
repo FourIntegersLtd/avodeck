@@ -430,7 +430,9 @@ async def test_one_address_is_refused_after_too_many_tries(app: FastAPI, admin: 
         refused = await guesser.get("/v1/spot-checks/zz-guess-last", headers={CODE_HEADER: "123456"})
         assert refused.status_code == 429 and refused.json()["error"]["code"] == "too_many_attempts"
         answers = [{"fact_id": str(uuid.uuid4()), "agrees": True}]
-        posted = await guesser.post("/v1/spot-checks/zz-guess-last/responses", json={"code": "123456", "answers": answers})
+        posted = await guesser.post(
+            "/v1/spot-checks/zz-guess-last/responses", json={"code": "123456", "answers": answers}
+        )
         assert posted.status_code == 429
         still = await other.get("/v1/spot-checks/zz-guess-other", headers={CODE_HEADER: "123456"})
         assert still.status_code == 200
