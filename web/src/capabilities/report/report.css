@@ -1,0 +1,18 @@
+/* Screens 16, 17, 18 and 18b, built from the design tokens. */
+.av-report-columns { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr); gap: var(--space-5); align-items: start; }
+@media (max-width: 860px) { .av-report-columns { grid-template-columns: 1fr; } }
+.av-report-list { list-style: none; margin: 0; padding: 0; }
+.av-report-item { padding: var(--space-3) 0; border-top: 1px solid var(--line); }
+.av-report-item--spread { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.av-report-footer { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.av-report-fieldset { border: 0; margin: 0; padding: 0; }
+.av-report-fieldset legend { font-size: var(--text-h2); font-weight: 700; padding: 0; }
+.av-report-radio { display: flex; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); padding: var(--space-2) var(--space-4); border: 1px solid var(--line-strong); border-radius: var(--radius); cursor: pointer; font-weight: 700; }
+.av-report-radio:has(input:checked) { background: var(--green-tint); border-color: var(--green); }
+.av-report-radio input { width: 24px; height: 24px; flex: none; }
+.av-report-preview { width: 100%; height: auto; border: 1px solid var(--line); border-radius: var(--radius); background: #fff; }
+.av-report-failed { border-left: 6px solid var(--red); }
+.av-report-words { font-family: Georgia, serif; background: var(--highlighter, #FFF3B0); padding: var(--space-2) var(--space-3); border-radius: var(--radius); }
+.av-report-mono { font-family: var(--font-mono); }
+.av-report-declaration { font-family: Georgia, serif; }
+.av-report-invoice { border-top: 1px solid var(--line); padding-top: var(--space-4); }
