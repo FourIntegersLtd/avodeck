@@ -17,6 +17,7 @@ import io
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import psycopg
 import pytest
@@ -230,7 +231,8 @@ async def test_the_colleague_sees_watermarked_crops_with_names_blacked_out(
         assert isinstance(masked, tuple) and isinstance(cited, tuple)
         assert sum(masked) < 150, "the party's name is blacked out"
         assert sum(cited) > 250, "the cited words show"
-        assert any(p[0] > p[1] + 30 for p in crop.getdata()), "the crop is watermarked"
+        pixels: Any = crop.getdata()
+        assert any(p[0] > p[1] + 30 for p in pixels), "the crop is watermarked"
     logged = admin.execute(
         "select count(*) from app.audit_log where case_id = %s and action = 'spot_check.opened'", (built.case,)
     ).fetchone()

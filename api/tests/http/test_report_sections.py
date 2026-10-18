@@ -83,7 +83,7 @@ def world(seed: Seed, admin: psycopg.Connection, combo: Combo, reads: Reads) -> 
 def writable(combo: Combo) -> str:
     """The first pack section the expert writes in their own words (not opinions or declarations)."""
     keys = [s["key"] for s in default_library().combine(*combo.codes).report_sections()]
-    return next(k for k in keys if k not in ("opinion", "declarations"))
+    return str(next(k for k in keys if k not in ("opinion", "declarations")))
 
 
 @pytest.mark.usefixtures("services")
