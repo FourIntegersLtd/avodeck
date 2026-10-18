@@ -452,7 +452,7 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
 
 def _trial_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
     doc = seed.document(w.case)
-    page = seed.page(w.case, doc, 901)  # past the other seeders' page numbers
+    page = seed.page(w.case, doc, 951)  # past the other seeders' page numbers and close-jobs' 901-903
     version = add_report_version(admin, w.case, status="served", version_no=7)
     row = admin.execute(
         "insert into app.expert_meetings (case_id, type, discussion_on, sign_by, sign_rule_ref, send_by,"
