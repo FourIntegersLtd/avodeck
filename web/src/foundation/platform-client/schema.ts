@@ -2453,6 +2453,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cell": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Cell */
+        get: operations["get_cell_v1_cell_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/feature-flags": {
         parameters: {
             query?: never;
@@ -3672,6 +3689,13 @@ export interface components {
             declarations: {
                 [key: string]: string;
             }[];
+            /**
+             * Document Kinds
+             * @default []
+             */
+            document_kinds: {
+                [key: string]: string;
+            }[];
             /** Expert Roles */
             expert_roles: string[];
             /** Fact Kinds */
@@ -3703,6 +3727,11 @@ export interface components {
             opinion_views: {
                 [key: string]: string;
             }[];
+            /**
+             * Outside Expertise Parts
+             * @default []
+             */
+            outside_expertise_parts: string[];
             /** Party Roles */
             party_roles: {
                 [key: string]: string;
@@ -3746,6 +3775,13 @@ export interface components {
             source_types: {
                 [key: string]: unknown;
             }[];
+            /**
+             * Subject Statuses
+             * @default []
+             */
+            subject_statuses: {
+                [key: string]: string | null;
+            }[];
             /** Timezone */
             timezone: string;
             /** Versions */
@@ -3785,6 +3821,15 @@ export interface components {
             period_start?: string | null;
             /** Subject Status */
             subject_status?: string | null;
+        };
+        /** Cell */
+        Cell: {
+            /** Storage Place */
+            storage_place: string | null;
+            /** Support Hours */
+            support_hours: string | null;
+            /** Support Phone */
+            support_phone: string | null;
         };
         /**
          * Certificate
@@ -4999,6 +5044,10 @@ export interface components {
             status: string;
             /** Step */
             step: string | null;
+            /** Step Done */
+            step_done?: number | null;
+            /** Step Total */
+            step_total?: number | null;
         };
         /** JobOut */
         JobOut: {
@@ -5972,6 +6021,10 @@ export interface components {
             status: string;
             /** Step */
             step: string | null;
+            /** Step Done */
+            step_done?: number | null;
+            /** Step Total */
+            step_total?: number | null;
         };
         /** Profile */
         Profile: {
@@ -13855,6 +13908,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_cell_v1_cell_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Cell"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

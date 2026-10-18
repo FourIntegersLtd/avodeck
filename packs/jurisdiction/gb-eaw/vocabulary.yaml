@@ -51,3 +51,12 @@ request_notes:
   translation: >-
     These pages are not in English and need a certified translation before I can rely on them: {pages}.
     Please arrange this and send me the translated copies.
+# Screens 03 and 04: the words the parties form uses.
+other_side_prompt: Who is the defendant?
+other_side_example: For example, the practice or the doctor the claim is against
+party_roles_plural:
+  instructing_side: claimants
+  other_side: defendants
+  joint: jointly instructed parties
+subject_status_hint: Say whether the claimant is living, has died or is under 18, so we ask about the right person.
+party_name_ignore_words: [the, and, ltd, limited, plc, llp, nhs, trust, practice, surgery, medical, centre, health, dr, mr, mrs, ms, miss]

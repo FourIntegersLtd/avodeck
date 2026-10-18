@@ -274,6 +274,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | para_ref | The paragraph of the letter |
 | kind | Type of question (e.g. breach, causation) from the pack |
 | outside_expertise | Flag that it may be outside the expert's field (they decide) |
+| answer_parts[] | The parts of the question the expert answers (e.g. timing only); empty means all of it. Locked once the question is confirmed |
+| outside_expertise_source | Who says it is outside the expert's field: `pack` or `expert`; empty when it is not. Locked once confirmed |
 | status / confirmed_text | Whether the expert has confirmed it, and any tidied wording (the original is kept) |
 | version | Goes up each time the question changes |
 
@@ -915,6 +917,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | kind / status / priority | What the background work is, its state, and how urgent |
 | attempts | How many times it has been tried |
 | step / pct / eta_seconds | Which step it is on (a short code), progress and time left |
+| step_done / step_total | Whole numbers for the current step ("page 40 of 900"); empty until the job reports them, and start again when the step changes |
 | code_version / error_code | Which version of Avodeck ran it; what went wrong if it failed, or `case_on_hold` while it waits for its case to resume (a short code, never text) |
 | requested_by | The person who asked for it; empty for work started by another job or the daily run. Set by the system |
 

@@ -1,3 +1,4 @@
 rule_ref: "Rule Z"
+page_limit: {zz_track: 7}
 required_contents:
   - {key: qualifications, text_key: zz.qualifications}

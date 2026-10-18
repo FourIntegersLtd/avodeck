@@ -134,11 +134,41 @@ class JobContext:
         """A transaction as `app_worker` that sees this job's case only."""
         return self.database.job(self.case_id)
 
-    async def progress(self, pct: int, *, eta_seconds: int | None = None, step: str | None = None) -> None:
+    async def progress(
+        self,
+        pct: int,
+        *,
+        eta_seconds: int | None = None,
+        step: str | None = None,
+        step_done: int | None = None,
+        step_total: int | None = None,
+    ) -> None:
+        """Store progress. Counts ("40 of 900") belong to the step: a call that leaves them out keeps
+        them, and a call that names a different step starts them again."""
         async with self.transaction() as conn:
             await conn.execute(
-                "update app.jobs set pct = %s, eta_seconds = %s, step = coalesce(%s, step) where id = %s",
-                (pct, eta_seconds, step, self.job_id),
+                "update app.jobs set pct = %s, eta_seconds = %s, step = coalesce(%s, step),"
+                " step_done = case when %s::int is not null then %s::int"
+                "                  when %s::text is not null and %s::text is distinct from step then null"
+                "                  else step_done end,"
+                " step_total = case when %s::int is not null then %s::int"
+                "                   when %s::text is not null and %s::text is distinct from step then null"
+                "                   else step_total end"
+                " where id = %s",
+                (
+                    pct,
+                    eta_seconds,
+                    step,
+                    step_done,
+                    step_done,
+                    step,
+                    step,
+                    step_total,
+                    step_total,
+                    step,
+                    step,
+                    self.job_id,
+                ),
             )
 
     async def step(self, key: str, work: StepWork) -> bool:
