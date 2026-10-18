@@ -146,10 +146,10 @@ def test_the_latest_override_wins_including_unknown() -> None:
     marks = [Mark(PAGE, "filed", date(2024, 5, 20), 30)]
     got = compute([letter], marks, ARRIVING, overrides)
     assert got[letter.fact_id].available_at is None
-    assert got[letter.fact_id].basis == "override_unknown"
+    assert got[letter.fact_id].basis == "expert_unknown"
     got = compute([letter], marks, ARRIVING, overrides[1:])
     assert got[letter.fact_id].available_at == date(2024, 5, 12)
-    assert got[letter.fact_id].basis == "override"
+    assert got[letter.fact_id].basis == "expert_override"
 
 
 # --- as seen -------------------------------------------------------------------------------------------
