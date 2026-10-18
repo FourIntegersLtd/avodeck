@@ -199,7 +199,7 @@ open (received) → answered (every question answered) → served (answers serve
 
 ## Opposing claim (`opposing_claims.status`)
 
-unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited.
+unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited. `read_first` is not a stored status: the API shows it in place of the result (with no quote of ours or reason) until that viewer has read the evidence page, and confirming then is 409 `read_first` (rule 3).
 
 ## Session (`sessions`)
 `aal1` (password only) → `aal2` (authenticator code entered) → revoked. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.
@@ -221,7 +221,7 @@ scheduled → heard / vacated / adjourned. adjourned sets `replaced_by_hearing_i
 
 ## Deadline (`deadlines`)
 
-open → done (`done_at`, answers served or marked done) / cancelled (`cancelled_at`, set when the case is withdrawn, through `CaseWithdrawn`). Cancelled is terminal and never cleared; done and cancelled deadlines get no reminders.
+open → done (`done_at`, answers served or marked done) / cancelled (`cancelled_at`, set when the case is withdrawn, through `CaseWithdrawn`). Cancelled is terminal and never cleared: it cannot be moved or marked done or undone (409 `cancelled`; `deadlines_guard` refuses any change), and a court direction never picks it up. Done and cancelled deadlines get no reminders. A settled, withdrawn, archived or deleted case gets no new pack deadlines (route and `app.after_serving_pack_deadline`, migration 0702).
 
 ## Legal hold (`legal_holds`)
 

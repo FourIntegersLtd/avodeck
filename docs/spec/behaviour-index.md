@@ -92,13 +92,13 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `credit_notes` | F | Issuer | Many per invoice | Immutable | As invoices |
 | `invoice_payments` | F | People who record payments on the case | Many per invoice | Insert only; their sum is the invoice's paid amount, never above total less credit notes | Goes with its invoice (cascade) |
 | `court_directions` | G | Named expert or assistant | Many | Append only | Case deletion |
-| `deadlines` | G | System from pack or direction; named expert edits | Many | Every change in `deadline_changes` | Withdrawing the case cancels open ones (`cancelled_at`); case deletion |
+| `deadlines` | G | System from pack or direction; named expert edits | Many | Every change in `deadline_changes` | Withdrawing the case cancels open ones (`cancelled_at`, then frozen); closed cases get no new pack deadlines; case deletion |
 | `deadline_changes` | G | System | Many per deadline | Append only | Case deletion |
 | `hearings` | G | Named expert or assistant | Many | State machine; adjournment links the new date | Case deletion |
 | `written_question_rounds` | G | Named expert or assistant | Many | State machine | Case deletion |
 | `written_questions` | G | Named expert answers | Many per round | State machine; locked when served | Case deletion |
 | `opposing_reports` | G | Named expert or assistant registers; worker checks | One per document | Checked once; checked_at set by the worker | Case deletion |
-| `opposing_claims` | G | Worker; named expert confirms | Many | State machine | Case deletion |
+| `opposing_claims` | G | Worker; named expert confirms | Many | State machine; result hidden until the viewer has read our page | Case deletion |
 | `report_changes` | G | Named expert | Many | Go into a supplementary report | Case deletion |
 | `expert_meetings` | I | Named expert | Many | State machine | Case deletion |
 | `expert_meeting_participants` | I | Named expert | Many per meeting | Add or remove before signing | Case deletion |

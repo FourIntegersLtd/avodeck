@@ -778,7 +778,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | calendar | Counted in calendar days or working days |
 | source | From the pack's default, a court order, or entered by hand |
 | pack_version / done_at | Which pack version worked it out; when it was done |
-| cancelled_at | When it was cancelled because the case was withdrawn (never cleared; no reminder goes out) |
+| cancelled_at | When it was cancelled because the case was withdrawn (never cleared; no reminder goes out; the deadline can no longer change) |
 
 ### deadline_changes
 | Field | In plain words |
@@ -819,7 +819,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | text_verbatim / word_ids[] | The other expert's statement and where it is in their report |
 | cited_page_ref / cited_value | The page and value they quote |
-| status | Matches, wrong page, wrong value, not on page, contradicted |
+| status | Matches, wrong page, wrong value, not on page, contradicted; shown as "read this page first" (with our words hidden) until the viewer has read our page |
 | evidence_word_ids[] / expert_confirmed | The words on our page that show it, and whether our expert agrees |
 
 ### report_changes

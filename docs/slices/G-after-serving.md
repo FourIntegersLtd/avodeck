@@ -25,7 +25,7 @@ After the report is served, the expert keeps track of court deadlines and answer
 ## Tables owned
 `deadlines` (rule_ref from the pack), `deadline_changes`, `court_directions`, `hearings`, `written_question_rounds`, `written_questions`, `opposing_reports`, `opposing_claims`, `report_changes`, `may_matter` (fact_id, question_id, why, seen_at).
 
-Also writes, for its own documents only: `report_versions` and `report_snapshots` rows of type `written_answers` and `supplementary` (never a served row; the database refuses with `AVLCK`), and `cases.on_hold` when a court direction stays the case.
+Also writes, for its own documents only: `report_versions` and `report_snapshots` rows of type `answers` and `supplementary` (never a served row; the database refuses with `AVLCK`), and `cases.on_hold` when a court direction stays the case.
 
 ## Worker jobs
 - **`verify_opposing`:**
