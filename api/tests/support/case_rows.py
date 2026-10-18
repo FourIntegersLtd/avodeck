@@ -233,6 +233,50 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
     }
 
 
+def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
+    """Slice E's case tables (migrations 0500-0599): one made-up row each; the opinion's version comes
+    from its trigger."""
+    doc = seed.document(w.case)
+    page = seed.page(w.case, doc, 501)
+    fact = add_fact(admin, w.case, page, status="verified")
+    question = add_question(admin, w.case, number=50, status="confirmed")
+    admin.execute(
+        "insert into app.points (case_id, question_id, fact_id, side, status, origin, fact_version)"
+        " values (%s, %s, %s, 'neutral', 'accepted', 'expert', 2)",
+        (w.case, question, fact),
+    )
+    admin.execute(
+        "insert into app.range_notes (case_id, question_id, text) values (%s, %s, %s)", (w.case, question, b"sealed")
+    )
+    admin.execute(
+        "insert into app.witness_claims (case_id, document_id, claim_index, text_verbatim, word_ids, verdict,"
+        " fact_ids, fact_versions) values (%s, %s, 0, %s, '{w1}', 'contradicts', array[%s]::uuid[], '{2}')",
+        (w.case, doc, b"sealed", fact),
+    )
+    row = admin.execute(
+        "insert into app.opinions (case_id, question_id, body) values (%s, %s, %s) returning id",
+        (w.case, question, b"sealed"),
+    ).fetchone()
+    assert row is not None
+    admin.execute(
+        "insert into app.lint_issues (case_id, opinion_id, opinion_version, sentence_index, type, words, source)"
+        " values (%s, %s, 1, 0, 'uncited_fact', %s, 'regex')",
+        (w.case, row[0], b"sealed"),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "questions": 1,
+        "points": 1,
+        "range_notes": 1,
+        "witness_claims": 1,
+        "opinions": 1,
+        "opinion_versions": 1,
+        "lint_issues": 1,
+    }
+
+
 SEEDERS = (
     _documents_pages_facts,
     _jobs,
@@ -243,6 +287,7 @@ SEEDERS = (
     _deletion_certificates,
     _setup_rows,
     _pipeline_tables,
+    _write_tables,
 )
 
 
