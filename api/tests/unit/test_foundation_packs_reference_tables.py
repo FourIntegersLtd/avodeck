@@ -22,13 +22,15 @@ def rows_in(raw: dict[str, Any]) -> list[Any]:
     return next(v for v in raw.values() if isinstance(v, list))
 
 
-def fixture_with_table(fixtures: Path, rows: str = "  - {code: zz1, every_days: 30}\n") -> packs.MergedPack:
+def fixture_with_table(fixtures: Path, rows: str | None = "  - {code: zz1, every_days: 30}\n") -> packs.MergedPack:
+    """A fixture overlay whose check names `drug_monitoring`; `rows=None` leaves the table file out."""
     write(fixtures / FIXTURE_OVERLAY / "pack.yaml", "jurisdiction: zz-test\nspecialty: zz-specialty\nversion: 0.0.1\n")
     write(
         fixtures / FIXTURE_OVERLAY / "checks.yaml",
         "checks:\n  - {key: zz_overdue, rule: monitoring_overdue, applies_to: measurement, table: drug_monitoring}\n",
     )
-    write(fixtures / FIXTURE_OVERLAY / "drug_monitoring.yaml", "version: 0.0.1\ndrugs:\n" + rows)
+    if rows is not None:
+        write(fixtures / FIXTURE_OVERLAY / "drug_monitoring.yaml", "version: 0.0.1\ndrugs:\n" + rows)
     return packs.load_library(fixtures).combine(*FIXTURE.codes)
 
 
@@ -50,10 +52,7 @@ def test_fixture_table_rows_are_returned_as_copies(tmp_path: Path) -> None:
 
 
 def test_a_named_table_with_no_file_has_no_rows(tmp_path: Path) -> None:
-    fixtures = copy_packs(tmp_path)[1]
-    fixture_with_table(fixtures)
-    (fixtures / FIXTURE_OVERLAY / "drug_monitoring.yaml").unlink()
-    pack = packs.load_library(fixtures).combine(*FIXTURE.codes)
+    pack = fixture_with_table(copy_packs(tmp_path)[1], rows=None)
     assert pack.reference_table("drug_monitoring") == []
 
 
