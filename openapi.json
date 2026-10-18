@@ -1504,6 +1504,15 @@
             "title": "Registration Bodies",
             "type": "array"
           },
+          "report_appendices": {
+            "default": [],
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Report Appendices",
+            "type": "array"
+          },
           "report_sections": {
             "items": {
               "additionalProperties": true,

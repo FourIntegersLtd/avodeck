@@ -1,6 +1,20 @@
 # Sections assembled into the expert's own Word template (mapped on screen 02).
-sections: [introduction, instructions, documents, background, what_happened, opinion, range_of_opinion, summary, declarations]
-appendices: [cv, glossary, documents_list, methodology, chronology]
+sections:
+  - {key: introduction, label: Introduction}
+  - {key: instructions, label: My instructions}
+  - {key: documents, label: Documents I have seen}
+  - {key: background, label: Background}
+  - {key: what_happened, label: What happened}
+  - {key: opinion, label: My opinion}
+  - {key: range_of_opinion, label: Range of opinion}
+  - {key: summary, label: Summary of my conclusions}
+  - {key: declarations, label: Declarations}
+appendices:
+  - {key: cv, label: My CV}
+  - {key: glossary, label: Glossary}
+  - {key: documents_list, label: List of documents}
+  - {key: methodology, label: How I carried out this review}
+  - {key: chronology, label: Chronology}
 opinion_per: question          # one opinion block per breach question
 uses_points_against: true
 uses_as_clinician_saw_it: true

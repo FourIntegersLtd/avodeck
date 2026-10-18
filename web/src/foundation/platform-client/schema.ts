@@ -3659,6 +3659,13 @@ export interface components {
             range_note_prompt: string;
             /** Registration Bodies */
             registration_bodies: string[];
+            /**
+             * Report Appendices
+             * @default []
+             */
+            report_appendices: {
+                [key: string]: unknown;
+            }[];
             /** Report Sections */
             report_sections: {
                 [key: string]: unknown;

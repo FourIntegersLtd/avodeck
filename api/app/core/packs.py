@@ -501,6 +501,9 @@ class MergedPack:
     def report_sections(self) -> list[dict[str, Any]]:
         return self._registry("report_sections.yaml", "sections")
 
+    def report_appendices(self) -> list[dict[str, Any]]:
+        return self._registry("report_sections.yaml", "appendices")
+
     def fact_kinds(self) -> list[dict[str, Any]]:
         return self._registry("facts.yaml", "fact_kinds")
 

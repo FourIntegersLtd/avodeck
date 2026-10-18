@@ -1,5 +1,10 @@
-sections: [introduction, findings, opinion, declarations]
-appendices: [methodology]
+sections:
+  - {key: introduction, label: Zz opening}
+  - {key: findings, label: Zz findings}
+  - {key: opinion, label: Zz view}
+  - {key: declarations, label: Zz closing words}
+appendices:
+  - {key: methodology, label: Zz method}
 opinion_per: question
 uses_points_against: false
 uses_as_clinician_saw_it: false
