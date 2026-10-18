@@ -11,7 +11,9 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.crypto import CaseCrypto
+from app.features.pipeline.extract import box
 from app.features.pipeline.paths import word_purpose
 
 
@@ -110,11 +112,10 @@ async def page(conn: AsyncConnection, case_id: uuid.UUID, page_no: int, person_i
 async def page_facts(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> list[dict[str, Any]]:
     """The page's facts in reading order, including ones marked not right (so that can be undone)."""
     cur = await conn.execute(
-        """select f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.status, f.version,
-                  exists (select 1 from app.fact_flags g where g.fact_id = f.id) as flagged
-           from app.facts f where f.case_id = %s and f.page_id = %s
-           order by (f.bbox ->> 'y0')::float nulls last, f.created_at, f.id""",
-        (case_id, page_id),
+        f"""select {_FACT_COLUMNS}
+           from app.facts f where f.case_id = %(case)s and f.page_id = %(page)s
+           order by (f.bbox ->> 'y0')::float nulls last, f.created_at, f.id""",  # noqa: S608 (fixed fragment)
+        {"case": case_id, "page": page_id, "points": POINTS, "recheck": RECHECK},
     )
     return [_row(cur, r) for r in await cur.fetchall()]
 
@@ -147,8 +148,11 @@ def _row(cur: Any, row: tuple[Any, ...]) -> dict[str, Any]:
 
 # Checking facts (S09) ------------------------------------------------------------------------------
 
+# `flagged` is the Points against flag only; `needs_recheck` is "Please check" after a page is read again.
 _FACT_COLUMNS = """f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.status, f.version,
-    exists (select 1 from app.fact_flags g where g.fact_id = f.id) as flagged"""
+    exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(points)s) as flagged,
+    exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(recheck)s) as needs_recheck"""
+_FLAGS = {"points": POINTS, "recheck": RECHECK}
 
 
 async def fact(conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID) -> dict[str, Any] | None:
@@ -156,8 +160,8 @@ async def fact(conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID) ->
     cur = await conn.execute(
         f"""select {_FACT_COLUMNS}, f.page_id, p.bundle_page_no as page_no, p.superseded_by_page_id
             from app.facts f join app.pages p on p.id = f.page_id
-            where f.case_id = %s and f.id = %s and not p.quarantined""",  # noqa: S608
-        (case_id, fact_id),
+            where f.case_id = %(case)s and f.id = %(fact)s and not p.quarantined""",  # noqa: S608
+        {"case": case_id, "fact": fact_id, **_FLAGS},
     )
     row = await cur.fetchone()
     return _row(cur, row) if row else None
@@ -184,15 +188,57 @@ async def change_fact(
     word_ids: list[str],
     page_id: uuid.UUID,
     bbox: Any,
+    fields: dict[str, Any],
+    event_date: Any,
 ) -> dict[str, Any] | None:
     """Apply a check if the fact is still at `version` (the database bumps it); None when it moved on."""
     cur = await conn.execute(
-        f"""update app.facts f set status = %s, value = %s, word_ids = %s, page_id = %s, bbox = %s
-            where f.id = %s and f.version = %s returning {_FACT_COLUMNS}""",  # noqa: S608
-        (status, value, word_ids, page_id, Jsonb(bbox) if bbox is not None else None, fact_id, version),
+        f"""update app.facts f set status = %(status)s, value = %(value)s, word_ids = %(word_ids)s,
+                page_id = %(page)s, bbox = %(bbox)s, fields = %(fields)s, event_date = %(event_date)s
+            where f.id = %(fact)s and f.version = %(version)s returning {_FACT_COLUMNS}""",  # noqa: S608
+        {
+            "status": status,
+            "value": value,
+            "word_ids": word_ids,
+            "page": page_id,
+            "bbox": Jsonb(bbox) if bbox is not None else None,
+            "fields": Jsonb(fields),
+            "event_date": event_date,
+            "fact": fact_id,
+            "version": version,
+            **_FLAGS,
+        },
     )
     row = await cur.fetchone()
     return _row(cur, row) if row else None
+
+
+async def word_box(conn: AsyncConnection, page_id: uuid.UUID, word_ids: list[str]) -> dict[str, float] | None:
+    """The cited words' box as a share of the page (as slice A boxes facts); None when the words have no
+    place on the picture (typed out by the expert)."""
+    cur = await conn.execute("select word_id, polygon from app.ocr_words where page_id = %s", (page_id,))
+    polygons = {w: [float(v) for v in p] for w, p in await cur.fetchall()}
+    cited = [w for w in word_ids if w in polygons]
+    if not cited or not any(v for w in cited for v in polygons[w]):
+        return None
+    cur = await conn.execute("select width, height from app.page_analysis where page_id = %s", (page_id,))
+    size = await cur.fetchone()
+    width = float(size[0]) if size and size[0] else max((x for p in polygons.values() for x in p[0::2]), default=1.0)
+    height = float(size[1]) if size and size[1] else max((y for p in polygons.values() for y in p[1::2]), default=1.0)
+    return box(cited, polygons, width or 1.0, height or 1.0)
+
+
+async def log_remaps(
+    conn: AsyncConnection, case_id: uuid.UUID, moved: list[tuple[uuid.UUID, str | None, list[str], list[str]]]
+) -> None:
+    """One `remapped` row per fact (fact, value, old words, new words) a re-read moved onto new words.
+    Written by the job, so no person."""
+    async with conn.cursor() as cur:
+        await cur.executemany(
+            "insert into app.fact_verifications (case_id, fact_id, person_id, action, old_value, new_value,"
+            " old_word_ids, new_word_ids) values (%s, %s, null, 'remapped', %s, %s, %s, %s)",
+            [(case_id, f, value, value, old, new) for f, value, old, new in moved],
+        )
 
 
 async def log_check(
