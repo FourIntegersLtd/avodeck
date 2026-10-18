@@ -21,6 +21,7 @@ from typing import Any
 from app.core.ai import provenance
 from app.core.ai.kit import AiTask
 from app.core.packs import MergedPack
+from app.features.pipeline import dates
 
 TASK_ID = "T-07b"
 PROMPT_VERSION = "2026-10-17.1"
@@ -143,6 +144,43 @@ def sort_facts(output: Mapping[str, Any], words: Mapping[str, str], struck: set[
     clean = [f for f in facts if not set(f.get("word_ids", [])) & struck]
     kept, refused = provenance.check_items(clean, words)
     return Sorted(kept=list(kept), refused=len(refused), struck=len(facts) - len(clean))
+
+
+def sort_evidence(
+    output: Mapping[str, Any] | None, ordered: Sequence[tuple[str, str]], struck: set[str], pack: MergedPack
+) -> list[dict[str, Any]]:
+    """The availability evidence worth keeping: `{kind, date, date_text, word_ids}`.
+
+    Checked like a fact: every cited word is on the page and not crossed out, and a date the model
+    points at is printed in the cited words. The date itself is read by code in the pack's date
+    order; one that reads more than one way is kept with no date, never guessed. Anything else is
+    dropped.
+    """
+    on_page = dict(ordered)
+    kept: list[dict[str, Any]] = []
+    for item in (output or {}).get("availability_evidence", []):
+        ids = list(item.get("word_ids", []))
+        if item.get("kind") not in AVAILABILITY or not ids or any(i not in on_page or i in struck for i in ids):
+            continue
+        cited = [(w, t) for w, t in ordered if w in ids]
+        found = dates.find(cited, pack)
+        pointed = item.get("date")
+        value: Any = None
+        if pointed is not None and str(pointed).strip():
+            value, _ = dates.event_date(str(pointed), found, pack)
+            if value is None and not any(d.ambiguous for d in found):
+                continue  # the cited words do not print that date
+        else:
+            readable = {d.value for d in found if not d.ambiguous}
+            value = readable.pop() if len(readable) == 1 and len(found) == 1 else None
+        text = None
+        if value is not None:
+            hit = next(d for d in found if value in (d.value, d.other))
+            text = " ".join(on_page[w] for w in hit.word_ids)
+        kept.append(
+            {"kind": item["kind"], "date": value.isoformat() if value else None, "date_text": text, "word_ids": ids}
+        )
+    return kept
 
 
 def box(
