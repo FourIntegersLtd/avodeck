@@ -7,6 +7,7 @@ from app.core.http import router as _router
 router = _router(prefix="/v1", tags=["understand"])
 
 from app.features.understand import (  # noqa: E402, F401
+    jobs,
     routes_checks,
     routes_comments,
     routes_consultation,
@@ -14,6 +15,7 @@ from app.features.understand import (  # noqa: E402, F401
     routes_guidelines,
     routes_links,
     routes_timeline,
+    today,
 )
 
 __all__ = ["router"]
