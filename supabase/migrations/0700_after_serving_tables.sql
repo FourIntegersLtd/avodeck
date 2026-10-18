@@ -547,7 +547,7 @@ as $$
   select min(s.served_on) from app.report_servings s
   join app.report_versions v on v.id = s.report_version_id
   where s.case_id = p_case and v.case_id = p_case and v.type not in ('answers', 'supplementary')
-    and (app.current_job_case_id() = p_case or app.can_access_case(p_case, 'case.view_content'))
+    and (coalesce(session_user = 'app_worker' and app.current_job_case_id() = p_case, false) or app.can_access_case(p_case, 'case.view_content'))
 $$;
 revoke all on function app.after_serving_served_on(uuid) from public;
 grant execute on function app.after_serving_served_on(uuid) to app_api, app_worker;
@@ -562,10 +562,28 @@ as $$
   select min(s.created_at) from app.report_servings s
   join app.report_versions v on v.id = s.report_version_id
   where s.case_id = p_case and v.case_id = p_case and v.type not in ('answers', 'supplementary')
-    and (app.current_job_case_id() = p_case or app.can_access_case(p_case, 'case.view_content'))
+    and (coalesce(session_user = 'app_worker' and app.current_job_case_id() = p_case, false) or app.can_access_case(p_case, 'case.view_content'))
 $$;
 revoke all on function app.after_serving_served_at(uuid) from public;
 grant execute on function app.after_serving_served_at(uuid) to app_api, app_worker;
+
+-- Who made a serving of this version in the last ten minutes, so slice G's `report_served` handler can act
+-- as that person (the event names no person, and only the worker role may act as a job). Older servings
+-- name nobody, so the function cannot be used to learn who served long ago.
+create function app.after_serving_served_by(p_case uuid, p_version uuid) returns uuid
+  language sql
+  stable
+  security definer
+  set search_path = ''
+as $$
+  select s.created_by from app.report_servings s
+  where s.case_id = p_case and s.report_version_id = p_version
+    and s.created_at > now() - interval '10 minutes'
+  order by s.created_at desc
+  limit 1
+$$;
+revoke all on function app.after_serving_served_by(uuid, uuid) from public;
+grant execute on function app.after_serving_served_by(uuid, uuid) to app_api;
 
 -- Add a deadline the pack sets from serving, once per kind (the date is worked out in code from the
 -- pack). Anyone who can see the case may cause it (the date is the pack's, not theirs), and so may the
@@ -580,7 +598,8 @@ as $$
 declare
   v_id uuid;
 begin
-  if not (app.current_job_case_id() = p_case or app.can_access_case(p_case, 'case.view_content')) then
+  if not coalesce(session_user = 'app_worker' and app.current_job_case_id() = p_case
+                  or app.can_access_case(p_case, 'case.view_content'), false) then
     raise exception 'not allowed' using errcode = '42501';
   end if;
   if not exists (select 1 from app.report_servings s join app.report_versions v on v.id = s.report_version_id
@@ -616,7 +635,8 @@ as $$
 declare
   v_count integer := 0;
 begin
-  if not (app.current_job_case_id() = p_case or app.can_access_case(p_case, 'case.view_content')) then
+  if not coalesce(session_user = 'app_worker' and app.current_job_case_id() = p_case
+                  or app.can_access_case(p_case, 'case.view_content'), false) then
     raise exception 'not allowed' using errcode = '42501';
   end if;
   if not exists (select 1 from app.report_versions v where v.id = p_version and v.case_id = p_case
@@ -666,7 +686,7 @@ create function app.after_serving_case_packs(p_case uuid)
 as $$
   select c.jurisdiction, c.case_type, c.specialty from app.cases c
   where c.id = p_case
-    and (app.current_job_case_id() = p_case or app.can_access_case(p_case, 'case.view_content'))
+    and (coalesce(session_user = 'app_worker' and app.current_job_case_id() = p_case, false) or app.can_access_case(p_case, 'case.view_content'))
 $$;
 revoke all on function app.after_serving_case_packs(uuid) from public;
 grant execute on function app.after_serving_case_packs(uuid) to app_api, app_worker;

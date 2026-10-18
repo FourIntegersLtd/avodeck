@@ -5,6 +5,7 @@ drop function if exists app.after_serving_case_packs(uuid);
 drop function if exists app.after_serving_due_deadlines(date, integer);
 drop function if exists app.after_serving_answers_served(uuid, uuid);
 drop function if exists app.after_serving_pack_deadline(uuid, text, text, date, text, text, text);
+drop function if exists app.after_serving_served_by(uuid, uuid);
 drop function if exists app.after_serving_served_at(uuid);
 drop function if exists app.after_serving_served_on(uuid);
 drop table if exists app.may_matter;

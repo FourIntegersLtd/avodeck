@@ -8,15 +8,12 @@ pauses (`storage_unavailable`); without a model or OCR it pauses (`model_unavail
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from app.core.ai.bedrock import RecordedBedrock
+from app.core.ai.clients import live_or_recorded
 from app.core.ai.kit import AiKit
-from app.core.ai.ocr import OcrClient, RecordedOcr
-from app.core.ai.recordings import FixtureStore
-from app.core.config import ConfigError, ai_settings
+from app.core.ai.ocr import OcrClient
+from app.core.config import ConfigError
 from app.core.contracts.reading import PageReadLog, PageReads
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.email import OutboxMailer
@@ -66,17 +63,8 @@ def configure(services: AfterServingServices | None) -> None:
 
 
 def from_env() -> AfterServingServices:
-    kit: AiKit | None = None
-    ocr: OcrClient | None = None
-    recordings = os.environ.get("AI_RECORDINGS_DIR", "").strip()
-    try:
-        settings = ai_settings()
-    except ConfigError:
-        settings = None
-    if settings is not None and recordings:
-        store = FixtureStore(Path(recordings))
-        kit = AiKit(settings, RecordedBedrock(settings, store))
-        ocr = RecordedOcr(settings, store)
+    ai = live_or_recorded()
+    kit, ocr = ai.kit, ai.ocr
     try:
         storage: SupabaseStorage | None = SupabaseStorage(storage_settings())
     except ConfigError:
