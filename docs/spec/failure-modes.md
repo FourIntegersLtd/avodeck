@@ -18,7 +18,7 @@ What happens when things go wrong, so the code handles each case on purpose. Pri
 | F12 | Date ambiguous (03/04 with no context) | Date normaliser | Not guessed; marked "Please check" | Badge on the fact | A |
 | F13 | Duplicate wrongly suggested | Expert undo | Undo restores the page | — | A, B |
 | F14 | Expert rejects a fact already cited | State machine guard | Warn and list citing paragraphs | "This fact is used in your opinion on Q2. Change it?" | B, E |
-| F15 | Two tabs edit the same opinion | `updated_at` check | 409 with both versions | "You changed this in another window. Which version do you want to keep?" | E |
+| F15 | Two tabs edit the same opinion | `If-Match` version check | 412 `stale` with both versions | "You changed this in another window. Which version do you want to keep?" | E |
 | F16 | Report build fails (template problem) | Build job error | Fall back to the standard Avodeck template, flag the template issue | "We couldn't use your template this time; your report is in the standard layout." | F |
 | F17 | Session expires while writing | 401 | Autosave every 5 s; draft kept server-side | Sign in again and continue where you were | Foundation, E |
 | F18 | Email delivery fails (Resend) | Webhook | Retry; then in-app notice | Today item still appears | Foundation |

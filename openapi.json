@@ -1399,6 +1399,59 @@
         "title": "Certificate",
         "type": "object"
       },
+      "Chip": {
+        "properties": {
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_id": {
+            "format": "uuid",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "quote_verbatim": {
+            "title": "Quote Verbatim",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "page_id",
+          "page_no",
+          "kind",
+          "value",
+          "event_date",
+          "quote_verbatim"
+        ],
+        "title": "Chip",
+        "type": "object"
+      },
       "ChunkReceived": {
         "properties": {
           "received": {
@@ -1413,6 +1466,141 @@
           "received"
         ],
         "title": "ChunkReceived",
+        "type": "object"
+      },
+      "Citation": {
+        "additionalProperties": false,
+        "properties": {
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "page_id": {
+            "format": "uuid",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "quote_verbatim": {
+            "maxLength": 2000,
+            "title": "Quote Verbatim",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "page_id",
+          "quote_verbatim"
+        ],
+        "title": "Citation",
+        "type": "object"
+      },
+      "ClaimChange": {
+        "additionalProperties": false,
+        "properties": {
+          "expert_verdict": {
+            "anyOf": [
+              {
+                "enum": [
+                  "supports",
+                  "contradicts",
+                  "not_addressed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Verdict"
+          },
+          "status": {
+            "enum": [
+              "confirmed",
+              "edited",
+              "dismissed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "ClaimChange",
+        "type": "object"
+      },
+      "ClaimOut": {
+        "properties": {
+          "claim_index": {
+            "title": "Claim Index",
+            "type": "integer"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "expert_verdict": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Verdict"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/PointFact"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "verdict": {
+            "title": "Verdict",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "claim_index",
+          "text_verbatim",
+          "word_ids",
+          "verdict",
+          "expert_verdict",
+          "status",
+          "version",
+          "facts"
+        ],
+        "title": "ClaimOut",
         "type": "object"
       },
       "CloseSummary": {
@@ -2565,6 +2753,65 @@
         "title": "Forgot",
         "type": "object"
       },
+      "Guidance": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "in_force_from": {
+            "format": "date",
+            "title": "In Force From",
+            "type": "string"
+          },
+          "in_force_to": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "In Force To"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "version_label": {
+            "title": "Version Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "code",
+          "title",
+          "version_label",
+          "in_force_from",
+          "in_force_to",
+          "url"
+        ],
+        "title": "Guidance",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -3409,6 +3656,77 @@
         "title": "JurisdictionSummary",
         "type": "object"
       },
+      "LintDismiss": {
+        "additionalProperties": false,
+        "properties": {
+          "dismissed_reason": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Dismissed Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dismissed_reason"
+        ],
+        "title": "LintDismiss",
+        "type": "object"
+      },
+      "LintIssueOut": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sentence_index": {
+            "title": "Sentence Index",
+            "type": "integer"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "words": {
+            "title": "Words",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sentence_index",
+          "type",
+          "words",
+          "source",
+          "status"
+        ],
+        "title": "LintIssueOut",
+        "type": "object"
+      },
+      "LintOut": {
+        "properties": {
+          "issues": {
+            "items": {
+              "$ref": "#/components/schemas/LintIssueOut"
+            },
+            "title": "Issues",
+            "type": "array"
+          }
+        },
+        "required": [
+          "issues"
+        ],
+        "title": "LintOut",
+        "type": "object"
+      },
       "MappingItem": {
         "additionalProperties": false,
         "properties": {
@@ -4211,6 +4529,268 @@
         "title": "Notifications",
         "type": "object"
       },
+      "OpinionIn": {
+        "additionalProperties": false,
+        "properties": {
+          "body": {
+            "maxLength": 100000,
+            "title": "Body",
+            "type": "string"
+          },
+          "citation_refs": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "maxItems": 500,
+            "title": "Citation Refs",
+            "type": "array"
+          },
+          "provisional": {
+            "default": false,
+            "title": "Provisional",
+            "type": "boolean"
+          },
+          "test_text": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Text"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "OpinionIn",
+        "type": "object"
+      },
+      "OpinionOut": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "citation_refs": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citation Refs",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "lint": {
+            "items": {
+              "$ref": "#/components/schemas/LintIssueOut"
+            },
+            "title": "Lint",
+            "type": "array"
+          },
+          "provisional": {
+            "title": "Provisional",
+            "type": "boolean"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "restored_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored From"
+          },
+          "test_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Text"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
+          }
+        },
+        "required": [
+          "id",
+          "question_id",
+          "body",
+          "citation_refs",
+          "view",
+          "provisional",
+          "restored_from",
+          "version",
+          "updated_at"
+        ],
+        "title": "OpinionOut",
+        "type": "object"
+      },
+      "OpinionVersion": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "citation_refs": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citation Refs",
+            "type": "array"
+          },
+          "provisional": {
+            "title": "Provisional",
+            "type": "boolean"
+          },
+          "restored_from": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Restored From"
+          },
+          "saved_at": {
+            "format": "date-time",
+            "title": "Saved At",
+            "type": "string"
+          },
+          "saved_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Saved By"
+          },
+          "test_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Text"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "View"
+          }
+        },
+        "required": [
+          "version_no",
+          "body",
+          "citation_refs",
+          "view",
+          "provisional",
+          "restored_from",
+          "saved_by",
+          "saved_at"
+        ],
+        "title": "OpinionVersion",
+        "type": "object"
+      },
+      "OpinionVersions": {
+        "properties": {
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/OpinionVersion"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "versions"
+        ],
+        "title": "OpinionVersions",
+        "type": "object"
+      },
+      "OpinionView": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "OpinionView",
+        "type": "object"
+      },
       "OralInstruction": {
         "properties": {
           "instruction_version_id": {
@@ -4884,6 +5464,269 @@
           "created_at"
         ],
         "title": "Person",
+        "type": "object"
+      },
+      "PointAdd": {
+        "additionalProperties": false,
+        "properties": {
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "side": {
+            "maxLength": 40,
+            "title": "Side",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "side"
+        ],
+        "title": "PointAdd",
+        "type": "object"
+      },
+      "PointChange": {
+        "additionalProperties": false,
+        "properties": {
+          "dismissed_reason": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed Reason"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "accepted",
+                  "dismissed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "PointChange",
+        "type": "object"
+      },
+      "PointFact": {
+        "properties": {
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_id": {
+            "format": "uuid",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "page_id",
+          "page_no",
+          "kind",
+          "value",
+          "event_date"
+        ],
+        "title": "PointFact",
+        "type": "object"
+      },
+      "PointOut": {
+        "properties": {
+          "dismissed_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dismissed Reason"
+          },
+          "fact": {
+            "$ref": "#/components/schemas/PointFact"
+          },
+          "flagged": {
+            "title": "Flagged",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "origin": {
+            "title": "Origin",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "side": {
+            "title": "Side",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "side",
+          "status",
+          "origin",
+          "reason",
+          "dismissed_reason",
+          "flagged",
+          "version",
+          "fact"
+        ],
+        "title": "PointOut",
+        "type": "object"
+      },
+      "Points": {
+        "properties": {
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimOut"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/PointOut"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "range_note": {
+            "$ref": "#/components/schemas/RangeNote"
+          },
+          "relevant": {
+            "items": {
+              "$ref": "#/components/schemas/RelevantOut"
+            },
+            "title": "Relevant",
+            "type": "array"
+          },
+          "sides": {
+            "items": {
+              "$ref": "#/components/schemas/Side"
+            },
+            "title": "Sides",
+            "type": "array"
+          },
+          "unused": {
+            "items": {
+              "$ref": "#/components/schemas/PointFact"
+            },
+            "title": "Unused",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sides",
+          "points",
+          "unused",
+          "relevant",
+          "claims",
+          "range_note"
+        ],
+        "title": "Points",
+        "type": "object"
+      },
+      "PointsSummary": {
+        "properties": {
+          "differ": {
+            "title": "Differ",
+            "type": "integer"
+          },
+          "sides": {
+            "items": {
+              "$ref": "#/components/schemas/SideCount"
+            },
+            "title": "Sides",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sides",
+          "differ"
+        ],
+        "title": "PointsSummary",
         "type": "object"
       },
       "Prefill": {
@@ -5615,6 +6458,65 @@
         "title": "Questions",
         "type": "object"
       },
+      "Queued": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "Queued",
+        "type": "object"
+      },
+      "RangeNote": {
+        "properties": {
+          "prompt": {
+            "title": "Prompt",
+            "type": "string"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "prompt",
+          "text",
+          "version"
+        ],
+        "title": "RangeNote",
+        "type": "object"
+      },
+      "RangeNoteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 20000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "RangeNoteIn",
+        "type": "object"
+      },
       "ReadAgain": {
         "properties": {
           "job_id": {
@@ -5755,6 +6657,54 @@
           "recovery_codes"
         ],
         "title": "RecoveryCodes",
+        "type": "object"
+      },
+      "RelevantChange": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "const": "dismissed",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RelevantChange",
+        "type": "object"
+      },
+      "RelevantOut": {
+        "properties": {
+          "fact": {
+            "$ref": "#/components/schemas/PointFact"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          },
+          "why_relevant": {
+            "title": "Why Relevant",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "why_relevant",
+          "version",
+          "fact"
+        ],
+        "title": "RelevantOut",
         "type": "object"
       },
       "ReplaceAsk": {
@@ -6250,6 +7200,47 @@
           "minutes_until_timeout"
         ],
         "title": "SessionStatus",
+        "type": "object"
+      },
+      "Side": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "Side",
+        "type": "object"
+      },
+      "SideCount": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label",
+          "count"
+        ],
+        "title": "SideCount",
         "type": "object"
       },
       "SignIn": {
@@ -7255,6 +8246,77 @@
           "text"
         ],
         "title": "Wording",
+        "type": "object"
+      },
+      "Workspace": {
+        "properties": {
+          "chips": {
+            "items": {
+              "$ref": "#/components/schemas/Chip"
+            },
+            "title": "Chips",
+            "type": "array"
+          },
+          "guidance": {
+            "items": {
+              "$ref": "#/components/schemas/Guidance"
+            },
+            "title": "Guidance",
+            "type": "array"
+          },
+          "guidance_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Guidance On"
+          },
+          "legal_test": {
+            "title": "Legal Test",
+            "type": "string"
+          },
+          "opinion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpinionOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "points": {
+            "$ref": "#/components/schemas/PointsSummary"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "views": {
+            "items": {
+              "$ref": "#/components/schemas/OpinionView"
+            },
+            "title": "Views",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_id",
+          "chips",
+          "guidance_on",
+          "guidance",
+          "points",
+          "views",
+          "legal_test",
+          "opinion"
+        ],
+        "title": "Workspace",
         "type": "object"
       },
       "app__features__close__schemas__Hold": {
@@ -10254,6 +11316,80 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/lint-issues/{issue_id}": {
+      "patch": {
+        "description": "Dismiss a warning with the expert's reason; the dismissal is kept for the final check.",
+        "operationId": "dismiss_issue_v1_cases__case_id__lint_issues__issue_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "issue_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Issue Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LintDismiss"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintIssueOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Dismiss Issue",
+        "tags": [
+          "write"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/members": {
       "get": {
         "operationId": "list_members_v1_cases__case_id__members_get",
@@ -10567,6 +11703,159 @@
         "summary": "Change Missing Item",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/opinions/{opinion_id}/versions": {
+      "get": {
+        "description": "Every saved version of the opinion, newest first.",
+        "operationId": "opinion_versions_v1_cases__case_id__opinions__opinion_id__versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "opinion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opinion Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpinionVersions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Opinion Versions",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/opinions/{opinion_id}/versions/{version_no}/restore": {
+      "post": {
+        "description": "Save an earlier version again as the newest one; the earlier version is not changed.",
+        "operationId": "restore_version_v1_cases__case_id__opinions__opinion_id__versions__version_no__restore_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "opinion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Opinion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_no",
+            "required": true,
+            "schema": {
+              "title": "Version No",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpinionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Restore Version",
+        "tags": [
+          "write"
         ]
       }
     },
@@ -11935,6 +13224,96 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/points/{point_id}": {
+      "patch": {
+        "description": "Move a point to another side, accept it, or remove it with a reason.",
+        "operationId": "change_point_v1_cases__case_id__points__point_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "point_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Point Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PointChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Point",
+        "tags": [
+          "write"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/prefill": {
       "get": {
         "operationId": "get_prefill_v1_cases__case_id__prefill_get",
@@ -12574,6 +13953,621 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/questions/{question_id}/opinion": {
+      "put": {
+        "description": "Autosave: the expert's text, citations, view and provisional flag. Every save is kept as a version.",
+        "operationId": "save_opinion_v1_cases__case_id__questions__question_id__opinion_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpinionIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpinionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Save Opinion",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/{question_id}/opinion/lint": {
+      "post": {
+        "description": "Ask the model which words in the saved opinion to check; the warnings open after it answers.",
+        "operationId": "lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Lint Opinion",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/{question_id}/points": {
+      "get": {
+        "description": "The points on one question, flagged facts first, then by side; and the citable facts not yet used.",
+        "operationId": "list_points_v1_cases__case_id__questions__question_id__points_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Points"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Points",
+        "tags": [
+          "write"
+        ]
+      },
+      "post": {
+        "description": "The expert adds a citable fact linked to the question as a point of their own.",
+        "operationId": "add_point_v1_cases__case_id__questions__question_id__points_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PointAdd"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PointOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Point",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/{question_id}/points/suggest": {
+      "post": {
+        "description": "Ask for the facts not yet points to be sorted by side (T-14a); the expert decides each one.",
+        "operationId": "suggest_v1_cases__case_id__questions__question_id__points_suggest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Suggest",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/{question_id}/range-note": {
+      "put": {
+        "description": "Save the expert's range note.",
+        "operationId": "save_range_note_v1_cases__case_id__questions__question_id__range_note_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RangeNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RangeNote"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Save Range Note",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/questions/{question_id}/workspace": {
+      "get": {
+        "description": "The chips, guidance on the day, points summary, views, legal test and saved opinion for one question.",
+        "operationId": "workspace_v1_cases__case_id__questions__question_id__workspace_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "On"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Workspace"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Workspace",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/relevant-facts/{relevant_id}": {
+      "patch": {
+        "description": "Dismiss a suggested relevant fact; the expert uses one by citing it in the draft.",
+        "operationId": "dismiss_relevant_v1_cases__case_id__relevant_facts__relevant_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "relevant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Relevant Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RelevantChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RelevantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Dismiss Relevant",
+        "tags": [
+          "write"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/reopen": {
       "post": {
         "operationId": "reopen_v1_cases__case_id__reopen_post",
@@ -13147,6 +15141,160 @@
         "summary": "Withdraw",
         "tags": [
           "setup"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/witness-claims/{claim_id}": {
+      "patch": {
+        "description": "Confirm a claim's label, give the expert's own verdict, or dismiss the claim.",
+        "operationId": "decide_claim_v1_cases__case_id__witness_claims__claim_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Decide Claim",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/witness-statements/{document_id}/compare": {
+      "post": {
+        "description": "Ask for a statement in the case to be set beside the records (T-14c); the expert decides each claim.",
+        "operationId": "compare_v1_cases__case_id__witness_statements__document_id__compare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Compare",
+        "tags": [
+          "write"
         ]
       }
     },

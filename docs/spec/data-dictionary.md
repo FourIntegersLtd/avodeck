@@ -580,13 +580,40 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | question_id / text | The expert's note on what other reasonable clinicians might have done |
 
+### relevant_facts
+| Field | In plain words |
+|---|---|
+| question_id / fact_id | Which checked fact, for which question's draft |
+| why_relevant | A short label for what the fact may bear on (never wording for the draft) |
+| status | Still suggested, or dismissed by the expert |
+| fact_version | The fact as it was when suggested |
+| job_id / model_task / prompt_version | Which run suggested it |
+| decided_by / decided_at | Who dismissed it and when |
+| version | A stamp that stops two windows overwriting each other |
+
 ### witness_claims
 | Field | In plain words |
 |---|---|
 | document_id | Which witness statement |
 | text_verbatim / word_ids[] | The exact statement and where it is |
 | verdict / fact_ids[] | Whether the records support or contradict it, and which facts |
-| status | Whether the expert has confirmed it |
+| claim_index | The claim's place in the list the model returned |
+| status | Whether the expert has confirmed it, given their own verdict, or dismissed it |
+| expert_verdict | The expert's own verdict, when they disagree with the label |
+| fact_versions | The facts as they were when compared |
+| job_id / model_task / prompt_version | Which run found it |
+| decided_by / decided_at | Who decided it and when |
+| version | A stamp that stops two windows overwriting each other |
+
+### witness_comparisons
+| Field | In plain words |
+|---|---|
+| document_id | Which witness statement the expert asked to compare |
+| job_id | The background job doing the comparison |
+| requested_by | Who asked |
+| status | Waiting, done, or refused (the answer could not be checked) |
+| claims | How many claims were kept |
+| created_at / finished_at | When asked and when finished |
 
 ### opinions
 | Field | In plain words |
@@ -602,8 +629,8 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 ### opinion_versions
 | Field | In plain words |
 |---|---|
-| version_no / body / citation_refs | Each saved version of the text and its references |
-| saved_at / saved_by | When and by whom |
+| version_no / body / citation_refs / test_text | Each saved version of the text, its references and the test in the expert's words |
+| created_at / saved_by | When and by whom it was saved |
 
 ### lint_issues
 | Field | In plain words |

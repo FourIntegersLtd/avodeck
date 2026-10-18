@@ -306,9 +306,11 @@ The expert's own reasoning and words.
 |---|---|---|
 | `points` | Facts sorted for or against, for each question. | case_id, question_id, fact_id, side, status, reason |
 | `range_notes` | The expert's note on what other reasonable clinicians might have done. | case_id, question_id, text |
+| `relevant_facts` | Checked facts the draft does not use yet that may bear on it (T-14b), until used or dismissed. | case_id, question_id, fact_id, why_relevant, status |
 | `witness_claims` | Statements in a witness statement compared with the records. | case_id, document_id, text_verbatim, word_ids[], verdict, fact_ids[], status |
+| `witness_comparisons` | Each request to compare a witness statement with the records (T-14c job). | case_id, document_id, job_id, status, claims |
 | `opinions` | The expert's own words answering each question, with citations to checked facts. | case_id, question_id, body, citation_refs, view, provisional, test_text, updated_at, etag |
-| `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, saved_at, saved_by |
+| `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, test_text, saved_at, saved_by |
 | `lint_issues` | Gentle warnings about wording (uncited facts, loaded words, outside expertise) and why the expert dismissed them. | case_id, opinion_id or paragraph_id, sentence_index, type, words, dismissed_reason |
 
 ### 4.7 Report
@@ -582,11 +584,13 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | GET | `/cases/{case_id}/questions/{q_id}/points` | Facts by side + unused relevant facts + accounts that differ |
+| POST | `/cases/{case_id}/questions/{q_id}/points` | Add an unused citable fact as a point (starts accepted) |
 | POST | `/cases/{case_id}/questions/{q_id}/points/suggest` | T-14a / T-14b (202 + job) |
 | PATCH | `/cases/{case_id}/points/{point_id}` | Move side / accept / remove |
+| PATCH | `/cases/{case_id}/relevant-facts/{relevant_id}` | Dismiss a fact T-14b suggested |
 | PUT | `/cases/{case_id}/questions/{q_id}/range-note` | "What other {clinicians} might reasonably do" (wording from the pack) |
 | POST | `/cases/{case_id}/witness-statements/{doc_id}/compare` | T-14c (202 + job) |
-| PATCH | `/cases/{case_id}/witness-claims/{claim_id}` | Confirm / dismiss |
+| PATCH | `/cases/{case_id}/witness-claims/{claim_id}` | Confirm / own verdict (edited) / dismiss |
 
 **15 Your opinion**
 
@@ -735,7 +739,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/webhooks/esign` | E-signature status | Signature-verified |
 | GET | `/jobs/{job_id}` | Job status | Anyone who can see the job's case (`case.view_metadata`), else 404 |
 | | *Scheduled jobs (App Platform or pg_cron)* | Deadline reminders (daily), deletion run (daily), offline package expiry, guideline table review reminder (quarterly) | Call FastAPI with a service token |
-| | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
+| | *Worker queue (Postgres)* | `process_bundle`, `process_pages`, `suggest_points`, `compare_witness_statement`, `build_report`, `final_check`, `verify_opposing`, `match_trial_bundle`, `build_trial_pack`, `export_case`, `delete_case` | Idempotent per page/step |
 
 ### 5.4 Endpoints for accounts, organisations and the behaviour rules
 
