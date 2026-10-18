@@ -2,10 +2,11 @@
 // the page's read is recorded. Imported by the reader tests only.
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, HttpResponse, json, server, signedIn } from "../../test/api";
-import { CASE_ID, fact, JPEG, pageDetail, queuePage, theCase } from "./testData";
+import { CASE_ID, fact, JPEG, pageDetail, pageWords, queuePage, theCase, type PageWord } from "./testData";
 
 export interface ReaderApi {
   factRequests: number;
+  wordRequests: number;
   reads: Array<{ page: number; body: { dwell_seconds: number } }>;
   verifies: Array<{ id: string; ifMatch: string | null; body: Record<string, unknown> }>;
   flags: Array<{ id: string; method: string }>;
@@ -27,6 +28,8 @@ export interface ReaderOpts {
   inPeriod?: boolean;
   facts?: Schemas["FactOut"][];
   queue?: Schemas["UnreadablePage"][];
+  /** The page's words (default: `pageWords()`). */
+  words?: PageWord[];
   /** The case's last page number (the page list answers no page after it). */
   lastPage?: number;
 }
@@ -36,6 +39,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
   const pageNo = opts.page ?? 118;
   const api: ReaderApi = {
     factRequests: 0,
+    wordRequests: 0,
     reads: [],
     verifies: [],
     flags: [],
@@ -64,6 +68,10 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     http.get(`${c}/pages/:n/facts`, () => {
       api.factRequests += 1;
       return api.read ? json({ facts: api.facts }) : apiError(423, "blind_read");
+    }),
+    http.get(`${c}/pages/:n/words`, () => {
+      api.wordRequests += 1;
+      return api.read ? json({ words: opts.words ?? pageWords() }) : apiError(423, "blind_read");
     }),
     http.post(`${c}/pages/:n/read`, async ({ params, request }) => {
       api.reads.push({ page: Number(params.n), body: (await request.json()) as { dwell_seconds: number } });

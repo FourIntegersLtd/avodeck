@@ -86,3 +86,18 @@ export function queuePage(n: number, over: Partial<Schemas["UnreadablePage"]> = 
     ...over,
   };
 }
+
+export type PageWord = { word_id: string; text: string; box: { x0: number; y0: number; x1: number; y1: number } | null };
+
+/** Page 118's words: fact 1 cites "Dr" "P", fact 2 cites "Anusol" "HC"; "visit" is cited by none; "Typed" has no place. */
+export function pageWords(): PageWord[] {
+  const at = (x0: number, y0: number) => ({ x0, y0, x1: x0 + 0.05, y1: y0 + 0.02 });
+  return [
+    { word_id: "p118w1a", text: "Dr", box: at(0.06, 0.2) },
+    { word_id: "p118w1b", text: "P", box: at(0.12, 0.2) },
+    { word_id: "p118w9", text: "visit", box: at(0.2, 0.2) },
+    { word_id: "p118w2a", text: "Anusol", box: at(0.1, 0.4) },
+    { word_id: "p118w2b", text: "HC", box: at(0.16, 0.4) },
+    { word_id: "t1", text: "Typed", box: null },
+  ];
+}
