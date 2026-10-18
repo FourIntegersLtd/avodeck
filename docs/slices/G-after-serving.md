@@ -87,7 +87,8 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 ## Decisions taken while building
 - The answers document and the signed supplementary file are built inside the sign request (small Word files, no AI); the draft supplementary is a 202 job (`build_supplementary`).
 - Deadline kinds come from the pack; answers have their own kind `written_question_answers`. Reminder emails carry `deadline.<kind>` only and go three days ahead, once per deadline (`last_reminded_on`).
-- The `report_served` event handler runs after F commits, acting for the case (`Database.job`), and makes the pack's deadlines counted from serving.
+- The `report_served` event handler runs after F commits and makes the pack's deadlines counted from serving. The event names no person and only the worker role may act as a job (migration 0027), so it asks `app.after_serving_served_by` who made the serving in the last ten minutes and acts as that person; remove this once `ReportServed` carries `served_by`.
+- G's security-definer functions accept `app.job_case_id` only from `session_user = 'app_worker'`, as migration 0027 does.
 - S20 and S21 take the document id from the URL until there is a documents list for these screens; there is no list of opposing reports yet.
 - Job kinds `find_dependents` and `build_supplementary` should be queued by `opinion.write` (foundation `job_kind_actions` rows; asked for in cross-slice).
 
