@@ -56,7 +56,10 @@ class FactOut(BaseModel):
     event_date: date | None
     status: str
     version: int
-    flagged: bool
+    flagged: bool = Field(description="Sent to Points against (a 'points' flag) only.")
+    needs_recheck: bool = Field(
+        default=False, description="Flagged 'Please check': its page was read again and its words were not found."
+    )
 
 
 class FactList(BaseModel):
@@ -74,6 +77,8 @@ class VerifyIn(BaseModel):
     new_value: str | None = Field(default=None, max_length=2000)
     word_ids: list[str] | None = Field(default=None, min_length=1, max_length=400)
     reason: str | None = Field(default=None, max_length=500)
+    fields: dict[str, Any] | None = Field(default=None, max_length=40)
+    event_date: date | None = None
 
 
 class MoveIn(BaseModel):

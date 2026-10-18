@@ -68,6 +68,7 @@ export function fact(n: number, over: Partial<Schemas["FactOut"]> = {}): Schemas
     status: "suggested",
     version: 1,
     flagged: false,
+    needs_recheck: false,
     ...over,
   };
 }

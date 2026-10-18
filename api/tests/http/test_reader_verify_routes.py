@@ -268,3 +268,105 @@ async def test_a_fact_moves_to_the_clearer_copy_and_nowhere_else(
     assert fact["id"] not in [f["id"] for f in await facts(client, world)]
     row = log(admin, fact["id"])[-1]
     assert (row[0], row[7], row[8]) == ("move", world["page_id"], new)
+
+
+async def test_a_change_updates_the_details_and_box_and_logs_old_and_new(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    """Change a detail: `fields` and `event_date` change when sent, the box follows the chosen words,
+    and the log keeps the real old and new details."""
+    admin.execute(
+        "insert into app.page_analysis (page_id, case_id, width, height) values (%s, %s, 1000, 1400)"
+        " on conflict (page_id) do update set width = 1000, height = 1400",
+        (world["page_id"], world["case"]),
+    )
+    client = world["client"]
+    await read(client, world)
+    first, second = [f for f in await facts(client, world) if f["value"]][:2]
+    new_fields = {"note": first["value"]}
+
+    response = await act(
+        client,
+        world,
+        second,
+        action="edit",
+        new_value=first["value"],
+        word_ids=first["word_ids"],
+        fields=new_fields,
+        event_date="2019-03-04",
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["fields"] == new_fields and body["event_date"] == "2019-03-04"
+    assert body["bbox"] is not None and body["bbox"] != second["bbox"]
+    for side in ("x0", "y0", "x1", "y1"):
+        assert abs(body["bbox"][side] - first["bbox"][side]) < 0.01, side
+    row = admin.execute(
+        "select old_fields, new_fields, old_value, new_value from app.fact_verifications where fact_id = %s",
+        (second["id"],),
+    ).fetchone()
+    assert row == (second["fields"], new_fields, second["value"], first["value"])
+
+
+async def test_a_change_without_details_keeps_them(admin: psycopg.Connection, world: dict[str, Any]) -> None:
+    client = world["client"]
+    await read(client, world)
+    fact = next(f for f in await facts(client, world) if f["value"])
+    body = (await act(client, world, fact, action="edit", new_value=fact["value"].upper())).json()
+    assert (body["fields"], body["event_date"]) == (fact["fields"], fact["event_date"])
+
+
+def recheck(admin: psycopg.Connection, w: dict[str, Any], fact_id: str) -> None:
+    admin.execute(
+        "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, 'recheck', null)",
+        (w["case"], fact_id),
+    )
+
+
+async def test_a_please_check_flag_is_not_points_against_and_goes_when_checked_again(
+    admin: psycopg.Connection, api_db: Database, world: dict[str, Any]
+) -> None:
+    client = world["client"]
+    await read(client, world)
+    fact = (await facts(client, world))[0]
+    verified = (await act(client, world, fact, action="correct")).json()
+    recheck(admin, world, fact["id"])
+
+    shown = {f["id"]: f for f in await facts(client, world)}[fact["id"]]
+    assert (shown["flagged"], shown["needs_recheck"]) == (False, True), "a recheck is not in Points against"
+    assert (await client.delete(f"{base(world)}/facts/{fact['id']}/flag-point")).status_code == 200
+    assert {f["id"]: f for f in await facts(client, world)}[fact["id"]]["needs_recheck"] is True
+
+    sent = (await act(client, world, shown, "flag-point")).json()
+    assert sent["flagged"] is True
+    shown = {f["id"]: f for f in await facts(client, world)}[fact["id"]]
+    assert (shown["flagged"], shown["needs_recheck"]) == (True, True)
+
+    again = await act(client, world, shown, action="correct")
+    assert again.status_code == 200, again.text
+    assert again.json()["status"] == verified["status"]
+    assert (again.json()["flagged"], again.json()["needs_recheck"]) == (True, False)
+    async with api_db.request(scope_for(world["expert"])) as conn:
+        assert await flagged_fact_ids(conn, world["case"], "recheck") == set()
+        assert await flagged_fact_ids(conn, world["case"], "points") == {uuid.UUID(fact["id"])}
+    assert [r[0] for r in log(admin, fact["id"])] == ["correct", "correct"]
+
+
+async def test_a_checked_fact_with_no_please_check_flag_still_cannot_be_correct_again(world: dict[str, Any]) -> None:
+    client = world["client"]
+    await read(client, world)
+    fact = (await facts(client, world))[0]
+    verified = (await act(client, world, fact, action="correct")).json()
+    assert (await act(client, world, verified, action="correct")).status_code == 409
+
+
+async def test_rejecting_a_fact_flagged_please_check_takes_the_flag_off(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    client = world["client"]
+    await read(client, world)
+    fact = (await facts(client, world))[0]
+    verified = (await act(client, world, fact, action="correct")).json()
+    recheck(admin, world, fact["id"])
+    rejected = await act(client, world, verified, action="not_right")
+    assert rejected.status_code == 200 and rejected.json()["needs_recheck"] is False

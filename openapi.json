@@ -3095,6 +3095,7 @@
             "type": "object"
           },
           "flagged": {
+            "description": "Sent to Points against (a 'points' flag) only.",
             "title": "Flagged",
             "type": "boolean"
           },
@@ -3106,6 +3107,12 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "needs_recheck": {
+            "default": false,
+            "description": "Flagged 'Please check': its page was read again and its words were not found.",
+            "title": "Needs Recheck",
+            "type": "boolean"
           },
           "status": {
             "title": "Status",
@@ -9076,6 +9083,31 @@
             ],
             "title": "Action",
             "type": "string"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fields": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "maxProperties": 40,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fields"
           },
           "new_value": {
             "anyOf": [

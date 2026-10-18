@@ -3746,7 +3746,10 @@ export interface components {
             fields: {
                 [key: string]: unknown;
             };
-            /** Flagged */
+            /**
+             * Flagged
+             * @description Sent to Points against (a 'points' flag) only.
+             */
             flagged: boolean;
             /**
              * Id
@@ -3755,6 +3758,12 @@ export interface components {
             id: string;
             /** Kind */
             kind: string;
+            /**
+             * Needs Recheck
+             * @description Flagged 'Please check': its page was read again and its words were not found.
+             * @default false
+             */
+            needs_recheck: boolean;
             /** Status */
             status: string;
             /** Value */
@@ -5838,6 +5847,12 @@ export interface components {
              * @enum {string}
              */
             action: "correct" | "not_right" | "edit";
+            /** Event Date */
+            event_date?: string | null;
+            /** Fields */
+            fields?: {
+                [key: string]: unknown;
+            } | null;
             /** New Value */
             new_value?: string | null;
             /** Reason */
