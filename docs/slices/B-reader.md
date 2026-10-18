@@ -56,7 +56,7 @@ The expert's text is authoritative. Machine words for that page are kept but no 
 - [ ] `GET …/pages/118/facts` returns 423 with code `blind_read` before `POST …/pages/118/read`, and 200 after. `GET …/pages/118` never contains facts.
 - [ ] A different expert gets 404 on every route above.
 - [ ] Each read appends one `page_reads` row with `prev_hash` and `hash`. The chain verifies, and altering any row breaks verification. UPDATE and DELETE on `page_reads` fail at database level.
-- [ ] Marking a page read twice keeps the first `read_at` and adds the second dwell to the log. Reads are never removed.
+- [ ] Marking a page read twice keeps the first read time (`at`) and adds the second dwell to the log. Reads are never removed.
 - [ ] `verify` with `correct` sets `facts.status = verified` and appends to `fact_verifications`.
 - [ ] `verify` with `edit` stores old and new values. The new value must still appear in the cited words, or the expert must re-select words; otherwise 422.
 - [ ] `verify` with `not_right` sets `rejected` and asks for an optional reason.

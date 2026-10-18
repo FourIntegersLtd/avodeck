@@ -14,7 +14,7 @@ create table app.page_reads (
   page_id uuid not null references app.pages (id) on delete cascade,
   person_id uuid not null references app.people (id),
   seq bigint not null default 0,
-  read_at timestamptz not null default now(),
+  at timestamptz not null default now(),
   dwell_seconds integer not null check (dwell_seconds between 0 and 86400),
   counts_for_citing boolean not null default false,
   prev_hash text not null default '',
@@ -29,7 +29,7 @@ create function app.page_reads_hash(r app.page_reads) returns text
 as $$
   select encode(sha256(convert_to(concat_ws(chr(31),
     r.id::text, r.case_id::text, r.page_id::text, r.person_id::text, r.seq::text,
-    ((extract(epoch from r.read_at) * 1000000)::bigint)::text, r.dwell_seconds::text,
+    ((extract(epoch from r.at) * 1000000)::bigint)::text, r.dwell_seconds::text,
     r.counts_for_citing::text, r.prev_hash), 'UTF8')), 'hex')
 $$;
 
@@ -48,7 +48,7 @@ begin
   select r.seq, r.hash into previous from app.page_reads r
     where r.case_id = new.case_id order by r.seq desc limit 1;
   new.seq := coalesce(previous.seq, 0) + 1;
-  new.read_at := now();
+  new.at := now();
   new.counts_for_citing := exists (
     select 1 from app.cases c where c.id = new.case_id and c.named_expert_id = new.person_id
   );

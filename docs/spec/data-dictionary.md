@@ -446,7 +446,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 |---|---|
 | page_id / person_id | Which page was read, by whom |
 | seq | Its place in the case's list of reads |
-| read_at / dwell_seconds | When, and how long they spent on it |
+| at / dwell_seconds | When, and how long they spent on it |
 | counts_for_citing | Whether it was the named expert's read (only those let a fact be cited) |
 | prev_hash / hash | Links to the previous entry so any tampering is obvious |
 

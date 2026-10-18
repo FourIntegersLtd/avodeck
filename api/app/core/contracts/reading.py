@@ -50,13 +50,16 @@ class PageReadGate:
         self.case_action = action
         self.step_up = CASE_ACTIONS[action].step_up
 
-    async def __call__(self, request: Request, case_id: uuid.UUID, page_no: int, conn: DbConn) -> CaseAccess:
+    async def __call__(self, request: Request, case_id: uuid.UUID, page_no: str, conn: DbConn) -> CaseAccess:
+        # `page_no` arrives as text so the access check answers first: no hint the case exists.
         access = await check_case_access(conn, case_id, self.case_action)
+        if not page_no.isdigit():
+            raise ApiError("not_found", "We couldn't find that page.", 404)
         if self.step_up:
             check_step_up(current_session(request))
         reads: PageReadLog | None = getattr(request.app.state, "page_reads", None)
         person = request.state.scope.person_id
-        if reads is None or not await reads.has_read(conn, case_id, page_no, person):
+        if reads is None or not await reads.has_read(conn, case_id, int(page_no), person):
             raise blind_read()
         return access
 

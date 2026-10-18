@@ -6,6 +6,7 @@ Every function runs on the request's or job's connection, so row-level security 
 from __future__ import annotations
 
 import uuid
+from typing import Any
 
 from psycopg import AsyncConnection
 
@@ -36,3 +37,105 @@ async def citing_read_page_ids(conn: AsyncConnection, case_id: uuid.UUID, person
         (case_id, person_id),
     )
     return {r[0] for r in await cur.fetchall()}
+
+
+# Pages (S09) ---------------------------------------------------------------------------------------
+
+DEFAULT_SECONDS_PER_PAGE = 20
+
+_PAGE_COLUMNS = """
+    p.bundle_page_no, p.id, p.source_type,
+    exists (select 1 from app.page_reads r where r.page_id = p.id and r.person_id = %(person)s) as read,
+    case when c.period_start is null or c.period_end is null then null
+         else coalesce((select bool_or(d between c.period_start and c.period_end)
+                        from app.page_analysis a, unnest(a.printed_dates) d where a.page_id = p.id), false)
+    end as in_period,
+    p.unreadable,
+    (select o.bundle_page_no from app.pages o where o.id = p.duplicate_of_page_id) as duplicate_of_page_no
+"""
+
+_DETAIL_COLUMNS = """,
+    p.rotation, p.relevance, p.needs_clearer_copy,
+    (select s.bundle_page_no from app.pages s where s.id = p.superseded_by_page_id) as superseded_by_page_no,
+    p.handwriting, p.transcribed_by_expert_text is not null as has_transcription,
+    (select min(r.at) from app.page_reads r where r.page_id = p.id and r.person_id = %(person)s) as first_read_at
+"""
+
+_FILTERS = {
+    None: "",
+    "unread": "and not exists (select 1 from app.page_reads r where r.page_id = p.id and r.person_id = %(person)s)",
+    "period": """and c.period_start is not null and c.period_end is not null and exists (
+                   select 1 from app.page_analysis a, unnest(a.printed_dates) d
+                   where a.page_id = p.id and d between c.period_start and c.period_end)""",
+    "source": "and p.source_type is not distinct from %(source)s",
+}
+
+
+async def list_pages(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    person_id: uuid.UUID,
+    *,
+    filter: str | None,
+    source: str | None,
+    cursor: int,
+    limit: int,
+) -> list[dict[str, Any]]:
+    """The case's pages after `cursor` in page order (at most `limit`), as the person sees them."""
+    cur = await conn.execute(
+        f"""select {_PAGE_COLUMNS} from app.pages p join app.cases c on c.id = p.case_id
+            where p.case_id = %(case)s and not p.quarantined and p.bundle_page_no > %(cursor)s {_FILTERS[filter]}
+            order by p.bundle_page_no limit %(limit)s""",  # noqa: S608 (fixed fragments only)
+        {"case": case_id, "person": person_id, "source": source, "cursor": cursor, "limit": limit},
+    )
+    return [_row(cur, r) for r in await cur.fetchall()]
+
+
+async def page(conn: AsyncConnection, case_id: uuid.UUID, page_no: int, person_id: uuid.UUID) -> dict[str, Any] | None:
+    """One page the person may see (not set aside), with its details; None when there is none."""
+    cur = await conn.execute(
+        f"""select {_PAGE_COLUMNS} {_DETAIL_COLUMNS}, p.image_path, p.duplicate_of_page_id
+            from app.pages p join app.cases c on c.id = p.case_id
+            where p.case_id = %(case)s and p.bundle_page_no = %(page_no)s and not p.quarantined""",  # noqa: S608
+        {"case": case_id, "page_no": page_no, "person": person_id},
+    )
+    row = await cur.fetchone()
+    return _row(cur, row) if row else None
+
+
+async def page_facts(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The page's suggestions and checked facts (not the ones marked not right), in reading order."""
+    cur = await conn.execute(
+        """select f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.status, f.version,
+                  exists (select 1 from app.fact_flags g where g.fact_id = f.id) as flagged
+           from app.facts f where f.case_id = %s and f.page_id = %s and f.status <> 'rejected'
+           order by (f.bbox ->> 'y0')::float nulls last, f.created_at, f.id""",
+        (case_id, page_id),
+    )
+    return [_row(cur, r) for r in await cur.fetchall()]
+
+
+async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> tuple[int, int, int]:
+    """(pages read, pages, seconds left). Each unread page takes the person's median dwell for its kind of
+    source, else their median over every page, else `DEFAULT_SECONDS_PER_PAGE`."""
+    cur = await conn.execute(
+        """with shown as (select p.id, p.source_type from app.pages p where p.case_id = %(case)s and not p.quarantined),
+                mine as (select s.source_type, r.page_id, r.dwell_seconds from app.page_reads r
+                         join shown s on s.id = r.page_id where r.person_id = %(person)s),
+                pace as (select source_type, percentile_cont(0.5) within group (order by dwell_seconds) as m
+                         from mine group by source_type),
+                overall as (select percentile_cont(0.5) within group (order by dwell_seconds) as m from mine)
+           select (select count(distinct page_id) from mine), (select count(*) from shown),
+                  coalesce((select sum(coalesce(pace.m, overall.m, %(default)s))
+                            from shown s cross join overall
+                            left join pace on pace.source_type is not distinct from s.source_type
+                            where s.id not in (select page_id from mine)), 0)""",
+        {"case": case_id, "person": person_id, "default": DEFAULT_SECONDS_PER_PAGE},
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return int(row[0]), int(row[1]), round(row[2])
+
+
+def _row(cur: Any, row: tuple[Any, ...]) -> dict[str, Any]:
+    return {d.name: v for d, v in zip(cur.description, row, strict=True)}
