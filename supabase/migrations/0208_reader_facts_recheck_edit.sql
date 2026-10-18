@@ -1,8 +1,8 @@
 -- 0208 reader: a checked fact flagged "Please check" may be changed to cite the words on its re-read page.
 --
--- * `facts_guard` [foundation path, approved for slice B; whole body from 0201]: adds verified -> edited. The API allows it
---   only while the fact has a recheck flag and the expert chooses new words that show the value (rule 2);
---   from suggested, edit is unchanged. Keeps 0201's clearer-copy move and 0023's availability exception.
+-- * `facts_guard` [foundation path, approved for slice B; whole body from 0201]: allows verified ->
+--   edited only while the fact has a recheck flag (the API removes the flag after the change); the API
+--   also needs newly chosen words that show the value (rule 2). From suggested, edit is unchanged. Keeps 0201's clearer-copy move and 0023's availability exception.
 
 set role app_migrator;
 
@@ -32,7 +32,11 @@ begin
   end if;
   if new.status is distinct from old.status and (old.status, new.status) not in (
     ('suggested', 'verified'), ('suggested', 'edited'), ('suggested', 'rejected'),
-    ('verified', 'rejected'), ('edited', 'rejected'), ('rejected', 'verified'), ('verified', 'edited')
+    ('verified', 'rejected'), ('edited', 'rejected'), ('rejected', 'verified')
+  ) and not (
+    -- "Please check" after a re-read: the expert changes the fact to cite the words there now.
+    (old.status, new.status) = ('verified', 'edited')
+    and exists (select 1 from app.fact_flags g where g.fact_id = new.id and g.flagged_for = 'recheck')
   ) then
     perform app.refuse(format('fact status cannot change from %s to %s', old.status, new.status));
   end if;

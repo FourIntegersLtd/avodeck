@@ -301,8 +301,6 @@ async def verify_fact(
             fields = body.fields
         if "event_date" in body.model_fields_set:
             event_date = body.event_date
-    if before["needs_recheck"]:
-        await repo.set_flag(conn, case_id, fact_id, RECHECK, scope.person_id, on=False)
     after = await repo.change_fact(
         conn,
         fact_id,
@@ -317,6 +315,9 @@ async def verify_fact(
     )
     out = _changed(response, after)
     assert after is not None
+    if before["needs_recheck"]:  # after the change: facts_guard reads the flag for verified -> edited
+        await repo.set_flag(conn, case_id, fact_id, RECHECK, scope.person_id, on=False)
+        out = out.model_copy(update={"needs_recheck": False})
     await repo.log_check(
         conn,
         case_id,
