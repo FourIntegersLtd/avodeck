@@ -118,3 +118,9 @@ def test_comments_are_read_only_by_slice_d_never_by_the_report() -> None:
         if re.search(r"app\.comments\b|[\"']comments[\"']", path.read_text()):
             found.append(rel)
     assert found == []
+
+
+def test_every_expected_finding_names_a_check_the_launch_pack_has() -> None:
+    keys = {c["key"] for c in _launch().checks()}
+    named = {f["check"] for f in json.loads((EXPECTED / "findings.json").read_text())}
+    assert named <= keys, sorted(named - keys)
