@@ -34,6 +34,8 @@ INSERTS = {
     "opinions": "insert into app.opinions (case_id, question_id, body) values (%(c)s, %(q)s, '\\x00')",
     "lint_issues": "insert into app.lint_issues (case_id, opinion_id, opinion_version, sentence_index, type, words,"
     " source) values (%(c)s, %(o)s, 1, 0, 'loaded_language', '\\x00', 'regex')",
+    "relevant_facts": "insert into app.relevant_facts (case_id, question_id, fact_id, why_relevant, fact_version)"
+    " values (%(c)s, %(q)s, %(f)s, 'advice to return', 2)",
 }
 SUGGEST_POINT = (
     "insert into app.points (case_id, question_id, fact_id, side, status, origin, fact_version, reason)"
@@ -112,7 +114,7 @@ async def test_people_on_the_case_see_the_rows_and_others_do_not(
         assert bare.execute(count).fetchone() == (0,)
 
 
-@pytest.mark.parametrize("table", sorted(set(INSERTS) - {"witness_claims"}))
+@pytest.mark.parametrize("table", sorted(set(INSERTS) - {"witness_claims", "relevant_facts"}))
 async def test_only_the_named_expert_writes(
     api_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID], table: str
 ) -> None:
@@ -123,7 +125,7 @@ async def test_only_the_named_expert_writes(
     await run_as(api_db, world["expert"], INSERTS[table], args)
 
 
-@pytest.mark.parametrize("sql", [SUGGEST_POINT, INSERTS["witness_claims"]])
+@pytest.mark.parametrize("sql", [SUGGEST_POINT, INSERTS["witness_claims"], INSERTS["relevant_facts"]])
 async def test_suggested_points_and_claims_come_only_from_the_worker(
     api_db: Database, world: dict[str, uuid.UUID], sql: str
 ) -> None:
@@ -136,9 +138,7 @@ async def test_an_expert_cannot_change_another_persons_view_of_a_claim(
 ) -> None:
     admin.execute(INSERTS["witness_claims"], params(world))
     for person in ("co_expert", "assistant", "viewer"):
-        changed = await run_as(
-            api_db, world[person], "update app.witness_claims set status = 'confirmed' returning id"
-        )
+        changed = await run_as(api_db, world[person], "update app.witness_claims set status = 'confirmed' returning id")
         assert changed == [], person
     decided = await run_as(
         api_db, world["expert"], "update app.witness_claims set status = 'confirmed' returning decided_by"
@@ -146,7 +146,7 @@ async def test_an_expert_cannot_change_another_persons_view_of_a_claim(
     assert decided == [(world["expert"],)]
 
 
-@pytest.mark.parametrize("table", ["points", "witness_claims", "opinions", "range_notes"])
+@pytest.mark.parametrize("table", ["points", "witness_claims", "opinions", "range_notes", "relevant_facts"])
 async def test_points_claims_opinions_and_notes_are_never_deleted(
     api_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID], table: str
 ) -> None:
@@ -182,7 +182,9 @@ async def test_every_save_of_an_opinion_keeps_a_version_that_never_changes(
             await run_as(api_db, world["expert"], sql)
 
 
-async def test_one_opinion_and_one_range_note_per_question(admin: psycopg.Connection, world: dict[str, uuid.UUID]) -> None:
+async def test_one_opinion_and_one_range_note_per_question(
+    admin: psycopg.Connection, world: dict[str, uuid.UUID]
+) -> None:
     for table in ("opinions", "range_notes"):
         admin.execute(INSERTS[table], params(world))
         with pytest.raises(psycopg.errors.UniqueViolation):
@@ -223,9 +225,7 @@ async def test_a_point_or_claim_becomes_stale_when_its_fact_changes_until_review
     ).fetchone()
     assert rows == ("stale", "stale")
     admin.execute("update app.facts set status = 'verified' where id = %s", (world["fact"],))
-    reviewed = await run_as(
-        api_db, world["expert"], "update app.points set status = 'accepted' returning fact_version"
-    )
+    reviewed = await run_as(api_db, world["expert"], "update app.points set status = 'accepted' returning fact_version")
     assert reviewed == [(4,)]  # the point now refers to the fact as it is after the change
 
 
@@ -245,9 +245,7 @@ async def test_a_lint_dismissal_needs_a_reason_and_is_kept(
     expert = world["expert"]
     with pytest.raises(psycopg.Error):
         await run_as(api_db, expert, "update app.lint_issues set status = 'dismissed'")
-    await run_as(
-        api_db, expert, "update app.lint_issues set status = 'dismissed', dismissed_reason = '\\x00'"
-    )
+    await run_as(api_db, expert, "update app.lint_issues set status = 'dismissed', dismissed_reason = '\\x00'")
     assert await run_as(api_db, expert, "delete from app.lint_issues returning id") == []
     assert await run_as(api_db, expert, "select dismissed_by from app.lint_issues") == [(expert,)]
     with pytest.raises(psycopg.Error) as reopen:
@@ -261,3 +259,26 @@ async def test_open_lint_issues_are_recalculated_on_save(
     admin.execute(INSERTS["lint_issues"], insert_params(admin, world, "lint_issues"))
     removed = await run_as(api_db, world["expert"], "delete from app.lint_issues returning id")
     assert len(removed) == 1
+
+
+async def test_a_suggested_unused_fact_is_only_dismissed_by_the_named_expert(
+    api_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID]
+) -> None:
+    admin.execute(INSERTS["relevant_facts"], params(world))
+    dismiss = "update app.relevant_facts set status = 'dismissed' returning decided_by, version"
+    for person in ("co_expert", "assistant", "viewer", "outsider"):
+        assert await run_as(api_db, world[person], dismiss) == [], person
+    assert await run_as(api_db, world["expert"], dismiss) == [(world["expert"], 2)]
+    for sql in (
+        "update app.relevant_facts set status = 'suggested'",
+        "update app.relevant_facts set why_relevant = 'other words'",
+    ):
+        with pytest.raises(psycopg.Error) as refused:
+            await run_as(api_db, world["expert"], sql)
+        assert refused.value.sqlstate == "AV409"
+
+
+async def test_one_suggestion_per_fact_and_question(admin: psycopg.Connection, world: dict[str, uuid.UUID]) -> None:
+    admin.execute(INSERTS["relevant_facts"], params(world))
+    with pytest.raises(psycopg.errors.UniqueViolation):
+        admin.execute(INSERTS["relevant_facts"], params(world))

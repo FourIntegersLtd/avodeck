@@ -263,6 +263,11 @@ def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         " values (%s, %s, 1, 0, 'uncited_fact', %s, 'regex')",
         (w.case, row[0], b"sealed"),
     )
+    admin.execute(
+        "insert into app.relevant_facts (case_id, question_id, fact_id, why_relevant, fact_version)"
+        " values (%s, %s, %s, 'advice to return', 2)",
+        (w.case, question, fact),
+    )
     return {
         "documents": 1,
         "pages": 1,
@@ -274,6 +279,7 @@ def _write_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         "opinions": 1,
         "opinion_versions": 1,
         "lint_issues": 1,
+        "relevant_facts": 1,
     }
 
 
