@@ -42,3 +42,45 @@ def test_guard_refuses_a_different_project(tmp_path: Path) -> None:
     assert exc.value.code != 0
     mod.use_root_supabase_config(str(root), str(temp))
     mod.assert_same_project(str(root), str(temp))
+
+
+def _commit(repo: Path, msg: str, n: int) -> str:
+    import os
+    import subprocess
+
+    (repo / f"f{n}.txt").write_text(msg)
+    env = {**os.environ, "GIT_AUTHOR_DATE": f"2026-01-01T00:00:{n:02d}", "GIT_COMMITTER_DATE": f"2026-01-01T00:00:{n:02d}"}
+    run = lambda *a: subprocess.run(["git", *a], cwd=repo, env=env, check=True, capture_output=True, text=True).stdout.strip()  # noqa: E731
+    run("add", "-A")
+    run("-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", msg)
+    return run("rev-parse", "HEAD")
+
+
+def test_a_feat_is_paired_with_its_own_parent_across_merged_branches(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two branches merged in: the commit listed just before a feat may be the other branch's test."""
+    import subprocess
+
+    mod = _load()
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git = lambda *a: subprocess.run(["git", *a], cwd=repo, check=True, capture_output=True)  # noqa: E731
+    git("init", "-q", "-b", "main")
+    base = _commit(repo, "chore: start", 1)
+    git("checkout", "-q", "-b", "one")
+    t1 = _commit(repo, "test(a): one", 2)
+    git("checkout", "-q", "-b", "two", base)
+    t2 = _commit(repo, "test(b): two", 3)
+    git("checkout", "-q", "one")
+    f1 = _commit(repo, "feat(a): one", 4)
+    git("checkout", "-q", "two")
+    f2 = _commit(repo, "feat(b): two", 5)
+    git("checkout", "-q", "main")
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "merge", "-q", "--no-ff", "-m", "Merge one", "one")
+    git("-c", "user.name=t", "-c", "user.email=t@example.com", "merge", "-q", "--no-ff", "-m", "Merge two", "two")
+    monkeypatch.chdir(repo)
+    assert dict(mod.feat_pairs(base)) == {f1: t1, f2: t2}
+
+
+def test_the_known_historic_commit_is_excused() -> None:
+    """d6784a1's tests failed only from a test-order bug, fixed in cac27bd; pushed history is not rewritten."""
+    assert "d6784a1789899552f84afb7a2078e9b2bfdeba7e" in _load().EXCUSED
