@@ -12,9 +12,9 @@ from __future__ import annotations
 import time
 
 import pytest
-from app.features.write.lint_regex import Issue, lint
 
 from app.core.packs import default_library
+from app.features.write.lint_regex import Issue, lint
 from tests.support.packs import BOTH, Combo
 
 LOADED = ["clearly negligent", "obviously"]
