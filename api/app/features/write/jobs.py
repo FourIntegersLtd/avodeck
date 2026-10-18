@@ -17,7 +17,8 @@ facts with a short label, for the expert to use or dismiss on screen 14.
 adds nothing. Otherwise it sends the words of the document's pages whose source type the packs mark as a
 statement, and the case's citable facts (same checks). Each claim returned must be an exact run of the
 statement's words: code finds that run and keeps those words with their references; a claim not in the
-statement is dropped. A claim with no verdict is kept as not_addressed. Two wrong answers keep nothing and the comparison is marked refused.
+statement is dropped. A claim with no verdict is kept as not_addressed. Two wrong answers keep nothing
+and the comparison is marked refused.
 """
 
 from __future__ import annotations
