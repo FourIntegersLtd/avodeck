@@ -38,6 +38,8 @@ from app.features.after_serving.common import (
 from app.features.after_serving.router import router
 
 SERVED_FROM = "report_served"
+# A closed case gets no new pack deadlines (state-machines.md, Case); the database refuses too (0702).
+CLOSED_CASE = ("settled", "withdrawn", "archived", "deleted")
 _DEADLINE = (
     "id, kind, due_on, rule_ref, calendar, timezone, created_from, source, pack_version, hearing_id, done_at,"
     " cancelled_at, last_reminded_on, version"
@@ -173,10 +175,14 @@ async def served_on(conn: Any, case_id: uuid.UUID) -> date | None:
 
 
 async def ensure_pack_deadlines(conn: Any, pack: MergedPack, case_id: uuid.UUID) -> date | None:
-    """Make the pack's deadlines counted from serving, once per kind; returns the day first served."""
+    """Make the pack's deadlines counted from serving, once per kind (never on a closed case); returns the day
+    first served."""
     served = await served_on(conn, case_id)
     if served is None:
         return None
+    case = await fetch_one(conn, "select status from app.cases where id = %s", (case_id,))
+    if case is None or case["status"] in CLOSED_CASE:
+        return served
     for rule in pack.deadline_rules():
         if rule.get("from") != SERVED_FROM:
             continue
@@ -307,6 +313,8 @@ async def change_deadline(
     row = await _deadline(conn, case_id, deadline_id)
     if row["version"] != if_match:
         raise stale()
+    if row["cancelled_at"] is not None:
+        raise conflict("cancelled", "This deadline was cancelled when the case was withdrawn.")
     if body.due_on is not None and body.due_on != row["due_on"]:
         source, source_id = "manual", None
         if body.direction_id is not None:
@@ -364,6 +372,7 @@ async def add_direction(
         existing = await fetch_one(
             conn,
             f"select {_DEADLINE} from app.deadlines where case_id = %s and kind = %s and done_at is null"
+            " and cancelled_at is null"
             " order by (created_from = 'pack') desc, created_at desc limit 1",
             (case_id, item.kind),
         )
