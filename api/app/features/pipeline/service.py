@@ -768,4 +768,6 @@ async def purge_quarantined(conn: AsyncConnection, run_date: date) -> None:
         if not (q.told or q.confirmed_on + timedelta(days=days) <= run_date):
             continue
         await services.storage.delete(await services.storage.list(paths.page_prefix(q.case_id, q.page_id)))
-        await repo.purge_quarantined_page(conn, q.quarantine_id)
+        source = await repo.purge_quarantined_page(conn, q.quarantine_id)
+        if source:
+            await services.storage.delete(await services.storage.list_recursive(source))

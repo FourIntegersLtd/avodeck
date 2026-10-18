@@ -928,7 +928,8 @@ def versions_of(rows: list[DocumentRow]) -> list[dict[str, Any]]:
                 "added_at": d.created_at,
             },
         )
-        v["documents"] += 1
+        if d.part_of is None:
+            v["documents"] += 1
         v["pages"] += d.pages or 0
         if d.first_page_no is not None:
             v["first_page_no"] = min(x for x in (v["first_page_no"], d.first_page_no) if x is not None)
@@ -1303,8 +1304,11 @@ async def quarantines_to_purge(conn: AsyncConnection, run_date: dt.date) -> list
     ]
 
 
-async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID) -> None:
-    await conn.execute("select app.purge_quarantined_page(%s)", (quarantine_id,))
+async def purge_quarantined_page(conn: AsyncConnection, quarantine_id: uuid.UUID) -> str | None:
+    """Deletes the page's text; returns where the uploaded file was kept once no page of it remains."""
+    cur = await conn.execute("select app.purge_quarantined_page(%s)", (quarantine_id,))
+    row = await cur.fetchone()
+    return None if row is None or row[0] is None else str(row[0])
 
 
 async def document_in_case(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> bool:
