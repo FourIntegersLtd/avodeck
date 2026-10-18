@@ -2311,6 +2311,23 @@ export interface paths {
         patch: operations["adjust_time_v1_cases__case_id__time_adjust_patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/time/estimates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Estimates */
+        post: operations["add_estimates_v1_cases__case_id__time_estimates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/time/heartbeat": {
         parameters: {
             query?: never;
@@ -2566,6 +2583,23 @@ export interface paths {
         get: operations["get_billing_profile_v1_me_billing_profile_get"];
         /** Put Billing Profile */
         put: operations["put_billing_profile_v1_me_billing_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/billing-profile/bank-details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put My Bank Details */
+        put: operations["put_my_bank_details_v1_me_billing_profile_bank_details_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -2992,6 +3026,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/organisations/{org_id}/billing-profile/bank-details": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Org Bank Details */
+        get: operations["get_org_bank_details_v1_organisations__org_id__billing_profile_bank_details_get"];
+        /** Put Org Bank Details */
+        put: operations["put_org_bank_details_v1_organisations__org_id__billing_profile_bank_details_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/packs": {
         parameters: {
             query?: never;
@@ -3270,10 +3322,28 @@ export interface components {
             /** Months */
             months: number;
         };
+        /** BankDetails */
+        BankDetails: {
+            /** Account Name */
+            account_name?: string | null;
+            /** Account Number */
+            account_number?: string | null;
+            /** Bic */
+            bic?: string | null;
+            /** Iban */
+            iban?: string | null;
+            /** Sort Code */
+            sort_code?: string | null;
+        };
+        /** BankOut */
+        BankOut: {
+            bank: components["schemas"]["BankDetails"] | null;
+        };
         /** BillingProfile */
         BillingProfile: {
             /** Address */
             address?: string | null;
+            bank?: components["schemas"]["BankDetails"] | null;
             /** Currency */
             currency: string;
             /** Hourly Rate */
@@ -4368,6 +4438,20 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** EstimateIn */
+        EstimateIn: {
+            /** Fee */
+            fee?: number | string | null;
+            /** Hours */
+            hours: number | string;
+            /** Stage */
+            stage: string;
+        };
+        /** EstimatesIn */
+        EstimatesIn: {
+            /** Estimates */
+            estimates: components["schemas"]["EstimateIn"][];
+        };
         /** Event */
         Event: {
             /** Available At */
@@ -4846,6 +4930,8 @@ export interface components {
             credit_notes: components["schemas"]["CreditNoteOut"][];
             /** Currency */
             currency: string;
+            /** Estimate Amount */
+            estimate_amount?: string | null;
             /**
              * Id
              * Format: uuid
@@ -4863,6 +4949,11 @@ export interface components {
             sent_at: string | null;
             /** Sent To */
             sent_to: string | null;
+            /**
+             * Statements
+             * @default []
+             */
+            statements: string[];
             /** Status */
             status: string;
             /** Tax */
@@ -5520,6 +5611,13 @@ export interface components {
             text?: string | null;
             /** Transcript Id */
             transcript_id?: string | null;
+        };
+        /** OverEstimate */
+        OverEstimate: {
+            /** Instructing Party */
+            instructing_party: string;
+            /** Percent */
+            percent: number;
         };
         /** PackChange */
         PackChange: {
@@ -6675,6 +6773,10 @@ export interface components {
         };
         /** StageTime */
         StageTime: {
+            /** Estimate Fee */
+            estimate_fee?: string | null;
+            /** Estimate Hours */
+            estimate_hours?: string | null;
             /** Seconds */
             seconds: number;
             /** Stage */
@@ -6785,6 +6887,9 @@ export interface components {
         TimeOut: {
             /** Adjusted */
             adjusted: boolean;
+            /** Estimate Hours */
+            estimate_hours?: string | null;
+            over_estimate?: components["schemas"]["OverEstimate"] | null;
             /** Stages */
             stages: components["schemas"]["StageTime"][];
             /** Total Seconds */
@@ -13410,6 +13515,50 @@ export interface operations {
             };
         };
     };
+    add_estimates_v1_cases__case_id__time_estimates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EstimatesIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimeOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     heartbeat_v1_cases__case_id__time_heartbeat_post: {
         parameters: {
             query?: never;
@@ -14017,6 +14166,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BillingProfileOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    put_my_bank_details_v1_me_billing_profile_bank_details_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankDetails"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BillingProfile"];
                 };
             };
             /** @description Validation Error */
@@ -15154,6 +15347,92 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notification"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_org_bank_details_v1_organisations__org_id__billing_profile_bank_details_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    put_org_bank_details_v1_organisations__org_id__billing_profile_bank_details_put: {
+        parameters: {
+            query?: never;
+            header?: {
+                "if-match"?: string | null;
+            };
+            path: {
+                org_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BankDetails"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BankOut"];
                 };
             };
             /** @description Validation Error */

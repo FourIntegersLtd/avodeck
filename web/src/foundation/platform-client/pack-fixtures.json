@@ -216,7 +216,7 @@
       "timezone": "America/Halifax",
       "versions": {
         "case_type": "zz-case@0.0.3",
-        "jurisdiction": "zz-test@0.0.5",
+        "jurisdiction": "zz-test@0.0.6",
         "specialty": "zz-specialty@0.0.2"
       },
       "vocabulary": {
@@ -334,7 +334,7 @@
       "locale": "en-ZZ",
       "name": "Testland",
       "timezone": "America/Halifax",
-      "version": "0.0.5",
+      "version": "0.0.6",
       "vocabulary": {
         "court_bundle": "hearing binder",
         "declaration_name": "affirmation",
@@ -932,7 +932,7 @@
       "timezone": "Europe/London",
       "versions": {
         "case_type": "clin-neg-breach@2026.10.2",
-        "jurisdiction": "gb-eaw@2026.10.5",
+        "jurisdiction": "gb-eaw@2026.10.6",
         "overlay": "gb-eaw/general-practice@2026.10.1",
         "specialty": "general-practice@2026.10.2"
       },
@@ -1148,7 +1148,7 @@
       "locale": "en-GB",
       "name": "England and Wales",
       "timezone": "Europe/London",
-      "version": "2026.10.5",
+      "version": "2026.10.6",
       "vocabulary": {
         "court_bundle": "trial bundle",
         "declaration_name": "statement of truth",

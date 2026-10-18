@@ -2,8 +2,9 @@
 
 Words come from `words.py` by the pack's language and dates follow the pack's date order. The reference is
 the instructing party's own reference when they gave one, otherwise the case's id; no clinical words, case
-label or patient name appear. The wording a jurisdiction requires about fees (for example that the fee does
-not depend on the outcome) is not in the packs yet (foundation request in the slice F brief).
+label or patient name appear. Below the total: the time estimate against this invoice's total (when an
+estimate was given), the jurisdiction pack's invoice statements (for example that the fee does not depend on
+the outcome) and a "How to pay" box when the issuer's bank details were filled in, all as frozen at draft time.
 """
 
 from __future__ import annotations
@@ -15,10 +16,12 @@ from decimal import Decimal
 from typing import Any
 from xml.sax.saxutils import escape
 
+from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table
 
+from app.features.report.bank import FIELDS as BANK_FIELDS
 from app.features.report.words import long_date, word
 
 
@@ -39,6 +42,9 @@ class InvoiceDoc:
     tax: Decimal
     total: Decimal
     credits: list[tuple[str, Decimal]] = field(default_factory=list)
+    statements: list[str] = field(default_factory=list)
+    bank: dict[str, str] = field(default_factory=dict)
+    estimate: Decimal | None = None
 
 
 def money(currency: str, amount: Decimal | str) -> str:
@@ -73,6 +79,21 @@ def render_invoice(doc: InvoiceDoc) -> bytes:
     for number, amount in doc.credits:
         rows.append([word(lang, "invoice_credit", number=number), money(doc.currency, -amount)])
     story.append(Table(rows, colWidths=[320, 140]))
+    tail: list[str] = []
+    if doc.estimate is not None:
+        given, billed = money(doc.currency, doc.estimate), money(doc.currency, doc.total)
+        tail.append(word(lang, "invoice_estimate", estimate=given, amount=billed))
+    tail.extend(doc.statements)
+    if tail:
+        story.append(Spacer(1, 12))
+        story.extend(Paragraph(escape(line), styles["BodyText"]) for line in tail)
+    if doc.bank:
+        story.append(Spacer(1, 12))
+        pay = [[word(lang, "invoice_how_to_pay"), ""]]
+        pay.extend([word(lang, f"invoice_bank_{key}"), doc.bank[key]] for key in BANK_FIELDS if key in doc.bank)
+        box = Table(pay, colWidths=[160, 300])
+        box.setStyle([("BOX", (0, 0), (-1, -1), 0.75, colors.black), ("SPAN", (0, 0), (-1, 0))])
+        story.append(box)
     out = io.BytesIO()
     SimpleDocTemplate(out, pagesize=A4, title=title).build(story)
     return out.getvalue()

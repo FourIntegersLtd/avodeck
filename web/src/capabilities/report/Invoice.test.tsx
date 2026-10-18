@@ -7,7 +7,7 @@ import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { etagged, INV, invoiceOut, profile, serve, stepKeys, type PackRun } from "./testing";
+import { casePack, etagged, INV, invoiceOut, profile, serve, stepKeys, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/invoice`;
@@ -155,4 +155,81 @@ describe("a sent invoice", () => {
     await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", body: { amount: "100", reason: "Rate typo" } }));
     expect(screen.getByText(M["report.invoice.locked_note"]!)).toBeInTheDocument();
   });
+});
+
+describe.each<PackRun>(["launch", "fixture"])("the time estimate under the %s packs", (run) => {
+  const party = () => String((casePack(run).instructing_party_types[0] as { label: string }).label);
+
+  test("sends the hours and fee you estimate for each step and shows them against your time", async () => {
+    const steps = stepKeys(run);
+    const { sent, record } = serve(run, {
+      time: { adjusted: false, total_seconds: 3600, estimate_hours: "2.00", over_estimate: null, stages: steps.map((stage, i) => ({ stage, seconds: i === 0 ? 3600 : 0, estimate_hours: i === 0 ? "2.00" : null, estimate_fee: null })) },
+    });
+    server.use(http.post("/v1/cases/:caseId/time/estimates", async ({ request }) => (await record(request), json({ adjusted: false, total_seconds: 3600, estimate_hours: "3.00", over_estimate: null, stages: [] }))));
+    const { user } = renderAt(url);
+    const region = await screen.findByRole("region", { name: M["report.invoice.estimate"]! });
+    expect(within(region).getByText(M["report.invoice.estimate_total"]!.replace("{{hours}}", "2.00"))).toBeInTheDocument();
+    const first = within(region).getByRole("group", { name: stepLabel(steps[0]!) });
+    const hours = within(first).getByLabelText(M["report.invoice.estimate_hours"]!);
+    expect(hours).toHaveValue("2.00");
+    await user.clear(hours);
+    await user.type(hours, "3");
+    await user.type(within(first).getByLabelText(M["report.invoice.estimate_fee"]!), "250");
+    await user.click(within(region).getByRole("button", { name: M["report.invoice.estimate_save"]! }));
+    await waitFor(() => expect(sent.at(-1)).toEqual({ method: "POST", path: `/v1/cases/${CASE_A}/time/estimates`, ifMatch: null, body: { estimates: [{ stage: steps[0], hours: "3", fee: "250" }] } }));
+    expect(await screen.findByText(M["report.invoice.estimate_saved"]!)).toBeInTheDocument();
+  });
+
+  test("time over the estimate shows a gentle notice naming the instructing party, and nothing is blocked", async () => {
+    serve(run, {
+      invoices: [invoiceOut()],
+      time: { adjusted: false, total_seconds: 43260, estimate_hours: "10.00", over_estimate: { percent: 20, instructing_party: party() }, stages: [] },
+    });
+    renderAt(url);
+    const notice = await screen.findByRole("status", { name: M["report.invoice.over_estimate_title"]! });
+    expect(notice).toHaveTextContent(M["report.invoice.over_estimate"]!.replace("{{percent}}", "20").replace("{{party}}", party()));
+    expect(screen.getByRole("button", { name: M["report.invoice.send"]! })).toBeEnabled();
+    if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
+  });
+});
+
+test("an invoice with an estimate states it against the total in the invoice's currency", async () => {
+  serve("launch", { invoices: [invoiceOut({ currency: "XTS", estimate_amount: "2300.00", statements: [] })] });
+  renderAt(url);
+  const card = await screen.findByRole("article", { name: M["report.invoice.draft"]! });
+  const line = within(card).getByText((_, el) => el?.getAttribute("data-estimate") === "true");
+  expect(line.textContent).toContain("2,300.00");
+  expect(line.textContent).toContain("3,645.00");
+  expect(line.textContent).toContain("XTS");
+  expect(line.textContent).not.toContain("£");
+});
+
+test("bank details are saved behind the code with the version you saw", async () => {
+  let stepped = false;
+  const { sent, record } = serve("launch");
+  server.use(
+    http.put("/v1/me/billing-profile/bank-details", async ({ request }) => {
+      if (!stepped) return apiError(403, "step_up_required");
+      await record(request);
+      return etagged({ ...profile(), bank: { account_name: "Jane Morgan Ltd", sort_code: "123456", account_number: "12345678", iban: null, bic: null } }, 3);
+    }),
+    http.post("/v1/auth/mfa/verify", () => ((stepped = true), json({ status: "signed_in", recovery_codes: null }))),
+  );
+  const { user } = renderAt(url);
+  const bank = await screen.findByRole("region", { name: M["report.invoice.bank"]! });
+  expect(within(bank).getByText(M["report.invoice.bank_note"]!)).toBeInTheDocument();
+  await user.type(within(bank).getByLabelText(M["report.invoice.bank_account_name"]!), "Jane Morgan Ltd");
+  await user.type(within(bank).getByLabelText(M["report.invoice.bank_sort_code"]!), "12-34-56");
+  await user.type(within(bank).getByLabelText(M["report.invoice.bank_account_number"]!), "12345678");
+  await user.click(within(bank).getByRole("button", { name: M["report.invoice.bank_save"]! }));
+  const dialog = await screen.findByRole("dialog", { name: "Please enter your code" });
+  await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
+  await user.click(within(dialog).getByRole("button", { name: "Carry on" }));
+  await waitFor(() =>
+    expect(sent.at(-1)).toEqual({
+      method: "PUT", path: "/v1/me/billing-profile/bank-details", ifMatch: '"2"',
+      body: { account_name: "Jane Morgan Ltd", sort_code: "12-34-56", account_number: "12345678", iban: null, bic: null },
+    }),
+  );
+  expect(await within(bank).findByText(M["report.invoice.billing_saved"]!)).toBeInTheDocument();
 });

@@ -143,6 +143,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | tax_number | VAT/GST number if registered |
 | currency | Invoice currency |
 | next_invoice_no | The next invoice number, so numbers never skip or repeat |
+| bank_account_name / bank_sort_code / bank_account_number / bank_iban / bank_bic | Optional bank details printed in the invoice's "How to pay" box; never put in an email |
 
 ### notification_preferences
 | Field | In plain words |
@@ -724,13 +725,22 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | started_at / ended_at / seconds | When and how long |
 | adjusted_by_expert | Whether the expert corrected it |
 
+### time_estimates
+| Field | In plain words |
+|---|---|
+| stage | Which part of the work (a workflow step from the pack) |
+| hours / fee | The hours the expert expects, and a fixed fee if one was agreed |
+| created_by / created_at | Who gave the estimate and when; a change is a new row and the newest counts |
+
 ### invoices
 | Field | In plain words |
 |---|---|
 | billing_profile_id | Who the invoice is from |
 | number | Invoice number (never skips or repeats) |
 | lines / total / currency / tax | What was charged, the total, currency and tax |
-| tax_rate / issuer | The tax rate and who it is from (name, address, tax number) as they were when it was drafted |
+| tax_rate / issuer | The tax rate and who it is from (name, address, tax number, bank details) as they were when it was drafted |
+| statements | The lines the pack requires on every invoice (for example that fees do not depend on the outcome), as they were when it was drafted |
+| estimate_amount | The time estimate in money when it was drafted, shown against the invoice's total; empty without an estimate |
 | status | Draft, sent, part paid, paid, written off |
 | paid_amount | How much has been paid: the sum of its payments |
 | pdf_path / sent_at | The invoice file and when it was sent |

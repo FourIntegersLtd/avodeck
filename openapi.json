@@ -442,6 +442,88 @@
         "title": "Balance",
         "type": "object"
       },
+      "BankDetails": {
+        "additionalProperties": false,
+        "properties": {
+          "account_name": {
+            "anyOf": [
+              {
+                "maxLength": 140,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Name"
+          },
+          "account_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Account Number"
+          },
+          "bic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bic"
+          },
+          "iban": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Iban"
+          },
+          "sort_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Code"
+          }
+        },
+        "title": "BankDetails",
+        "type": "object"
+      },
+      "BankOut": {
+        "properties": {
+          "bank": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BankDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "bank"
+        ],
+        "title": "BankOut",
+        "type": "object"
+      },
       "BillingProfile": {
         "additionalProperties": false,
         "properties": {
@@ -456,6 +538,16 @@
               }
             ],
             "title": "Address"
+          },
+          "bank": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BankDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "currency": {
             "pattern": "^[A-Z]{3}$",
@@ -3452,6 +3544,68 @@
         "title": "Entry",
         "type": "object"
       },
+      "EstimateIn": {
+        "additionalProperties": false,
+        "properties": {
+          "fee": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fee"
+          },
+          "hours": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Hours"
+          },
+          "stage": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Stage",
+            "type": "string"
+          }
+        },
+        "required": [
+          "stage",
+          "hours"
+        ],
+        "title": "EstimateIn",
+        "type": "object"
+      },
+      "EstimatesIn": {
+        "additionalProperties": false,
+        "properties": {
+          "estimates": {
+            "items": {
+              "$ref": "#/components/schemas/EstimateIn"
+            },
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Estimates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "estimates"
+        ],
+        "title": "EstimatesIn",
+        "type": "object"
+      },
       "Event": {
         "properties": {
           "available_at": {
@@ -4784,6 +4938,17 @@
             "title": "Currency",
             "type": "string"
           },
+          "estimate_amount": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Amount"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -4834,6 +4999,14 @@
               }
             ],
             "title": "Sent To"
+          },
+          "statements": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Statements",
+            "type": "array"
           },
           "status": {
             "title": "Status",
@@ -6614,6 +6787,24 @@
           "received_on"
         ],
         "title": "OralInstructionIn",
+        "type": "object"
+      },
+      "OverEstimate": {
+        "properties": {
+          "instructing_party": {
+            "title": "Instructing Party",
+            "type": "string"
+          },
+          "percent": {
+            "title": "Percent",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "percent",
+          "instructing_party"
+        ],
+        "title": "OverEstimate",
         "type": "object"
       },
       "PackChange": {
@@ -9994,6 +10185,28 @@
       },
       "StageTime": {
         "properties": {
+          "estimate_fee": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Fee"
+          },
+          "estimate_hours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Hours"
+          },
           "seconds": {
             "title": "Seconds",
             "type": "integer"
@@ -10255,6 +10468,27 @@
           "adjusted": {
             "title": "Adjusted",
             "type": "boolean"
+          },
+          "estimate_hours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimate Hours"
+          },
+          "over_estimate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OverEstimate"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "stages": {
             "items": {
@@ -20738,6 +20972,69 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/time/estimates": {
+      "post": {
+        "operationId": "add_estimates_v1_cases__case_id__time_estimates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EstimatesIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Estimates",
+        "tags": [
+          "report"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/time/heartbeat": {
       "post": {
         "operationId": "heartbeat_v1_cases__case_id__time_heartbeat_post",
@@ -21682,6 +21979,75 @@
           }
         },
         "summary": "Put Billing Profile",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/me/billing-profile/bank-details": {
+      "put": {
+        "operationId": "put_my_bank_details_v1_me_billing_profile_bank_details_put",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankDetails"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BillingProfile"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Put My Bank Details",
         "tags": [
           "report"
         ]
@@ -23145,6 +23511,136 @@
         "summary": "Mark Read",
         "tags": [
           "notifications"
+        ]
+      }
+    },
+    "/v1/organisations/{org_id}/billing-profile/bank-details": {
+      "get": {
+        "operationId": "get_org_bank_details_v1_organisations__org_id__billing_profile_bank_details_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Org Bank Details",
+        "tags": [
+          "report"
+        ]
+      },
+      "put": {
+        "operationId": "put_org_bank_details_v1_organisations__org_id__billing_profile_bank_details_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "org_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Org Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BankDetails"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BankOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Put Org Bank Details",
+        "tags": [
+          "report"
         ]
       }
     },

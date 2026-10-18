@@ -73,7 +73,7 @@ export const spotOut = (over: Partial<Schemas["SpotCheckOut"]> = {}): Schemas["S
 
 export const invoiceOut = (over: Partial<Schemas["InvoiceOut"]> = {}): Schemas["InvoiceOut"] => ({
   id: INV, number_text: null, status: "draft", currency: "GBP", created_at: "2026-10-18T10:00:00Z", sent_at: null, sent_to: null,
-  paid_amount: "0.00", tax: "0.00", total: "3645.00", credit_notes: [],
+  paid_amount: "0.00", tax: "0.00", total: "3645.00", credit_notes: [], statements: [], estimate_amount: null,
   lines: [{ kind: "time", seconds: 72900, hours: "20.25", rate: "180.00", amount: "3645.00" }, { kind: "expenses", amount: "0.00" }], ...over,
 });
 

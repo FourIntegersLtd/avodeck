@@ -395,6 +395,10 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
         " values (%s, %s, 'reading', now(), now(), 0)",
         (w.case, w.expert),
     )
+    admin.execute(
+        "insert into app.time_estimates (case_id, stage, hours, created_by) values (%s, 'reading', 1, %s)",
+        (w.case, w.expert),
+    )
     admin.execute("insert into app.report_settings (case_id) values (%s)", (w.case,))
     admin.execute(
         "insert into app.report_builds (report_version_id, case_id, citation_style, page_count)"
@@ -437,6 +441,7 @@ def _report_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[
         "report_servings": 1,
         "spot_checks": 1,
         "time_entries": 1,
+        "time_estimates": 1,
         "report_settings": 1,
         "report_builds": 1,
         "report_section_texts": 1,

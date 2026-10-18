@@ -8,6 +8,7 @@ router = _router(prefix="/v1", tags=["report"])
 
 from app.features.report import (  # noqa: E402, F401
     jobs,
+    routes_bank,
     routes_build,
     routes_final_check,
     routes_invoices,
