@@ -35,8 +35,7 @@ CITATION = (
     " value_snapshot, quote_verbatim, page_id) values (%(c)s, %(r)s, %(para)s, 1, %(f)s, 2, '\\x00', '\\x00', %(p)s)"
 )
 CHECK_RUN = (
-    "insert into app.final_check_runs (case_id, report_version_id, results, passed)"
-    " values (%(c)s, %(r)s, '[]', true)"
+    "insert into app.final_check_runs (case_id, report_version_id, results, passed) values (%(c)s, %(r)s, '[]', true)"
 )
 SNAPSHOT = (
     "insert into app.report_snapshots (case_id, report_version_id, kind, sha256)"
@@ -288,9 +287,7 @@ async def test_a_credit_note_corrects_a_sent_invoice_with_its_own_number(
         admin.execute(note, (world["case"], invoice, 80))
 
 
-async def test_a_billing_profile_is_seen_only_by_its_owner(
-    api_db: Database, world: dict[str, uuid.UUID]
-) -> None:
+async def test_a_billing_profile_is_seen_only_by_its_owner(api_db: Database, world: dict[str, uuid.UUID]) -> None:
     count = "select count(*) from app.billing_profiles"
     assert await run_as(api_db, world["expert"], count) == [(1,)]
     assert await run_as(api_db, world["outsider"], count) == [(0,)]
