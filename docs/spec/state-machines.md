@@ -156,7 +156,7 @@ suggested → confirmed / edited (expert, screen 06; `text_verbatim` kept) → s
 | confirmed → undone | Named expert | Only before purging; restores the suggestions set aside |
 | confirmed → purged | Daily `purge_quarantined_pages` (worker) | A logged request lists the page, or the pack's `quarantine_purge_days` have passed |
 
-Rows start `suggested` (worker or a case member with `page.quarantine`). dismissed, undone and purged are terminal; after purging, undo is 409. Any other change is refused by the database.
+Rows start `suggested` (worker or a case member with `page.quarantine`). dismissed, undone and purged are terminal; after purging, undo is 409. Any other change is refused by the database. Purging also rejects every fact on the page and blanks its value, fields and box, and once no page of the uploaded document is still in use, the stored file is deleted too (migration 0115).
 
 ## Missing item (`missing_items.status`)
 
