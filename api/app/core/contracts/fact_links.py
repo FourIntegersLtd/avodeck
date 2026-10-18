@@ -2,7 +2,8 @@
 
 Only links the named expert confirmed count (state-machines.md "Fact-question link"): suggested,
 rejected and stale links never do, nor a confirmed link whose fact is no longer checked (verified or
-edited): slice D cannot see slice B's fact changes, so such a link stays 'confirmed' in the table.
+edited), or is flagged "Please check" (as in citable_facts): slice D cannot see slice B's fact
+changes, so such a link stays 'confirmed' in the table.
 Runs on the caller's connection, so row-level security applies.
 """
 
@@ -12,6 +13,7 @@ import uuid
 
 from psycopg import AsyncConnection
 
+from app.core.contracts.fact_flags import RECHECK
 from app.core.contracts.facts import CITABLE_STATUSES
 
 CONFIRMED = "confirmed"
@@ -25,8 +27,9 @@ async def confirmed_links(
         "select l.question_id, l.fact_id from app.fact_question_links l"
         " join app.facts f on f.id = l.fact_id"
         " where l.case_id = %s and l.status = %s and f.status = any(%s)"
+        " and not exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %s)"
     )
-    params: list[object] = [case_id, CONFIRMED, sorted(CITABLE_STATUSES)]
+    params: list[object] = [case_id, CONFIRMED, sorted(CITABLE_STATUSES), RECHECK]
     if question_id is not None:
         sql += " and l.question_id = %s"
         params.append(question_id)
