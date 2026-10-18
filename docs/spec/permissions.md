@@ -50,6 +50,8 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `support_access.grant` 🔒 | ✓ | — | — | — | — | — |
 | `case.delete_now` 🔒 | ✓ (unserved only) | — | — | — | — | owner only (unserved only) |
 
+Slice F uses existing actions: adjusting time is `invoice.create`; writing off an invoice also needs `credit_note.issue`; starting and listing colleague spot-checks is `report.build`. The colleague is not a person: they reach a spot-check only with the link token and the emailed code, through `app.spot_check_unlock` / `app.spot_check_respond` (migration 0604), each attempt audited with no person (`spot_check.opened`, `spot_check.refused`, `spot_check.answered`).
+
 After the named expert leaves the organisation, they keep every named-expert action on their named cases; the organisation keeps its "not on case" column.
 
 A deleted case (status `deleted`, the tombstone `app.purge_case()` leaves) answers only `case.view_certificate`, for the same people as above (the named expert and organisation owners/admins). Every other action on it, and the certificate for anyone else, is 404, exactly as for a case that never existed (`DELETED_CASE_ACTIONS` in `core/auth/access.py`; `app.case_access(case_id, action)` and `app.can_access_case()` in migration 0018). Lists and Today never show it.
@@ -88,7 +90,7 @@ Row-level security lets a person update a row; triggers then check each change a
 
 ## Person actions (no case)
 
-Only the person themselves: profile, expert profile, signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password: no route takes another person's id, and recovery needs the person's own password as well as a recovery code.
+Only the person themselves: profile, expert profile, billing profile (changing the tax number 🔒), signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password: no route takes another person's id, and recovery needs the person's own password as well as a recovery code.
 
 ## Avodeck staff
 

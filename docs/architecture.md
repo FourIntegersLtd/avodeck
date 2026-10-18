@@ -325,7 +325,10 @@ Built reports, what was frozen at signing, and who received them.
 | `citations` | Each page reference in a report, with a frozen copy of the fact as it was when cited. | paragraph_id, fact_id, fact_version, value_snapshot, quote_verbatim, page_id |
 | `report_servings` | Who each served document was sent to, when and how (several recipients for a joint expert). | report_version_id, recipient_party_id, served_on, sent_via |
 | `final_check_runs` | Results of the final check before signing. | case_id, report_version_id, results, passed, at |
-| `spot_checks` | A colleague's check of a sample of cited facts through an expiring link. | case_id, reviewer_email, fact_ids[], token_hash, expires_at, responses |
+| `spot_checks` | A colleague's check of a sample of cited facts through an expiring link. | case_id, reviewer_email, fact_ids[], token_hash, code_hash, code_attempts, expires_at, responses |
+| `report_settings` | The case's report choices: citation style and the declaration version the expert acknowledged. | case_id, citation_style, acknowledged_declaration_version |
+| `report_section_texts` | Sections the expert writes themselves (outside the opinions), sealed with the case key. | case_id, section, body, citation_refs, version |
+| `report_builds` | How each draft was built: citation style, template or fallback, page count and pack versions. | report_version_id, job_id, citation_style, template_id, template_fallback, page_count, pack_versions |
 
 ### 4.8 Money
 
