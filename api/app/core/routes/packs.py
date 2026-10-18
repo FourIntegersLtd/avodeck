@@ -80,6 +80,9 @@ class CasePack(BaseModel):
     declarations: list[dict[str, str]]
     legal_tests: str | None
     deadline_rules: list[dict[str, Any]]
+    point_sides: list[dict[str, str]] = []
+    opinion_views: list[dict[str, str]] = []
+    range_note_prompt: str = ""
 
 
 def _library(request: Request) -> PackLibrary:
@@ -125,6 +128,9 @@ def case_pack(pack: MergedPack) -> CasePack:
         declarations=pack.declarations(),
         legal_tests=pack.legal_tests() or None,
         deadline_rules=pack.deadline_rules(),
+        point_sides=pack.point_sides(),
+        opinion_views=pack.opinion_views(),
+        range_note_prompt=pack.range_note_prompt(),
     )
 
 

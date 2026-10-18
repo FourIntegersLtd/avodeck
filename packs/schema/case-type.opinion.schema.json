@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Case-type opinion words",
+  "type": "object",
+  "properties": {
+    "point_sides": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "enum": ["supports_claim", "supports_clinician", "neutral"]
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": ["code", "label"]
+      },
+      "allOf": [
+        {"contains": {"properties": {"code": {"const": "supports_claim"}}, "required": ["code"]}},
+        {"contains": {"properties": {"code": {"const": "supports_clinician"}}, "required": ["code"]}},
+        {"contains": {"properties": {"code": {"const": "neutral"}}, "required": ["code"]}}
+      ],
+      "description": "The three sides a fact can support in the points-against list. The codes are core; the labels are this case type's words (placeholders such as {clinician} are filled from the vocabulary)."
+    },
+    "opinion_views": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false,
+        "required": ["code", "label"]
+      }
+    },
+    "loaded_language": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Phrases the opinion lint flags as loaded."
+    },
+    "range_note_prompt": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "additionalProperties": false,
+  "required": ["point_sides", "opinion_views", "loaded_language", "range_note_prompt"]
+}
