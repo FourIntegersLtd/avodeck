@@ -1,5 +1,6 @@
-"""Slice F, signing (screen 18): `POST .../report/sign` (step-up) locks the latest draft once its final check
-passed and is current, citations still stand and any corrected declaration is acknowledged. The signed Word
+"""Slice F, signing and serving (screen 18): `POST .../report/sign` (step-up) locks the latest draft once
+its final check passed and is current, citations still stand and any corrected declaration is acknowledged.
+The signed Word
 and PDF files carry the expert's signature, name and date; their SHA-256 are stored with frozen snapshots of
 what the report was signed with (architecture 10.6, rule 10). Downloads stream with `no-store` and are
 audited; a locked version's download is checked against its stored hash.
@@ -9,6 +10,10 @@ final check did not pass or is older than the latest draft; signing sets `locked
 files and writes to the audit log; signing freezes declarations, signature, template, pack, guideline and
 instruction versions and conflict answers, so a later profile change does not alter the signed report;
 signed documents are named from the pack ("Report 1"); F34 blocks signing until acknowledged.
+
+Serving (step-up) records `served_on` and `sent_via`, moves the version to served and the case to served,
+and emits `report_served`; more servings and corrections are added to a served version; a served version
+is withdrawn with a reason, stays locked and readable, and cannot be served again (rule 8).
 """
 
 from __future__ import annotations
@@ -17,7 +22,7 @@ import hashlib
 import io
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
-from datetime import timedelta
+from datetime import date, timedelta
 from typing import Any
 
 import docx
@@ -27,6 +32,7 @@ from fastapi import FastAPI
 
 from app.core.ai.bedrock import ModelRequest, ModelResponse
 from app.core.ai.kit import AiKit
+from app.core.contracts import events
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.packs import default_library
@@ -110,7 +116,6 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 @pytest.fixture
 def world(seed: Seed, admin: psycopg.Connection, combo: Combo, reads: Reads) -> World:
     return build(seed, admin, combo, reads)
-
 
 
 @pytest.fixture
@@ -352,3 +357,132 @@ async def test_downloads_need_case_access_and_a_known_format(
     assert resp.status_code == 422
     resp = await (await client_for(ready.expert)).get(ready.url(f"report/versions/{uuid.uuid4()}/download?format=pdf"))
     assert resp.status_code == 404
+
+
+async def signed(client_for: ClientFor, w: World) -> str:
+    resp = await (await client_for(w.expert)).post(w.url("report/sign"), json=SIGN)
+    assert resp.status_code == 200, resp.text
+    return str(resp.json()["version"]["id"])
+
+
+def served_body(**extra: Any) -> dict[str, Any]:
+    return {"served_on": date.today().isoformat(), "sent_via": "email", **extra}
+
+
+async def test_serving_needs_recent_mfa_and_the_named_expert(client_for: ClientFor, ready: World) -> None:
+    version = await signed(client_for, ready)
+    url = ready.url(f"report/versions/{version}/serve")
+    resp = await (await client_for(ready.expert, mfa_age=timedelta(minutes=15))).post(url, json=served_body())
+    assert resp.status_code == 403 and code(resp) == "step_up_required"
+    for person in (ready.co_expert, ready.assistant, ready.viewer):
+        assert (await (await client_for(person)).post(url, json=served_body())).status_code == 403
+    assert (await (await client_for(ready.outsider)).post(url, json=served_body())).status_code == 404
+
+
+async def test_a_draft_cannot_be_served(client_for: ClientFor, admin: psycopg.Connection, ready: World) -> None:
+    draft = newest(admin, ready.case)["id"]
+    resp = await (await client_for(ready.expert)).post(ready.url(f"report/versions/{draft}/serve"), json=served_body())
+    assert resp.status_code == 409 and code(resp) == "not_locked"
+
+
+async def test_serving_records_the_date_and_route_serves_the_case_and_emits_report_served(
+    client_for: ClientFor, admin: psycopg.Connection, ready: World
+) -> None:
+    version = await signed(client_for, ready)
+    heard: list[events.ReportServed] = []
+
+    def listen(event: events.ReportServed) -> None:
+        heard.append(event)
+
+    events.events.subscribe(events.ReportServed)(listen)
+    try:
+        client = await client_for(ready.expert)
+        resp = await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())
+    finally:
+        events.events.unsubscribe(events.ReportServed, listen)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "served"
+
+    status = admin.execute("select status from app.report_versions where id = %s", (version,)).fetchone()
+    assert status is not None and status[0] == "served"
+    case = admin.execute("select status from app.cases where id = %s", (ready.case,)).fetchone()
+    assert case is not None and case[0] == "served"
+    serving = admin.execute(
+        "select served_on, sent_via from app.report_servings where report_version_id = %s", (version,)
+    ).fetchall()
+    assert serving == [(date.today(), "email")]
+    assert heard == [events.ReportServed(ready.case, uuid.UUID(version), date.today())]
+    audit = admin.execute(
+        "select action from app.audit_log where case_id = %s and action = 'report.served'", (ready.case,)
+    ).fetchall()
+    assert len(audit) == 1
+
+    again = await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())
+    assert again.status_code == 409 and code(again) == "already_served"
+
+
+async def test_serving_refuses_a_future_date_and_an_unknown_route(client_for: ClientFor, ready: World) -> None:
+    version = await signed(client_for, ready)
+    client = await client_for(ready.expert)
+    url = ready.url(f"report/versions/{version}/serve")
+    future = (date.today() + timedelta(days=2)).isoformat()
+    assert (await client.post(url, json=served_body(served_on=future))).status_code == 422
+    assert (await client.post(url, json=served_body(sent_via="pigeon"))).status_code == 422
+
+
+async def test_servings_are_listed_and_a_correction_is_added_to_a_served_version(
+    client_for: ClientFor, ready: World
+) -> None:
+    version = await signed(client_for, ready)
+    client = await client_for(ready.expert)
+    servings = ready.url(f"report/versions/{version}/servings")
+    resp = await client.post(servings, json=served_body())
+    assert resp.status_code == 409 and code(resp) == "not_served"
+
+    assert (await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())).status_code == 200
+    listed = await (await client_for(ready.viewer)).get(servings)
+    assert listed.status_code == 200, listed.text
+    first = listed.json()["servings"]
+    assert len(first) == 1 and first[0]["sent_via"] == "email"
+
+    correction = served_body(sent_via="post", correction_of=first[0]["id"], reason="wrong_date")
+    resp = await client.post(servings, json=correction)
+    assert resp.status_code == 201, resp.text
+    assert resp.json()["correction_of"] == first[0]["id"]
+    assert (await client.post(servings, json=served_body(reason="wrong_date"))).status_code == 422
+    assert len((await client.get(servings)).json()["servings"]) == 2
+    viewer = await (await client_for(ready.viewer)).post(servings, json=served_body())
+    assert viewer.status_code == 403
+
+
+async def test_a_served_version_is_withdrawn_with_a_reason_and_stays_locked_and_readable(
+    client_for: ClientFor, admin: psycopg.Connection, ready: World
+) -> None:
+    version = await signed(client_for, ready)
+    client = await client_for(ready.expert)
+    withdraw = ready.url(f"report/versions/{version}/withdraw")
+    resp = await client.post(withdraw, json={"reason": "factual_error"})
+    assert resp.status_code == 409 and code(resp) == "not_served"
+
+    assert (await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())).status_code == 200
+    assert (await client.post(withdraw, json={})).status_code == 422
+    stale = await client_for(ready.expert, mfa_age=timedelta(minutes=15))
+    assert code(await stale.post(withdraw, json={"reason": "factual_error"})) == "step_up_required"
+    resp = await client.post(withdraw, json={"reason": "factual_error"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "withdrawn"
+
+    row = admin.execute(
+        "select status, locked_at, withdrawn_reason from app.report_versions where id = %s", (version,)
+    ).fetchone()
+    assert row is not None and row[0] == "withdrawn" and row[1] is not None and row[2] == "factual_error"
+    download = await client.get(ready.url(f"report/versions/{version}/download?format=pdf"))
+    assert download.status_code == 200
+    again = await client.post(withdraw, json={"reason": "factual_error"})
+    assert again.status_code == 409
+    serve = await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())
+    assert serve.status_code == 409
+    audit = admin.execute(
+        "select count(*) from app.audit_log where case_id = %s and action = 'report.withdrawn'", (ready.case,)
+    ).fetchone()
+    assert audit is not None and audit[0] == 1
