@@ -7,8 +7,8 @@ check asks the database whether the named expert's roles, in the settings the sp
 case period; the roles themselves are never shown to anyone else. Only the named expert answers,
 declares and withdraws (rule 9); withdrawing needs step-up (rule 10).
 
-Gap: deadlines belong to the slices that set them; they read the case's `withdrawn` status, so nothing
-is cancelled here (`deadlines_cancelled` is 0).
+Deadlines belong to the slices that set them: withdrawing publishes `CaseWithdrawn` in this transaction,
+and each slice that owns deadlines cancels the case's open ones and says how many.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts import events
 from app.core.http import DbConn
 from app.core.packs import MergedPack
 from app.features.setup.common import CODE, invalid
@@ -228,7 +229,9 @@ class WithdrawIn(BaseModel):
 
 class Withdrawn(BaseModel):
     status: Literal["withdrawn"]
-    deadlines_cancelled: int = Field(description="Deadlines stop through the case status; nothing is cancelled here.")
+    deadlines_cancelled: int = Field(
+        description="Open deadlines cancelled by the slices that own them (CaseWithdrawn)."
+    )
     note: NoteDraft
 
 
@@ -245,4 +248,9 @@ async def withdraw(case_id: uuid.UUID, body: WithdrawIn, access: Withdraw, conn:
     await conn.execute("insert into app.case_withdrawals (case_id, reason) values (%s, %s)", (case_id, reason))
     await conn.execute("update app.cases set status = 'withdrawn' where id = %s", (case_id,))
     await audit.record(conn, action="case.withdrawn", target=f"case:{case_id}", case_id=case_id)
-    return Withdrawn(status="withdrawn", deadlines_cancelled=0, note=await draft(conn, case_id, "withdrawal", []))
+    withdrawn = events.CaseWithdrawn(case_id)
+    await events.events.publish(conn, withdrawn)
+    cancelled = sum(withdrawn.cancelled)
+    return Withdrawn(
+        status="withdrawn", deadlines_cancelled=cancelled, note=await draft(conn, case_id, "withdrawal", [])
+    )
