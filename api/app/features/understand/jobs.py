@@ -27,18 +27,18 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
+from app.core.ai import pii
 from app.core.contracts import availability as evidence
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
-from app.features.understand import ai_tasks, availability
+from app.features.understand import ai_tasks, availability, links
 from app.features.understand.checks.engine import configured_checks
 from app.features.understand.checks.rules import CheckFact, Hit, evaluate, to_label
 from app.features.understand.repo import CHECKED
 from app.features.understand.services import current
 
+TOP_K = 10  # the facts closest to each question that are offered to T-11
 PARTY_NAME = "party_name"  # the purpose slice C seals a party's name under
-
-__all__ = ["CHECKED", "rerun_checks", "suggest_links"]
 
 
 async def _case_pack(conn: AsyncConnection, case_id: uuid.UUID) -> MergedPack:
@@ -218,9 +218,57 @@ async def _save(
             await conn.execute("update app.findings set status = 'gone' where id = %s", (finding_id,))
 
 
+async def _confirmed_questions(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
+    cur = await conn.execute(
+        "select id, coalesce(confirmed_text, text_verbatim) from app.questions"
+        " where case_id = %s and status in ('confirmed', 'edited') order by number, id",
+        (case_id,),
+    )
+    return [(r[0], str(r[1])) for r in await cur.fetchall()]
+
+
+def _day(value: date | None) -> str | None:
+    return None if value is None else value.isoformat()
+
+
 @registry.kind("suggest_links", interactive=False, changes_case=False)
 async def suggest_links(ctx: JobContext) -> None:
-    """Suggest links between checked facts and the confirmed questions; filled in by the T-11 slice step."""
+    """Suggest (never decide) links between checked facts and the confirmed questions (T-11).
+
+    Question and fact wording is identifier-stripped before it is embedded and again inside the AI kit
+    (rule 7). Code keeps only pairs it offered; an existing link of any status is left exactly as it is.
+    """
+    services = current()
+    async with ctx.transaction() as conn:
+        pack = await _case_pack(conn, ctx.case_id)
+        questions = await _confirmed_questions(conn, ctx.case_id)
+        facts = [f for f in await _checked_facts(conn, ctx.case_id) if f.value]
+        names = await party_names(conn, ctx.case_id)
+    if not questions or not facts:
+        return
+    kit, embedder = services.ai(), services.embed()
+
+    def stripped(text: str) -> pii.Stripped:
+        return pii.strip(text, pack=pack, names=names)
+
+    fact_vectors = embedder.embed([stripped(f"{f.kind} {f.value}") for f in facts])
+    question_vectors = embedder.embed([stripped(words) for _, words in questions])
+    pool = [(f.fact_id, vector, str(f.value)) for f, vector in zip(facts, fact_vectors, strict=True)]
+    by_id = {f.fact_id: f for f in facts}
+    offered: dict[uuid.UUID, list[uuid.UUID]] = {}
+    for (question_id, words), vector in zip(questions, question_vectors, strict=True):
+        offered[question_id] = links.candidates((vector, words), pool, k=TOP_K, reranker=services.reranker)
+    shown = list(dict.fromkeys(f for ids in offered.values() for f in ids))
+    text = ai_tasks.t11_text(questions, [(f, by_id[f].kind, _day(by_id[f].event_date), by_id[f].value) for f in shown])
+    await ctx.progress(50, step="links")
+    async with ctx.transaction() as conn:
+        out = await kit.run(conn, ai_tasks.t11(pack), pack=pack, text=text, case_id=ctx.case_id, names=names)
+        for fact_id, question_id, reason in ai_tasks.accept_links(out, offered):
+            await conn.execute(
+                "insert into app.fact_question_links (case_id, fact_id, question_id, source, status, reason)"
+                " values (%s, %s, %s, 'ai', 'suggested', %s) on conflict (case_id, fact_id, question_id) do nothing",
+                (ctx.case_id, fact_id, question_id, reason[:80] or None),
+            )
 
 
 @registry.kind("rerun_checks", interactive=False, changes_case=False)
