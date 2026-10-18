@@ -778,6 +778,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | calendar | Counted in calendar days or working days |
 | source | From the pack's default, a court order, or entered by hand |
 | pack_version / done_at | Which pack version worked it out; when it was done |
+| cancelled_at | When it was cancelled because the case was withdrawn (never cleared; no reminder goes out) |
 
 ### deadline_changes
 | Field | In plain words |

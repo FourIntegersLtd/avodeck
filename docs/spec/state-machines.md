@@ -25,7 +25,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | settled → archived | Expert (`case.archive`) or 30 days after settled (daily close run) | — | Read-only; `settled_at` kept |
 | archived → active | Expert "Reopen" (`case.reopen`) | Before `delete_after`; no legal hold needed | Audit; `settled_at` cleared |
 | settled → active | Expert "Reopen" (`case.reopen`; settlement fell through, new questions) | Before `delete_after` | Retention clock stops (`settled_at` cleared); restarts from the latest settlement |
-| draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties. The reason is kept encrypted in `case_withdrawals`; withdrawing twice returns 409. Slice C moves the status; the slices that own deadlines read `withdrawn` (nothing is cancelled by C), and slice H starts the retention clock (`delete_after` needs `case.retention`) |
+| draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties. The reason is kept encrypted in `case_withdrawals`; withdrawing twice returns 409. Slice C moves the status and publishes `CaseWithdrawn`; slice G cancels the case's open deadlines and C reports how many (`deadlines_cancelled`), and slice H starts the retention clock (`delete_after` needs `case.retention`) |
 | withdrawn → archived | Expert or 30 days after | — | Read-only |
 | any → deleted | **Blocked** while an active `legal_holds` row exists | — | Deletion job skips the case and notifies the named expert |
 
@@ -218,6 +218,10 @@ pending → accepted (by the invited email, before `expires_at`) / cancelled (ow
 ## Hearing (`hearings.status`)
 
 scheduled → heard / vacated / adjourned. adjourned sets `replaced_by_hearing_id` to a new scheduled hearing. heard, vacated and adjourned are terminal. Changing a hearing marks its trial packs and offline packages `stale`.
+
+## Deadline (`deadlines`)
+
+open → done (`done_at`, answers served or marked done) / cancelled (`cancelled_at`, set when the case is withdrawn, through `CaseWithdrawn`). Cancelled is terminal and never cleared; done and cancelled deadlines get no reminders.
 
 ## Legal hold (`legal_holds`)
 

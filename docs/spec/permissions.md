@@ -69,9 +69,10 @@ Row-level security lets a person update a row; triggers then check each change a
 - `instruction_versions.locked_at` (locking the questions): `question.confirm`; a lock is never undone (a new instruction version reopens the questions).
 - Creating a case: the creator is an owner, admin or expert of the organisation and names themselves, or an assistant naming an owner, admin or expert member; an assistant who creates a case joins it as its assistant.
 - `cases.status`: → deleted `case.delete_now` (never-served cases only), → withdrawn `case.withdraw`, → served `report.serve`, → settled `case.settle`, → archived `case.archive`, settled or archived → active `case.reopen`; any other move and every other column `case.edit_setup`.
+- `app.after_serving_cancel_deadlines()`: `case.withdraw`, only once the case is withdrawn; sets `deadlines.cancelled_at` on every open deadline (called from slice C's withdraw through the `CaseWithdrawn` event).
 - `app.purge_case()`: only the worker, inside the case's own job (`app.job_case_id`); refused while the case is on hold or under an active legal hold.
 - `missing_items`: status, reason and received page change only with `request.draft`; the description and the page it cites never change; the worker inserts.
-- `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one. `jobs.requested_by` is the signed-in person, set by the database; nobody sets it by hand.
+- `app.enqueue_job()`: the action comes from `job_kind_actions` by job kind (unknown kinds need `case.upload`); callers cannot pass one. Slice G's `find_dependents` and `build_supplementary` need `opinion.write` (only the named expert; migration 0701). `jobs.requested_by` is the signed-in person, set by the database; nobody sets it by hand.
 - `fact_flags` `recheck` and `fact_verifications` `remapped` rows: only the worker inside the case's own job, with no person; the expert's `fact.verify` removes a recheck flag by checking the fact again.
 - `app.set_fact_availability()`: changes only `facts.available_at` and `availability_basis` (no new fact version, no status change); the worker inside the case's own job, or `availability.override`.
 - `app.release_case_hold()`: `case.hold` (or the case's own job), and only once the case is off hold (409 otherwise).

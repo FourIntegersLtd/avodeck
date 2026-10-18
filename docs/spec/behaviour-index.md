@@ -92,7 +92,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `credit_notes` | F | Issuer | Many per invoice | Immutable | As invoices |
 | `invoice_payments` | F | People who record payments on the case | Many per invoice | Insert only; their sum is the invoice's paid amount, never above total less credit notes | Goes with its invoice (cascade) |
 | `court_directions` | G | Named expert or assistant | Many | Append only | Case deletion |
-| `deadlines` | G | System from pack or direction; named expert edits | Many | Every change in `deadline_changes` | Case deletion |
+| `deadlines` | G | System from pack or direction; named expert edits | Many | Every change in `deadline_changes` | Withdrawing the case cancels open ones (`cancelled_at`); case deletion |
 | `deadline_changes` | G | System | Many per deadline | Append only | Case deletion |
 | `hearings` | G | Named expert or assistant | Many | State machine; adjournment links the new date | Case deletion |
 | `written_question_rounds` | G | Named expert or assistant | Many | State machine | Case deletion |

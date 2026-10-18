@@ -350,7 +350,7 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | Table | In plain words | Key fields |
 |---|---|---|
 | `court_directions` | Orders from the court that set or change deadlines and hearings. | case_id, made_on, reference, text, created_deadline_ids[] |
-| `deadlines` | Every date that matters (questions due, meeting, trial), worked out from the pack or a court order. | case_id, kind, rule_ref, due_on, calendar, source (pack/direction/manual), pack_version, done_at |
+| `deadlines` | Every date that matters (questions due, meeting, trial), worked out from the pack or a court order. | case_id, kind, rule_ref, due_on, calendar, source (pack/direction/manual), pack_version, done_at, cancelled_at |
 | `deadline_changes` | Every time a deadline moved and why (extension, new order). | deadline_id, old_due_on, new_due_on, reason, source_id, at |
 | `hearings` | Trials and other hearings, with adjournments kept as history. | case_id, type, starts_on, ends_on, venue, status, replaced_by_hearing_id |
 | `written_question_rounds` | Each batch of written questions from a party, with its deadline. | case_id, from_party_id, received_on, deadline_id |
