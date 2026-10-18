@@ -7,7 +7,7 @@ import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { checkResult, failedCheck, finalCheck, PARA, serve, spotOut, type PackRun } from "./testing";
+import { checkResult, failedCheck, finalCheck, PARA, sectionLabel, serve, spotOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/final-check`;
@@ -82,7 +82,7 @@ test("tone and expertise warnings are places in the report, with the flagged wor
   renderAt(url);
   const list = await screen.findByRole("region", { name: M["report.check.warnings"]! });
   expect(within(list).getByText(M["report.check.warning.loaded_language"]!)).toBeInTheDocument();
-  expect(within(list).getByText("Section Opinion, paragraph 14")).toBeInTheDocument();
+  expect(within(list).getByText(`Section ${sectionLabel("launch", "opinion")}, paragraph 14`)).toBeInTheDocument();
   expect(within(list).getByText("clearly negligent")).toBeInTheDocument();
 });
 
