@@ -1,4 +1,4 @@
--- Down for 0499 understand: the 0395 purge order (slice B).
+-- Down for 0499 understand: the purge order with slice B's tables (was 0395, now 0206).
 set role app_migrator;
 
 create or replace function app.case_purge_order() returns text[]

@@ -1,7 +1,7 @@
--- 0395 reader: slice B's case tables (page_reads, fact_verifications, fact_flags, 0202-0204) join the
+-- 0206 reader (was 0395, which sat in slice C's range): slice B's case tables (page_reads, fact_verifications, fact_flags, 0202-0204) join the
 -- purge order (app.case_purge_order(), migration 0017), with every table before them, in the same order as
 -- `PURGE_ORDER` in api/app/core/contracts/case_tables.py: each child table before the table it references.
--- Numbered after slice C's 0390 so it is the last definition; a later slice redefining it keeps these.
+-- 0380 (slice C) replaces this list again; 0499 and 0599 restore every table, so the final order is complete.
 
 set role app_migrator;
 

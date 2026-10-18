@@ -1,4 +1,4 @@
--- 0395 down: back to the 0380 purge order.
+-- 0206 down (was 0395): the purge order without slice B's tables.
 
 set role app_migrator;
 
