@@ -121,7 +121,7 @@ def test_t04_gets_the_allowed_party_words_and_the_date_order(library: packs.Pack
 
 @pytest.mark.parametrize("combo", BOTH, ids=IDS)
 def test_t02_maps_headings_to_the_pack_report_sections_or_other(library: packs.PackLibrary, combo: Combo) -> None:
-    sections = combo.raw("case-type", "report_sections.yaml")["sections"]
+    sections = [s["key"] for s in combo.raw("case-type", "report_sections.yaml")["sections"]]
     context = merged(library, combo).prompt_context("T-02")
     assert context["report_sections"] == [*sections, "other"]
 
