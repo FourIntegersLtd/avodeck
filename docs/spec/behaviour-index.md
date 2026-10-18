@@ -69,6 +69,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `range_notes` | E | Named expert | One per question | Edit freely | Case deletion |
 | `relevant_facts` | E | Worker; named expert dismisses | One per question and fact | State machine | Case deletion |
 | `witness_claims` | E | Worker; named expert confirms | Many per statement | State machine | Case deletion |
+| `witness_comparisons` | E | Named expert asks; worker finishes | One per request | State machine | Case deletion |
 | `opinions` | E | Named expert only | One per question | ETag on every save; versions kept | Case deletion |
 | `opinion_versions` | E | System on save | Many | Append only | Case deletion |
 | `lint_issues` | E | Worker; named expert dismisses | Many | Recalculated on save; dismissals kept | Case deletion |

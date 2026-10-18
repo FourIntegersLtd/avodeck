@@ -1,4 +1,4 @@
-"""Slice E's worker jobs: `suggest_points` (T-14a, T-14b).
+"""Slice E's worker jobs: `suggest_points` (T-14a, T-14b) and `compare_witness_statement` (T-14c).
 
 `suggest_points` goes through the case's answerable questions. For each, it sends the question and the
 citable facts linked to it that are not yet points (slice B's read log decides what is citable, fail
@@ -12,6 +12,12 @@ job row (rule 6).
 For a question with a saved draft, it then sends the draft and the linked citable facts the draft does
 not cite and that were not suggested before (T-14b, same checks); kept answers are stored as relevant
 facts with a short label, for the expert to use or dismiss on screen 14.
+
+`compare_witness_statement` takes each comparison queued under its job. A statement already compared
+adds nothing. Otherwise it sends the statement's words and the case's citable facts (same checks). Each
+claim returned must be an exact run of the statement's words: code finds that run and keeps those words
+with their references; a claim not in the statement is dropped. A claim with no verdict is kept as
+not_addressed. Two wrong answers keep nothing and the comparison is marked refused.
 """
 
 from __future__ import annotations
@@ -22,6 +28,7 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
+from app.core.ai import provenance
 from app.core.ai.kit import AiKit, InvalidOutput
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.jobs import JobContext, registry
@@ -29,6 +36,7 @@ from app.core.packs import MergedPack
 from app.features.write import ai_tasks
 from app.features.write.common import ANSWERABLE
 from app.features.write.routes_opinion import BODY
+from app.features.write.routes_witness import claim_purpose
 from app.features.write.services import WriteServices, current
 
 logger = logging.getLogger("app.write")
@@ -167,3 +175,108 @@ async def _relevant(
                 task.prompt_version,
             ),
         )
+
+
+@registry.kind("compare_witness_statement", interactive=True, changes_case=False)
+async def compare_witness_statement(ctx: JobContext) -> None:
+    services = current()
+    kit = services.ai()
+    async with ctx.transaction() as conn:
+        cur = await conn.execute(
+            "select id, document_id from app.witness_comparisons where job_id = %s and status = 'queued'"
+            " order by created_at, id",
+            (ctx.job_id,),
+        )
+        asked = await cur.fetchall()
+    for comparison_id, document_id in asked:
+        async with ctx.transaction() as conn:
+            await _compare(ctx, conn, services, kit, comparison_id, document_id)
+
+
+def locate(quote: str, words: list[tuple[str, str]]) -> list[tuple[str, str]] | None:
+    """The run of `words` whose text is exactly `quote` (case, spacing and number format aside), or None."""
+    target = provenance.atoms(quote)
+    each = [provenance.atoms(text) for _, text in words]
+    for start in range(len(words)):
+        if not target or not each[start] or each[start][0] != target[0]:
+            continue
+        run: list[str] = []
+        for end in range(start, len(words)):
+            run += each[end]
+            if run == target:
+                return words[start : end + 1]
+            if run != target[: len(run)]:
+                break
+    return None
+
+
+async def _finish(conn: AsyncConnection, comparison_id: uuid.UUID, status: str, claims: int | None) -> None:
+    await conn.execute(
+        "update app.witness_comparisons set status = %s, claims = %s where id = %s", (status, claims, comparison_id)
+    )
+
+
+async def _compare(
+    ctx: JobContext,
+    conn: AsyncConnection,
+    services: WriteServices,
+    kit: AiKit,
+    comparison_id: uuid.UUID,
+    document_id: uuid.UUID,
+) -> None:
+    cur = await conn.execute("select count(*) from app.witness_claims where document_id = %s", (document_id,))
+    row = await cur.fetchone()
+    if row and row[0]:
+        await _finish(conn, comparison_id, "done", row[0])
+        return
+    words = await services.statement_words().words(conn, ctx.case_id, document_id)
+    refs = {f"f{i}": f for i, f in enumerate(await citable_facts(conn, ctx.case_id, services.reads), 1)}
+    if not words or not refs:
+        await _finish(conn, comparison_id, "done", 0)
+        return
+    pack = await _case_pack(conn, services, ctx.case_id)
+    statement = " ".join(" ".join(text for _, text in words).split())
+    text = "\n".join([f"statement\t{statement}", *(_fact_line(r, f) for r, f in refs.items())])
+    task = ai_tasks.t14c(pack, list(refs))
+    names = await services.party_names().case_names(conn, ctx.case_id)
+    try:
+        out: dict[str, Any] = await kit.run(
+            conn, task, pack=pack, text=text, case_id=ctx.case_id, names=names, subject=f"statement:{document_id}"
+        )
+    except InvalidOutput:
+        logger.warning("T-14c answer refused twice for one statement; no claims added")
+        await _finish(conn, comparison_id, "refused", None)
+        return
+    verdicts: dict[int, dict[str, Any]] = {}
+    for verdict in out["verdicts"]:
+        verdicts.setdefault(verdict["claim_index"], verdict)
+    crypto = services.case_crypto()
+    kept = 0
+    for index, claim in enumerate(out["claims"]):
+        found = locate(claim["text_verbatim"], words)
+        if found is None:
+            continue
+        verdict = verdicts.get(index, {"fact_ids": [], "verdict": "not_addressed"})
+        facts = [refs[r] for r in dict.fromkeys(verdict["fact_ids"])]
+        words_text = " ".join(text for _, text in found)
+        sealed = await crypto.encrypt(conn, ctx.case_id, words_text.encode(), purpose=claim_purpose(document_id, index))
+        await conn.execute(
+            "insert into app.witness_claims (case_id, document_id, claim_index, text_verbatim, word_ids, verdict,"
+            " fact_ids, fact_versions, job_id, model_task, prompt_version)"
+            " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            (
+                ctx.case_id,
+                document_id,
+                index,
+                sealed,
+                [ref for ref, _ in found],
+                verdict["verdict"],
+                [f.id for f in facts],
+                [f.version for f in facts],
+                ctx.job_id,
+                task.task_id,
+                task.prompt_version,
+            ),
+        )
+        kept += 1
+    await _finish(conn, comparison_id, "done", kept)

@@ -6,6 +6,6 @@ from app.core.http import router as _router
 
 router = _router(prefix="/v1", tags=["write"])
 
-from app.features.write import jobs, routes_opinion, routes_points, routes_range_note  # noqa: E402, F401
+from app.features.write import jobs, routes_opinion, routes_points, routes_range_note, routes_witness  # noqa: E402, F401
 
 __all__ = ["router"]

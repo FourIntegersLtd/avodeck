@@ -5,6 +5,9 @@
   as linked, so nothing is hidden before D decides the links.
 - `CaseNames` (C): the names of the case's parties, so `pii.strip` takes them out before a model call
   (rule 7). The stand-in reads C's `case_parties` the way C's own jobs do, until a core contract exists.
+- `StatementWords` (A): a document's words in reading order, for T-14c. The stand-in reads A's
+  `ocr_words` the way A seals them, until a core contract exists; each word's reference is
+  `<page_id>/<word_id>`.
 When B or D land, only these adapters change (cross-slice.md, E -> B and E -> D).
 """
 
@@ -20,6 +23,10 @@ from app.core.contracts.facts import Fact
 from app.core.crypto import CaseCrypto
 
 PARTY_NAME = "party_name"  # slice C's encryption purpose for a party's name
+
+
+def _word_purpose(page_id: uuid.UUID, word_id: str) -> str:
+    return f"ocr_words/{page_id}/{word_id}"  # slice A's encryption purpose for one OCR word
 
 
 class FactFlags(Protocol):
@@ -39,6 +46,12 @@ class QuestionLinks(Protocol):
 class CaseNames(Protocol):
     async def case_names(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[str]:
         """The names of the case's parties."""
+        ...
+
+
+class StatementWords(Protocol):
+    async def words(self, conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> list[tuple[str, str]]:
+        """(reference, text) of each of the document's words, in reading order."""
         ...
 
 
@@ -64,5 +77,24 @@ class PartyNames:
         )
         return [
             (await self.crypto.decrypt(conn, case_id, bytes(r[0]), purpose=PARTY_NAME)).decode()
+            for r in await cur.fetchall()
+        ]
+
+
+class OcrWords:
+    def __init__(self, crypto: CaseCrypto) -> None:
+        self.crypto = crypto
+
+    async def words(self, conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID) -> list[tuple[str, str]]:
+        cur = await conn.execute(
+            "select w.page_id, w.word_id, w.text from app.ocr_words w join app.pages p on p.id = w.page_id"
+            " where p.case_id = %s and p.document_id = %s order by p.bundle_page_no, w.n",
+            (case_id, document_id),
+        )
+        return [
+            (
+                f"{r[0]}/{r[1]}",
+                (await self.crypto.decrypt(conn, case_id, bytes(r[2]), purpose=_word_purpose(r[0], r[1]))).decode(),
+            )
             for r in await cur.fetchall()
         ]

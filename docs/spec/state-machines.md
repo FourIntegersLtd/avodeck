@@ -172,7 +172,11 @@ suggested → dismissed (named expert). Final. A suggestion is no longer shown o
 
 ## Witness claim (`witness_claims.status`)
 
-suggested → confirmed / edited / dismissed (expert). Becomes `stale` if any fact it relies on changes. A new version of the witness statement adds new claims; old claims stay for the record.
+suggested → confirmed / edited / dismissed (expert). Becomes `stale` if any fact it relies on changes. A new version of the witness statement adds new claims; old claims stay for the record. Once confirmed, edited or dismissed, a claim changes again only after it becomes `stale`.
+
+## Witness comparison (`witness_comparisons.status`)
+
+queued (named expert asks) → done (claims kept, possibly none) / refused (the model's answer failed twice). Set by the worker only. Final. Comparing the same statement again adds no claims.
 
 ## Written question (`written_questions.status`)
 

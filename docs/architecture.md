@@ -305,6 +305,7 @@ The expert's own reasoning and words.
 | `range_notes` | The expert's note on what other reasonable clinicians might have done. | case_id, question_id, text |
 | `relevant_facts` | Checked facts the draft does not use yet that may bear on it (T-14b), until used or dismissed. | case_id, question_id, fact_id, why_relevant, status |
 | `witness_claims` | Statements in a witness statement compared with the records. | case_id, document_id, text_verbatim, word_ids[], verdict, fact_ids[], status |
+| `witness_comparisons` | Each request to compare a witness statement with the records (T-14c job). | case_id, document_id, job_id, status, claims |
 | `opinions` | The expert's own words answering each question, with citations to checked facts. | case_id, question_id, body, citation_refs, view, provisional, test_text, updated_at, etag |
 | `opinion_versions` | Every saved version of an opinion, so earlier wording can be seen or restored. | opinion_id, version_no, body, citation_refs, saved_at, saved_by |
 | `lint_issues` | Gentle warnings about wording (uncited facts, loaded words, outside expertise) and why the expert dismissed them. | case_id, opinion_id or paragraph_id, sentence_index, type, words, dismissed_reason |
@@ -584,7 +585,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | PATCH | `/cases/{case_id}/relevant-facts/{relevant_id}` | Dismiss a fact T-14b suggested |
 | PUT | `/cases/{case_id}/questions/{q_id}/range-note` | "What other {clinicians} might reasonably do" (wording from the pack) |
 | POST | `/cases/{case_id}/witness-statements/{doc_id}/compare` | T-14c (202 + job) |
-| PATCH | `/cases/{case_id}/witness-claims/{claim_id}` | Confirm / dismiss |
+| PATCH | `/cases/{case_id}/witness-claims/{claim_id}` | Confirm / own verdict (edited) / dismiss |
 
 **15 Your opinion**
 

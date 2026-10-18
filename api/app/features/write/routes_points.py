@@ -11,7 +11,6 @@ The database keeps the allowed status changes (migration 0500) and marks a point
 from __future__ import annotations
 
 import uuid
-from datetime import date
 from typing import Any, Literal
 
 import psycopg
@@ -26,9 +25,22 @@ from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.write import services
-from app.features.write.common import Crypto, View, Write, case_pack, citable, invalid, not_found, require_question
+from app.features.write.common import (
+    Crypto,
+    PointFact,
+    Queued,
+    View,
+    Write,
+    case_pack,
+    citable,
+    invalid,
+    not_found,
+    refused,
+    require_question,
+)
 from app.features.write.router import router
 from app.features.write.routes_range_note import RangeNote, range_note
+from app.features.write.routes_witness import ClaimOut, open_claims
 
 _POINT = (
     "select p.*, f.page_id, f.kind, f.value, f.event_date, pg.bundle_page_no as page_no from app.points p"
@@ -39,15 +51,6 @@ _POINT = (
 class Side(BaseModel):
     code: str
     label: str
-
-
-class PointFact(BaseModel):
-    id: uuid.UUID
-    page_id: uuid.UUID
-    page_no: int
-    kind: str
-    value: str | None
-    event_date: date | None
 
 
 class PointOut(BaseModel):
@@ -75,11 +78,8 @@ class Points(BaseModel):
     points: list[PointOut]
     unused: list[PointFact]
     relevant: list[RelevantOut]
+    claims: list[ClaimOut]
     range_note: RangeNote
-
-
-class Queued(BaseModel):
-    job_id: uuid.UUID
 
 
 class PointChange(BaseModel):
@@ -129,12 +129,6 @@ def _check_side(side: str, sides: list[dict[str, str]]) -> None:
         raise invalid("side")
 
 
-def _refused(exc: psycopg.Error) -> ApiError:
-    if exc.sqlstate == "AV409":
-        return ApiError("conflict", "This change is not allowed.", 409)
-    raise exc
-
-
 @router.get("/cases/{case_id}/questions/{question_id}/points", response_model=Points)
 async def list_points(
     case_id: uuid.UUID, question_id: uuid.UUID, request: Request, access: View, conn: DbConn, crypto: Crypto
@@ -162,7 +156,15 @@ async def list_points(
     ]
     note = await range_note(conn, crypto, case_id, question_id, pack.range_note_prompt())
     relevant = await _relevant(conn, case_id, question_id, {f.id: f for f in unused})
-    return Points(sides=[Side(**s) for s in sides], points=points, unused=unused, relevant=relevant, range_note=note)
+    claims = await open_claims(conn, crypto, case_id)
+    return Points(
+        sides=[Side(**s) for s in sides],
+        points=points,
+        unused=unused,
+        relevant=relevant,
+        claims=claims,
+        range_note=note,
+    )
 
 
 async def _relevant(
@@ -260,7 +262,7 @@ async def change_point(
                 (change.side, change.status, change.dismissed_reason, change.dismissed_reason, point_id),
             )
     except psycopg.Error as exc:
-        raise _refused(exc) from None
+        raise refused(exc) from None
     for action in actions:
         await audit.record(conn, action=action, target=f"point:{point_id}", case_id=case_id)
     out = (await _rows(conn, _POINT + " where p.id = %s", (point_id,)))[0]
@@ -291,7 +293,7 @@ async def dismiss_relevant(
         async with conn.transaction():
             await conn.execute("update app.relevant_facts set status = %s where id = %s", (change.status, relevant_id))
     except psycopg.Error as exc:
-        raise _refused(exc) from None
+        raise refused(exc) from None
     await audit.record(conn, action="relevant_fact.dismissed", target=f"relevant_fact:{relevant_id}", case_id=case_id)
     row = (
         await _rows(

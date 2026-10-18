@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Annotated
 
+import psycopg
 from fastapi import Depends, Request
+from pydantic import BaseModel
 
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts.facts import Fact, citable_facts
@@ -27,6 +30,26 @@ def not_found() -> ApiError:
 
 def invalid(*fields: str) -> ApiError:
     return ApiError("invalid", "Check the highlighted fields.", 422, fields=list(fields))
+
+
+def refused(exc: psycopg.Error) -> ApiError:
+    """A change the database refuses (`app.refuse`, AV409) is 409; anything else is raised again."""
+    if exc.sqlstate == "AV409":
+        return ApiError("conflict", "This change is not allowed.", 409)
+    raise exc
+
+
+class PointFact(BaseModel):
+    id: uuid.UUID
+    page_id: uuid.UUID
+    page_no: int
+    kind: str
+    value: str | None
+    event_date: date | None
+
+
+class Queued(BaseModel):
+    job_id: uuid.UUID
 
 
 def _crypto(request: Request) -> CaseCrypto:

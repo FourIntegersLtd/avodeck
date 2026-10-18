@@ -4,7 +4,7 @@ Jobs run in the worker, which has no `app.state`, so they get the AI kit, case e
 slice B's read log from here. `current()` builds them from the cell config on first use; tests call
 `configure()` with stand-ins. Without a model for the cell (no cloud accounts yet, unless
 `AI_RECORDINGS_DIR` names recorded responses) a job pauses with `model_unavailable` (F24). Without a read
-log nothing is citable (fail closed). The B, C and D ports are in `ports.py`.
+log nothing is citable (fail closed). The A, B, C and D ports are in `ports.py`.
 """
 
 from __future__ import annotations
@@ -21,7 +21,16 @@ from app.core.contracts.reading import PageReadLog
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
-from app.features.write.ports import AllLinked, CaseNames, FactFlags, NoFlags, PartyNames, QuestionLinks
+from app.features.write.ports import (
+    AllLinked,
+    CaseNames,
+    FactFlags,
+    NoFlags,
+    OcrWords,
+    PartyNames,
+    QuestionLinks,
+    StatementWords,
+)
 
 
 @dataclass
@@ -32,6 +41,7 @@ class WriteServices:
     crypto: CaseCrypto | None = None
     reads: PageReadLog | None = None
     names: CaseNames | None = None
+    statements: StatementWords | None = None
     packs: PackLibrary = field(default_factory=default_library)
 
     def ai(self) -> AiKit:
@@ -48,6 +58,11 @@ class WriteServices:
         if self.names is not None:
             return self.names
         return PartyNames(self.case_crypto())
+
+    def statement_words(self) -> StatementWords:
+        if self.statements is not None:
+            return self.statements
+        return OcrWords(self.case_crypto())
 
 
 _current: WriteServices | None = None

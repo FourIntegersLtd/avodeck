@@ -568,7 +568,23 @@ A joint expert is one with two or more current instructing parties; no separate 
 | document_id | Which witness statement |
 | text_verbatim / word_ids[] | The exact statement and where it is |
 | verdict / fact_ids[] | Whether the records support or contradict it, and which facts |
-| status | Whether the expert has confirmed it |
+| claim_index | The claim's place in the list the model returned |
+| status | Whether the expert has confirmed it, given their own verdict, or dismissed it |
+| expert_verdict | The expert's own verdict, when they disagree with the label |
+| fact_versions | The facts as they were when compared |
+| job_id / model_task / prompt_version | Which run found it |
+| decided_by / decided_at | Who decided it and when |
+| version | A stamp that stops two windows overwriting each other |
+
+### witness_comparisons
+| Field | In plain words |
+|---|---|
+| document_id | Which witness statement the expert asked to compare |
+| job_id | The background job doing the comparison |
+| requested_by | Who asked |
+| status | Waiting, done, or refused (the answer could not be checked) |
+| claims | How many claims were kept |
+| created_at / finished_at | When asked and when finished |
 
 ### opinions
 | Field | In plain words |

@@ -1,5 +1,5 @@
 """Slice E's AI tasks (architecture 6.3): T-14a sorts facts by side, T-14b picks
-citable facts the draft does not use yet.
+citable facts the draft does not use yet, T-14c sets a witness statement's claims beside the facts.
 
 Prompts are neutral templates in `prompts/*.md` (first line `version: ...`); the pack's prompt context
 and the output schemas (built from the pack's registries and the references a request supplies) carry
@@ -69,3 +69,39 @@ def t14b(pack: MergedPack, refs: Sequence[str]) -> AiTask:
         "properties": {"facts": {"type": "array", "maxItems": len(refs), "items": fact}},
     }
     return AiTask(task_id="T-14b", prompt_version=version, model="sonnet", system=system, schema=schema)
+
+
+VERDICTS = ("supports", "contradicts", "not_addressed")
+MAX_CLAIMS = 40
+
+
+def t14c(pack: MergedPack, refs: Sequence[str]) -> AiTask:
+    """Quote a statement's claims and label each against the supplied facts (by reference). The quote is
+    checked against the statement's words by code; a reference not supplied fails the schema."""
+    version, system = prompt("t14c")
+    claim = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["text_verbatim"],
+        "properties": {"text_verbatim": {"type": "string", "minLength": 1, "maxLength": 400}},
+    }
+    verdict = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["claim_index", "fact_ids", "verdict"],
+        "properties": {
+            "claim_index": {"type": "integer", "minimum": 0, "maximum": MAX_CLAIMS - 1},
+            "fact_ids": {"type": "array", "maxItems": len(refs), "items": {"type": "string", "enum": list(refs)}},
+            "verdict": {"type": "string", "enum": list(VERDICTS)},
+        },
+    }
+    schema: dict[str, Any] = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["claims", "verdicts"],
+        "properties": {
+            "claims": {"type": "array", "maxItems": MAX_CLAIMS, "items": claim},
+            "verdicts": {"type": "array", "maxItems": MAX_CLAIMS, "items": verdict},
+        },
+    }
+    return AiTask(task_id="T-14c", prompt_version=version, model="opus", system=system, schema=schema)
