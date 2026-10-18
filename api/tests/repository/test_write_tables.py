@@ -286,3 +286,13 @@ async def test_one_suggestion_per_fact_and_question(admin: psycopg.Connection, w
     admin.execute(INSERTS["relevant_facts"], params(world))
     with pytest.raises(psycopg.errors.UniqueViolation):
         admin.execute(INSERTS["relevant_facts"], params(world))
+
+
+@pytest.mark.parametrize("sql", ["update app.opinion_versions set body = '\\x02'", "delete from app.opinion_versions"])
+async def test_an_opinion_version_is_append_only_even_for_the_owner_role(
+    admin: psycopg.Connection, world: dict[str, uuid.UUID], sql: str
+) -> None:
+    add_opinion(admin, world)
+    with pytest.raises(psycopg.Error) as refused:
+        admin.execute(sql)
+    assert refused.value.sqlstate == "AV409"

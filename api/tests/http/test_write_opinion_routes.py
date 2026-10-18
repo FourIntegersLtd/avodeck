@@ -212,3 +212,77 @@ async def test_the_opinion_text_is_stored_encrypted(
     assert (await save(client, world, '"0"', opinion(world, "Plainly my words [[cite:1]]."))).status_code == 200
     row = admin.execute("select body from app.opinions where question_id = %s", (world.question,)).fetchone()
     assert row is not None and b"Plainly" not in bytes(row[0])
+
+
+async def test_a_citation_whose_marker_was_deleted_is_refused_naming_the_marker(
+    client_for: ClientFor, world: World
+) -> None:
+    client = await client_for(world.expert)
+    refused = await save(client, world, '"0"', opinion(world, "My view, the marker deleted."))
+    assert refused.status_code == 422
+    error = refused.json()["error"]
+    assert (error["reason"], error["citation"], error["marker"]) == ("unused_citation", 1, 1)
+    assert "1" in error["message"]
+
+
+async def test_a_cited_fact_moved_to_a_clearer_copy_still_saves_and_shows_changed_since_cited(
+    client_for: ClientFor, world: World, admin: psycopg.Connection, seed: Seed, reads: Reads
+) -> None:
+    from app.features.write.services import WriteServices, configure
+
+    client = await client_for(world.expert)
+    first = await save(client, world, '"0"', opinion(world))
+    assert first.status_code == 200, first.text
+    assert (first.json()["changed_citations"], first.json()["stale"]) == ([], False)
+    clearer = seed.page(world.case, world.document, 3)
+    reads.rows.add((world.case, clearer, 3, world.expert))
+    admin.execute("update app.facts set page_id = %s where id = %s", (clearer, world.verified))
+
+    again = await save(client, world, '"1"', opinion(world, "My view, still [[cite:1]]."))
+    assert again.status_code == 200, again.text
+    assert (again.json()["changed_citations"], again.json()["stale"]) == ([1], True)
+
+    added = [cite(world.verified, world.read_page, PLAN), cite(world.result, world.read_page, "ferritin 9")]
+    wrong = await save(client, world, '"2"', opinion(world, "[[cite:1]] and [[cite:2]].", refs=added))
+    assert wrong.status_code == 200, "a new citation of another fact is checked on its own"
+    renamed = [cite(world.verified, world.read_page, "review 3/52")]
+    refused = await save(client, world, '"3"', opinion(world, refs=renamed))
+    assert (refused.status_code, refused.json()["error"]["reason"]) == (422, "wrong_page")
+
+    configure(WriteServices())
+    try:
+        space = await client.get(world.url(f"questions/{world.question}/workspace"))
+    finally:
+        configure(None)
+    assert space.status_code == 200, space.text
+    assert space.json()["opinion"]["stale"] is True
+    [chip] = [c for c in space.json()["chips"] if c["fact_id"] == str(world.verified)]
+    assert chip["page_id"] == str(clearer)
+    fresh_ref = {**cite(world.verified, clearer, chip["quote_verbatim"]), "fact_version": chip["fact_version"]}
+    fresh = await save(client, world, '"3"', opinion(world, refs=[fresh_ref]))
+    assert fresh.status_code == 200, fresh.text
+    assert (fresh.json()["changed_citations"], fresh.json()["stale"]) == ([], False)
+    later = await save(client, world, '"4"', opinion(world, refs=[fresh_ref]))
+    assert later.json()["changed_citations"] == []
+
+
+async def test_s9_two_windows_the_second_save_without_the_latest_if_match_gets_both_versions(
+    client_for: ClientFor, world: World
+) -> None:
+    """Scenario S9: two windows open on one opinion; each autosaves with the ETag it last saw."""
+    window_a, window_b = await client_for(world.expert), await client_for(world.expert)
+    a1 = await save(window_a, world, '"0"', opinion(world, "A writes [[cite:1]]."))
+    assert a1.status_code == 200
+    b_sees = a1.headers["etag"]
+    a2 = await save(window_a, world, b_sees, opinion(world, "A writes more [[cite:1]]."))
+    assert a2.status_code == 200
+    late = await save(window_b, world, b_sees, opinion(world, "B writes [[cite:1]]."))
+    assert late.status_code == 412
+    error = late.json()["error"]
+    assert error["yours"]["body"] == "B writes [[cite:1]]."
+    assert (error["saved"]["body"], error["saved"]["version"]) == ("A writes more [[cite:1]].", 2)
+    restore = await window_b.post(
+        world.url(f"opinions/{a1.json()['id']}/versions/1/restore"), headers={"If-Match": b_sees}
+    )
+    assert restore.status_code == 412
+    assert restore.json()["error"]["saved"]["version"] == 2

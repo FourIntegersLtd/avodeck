@@ -247,3 +247,16 @@ async def test_a_dismissed_warning_is_not_raised_again(
         "select status from app.lint_issues where case_id = %s order by status", (world.case,)
     ).fetchall()
     assert statuses == [("dismissed",), ("open",)]
+
+
+async def test_saving_keeps_the_models_warnings_whose_words_are_still_there_and_drops_the_rest(
+    client_for: ClientFor, world: World, admin: psycopg.Connection, model: Callable[..., Answering]
+) -> None:
+    model(causation)
+    expert = await client_for(world.expert)
+    await save(expert, world)
+    await lint(expert, world)
+    kept = await save(expert, world, '"1"')
+    assert shown(kept["lint"]) == [(1, "outside_expertise", CAUSED, "ai"), (2, "uncited_fact", "3", "regex")]
+    gone = await save(expert, world, '"2"', BODY.replace(f" {CAUSED}", " led the anaemia"))
+    assert shown(gone["lint"]) == [(2, "uncited_fact", "3", "regex")]

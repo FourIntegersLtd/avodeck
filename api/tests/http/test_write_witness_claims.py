@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import AsyncIterator, Callable, Iterator
+from datetime import date
 from typing import Any
 
 import psycopg
@@ -43,6 +44,7 @@ pytestmark = pytest.mark.anyio
 CLAIM = "I was never told to come back."
 STATEMENT = f"I saw {NAME} on 15 May 2024. She started me on iron tablets. {CLAIM} I thought it would pass."
 SEEN = f"seen by {NAME}"
+CODES: dict[uuid.UUID, tuple[str, str, str]] = {}  # each test case's pack codes
 
 
 class Answering:
@@ -110,6 +112,7 @@ def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads) 
 def world(seed: Seed, admin: psycopg.Connection, combo: Combo, reads: Reads) -> World:
     built = build(seed, admin, combo, reads)
     add_fact(admin, built.case, built.read_page, status="verified", value=SEEN)
+    CODES[built.case] = (combo.jurisdiction, combo.case_type, combo.specialty)
     return built
 
 
@@ -119,6 +122,9 @@ async def statement(seed: Seed, world: World, app: FastAPI, admin_dsn: str) -> t
     document and the word references, `<page_id>/<word_id>`, in reading order."""
     document = seed.document(world.case)
     page = seed.page(world.case, document, 900)
+    statement_type = sorted(default_library().combine(*CODES[world.case]).statement_sources())[0]
+    async with await psycopg.AsyncConnection.connect(admin_dsn, autocommit=True) as conn:
+        await conn.execute("update app.pages set source_type = %s where id = %s", (statement_type, page))
     refs = []
     async with await psycopg.AsyncConnection.connect(admin_dsn, autocommit=True) as conn:
         for n, word in enumerate(STATEMENT.split(), 1):
@@ -337,3 +343,41 @@ async def test_a_verdict_naming_a_fact_not_supplied_is_asked_once_more_then_noth
         "select status from app.witness_comparisons where document_id = %s", (statement[0],)
     ).fetchall()
     assert asked == [("refused",)]
+
+
+async def test_a_document_that_is_not_a_witness_statement_is_refused(
+    client_for: ClientFor, world: World, model: Callable[..., Answering]
+) -> None:
+    answering = model(contradiction)
+    refused = await (await client_for(world.expert)).post(world.url(f"witness-statements/{world.document}/compare"))
+    assert refused.status_code == 422
+    assert refused.json()["error"]["code"] == "not_a_statement"
+    assert answering.requests == []
+
+
+class Births:
+    async def dates_of_birth(self, conn: Any, case_id: uuid.UUID) -> list[date]:
+        return [date(2024, 5, 15)]
+
+
+async def test_the_subjects_date_of_birth_is_taken_out_before_the_model_sees_the_statement(
+    client_for: ClientFor,
+    worker_db: Database,
+    world: World,
+    app: FastAPI,
+    reads: Reads,
+    statement: tuple[uuid.UUID, list[str]],
+) -> None:
+    answering = Answering(contradiction)
+    configure(
+        WriteServices(
+            kit=AiKit(cell(), answering), crypto=app.state.crypto, reads=reads, names=Names(), births=Births()
+        )
+    )
+    try:
+        await compare(client_for, worker_db, world, statement[0])
+    finally:
+        configure(None)
+    [request] = answering.requests
+    assert "15 May 2024" not in request.text
+    assert CLAIM in request.text
