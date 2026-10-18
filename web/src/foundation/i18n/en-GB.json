@@ -19,6 +19,8 @@
   "errors.too_many_attempts": "Too many tries. Please wait a few minutes and try again.",
   "errors.invalid_code": "That code didn't work. Please check your phone and try again.",
   "errors.invalid_token": "That link has expired or was already used. Please ask for a new one.",
+  "errors.already_confirmed": "That question is already confirmed. Reload to see its current state.",
+  "errors.questions_locked": "The questions are locked, so this can no longer be changed.",
   "errors.load": "We couldn't load this. Please try again.",
   "errors.retry": "Try again",
   "ui.case_header.steps": "Steps for this case",

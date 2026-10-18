@@ -35,7 +35,12 @@ async def test_the_case_pack_carries_the_setup_screens_fields(client_for: Client
         k: vocab["subject_representatives"].get(k) for k in case_type["subject_statuses"]
     }
 
-    assert [k["key"] for k in body["document_kinds"]] == ["instructions", "records", "other", *case_type["document_kinds"]]
+    assert [k["key"] for k in body["document_kinds"]] == [
+        "instructions",
+        "records",
+        "other",
+        *case_type["document_kinds"],
+    ]
 
     raw_types = {q["key"]: q for q in combo.raw("case-type", "questions.yaml")["question_types"]}
     for q in body["question_types"]:

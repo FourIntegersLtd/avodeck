@@ -69,7 +69,9 @@ def test_both_are_locked_once_the_question_is_confirmed(
     ):
         with pytest.raises(Refused), admin.transaction():
             admin.execute(f"update app.questions set {change} where id = %s", (question,))
-    admin.execute("update app.questions set outside_expertise = true where id = %s", (question,))  # not part of the lock
+    admin.execute(
+        "update app.questions set outside_expertise = true where id = %s", (question,)
+    )  # not part of the lock
 
 
 def test_confirming_can_set_them_in_the_same_change(admin: psycopg.Connection, case: uuid.UUID) -> None:

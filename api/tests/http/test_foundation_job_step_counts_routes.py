@@ -31,7 +31,9 @@ async def test_the_job_returns_its_counts(
     client = await client_for(team["expert"])
     body = (await client.get(f"/v1/jobs/{team['job']}")).json()
     assert (body["step_done"], body["step_total"]) == (None, None)
-    admin.execute("update app.jobs set status = 'running', step_done = 40, step_total = 900 where id = %s", (team["job"],))
+    admin.execute(
+        "update app.jobs set status = 'running', step_done = 40, step_total = 900 where id = %s", (team["job"],)
+    )
     body = (await client.get(f"/v1/jobs/{team['job']}")).json()
     assert (body["step_done"], body["step_total"]) == (40, 900)
 
@@ -39,7 +41,9 @@ async def test_the_job_returns_its_counts(
 async def test_the_processing_status_returns_the_counts(
     client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
 ) -> None:
-    admin.execute("update app.jobs set status = 'running', step_done = 7, step_total = 12 where id = %s", (team["job"],))
+    admin.execute(
+        "update app.jobs set status = 'running', step_done = 7, step_total = 12 where id = %s", (team["job"],)
+    )
     resp = await (await client_for(team["expert"])).get(f"/v1/cases/{team['case']}/process")
     assert resp.status_code == 200, resp.text
     job = resp.json()["job"]

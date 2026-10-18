@@ -62,7 +62,20 @@ REGISTRIES = frozenset(
     {"fact_kinds", "source_types", "lanes", "checks", "sections", "appendices", "question_types", "steps"}
     | {"required_contents", "types", "deadlines", "sources"}
 )
-_SCREEN_ONLY_VOCABULARY = frozenset({"request_notes", "lanes", "as_seen_title"})
+_SCREEN_ONLY_VOCABULARY = frozenset(
+    {
+        "request_notes",
+        "lanes",
+        "as_seen_title",
+        "other_side_prompt",
+        "other_side_example",
+        "party_roles_plural",
+        "subject_status_hint",
+        "party_name_ignore_words",
+        "outside_expertise_hint",
+        "coverage_question",
+    }
+)
 CHECK_KIND_LISTS = ("action_kinds", "acknowledged_kinds", "followup_kinds", "or_kinds")
 IGNORED = frozenset({"README.md", "__pycache__", ".DS_Store"})
 PLACEHOLDER = re.compile(r"\{([a-z_]+)\}")
@@ -183,6 +196,11 @@ def _union(earlier: list[Any], later: list[Any]) -> list[Any]:
         else:
             loose.append(item)
     return [*by_key.values(), *loose]
+
+
+# Words every jurisdiction vocabulary must give (the setup screens use them instead of fixed words).
+JURISDICTION_WORDS = ("other_side_prompt", "other_side_example", "subject_status_hint")
+CORE_DOCUMENT_KINDS = ("instructions", "records", "other")
 
 
 def _merge(earlier: Any, later: Any) -> Any:
@@ -352,6 +370,18 @@ class MergedPack:
         for key in self._ct.get("subject_statuses", []):
             if not isinstance(statuses, dict) or not isinstance(statuses.get(key), str):
                 raise PackError(f"{label}: subject_statuses '{key}' has no label in the {jurisdiction.code} vocabulary")
+        for key in JURISDICTION_WORDS:
+            if not isinstance(self.vocabulary.get(key), str):
+                raise PackError(f"{label}: the {jurisdiction.code} vocabulary has no '{key}'")
+        ignore = self.vocabulary.get("party_name_ignore_words")
+        if not isinstance(ignore, list) or not all(isinstance(w, str) and w for w in ignore):
+            raise PackError(f"{label}: the {jurisdiction.code} vocabulary has no 'party_name_ignore_words' list")
+        plurals = self.vocabulary.get("party_roles_plural")
+        for key in self._ct["party_roles"]:
+            if not isinstance(plurals, dict) or not isinstance(plurals.get(key), str):
+                raise PackError(
+                    f"{label}: party_roles_plural '{key}' has no word in the {jurisdiction.code} vocabulary"
+                )
         roles = self.vocabulary.get("coverage_roles", {})
         for key in self._sp.get("coverage_roles", []):
             if not isinstance(roles, dict) or not isinstance(roles.get(key), str):
@@ -363,6 +393,10 @@ class MergedPack:
                 self.vocabulary[key] = _fill(word, values, f"{label}: vocabulary {key}")
         self._files = {name: _fill(content, values, f"{label}: {name}") for name, content in files.items()}
         self._check_kinds(label)
+        known_parts = {p["key"] for q in self.question_types() for p in q.get("parts", [])}
+        for key in self._sp.get("outside_expertise_parts", []):
+            if key not in known_parts:
+                raise PackError(f"{label}: outside_expertise_parts '{key}' is not a part of any question type")
 
     # settings
     @property
@@ -466,6 +500,19 @@ class MergedPack:
         return [
             {"key": k, "label": labels[k], "representative": reps.get(k)} for k in self._ct.get("subject_statuses", [])
         ]
+
+    def document_kinds(self) -> list[dict[str, str]]:
+        """The kinds of document a case holds: the core kinds, then the case type's own."""
+        keys = [*CORE_DOCUMENT_KINDS, *self._ct.get("document_kinds", [])]
+        return [{"key": k, "label_key": f"document_kind.{k}"} for k in dict.fromkeys(keys)]
+
+    def outside_expertise_parts(self) -> list[str]:
+        """Question parts the expert still answers when a question is outside their expertise."""
+        return list(self._sp.get("outside_expertise_parts", []))
+
+    def page_limits(self) -> dict[str, int]:
+        """Pages allowed in the report per court track (report.yaml); empty when the jurisdiction sets none."""
+        return {k: int(v) for k, v in self._files["report.yaml"].get("page_limit", {}).items()}
 
     def coverage_roles(self) -> list[dict[str, str]]:
         """Kinds of role in the specialty that count when checking the expert practised during the case period."""
@@ -594,7 +641,11 @@ class MergedPack:
 
     def compliance_checklist(self) -> dict[str, Any]:
         report = self._files["report.yaml"]
-        return {"rule_ref": report["rule_ref"], "items": _enabled(report["required_contents"])}
+        return {
+            "rule_ref": report["rule_ref"],
+            "items": _enabled(report["required_contents"]),
+            "page_limit": self.page_limits(),
+        }
 
     def declarations(self) -> list[dict[str, str]]:
         return [_declaration(self._files["declarations.md"])]

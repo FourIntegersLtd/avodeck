@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import uuid
 from collections.abc import AsyncIterator
 
 import psycopg

@@ -129,7 +129,15 @@ def create_app(
     logs.configure(app.state.packs.identifier_finders())
     app.add_middleware(logs.RequestLog)
     install_error_handlers(app)
-    routers = (cell_public_router, auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
+    routers = (
+        cell_public_router,
+        auth_public,
+        auth_pending,
+        auth_status,
+        auth_signed_in,
+        account_public,
+        account_router,
+    )
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
     people = (me_router, today_router, notifications_router)
     slices = (pipeline_router, colleague_router)  # the colleague's spot-check routes are public (token-gated)

@@ -49,8 +49,8 @@ class Job(BaseModel):
 async def _job(conn: AsyncConnection, job_id: uuid.UUID) -> dict[str, object]:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            "select id, case_id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code, created_at, started_at,"
-            " finished_at from app.jobs where id = %s",
+            "select id, case_id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code, created_at,"
+            " started_at, finished_at from app.jobs where id = %s",
             (job_id,),
         )
         row = await cur.fetchone()

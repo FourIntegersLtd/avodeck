@@ -142,7 +142,7 @@ export function Balance({ words }: { words: Record<string, string> }) {
         {counts.map(([role, count]) => (
           <li key={role}>
             <strong className="av-setup-balance__count">{count}</strong>
-            <span>{role === "joint" ? packWord(words, role) : t("setup.balance.side", { party: words[role] ?? humanise(role) })}</span>
+            <span>{t("setup.balance.side", { party: words[role] ?? humanise(role) })}</span>
           </li>
         ))}
       </ul>

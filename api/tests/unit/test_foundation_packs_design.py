@@ -68,7 +68,12 @@ def test_a_plural_word_missing_for_a_party_role_is_refused(tmp_path: Path) -> No
     launch_root, fixture_root = copy_packs(tmp_path)
     path = fixture_root / "jurisdiction" / FIXTURE.jurisdiction / "vocabulary.yaml"
     lines = path.read_text().splitlines(keepends=True)
-    path.write_text("".join("party_roles_plural: {instructing_side: x}\n" if l.startswith("party_roles_plural:") else l for l in lines))
+    path.write_text(
+        "".join(
+            "party_roles_plural: {instructing_side: x}\n" if line.startswith("party_roles_plural:") else line
+            for line in lines
+        )
+    )
     with pytest.raises(packs.PackError, match="other_side"):
         packs.load_library(launch_root, fixture_root).combine(*FIXTURE.codes)
 
@@ -145,7 +150,12 @@ def test_an_outside_expertise_part_no_question_type_has_is_refused(tmp_path: Pat
     launch_root, fixture_root = copy_packs(tmp_path)
     path = fixture_root / "specialty" / FIXTURE.specialty / "pack.yaml"
     lines = path.read_text().splitlines(keepends=True)
-    path.write_text("".join("outside_expertise_parts: [zz_no_such_part]\n" if l.startswith("outside_expertise_parts:") else l for l in lines))
+    path.write_text(
+        "".join(
+            "outside_expertise_parts: [zz_no_such_part]\n" if line.startswith("outside_expertise_parts:") else line
+            for line in lines
+        )
+    )
     with pytest.raises(packs.PackError, match="zz_no_such_part"):
         packs.load_library(launch_root, fixture_root).combine(*FIXTURE.codes)
 

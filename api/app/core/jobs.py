@@ -155,7 +155,20 @@ class JobContext:
                 "                   when %s::text is not null and %s::text is distinct from step then null"
                 "                   else step_total end"
                 " where id = %s",
-                (pct, eta_seconds, step, step_done, step_done, step, step, step_total, step_total, step, step, self.job_id),
+                (
+                    pct,
+                    eta_seconds,
+                    step,
+                    step_done,
+                    step_done,
+                    step,
+                    step,
+                    step_total,
+                    step_total,
+                    step,
+                    step,
+                    self.job_id,
+                ),
             )
 
     async def step(self, key: str, work: StepWork) -> bool:
