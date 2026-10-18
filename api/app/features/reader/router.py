@@ -14,24 +14,31 @@ from fastapi import Depends, Query, Request, Response
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts.fact_flags import POINTS
+from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, process_pages
 from app.core.contracts.reading import blind_read, require_page_read
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, stale
 from app.core.http import router as make_router
 from app.core.storage import SupabaseStorage
-from app.features.reader import repo
+from app.features.reader import repo, today  # noqa: F401 (registers the Today providers)
 from app.features.reader.schemas import (
     FactList,
     FactOut,
     FlagOut,
+    JobOut,
     MoveIn,
+    PageChange,
     PageDetail,
     PageList,
     PageSummary,
     Progress,
     ReadIn,
     ReadOut,
+    RotateIn,
+    TranscriptionIn,
+    UnreadablePage,
+    UnreadableQueue,
     VerifyIn,
 )
 
@@ -39,6 +46,7 @@ router = make_router(prefix="/v1/cases/{case_id}", tags=["reader"])
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Verify = Annotated[CaseAccess, Depends(require_case_access("fact.verify"))]
+Transcribe = Annotated[CaseAccess, Depends(require_case_access("page.transcribe"))]
 
 # (from, action) -> to, as docs/spec/state-machines.md allows
 _CHECKS = {
@@ -82,9 +90,21 @@ async def list_pages(
     return PageList(pages=pages, next_cursor=pages[-1].page_no if more else None)
 
 
+@router.get("/pages/unreadable", response_model=UnreadableQueue)
+async def unreadable_pages(case_id: uuid.UUID, access: View, conn: DbConn) -> UnreadableQueue:
+    pages = [
+        UnreadablePage(**r, done=r["has_transcription"] or r["needs_clearer_copy"])
+        for r in await repo.unreadable_pages(conn, case_id)
+    ]
+    return UnreadableQueue(pages=pages, done=sum(p.done for p in pages), total=len(pages))
+
+
 @router.get("/pages/{page_no}", response_model=PageDetail)
 async def get_page(case_id: uuid.UUID, page_no: int, access: View, conn: DbConn, scope: CurrentScope) -> PageDetail:
-    r = await _page(conn, case_id, page_no, scope)
+    return _detail(await _page(conn, case_id, page_no, scope))
+
+
+def _detail(r: dict) -> PageDetail:  # type: ignore[type-arg]
     return PageDetail(
         page_no=r["bundle_page_no"],
         page_id=r["id"],
@@ -142,6 +162,55 @@ async def page_facts(
     if r["duplicate_of_page_id"] is not None:  # a copy's facts show on the original
         return FactList(facts=[])
     return FactList(facts=[FactOut(**f) for f in await repo.page_facts(conn, case_id, r["id"])])
+
+
+@router.put("/pages/{page_no}/transcription", response_model=JobOut, status_code=202)
+async def save_transcription(
+    case_id: uuid.UUID, page_no: int, body: TranscriptionIn, access: Transcribe, conn: DbConn, scope: CurrentScope
+) -> JobOut:
+    """The expert's own typing of the page: it counts as reading it, and the page is read again from it."""
+    r = await _page(conn, case_id, page_no, scope)
+    await repo.save_transcription(conn, r["id"], body.text, body.relevance)
+    await repo.record_read(conn, case_id, r["id"], scope.person_id, 0)
+    try:
+        job_id = await extract_page_text(conn, case_id, r["id"])
+    except EntryPointMissing:
+        raise _not_ready() from None
+    return JobOut(job_id=job_id)
+
+
+@router.patch("/pages/{page_no}", response_model=PageDetail)
+async def change_page(
+    case_id: uuid.UUID, page_no: int, body: PageChange, access: Transcribe, conn: DbConn, scope: CurrentScope
+) -> PageDetail:
+    r = await _page(conn, case_id, page_no, scope)
+    changes = body.model_dump(exclude_unset=True)
+    if changes.get("needs_clearer_copy", False) is None:
+        raise ApiError("invalid", "Say whether a clearer copy is needed.", 422)
+    await repo.change_page(conn, r["id"], changes)
+    return _detail(await _page(conn, case_id, page_no, scope))
+
+
+@router.post("/pages/{page_id}/rotate", response_model=JobOut, status_code=202)
+async def rotate_page(
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    body: RotateIn,
+    access: Annotated[CaseAccess, Depends(require_case_access("page.rotate"))],
+    conn: DbConn,
+) -> JobOut:
+    """Turns the page and reads it again; its number stays (slice A re-maps or flags its checked facts)."""
+    if await repo.rotate(conn, case_id, page_id, body.degrees) is None:
+        raise _not_found()
+    try:
+        job_id = await process_pages(conn, case_id, [page_id])
+    except EntryPointMissing:
+        raise _not_ready() from None
+    return JobOut(job_id=job_id)
+
+
+def _not_ready() -> ApiError:
+    return ApiError("unavailable", "Reading the page again isn't ready yet.", 503)
 
 
 @router.get("/progress", response_model=Progress)

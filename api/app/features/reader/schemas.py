@@ -6,7 +6,7 @@ import uuid
 from datetime import date, datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class PageSummary(BaseModel):
@@ -84,3 +84,47 @@ class MoveIn(BaseModel):
 class FlagOut(BaseModel):
     fact_id: uuid.UUID
     flagged: bool
+
+
+Relevance = Literal["relevant", "background"]
+
+
+class UnreadablePage(BaseModel):
+    page_no: int
+    page_id: uuid.UUID
+    source_type: str | None
+    handwriting: bool | None
+    relevance: str | None
+    has_transcription: bool
+    needs_clearer_copy: bool
+    done: bool
+
+
+class UnreadableQueue(BaseModel):
+    pages: list[UnreadablePage]
+    done: int
+    total: int
+
+
+class TranscriptionIn(BaseModel):
+    text: str = Field(min_length=1, max_length=20_000)
+    relevance: Relevance | None = None
+
+
+class PageChange(BaseModel):
+    relevance: Relevance | None = None
+    needs_clearer_copy: bool | None = None
+
+    @model_validator(mode="after")
+    def _something(self) -> PageChange:
+        if not self.model_fields_set:
+            raise ValueError("nothing to change")
+        return self
+
+
+class RotateIn(BaseModel):
+    degrees: Literal[90, 180, 270]
+
+
+class JobOut(BaseModel):
+    job_id: uuid.UUID

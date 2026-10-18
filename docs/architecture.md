@@ -540,10 +540,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count | |
-| PUT | `/cases/{case_id}/pages/{page_no}/transcription` | Save expert's text + relevance; re-runs T-07b on it | 202 + job |
+| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out or clearer copy asked for) | |
+| PUT | `/cases/{case_id}/pages/{page_no}/transcription` | `{text, relevance?}`: save expert's text; counts as read; re-runs T-07b on it through `extract_page_text` (core/contracts/pipeline.py) | 202 + job; 503 while A's entry point is missing |
 | GET | `/cases/{case_id}/pages/{page_no}/second-reading` | T-10 comparison | Only after a transcription exists, or on request |
-| PATCH | `/cases/{case_id}/pages/{page_no}` | `{duplicate_of?, relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b |
+| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
 
 **11 Timeline**
 
@@ -799,8 +799,8 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/cases/{case_id}/pages/{page_id}/quarantine` | "Not this person's record" `{reason}` | A; audited; drafts the note |
 | DELETE | `/cases/{case_id}/pages/{page_id}/quarantine` | Undo, until the image is deleted | A |
 | POST | `/cases/{case_id}/pages/{page_id}/replace` | Upload a clearer copy (new number; old one superseded) | A |
-| POST | `/cases/{case_id}/pages/{page_id}/rotate` | Rotate and re-read; number kept | B |
-| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_id}` move a checked fact to the clearer copy | B; expert only |
+| POST | `/cases/{case_id}/pages/{page_id}/rotate` | `{degrees: 90\|180\|270}` clockwise; re-read through `process_pages`; number kept | B; 202 + job |
+| POST | `/cases/{case_id}/facts/{fact_id}/move` | `{to_page_no, word_ids}` move a checked fact to the clearer copy | B; expert only |
 | GET / POST | `/cases/{case_id}/exhibits` | Audio, video, imaging: listed, never paged | A |
 | GET | `/cases/{case_id}/bundle/versions` | What each delivery of records added | A |
 | POST | `/cases/{case_id}/process/cancel` | Stop processing at a page boundary | A |

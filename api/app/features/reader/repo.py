@@ -248,3 +248,51 @@ async def page_id_by_no(conn: AsyncConnection, case_id: uuid.UUID, page_no: int)
     )
     row = await cur.fetchone()
     return row[0] if row else None
+
+
+async def unreadable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The pages the computer couldn't read (not set aside), in page order, with what the expert has done."""
+    cur = await conn.execute(
+        """select p.bundle_page_no as page_no, p.id as page_id, p.source_type, p.handwriting, p.relevance,
+                  p.transcribed_by_expert_text is not null as has_transcription, p.needs_clearer_copy
+           from app.pages p where p.case_id = %s and p.unreadable and not p.quarantined
+           order by p.bundle_page_no""",
+        (case_id,),
+    )
+    return [_row(cur, r) for r in await cur.fetchall()]
+
+
+async def save_transcription(conn: AsyncConnection, page_id: uuid.UUID, text: str, relevance: str | None) -> None:
+    await conn.execute(
+        "update app.pages set transcribed_by_expert_text = %s, relevance = coalesce(%s, relevance) where id = %s",
+        (text, relevance, page_id),
+    )
+
+
+async def change_page(conn: AsyncConnection, page_id: uuid.UUID, changes: dict[str, Any]) -> None:
+    """Sets the given `relevance` and `needs_clearer_copy` (only those keys)."""
+    sets = ", ".join(f"{k} = %({k})s" for k in changes if k in ("relevance", "needs_clearer_copy"))
+    await conn.execute(f"update app.pages set {sets} where id = %(id)s", {**changes, "id": page_id})  # noqa: S608
+
+
+async def rotate(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, degrees: int) -> int | None:
+    """Turns the page clockwise; its new rotation, or None when the case has no such page."""
+    cur = await conn.execute(
+        "update app.pages set rotation = (rotation + %s) %% 360"
+        " where id = %s and case_id = %s and not quarantined returning rotation",
+        (degrees, page_id, case_id),
+    )
+    row = await cur.fetchone()
+    return None if row is None else int(row[0])
+
+
+async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> list[tuple[uuid.UUID, int]]:
+    """(case, unreadable pages not yet typed out or sent for a clearer copy) where there are any."""
+    cur = await conn.execute(
+        """select p.case_id, count(*)::int from app.pages p
+           where p.case_id = any(%s) and p.unreadable and not p.quarantined
+             and p.transcribed_by_expert_text is null and not p.needs_clearer_copy
+           group by p.case_id""",
+        (case_ids,),
+    )
+    return [(r[0], r[1]) for r in await cur.fetchall()]

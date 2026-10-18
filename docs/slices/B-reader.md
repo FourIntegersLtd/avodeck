@@ -16,13 +16,13 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `GET /v1/cases/{id}/pages/{page_no}/image?zoom=`: streamed, `Cache-Control: private, no-store` (thumbnails are slice A's)
 - `POST /v1/cases/{id}/pages/{page_no}/read` `{dwell_seconds}`
 - `GET /v1/cases/{id}/pages/{page_no}/facts`: **423 `blind_read`** until read
-- `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, reason?}`
-- `POST /v1/cases/{id}/facts/{fact_id}/flag-point`: marks a fact for screen 14 (E reads the flag)
+- `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, word_ids?, reason?}` (If-Match)
+- `POST` / `DELETE /v1/cases/{id}/facts/{fact_id}/flag-point`: marks a checked fact for screen 14, or takes it back (E reads the flags through `core/contracts/fact_flags.py`)
 - `GET /v1/cases/{id}/progress`
 - `GET /v1/cases/{id}/pages/unreadable`
-- `PUT /v1/cases/{id}/pages/{page_no}/transcription` → 202 job (re-extraction)
+- `PUT /v1/cases/{id}/pages/{page_no}/transcription` `{text, relevance?}` → 202 job (re-extraction through `core/contracts/pipeline.py` `extract_page_text`, which A implements)
 - `GET /v1/cases/{id}/pages/{page_no}/second-reading`
-- `PATCH /v1/cases/{id}/pages/{page_no}` `{duplicate_of?, relevance?, needs_clearer_copy?}`
+- `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance?, needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned
 `page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at).
