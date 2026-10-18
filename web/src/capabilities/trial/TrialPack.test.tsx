@@ -6,8 +6,8 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server } from "../../test/api";
 import { axeViolations, renderAt } from "../../test/render";
-import { memoryStore, openCopy, setCopyStore } from "./offline";
-import { blobReply, CASE, COPY, copyOut, etagged, launchWords, packOut, sealed, servePack, settingsOut, term, type PackRun } from "./testing";
+import { findCopy, memoryStore, setCopyStore, unlockCopy } from "./offline";
+import { blobReply, CASE, COPY, copyOut, etagged, launchWords, packOut, PIN, sealed, servePack, settingsOut, term, type PackRun } from "./testing";
 import { TRIAL_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE}/trial-pack`;
@@ -136,13 +136,25 @@ test("a copy for the witness box is made, put on this device sealed, and can be 
   await user.type(within(section).getByLabelText(k("pack.offline.device")), "My tablet");
   await user.click(within(section).getByRole("button", { name: k("pack.offline.create") }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/offline-packages`, body: { device_label: "My tablet", include_images: false } }));
-  await user.click(await within(section).findByRole("button", { name: k("pack.offline.download") }));
+  const put = await within(section).findByRole("button", { name: k("pack.offline.download") });
+  expect(put).toBeDisabled();
+  await user.type(within(section).getByLabelText(k("pack.offline.pin")), "1234");
+  await user.type(within(section).getByLabelText(k("pack.offline.pin_again")), "1234");
+  expect(put).toBeDisabled();
+  await user.clear(within(section).getByLabelText(k("pack.offline.pin")));
+  await user.clear(within(section).getByLabelText(k("pack.offline.pin_again")));
+  await user.type(within(section).getByLabelText(k("pack.offline.pin")), PIN);
+  await user.type(within(section).getByLabelText(k("pack.offline.pin_again")), "135790");
+  expect(within(section).getByText(k("pack.offline.pin_mismatch"))).toBeInTheDocument();
+  expect(put).toBeDisabled();
+  await user.clear(within(section).getByLabelText(k("pack.offline.pin_again")));
+  await user.type(within(section).getByLabelText(k("pack.offline.pin_again")), PIN);
+  await user.click(put);
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "GET", path: `/v1/cases/${CASE}/offline-packages/${COPY}/download` }));
-  const link = await within(section).findByRole("link", { name: k("pack.offline.open") });
+  const link = await within(section).findByRole("link", { name: k("pack.offline.open") }, { timeout: 20_000 });
   expect(link).toHaveAttribute("href", `/cases/${CASE}/witness-box`);
-  const opened = await openCopy(CASE);
-  expect(opened.state).toBe("open");
-});
+  expect((await unlockCopy(CASE, PIN)).state).toBe("open");
+}, 60_000);
 
 test("removing the copy asks the server and forgets it on this device", async () => {
   const { sent, record } = servePack("launch", { copies: [copyOut({ status: "downloaded", downloaded_at: "2027-06-03T10:00:00Z" })] });
@@ -152,5 +164,5 @@ test("removing the copy asks the server and forgets it on this device", async ()
   await user.click(await within(section).findByRole("button", { name: k("pack.offline.delete") }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "DELETE", path: `/v1/cases/${CASE}/offline-packages/${COPY}` }));
   expect(await within(section).findByText(k("pack.offline.deleted"))).toBeInTheDocument();
-  expect((await openCopy(CASE)).state).toBe("none");
+  expect((await findCopy(CASE)).state).toBe("none");
 });

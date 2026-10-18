@@ -2,7 +2,7 @@
 // name, the meeting document) come from the pack fixtures, never written here.
 import { HttpResponse } from "msw";
 import type { Schemas } from "../../foundation/platform-client";
-import { http, json, server } from "../../test/api";
+import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { casePack, inCase, launchWords, type PackRun } from "../setup/testing";
 
@@ -205,4 +205,19 @@ export async function sealed(content: CopyContent = copyContent(), id = COPY): P
   const additionalData = new TextEncoder().encode(`avodeck-offline:${id}:${content.format_version}`);
   const data = await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData }, key, new TextEncoder().encode(JSON.stringify(content)));
   return { id, case_id: content.case_id, format_version: content.format_version, key: b64(raw), iv: b64(iv), ciphertext: b64(data) };
+}
+
+/** The PIN the expert chooses for the witness-box copy in these tests. */
+export const PIN = "246810";
+
+/** What the status check answers for the copy (screen 25 asks it when online): a status, an error, or no network. */
+export function serveCopyStatus(answer: Schemas["PackageStatus"]["status"] | 401 | 404 | "no_network") {
+  server.use(
+    http.get("/v1/cases/:caseId/offline-packages/:packageId/status", () => {
+      if (answer === "no_network") return HttpResponse.error();
+      if (answer === 401) return apiError(401, "not_signed_in");
+      if (answer === 404) return apiError(404, "not_found");
+      return json({ status: answer });
+    }),
+  );
 }
