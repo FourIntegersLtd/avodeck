@@ -50,7 +50,8 @@ create table app.invoice_payments (
   invoice_id uuid not null references app.invoices (id) on delete cascade,
   amount numeric(12, 2) not null check (amount > 0),
   recorded_by uuid default app.current_person_id(),
-  recorded_at timestamptz not null default now()
+  recorded_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
 );
 create index invoice_payments_invoice on app.invoice_payments (invoice_id, recorded_at);
 
