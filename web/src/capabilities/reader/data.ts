@@ -45,16 +45,23 @@ export async function pageImage(caseId: string, pageNo: number): Promise<string 
   return data ? dataUrl(data as Blob) : null;
 }
 
+/** The person's locale if the browser knows it, else en-GB. */
+function localeTag(locale: string | null | undefined): string {
+  try {
+    new Intl.DateTimeFormat(locale ?? undefined);
+    return locale || "en-GB";
+  } catch {
+    return "en-GB";
+  }
+}
+
+/** A whole number with the thousands separator of the person's locale ("1,231"). */
+export const count = (n: number, locale: string | null | undefined) => new Intl.NumberFormat(localeTag(locale)).format(n);
+
 /** "Feb 2024 to Aug 2024" in the pack's language and date order; empty when the case has no period. */
 export function periodRange(start: string | null | undefined, end: string | null | undefined, locale: string | null | undefined): string {
   if (!start || !end) return "";
-  let tag = "en-GB";
-  try {
-    new Intl.DateTimeFormat(locale ?? undefined);
-    tag = locale || tag;
-  } catch {
-    /* an unknown locale keeps en-GB */
-  }
+  const tag = localeTag(locale);
   const fmt = (iso: string) => {
     const [y, m, d] = iso.split("-").map(Number);
     return new Intl.DateTimeFormat(tag, { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));

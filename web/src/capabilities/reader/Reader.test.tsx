@@ -22,8 +22,7 @@ describe.each([
     expect(await screen.findByRole("button", { name: "Mark as read" })).toBeVisible();
     await waitFor(() => expect(screen.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", expect.stringMatching(/^data:image\/jpeg;base64,/)));
     expect(screen.getByText(/You're in the period in question/)).toBeVisible();
-    expect(await screen.findByText(/Pages you've read: 3 of 10/)).toBeVisible();
-    expect(screen.getByText(/about 5 minutes left/)).toBeVisible();
+    expect(await screen.findByText(/Page 118 of 10\. You've read 3\. 7 to go\./)).toBeVisible();
     expect(screen.getByText(/Mark this page as read to see our suggestions/)).toBeVisible();
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
     expect(api.factRequests).toBe(0);
