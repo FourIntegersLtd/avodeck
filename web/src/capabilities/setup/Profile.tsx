@@ -90,7 +90,7 @@ function ProfileView(props: ViewProps) {
       <DeclarationSection declaration={props.declaration} signed={signed} onSigned={() => setSigned(true)} />
       <Balance words={words} />
       <div className="av-setup-footer av-row av-row--spread">
-        <span className="av-muted">{t("setup.profile.progress", { done, total: PARTS })}</span>
+        <span />
         <LinkButton to="/today">{t("setup.profile.done")}</LinkButton>
       </div>
       <section aria-labelledby="setup-goes-with-you" className="av-card av-stack">

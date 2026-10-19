@@ -265,10 +265,10 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
         </Notice>
       )}
       <div className="av-row av-row--spread av-setup-footer">
-        <Button variant="quiet" disabled={busy || !label.trim()} onClick={later}>
+        <Button variant="quiet" disabled={busy} onClick={later}>
           {t("setup.new_case.later")}
         </Button>
-        <Button disabled={busy || !label.trim()} onClick={prepare}>
+        <Button disabled={busy} onClick={prepare}>
           {t("setup.new_case.prepare")}
         </Button>
       </div>
