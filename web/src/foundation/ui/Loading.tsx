@@ -1,10 +1,12 @@
 import { t } from "../i18n";
 import { Button } from "./Button";
 import { Notice } from "./Notice";
+import { Spinner } from "./Spinner";
 
 export function Loading() {
   return (
-    <p role="status" className="av-muted">
+    <p role="status" className="av-muted av-loading">
+      <Spinner />
       {t("app.loading")}
     </p>
   );

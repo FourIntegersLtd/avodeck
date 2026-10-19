@@ -1,0 +1,15 @@
+/* Screens 19, 20, 21, 21b and 29, built from the design tokens. */
+.av-after-list { list-style: none; margin: 0; padding: 0; }
+.av-after-item { padding: var(--space-3) 0; border-top: 1px solid var(--line); }
+.av-after-item--spread { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.av-after-footer { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.av-after-columns { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr); gap: var(--space-5); align-items: start; }
+@media (max-width: 860px) { .av-after-columns { grid-template-columns: 1fr; } }
+.av-after-words { font-family: Georgia, serif; margin: 0; }
+.av-after-mono { font-family: var(--font-mono); }
+.av-after-radio { display: flex; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); padding: var(--space-2) var(--space-4); border: 1px solid var(--line-strong); border-radius: var(--radius); cursor: pointer; font-weight: 700; }
+.av-after-radio:has(input:checked) { background: var(--green-tint); border-color: var(--green); }
+.av-after-radio input { width: 24px; height: 24px; flex: none; }
+.av-after-fieldset { border: 0; margin: 0; padding: 0; }
+.av-after-fieldset legend { font-weight: 700; padding: 0; }
+.av-after-flag { border-left: 6px solid var(--amber, #B45309); padding-left: var(--space-3); }

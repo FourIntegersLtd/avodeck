@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useMatch } from "react-router-dom";
 import { t } from "../i18n";
 import { useMessages } from "../lib/messages";
 import { screenPath } from "../lib/screens";
+import { initials } from "./initials";
 import { Logo } from "./Logo";
 import { Notice } from "./Notice";
 
@@ -10,12 +11,6 @@ export interface AppShellProps {
   children: ReactNode;
   /** The signed-in person's name, for the initials that open their account. */
   name?: string | null;
-}
-
-function initials(name: string | null | undefined): string {
-  const words = (name ?? "").replace(/^(dr|mr|mrs|ms|miss|prof)\.?\s+/i, "").split(/\s+/).filter(Boolean);
-  if (!words.length) return "";
-  return (words[0]![0]! + (words.length > 1 ? words[words.length - 1]![0]! : "")).toUpperCase();
 }
 
 /** The signed-in frame (S03 header): skip link, logo, main places, the bell, the person, and the page. */
@@ -28,11 +23,14 @@ export function AppShell({ children, name }: AppShellProps) {
     return to ? [[key, to] as const] : [];
   });
   const help = screenPath("help");
+  // A case screen has its own single bar (logo, case, steps, avatar) from the case frame.
+  const inCase = useMatch("/cases/:caseId/*") !== null;
   return (
     <>
       <a className="av-skip" href="#main">
         {t("app.skip_to_content")}
       </a>
+      {!inCase && (
       <header className="av-shell__header">
         <div className="av-shell__bar">
           <div className="av-shell__left">
@@ -51,11 +49,6 @@ export function AppShell({ children, name }: AppShellProps) {
             </nav>
           </div>
           <div className="av-shell__right">
-            {help && (
-              <Link to={help} className="av-shell__help">
-                {t("app.nav.help")}
-              </Link>
-            )}
             <Link to="/messages" className="av-shell__bell" aria-label={unread ? t("app.nav.messages_unread", { count: unread }) : t("app.nav.messages")}>
               <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
@@ -67,13 +60,21 @@ export function AppShell({ children, name }: AppShellProps) {
                 </span>
               )}
             </Link>
+            {help && (
+              <Link to={help} className="av-shell__help">
+                {t("app.nav.help")}
+              </Link>
+            )}
             <Link to="/account" className="av-shell__avatar">
-              <span aria-hidden="true">{initials(name)}</span>
+              <span className="av-shell__avatar-disc" aria-hidden="true">
+                {initials(name)}
+              </span>
               <span className="av-visually-hidden">{t("app.nav.account")}</span>
             </Link>
           </div>
         </div>
       </header>
+      )}
       <main id="main" tabIndex={-1}>
         {messages?.bounced && (
           <div className="av-page av-shell__banner">

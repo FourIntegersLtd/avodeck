@@ -1,8 +1,10 @@
+import { useContext } from "react";
 import { Navigate, useMatches, useOutlet, useParams } from "react-router-dom";
-import { t } from "../foundation/i18n";
+import { formatDue, humanise, t } from "../foundation/i18n";
 import { stepFor, type CaseFrame, type CaseScreenHandle } from "../foundation/lib/caseFrame";
-import { useTimeHeartbeat } from "../foundation/lib/timeHeartbeat";
 import { screenPath } from "../foundation/lib/screens";
+import { SessionContext } from "../foundation/lib/session";
+import { useTimeHeartbeat } from "../foundation/lib/timeHeartbeat";
 import { useResource } from "../foundation/lib/useResource";
 import { api, unwrap } from "../foundation/platform-client";
 import { CaseHeader, LinkButton, LoadError, Loading, Notice } from "../foundation/ui";
@@ -39,16 +41,31 @@ export function CaseLayout() {
     .pop();
   // Time is kept on every screen a pack step holds; the server decides what counts and which step it is.
   useTimeHeartbeat(caseId, found.data && screenKey && stepFor(found.data.pack, screenKey) ? screenKey : null);
-  if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
-  if (!found.data) return <div className="av-page"><Loading /></div>;
+  const me = useContext(SessionContext)?.me;
+  const person = me && (me.person.full_name || me.person.email);
+  // While the case loads (or fails to) the bar still shows the logo and the avatar: it is the only bar.
+  if (found.error || !found.data) {
+    return (
+      <>
+        <CaseHeader bar steps={[]} person={person} />
+        <div className="av-page">{found.error ? <LoadError onRetry={found.reload} /> : <Loading />}</div>
+      </>
+    );
+  }
+  const { item, pack } = found.data;
   const home = outlet ? null : caseHome(found.data);
   if (home) return <Navigate to={home} replace />;
+  const type = item.case_type ? humanise(item.case_type) : "";
   return (
     <>
       <CaseHeader
-        steps={found.data.pack.workflow_steps as Array<{ key: string }>}
-        current={stepFor(found.data.pack, screenKey)}
-        title={<h1>{found.data.item.label}</h1>}
+        bar
+        caseId={caseId}
+        steps={pack.workflow_steps as Array<{ key: string; screens?: string[] }>}
+        current={stepFor(pack, screenKey)}
+        title={<h1 className="av-case-bar__title">{item.label}</h1>}
+        subtitle={item.due_date && type ? t("ui.case_bar.sub", { type, date: formatDue(item.due_date, pack.locale) }) : type}
+        person={person}
       />
       {outlet ?? (
         <div className="av-page av-stack">

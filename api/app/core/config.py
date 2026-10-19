@@ -83,6 +83,21 @@ def auth_settings(env: Mapping[str, str] | None = None) -> AuthSettings:
     )
 
 
+@dataclass(frozen=True)
+class WebhookSettings:
+    """Secrets for inbound provider webhooks (the e-sign provider first). Hidden from repr.
+
+    `None` when the cell has none set: the webhook then accepts nothing.
+    """
+
+    esign_secret: str | None = field(default=None, repr=False)
+
+
+def webhook_settings(env: Mapping[str, str] | None = None) -> WebhookSettings:
+    source = os.environ if env is None else env
+    return WebhookSettings(esign_secret=source.get("ESIGN_WEBHOOK_SECRET", "").strip() or None)
+
+
 _LOCAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 

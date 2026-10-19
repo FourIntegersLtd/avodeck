@@ -36,6 +36,7 @@ from app.core.storage import SupabaseStorage, storage_settings
 from app.features.pipeline import pipeline_router
 from app.features.reader.log import ReaderPageReadLog
 from app.features.report.routes_colleague import colleague_router
+from app.features.trial.routes_webhook import webhook_router as esign_webhook_router
 
 # Slice B's read log is the app's own; a test passing `page_reads=None` gets a gate that stays shut.
 READER_LOG = ReaderPageReadLog()
@@ -125,7 +126,7 @@ def create_app(
     routers = (auth_public, auth_pending, auth_status, auth_signed_in, account_public, account_router)
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
     people = (me_router, today_router, notifications_router)
-    slices = (pipeline_router, colleague_router)  # the colleague's spot-check routes are public (token-gated)
+    slices = (pipeline_router, colleague_router, esign_webhook_router)  # public: token- or signature-gated
     for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files, *slices):
         mount(app, r)
     for r in feature_routers(features):

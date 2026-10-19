@@ -29,6 +29,8 @@ SIGNED_OUT_ROUTES = {
     ("POST", "/v1/me/email-change/confirm"),
     # The colleague's spot-check answers: no session at all; the link token and the emailed code are the gate.
     ("POST", "/v1/spot-checks/{token}/responses"),
+    # The e-sign provider's webhook: no session; an HMAC of the body with the cell's secret is the gate.
+    ("POST", "/v1/webhooks/esign"),
 }
 
 
