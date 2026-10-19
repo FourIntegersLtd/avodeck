@@ -19,10 +19,11 @@ async function stub(page: Page) {
     deadline_rules: [{ key: "written_questions" }, { key: "trial" }], instructing_party_types: [{ key: "lawyer", label: "instructing party" }],
     declarations: [{ key: "d", text: "I confirm this is my own opinion." }],
   });
-  const deadline = { id: D1, kind: "written_questions", due_on: "2026-12-26", due_at: "2026-12-26T23:59:59Z", timezone: "Europe/London", calendar: "calendar_days", created_from: "pack", source: "pack", rule_ref: null, pack_version: "1", hearing_id: null, done_at: null, last_reminded_on: null, version: 1 };
+  const deadline = { id: D1, kind: "written_questions", due_on: "2026-12-26", due_at: "2026-12-26T23:59:59Z", days_left: 18, timezone: "Europe/London", calendar: "calendar_days", created_from: "pack", source: "pack", rule_ref: null, pack_version: "1", hearing_id: null, done_at: null, last_reminded_on: null, version: 1 };
   await reply("/deadlines", { deadlines: [deadline], served_on: "2026-11-28" });
   await reply(`/deadlines/${D1}/changes`, { changes: [] });
   await reply("/report/served", { version: { id: V1, display_name: "Report 1", status: "served", version_no: 1, served_on: "2026-11-28", sha256: "a" }, paragraphs: [{ id: P1, para_no: 614, text: "A paragraph.", fact_ids: [] }] });
+  await reply("/after-serving/steps", { meetings: [], pack: null });
   await reply("/hearings", { hearings: [] });
   await reply("/court-directions", { directions: [] });
   await reply("/written-question-rounds", { rounds: [{ id: ROUND, number: 1, from_party_id: null, received_on: "2026-12-01", document_id: DOC, deadline_id: D1, answers_version_id: null, status: "open", extracted_at: "2026-12-01T10:00:00Z", version: 1 }] });
@@ -55,7 +56,7 @@ test("after serving passes axe, with 52px buttons and 17px body text", async ({ 
 test("questions from the other side passes axe, with 52px buttons and 17px body text", async ({ page }) => {
   await stub(page);
   await page.goto(`/cases/${CASE_A}/written-questions`);
-  await expect(page.getByText("A question?")).toBeVisible();
+  await expect(page.locator("#question-1").getByText("A question?")).toBeVisible();
   await checked(page);
 });
 
