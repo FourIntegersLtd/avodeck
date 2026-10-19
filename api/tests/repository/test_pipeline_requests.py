@@ -168,6 +168,31 @@ async def test_the_draft_carries_the_packs_notes_for_set_aside_and_foreign_pages
     assert plain["translation_page_nos"] == [3]
 
 
+async def test_the_draft_offers_more_time_and_adds_the_packs_line_only_when_asked(
+    world: dict[str, Any], admin: psycopg.Connection
+) -> None:
+    h: Harness = world["h"]
+    pack = world["pack"]
+    admin.execute("update app.cases set due_date = '2026-11-30' where id = %s", (h.case_id,))
+    days = pack.request_extension_days()
+    plain = (await h.client.post(draft_path(h), json={})).json()
+    after = dt.date(2026, 11, 30) - dt.timedelta(days=days)
+    assert plain["extension"] == {"days": days, "due_date": "2026-11-30", "after_date": after.isoformat()}
+    line = pack.extension_request(days=str(days))
+    assert line not in plain["body"]
+    asked = (await h.client.post(draft_path(h), json={"extension": True})).json()
+    assert line in asked["body"]
+    assert asked["body"].rsplit("\n\n", 1)[0].endswith(line), "the line comes just before the sign-off"
+
+
+async def test_no_due_date_means_no_offer_of_more_time(world: dict[str, Any], admin: psycopg.Connection) -> None:
+    h: Harness = world["h"]
+    admin.execute("update app.cases set due_date = null where id = %s", (h.case_id,))
+    got = (await h.client.post(draft_path(h), json={"extension": True})).json()
+    assert got["extension"] is None
+    assert world["pack"].extension_request(days="1") not in got["body"]
+
+
 async def test_the_draft_holds_no_name_date_of_birth_or_identifier(world: dict[str, Any]) -> None:
     h: Harness = world["h"]
     draft = (await h.client.post(draft_path(h), json={})).json()
