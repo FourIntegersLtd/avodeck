@@ -26,20 +26,34 @@ from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.trial import ai_tasks, repo
-from app.features.trial.common import NO_STORE, Build, Crypto, Pack, Storage, View, conflict, invalid, not_found
-from app.features.trial.pack_document import DEFAULT_SECTIONS
+from app.features.trial.common import (
+    NEW_NOTE,
+    NO_STORE,
+    Build,
+    Crypto,
+    Pack,
+    Storage,
+    View,
+    conflict,
+    invalid,
+    not_found,
+    seal,
+    sha256,
+)
+from app.features.trial.pack_document import DEFAULT_SECTIONS, SECTIONS, pack_document, sheets
+from app.features.trial.pdfs import render_counted
 from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
 
-Section = Literal["report", "chronology", "joint_statement", "written_answers", "legal_tests", "guidance"]
+Section = Literal["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests", "guidance"]
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 MAX_SENTENCES = 60
 
 
 class TrialPackSettingsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    sections: list[Section] = Field(min_length=1, max_length=6)
+    sections: list[Section] = Field(min_length=1, max_length=7)
     include_guidance: bool = False
     hearing_id: uuid.UUID | None = None
 
@@ -51,6 +65,11 @@ class TrialPackSettingsOut(BaseModel):
     version: int
 
 
+class SectionPages(BaseModel):
+    key: Section
+    pages: int
+
+
 class PackOut(BaseModel):
     id: uuid.UUID
     status: Literal["ready"]
@@ -60,6 +79,7 @@ class PackOut(BaseModel):
     stale: bool
     stale_reason: str | None
     created_at: datetime
+    section_pages: list[SectionPages] = []
 
 
 class LatestOut(BaseModel):
@@ -69,6 +89,30 @@ class LatestOut(BaseModel):
 
 class BuildQueued(BaseModel):
     job_id: uuid.UUID
+
+
+class SheetPage(BaseModel):
+    page_no: int
+    trial_page_no: int | None
+    status: Literal["matched", "to_confirm", "missing", "unmatched"]
+
+
+class SheetOut(BaseModel):
+    number: int
+    text: str
+    answer: str | None
+    asked: str | None
+    agreed: bool | None
+    reason: str | None
+    pages: list[SheetPage]
+    reply: str | None = None
+    replied_at: datetime | None = None
+
+
+class PreviewOut(BaseModel):
+    sections: list[SectionPages]
+    total_pages: int
+    sheets: list[SheetOut]
 
 
 class TrialNoteIn(BaseModel):
@@ -95,6 +139,8 @@ class SentenceOut(BaseModel):
     sourced: bool
     source: Source | None
     reason: str | None
+    note_id: uuid.UUID | None = None
+    choice: Literal["tell", "leave_out"] | None = None
 
 
 class NoteChecked(BaseModel):
@@ -184,11 +230,37 @@ async def latest_pack(case_id: uuid.UUID, conn: DbConn, access: View) -> LatestO
             stale=row["stale"],
             stale_reason=row["stale_reason"],
             created_at=row["created_at"],
+            section_pages=[SectionPages(**p) for p in row["section_pages"]],
         )
         if row
         else None
     )
     return LatestOut(settings=_settings(await _row(conn, case_id)), pack=pack)
+
+
+@router.get("/cases/{case_id}/trial-pack/preview", response_model=PreviewOut)
+async def preview_pack(case_id: uuid.UUID, conn: DbConn, access: View, pack: Pack, crypto: Crypto) -> PreviewOut:
+    """What each section would add (pages when printed on their own) and the readiness sheets, for the screen."""
+    served = await latest_served(conn, crypto, case_id)
+    if served is None:
+        return PreviewOut(sections=[], total_pages=0, sheets=[])
+    services = current()
+    refs = await repo.page_refs(conn, case_id)
+    built = await pack_document(conn, services, pack, case_id, {"sections": list(SECTIONS), "include_guidance": False})
+    counted = render_counted(built.document)[2] if built is not None else []
+    counts = [SectionPages(key=key, pages=n) for key, n in counted]  # type: ignore[arg-type]
+    out = []
+    for sheet in await sheets(conn, services, case_id, served):
+        pages = [
+            SheetPage(
+                page_no=n,
+                trial_page_no=refs[n].trial_page_no if n in refs else None,
+                status=refs[n].status if n in refs else "unmatched",  # type: ignore[arg-type]
+            )
+            for n in sheet.pages
+        ]
+        out.append(SheetOut(**{**sheet.__dict__, "pages": pages}))
+    return PreviewOut(sections=counts, total_pages=sum(c.pages for c in counts), sheets=out)
 
 
 @router.get(
@@ -249,5 +321,16 @@ async def check_new_note(
     for i, text in enumerate(sentences):
         ref, reason = found.get(i, (None, None))  # type: ignore[assignment]
         source = sources.get(ref) if ref else None
-        out.append(SentenceOut(index=i, text=text, sourced=source is not None, source=source, reason=reason))
+        sentence = SentenceOut(index=i, text=text, sourced=source is not None, source=source, reason=reason)
+        if source is None and reason != "check_unavailable":
+            kept = await repo.one(
+                conn,
+                "insert into app.trial_notes (case_id, text_sha256, text) values (%s, %s, %s)"
+                " on conflict (case_id, text_sha256) do update set text_sha256 = excluded.text_sha256"
+                " returning id, choice",
+                (case_id, sha256(text.encode()), await seal(conn, crypto, case_id, text, NEW_NOTE)),
+            )
+            assert kept is not None
+            sentence.note_id, sentence.choice = kept["id"], kept["choice"]
+        out.append(sentence)
     return NoteChecked(sentences=out)

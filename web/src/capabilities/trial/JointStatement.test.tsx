@@ -135,3 +135,74 @@ test("a signed copy made elsewhere is added as a PDF", async () => {
   await user.upload(await screen.findByLabelText(k("meeting.add_signed")), pdf("signed.pdf"));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ path: `/v1/cases/${CASE}/expert-meetings/${MEETING}/signed-external`, contentType: "application/pdf" }));
 });
+
+describe("the screen as designed", () => {
+  const q3 = () => screen.findByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", "3")}: ${item(3).text}` });
+
+  test("a link back to after serving, who it is with, the agenda version and when it arrived", async () => {
+    serveMeeting("launch");
+    renderAt(url);
+    const back = await screen.findByRole("link", { name: k("meeting.back") });
+    expect(back).toHaveAttribute("href", expect.stringContaining(`/cases/${CASE}`));
+    const line = await screen.findByTestId("meeting-line");
+    expect(line).toHaveTextContent("Dr R");
+    expect(line).toHaveTextContent("10 February 2027");
+    expect(line).toHaveTextContent("2");
+  });
+
+  test("each deadline is a chip with the rule it comes from", async () => {
+    serveMeeting("launch");
+    renderAt(url);
+    const sign = await screen.findByText(k("meeting.sign_by"));
+    expect(sign.closest("li")).toHaveTextContent("Rule Z.9");
+    expect(screen.getByText(k("meeting.send_by")).closest("li")).toHaveTextContent("Rule Z.10");
+  });
+
+  test("each question shows the pages it cites as page references", async () => {
+    serveMeeting("launch");
+    renderAt(url);
+    const second = await screen.findByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", "2")}: ${item(2).text}` });
+    expect(within(second).getByText("p.214")).toBeInTheDocument();
+    expect(within(second).getByText("p.87")).toBeInTheDocument();
+  });
+
+  test("a changed position links straight to its note", async () => {
+    serveMeeting("launch");
+    renderAt(url);
+    const third = await q3();
+    const link = within(third).getByRole("link", { name: k("meeting.item.add_note") });
+    const target = document.getElementById(link.getAttribute("href")!.slice(1));
+    expect(target).toBe(within(third).getByLabelText(k("meeting.item.change_note")));
+  });
+
+  test("the pack's declarations are shown ticked and cannot be unticked", async () => {
+    serveMeeting("launch");
+    renderAt(url);
+    const declarations = await screen.findByRole("region", { name: k("meeting.declarations.heading") });
+    for (const line of MEETING_TYPE.declarations) {
+      const box = within(declarations).getByRole("checkbox", { name: line });
+      expect(box).toBeChecked();
+      expect(box).toBeDisabled();
+    }
+    expect(within(declarations).getByText(k("meeting.footnote"))).toBeInTheDocument();
+  });
+
+  test("another expert is added by name and the meeting then lists them", async () => {
+    const { sent, record } = serveMeeting("launch");
+    server.use(
+      http.post("/v1/cases/:caseId/expert-meetings/:meetingId/participants", async ({ request }) => (await record(request), json({ id: "a9888888-8888-4888-8888-888888888889", name: "Dr S", discipline: null, side: null, on_avodeck: false }, 201))),
+    );
+    const { user } = renderAt(url);
+    await user.click(await screen.findByRole("button", { name: k("meeting.add_expert") }));
+    await user.type(screen.getByLabelText(k("meeting.other_expert")), "Dr S");
+    await user.click(screen.getByRole("button", { name: k("meeting.add_expert_save") }));
+    await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/expert-meetings/${MEETING}/participants`, body: { name: "Dr S" } }));
+  });
+
+  test("the prepare button is the screen's one main action", async () => {
+    serveMeeting("launch");
+    renderAt(url);
+    const prepare = await screen.findByRole("button", { name: k("meeting.prepare") });
+    expect(prepare.className).not.toMatch(/secondary/);
+  });
+});

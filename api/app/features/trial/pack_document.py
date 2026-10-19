@@ -11,13 +11,13 @@ from __future__ import annotations
 import re
 import uuid
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from psycopg import AsyncConnection
 
 from app.core.contracts.facts import citable_facts
-from app.core.contracts.served import latest_served
+from app.core.contracts.served import ServedReport, latest_served
 from app.core.packs import MergedPack
 from app.features.trial import repo
 from app.features.trial.pdfs import Document
@@ -25,8 +25,8 @@ from app.features.trial.ports import answers_of
 from app.features.trial.services import TrialServices
 from app.features.trial.words import word
 
-SECTIONS = ("report", "chronology", "joint_statement", "written_answers", "legal_tests", "guidance")
-DEFAULT_SECTIONS = ["report", "chronology", "joint_statement", "written_answers", "legal_tests"]
+SECTIONS = ("report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests", "guidance")
+DEFAULT_SECTIONS = ["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests"]
 _REF = re.compile(r"\[p\.(\d+)\]")
 
 
@@ -93,9 +93,11 @@ async def pack_document(
 
     for section in sections:
         if section == "report":
+            doc.section("report")
             doc.heading(word(lang, "report"))
             doc.paras(f"{p.para_no}. {with_trial_refs(pack, refs, p.text)}" for p in served.paragraphs)
         elif section == "chronology":
+            doc.section("chronology")
             doc.heading(word(lang, "chronology"))
             facts = await citable_facts(conn, case_id, services.reads)
             numbers = await repo.page_numbers(conn, list({f.page_id for f in facts}))
@@ -113,7 +115,29 @@ async def pack_document(
                         text=fact.value or "",
                     )
                 )
+        elif section == "readiness":
+            doc.section("readiness")
+            doc.heading(word(lang, "readiness"))
+            sheet_list = await sheets(conn, services, case_id, served)
+            if not sheet_list:
+                doc.para(word(lang, "none_yet"))
+            for i, sheet in enumerate(sheet_list):
+                if i:
+                    doc.page_break()
+                doc.heading(word(lang, "sheet", number=sheet.number, text=sheet.text), 2)
+                if sheet.pages:
+                    doc.para(" ".join(page_ref(pack, refs, n) for n in sheet.pages))
+                doc.para(word(lang, "my_answer"))
+                doc.para(with_trial_refs(pack, refs, sheet.answer or word(lang, "none_yet")))
+                doc.para(word(lang, "may_be_asked"))
+                doc.para(with_trial_refs(pack, refs, sheet.asked or word(lang, "none_yet")))
+                if sheet.reply:
+                    doc.para(word(lang, "my_reply"))
+                    doc.para(with_trial_refs(pack, refs, sheet.reply))
+                if sheet.agreed is False and sheet.reason:
+                    doc.para(word(lang, "not_agreed", text=sheet.reason))
         elif section == "joint_statement":
+            doc.section("joint_statement")
             meeting = await repo.latest_meeting(conn, case_id)
             label = _meeting_label(pack, meeting)
             doc.heading(label)
@@ -129,6 +153,7 @@ async def pack_document(
                 elif item["agreed"] is False:
                     doc.para(word(lang, "not_agreed", text=item["reason"] or ""))
         elif section == "written_answers":
+            doc.section("written_answers")
             doc.heading(word(lang, "written_answers"))
             answers = answers_of(await services.answers.served(conn, crypto, case_id))
             if not answers:
@@ -137,14 +162,59 @@ async def pack_document(
         elif section == "legal_tests":
             text = pack.legal_tests()
             if text.strip():
+                doc.section("legal_tests")
                 doc.heading(word(lang, "legal_tests"))
                 legal_tests(doc, text)
     if include_guidance or "guidance" in sections:
         guidance = pack.guidelines()
         if guidance:
+            doc.section("guidance")
             doc.heading(word(lang, "guidance"))
             doc.paras(f"{g.get('code', '')}: {g.get('title', '')}".strip(": ") for g in guidance)
     return Built(doc, served.version_id, bundle["id"] if bundle else None, sections, include_guidance)
+
+
+@dataclass(frozen=True)
+class Sheet:
+    """One readiness sheet: an agenda question, the expert's own answer, what the other expert said (what they
+    may be asked about) and the pages the served report cites for it."""
+
+    number: int
+    text: str
+    answer: str | None
+    asked: str | None
+    agreed: bool | None
+    reason: str | None
+    pages: list[int]
+    reply: str | None = None
+    replied_at: datetime | None = None
+
+
+async def sheets(
+    conn: AsyncConnection, services: TrialServices, case_id: uuid.UUID, served: ServedReport | None
+) -> list[Sheet]:
+    """A sheet for each question of the case's current agenda (from the served report and the statement only)."""
+    meeting = await repo.latest_meeting(conn, case_id)
+    if meeting is None:
+        return []
+    by_id = {p.id: p for p in served.paragraphs} if served else {}
+    replies = await repo.replies(conn, services.case_crypto(), case_id)
+    out = []
+    for item in await repo.current_items(conn, services.case_crypto(), case_id, meeting["id"]):
+        cited = sorted({no for pid in item["served_paragraph_ids"] if pid in by_id for _, no in by_id[pid].cited})
+        out.append(
+            Sheet(
+                item["number"],
+                item["text"],
+                item["own_position"],
+                item["other_positions"],
+                item["agreed"],
+                item["reason"],
+                cited,
+                *replies.get(item["number"], (None, None)),
+            )
+        )
+    return out
 
 
 def _meeting_label(pack: MergedPack, meeting: dict[str, Any] | None) -> str:

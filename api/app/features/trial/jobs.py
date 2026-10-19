@@ -23,7 +23,7 @@ from app.features.trial import ai_tasks, repo
 from app.features.trial.common import pack_for, sha256, trial_path
 from app.features.trial.matching import OurPage, match_pages
 from app.features.trial.pack_document import pack_document
-from app.features.trial.pdfs import render
+from app.features.trial.pdfs import render_counted
 from app.features.trial.services import TrialServices, current
 
 
@@ -145,14 +145,14 @@ async def build_trial_pack(ctx: JobContext) -> None:
         built = await pack_document(conn, services, pack, ctx.case_id, settings)
         if built is None:
             return
-        pdf, pages = render(built.document)
+        pdf, pages, per_section = render_counted(built.document)
         pack_id = uuid.uuid4()
         path = trial_path(ctx.case_id, "packs", f"{pack_id}.pdf")
         await services.files().put(path, pdf)
         await conn.execute(
             "insert into app.trial_packs (id, case_id, hearing_id, job_id, report_version_id, court_bundle_id,"
-            " sections, include_guidance, sha256, storage_path, page_count, pack_versions)"
-            " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            " sections, include_guidance, sha256, storage_path, page_count, pack_versions, section_pages)"
+            " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 pack_id,
                 ctx.case_id,
@@ -166,6 +166,7 @@ async def build_trial_pack(ctx: JobContext) -> None:
                 path,
                 pages,
                 json.dumps(pack.versions),
+                json.dumps([{"key": k, "pages": n} for k, n in per_section]),
             ),
         )
 

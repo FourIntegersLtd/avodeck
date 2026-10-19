@@ -897,6 +897,20 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | format_version | The package format, so older apps can refuse newer ones |
 | built_at / expires_at / revoked_at | When made, when it stops opening, and if it was cancelled |
 
+### readiness_replies
+| Field | In plain words |
+|---|---|
+| question_no | Which question the reply answers |
+| reply / replied_at / replied_by | The expert's own reply (sealed), when it was written and by whom; printed on the question's sheet in the pack |
+
+### trial_notes
+| Field | In plain words |
+|---|---|
+| text / text_sha256 | A sentence of a pasted note found in nothing served (sealed), and its fingerprint so a re-check finds the same row |
+| choice / decided_at / decided_by | Tell the instructing party or leave it out of the pack, when, and by whom |
+
+Also: `court_bundles.missing_told_at` (when the expert told the instructing party about missing pages) and `trial_packs.section_pages` (the pages each section took when built).
+
 ## Close
 
 ### legal_holds

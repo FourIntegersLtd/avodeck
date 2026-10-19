@@ -14,7 +14,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import PageBreak, Paragraph, SimpleDocTemplate, Spacer
+from reportlab.platypus import Flowable, PageBreak, Paragraph, SimpleDocTemplate, Spacer
 
 BODY_PT = 16
 SMALLEST_PT = 14
@@ -29,9 +29,19 @@ class Block:
 
 
 @dataclass
+class SectionStart:
+    """Where a named section begins: on a page of its own, so its page count is exact."""
+
+    key: str
+
+
+@dataclass
 class Document:
     title: str
-    blocks: list[Block | None] = field(default_factory=list)  # None: start a new page
+    blocks: list[Block | SectionStart | None] = field(default_factory=list)  # None: start a new page
+
+    def section(self, key: str) -> None:
+        self.blocks.append(SectionStart(key))
 
     def heading(self, text: str, level: int = 1) -> None:
         self.blocks.append(Block(text, level))
@@ -73,8 +83,28 @@ def _canvas(size: int) -> type[Canvas]:
     return LargePrint
 
 
+class _Mark(Flowable):  # type: ignore[misc]  # reportlab ships no types
+    """Takes no room; notes the page it lands on."""
+
+    def __init__(self, key: str, seen: dict[str, int]) -> None:
+        super().__init__()
+        self.key, self.seen = key, seen
+
+    def wrap(self, availWidth: float, availHeight: float) -> tuple[float, float]:  # noqa: N803
+        return 0, 0
+
+    def draw(self) -> None:
+        self.seen[self.key] = int(self.canv.getPageNumber())
+
+
 def render(document: Document, *, body: int = BODY_PT) -> tuple[bytes, int]:
     """The PDF and its page count."""
+    pdf, pages, _ = render_counted(document, body=body)
+    return pdf, pages
+
+
+def render_counted(document: Document, *, body: int = BODY_PT) -> tuple[bytes, int, list[tuple[str, int]]]:
+    """The PDF, its page count and the pages each section took, in order (each section starts a page)."""
     styles = _styles(body)
     out = io.BytesIO()
     doc = SimpleDocTemplate(
@@ -88,12 +118,24 @@ def render(document: Document, *, body: int = BODY_PT) -> tuple[bytes, int]:
         invariant=1,
     )
     story: list[object] = [Paragraph(escape(document.title), styles[1]), Spacer(1, 4 * mm)]
+    seen: dict[str, int] = {}
+    keys: list[str] = []
     for block in document.blocks:
         if block is None:
             story.append(PageBreak())
+            continue
+        if isinstance(block, SectionStart):
+            if keys:
+                story.append(PageBreak())
+            keys.append(block.key)
+            story.append(_Mark(block.key, seen))
             continue
         for part in block.text.split("\n"):
             if part.strip():
                 story.append(Paragraph(escape(part), styles[min(block.level, 2)]))
     doc.build(story, canvasmaker=_canvas(max(body, SMALLEST_PT)))
-    return out.getvalue(), int(doc.page)
+    total = int(doc.page)
+    found = [k for k in keys if k in seen]
+    starts = [seen[k] for k in found]
+    ends = [*starts[1:], total + 1][: len(starts)]
+    return out.getvalue(), total, [(k, e - a) for k, a, e in zip(found, starts, ends, strict=True)]

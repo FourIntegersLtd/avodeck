@@ -499,10 +499,18 @@ def _trial_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[s
         " values (%s, %s, 'zz', 1, now())",
         (w.case, version),
     )
+    admin.execute(
+        "insert into app.readiness_replies (case_id, question_no, reply) values (%s, 1, %s)", (w.case, b"sealed")
+    )
+    admin.execute(
+        "insert into app.trial_notes (case_id, text_sha256, text) values (%s, %s, %s)", (w.case, "0" * 64, b"sealed")
+    )
     return {
         "documents": 1,
         "pages": 1,
         "report_versions": 1,
+        "readiness_replies": 1,
+        "trial_notes": 1,
         "expert_meetings": 1,
         "expert_meeting_participants": 1,
         "agenda_versions": 1,

@@ -116,6 +116,7 @@ class ItemOut(BaseModel):
     deviation: Deviation | None
     deviation_reason: str | None
     served_paragraphs: list[int]
+    pages: list[int]
     changed_from_previous: Literal["same", "changed", "new"] | None
     version: int
 
@@ -198,6 +199,7 @@ def _summary(pack: Any, row: dict[str, Any]) -> MeetingSummary:
 
 def _item(row: dict[str, Any], served: ServedReport | None) -> ItemOut:
     numbers = {p.id: p.para_no for p in served.paragraphs} if served else {}
+    cited = {p.id: [no for _, no in p.cited] for p in served.paragraphs} if served else {}
     return ItemOut(
         id=row["id"],
         number=row["number"],
@@ -210,6 +212,7 @@ def _item(row: dict[str, Any], served: ServedReport | None) -> ItemOut:
         deviation=row["deviation"],
         deviation_reason=row["deviation_reason"],
         served_paragraphs=[numbers[p] for p in row["served_paragraph_ids"] if p in numbers],
+        pages=sorted({no for p in row["served_paragraph_ids"] for no in cited.get(p, [])}),
         changed_from_previous=row["changed_from_previous"],
         version=row["version"],
     )

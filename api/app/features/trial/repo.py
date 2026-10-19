@@ -4,14 +4,25 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
+from app.core.contracts.facts import CITABLE_STATUSES
 from app.core.contracts.served import ServedReport
 from app.core.crypto import CaseCrypto
-from app.features.trial.common import AGENDA_TEXT, AGREED_REASON, CHANGE_NOTE, OTHER_POSITIONS, POSITION, unseal
+from app.features.trial.common import (
+    AGENDA_TEXT,
+    AGREED_REASON,
+    CHANGE_NOTE,
+    NEW_NOTE,
+    OTHER_POSITIONS,
+    POSITION,
+    READINESS_REPLY,
+    unseal,
+)
 
 
 async def one(conn: AsyncConnection, sql: str, args: tuple[Any, ...]) -> dict[str, Any] | None:
@@ -99,7 +110,13 @@ def status_of(row: dict[str, Any]) -> str:
 
 
 async def concordance(conn: AsyncConnection, bundle_id: uuid.UUID) -> list[dict[str, Any]]:
-    rows = await many(conn, "select * from app.concordance where court_bundle_id = %s order by page_no", (bundle_id,))
+    rows = await many(
+        conn,
+        "select k.*, p.source_type, (select min(f.event_date) from app.facts f where f.page_id = k.page_id"
+        " and f.status = any(%s)) as document_date from app.concordance k join app.pages p on p.id = k.page_id"
+        " where k.court_bundle_id = %s order by k.page_no",
+        (sorted(CITABLE_STATUSES), bundle_id),
+    )
     for row in rows:
         row["status"] = status_of(row)
     return rows
@@ -137,3 +154,25 @@ async def page_refs(conn: AsyncConnection, case_id: uuid.UUID) -> dict[int, Page
 async def page_numbers(conn: AsyncConnection, page_ids: list[uuid.UUID]) -> dict[uuid.UUID, int]:
     cur = await conn.execute("select id, bundle_page_no from app.pages where id = any(%s)", (page_ids,))
     return {pid: int(no) for pid, no in await cur.fetchall() if no is not None}
+
+
+# --- what the expert prepares for the day ---------------------------------------------------------------------
+
+
+async def replies(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID) -> dict[int, tuple[str, datetime]]:
+    """The expert's reply to each readiness question, by question number, with when it was written."""
+    rows = await many(
+        conn, "select question_no, reply, replied_at from app.readiness_replies where case_id = %s", (case_id,)
+    )
+    return {
+        r["question_no"]: (str(await unseal(conn, crypto, case_id, r["reply"], READINESS_REPLY)), r["replied_at"])
+        for r in rows
+    }
+
+
+async def notes(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The note sentences kept for the case, oldest first, opened."""
+    rows = await many(conn, "select * from app.trial_notes where case_id = %s order by created_at, id", (case_id,))
+    for row in rows:
+        row["text"] = await unseal(conn, crypto, case_id, row["text"], NEW_NOTE)
+    return rows

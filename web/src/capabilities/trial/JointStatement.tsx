@@ -1,12 +1,13 @@
 // S22 Joint statement (docs/design/screens/S22-JointStatement.dc.html): set up the meeting from the pack's
 // meeting types, read the agenda, answer each question with your position from the served report, and
 // prepare the statement for signing. A signed statement is read-only. The server decides every step.
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { screenPath } from "../../foundation/lib/screens";
+import { BackLink, Button, Checkbox, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
 import { longDate, pdfBody, saveBlob, tag, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialHeader, type Frame } from "./frame";
 import { w } from "./words";
@@ -103,6 +104,7 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
   const [reading, setReading] = useState(false);
   const [prepared, setPrepared] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     if (detail.data) setMeeting(detail.data);
@@ -180,21 +182,27 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
   return (
     <div className="av-page av-stack">
       <TrialHeader pack={frame.pack} screen={SCREEN} title={w("meeting.heading", { label: meeting.label, names })} />
+      <BackLink to={screenPath("after_serving", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}`}>{w("meeting.back")}</BackLink>
       <p>{w("meeting.lead", { date: longDate(meeting.discussion_on, locale) })}</p>
-      <dl className="av-trial-facts">
-        {meeting.sign_by && (
+      <p className="av-trial-muted" data-testid="meeting-line">
+        {[
+          names && w("meeting.with", { names }),
+          agenda && w("meeting.agenda_received", { version: agenda.version_no, date: longDate(agenda.created_at, locale) }),
+        ].filter(Boolean).join(" · ")}
+        {!locked && frame.can("case.edit_setup") && (
           <>
-            <dt>{w("meeting.sign_by")}</dt>
-            <dd>{[longDate(meeting.sign_by, locale), meeting.sign_rule_ref].filter(Boolean).join(" · ")}</dd>
+            {" · "}
+            <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => setAdding(true)} aria-expanded={adding}>
+              {w("meeting.add_expert")}
+            </button>
           </>
         )}
-        {meeting.send_by && (
-          <>
-            <dt>{w("meeting.send_by")}</dt>
-            <dd>{[longDate(meeting.send_by, locale), meeting.send_rule_ref].filter(Boolean).join(" · ")}</dd>
-          </>
-        )}
-      </dl>
+      </p>
+      {adding && <AddExpert path={path} onDone={() => { setAdding(false); people.reload(); }} onCancel={() => setAdding(false)} />}
+      <ul className="av-trial-chips">
+        {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={longDate(meeting.sign_by, locale)} rule={meeting.sign_rule_ref} />}
+        {meeting.send_by && <Deadline label={w("meeting.send_by")} date={longDate(meeting.send_by, locale)} rule={meeting.send_rule_ref} />}
+      </ul>
       {meeting.status === "signed" && <Notice tone="success"><p>{w("meeting.signed")}</p></Notice>}
       {meeting.status === "signed_external" && <Notice tone="success"><p>{w("meeting.signed_elsewhere")}</p></Notice>}
       {meeting.status === "out_for_signature" && !message && <Notice><p>{w("meeting.out_for_signature")}</p></Notice>}
@@ -207,7 +215,6 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
         </div>
       ) : (
         <>
-          {agenda && <p className="av-trial-muted">{w("meeting.agenda_line", { version: agenda.version_no, count: meeting.items.length })}</p>}
           {meeting.items.map((i) => (
             <Question key={i.id} caseId={frame.caseId} item={i} locked={locked || !frame.can("opinion.write")} onSaved={replace} />
           ))}
@@ -215,11 +222,18 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
         </>
       )}
 
-      <Declarations lines={meeting.declarations} />
+      <Declarations
+        lines={meeting.declarations}
+        footer={
+          <p className="av-trial-muted">
+            {w("meeting.footnote")}{" "}
+            {!locked && meeting.items.length > 0 && frame.can("report.sign") && <PdfPicker link label={w("meeting.add_signed")} onFile={addSigned} />}
+          </p>
+        }
+      />
 
       {!locked && meeting.items.length > 0 && (
         <div className="av-trial-actions">
-          {frame.can("report.sign") && <PdfPicker label={w("meeting.add_signed")} onFile={addSigned} />}
           {pages !== null && pages !== undefined && <p>{w("meeting.prepared", { pages })}</p>}
           {pages !== null && pages !== undefined && frame.can("report.sign") && (
             <Button variant="secondary" onClick={download}>{w("meeting.download_for_signing")}</Button>
@@ -231,15 +245,48 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
   );
 }
 
-function Declarations({ lines }: { lines: string[] }) {
+function Deadline({ label, date, rule }: { label: string; date: string; rule: string }) {
+  return (
+    <li className="av-trial-chip">
+      <span className="av-trial-strong">{label}</span> <span>{date}</span>
+      {rule && <span className="av-trial-chip__rule">{rule}</span>}
+    </li>
+  );
+}
+
+function AddExpert({ path, onDone, onCancel }: { path: { case_id: string; meeting_id: string }; onDone: () => void; onCancel: () => void }) {
+  const [name, setName] = useState("");
+  const [message, setMessage] = useState<Message>(null);
+  const save = async () => {
+    try {
+      await unwrap(api.POST("/v1/cases/{case_id}/expert-meetings/{meeting_id}/participants", { params: { path }, body: { name: name.trim() } }));
+      onDone();
+    } catch (error) {
+      setMessage({ tone: "error", text: errorMessage(error, ERRORS) });
+    }
+  };
+  return (
+    <div className="av-card av-stack">
+      {message && <Notice tone={message.tone === "error" ? "error" : "info"}><p>{message.text}</p></Notice>}
+      <TextField label={w("meeting.other_expert")} name="add_expert" value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="av-trial-actions">
+        <Button variant="secondary" onClick={onCancel}>{w("meeting.add_expert_cancel")}</Button>
+        <Button onClick={save} disabled={!name.trim()}>{w("meeting.add_expert_save")}</Button>
+      </div>
+    </div>
+  );
+}
+
+function Declarations({ lines, footer }: { lines: string[]; footer: ReactNode }) {
   const id = useId();
   if (lines.length === 0) return null;
   return (
     <section aria-labelledby={id} className="av-card av-stack">
       <h2 id={id}>{w("meeting.declarations.heading")}</h2>
-      <ul className="av-trial-list">
-        {lines.map((line) => <li key={line}>{line}</li>)}
+      <ul className="av-trial-list av-trial-list--plain">
+        {lines.map((line) => <li key={line}><Checkbox label={line} checked disabled readOnly /></li>)}
       </ul>
+      {footer}
     </section>
   );
 }
@@ -279,10 +326,21 @@ function Question({ caseId, item, locked, onSaved }: { caseId: string; item: Ite
 
   const paras = item.served_paragraphs.join(", ");
   return (
-    <fieldset className="av-card av-stack av-trial-question">
+    <fieldset className={`av-card av-stack av-trial-question${item.deviation === "changed" ? " av-trial-question--changed" : ""}`}>
       <legend className="av-trial-question__legend">{legend}</legend>
       {paras && <p className="av-trial-muted">{w("meeting.item.in_report", { paras })}</p>}
-      {item.deviation === "changed" && <Notice tone="warning"><p>{w("meeting.item.changed")}</p></Notice>}
+      {item.pages.length > 0 && (
+        <p className="av-trial-pages">
+          <span className="av-trial-muted">{w("meeting.item.pages")}</span>
+          {item.pages.map((n) => <PageRef key={n} page={n} />)}
+        </p>
+      )}
+      {item.deviation === "changed" && (
+        <Notice tone="warning">
+          <p>{w("meeting.item.changed")}</p>
+          {!locked && <a className="av-text-link" href={`#${id}-note`}>{w("meeting.item.add_note")}</a>}
+        </Notice>
+      )}
       {item.deviation === "unclear" && <Notice tone="warning"><p>{w("meeting.item.unclear")}</p></Notice>}
       {locked ? (
         <dl className="av-trial-facts">

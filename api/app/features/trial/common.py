@@ -36,6 +36,8 @@ POSITION = "trial_position"
 OTHER_POSITIONS = "trial_other_positions"
 AGREED_REASON = "trial_agreed_reason"
 CHANGE_NOTE = "trial_change_note"
+READINESS_REPLY = "trial_readiness_reply"
+NEW_NOTE = "trial_new_note"
 
 
 def offline_key_purpose(package_id: uuid.UUID) -> str:

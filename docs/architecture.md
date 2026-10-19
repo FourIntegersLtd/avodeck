@@ -367,6 +367,8 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | `trial_pack_settings` | What the expert chose to put in the trial pack. | case_id, sections[], include_guidance, hearing_id, requested_job_id, version |
 | `trial_packs` | The large-print pack for a hearing; marked stale if new material arrives. | case_id, hearing_id, sections, pdf_path, sha256, built_at, stale |
 | `offline_packages` | The encrypted copy for the witness box, per device. | case_id, hearing_id, device_label, format_version, built_at, expires_at, revoked_at |
+| `readiness_replies` | The expert's own reply to each readiness question, sealed. | case_id, question_no, reply, replied_at, replied_by, version |
+| `trial_notes` | A sentence of a note found in no served document, sealed, with the expert's choice (tell, leave out). | case_id, text_sha256, text, choice, decided_at, decided_by |
 
 ### 4.10 Close
 
@@ -721,9 +723,13 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| POST | `/cases/{case_id}/trial-pack/check-new` | T-24 nothing-new check on notes |
+| POST | `/cases/{case_id}/trial-pack/check-new` | T-24 nothing-new check on notes; sentences found in nothing served are kept (note_id) |
+| GET | `/cases/{case_id}/trial-pack/notes` | Kept sentences and the choice made about each |
+| PUT | `/cases/{case_id}/trial-pack/notes/{note_id}` | Choose to tell the instructing party or leave the sentence out |
+| PUT | `/cases/{case_id}/readiness-replies/{question_no}` | The expert's reply to a readiness question |
 | PUT | `/cases/{case_id}/trial-pack/settings` | Sections to include |
 | GET | `/cases/{case_id}/trial-pack/settings` | Sections chosen so far |
+| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question) |
 | POST | `/cases/{case_id}/trial-pack` | Build large-print PDF (202 + job) |
 | GET | `/cases/{case_id}/trial-pack/latest` | Preview pages |
 | GET | `/cases/{case_id}/trial-pack/latest/download` | PDF streamed by the API (🔒 export) |

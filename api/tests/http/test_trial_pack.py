@@ -195,3 +195,35 @@ async def test_a_note_sentence_found_in_no_served_document_is_flagged(
     assert "s0\tThe plan was recorded and repeated." in request.text
     viewer = await (await client_for(world.viewer)).post(world.url("trial-pack/check-new"), json={"text": note})
     assert viewer.status_code == 403
+
+
+async def test_the_preview_counts_pages_per_section_and_lists_a_readiness_sheet_per_question(
+    client_for: ClientFor, world: World, worker_db: Database
+) -> None:
+    pdf, where = trial_bundle()
+    await upload_bundle(await client_for(world.expert), worker_db, world, pdf)
+    resp = await (await client_for(world.expert)).get(world.url("trial-pack/preview"))
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    keys = [s["key"] for s in body["sections"]]
+    assert "report" in keys
+    assert all(s["pages"] >= 1 for s in body["sections"])
+    assert body["total_pages"] == sum(s["pages"] for s in body["sections"])
+    for sheet in body["sheets"]:
+        assert sheet["number"] >= 1 and sheet["text"]
+
+
+async def test_the_readiness_section_is_accepted_and_adds_a_page_per_question(
+    client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
+) -> None:
+    model()
+    from tests.http.test_trial_meetings import agenda, create
+
+    pdf, _ = trial_bundle()
+    await upload_bundle(await client_for(world.expert), worker_db, world, pdf)
+    created = await create(client_for, world)
+    await agenda(client_for, worker_db, world, created["id"])
+    assert (await settings(client_for, world, sections=[*ALL, "readiness"])).status_code == 200
+    preview = (await (await client_for(world.expert)).get(world.url("trial-pack/preview"))).json()
+    assert len(preview["sheets"]) == 3 and preview["sheets"][0]["pages"][0]["page_no"] == 118
+    assert "readiness" in [s["key"] for s in preview["sections"]]

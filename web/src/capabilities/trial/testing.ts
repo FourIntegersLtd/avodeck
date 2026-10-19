@@ -38,19 +38,19 @@ export function item(n: 1 | 2 | 3, over: Partial<Schemas["ItemOut"]> = {}): Sche
     {
       id: ITEMS[0]!, number: 1, text: "Did Dr P need to examine Mrs A on 15 May 2024?",
       own_position: "Yes. Bleeding with known anaemia called for an examination.", other_positions: "Yes, an examination was required.",
-      agreed: true, reason: null, change_note: null, deviation: "consistent", deviation_reason: "same_words", served_paragraphs: [13],
+      agreed: true, reason: null, change_note: null, deviation: "consistent", deviation_reason: "same_words", served_paragraphs: [13], pages: [118],
       changed_from_previous: "same", version: 3,
     },
     {
       id: ITEMS[1]!, number: 2, text: "Was the February result acted on appropriately?",
       own_position: "No. Iron was started without looking for a cause.", other_positions: "Iron first, review later, was reasonable.",
       agreed: false, reason: "We differ on whether a cause should have been sought at once.", change_note: null, deviation: "consistent",
-      deviation_reason: "copied_from_report", served_paragraphs: [4], changed_from_previous: "same", version: 2,
+      deviation_reason: "copied_from_report", served_paragraphs: [4], pages: [214, 87], changed_from_previous: "same", version: 2,
     },
     {
       id: ITEMS[2]!, number: 3, text: "By what date should Mrs A have been referred?",
       own_position: "By 15 May 2024 at the latest.", other_positions: "By 15 May 2024.", agreed: true, reason: null, change_note: null,
-      deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], changed_from_previous: "changed", version: 5,
+      deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], pages: [118], changed_from_previous: "changed", version: 5,
     },
   ];
   return { ...base[n - 1]!, ...over };
@@ -94,7 +94,26 @@ export function settingsOut(over: Partial<Schemas["TrialPackSettingsOut"]> = {})
 }
 
 export function packOut(over: Partial<Schemas["PackOut"]> = {}): Schemas["PackOut"] {
-  return { id: PACK, status: "ready", sha256: "c".repeat(64), page_count: 54, sections: ["report", "chronology"], stale: false, stale_reason: null, created_at: "2027-06-03T09:00:00Z", ...over };
+  return { id: PACK, status: "ready", sha256: "c".repeat(64), page_count: 54, sections: ["report", "chronology"], section_pages: [{ key: "report", pages: 31 }, { key: "chronology", pages: 9 }], stale: false, stale_reason: null, created_at: "2027-06-03T09:00:00Z", ...over };
+}
+
+export function previewOut(over: Partial<Schemas["PreviewOut"]> = {}): Schemas["PreviewOut"] {
+  return {
+    sections: [{ key: "report", pages: 31 }, { key: "chronology", pages: 9 }, { key: "readiness", pages: 2 }, { key: "joint_statement", pages: 6 }],
+    total_pages: 48,
+    sheets: [
+      {
+        number: 1, text: "Did Dr P need to examine Mrs A on 15 May 2024?", answer: "Yes. Bleeding with known anaemia called for an examination.",
+        asked: "Yes, an examination was required.", agreed: true, reason: null, pages: [{ page_no: 118, trial_page_no: 2407, status: "matched" }],
+      },
+      {
+        number: 2, text: "Was the February result acted on appropriately?", answer: "No. Iron was started without looking for a cause.",
+        asked: "Iron first, review later, was reasonable.", agreed: false, reason: "We differ on whether a cause should have been sought.",
+        pages: [{ page_no: 214, trial_page_no: null, status: "missing" }, { page_no: 87, trial_page_no: 2376, status: "matched" }],
+      },
+    ],
+    ...over,
+  };
 }
 
 export function copyOut(over: Partial<Schemas["PackageOut"]> = {}): Schemas["PackageOut"] {
@@ -147,12 +166,13 @@ export function serveConcordance(run: PackRun, body: Schemas["ConcordanceOut"] =
   return { sent, record };
 }
 
-export function servePack(run: PackRun, opts: { latest?: Schemas["LatestOut"]; copies?: Schemas["PackageOut"][] } = {}) {
+export function servePack(run: PackRun, opts: { latest?: Schemas["LatestOut"]; copies?: Schemas["PackageOut"][]; preview?: Schemas["PreviewOut"] } = {}) {
   expertCase(run);
   const { sent, record } = recorder();
   server.use(
     http.get("/v1/cases/:caseId/trial-pack/settings", () => etagged(settingsOut(), 2)),
     http.get("/v1/cases/:caseId/trial-pack/latest", () => json(opts.latest ?? { pack: packOut(), settings: settingsOut() })),
+    http.get("/v1/cases/:caseId/trial-pack/preview", () => json(opts.preview ?? previewOut())),
     http.get("/v1/cases/:caseId/offline-packages", () => json({ packages: opts.copies ?? [] })),
   );
   return { sent, record };
