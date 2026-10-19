@@ -132,6 +132,12 @@ def due_at(due_on: date, timezone: str) -> datetime:
     return datetime.combine(due_on, END_OF_DAY, tzinfo=ZoneInfo(timezone)).astimezone(UTC)
 
 
+def days_left(due_on: date, timezone: str, now: datetime | None = None) -> int:
+    """Whole days from today to `due_on`, both counted as court days in the court's timezone (negative once missed)."""
+    today = (now or datetime.now(UTC)).astimezone(ZoneInfo(timezone)).date()
+    return (due_on - today).days
+
+
 def report_file(case_id: uuid.UUID, version_id: uuid.UUID, name: str) -> str:
     return f"{case_prefix(case_id)}/report/{version_id}/{name}"
 

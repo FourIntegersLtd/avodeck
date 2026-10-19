@@ -4745,6 +4745,11 @@ export interface components {
             cancelled_at?: string | null;
             /** Created From */
             created_from: string;
+            /**
+             * Days Left
+             * @description Court days from today to the due day; negative once missed.
+             */
+            days_left?: number | null;
             /** Done At */
             done_at: string | null;
             /**

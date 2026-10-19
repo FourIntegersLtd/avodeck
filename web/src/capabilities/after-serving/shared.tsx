@@ -44,6 +44,54 @@ export function longDate(value: string, locale: string): string {
   }
 }
 
+function onDay(value: string): Date {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00Z`) : new Date(value);
+}
+
+/** "28 Nov". */
+export function shortDate(value: string, locale: string): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(onDay(value));
+  } catch {
+    return value;
+  }
+}
+
+/** "14–16 Jun 2027": a run of days, or the one day when it starts and ends together. */
+export function dateRange(from: string, to: string, locale: string): string {
+  try {
+    const f = new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+    if (from === to) return f.format(onDay(from));
+    const a = f.formatToParts(onDay(from));
+    const b = f.formatToParts(onDay(to));
+    const part = (parts: Intl.DateTimeFormatPart[], type: string) => parts.find((p) => p.type === type)?.value ?? "";
+    if (part(a, "month") === part(b, "month") && part(a, "year") === part(b, "year")) {
+      return f.formatToParts(onDay(from)).map((p) => (p.type === "day" ? `${part(a, "day")}–${part(b, "day")}` : p.value)).join("");
+    }
+    return `${f.format(onDay(from))} – ${f.format(onDay(to))}`;
+  } catch {
+    return `${from} – ${to}`;
+  }
+}
+
+/** "Saturday 19 December". */
+export function weekdayDate(value: string, locale: string): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" }).format(onDay(value)).replace(",", "");
+  } catch {
+    return value;
+  }
+}
+
+/** "1 December": the day and month without the year. */
+export function dayMonth(value: string, locale: string): string {
+  try {
+    return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", timeZone: "UTC" }).format(onDay(value));
+  } catch {
+    return value;
+  }
+}
+
 /** The words for a pack key under `after_serving.<group>.`, else the key in plain words. */
 export function keyName(group: string, key: string): string {
   const full = `after_serving.${group}.${key}`;

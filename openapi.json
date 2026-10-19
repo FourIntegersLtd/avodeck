@@ -3379,6 +3379,18 @@
             "title": "Created From",
             "type": "string"
           },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Court days from today to the due day; negative once missed.",
+            "title": "Days Left"
+          },
           "done_at": {
             "anyOf": [
               {

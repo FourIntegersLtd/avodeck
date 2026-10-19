@@ -8,7 +8,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
-import { declarationParts, Select, useWaiting } from "./shared";
+import { declarationParts, longDate, Select, useLocale, useWaiting } from "./shared";
 import { w } from "./words";
 
 const KINDS = ["correction", "change_of_opinion"] as const;
@@ -24,6 +24,9 @@ const ERRORS: Record<string, string> = {
 export function AddendumScreen() {
   const { caseId = "" } = useParams();
   const { pack } = useCaseFrame();
+  const locale = useLocale();
+  const [adding, setAdding] = useState(false);
+  const [full, setFull] = useState(false);
   const path = { params: { path: { case_id: caseId } } };
   const served = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/served", path)), [caseId]);
   const changes = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report-changes", path)), [caseId]);
@@ -36,6 +39,11 @@ export function AddendumScreen() {
   const locked = sup?.status === "locked";
   const paras = served.data.paragraphs;
   const num = (id: string) => paras.find((p) => p.id === id)?.para_no ?? "";
+  const list = changes.data.changes;
+  const changedNos = [...new Set(list.map((c) => num(c.paragraph_id)))].filter((n) => n !== "");
+  const dependentNos = [...new Set(list.flatMap((c) => c.suggested_dependents.filter((d) => d.depends).map((d) => num(d.paragraph_id))))]
+    .filter((n) => n !== "" && !changedNos.includes(n));
+  const servedOn = served.data.version?.served_on;
   const build = async () => {
     setError(null);
     try {
@@ -57,28 +65,83 @@ export function AddendumScreen() {
           {paras.map((p) => <p key={p.id} className="av-after-words">{p.text}</p>)}
         </section>
       )}
-      {!locked && <AddChange caseId={caseId} paras={paras} onDone={() => changes.reload()} />}
-      <section className="av-card av-stack" aria-labelledby="list-h">
+      {!locked && (list.length === 0 || adding) && <AddChange caseId={caseId} paras={paras} onDone={() => { setAdding(false); changes.reload(); }} />}
+      <section className="av-stack" aria-labelledby="list-h">
         <h3 id="list-h">{w("change.list")}</h3>
-        {changes.data.changes.length === 0 && <p>{w("change.none")}</p>}
-        <ul className="av-after-list">
-          {changes.data.changes.map((c) => (
-            <li key={c.id} className="av-after-item av-stack">
-              <p className="av-after-words">{c.new_text}</p>
-              {c.suggested_dependents.filter((d) => d.depends).map((d) => (
-                <div key={d.paragraph_id}>
-                  <p>{w("change.depends", { n: num(d.paragraph_id) })}</p>
-                  <p className="av-muted">{w("change.depends_reason", { reason: d.reason })}</p>
-                </div>
-              ))}
-            </li>
-          ))}
-        </ul>
+        {list.length === 0 && <p>{w("change.none")}</p>}
+        {list.map((c) => (
+          <article key={c.id} className="av-card av-stack" aria-labelledby={`change-${c.id}`}>
+            <div className="av-after-item--spread av-row">
+              <h4 id={`change-${c.id}`}>{w("served.paragraph", { n: num(c.paragraph_id) })}</h4>
+              <span className="av-badge">{w(`change.kind.${c.kind as (typeof KINDS)[number]}`)}</span>
+            </div>
+            <div className="av-after-columns">
+              <div className="av-stack">
+                <h5>{w("change.said")}</h5>
+                <p className="av-after-words"><del>{c.old_text}</del></p>
+              </div>
+              <div className="av-stack">
+                <h5>{w("change.now")}</h5>
+                <p className="av-after-words">{c.new_text}</p>
+              </div>
+            </div>
+            <div className="av-stack">
+              <h5>{w("change.why")}</h5>
+              <p className="av-after-words">{c.reason}</p>
+            </div>
+            {c.suggested_dependents.filter((d) => d.depends).map((d) => (
+              <div key={d.paragraph_id}>
+                <p>{w("change.depends", { n: num(d.paragraph_id) })}</p>
+                <p className="av-muted">{w("change.depends_reason", { reason: d.reason })}</p>
+              </div>
+            ))}
+          </article>
+        ))}
+        {!locked && list.length > 0 && !adding && (
+          <div><Button variant="secondary" onClick={() => setAdding(true)}>{w("change.another")}</Button></div>
+        )}
       </section>
+      {list.length > 0 && (
+        <aside className="av-card av-stack" aria-label={w("change.checked")}>
+          <h3>{w("change.checked")}</h3>
+          <ul className="av-after-list">
+            <li className="av-after-item">
+              {dependentNos.length > 0
+                ? w("change.checked_dependents", { changed: changedNos.join(", "), dependents: dependentNos.join(", ") })
+                : w("change.checked_none", { changed: changedNos.join(", ") })}
+            </li>
+            <li className="av-after-item">{w("change.checked_reason")}</li>
+            <li className="av-after-item">{w("change.declaration_note")}</li>
+          </ul>
+        </aside>
+      )}
+      {list.length > 0 && (
+        <section className="av-card av-stack" aria-labelledby="summary-h">
+          <h3 id="summary-h">{w("change.supplementary")}</h3>
+          <p>{w("change.summary_changes", { paragraphs: changedNos.join(", ") })}</p>
+          {servedOn && <p>{w("change.summary_refers", { date: longDate(servedOn, locale) })}</p>}
+        </section>
+      )}
+      {full && (
+        <section className="av-card av-stack" aria-labelledby="full-h">
+          <h3 id="full-h">{w("change.full")}</h3>
+          {servedOn && <p className="av-muted">{w("change.summary_refers", { date: longDate(servedOn, locale) })}</p>}
+          {list.map((c) => (
+            <div key={c.id} className="av-stack">
+              <strong className="av-after-mono">{w("served.paragraph", { n: num(c.paragraph_id) })}</strong>
+              <p className="av-after-words">{c.new_text}</p>
+              <p className="av-after-words av-muted">{c.reason}</p>
+            </div>
+          ))}
+        </section>
+      )}
       {building.waiting && <Notice><p>{w("change.building")}</p></Notice>}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {!locked && !sup && <div className="av-after-footer"><Button onClick={() => void build()}>{w("change.build")}</Button></div>}
-      {!locked && sup && <Button variant="secondary" onClick={() => void build()}>{w("change.build")}</Button>}
+      {list.length > 0 && <Notice><p>{w("change.tell_note")}</p></Notice>}
+      <div className="av-after-footer">
+        {list.length > 0 && <Button variant="secondary" aria-expanded={full} onClick={() => setFull(!full)}>{w("change.read_full")}</Button>}
+        {!locked && <Button variant={sup ? "secondary" : "primary"} onClick={() => void build()}>{w("change.build")}</Button>}
+      </div>
       {sup && <Sign caseId={caseId} sup={sup} declarations={pack.declarations} onDone={() => changes.reload()} />}
     </div>
   );
@@ -115,7 +178,7 @@ function AddChange({ caseId, paras, onDone }: { caseId: string; paras: Schemas["
         {KINDS.map((k) => (
           <label key={k} className="av-after-radio">
             <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => setKind(k)} />
-            <span>{w(`change.kind.${k}`)} {w(`change.kind.${k}_hint`)}</span>
+            <span><strong>{w(`change.kind.${k}`)}</strong>{" "}<span className="av-muted">{w(`change.kind.${k}_hint`)}</span></span>
           </label>
         ))}
       </fieldset>
