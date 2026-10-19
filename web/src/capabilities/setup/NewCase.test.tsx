@@ -50,16 +50,16 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     twoOrganisations(run);
     const { container } = renderAt("/cases/new");
     expect(await screen.findByRole("heading", { level: 1, name: "Start a new case" })).toBeInTheDocument();
-    const who = await screen.findByRole("group", { name: /Who is this case for\?/ });
+    const who = await screen.findByRole("radiogroup", { name: /Who is this case for\?/ });
     expect(within(who).getByRole("radio", { name: "My own practice" })).toBeInTheDocument();
     expect(within(who).getByRole("radio", { name: "Northgate Medico-Legal" })).toBeInTheDocument();
-    const side = await screen.findByRole("group", { name: "Which side are you instructed by?" });
+    const side = await screen.findByRole("radiogroup", { name: "Which side are you instructed by?" });
     const words = jurisdiction(run).vocabulary.party_roles as Record<string, string>;
     expect(within(side).getByRole("radio", { name: words.other_side!.replace(/^./, (c) => c.toUpperCase()) })).toBeInTheDocument();
     if (jurisdiction(run).court_tracks.length) {
-      expect(screen.getByRole("group", { name: "Which court track?" })).toBeInTheDocument();
+      expect(screen.getByRole("radiogroup", { name: "Which court track?" })).toBeInTheDocument();
     } else {
-      expect(screen.queryByRole("group", { name: "Which court track?" })).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "Which court track?" })).toBeNull();
     }
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
@@ -90,7 +90,7 @@ test("starting a case sends who it is for, the pack and the side, then opens its
   const { user, router } = renderAt("/cases/new");
   await user.click(await screen.findByRole("radio", { name: "Northgate Medico-Legal" }));
   await user.type(screen.getByLabelText("A short name for the case"), "Mrs B");
-  const side = screen.getByRole("group", { name: "Which side are you instructed by?" });
+  const side = screen.getByRole("radiogroup", { name: "Which side are you instructed by?" });
   await user.click(within(side).getAllByRole("radio")[1]!);
   await user.type(screen.getByLabelText("When is your report due?"), "2026-12-01");
   await user.click(screen.getByRole("button", { name: "Start the case" }));
@@ -121,7 +121,7 @@ test("with one organisation the case is for your own practice without asking", a
   );
   const { user } = renderAt("/cases/new");
   await user.type(await screen.findByLabelText("A short name for the case"), "Mrs A");
-  expect(screen.queryByRole("group", { name: /Who is this case for\?/ })).toBeNull();
+  expect(screen.queryByRole("radiogroup", { name: /Who is this case for\?/ })).toBeNull();
   await user.click(screen.getByRole("button", { name: "Start the case" }));
   await waitFor(() => expect(sent).toMatchObject({ organisation_id: PERSONAL_ORG, label: "Mrs A" }));
 });

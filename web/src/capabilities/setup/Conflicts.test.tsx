@@ -44,7 +44,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     conflicts(run);
     const { container } = renderAt(`/cases/${CASE_A}/conflicts`);
     expect(await screen.findByRole("heading", { level: 2, name: "A quick check before you start" })).toBeInTheDocument();
-    const first = await screen.findByRole("group", { name: "Do you know any of the people in this case?" });
+    const first = await screen.findByRole("radiogroup", { name: "Do you know any of the people in this case?" });
     expect(within(first).getByRole("radio", { name: "Yes" })).toBeInTheDocument();
     expect(within(first).getByRole("radio", { name: "No" })).toBeInTheDocument();
     expect(screen.getByText("The roles in your profile cover only part of the time this case is about. Please check you worked in this kind of setting then.")).toBeInTheDocument();
@@ -66,15 +66,15 @@ test("a yes needs a few words of detail before the answers are saved", async () 
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/conflicts`);
-  const first = await screen.findByRole("group", { name: "Do you know any of the people in this case?" });
+  const first = await screen.findByRole("radiogroup", { name: "Do you know any of the people in this case?" });
   await user.click(within(first).getByRole("radio", { name: "Yes" }));
-  const second = screen.getByRole("group", { name: "Do you hold a stake in the result?" });
+  const second = screen.getByRole("radiogroup", { name: "Do you hold a stake in the result?" });
   await user.click(within(second).getByRole("radio", { name: "No" }));
   await user.click(screen.getByRole("button", { name: "Save my answers" }));
   expect(await screen.findByText("Please say a few words about this.")).toBeInTheDocument();
   expect(sent).toBeUndefined();
 
-  await user.type(within(first).getByLabelText("Please tell us more"), "I met them once in 2019.");
+  await user.type(screen.getByLabelText("Please tell us more"), "I met them once in 2019.");
   await user.click(screen.getByRole("button", { name: "Save my answers" }));
   await waitFor(() =>
     expect(sent).toEqual({
