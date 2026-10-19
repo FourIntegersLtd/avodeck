@@ -69,12 +69,19 @@ def opinion(
     }
 
 
+def stamped(admin: psycopg.Connection, ref: dict[str, str]) -> dict[str, Any]:
+    """The citation as the server keeps it: the client's fields plus the fact's current version."""
+    row = admin.execute("select version from app.facts where id = %s", (ref["fact_id"],)).fetchone()
+    assert row is not None
+    return {**ref, "fact_version": row[0]}
+
+
 async def save(client: Any, w: World, etag: str, payload: dict[str, Any]) -> Any:
     return await client.put(w.url(f"questions/{w.question}/opinion"), json=payload, headers={"If-Match": etag})
 
 
 async def test_the_first_save_needs_if_match_0_and_returns_the_opinion_with_its_etag(
-    client_for: ClientFor, world: World, combo: Combo
+    client_for: ClientFor, world: World, combo: Combo, admin: psycopg.Connection
 ) -> None:
     client = await client_for(world.expert)
     path = world.url(f"questions/{world.question}/opinion")
@@ -86,10 +93,12 @@ async def test_the_first_save_needs_if_match_0_and_returns_the_opinion_with_its_
     out = saved.json()
     assert out["question_id"] == str(world.question)
     assert (out["body"], out["view"], out["provisional"], out["version"]) == ("My view [[cite:1]].", view, True, 1)
-    assert out["citation_refs"] == [cite(world.verified, world.read_page, PLAN)]
+    assert out["citation_refs"] == [stamped(admin, cite(world.verified, world.read_page, PLAN))]
 
 
-async def test_a_valid_citation_is_stored_and_the_marker_round_trips(client_for: ClientFor, world: World) -> None:
+async def test_a_valid_citation_is_stored_and_the_marker_round_trips(
+    client_for: ClientFor, world: World, admin: psycopg.Connection
+) -> None:
     client = await client_for(world.expert)
     refs = [cite(world.verified, world.read_page, "Review 3/52"), cite(world.result, world.read_page, "ferritin 9")]
     body = "The plan [[cite:1]] and the result [[cite:2]], again [[cite:1]]."
@@ -98,7 +107,7 @@ async def test_a_valid_citation_is_stored_and_the_marker_round_trips(client_for:
     versions = await client.get(world.url(f"opinions/{saved.json()['id']}/versions"))
     assert versions.status_code == 200
     [only] = versions.json()["versions"]
-    assert (only["body"], only["citation_refs"]) == (body, refs)
+    assert (only["body"], only["citation_refs"]) == (body, [stamped(admin, r) for r in refs])
 
 
 @pytest.mark.parametrize("which", ["suggested", "rejected", "on_unread_page"])
@@ -265,6 +274,22 @@ async def test_a_cited_fact_moved_to_a_clearer_copy_still_saves_and_shows_change
     assert (fresh.json()["changed_citations"], fresh.json()["stale"]) == ([], False)
     later = await save(client, world, '"4"', opinion(world, refs=[fresh_ref]))
     assert later.json()["changed_citations"] == []
+
+
+async def test_a_citation_sent_without_a_fact_version_is_stamped_and_shows_changed_since_cited_when_the_fact_changes(
+    client_for: ClientFor, world: World, admin: psycopg.Connection
+) -> None:
+    """Architecture 10.4: the server snapshots the fact's version, so a later edit that still contains the quote shows."""
+    client = await client_for(world.expert)
+    refs = [cite(world.result, world.read_page, "ferritin 9")]
+    first = await save(client, world, '"0"', opinion(world, refs=refs))
+    assert first.status_code == 200, first.text
+    assert first.json()["citation_refs"] == [stamped(admin, refs[0])]
+    assert (first.json()["changed_citations"], first.json()["stale"]) == ([], False)
+    admin.execute("update app.facts set value = %s where id = %s", ("Ferritin 19 ug/L", world.result))
+    again = await save(client, world, '"1"', opinion(world, "Still my view [[cite:1]].", refs=refs))
+    assert again.status_code == 200, again.text
+    assert (again.json()["changed_citations"], again.json()["stale"]) == ([1], True)
 
 
 async def test_s9_two_windows_the_second_save_without_the_latest_if_match_gets_both_versions(
