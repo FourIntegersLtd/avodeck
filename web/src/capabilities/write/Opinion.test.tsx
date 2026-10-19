@@ -6,7 +6,7 @@ import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { chip, FACT_1, lintIssue, ok, opinionOut, PAGE_1, Q1, serve, views, workspace, type PackRun } from "./testing";
+import { chip, FACT_1, lintIssue, ok, opinionOut, PAGE_1, progress, Q1, serve, views, workspace, type PackRun } from "./testing";
 import { WRITE_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/opinion?q=${Q1}`;
@@ -230,4 +230,25 @@ test("a citation whose fact changed since you cited it says so, and one click ci
   await user.click(screen.getByRole("button", { name: "Cite [1] as it is now" }));
   await waitFor(() => expect(sent.at(-1)?.body).toMatchObject({ body: "See [[cite:1]].", citation_refs: [{ ...REF_1, fact_version: 2 }] }));
   await waitFor(() => expect(screen.queryByText(/has changed since you cited it/)).not.toBeInTheDocument());
+});
+
+test("the footer says how many questions have an opinion", async () => {
+  serve("launch", { progress: progress({ answered: 2, total: 4 }) });
+  renderAt(url);
+  expect(await screen.findByText("2 of 4 questions answered")).toBeInTheDocument();
+});
+
+test("the question shows which paragraph of the instructions it came from", async () => {
+  serve("launch");
+  renderAt(url);
+  expect(await screen.findByText("from paragraph 4.1 of your instructions")).toBeInTheDocument();
+});
+
+test("checks that found nothing say so, one line each, beside the one that found something", async () => {
+  serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ lint: [lintIssue()] }) }) });
+  renderAt(url);
+  const checks = await screen.findByRole("region", { name: M["write.opinion.checks"] });
+  expect(within(checks).getByText(M["write.opinion.check_loaded_ok"]!)).toBeInTheDocument();
+  expect(within(checks).getByText(M["write.opinion.check_expertise_ok"]!)).toBeInTheDocument();
+  expect(within(checks).queryByText(M["write.opinion.check_uncited_ok"]!)).not.toBeInTheDocument();
 });

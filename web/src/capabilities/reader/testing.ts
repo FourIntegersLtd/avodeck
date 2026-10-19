@@ -12,6 +12,10 @@ export interface ReaderApi {
   flags: Array<{ id: string; method: string }>;
   puts: Array<{ page: number; body: Record<string, unknown> }>;
   patches: Array<{ page: number; body: Record<string, unknown> }>;
+  rotations: Array<{ pageId: string; body: Record<string, unknown> }>;
+  copies: Array<{ pageId: string; body: Record<string, unknown> }>;
+  replaces: Array<{ pageId: string; body: Record<string, unknown> }>;
+  appends: Array<Record<string, unknown>>;
   facts: Schemas["FactOut"][];
   read: boolean;
   verifyStatus?: number;
@@ -26,6 +30,8 @@ export interface ReaderOpts {
   /** The page detail says read although the server holds no read record (to prove a 423 shows nothing). */
   pageSaysRead?: boolean;
   inPeriod?: boolean;
+  /** The case's period of interest, as dates (default: none). */
+  period?: { start: string; end: string };
   facts?: Schemas["FactOut"][];
   queue?: Schemas["UnreadablePage"][];
   /** The page's words (default: `pageWords()`). */
@@ -45,6 +51,10 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     flags: [],
     puts: [],
     patches: [],
+    rotations: [],
+    copies: [],
+    replaces: [],
+    appends: [],
     facts: opts.facts ?? [fact(1), fact(2)],
     read: opts.alreadyRead ?? false,
   };
@@ -99,7 +109,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       return json({ fact_id: params.id, flagged: false });
     }),
     http.get(`${c}/pages/:n`, ({ params }) =>
-      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null })),
+      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null })),
     ),
     http.put(`${c}/pages/:n/transcription`, async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;
@@ -111,8 +121,32 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     http.patch(`${c}/pages/:n`, async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       api.patches.push({ page: Number(params.n), body });
-      queue = queue.map((p) => (p.page_no === Number(params.n) ? { ...p, needs_clearer_copy: Boolean(body.needs_clearer_copy) } : p));
+      queue = queue.map((p) =>
+        p.page_no === Number(params.n)
+          ? { ...p, needs_clearer_copy: Boolean(body.needs_clearer_copy) || p.needs_clearer_copy, done: true }
+          : p,
+      );
       return json(pageDetail(Number(params.n), { needs_clearer_copy: true }));
+    }),
+    http.post(`${c}/pages/:id/rotate`, async ({ params, request }) => {
+      api.rotations.push({ pageId: String(params.id), body: (await request.json()) as Record<string, unknown> });
+      return json({ job_id: "77777777-7777-4777-8777-777777777777" }, 202);
+    }),
+    http.put(`${c}/pages/:id/duplicate`, async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      api.copies.push({ pageId: String(params.id), body });
+      queue = queue.map((p) => (p.page_id === params.id ? { ...p, is_copy: true, done: true } : p));
+      return json({ page_id: params.id, page_no: 0, copy_of_page_id: null, copy_of_page_no: body.copy_of_page_no, status: "confirmed", version: 1 });
+    }),
+    http.post(`${c}/documents/append`, async ({ request }) => {
+      api.appends.push((await request.json()) as Record<string, unknown>);
+      return json({ job_id: "77777777-7777-4777-8777-777777777777", bundle_version: 2 }, 202);
+    }),
+    http.post(`${c}/pages/:id/replace`, async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      api.replaces.push({ pageId: String(params.id), body });
+      queue = queue.map((p) => (p.page_id === params.id ? { ...p, has_clearer_copy: true, done: true } : p));
+      return json({ page_id: params.id, document_id: body.document_id, new_page_id: null, new_page_no: null });
     }),
   );
   return api;

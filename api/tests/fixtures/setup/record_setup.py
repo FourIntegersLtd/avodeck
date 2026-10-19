@@ -97,7 +97,14 @@ def find_run(letter: Letter, text: str) -> list[str]:
     raise SystemExit("an expected passage is not in the letter's words")
 
 
-def item(letter: Letter, text: str, para_ref: str, kind: str | None = None) -> dict[str, object]:
+# The model's labels for the letter's questions, by number. Question 4 has none: the server then uses the
+# first clause of the question's own words.
+SHORT_TITLES = {1: "Standard of care", 2: "The May consultation", 3: "Urgent referral"}
+
+
+def item(
+    letter: Letter, text: str, para_ref: str, kind: str | None = None, short_title: str | None = None
+) -> dict[str, object]:
     ids = find_run(letter, text)
     out: dict[str, object] = {
         "text_verbatim": " ".join(letter.masked[i] for i in ids),
@@ -107,6 +114,8 @@ def item(letter: Letter, text: str, para_ref: str, kind: str | None = None) -> d
     }
     if kind:
         out["kind"] = kind
+    if short_title:
+        out["short_title"] = short_title
     return out
 
 
@@ -196,7 +205,10 @@ def main() -> None:
         letter = Letter.from_ocr(_result("layout", response))
         letter.mask(pack=pack, names=NAMES, dates_of_birth=())
         if name == "letter":
-            questions = [item(letter, q["text_verbatim"], q["para_ref"], q["kind"]) for q in expected["questions"]]
+            questions = [
+                item(letter, q["text_verbatim"], q["para_ref"], q["kind"], SHORT_TITLES.get(q["number"]))
+                for q in expected["questions"]
+            ]
             assumptions = [item(letter, a["text_verbatim"], a["para_ref"]) for a in expected["assumptions"]]
         else:
             # The supplementary letter asks one new question; the model also finds nothing else.

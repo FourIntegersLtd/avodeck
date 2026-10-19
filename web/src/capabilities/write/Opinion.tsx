@@ -23,12 +23,13 @@ import {
   LoadError,
   Loading,
   Notice,
+  PageRef,
 } from "../../foundation/ui";
 import {
-  pageLabel,
   ReasonDialog,
   versionTag,
   WithQuestion,
+  KindBadge,
   type Chosen,
 } from "./shared";
 import { w } from "./words";
@@ -144,6 +145,7 @@ function Editor({
 }) {
   const questionId = chosen.current.id;
   const question = chosen.current;
+  const paraRef = space.question.para_ref ?? question.para_ref;
   const [fields, setFields] = useState(() => fieldsOf(space.opinion));
   const [issues, setIssues] = useState<Schemas["LintIssueOut"][]>(
     space.opinion?.lint ?? [],
@@ -161,6 +163,7 @@ function Editor({
   );
   const [current, setCurrent] = useState(space.opinion?.version ?? 0);
   const [tick, setTick] = useState(0);
+  const [savedBody, setSavedBody] = useState(space.opinion?.body ?? "");
   const [changedRefs, setChangedRefs] = useState<number[]>(
     space.opinion?.changed_citations ?? [],
   );
@@ -180,6 +183,7 @@ function Editor({
     version.current = o.version;
     setCurrent(o.version);
     setOpinionId(o.id);
+    setSavedBody(o.body);
     setIssues(o.lint ?? []);
     setChangedRefs(o.changed_citations ?? []);
   };
@@ -443,7 +447,7 @@ function Editor({
                 onClick={() => insert(chip)}
               >
                 <span>{chip.value}</span>
-                <span className="av-write-page">{pageLabel(chip.page_no)}</span>
+                <PageRef page={chip.page_no} />
               </button>
             ))}
           </section>
@@ -492,9 +496,10 @@ function Editor({
         <div className="av-stack" onBlur={(e) => void leave(e)}>
           <div>
             <p className="av-muted">
-              <span className="av-write-badge">
-                {w("tab.question_short", { number: question.number })}
-              </span>
+              <KindBadge header={space.question} />{" "}
+              {paraRef && (
+                <span>{w("opinion.from_paragraph", { ref: paraRef })}</span>
+              )}
             </p>
             <h3>{question.confirmed_text ?? question.text_verbatim}</h3>
           </div>
@@ -532,6 +537,15 @@ function Editor({
             </div>
             <p className="av-muted">{w("opinion.yours_only")}</p>
           </section>
+
+          <FlaggedCopy
+            body={savedBody}
+            issues={open}
+            page={(n) => {
+              const ref = (space.opinion?.citation_refs ?? latest.current.refs)[n - 1];
+              return space.chips.find((c) => c.fact_id === ref?.fact_id)?.page_no;
+            }}
+          />
 
           <div className="av-write-columns">
             <fieldset className="av-card av-write-fieldset">
@@ -572,9 +586,6 @@ function Editor({
 
           <section className="av-card av-stack" aria-labelledby="checks-title">
             <h3 id="checks-title">{w("opinion.checks")}</h3>
-            {open.length === 0 && (
-              <p className="av-muted">{w("opinion.checks_clear")}</p>
-            )}
             {open.map((issue) => (
               <div key={issue.id} className="av-write-item__head">
                 <p>
@@ -585,6 +596,18 @@ function Editor({
                     { words: issue.words },
                   )}
                 </p>
+                {issue.type === "uncited_fact" && issue.sentence_start != null && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      const mark = document.getElementById(`flagged-${issue.sentence_start}`);
+                      mark?.focus();
+                      mark?.scrollIntoView?.({ block: "center" });
+                    }}
+                  >
+                    {w("opinion.add_page")}
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   onClick={() => setDismissing(issue)}
@@ -593,11 +616,27 @@ function Editor({
                 </Button>
               </div>
             ))}
+            {(
+              [
+                ["uncited_fact", "opinion.check_uncited_ok"],
+                ["loaded_language", "opinion.check_loaded_ok"],
+                ["outside_expertise", "opinion.check_expertise_ok"],
+              ] as const
+            )
+              .filter(([type]) => !open.some((i) => i.type === type))
+              .map(([type, key]) => (
+                <p key={type} className="av-write-pass">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 12l5 5 9-10" />
+                  </svg>
+                  {w(key)}
+                </p>
+              ))}
           </section>
 
-          <div className="av-write-footer">
+          <div className="av-write-footer av-write-footer--between">
             <p role="status" className="av-muted">
-              {status === "saving"
+              <span>{status === "saving"
                 ? w("opinion.saving")
                 : status === "saved"
                   ? w("opinion.saved")
@@ -605,7 +644,18 @@ function Editor({
                     ? w("opinion.save_failed")
                     : status === "stopped"
                       ? w("opinion.save_stopped")
-                      : w("opinion.unsaved")}
+                      : w("opinion.unsaved")}</span>
+              {chosen.progress && (
+                <>
+                  {" · "}
+                  <span>
+                    {w("opinion.answered", {
+                      answered: chosen.progress.answered + (opinionId && !space.opinion ? 1 : 0),
+                      total: chosen.progress.total,
+                    })}
+                  </span>
+                </>
+              )}
             </p>
             <Button
               variant="secondary"
@@ -615,7 +665,7 @@ function Editor({
               {w("opinion.versions")}
             </Button>
             {chosen.next ? (
-              <LinkButton to={`/cases/${caseId}/opinion?q=${chosen.next.id}`}>
+              <LinkButton arrow to={`/cases/${caseId}/opinion?q=${chosen.next.id}`}>
                 {w("opinion.next")}
               </LinkButton>
             ) : (
@@ -681,5 +731,29 @@ function Editor({
         </Dialog>
       )}
     </div>
+  );
+}
+
+/** The saved text read-only, with each sentence that has a check marked (citation markers shown as pages). */
+function FlaggedCopy({ body, issues, page }: { body: string; issues: Schemas["LintIssueOut"][]; page: (n: number) => number | undefined }) {
+  const spans = issues
+    .filter((i) => i.sentence_start != null && i.sentence_end != null && i.sentence_end <= body.length)
+    .map((i) => [i.sentence_start as number, i.sentence_end as number] as const)
+    .sort((a, b) => a[0] - b[0]);
+  if (spans.length === 0) return null;
+  const plain = (text: string) => text.replace(MARKER, (_, n: string) => (page(Number(n)) ? w("points.page", { page: page(Number(n))! }) : `[${n}]`));
+  const parts: React.ReactNode[] = [];
+  let at = 0;
+  for (const [start, end] of spans) {
+    if (start < at) continue;
+    if (start > at) parts.push(<span key={`t${at}`}>{plain(body.slice(at, start))}</span>);
+    parts.push(<mark key={`m${start}`} id={`flagged-${start}`} tabIndex={-1} className="av-write-flagged">{plain(body.slice(start, end))}</mark>);
+    at = end;
+  }
+  if (at < body.length) parts.push(<span key={`t${at}`}>{plain(body.slice(at))}</span>);
+  return (
+    <section className="av-card" aria-label={w("opinion.flagged_copy")}>
+      <p className="av-write-copy">{parts}</p>
+    </section>
   );
 }
