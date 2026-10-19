@@ -57,6 +57,20 @@
           "key": "hearing",
           "rule_ref": "Rule Z.7",
           "set_by": "direction"
+        },
+        {
+          "calendar": "business_days",
+          "days": 5,
+          "from": "discussion",
+          "key": "zz_conference_signed",
+          "rule_ref": "Rule Z.9"
+        },
+        {
+          "calendar": "business_days",
+          "days": 10,
+          "from": "signing",
+          "key": "zz_conference_sent",
+          "rule_ref": "Rule Z.9.2"
         }
       ],
       "declarations": [
@@ -401,6 +415,20 @@
           "key": "hearing",
           "rule_ref": "Rule Z.7",
           "set_by": "direction"
+        },
+        {
+          "calendar": "business_days",
+          "days": 5,
+          "from": "discussion",
+          "key": "zz_conference_signed",
+          "rule_ref": "Rule Z.9"
+        },
+        {
+          "calendar": "business_days",
+          "days": 10,
+          "from": "signing",
+          "key": "zz_conference_sent",
+          "rule_ref": "Rule Z.9.2"
         }
       ],
       "declarations": [
