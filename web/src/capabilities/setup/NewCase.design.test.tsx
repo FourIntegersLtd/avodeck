@@ -167,3 +167,66 @@ test("Save and finish later keeps the case and goes back without starting the bu
   await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
   expect(calls).toEqual(["create"]);
 });
+
+test("a file drop turns into an Added card, and the other two stay as they were", async () => {
+  open("launch", false);
+  const calls: string[] = [];
+  api(calls);
+  const { user } = renderAt("/cases/new");
+  await user.type(await screen.findByLabelText("A short name for the case"), "Mrs B");
+  const zone = screen.getByText("Letter of instruction").closest(".av-dropzone") as HTMLElement;
+  const card = zone;
+  expect(card).not.toHaveClass("av-dropzone--added");
+  await user.upload(zone.querySelector("input[type=file]") as HTMLInputElement, new File([new Uint8Array(1000)], "letter.pdf", { type: "application/pdf" }));
+  await waitFor(() => expect(card).toHaveClass("av-dropzone--added"));
+  expect(within(card).getByText("Added")).toBeInTheDocument();
+  expect(screen.getByText("Medical records").closest(".av-dropzone") as HTMLElement).not.toHaveClass("av-dropzone--added");
+});
+
+test("the patient and the court track are small switches, the side is a row of pills", async () => {
+  open("launch");
+  renderAt("/cases/new");
+  const subject = await screen.findByRole("radiogroup", { name: "The patient is" });
+  expect(subject).toHaveClass("av-segmented");
+  expect(screen.getByRole("radiogroup", { name: "Which court track?" })).toHaveClass("av-segmented");
+  expect(screen.getByRole("radiogroup", { name: "Which side are you instructed by?" })).toHaveClass("av-pill-group");
+});
+
+test("a joint instruction adds another instructing party, and each one is sent", async () => {
+  open("launch", false);
+  const calls: string[] = [];
+  const sent: Record<string, unknown> = {};
+  const bodies: unknown[] = [];
+  api(calls, sent);
+  server.use(
+    http.post("/v1/cases/:caseId/instructing-parties", async ({ request }) => {
+      bodies.push(await request.json());
+      calls.push("instructing");
+      return json({ id: `e${bodies.length}222222-2222-4222-8222-222222222222` }, 201);
+    }),
+  );
+  const { user, router } = renderAt("/cases/new");
+  await user.type(await screen.findByLabelText("A short name for the case"), "Mrs B");
+  await user.type(screen.getByLabelText("Who instructed you?"), "Ms Rees");
+  await user.type(screen.getByLabelText("Their firm or organisation"), "Rees & Co");
+  await user.click(screen.getByRole("button", { name: "Add another (if you're instructed jointly)" }));
+  await user.type(screen.getByLabelText("Who instructed you? (2)"), "Mr Hale");
+  await user.type(screen.getByLabelText("Their firm or organisation (2)"), "Hale LLP");
+  await user.click(screen.getByRole("button", { name: "Prepare my bundle" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_B}/conflicts`));
+  expect(bodies).toEqual([expect.objectContaining({ name: "Ms Rees", firm: "Rees & Co" }), expect.objectContaining({ name: "Mr Hale", firm: "Hale LLP" })]);
+});
+
+test("what you were told by phone sits in a framed box that offers Dictate once the case exists, and Prepare has an arrow", async () => {
+  open("launch", false);
+  const calls: string[] = [];
+  api(calls);
+  const { user } = renderAt("/cases/new");
+  await user.type(await screen.findByLabelText("A short name for the case"), "Mrs B");
+  expect(screen.getByLabelText("Were you told anything by phone that isn't in the letter?")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Dictate" })).toBeNull();
+  const zone = screen.getByText("Medical records").closest(".av-dropzone") as HTMLElement;
+  await user.upload(zone.querySelector("input[type=file]") as HTMLInputElement, new File([new Uint8Array(10)], "gp.pdf", { type: "application/pdf" }));
+  expect(await screen.findByRole("button", { name: "Dictate" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Prepare my bundle" }).querySelector("svg")).not.toBeNull();
+});

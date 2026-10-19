@@ -1,6 +1,6 @@
-// S16 Your report (docs/design/screens/S16-Report.dc.html): the sections (headings from the pack's labels), what the
-// court requires (from the pack), the citation style, building and rebuilding, the expert's own sections and the
-// methodology note. The server decides every change; edits send the version this screen saw.
+// S16 Your report (docs/design/screens/S16-Report.dc.html): the numbered sections at the left (headings from the
+// pack's labels), the chosen section as a paper page in the middle, what the court requires and the methodology
+// note at the right. The server decides every change; edits send the version this screen saw.
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
@@ -9,8 +9,8 @@ import { screenPath } from "../../foundation/lib/screens";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
-import { downloadPath, useSectionName, useWaiting, versionTag } from "./shared";
+import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, Segmented } from "../../foundation/ui";
+import { downloadPath, useLocale, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
 type Report = Schemas["ReportOut"];
@@ -20,13 +20,15 @@ const AFTER_SERVING_TYPES = ["answers", "supplementary"];
 
 export function ReportScreen() {
   const { caseId = "" } = useParams();
+  const { item, pack } = useCaseFrame();
+  const locale = useLocale();
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
   const settings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/settings", { params: { path: { case_id: caseId } } })), [caseId]);
-  const { item, pack } = useCaseFrame();
   const wait = useWaiting(found.reload, found.data?.version?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
   const [styleVersion, setStyleVersion] = useState<number | null>(null);
+  const [chosen, setChosen] = useState<string | null>(null);
   const [refused, setRefused] = useState(false);
 
   if (found.error || settings.error) return <div className="av-page"><LoadError onRetry={() => { found.reload(); settings.reload(); }} /></div>;
@@ -35,6 +37,7 @@ export function ReportScreen() {
   const version = data.version;
   const currentStyle = style ?? settings.data.citation_style;
   const currentVersion = styleVersion ?? settings.data.version;
+  const selected = data.sections.find((s) => s.key === chosen) ?? data.sections[0] ?? null;
 
   const attempt = async (work: () => Promise<void>) => {
     setError(null);
@@ -52,8 +55,9 @@ export function ReportScreen() {
       wait.start();
     });
 
-  const changeStyle = (next: (typeof STYLES)[number]) =>
+  const changeStyle = (next: string) =>
     attempt(async () => {
+      if (next !== "page" && next !== "paragraph") return;
       const saved = await unwrap(
         api.PATCH("/v1/cases/{case_id}/report/settings", {
           params: { path: { case_id: caseId } },
@@ -68,14 +72,28 @@ export function ReportScreen() {
 
   // Rule 8: once the main report is served (or withdrawn) it is locked; changes go in a supplementary report.
   const served = refused || data.versions.some((v) => !AFTER_SERVING_TYPES.includes(v.type) && (v.status === "served" || v.status === "withdrawn"));
-  const done = data.checklist.items.filter((item) => item.done).length;
-  const limits = (pack.compliance_checklist as { page_limit?: Record<string, number> }).page_limit ?? {};
+  const done = data.checklist.items.filter((entry) => entry.done).length;
+  const appendices = ((pack.report_appendices ?? []) as Array<{ key: string; label?: string }>).map((a) => a.label ?? humanise(a.key));
+  const limits = ((pack.compliance_checklist as unknown as { page_limit?: Record<string, number> } | undefined)?.page_limit ?? {}) as Record<string, number>;
   const limit = item.court_track ? limits[item.court_track] : undefined;
+  const footer = [
+    version ? (version.page_count ? w("report.version", { name: version.display_name, pages: version.page_count }) : w("report.version_nopages", { name: version.display_name })) : null,
+    version && item.court_track ? (limit ? w("report.limit", { count: limit }) : w("report.no_limit")) : null,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <div className="av-page av-stack">
-      <h1>{w("report.title")}</h1>
-      <p>{w("report.intro")}</p>
+    <div className="av-page rp-page rp-page--wide">
+      <div className="rp-head">
+        <div>
+          <h1 className="rp-title">{w("report.title")}</h1>
+          <p className="rp-lead">{w("report.intro")}</p>
+        </div>
+        <div className="rp-head__tools">
+          <Segmented label={w("report.style")} hideLabel name="citation_style" value={currentStyle} onChange={(next) => void changeStyle(next)} options={STYLES.map((key) => ({ value: key, label: w(`report.style.${key}`) }))} />
+          <span className="av-visually-hidden">{w("report.style_changed")}</span>
+          {version && <a className="av-button av-button--secondary" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>}
+        </div>
+      </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {served && (
         <Notice tone="warning">
@@ -85,105 +103,120 @@ export function ReportScreen() {
       )}
       {wait.waiting && <Notice><p>{w("building")}</p></Notice>}
       {!version && <Notice><p>{w("report.empty")}</p></Notice>}
-      {version && (
-        <p>
-          <strong>{version.page_count ? w("report.version", { name: version.display_name, pages: version.page_count }) : w("report.version_nopages", { name: version.display_name })}</strong>
-        </p>
-      )}
       {version?.template_fallback && <Notice tone="warning"><p>{w("report.fallback")}</p></Notice>}
 
-      <fieldset className="av-report-fieldset">
-        <legend>{w("report.style")}</legend>
-        <div className="av-row">
-          {STYLES.map((key) => (
-            <label key={key} className="av-report-radio">
-              <input type="radio" name="citation_style" checked={currentStyle === key} onChange={() => void changeStyle(key)} />
-              <span>{w(`report.style.${key}`)}</span>
-            </label>
-          ))}
-        </div>
-        <p className="av-muted">{w("report.style_changed")}</p>
-      </fieldset>
-      {version && (
-        <p>
-          <a className="av-button av-button--secondary" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>
-        </p>
-      )}
-
-      <div className="av-report-columns">
-        <Sections caseId={caseId} data={data} onSaved={found.reload} />
-        <div className="av-stack">
-          <section className="av-card av-stack" aria-labelledby="checklist-title">
-            <h3 id="checklist-title">{w("report.checklist")}</h3>
-            <ul className="av-report-list">
-              {data.checklist.items.map((item) => (
-                <li key={item.key} className="av-report-item">
-                  <span aria-hidden="true">{item.done ? "✓" : "○"}</span> <span className="av-visually-hidden">{item.done ? w("report.done") : w("report.not_done")}</span> <span>{item.text ?? humanise(item.key)}</span>
+      <div className="rp-report">
+        <Contents sections={data.sections} selected={selected?.key ?? null} onChoose={setChosen} appendices={appendices} />
+        {selected ? <Paper key={selected.key} caseId={caseId} data={data} section={selected} number={data.sections.indexOf(selected) + 1} onSaved={found.reload} /> : <div />}
+        <aside className="rp-side">
+          <section className="rp-card" aria-labelledby="checklist-title">
+            <h2 id="checklist-title" className="rp-card__title">{w("report.checklist")}</h2>
+            <ul className="rp-needs">
+              {data.checklist.items.map((entry) => (
+                <li key={entry.key} className={`rp-need${entry.done ? "" : " rp-need--todo"}`}>
+                  {entry.done ? <TickIcon /> : <RingIcon />}
+                  <span className="av-visually-hidden">{entry.done ? w("report.checklist_item_done") : w("report.checklist_item_todo")}</span>
+                  <span>{entry.text ?? humanise(entry.key)}</span>
                 </li>
               ))}
             </ul>
-            <p className="av-muted">{w("report.checklist_done", { done, total: data.checklist.items.length })}</p>
+            <p className="av-muted rp-small">{w("report.checklist_done", { done, total: data.checklist.items.length })}</p>
           </section>
-          <Methodology caseId={caseId} />
-          {version && <Preview caseId={caseId} pages={version.page_count ?? 1} />}
-        </div>
+          <Methodology caseId={caseId} locale={locale} />
+        </aside>
       </div>
 
-      <div className="av-report-footer">
-        {!served && (
-          <Button variant="secondary" onClick={() => void build()} disabled={wait.waiting}>
-            {version ? w("report.rebuild") : w("report.build")}
-          </Button>
-        )}
-        {version?.page_count ? <span className="av-muted">{limit != null ? w("report.pages_footer_limit", { pages: version.page_count, limit }) : w("report.pages_footer_nolimit", { pages: version.page_count })}</span> : null}
-        {version && <LinkButton to={`/cases/${caseId}/final-check`}>{w("report.final_check")}</LinkButton>}
+      <div className="rp-bar">
+        <span className="av-muted rp-bar__note">{footer}</span>
+        <div className="rp-bar__actions">
+          {!served ? (version ? (
+            <button type="button" className="av-text-link rp-linkbtn" onClick={() => void build()} disabled={wait.waiting}>{w("report.rebuild")}</button>
+          ) : (
+            <Button onClick={() => void build()} disabled={wait.waiting}>{w("report.build")}</Button>
+          )) : null}
+          {version && <LinkButton arrow to={`/cases/${caseId}/final-check`}>{w("report.final_check")}</LinkButton>}
+        </div>
       </div>
     </div>
   );
 }
 
-function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onSaved: () => void }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const [reading, setReading] = useState<string | null>(null);
+function TickIcon() {
+  return (
+    <svg className="rp-tick" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </svg>
+  );
+}
+
+function RingIcon() {
+  return (
+    <svg className="rp-ring" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  );
+}
+
+function Contents({ sections, selected, onChoose, appendices }: { sections: Report["sections"]; selected: string | null; onChoose: (key: string) => void; appendices: string[] }) {
   const nameOf = useSectionName();
   return (
-    <section className="av-card av-stack" aria-labelledby="sections-title">
-      <h3 id="sections-title">{w("report.sections")}</h3>
-      <ol className="av-report-list" aria-label={w("report.contents")}>
-        {data.sections.map((section, index) => {
+    <nav className="rp-contents" aria-label={w("report.sections")}>
+      <ol className="rp-contents__list" aria-label={w("report.contents")}>
+        {sections.map((section, index) => {
           const name = nameOf(section.key);
+          const isDone = section.written || section.generated;
+          const partway = section.total != null && section.done != null && section.done < section.total;
           return (
-            <li key={section.key} aria-label={name} className="av-report-item av-report-item--spread">
-              <span>
-                <span className="av-muted">{index + 1}.</span> <span aria-hidden="true">{section.written || section.generated ? "✓" : "○"}</span> <strong>{name}</strong>{" "}
-                <span className="av-badge">{section.written ? w("report.section.written") : section.generated ? w("report.section.generated") : w("report.section.todo")}</span>
-                {section.total != null && <span className="av-muted"> {w("report.progress", { done: section.done ?? 0, total: section.total })}</span>}
-              </span>
-              <Button variant="quiet" aria-label={`${w("report.read_text")} ${name}`} onClick={() => setReading(reading === section.key ? null : section.key)}>
-                {reading === section.key ? w("report.close_text") : w("report.read_text")}
-              </Button>
-              <Button variant="quiet" aria-label={`${section.written ? w("report.section.edit") : w("report.section.write")} ${name}`} onClick={() => setOpen(open === section.key ? null : section.key)}>
-                {section.written ? w("report.section.edit") : w("report.section.write")}
-              </Button>
+            <li key={section.key} aria-label={name} className={`rp-contents__row${section.key === selected ? " rp-contents__row--on" : ""}`}>
+              <span className="rp-contents__no" aria-hidden="true">{index + 1}</span>{" "}
+              <button type="button" className="rp-contents__name" aria-current={section.key === selected ? "true" : undefined} onClick={() => onChoose(section.key)}>{name}</button>
+              {partway ? (
+                <span className="rp-contents__progress">{w("report.progress", { done: section.done ?? 0, total: section.total ?? 0 })}</span>
+              ) : isDone ? (
+                <>
+                  <TickIcon />
+                  <span className="av-visually-hidden">{w("report.section.done")}</span>
+                </>
+              ) : (
+                <span className="rp-contents__todo">{w("report.section.todo")}</span>
+              )}
             </li>
           );
         })}
       </ol>
-      {reading && <SectionText key={reading} caseId={caseId} sectionKey={reading} />}
-      {open && <SectionEditor key={open} caseId={caseId} sectionKey={open} onClose={() => setOpen(null)} onSaved={onSaved} />}
-    </section>
+      {appendices.length > 0 && <p className="rp-contents__appendices">{w("report.appendices", { names: appendices.join(", ") })}</p>}
+    </nav>
   );
 }
 
-function SectionText({ caseId, sectionKey }: { caseId: string; sectionKey: string }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: sectionKey } } })), [caseId, sectionKey]);
-  if (found.error) return <LoadError onRetry={found.reload} />;
-  if (!found.data) return <Loading />;
+function Paper({ caseId, data, section, number, onSaved }: { caseId: string; data: Report; section: Report["sections"][number]; number: number; onSaved: () => void }) {
+  const nameOf = useSectionName();
+  const [editing, setEditing] = useState(false);
+  const name = nameOf(section.key);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })), [caseId, section.key, data.version?.id]);
   return (
-    <div className="av-stack" aria-live="polite">
-      {found.data.paragraphs.map((p) => (
-        <p key={p.para_no} className="av-report-words">{p.text}</p>
-      ))}
+    <div className="rp-centre">
+      <section className="rp-paper" aria-label={w("report.paper")} aria-live="polite">
+        <h2 className="rp-paper__heading">{`${number}. ${name}`}</h2>
+        {found.error ? <LoadError onRetry={found.reload} /> : !found.data ? <Loading /> : found.data.paragraphs.length === 0 ? (
+          <p className="rp-paper__empty">{w("report.section.empty")}</p>
+        ) : (
+          found.data.paragraphs.map((p) => (
+            <div key={p.para_no} className="rp-para">
+              <span className="rp-para__no">{`${number}.${p.para_no}`}</span>
+              <span>{p.text}</span>
+            </div>
+          ))
+        )}
+      </section>
+      <div className="rp-under">
+        <span className="av-badge">{section.written ? w("report.section.written") : section.generated ? w("report.section.generated") : w("report.section.todo")}</span>
+        <Button variant="secondary" aria-label={`${section.written ? w("report.section.edit") : w("report.section.write")} ${name}`} onClick={() => setEditing(!editing)}>
+          {section.written ? w("report.section.edit") : w("report.section.write")}
+        </Button>
+      </div>
+      {editing && <SectionEditor key={section.key} caseId={caseId} sectionKey={section.key} onClose={() => setEditing(false)} onSaved={onSaved} />}
+      {data.version && <Preview caseId={caseId} pages={data.version.page_count ?? 1} />}
     </div>
   );
 }
@@ -232,16 +265,17 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
   );
 }
 
-function Methodology({ caseId }: { caseId: string }) {
+function Methodology({ caseId, locale }: { caseId: string; locale: string }) {
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/methodology", { params: { path: { case_id: caseId } } })), [caseId]);
+  const count = (n: number) => new Intl.NumberFormat(locale).format(n);
   return (
-    <section className="av-card av-stack" aria-labelledby="method-title">
-      <h3 id="method-title">{w("report.methodology")}</h3>
-      <details>
-        <summary>{w("report.wording")}</summary>
-        <p>{w("report.methodology_body")}</p>
+    <section className="rp-card" aria-labelledby="method-title">
+      <h2 id="method-title" className="rp-card__title">{w("report.methodology")}</h2>
+      <p className="av-muted rp-small">{w("report.methodology_body")}</p>
+      <details className="rp-wording">
+        <summary className="av-text-link">{w("report.wording")}</summary>
+        {found.data && <p className="av-muted rp-small">{w("report.pages_read", { read: count(found.data.pages_read), total: count(found.data.pages_total) })}</p>}
       </details>
-      {found.data && <p className="av-muted">{w("report.pages_read", { read: found.data.pages_read, total: found.data.pages_total })}</p>}
     </section>
   );
 }
@@ -265,13 +299,16 @@ function Preview({ caseId, pages }: { caseId: string; pages: number }) {
     };
   }, [caseId, page]);
   return (
-    <section className="av-card av-stack">
-      <img className="av-report-preview" src={src ?? undefined} alt={w("report.preview_alt", { page })} />
-      <div className="av-row">
-        <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>{w("report.preview_previous")}</Button>
-        <span className="av-muted">{w("report.preview", { page, pages })}</span>
-        <Button variant="secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>{w("report.preview_next")}</Button>
+    <details className="rp-wording rp-preview">
+      <summary className="av-text-link">{w("report.preview_open")}</summary>
+      <div className="av-stack">
+        <img className="av-report-preview" src={src ?? undefined} alt={w("report.preview_alt", { page })} />
+        <div className="av-row">
+          <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>{w("report.preview_previous")}</Button>
+          <span className="av-muted">{w("report.preview", { page, pages })}</span>
+          <Button variant="secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>{w("report.preview_next")}</Button>
+        </div>
       </div>
-    </section>
+    </details>
   );
 }

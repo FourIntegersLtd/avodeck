@@ -51,21 +51,21 @@ export interface StackedBarSegment {
   label: string;
 }
 
-/** One bar split into parts, each as wide as its share of the total, with a legend. */
-export function StackedBar({ segments, label }: { segments: StackedBarSegment[]; label: string }) {
+/** One bar split into parts, each as wide (or, with `vertical`, as tall) as its share of the total, with a legend. */
+export function StackedBar({ segments, label, vertical }: { segments: StackedBarSegment[]; label: string; vertical?: boolean }) {
   const total = segments.reduce((sum, s) => sum + Math.max(0, s.value), 0);
-  let x = 0;
+  let at = 0;
   return (
-    <div className="av-stacked">
-      <svg className="av-stacked__bar" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label={label}>
+    <div className={vertical ? "av-stacked av-stacked--vertical" : "av-stacked"}>
+      <svg className="av-stacked__bar" viewBox={vertical ? "0 0 12 100" : "0 0 100 12"} preserveAspectRatio="none" role="img" aria-label={label}>
         {segments.map((s) => {
-          const width = total > 0 ? (Math.max(0, s.value) / total) * 100 : 0;
+          const size = total > 0 ? (Math.max(0, s.value) / total) * 100 : 0;
           const rect = (
-            <rect key={s.key} x={x} y={0} width={width} height={12} fill={s.color}>
+            <rect key={s.key} x={vertical ? 0 : at} y={vertical ? at : 0} width={vertical ? 12 : size} height={vertical ? size : 12} fill={s.color}>
               <title>{`${s.label}: ${s.value}`}</title>
             </rect>
           );
-          x += width;
+          at += size;
           return rect;
         })}
       </svg>

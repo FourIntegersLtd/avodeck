@@ -98,7 +98,7 @@ const WORDS = {
   "close.note": "Closed cases move to your archive. You can reopen one if you're contacted again.",
   "close.note_party": "Closed cases move to your archive. You can reopen one if the {{party}} gets back in touch.",
   "close.settle": "Close case",
-  "close.archive": "Move to archive",
+  "close.archive": "Close case",
   "close.reopen": "Reopen case",
   "close.done": "Done.",
 

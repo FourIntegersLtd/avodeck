@@ -14,6 +14,8 @@ export const INV = "c1111111-1111-4111-8111-111111111111";
 export const SPOT = "d1111111-1111-4111-8111-111111111111";
 export const PARA = "e1111111-1111-4111-8111-111111111111";
 
+/** The word the pack gives the party that instructed the expert (for example in "Sign and send to the ..."). */
+export const partyWord = (run: PackRun) => String((casePack(run).instructing_party_types[0] as { label?: string }).label);
 export const sectionKeys = (run: PackRun) => casePack(run).report_sections.map((s) => String((s as { key: string }).key));
 /** The heading the pack gives a report section (screens 16 and 17 show it, never the key). */
 export const sectionLabel = (run: PackRun, key: string) => String((casePack(run).report_sections as Array<{ key: string; label?: string }>).find((s) => s.key === key)?.label);
@@ -94,7 +96,7 @@ export function serve(run: PackRun, opts: {
   spots?: Schemas["SpotCheckOut"][]; time?: Schemas["TimeOut"]; profile?: Schemas["BillingProfile"] | null; invoices?: Schemas["InvoiceOut"][];
   servings?: Schemas["ServingOut"][]; paragraphs?: Array<{ para_no: number; section: string; text: string; question_id: string | null }>;
 } = {}) {
-  inCase(run);
+  inCase(run, { instructing_party_type: (casePack(run).instructing_party_types[0] as { key: string }).key });
   const sent: Sent[] = [];
   const record = async (request: Request) => {
     const text = await request.text();

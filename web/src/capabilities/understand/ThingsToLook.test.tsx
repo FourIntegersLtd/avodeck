@@ -104,8 +104,9 @@ test("you can switch one of your checks off for the next time", async () => {
   inCase("launch");
   const calls = serve();
   const { user } = open();
-  const checks = await screen.findByRole("region", { name: "Your checks" });
-  expect(within(checks).getByText("Changes apply the next time we check.")).toBeInTheDocument();
+  const checks = await screen.findByRole("region", { name: "The checks we run" });
+  expect(within(checks).getByText("Switch any off, or add your own. Your report lists which checks were used.")).toBeInTheDocument();
+  expect(within(checks).getByText("Change the days allowed")).toBeInTheDocument();
   await user.click(await within(checks).findByRole("switch", { name: "Abnormal result no action" }));
   await waitFor(() => expect(calls.find((c) => c.url.pathname === "/v1/me/checks")?.body).toEqual({ check_key: "abnormal_result_no_action", enabled: false }));
 });
@@ -151,6 +152,16 @@ test("you can add your own check: it needs a name, a kind of entry to follow, an
   await user.type(within(dialog).getByLabelText("Within how many days?"), "30");
   await user.click(add);
   await waitFor(() => expect(calls.find((c) => c.url.pathname === "/v1/me/checks/custom")?.body).toEqual({ case_id: CASE_A, label: "Letters answered", applies_to: "result", followup_kinds: ["letter"], window_days: 30 }));
+});
+
+test("the checks sit in a panel beside the findings, and the links to the questions are behind one line", async () => {
+  inCase("launch");
+  serve();
+  open();
+  const panel = await screen.findByRole("region", { name: "The checks we run" });
+  expect(panel.closest(".av-understand-things__side")).not.toBeNull();
+  expect(screen.getByRole("article", { name: "Nothing in the record shows what followed this entry" }).closest(".av-understand-things__main")).not.toBeNull();
+  expect(screen.getByText("Look at the links to the questions").closest("details")).toBeInTheDocument();
 });
 
 test("the way on is 'Start writing', which goes to the points against", async () => {

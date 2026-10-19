@@ -65,10 +65,10 @@ function profile(run: PackRun, opts: { template?: boolean } = {}) {
 describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("shows the profile, roles with dates, training, the declaration and the balance, and passes axe", async () => {
     const { pack, j } = profile(run);
-    const { container } = renderAt("/profile");
+    const { container, user } = renderAt("/profile");
     expect(await screen.findByRole("heading", { level: 1, name: "Your expert profile" })).toBeInTheDocument();
-    expect(await screen.findByDisplayValue("Dr Jane Morgan")).toBeInTheDocument();
-    expect(screen.getByDisplayValue("1234567")).toBeInTheDocument();
+    expect(await screen.findByText("Dr Jane Morgan")).toBeInTheDocument();
+    expect(screen.getByText(`${pack.registration_bodies[0]} · 1234567`)).toBeInTheDocument();
 
     const roles = await screen.findByRole("region", { name: "Where you've practised" });
     expect(within(roles).getByText("Partner")).toBeInTheDocument();
@@ -78,13 +78,15 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
 
     // The pack's declaration wording is shown as it is and cannot be edited here.
     const declaration = screen.getByRole("region", { name: "Declaration and signature" });
+    await user.click(within(declaration).getByRole("button", { name: "Review wording" }));
     const first = pack.declarations[0]!.text!.split("\n\n")[0]!;
     expect(await within(declaration).findByText(first)).toBeInTheDocument();
     expect(within(declaration).queryByDisplayValue(first)).toBeNull();
 
     // The balance uses the jurisdiction's party words.
     const words = j.vocabulary.party_roles as Record<string, string>;
-    const balance = screen.getByRole("region", { name: "Your balance over the last 12 months" });
+    await user.click(screen.getByRole("button", { name: "See your balance over the last 12 months" }));
+    const balance = await screen.findByRole("region", { name: "Your balance over the last 12 months" });
     expect(await within(balance).findByText(`for the ${words.other_side}`)).toBeInTheDocument();
     expect(within(balance).getByText("14")).toBeInTheDocument();
 
@@ -103,6 +105,7 @@ test("saving your details sends only the change, with the version you loaded", a
     }),
   );
   const { user } = renderAt("/profile");
+  await user.click(await screen.findByRole("button", { name: "Edit your details" }));
   const name = await screen.findByLabelText("Full name");
   await user.clear(name);
   await user.type(name, "Dr Jane E Morgan");
@@ -147,6 +150,7 @@ test("suggested template sections are shown but saved only when you save the hea
   const { user } = renderAt("/profile");
   const template = await screen.findByRole("region", { name: "Your report template" });
   expect(await within(template).findByText("Morgan template.docx")).toBeInTheDocument();
+  await user.click(within(template).getByRole("button", { name: "Match your headings to report sections" }));
   await user.click(within(template).getByRole("button", { name: "Suggest sections" }));
   const opinion = await within(template).findByLabelText("My opinion");
   await waitFor(() => expect(opinion).toHaveValue("opinion"));
@@ -171,6 +175,7 @@ test("uploading a Word template sends the file", async () => {
   const file = new File([new Uint8Array(2048)], "Morgan template.docx", { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
   await user.upload(within(template).getByLabelText("Choose your Word template"), file);
   await waitFor(() => expect(received).toEqual({ filename: "Morgan template.docx", size: 2048 }));
+  await user.click(await within(template).findByRole("button", { name: "Match your headings to report sections" }));
   expect(await within(template).findByLabelText("Introduction")).toBeInTheDocument();
 });
 
@@ -185,6 +190,7 @@ test("a photo of your signature is uploaded as a picture", async () => {
   );
   const { user } = renderAt("/profile");
   const declaration = await screen.findByRole("region", { name: "Declaration and signature" });
+  await user.click(within(declaration).getByRole("button", { name: /Add your signature/ }));
   await user.upload(within(declaration).getByLabelText("Upload a photo of your signature"), new File([new Uint8Array(64)], "sig.png", { type: "image/png" }));
   await waitFor(() => expect(method).toBe("photo"));
   expect(await within(declaration).findByText("Your signature is saved.")).toBeInTheDocument();

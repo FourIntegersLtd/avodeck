@@ -14,11 +14,14 @@
 .av-close-title__lead { margin: 2px 0 0; color: var(--ink-soft); font-size: 18px; }
 .av-close-title__mark { width: 64px; height: 64px; border-radius: 50%; background: var(--green); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .av-close-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: stretch; }
-.av-close-card { padding: 24px; gap: 14px; align-content: start; }
+.av-close-card { padding: 24px; gap: 14px; display: flex; flex-direction: column; }
 .av-close-card__head { display: flex; align-items: center; gap: 12px; }
 .av-close-card__head h2 { margin: 0; font-size: 21px; }
 .av-close-card__step { width: 32px; height: 32px; border-radius: 50%; background: var(--green-tint); color: var(--green-dark); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .av-close-card .av-close-actions { margin-top: auto; justify-content: stretch; }
+.av-close-option { accent-color: var(--green); background: var(--surface); }
+.av-close-option--on { border: 2px solid var(--green); background: var(--green-tint); font-weight: 700; padding: 13px 15px; }
+.av-close-option--on .av-close-option__hint { font-weight: 400; }
 .av-close-card .av-close-actions > * { flex: 1; }
 .av-close-ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
 .av-close-copy { display: flex; gap: 12px; align-items: center; }
@@ -35,4 +38,4 @@
 .av-close-foot { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
 .av-close-foot p { margin: 0; }
 .av-close-foot .av-button { font-size: 19px; padding-inline: 30px; }
-.av-close-arrow { margin-left: 10px; }
+.av-close-card > p { margin: 0; }

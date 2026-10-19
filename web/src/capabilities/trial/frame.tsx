@@ -1,11 +1,9 @@
-// The frame every signed-in trial screen shares: it loads the case and its pack, then shows the case's
-// step pills with the screen's own title as the page heading.
+// What every signed-in trial screen shares. The case frame (app/CaseLayout) draws the case bar and loads
+// the case and its pack once; a trial screen reads them from it and draws its own title under the bar.
 import type { ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useSession } from "../../foundation/lib/session";
-import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { CaseHeader, LoadError, Loading } from "../../foundation/ui";
+import type { Schemas } from "../../foundation/platform-client";
 import "./trial.css";
 
 export interface Frame {
@@ -18,23 +16,25 @@ export interface Frame {
 }
 
 export function TrialFrame({ children }: { children: (frame: Frame) => ReactNode }) {
-  const { caseId = "" } = useParams();
+  const { item, pack } = useCaseFrame();
   const { me } = useSession();
-  const path = { case_id: caseId };
-  const item = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path } })), [caseId]);
-  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", { params: { path } })), [caseId]);
-  const error = item.error ?? pack.error;
-  if (error) return <div className="av-page"><LoadError onRetry={() => { item.reload(); pack.reload(); }} /></div>;
-  if (!item.data || !pack.data) return <div className="av-page"><Loading /></div>;
-  const actions = new Set(item.data.allowed_actions);
-  return <>{children({ caseId, item: item.data, pack: pack.data, can: (a) => actions.has(a), locale: me.person.locale || pack.data.locale })}</>;
+  const actions = new Set(item.allowed_actions);
+  return <>{children({ caseId: item.id, item, pack, can: (a) => actions.has(a), locale: me.person.locale || pack.locale })}</>;
 }
 
-/** The case's step pills with the screen's title as the page heading. */
-export function TrialHeader({ pack, title, screen }: { pack: Schemas["CasePack"]; title: string; screen: string }) {
-  const steps = pack.workflow_steps.map((s) => ({ key: String(s.key) }));
-  const current = pack.workflow_steps.find((s) => Array.isArray(s.screens) && (s.screens as unknown[]).includes(screen))?.key;
-  return <CaseHeader steps={steps} current={current === undefined ? null : String(current)} title={<h1>{title}</h1>} />;
+/** A screen's page under the case bar: a width (the boards differ) and the spacing between its parts. */
+export function TrialPage({ width, children }: { width: "s22" | "s23" | "s24"; children: ReactNode }) {
+  return <div className={`av-page av-stack av-trial-page av-trial-page--${width}`}>{children}</div>;
+}
+
+/** The screen's title (the case name in the bar is the page's h1), with its lead under it. */
+export function TrialTitle({ title, children }: { title: ReactNode; children?: ReactNode }) {
+  return (
+    <header className="av-trial-title">
+      <h2>{title}</h2>
+      {children}
+    </header>
+  );
 }
 
 /** Choosing a PDF: the label looks like a button and is the input's name. */

@@ -10,6 +10,7 @@ for (const { name, pack } of PACKS) {
       await page.goto(`/cases/${CASE_A}/preparing`);
       await expect(page.getByRole("heading", { level: 1, name: "Preparing your bundle" })).toBeVisible();
       await expect(page.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "48");
+      await expect(page.getByRole("button", { name: "Stop preparing" })).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
       await checkScreen(page);
     });
 
@@ -27,6 +28,15 @@ for (const { name, pack } of PACKS) {
       await page.goto(`/cases/${CASE_A}/bundle/copies`);
       await expect(page.getByText("p.20 is a copy of p.3")).toBeVisible();
       await expect(page.getByRole("img", { name: "Page 20" })).toHaveAttribute("src", /^data:image\/jpeg/);
+      await checkScreen(page);
+    });
+
+    test("08b opens as a read-only email, with the fields behind Edit the email", async ({ page }) => {
+      await stubPipeline(page, pack);
+      await page.goto(`/cases/${CASE_A}/bundle/ask`);
+      await expect(page.getByText("Records needed - Mrs A")).toBeVisible();
+      await expect(page.getByRole("textbox", { name: "Message" })).toHaveCount(0);
+      await expect(page.getByText("Need more time?")).toBeVisible();
       await checkScreen(page);
     });
 

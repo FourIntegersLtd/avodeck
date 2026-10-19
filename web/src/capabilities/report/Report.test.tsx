@@ -26,13 +26,12 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   });
 });
 
-test("says which sections you wrote and which were built for you, and offers the final check", async () => {
+test("says which sections you wrote and which were built for you, under the paper, and offers the final check", async () => {
   serve("launch");
-  renderAt(url);
-  const first = await screen.findByRole("listitem", { name: sectionLabel("launch", sectionKeys("launch")[0]!) });
-  expect(within(first).getByText(M["report.report.section.written"]!)).toBeInTheDocument();
-  const second = screen.getByRole("listitem", { name: sectionLabel("launch", sectionKeys("launch")[1]!) });
-  expect(within(second).getByText(M["report.report.section.generated"]!)).toBeInTheDocument();
+  const { user } = renderAt(url);
+  expect(await screen.findByText(M["report.report.section.written"]!)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: sectionLabel("launch", sectionKeys("launch")[1]!) }));
+  expect(screen.getByText(M["report.report.section.generated"]!)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.report.final_check"]! })).toHaveAttribute("href", `/cases/${CASE_A}/final-check`);
   expect(screen.getByText("Draft 1 · 31 pages")).toBeInTheDocument();
 });
@@ -123,7 +122,7 @@ describe("the preview", () => {
     const asked: string[] = [];
     server.use(http.get("/v1/cases/:caseId/report/preview/:page", ({ params }) => (asked.push(String(params.page)), new Response(new Blob(["x"], { type: "image/png" }), { headers: { "content-type": "image/png" } }))));
     const { user, unmount } = renderAt(url);
-    expect(await screen.findByText("1231 of 1231 pages read by you")).toBeInTheDocument();
+    expect(await screen.findByText("1,231 of 1,231 pages read by you")).toBeInTheDocument();
     const img = await screen.findByRole("img", { name: "Page 1 of your report" });
     await waitFor(() => expect(img.getAttribute("src")).toMatch(/^blob:/));
     expect(asked).toEqual(["1"]);
@@ -145,9 +144,8 @@ test("lists the sections as numbered contents with a tick for each one that is d
   expect(contents.tagName).toBe("OL");
   const items = within(contents).getAllByRole("listitem");
   expect(items).toHaveLength(sections.length);
-  items.forEach((item, i) => expect(within(item).getByText(`${i + 1}.`)).toBeInTheDocument());
-  expect(within(items[0]!).getByText("✓")).toBeInTheDocument();
-  expect(within(items.at(-1)!).getByText("○")).toBeInTheDocument();
+  expect(within(items[0]!).getByText(M["report.report.section.done"]!)).toBeInTheDocument();
+  items.forEach((item, i) => expect(within(item).getByText(String(i + 1))).toBeInTheDocument());
   expect(within(items.at(-1)!).getByText(M["report.report.section.todo"]!)).toBeInTheDocument();
 });
 
@@ -156,16 +154,15 @@ test("offers the report in Word, captions the preview with its page count and sh
   renderAt(url);
   expect(await screen.findByRole("link", { name: M["report.report.open_word"]! })).toHaveAttribute("href", expect.stringContaining(`/v1/cases/${CASE_A}/report/versions/${V1}/download?format=docx`));
   expect(screen.getByText("Page 1 of 31")).toBeInTheDocument();
-  expect(screen.getByText("31 pages · no page limit")).toBeInTheDocument();
 });
 
-test("keeps the how-you-used-Avodeck wording behind a Read the wording disclosure", async () => {
+test("keeps what the software did, page by page, behind a Read the wording disclosure", async () => {
   serve("launch");
   renderAt(url);
   const summary = await screen.findByText(M["report.report.wording"]!);
   const details = summary.closest("details");
   expect(details).not.toBeNull();
-  expect(within(details as HTMLElement).getByText(M["report.report.methodology_body"]!)).toBeInTheDocument();
+  expect(await within(details as HTMLElement).findByText("1,231 of 1,231 pages read by you")).toBeInTheDocument();
 });
 
 test("shows how far through the opinion section you are, and only there", async () => {
@@ -181,7 +178,7 @@ test("shows how far through the opinion section you are, and only there", async 
 test("a section can be read as text, read-only, without the Word file", async () => {
   serve("launch", { paragraphs: [{ para_no: 1, section: "opinion", text: "The plan was written down.", question_id: null }, { para_no: 2, section: "other", text: "Not this one", question_id: null }] });
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("button", { name: `${M["report.report.read_text"]} ${sectionLabel("launch", "opinion")}` }));
+  await user.click(await screen.findByRole("button", { name: sectionLabel("launch", "opinion") }));
   expect(await screen.findByText("The plan was written down.")).toBeInTheDocument();
   expect(screen.queryByText("Not this one")).toBeNull();
 });
@@ -191,7 +188,7 @@ test("the checklist says in words which items are done", async () => {
   renderAt(url);
   const checklist = await screen.findByRole("region", { name: M["report.report.checklist"] });
   expect(within(checklist).getAllByText(M["report.report.done"]!)).toHaveLength(1);
-  expect(within(checklist).getAllByText(M["report.report.not_done"]!)).toHaveLength(checklistItems("launch").length - 1);
+  expect(within(checklist).getAllByText(M["report.report.checklist_item_todo"]!)).toHaveLength(checklistItems("launch").length - 1);
 });
 
 test("the footer gives the page limit for the case's track", async () => {
@@ -200,7 +197,7 @@ test("the footer gives the page limit for the case's track", async () => {
   serve("launch");
   inCase("launch", { court_track: track });
   renderAt(url);
-  expect(await screen.findByText(`31 pages · limit ${limit} pages`)).toBeInTheDocument();
+  expect(await screen.findByText(`Draft 1 · 31 pages · page limit ${limit}`)).toBeInTheDocument();
 });
 
 describe("after the report is served (rule 8)", () => {

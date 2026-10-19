@@ -13,8 +13,11 @@ export const casePath = (caseId: string) => ({ params: { path: { case_id: caseId
 export function longDate(iso: string | null | undefined): string {
   if (!iso) return w("common.no_date");
   const [y, m, d] = iso.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
+  return LONG_DATE.format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
 }
+
+/** Built once: a long timeline formats a date per entry, and making a formatter each time is slow. */
+const LONG_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 /** A fact's status in glossary terms: edited counts as checked by the expert. */
 export const statusOf = (status: string): Status => (status === "verified" || status === "edited" ? "checked" : "please_check");

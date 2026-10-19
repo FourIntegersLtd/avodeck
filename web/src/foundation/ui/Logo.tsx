@@ -11,13 +11,13 @@ export function Logo({ onDark = false }: { onDark?: boolean }) {
   const [skin, flesh, pit] = onDark ? ["#E6F2EC", "#2E7556", "#E6F2EC"] : ["#0F3D2C", "#E4F3D6", "#1E6B4E"];
   return (
     <a href={siteUrl()} className={onDark ? "av-logo av-logo--on-dark" : "av-logo"} aria-label={t("app.logo_home")}>
-      <svg width="148" height="40" viewBox="0 0 148 40" aria-hidden="true" focusable="false">
+      <svg width="134" height="40" viewBox="0 0 134 40" aria-hidden="true" focusable="false">
         <g transform="scale(0.3636) translate(-8 -8)">
           <path d={PEAR} fill={skin} />
           <path d={PEAR} transform="translate(50 76) scale(0.80) translate(-50 -76)" fill={flesh} />
           <circle cx="50" cy="83" r="17" fill={pit} />
         </g>
-        <text x="40" y="28" fontFamily="Atkinson Hyperlegible, system-ui, sans-serif" fontSize="28" fontWeight="700" letterSpacing="-0.7" fill="currentColor">
+        <text x="40" y="28" fontFamily="Atkinson Hyperlegible, system-ui, sans-serif" fontSize="25" fontWeight="700" letterSpacing="-0.6" fill="currentColor">
           {t("app.name")}
         </text>
       </svg>

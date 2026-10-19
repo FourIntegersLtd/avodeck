@@ -29,14 +29,15 @@ test("a clean run says all clear, counts what passed and offers signing", async 
   serve("launch", { check: finalCheck() });
   renderAt(url);
   expect(await screen.findByRole("heading", { level: 1, name: M["report.check.title_ok"]! })).toBeInTheDocument();
-  expect(screen.getByText("2 of 2")).toBeInTheDocument();
+  expect(screen.getByRole("img", { name: "2 of 2 checks passed" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.check.sign"]! })).toHaveAttribute("href", `/cases/${CASE_A}/sign`);
 });
 
 test("while something fails, signing is not offered", async () => {
   serve("launch", { check: failedCheck() });
   renderAt(url);
-  expect(await screen.findByRole("button", { name: "Fix 1 thing first" })).toBeDisabled();
+  expect(await screen.findByText("Fix 1 thing first")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: M["report.check.sign"]! })).toBeDisabled();
   expect(screen.queryByRole("link", { name: M["report.check.sign"]! })).toBeNull();
 });
 
@@ -96,6 +97,7 @@ test("a colleague spot-check sends the email, shows the link once and says the c
     }),
   );
   const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: M["report.check.spot"]! }));
   await user.type(await screen.findByLabelText(M["report.check.spot_email"]!), "colleague@example.test");
   await user.click(screen.getByRole("button", { name: M["report.check.spot_send"]! }));
   expect(await screen.findByText(M["report.check.spot_sent"]!)).toBeInTheDocument();
@@ -113,7 +115,8 @@ test("past spot-checks show who answered, what they agreed with and any facts th
     ],
   });
   serve("launch", { check: finalCheck(), spots: [answered, spotOut({ id: "d2", reviewer_email: "waiting@example.test" }), spotOut({ id: "d3", reviewer_email: "locked@example.test", locked: true })] });
-  renderAt(url);
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: M["report.check.spot"]! }));
   expect(await screen.findByText("colleague@example.test: 1 of 2 facts agreed")).toBeInTheDocument();
   expect(screen.getByText("The page says 14 not 41", { exact: false })).toBeInTheDocument();
   expect(screen.getByText("Waiting for waiting@example.test")).toBeInTheDocument();
@@ -131,12 +134,4 @@ test("passed checks are status rows with their counts, and the rest sit behind S
   await user.click(screen.getByRole("button", { name: "See all 9 checks" }));
   expect(screen.getByText("Passed check 8")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /See all/ })).toBeNull();
-});
-
-test("the footer links down to the colleague spot-check", async () => {
-  serve("launch", { check: finalCheck() });
-  renderAt(url);
-  const link = await screen.findByRole("link", { name: M["report.check.spot"]! });
-  expect(link).toHaveAttribute("href", "#spot-check");
-  expect(document.getElementById("spot-check")).not.toBeNull();
 });

@@ -19,7 +19,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const next = await screen.findByRole("region", { name: "What happens next" });
     expect(within(next).getByText("Report served")).toBeInTheDocument();
     expect(within(next).getByText("28 Nov")).toBeInTheDocument();
-    expect(within(next).getByText("Due 19 Dec")).toBeInTheDocument();
+    expect(within(next).getByText("Answer by 19 Dec")).toBeInTheDocument();
+    // The board's horizontal track always has the same five steps.
+    expect(within(next).getAllByRole("listitem")).toHaveLength(5);
     expect(within(next).getByText("From 14 June 2027 · 3 days")).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
@@ -75,7 +77,7 @@ describe("the steps that belong to the experts and the court bundle", () => {
     serve("launch", { hearings: [trial()], steps: { meetings: [], pack: { built_on: "2027-05-30", stale: true } } });
     renderAt(url);
     expect(await screen.findByText("Out of date. Build it again.")).toBeInTheDocument();
-    expect(screen.queryByText("Experts' discussion")).not.toBeInTheDocument();
+    expect(screen.getByText("Not arranged yet")).toBeInTheDocument();
   });
 
   test("with no bundle yet the step says it is not built", async () => {
@@ -83,4 +85,13 @@ describe("the steps that belong to the experts and the court bundle", () => {
     renderAt(url);
     expect(await screen.findByText("Not built yet")).toBeInTheDocument();
   });
+});
+
+test("the changes card has the board's grey icon tile from the foundation", async () => {
+  serve("launch", { changes: [change()] });
+  renderAt(url);
+  const heading = await screen.findByRole("heading", { name: "Changes since serving" });
+  const card = heading.closest("section")!;
+  expect(card.querySelector(".av-icon-tile--grey")).not.toBeNull();
+  expect(card.querySelector(".av-after-tile__icon-quiet")).toBeNull();
 });

@@ -8,14 +8,13 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
 import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { longDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, vocab } from "./data";
-import { PdfPicker, TrialFrame, TrialHeader, type Frame } from "./frame";
+import { joined, longDate, mediumDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, trialRef, vocab } from "./data";
+import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { w, wn } from "./words";
 
 type Row = Schemas["RowOut"];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
-const SCREEN = "court_bundle_pages";
 const MATCH_MS = 4000;
 const ERRORS = {
   precondition_failed: "trial.pages.error.stale",
@@ -33,6 +32,7 @@ function Pages({ frame }: { frame: Frame }) {
   const [received, setReceived] = useState("");
   const [message, setMessage] = useState<Message>(null);
   const [toldNow, setTold] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const told = toldNow || Boolean(data.data?.bundle?.missing_told_at);
   const bundleName = vocab(frame.pack, "court_bundle");
   const status = data.data?.bundle?.status;
@@ -45,9 +45,13 @@ function Pages({ frame }: { frame: Frame }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [matching]);
 
-  const header = <TrialHeader pack={frame.pack} screen={SCREEN} title={w("pages.title")} />;
-  if (data.error) return <div className="av-page av-stack">{header}<LoadError onRetry={data.reload} /></div>;
-  if (!data.data) return <div className="av-page av-stack">{header}<Loading /></div>;
+  const header = (
+    <TrialTitle title={w("pages.title")}>
+      <p className="av-trial-lead">{w("pages.lead", { court_bundle: bundleName })}</p>
+    </TrialTitle>
+  );
+  if (data.error) return <TrialPage width="s23">{header}<LoadError onRetry={data.reload} /></TrialPage>;
+  if (!data.data) return <TrialPage width="s23">{header}<Loading /></TrialPage>;
 
   const { bundle, rows, counts } = data.data;
   const fail = (error: unknown) => setMessage({ tone: "error", text: errorMessage(error, ERRORS) });
@@ -101,16 +105,15 @@ function Pages({ frame }: { frame: Frame }) {
 
   const missing = rows.filter((r) => r.status === "missing");
   const picker = (label: string) => (
-    <div className="av-stack">
+    <div className="av-stack av-trial-picker-block">
       <TextField label={w("pages.received_on")} name="received_on" type="date" value={received} onChange={(e) => setReceived(e.target.value)} />
       <PdfPicker label={label} onFile={addBundle} />
     </div>
   );
 
   return (
-    <div className="av-page av-stack">
+    <TrialPage width="s23">
       {header}
-      <p>{w("pages.lead", { court_bundle: bundleName })}</p>
       {message && <Notice tone={message.tone}><p>{message.text}</p></Notice>}
       {!bundle ? (
         <>
@@ -132,6 +135,9 @@ function Pages({ frame }: { frame: Frame }) {
                     bundle.replaces_received_on && w("pages.replaces", { date: longDate(bundle.replaces_received_on, frame.locale) }),
                   ].filter(Boolean).join(" · ")}
                 </p>
+                {frame.can("case.upload") && (
+                  <button type="button" className="av-text-link av-trial-linkbutton" aria-expanded={replacing} onClick={() => setReplacing(true)}>{w("pages.new_version")}</button>
+                )}
               </div>
             </section>
             {!matching && (
@@ -150,18 +156,17 @@ function Pages({ frame }: { frame: Frame }) {
               {missing.length > 0 && (
                 <Missing rows={missing} bundleName={bundleName} party={partyWord(frame)} canTell={frame.can("request.draft")} told={told} onTell={tell} pack={frame.pack} locale={frame.locale} />
               )}
-              <Table caseId={frame.caseId} rows={rows} pack={frame.pack} locale={frame.locale} bundleName={bundleName} canConfirm={frame.can("fact.verify")} onChanged={data.reload} />
+              <Table caseId={frame.caseId} rows={rows} pack={frame.pack} locale={frame.locale} bundleName={bundleName} canConfirm={frame.can("fact.verify")} onChanged={data.reload} onCsv={() => exportTable("csv")} />
               <div className="av-trial-actions">
-                <Button variant="secondary" onClick={() => exportTable("csv")}>{w("pages.export_csv")}</Button>
                 <Button variant="secondary" onClick={() => exportTable("pdf")}>{w("pages.export_pdf")}</Button>
                 <LinkButton to={screenPath("trial_pack", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}/trial-pack`} arrow>{w("pages.to_pack")}</LinkButton>
               </div>
             </>
           )}
-          {frame.can("case.upload") && picker(w("pages.replace", { court_bundle: bundleName }))}
+          {frame.can("case.upload") && replacing && picker(w("pages.replace", { court_bundle: bundleName }))}
         </>
       )}
-    </div>
+    </TrialPage>
   );
 }
 
@@ -176,7 +181,7 @@ function Tile({ id, n, words, amber }: { id: string; n: string; words: string; a
 
 /** "Letters, 20 February 2024": what the page is, from the pack's word for its source type and its date. */
 function documentOf(row: Row, pack: Schemas["CasePack"], locale: string): string {
-  return [sourceLabel(pack, row.source_type), row.document_date ? longDate(row.document_date, locale) : ""].filter(Boolean).join(", ");
+  return [sourceLabel(pack, row.source_type), row.document_date ? mediumDate(row.document_date, locale) : ""].filter(Boolean).join(", ");
 }
 
 function Missing({ rows, bundleName, party, canTell, told, onTell, pack, locale }: { rows: Row[]; bundleName: string; party: string; canTell: boolean; told: boolean; onTell: () => void; pack: Schemas["CasePack"]; locale: string }) {
@@ -193,8 +198,9 @@ function Missing({ rows, bundleName, party, canTell, told, onTell, pack, locale 
       <ul className="av-trial-list av-trial-list--plain">
         {rows.map((r) => {
           const document = documentOf(r, pack, locale);
-          const paras = r.paragraphs.join(", ");
-          return <li key={r.id}>{document ? w("pages.missing_row_doc", { page: num(r.page_no, locale), document, paras }) : w("pages.missing_row", { page: num(r.page_no, locale), paras })}</li>;
+          const paras = joined(r.paragraphs, locale);
+          const count = r.paragraphs.length;
+          return <li key={r.id}>{document ? wn("pages.missing_row_doc", count, { page: num(r.page_no, locale), document, paras }) : wn("pages.missing_row", count, { page: num(r.page_no, locale), paras })}</li>;
         })}
       </ul>
       {told && <Notice tone="success"><p>{w("pages.told")}</p></Notice>}
@@ -210,7 +216,7 @@ const STATUS_WORD: Record<string, "pages.status.matched" | "pages.status.to_conf
 
 const SHOWN = 4;
 
-function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged }: { caseId: string; rows: Row[]; pack: Schemas["CasePack"]; locale: string; bundleName: string; canConfirm: boolean; onChanged: () => void }) {
+function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged, onCsv }: { caseId: string; rows: Row[]; pack: Schemas["CasePack"]; locale: string; bundleName: string; canConfirm: boolean; onChanged: () => void; onCsv: () => void }) {
   const [all, setAll] = useState(false);
   // The ones to check always show; the rest fill the first few places, then "and N more".
   let room = SHOWN;
@@ -224,24 +230,27 @@ function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged }
             <th scope="col">{w("pages.col.paragraph")}</th>
             <th scope="col">{w("pages.col.yours")}</th>
             <th scope="col"><span className="av-visually-hidden">{w("pages.col.to")}</span></th>
-            <th scope="col">{w("pages.col.trial", { court_bundle: bundleName })}</th>
+            <th scope="col" className="av-trial-cap">{w("pages.col.trial", { court_bundle: bundleName })}</th>
             <th scope="col">{w("pages.col.document")}</th>
           </tr>
         </thead>
         <tbody>
-          {shown.map((r) => <TableRow key={r.id} caseId={caseId} locale={locale} row={r} document={documentOf(r, pack, locale)} bundleName={bundleName} canConfirm={canConfirm} onChanged={onChanged} />)}
+          {shown.map((r) => <TableRow key={r.id} caseId={caseId} row={r} document={documentOf(r, pack, locale)} bundleName={bundleName} locale={locale} canConfirm={canConfirm} onChanged={onChanged} />)}
         </tbody>
       </table>
-      {hidden > 0 && (
-        <p className="av-trial-muted">
-          {w("pages.and_more", { count: hidden })} <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => setAll(true)}>{w("pages.show_all")}</button>
-        </p>
-      )}
+      <p className="av-trial-muted av-trial-foot">
+        {hidden > 0 && (
+          <>
+            {w("pages.and_more", { count: hidden })} <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => setAll(true)}>{w("pages.show_all")}</button>{" · "}
+          </>
+        )}
+        <button type="button" className="av-text-link av-trial-linkbutton" onClick={onCsv}>{w("pages.export_csv")}</button>
+      </p>
     </section>
   );
 }
 
-function TableRow({ caseId, locale, row, document, bundleName, canConfirm, onChanged }: { caseId: string; locale: string; row: Row; document: string; bundleName: string; canConfirm: boolean; onChanged: () => void }) {
+function TableRow({ caseId, row, document, bundleName, locale, canConfirm, onChanged }: { caseId: string; row: Row; document: string; bundleName: string; locale: string; canConfirm: boolean; onChanged: () => void }) {
   const [value, setValue] = useState(row.trial_page_no === null ? "" : String(row.trial_page_no));
   const [state, setState] = useState<Message>(null);
   const confirmable = canConfirm && row.status === "to_confirm" && !row.confirmed;
@@ -268,8 +277,8 @@ function TableRow({ caseId, locale, row, document, bundleName, canConfirm, onCha
     <tr>
       <td>{row.paragraphs.join(", ")}</td>
       <td className="av-trial-mono">{w("pages.page_ref", { page: num(row.page_no, locale) })}</td>
-      <td aria-hidden="true">→</td>
-      <td className="av-trial-mono">
+      <td aria-hidden="true" className="av-trial-arrow">→</td>
+      <td className="av-trial-mono av-trial-tb">
         {confirmable ? (
           <div className="av-row">
             <input
@@ -283,7 +292,7 @@ function TableRow({ caseId, locale, row, document, bundleName, canConfirm, onCha
             <Button variant="secondary" onClick={confirm} disabled={!value}>{w("pages.confirm")}</Button>
           </div>
         ) : (
-          row.trial_page_no === null ? "" : num(row.trial_page_no, locale)
+          row.trial_page_no === null ? "" : trialRef(bundleName, row.trial_page_no, locale)
         )}
         {state && <p className={state.tone === "error" ? "av-field__error" : "av-trial-muted"} role="status">{state.text}</p>}
       </td>

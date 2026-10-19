@@ -17,11 +17,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     serve(run, { questions: [question({ suggested_classification: suggestion(run) })] });
     const { container } = renderAt(url);
     expect(await screen.findByRole("heading", { level: 2, name: cap(questionsName(run)) })).toBeInTheDocument();
-    expect(await screen.findByText("Would your opinion change if the examination was not recorded?")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: "Would your opinion change if the examination was not recorded?" })).toBeInTheDocument();
     expect(screen.getByText(run === "launch" ? M["after_serving.classification.clarifies"]! : "Permitted")).toBeInTheDocument();
     expect(screen.getByText(M["after_serving.questions.suggested"]!)).toBeInTheDocument();
-    expect(screen.getByText("Set 1 · received 1 December 2026")).toBeInTheDocument();
-    expect(screen.getByText("Answers due 26 December 2026")).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
   });
@@ -42,8 +40,8 @@ test("the classification can be changed to another one the pack uses", async () 
   const { sent, record } = serve("launch", { questions: [question({ suggested_classification: "clarifies" }), question({ id: Q2, number: 2, suggested_classification: "goes_beyond" })] });
   server.use(http.patch("/v1/cases/:caseId/written-questions/:q", async ({ request }) => (await record(request), json(question({ classification: "goes_beyond", version: 2 })))));
   const { user } = renderAt(url);
-  const [first] = await screen.findAllByLabelText(M["after_serving.questions.classification"]!);
-  await user.selectOptions(first!, "goes_beyond");
+  await user.click(await screen.findByRole("button", { name: M["after_serving.questions.change"]! }));
+  await user.selectOptions(await screen.findByLabelText(M["after_serving.questions.classification"]!), "goes_beyond");
   await waitFor(() => expect(sent).toHaveLength(1));
   expect(sent[0]).toMatchObject({ method: "PATCH", path: expect.stringContaining(Q1), body: { classification: "goes_beyond" } });
 });
@@ -81,6 +79,7 @@ test("a new set is added from the file just added, with the dates", async () => 
   const { sent, record } = serve("launch", { rounds: [], questions: [] });
   server.use(http.post("/v1/cases/:caseId/written-question-rounds", async ({ request }) => (await record(request), json(round(), 201))));
   const { user } = renderAt(`${url}?document=${DOC}`);
+  await user.click(await screen.findByRole("button", { name: M["after_serving.questions.add"]! }));
   await user.type(await screen.findByLabelText(M["after_serving.questions.received_on"]!), "2026-12-01");
   await user.type(screen.getByLabelText(M["after_serving.questions.answers_due_on"]!), "2026-12-26");
   await user.click(screen.getByRole("button", { name: M["after_serving.questions.add_submit"]! }));
@@ -89,7 +88,8 @@ test("a new set is added from the file just added, with the dates", async () => 
 
 test("without a file to add, the add button is off and says why", async () => {
   serve("launch", { rounds: [], questions: [] });
-  renderAt(url);
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: M["after_serving.questions.add"]! }));
   expect(await screen.findByText(M["after_serving.questions.document_needed"]!)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: M["after_serving.questions.add_submit"]! })).toBeDisabled();
 });
@@ -110,6 +110,7 @@ test("signing the answers shows the declaration, needs the box ticked, asks for 
     http.post("/v1/auth/mfa/verify", () => ((stepped = true), json({ status: "signed_in", recovery_codes: null }))),
   );
   const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: M["after_serving.questions.sign_open"]! }));
   for (const d of declarations("launch")) for (const part of d.text.split("\n\n")) expect(await screen.findByText(part)).toBeInTheDocument();
   const button = screen.getByRole("button", { name: M["after_serving.questions.sign"]! });
   expect(button).toBeDisabled();
@@ -127,6 +128,7 @@ test.each([["answers_missing"], ["already_signed"], ["locked"]])("a refused sign
   serve("launch");
   server.use(http.post("/v1/cases/:caseId/written-questions/answers/sign", () => apiError(409, code)));
   const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: M["after_serving.questions.sign_open"]! }));
   await user.click(await screen.findByRole("checkbox", { name: M["after_serving.questions.confirm"]! }));
   await user.click(screen.getByRole("button", { name: M["after_serving.questions.sign"]! }));
   expect(await screen.findByText(M[`after_serving.questions.error.${code}`]!)).toBeInTheDocument();
@@ -153,7 +155,8 @@ describe.each<PackRun>(["launch", "fixture"])("the classification choices under 
     const kinds = casePack(run).written_question_classifications ?? [];
     expect(kinds.length).toBeGreaterThan(1);
     serve(run, { questions: [question({ suggested_classification: suggestion(run) })] });
-    renderAt(url);
+    const { user } = renderAt(url);
+    await user.click(await screen.findByRole("button", { name: M["after_serving.questions.change"]! }));
     const select = await screen.findByLabelText(M["after_serving.questions.classification"]!);
     const values = within(select).getAllByRole("option").map((o) => (o as HTMLOptionElement).value).filter(Boolean);
     expect(values).toEqual(kinds);

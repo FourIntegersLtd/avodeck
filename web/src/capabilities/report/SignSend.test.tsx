@@ -10,6 +10,8 @@ import { declarations, failedCheck, finalCheck, reportOut, serve, V1, versionOut
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/sign`;
+const SUBMIT = /^Sign and send to the /;
+const CONFIRM = /^I have read the whole report and I confirm the /;
 const withStatus = (run: PackRun, status: string) => reportOut(run, { version: versionOut({ status }), versions: [versionOut({ status })] });
 
 describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
@@ -30,7 +32,7 @@ test("with no report yet, there is nothing to sign", async () => {
   serve("launch", { report: null });
   renderAt(url);
   expect(await screen.findByText(M["report.sign.nothing"]!)).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: M["report.sign.submit"]! })).toBeNull();
+  expect(screen.queryByRole("button", { name: SUBMIT })).toBeNull();
 });
 
 test("if the final check has not passed, it says so and points to the check", async () => {
@@ -56,16 +58,16 @@ test("signing needs the confirm box ticked, asks for the code, and then shows th
     http.post("/v1/auth/mfa/verify", () => ((stepped = true), json({ status: "signed_in", recovery_codes: null }))),
   );
   const { user } = renderAt(url);
-  const button = await screen.findByRole("button", { name: M["report.sign.submit"]! });
+  const button = await screen.findByRole("button", { name: SUBMIT });
   expect(button).toBeDisabled();
-  await user.click(screen.getByRole("checkbox", { name: M["report.sign.confirm"]! }));
+  await user.click(screen.getByRole("checkbox", { name: CONFIRM }));
   await user.click(button);
   const dialog = await screen.findByRole("dialog", { name: "Please enter your code" });
   await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
   await user.click(within(dialog).getByRole("button", { name: "Carry on" }));
   expect(await screen.findByText(M["report.sign.signed"]!)).toBeInTheDocument();
   expect(bodies).toEqual([{ declaration_confirmed: true }]);
-  expect(screen.queryByRole("button", { name: M["report.sign.submit"]! })).toBeNull();
+  expect(screen.queryByRole("button", { name: SUBMIT })).toBeNull();
   expect(screen.getByRole("button", { name: M["report.sign.serve"]! })).toBeInTheDocument();
 });
 
@@ -75,8 +77,8 @@ test.each([["final_check_needed"], ["final_check_failed"], ["citation_problems"]
     serve("launch", { check: finalCheck() });
     server.use(http.post("/v1/cases/:caseId/report/sign", () => apiError(409, code)));
     const { user } = renderAt(url);
-    await user.click(await screen.findByRole("checkbox", { name: M["report.sign.confirm"]! }));
-    await user.click(screen.getByRole("button", { name: M["report.sign.submit"]! }));
+    await user.click(await screen.findByRole("checkbox", { name: CONFIRM }));
+    await user.click(screen.getByRole("button", { name: SUBMIT }));
     expect(await screen.findByText(M[`report.sign.error.${code}`]!)).toBeInTheDocument();
   },
 );
@@ -89,8 +91,8 @@ test("changed declaration wording must be read first; reading it lets you sign",
     http.post("/v1/cases/:caseId/report/declarations/acknowledge", () => ((acknowledged = true), json({ acknowledged: "1" }))),
   );
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("checkbox", { name: M["report.sign.confirm"]! }));
-  await user.click(screen.getByRole("button", { name: M["report.sign.submit"]! }));
+  await user.click(await screen.findByRole("checkbox", { name: CONFIRM }));
+  await user.click(screen.getByRole("button", { name: SUBMIT }));
   await user.click(await screen.findByRole("button", { name: M["report.sign.acknowledge"]! }));
   expect(await screen.findByText(M["report.sign.acknowledged"]!)).toBeInTheDocument();
   expect(acknowledged).toBe(true);
@@ -117,7 +119,7 @@ test("a served report is read-only: status Served, no sign or serve, its serving
   renderAt(url);
   expect(await screen.findByText(M["report.sign.served"]!)).toBeInTheDocument();
   expect(screen.getByText(M["report.sign.served_note"]!)).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: M["report.sign.submit"]! })).toBeNull();
+  expect(screen.queryByRole("button", { name: SUBMIT })).toBeNull();
   expect(screen.queryByRole("button", { name: M["report.sign.serve"]! })).toBeNull();
   expect(await screen.findByText(/November 2026 · Email/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.sign.invoice"]! })).toHaveAttribute("href", `/cases/${CASE_A}/invoice`);
@@ -143,7 +145,7 @@ test("a ready report says so in the title with how many checks passed, and shows
   expect(await screen.findByRole("heading", { level: 1, name: M["report.sign.title_ready"]! })).toBeInTheDocument();
   expect(screen.getByText("All 2 checks passed.")).toBeInTheDocument();
   const doc = screen.getByRole("region", { name: "Draft 1" });
-  expect(within(doc).getByText("31 pages")).toBeInTheDocument();
+  expect(within(doc).getByText(/^31 pages/)).toBeInTheDocument();
   expect(within(doc).getByText("Version dated 18 October 2026")).toBeInTheDocument();
   const signature = screen.getByRole("region", { name: M["report.sign.signature"]! });
   expect(await within(signature).findByText("Jane Morgan, Doctor · Body 123")).toBeInTheDocument();
@@ -152,7 +154,7 @@ test("a ready report says so in the title with how many checks passed, and shows
 test("the lock note says the version is locked once sent", async () => {
   serve("launch", { check: finalCheck() });
   renderAt(url);
-  expect(await screen.findByText(/^Once sent, this version is locked, along with the CV, declaration and signature in it/)).toBeInTheDocument();
+  expect(await screen.findByText(/Once sent, this version is locked, along with the CV, declaration and signature in it/)).toBeInTheDocument();
 });
 
 test("the signature line leaves out what the profile does not have", async () => {

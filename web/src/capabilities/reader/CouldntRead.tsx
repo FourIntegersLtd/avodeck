@@ -1,12 +1,11 @@
 // Screen 10, Pages we couldn't read. The expert types out each page the machine could not read, says
 // whether it matters, and moves on. The server stores the typing and decides what follows.
 import { useEffect, useId, useState } from "react";
-import { Link } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
-import { casePath, sourceLabel } from "./data";
+import { BackLink, Button, ChoicePills, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
+import { casePath, count, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
 import { forgetPage } from "./pageImage";
 import { uploadLaterRecords } from "./upload";
@@ -145,9 +144,7 @@ export function CouldntRead() {
 
   return (
     <div className="rd rd--narrow">
-      <Link className="rd-back" to={`/cases/${caseId}/read`}>
-        {w("unreadable.back")}
-      </Link>
+      <BackLink to={`/cases/${caseId}/read`}>{w("unreadable.back")}</BackLink>
       <div className="rd-head">
         <div>
           <h1>{w("unreadable.title")}</h1>
@@ -155,9 +152,9 @@ export function CouldntRead() {
         </div>
         <div className="rd-progress">
           <p>
-            <strong>{w("unreadable.done", { done: queue.done, total: queue.total })}</strong>
+            <strong>{w("unreadable.done", { done: count(queue.done, pack.locale), total: count(queue.total, pack.locale) })}</strong>
           </p>
-          <ProgressBar max={queue.total || 1} value={queue.done} label={w("unreadable.done", { done: queue.done, total: queue.total })} />
+          <ProgressBar max={queue.total || 1} value={queue.done} label={w("unreadable.done", { done: count(queue.done, pack.locale), total: count(queue.total, pack.locale) })} />
         </div>
       </div>
 
@@ -178,20 +175,18 @@ export function CouldntRead() {
           <section className="rd-side">
             <div className="av-card rd-form">
               <DictationBar caseId={caseId} context="page_transcription" label={w("unreadable.text_label")} value={text} onChange={setText} />
-              <fieldset className="rd-choice">
-                <legend>{w("unreadable.relevance")}</legend>
-                {(["relevant", "background"] as const).map((r) => (
-                  <label key={r} className={relevance === r ? "rd-radio rd-radio--on" : "rd-radio"}>
-                    <input type="radio" name="relevance" checked={relevance === r} onChange={() => setRelevance(r)} />
-                    <span>{w(`unreadable.${r}`)}</span>
-                  </label>
-                ))}
-              </fieldset>
+              <ChoicePills
+                label={w("unreadable.relevance")}
+                name="relevance"
+                value={relevance}
+                onChange={(v) => setRelevance(v as Relevance)}
+                options={(["relevant", "background"] as const).map((r) => ({ value: r, label: w(`unreadable.${r}`) }))}
+              />
             </div>
             {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
             {current.needs_clearer_copy && !notice && <p className="rd-note">{w("unreadable.clearer_asked")}</p>}
-            <p className="rd-label">{w("unreadable.choose")}</p>
-            <div className="rd-actions-row">
+            <p className="rd-label rd-label--small">{w("unreadable.choose")}</p>
+            <div className="rd-choices">
               <Button variant="secondary" disabled={busy} onClick={() => void nothingRelevant()}>
                 {w("unreadable.nothing")}
               </Button>
@@ -228,13 +223,15 @@ export function CouldntRead() {
                 </Button>
               </div>
             )}
-            <Button wide disabled={busy || !text.trim()} onClick={() => void saveAndNext()}>
+            <Button wide arrow disabled={busy || !text.trim()} onClick={() => void saveAndNext()}>
               {w("unreadable.save_next")}
             </Button>
           </section>
         </div>
       )}
 
+      <details className="rd-pages">
+        <summary>{w("unreadable.all_pages")}</summary>
       <nav aria-label={w("unreadable.queue")}>
         <ul className="rd-queue">
           {queue.pages.map((p) => (
@@ -248,6 +245,7 @@ export function CouldntRead() {
           ))}
         </ul>
       </nav>
+      </details>
     </div>
   );
 }

@@ -80,6 +80,7 @@ export async function stubPipeline(page: Page, pack: Pack) {
       return json(route, {
         label: askLabel(pack), subject: "Records needed - Mrs A", body: "Please supply:\n- Colonoscopy report from September", missing_item_ids: ["m1"],
         clearer_copy_page_ids: [], clearer_copy_page_nos: [], translation_page_ids: [], translation_page_nos: [], unreadable_document_ids: [], unreadable_document_names: [],
+        extension: { days: 14, due_date: "2026-11-30", after_date: "2026-11-16" },
       });
     }
     return json(route, { error: { code: "not_found", message: "" } }, 404);

@@ -18,7 +18,7 @@ export type Run = (typeof PACKS)[number];
 const json = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 const uuid = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const event = (n: number, over: Record<string, unknown> = {}) => ({
-  fact_id: n === 0 ? FACT_1 : uuid(n), kind: "consultation", page_no: n + 1, event_date: "2024-05-15", available_at: "2024-05-15", status: n % 2 ? "suggested" : "verified", question_ids: n % 3 ? [] : ["a1111111-1111-4111-8111-111111111111"], has_finding: n === 1, ...over,
+  fact_id: n === 0 ? FACT_1 : uuid(n), kind: "consultation", page_no: n + 1, event_date: `2024-0${(n % 6) + 3}-1${(n % 8) + 1}`, available_at: "2024-05-15", status: n % 2 ? "suggested" : "verified", summary: `Entry ${n + 1}`, source: "src_a", question_ids: n % 3 ? [] : ["a1111111-1111-4111-8111-111111111111"], has_finding: n === 1, ...over,
 });
 
 export interface Stub {
@@ -32,6 +32,7 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
   const lanes = [0, 1, 2].map((lane) => ({
     key: `lane_${lane}`,
     label: `Line ${lane + 1}`,
+    colour: ["#1E6B4E", "#4C6E91", "#7A6BA8"][lane],
     events: Array.from({ length: total }, (_, i) => i).filter((i) => i % 3 === lane).map((i) => event(i)),
   }));
   const theCase = {
@@ -58,14 +59,15 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     if (path === `${c}/questions`) return json(route, { questions: [{ id: "a1111111-1111-4111-8111-111111111111", number: 1, text_verbatim: "Q", confirmed_text: null, kind: "x", outside_expertise: false, para_ref: null, status: "confirmed", version: 1, source_word_ids: [], instruction_version_id: "b1111111-1111-4111-8111-111111111111" }], assumptions: [], locked: false, reading: false, reopened: false, rejected: 0, warnings: [], version_no: 1, instruction_version_id: "b1111111-1111-4111-8111-111111111111" });
     if (path === `${c}/timeline`) {
       sentAt = Date.now();
-      return json(route, { range: null, as_seen_on: null, as_seen_title: null, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
+      return json(route, { as_seen_on: null, as_seen_title: null, range: { first: "2024-03-11", last: "2024-08-18" }, sources: [{ key: "src_a", label: "Source A", colour: "#1E6B4E" }], counts: { checked: 3, please_check: 3, things_to_look: 1, not_linked: 4, total: 6 }, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
     }
     if (path === `${c}/consultations/${FACT_1}`) {
       return json(route, {
         title: String((run.pack.vocabulary as Record<string, unknown>).as_seen_title ?? "Seen on the day").replace(/\{[a-z_]+\}/g, "reader"),
         entry: { ...entry("consultation", 118, "2024-05-15"), fact_id: FACT_1, event_date: "2024-05-15" },
         visible: [entry("result", 117, "2024-05-14")],
-        question_numbers: [],
+        on: "2024-05-15",
+        question_numbers: [2, 3],
         later_count: 1,
         later: [entry("letter", 301, "2024-05-22")],
         unknown: [entry("referral", 150, null)],

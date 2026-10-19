@@ -24,11 +24,11 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("shows what goes in, ticked from the settings, and the pack that is ready", async () => {
     servePack(run);
     const { container } = renderAt(url);
-    expect(await screen.findByRole("heading", { level: 1, name: k("pack.title") })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: k("pack.title") })).toBeInTheDocument();
     expect(await screen.findByRole("checkbox", { name: k("pack.section.report") })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: k("pack.section.chronology") })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: fill(k("pack.section.joint_statement"), { document: term(run, "expert_meeting_document") }) })).not.toBeChecked();
-    expect(screen.getByText(fill(k("pack.ready"), { pages: 54 }))).toBeInTheDocument();
+    expect(screen.getByText(fill(k("pack.summary"), { pages: 54 }))).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
   });
@@ -38,7 +38,9 @@ test("saving what goes in sends the sections with the settings' version", async 
   const { sent, record } = servePack("launch");
   server.use(http.put("/v1/cases/:caseId/trial-pack/settings", async ({ request }) => (await record(request), etagged(settingsOut({ sections: ["report", "chronology", "written_answers"], version: 3 }), 3))));
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("checkbox", { name: k("pack.section.written_answers") }));
+  const box = await screen.findByRole("checkbox", { name: k("pack.section.written_answers") });
+  expect(screen.queryByRole("button", { name: k("pack.save") })).not.toBeInTheDocument();
+  await user.click(box);
   await user.click(screen.getByRole("button", { name: k("pack.save") }));
   await waitFor(() =>
     expect(sent.at(-1)).toMatchObject({
@@ -63,7 +65,7 @@ test("making the pack waits for the job, then shows the new pack", async () => {
   const { user } = renderAt(url);
   await user.click(await screen.findByRole("button", { name: k("pack.build") }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/trial-pack` }));
-  expect(await screen.findByText(fill(k("pack.ready"), { pages: 61 }), {}, { timeout: 4000 })).toBeInTheDocument();
+  expect(await screen.findByText(fill(k("pack.summary"), { pages: 61 }), {}, { timeout: 4000 })).toBeInTheDocument();
 });
 
 test("a pack made before the court bundle changed says it needs rebuilding", async () => {
@@ -81,7 +83,9 @@ test.each(["hearing_adjourned", "hearing_changed", "new_pages", "new_served_vers
 
 test("a copy for the witness box made before something changed says to make it again, and why", async () => {
   servePack("launch", { copies: [copyOut({ status: "downloaded", downloaded_at: "2027-06-03T10:00:00Z", stale: true, stale_reason: "hearing_adjourned" })] });
-  const { container } = renderAt(url);
+  const { container, user } = renderAt(url);
+  // The board keeps the witness-box copy behind one link.
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
   const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
   expect(await within(section).findByText(k("pack.offline.stale"))).toBeInTheDocument();
   expect(within(section).getByText(k("pack.stale_reason.hearing_adjourned"))).toBeInTheDocument();
@@ -90,7 +94,8 @@ test("a copy for the witness box made before something changed says to make it a
 
 test("a current copy shows no warning", async () => {
   servePack("launch", { copies: [copyOut()] });
-  renderAt(url);
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
   const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
   await within(section).findByText(fill(k("pack.offline.copy_line"), { device: "My tablet", date: "1 July 2099" }));
   expect(within(section).queryByText(k("pack.offline.stale"))).not.toBeInTheDocument();
@@ -131,19 +136,24 @@ test("checking a new note says which sentences come from what was served", async
   };
   server.use(http.post("/v1/cases/:caseId/trial-pack/check-new", async ({ request }) => (await record(request), json(reply))));
   const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.check.open") }));
   await user.type(await screen.findByLabelText(k("pack.check.label")), "The plan was recorded. Zz the patient moved abroad.");
   await user.click(screen.getByRole("button", { name: k("pack.check.run") }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/trial-pack/check-new`, body: { text: "The plan was recorded. Zz the patient moved abroad." } }));
   expect(await screen.findByText(fill(k("pack.check.from_report"), { para: 2 }))).toBeInTheDocument();
-  expect(screen.getByText(k("pack.check.not_served"))).toBeInTheDocument();
+  // A sentence found in nothing served is the amber "nothing new on the day" notice, quoting it.
+  const notice = await screen.findByRole("alert");
+  expect(within(notice).getByText(k("pack.check.heading"))).toBeInTheDocument();
+  expect(within(notice).getByText(/Zz the patient moved abroad\./)).toBeInTheDocument();
 });
 
 test("the pack says when it was built", async () => {
   servePack("launch");
   renderAt(url);
-  expect(await screen.findByText(fill(k("pack.built"), { date: "3 June 2027" }))).toBeInTheDocument();
+  const built = fill(k("pack.built"), { date: "3 June 2027" });
+  expect(await screen.findByText((_, el) => el?.tagName === "P" && (el.textContent ?? "").includes(built))).toBeInTheDocument();
   // The date is when the pack was made, not a hearing date.
-  expect(screen.getByText(/^Made on 3 June 2027\./)).toBeInTheDocument();
+  expect(screen.getByText((_, el) => el?.tagName === "P" && (el.textContent ?? "").includes("Made on 3 June 2027."))).toBeInTheDocument();
   expect(screen.queryByText(/Built for the trial/)).not.toBeInTheDocument();
 });
 
@@ -152,6 +162,7 @@ test("a reply is written under a question's sheet and saved with the question nu
   server.use(http.put("/v1/cases/:caseId/readiness-replies/:n", async ({ request }) => (await record(request), json({ question_no: 1, reply: "Zz my reply.", replied_at: "2027-06-04T10:00:00Z" }))));
   const { user } = renderAt(url);
   const preview = await screen.findByRole("region", { name: k("pack.preview.heading") });
+  await user.click(within(preview).getByRole("button", { name: k("pack.sheet.reply_write") }));
   await user.type(within(preview).getByLabelText(k("pack.sheet.my_reply")), "Zz my reply.");
   await user.click(within(preview).getByRole("button", { name: k("pack.sheet.reply_save") }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "PUT", path: `/v1/cases/${CASE}/readiness-replies/1`, body: { reply: "Zz my reply." } }));
@@ -161,10 +172,14 @@ test("a reply is written under a question's sheet and saved with the question nu
 test("a reply already written is shown in the sheet with its date", async () => {
   const base = previewOut();
   servePack("launch", { preview: { ...base, sheets: [{ ...base.sheets[0]!, reply: "Zz kept reply.", replied_at: "2027-06-01T08:00:00Z" }, ...base.sheets.slice(1)] } });
-  renderAt(url);
+  const { user } = renderAt(url);
   const preview = await screen.findByRole("region", { name: k("pack.preview.heading") });
-  expect(within(preview).getByLabelText(k("pack.sheet.my_reply"))).toHaveValue("Zz kept reply.");
+  // The reply reads in the sheet's table; it is edited behind "Change my reply".
+  expect(within(preview).getByText("Zz kept reply.")).toBeInTheDocument();
   expect(within(preview).getByText(fill(k("pack.sheet.replied"), { date: "1 June 2027" }))).toBeInTheDocument();
+  expect(within(preview).queryByLabelText(k("pack.sheet.my_reply"))).not.toBeInTheDocument();
+  await user.click(within(preview).getByRole("button", { name: k("pack.sheet.reply_edit") }));
+  expect(within(preview).getByLabelText(k("pack.sheet.my_reply"))).toHaveValue("Zz kept reply.");
 });
 
 test("a sentence found in nothing served can be told to the instructing party or left out, and the choice is kept", async () => {
@@ -182,6 +197,7 @@ test("a sentence found in nothing served can be told to the instructing party or
     http.put("/v1/cases/:caseId/trial-pack/notes/:id", async ({ request }) => (await record(request), json({ id: NOTE_ID, text: "Zz the patient moved abroad.", choice: "tell", decided_at: "2027-06-04T10:00:00Z" }))),
   );
   const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.check.open") }));
   await user.type(await screen.findByLabelText(k("pack.check.label")), "Zz the patient moved abroad.");
   await user.click(screen.getByRole("button", { name: k("pack.check.run") }));
   expect(await screen.findByText(k("pack.check.left_out"))).toBeInTheDocument();
@@ -210,6 +226,7 @@ test("a copy for the witness box is made, put on this device sealed, and can be 
     }),
   );
   const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
   const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
   await user.type(within(section).getByLabelText(k("pack.offline.device")), "My tablet");
   await user.click(within(section).getByRole("button", { name: k("pack.offline.create") }));
@@ -238,6 +255,7 @@ test("removing the copy asks the server and forgets it on this device", async ()
   const { sent, record } = servePack("launch", { copies: [copyOut({ status: "downloaded", downloaded_at: "2027-06-03T10:00:00Z" })] });
   server.use(http.delete("/v1/cases/:caseId/offline-packages/:packageId", async ({ request }) => (await record(request), new Response(null, { status: 204 }))));
   const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
   const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
   await user.click(await within(section).findByRole("button", { name: k("pack.offline.delete") }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "DELETE", path: `/v1/cases/${CASE}/offline-packages/${COPY}` }));
@@ -285,7 +303,7 @@ describe("the screen as designed", () => {
   test("with no readiness sheets there is no preview to step through", async () => {
     servePack("launch", { preview: { sections: [], total_pages: 0, sheets: [] } });
     renderAt(url);
-    await screen.findByRole("heading", { level: 1, name: k("pack.title") });
+    await screen.findByRole("heading", { level: 2, name: k("pack.title") });
     expect(screen.queryByRole("region", { name: k("pack.preview.heading") })).not.toBeInTheDocument();
   });
 
@@ -295,5 +313,42 @@ describe("the screen as designed", () => {
     const { user } = renderAt(url);
     await user.click(await screen.findByRole("button", { name: k("pack.print") }));
     await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "GET", path: `/v1/cases/${CASE}/trial-pack/latest/download` }));
+  });
+});
+
+test("it sits in the case frame: the case bar with the case name as the page's main heading", async () => {
+  servePack("launch");
+  renderAt(url);
+  expect(await screen.findByRole("heading", { level: 1, name: "Mrs A" })).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+});
+
+describe("the preview is a sheet as the court sees it", () => {
+  test("the sheet's head shows the trial number beside your page, and its table has the point and the reply", async () => {
+    servePack("launch");
+    renderAt(url);
+    const preview = await screen.findByRole("region", { name: k("pack.preview.heading") });
+    expect(within(preview).getByText(fill(k("pages.trial_ref"), { abbr: "TB", number: "2,407" }))).toBeInTheDocument();
+    expect(within(preview).getByRole("columnheader", { name: k("pack.sheet.col_against") })).toBeInTheDocument();
+    expect(within(preview).getByRole("columnheader", { name: k("pack.sheet.col_reply") })).toBeInTheDocument();
+  });
+});
+
+describe("the bar at the bottom", () => {
+  test("says how many pages it is, with Download PDF and the one main action, Print trial pack", async () => {
+    servePack("launch");
+    renderAt(url);
+    expect(await screen.findByText(fill(k("pack.summary"), { pages: 54 }))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: k("pack.download") }).className).toMatch(/secondary/);
+    expect(screen.getByRole("button", { name: k("pack.print") }).className).not.toMatch(/secondary/);
+    expect(screen.queryByRole("button", { name: k("pack.rebuild") })).not.toBeInTheDocument();
+  });
+
+  test("a pack that needs rebuilding offers to make it again inside the amber notice", async () => {
+    servePack("launch", { latest: { pack: packOut({ stale: true, stale_reason: "court_bundle_superseded" }), settings: settingsOut() } });
+    renderAt(url);
+    const notice = await screen.findByRole("alert");
+    expect(within(notice).getByText(k("pack.stale"))).toBeInTheDocument();
+    expect(within(notice).getByRole("button", { name: k("pack.rebuild") })).toBeInTheDocument();
   });
 });

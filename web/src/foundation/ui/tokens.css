@@ -22,6 +22,7 @@
   --amber-bright: #B45309;
   --amber-border: #E8C9A6;
   --focus: #B45309;
+  --track: #E9ECEA;
 
   --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
@@ -29,7 +30,7 @@
   --text-body: 17px;
   --text-large: 21px;
   --text-h2: 24px;
-  --text-h1: 32px;
+  --text-h1: 34px;
   --line-height: 1.5;
 
   --button-min-height: 52px;
@@ -44,5 +45,5 @@
   --space-7: 48px;
   --page-width: 1180px;
   --page-width-narrow: 920px;
-  --page-width-wide: 1120px;
+  --page-width-wide: 1360px;
 }

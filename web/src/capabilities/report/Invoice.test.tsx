@@ -86,7 +86,7 @@ test("making the invoice sends the expenses and shows it as a draft with its tot
   expect(within(card).getByText("20.25 hours at £180.00")).toBeInTheDocument();
   expect(within(card).getAllByText("£3,645.00").length).toBeGreaterThan(0);
   expect(within(card).getByText(M["report.invoice.status.draft"]!)).toBeInTheDocument();
-  expect(within(card).getByRole("link", { name: M["report.invoice.download"]! })).toHaveAttribute("href", expect.stringContaining(`/v1/cases/${CASE_A}/invoices/${INV}/pdf`));
+  expect(screen.getByRole("link", { name: M["report.invoice.download"]! })).toHaveAttribute("href", expect.stringContaining(`/v1/cases/${CASE_A}/invoices/${INV}/pdf`));
   expect(sent[0]).toMatchObject({ method: "POST", body: { expenses: "12.50" } });
 });
 

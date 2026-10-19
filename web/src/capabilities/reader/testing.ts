@@ -38,6 +38,8 @@ export interface ReaderOpts {
   words?: PageWord[];
   /** The case's last page number (the page list answers no page after it). */
   lastPage?: number;
+  /** What the progress endpoint says (default 3 of 10, 5 minutes left). */
+  progress?: { read: number; total: number; seconds_left: number };
 }
 
 /** Mounts every reader endpoint for a case; returns what it saw. */
@@ -73,7 +75,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       }
       return json({ pages: [{ page_no: pageNo, page_id: "x", source_type: null, read: false, in_period: true, unreadable: false, duplicate_of_page_no: null }], next_cursor: null });
     }),
-    http.get(`${c}/progress`, () => json({ read: 3, total: 10, seconds_left: 300 })),
+    http.get(`${c}/progress`, () => json(opts.progress ?? { read: 3, total: 10, seconds_left: 300 })),
     http.get(`${c}/pages/:n/image`, () => new HttpResponse(JPEG, { headers: { "Content-Type": "image/jpeg" } })),
     http.get(`${c}/pages/:n/facts`, () => {
       api.factRequests += 1;

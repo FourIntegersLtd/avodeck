@@ -9,7 +9,7 @@ const CASE = {
   label: "Mrs A",
   status: "settled",
   instructing_party_type: null,
-  allowed_actions: ["case.view_metadata", "case.export", "case.retention", "case.delete_now", "case.archive", "case.reopen", "case.view_certificate", "legal_hold.set", "legal_hold.release"],
+  allowed_actions: ["case.view_metadata", "case.export", "case.retention", "case.delete_now", "case.settle", "case.archive", "case.reopen", "case.view_certificate", "legal_hold.set", "legal_hold.release"],
 };
 const SUMMARY = {
   case_id: CASE_A,
@@ -18,7 +18,7 @@ const SUMMARY = {
   ever_served: true,
   retention_policy: null,
   retention_years: 6,
-  delete_after: null,
+  delete_after: "2033-07-14",
   held: false,
   holds: [],
   deletion_started: false,

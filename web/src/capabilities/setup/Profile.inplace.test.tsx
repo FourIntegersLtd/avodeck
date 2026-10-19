@@ -63,14 +63,19 @@ test("a role changed elsewhere says so instead of overwriting it", async () => {
   expect(await within(roles).findByText(/changed somewhere else/i)).toBeInTheDocument();
 });
 
-test("the declaration tile counts the points and Review wording jumps to the wording", async () => {
+test("the declaration tile counts the points and Review wording opens the wording", async () => {
   open(13);
-  const { container } = renderAt("/profile");
+  const { container, user } = renderAt("/profile");
   const declaration = await screen.findByRole("region", { name: "Declaration and signature" });
   expect(await within(declaration).findByText(/13-point declaration, ready to use/)).toBeInTheDocument();
-  const link = within(declaration).getByRole("link", { name: "Review wording" });
-  const target = link.getAttribute("href")!.slice(1);
-  expect(container.querySelector(`#${target}`)).not.toBeNull();
+  const pack = casePack("launch");
+  const first = pack.declarations[0]!.text!.split("\n\n")[0]!;
+  expect(within(declaration).queryByText(first)).toBeNull();
+  const review = within(declaration).getByRole("button", { name: "Review wording" });
+  expect(review).toHaveAttribute("aria-expanded", "false");
+  await user.click(review);
+  expect(review).toHaveAttribute("aria-expanded", "true");
+  expect(within(declaration).getByText(first)).toBeInTheDocument();
   expect(await axeViolations(container)).toEqual([]);
 });
 
@@ -80,5 +85,5 @@ test("without a count the tile still invites a review", async () => {
   const declaration = await screen.findByRole("region", { name: "Declaration and signature" });
   expect(await within(declaration).findByText(/ready to use/)).toBeInTheDocument();
   expect(within(declaration).queryByText(/-point declaration/)).toBeNull();
-  expect(within(declaration).getByRole("link", { name: "Review wording" })).toBeInTheDocument();
+  expect(within(declaration).getByRole("button", { name: "Review wording" })).toBeInTheDocument();
 });

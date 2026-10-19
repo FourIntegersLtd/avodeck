@@ -12,7 +12,7 @@ export function SupportLine() {
   return (
     <p className="av-muted" data-testid="support-line">
       {before}
-      <a href={`tel:${phone.replace(/[^+\d]/g, "")}`}>{phone}</a>
+      <a className="av-mono" href={`tel:${phone.replace(/[^+\d]/g, "")}`}>{phone}</a>
       {after}
     </p>
   );

@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, LinkButton, LoadError, Loading, Notice, PageRef } from "../../foundation/ui";
+import { BackLink, Button, LoadError, Loading, Notice, PageRef, TextLink } from "../../foundation/ui";
 import { can, casePath, partyWord } from "./data";
 import { formatNumber } from "./format";
 import { Thumbnail } from "./Thumbnail";
@@ -88,63 +88,65 @@ export function NotThisPatient() {
   }
 
   return (
-    <div className="av-page av-stack">
-      <BackLink to={`/cases/${caseId}/bundle`}>{w("back")}</BackLink>
-      <h1>{w("quarantine.title")}</h1>
-      <p className="pl-lead">{w("quarantine.intro", { name })}</p>
+    <div className="av-page pl-quarantine-page">
+      <header className="pl-ask-head">
+        <BackLink to={`/cases/${caseId}/bundle`}>{w("back")}</BackLink>
+        <h1>{w("quarantine.title")}</h1>
+        <p className="pl-lead">{w("quarantine.intro", { name })}</p>
+      </header>
       {!decides && <Notice><p>{w("quarantine.only_expert")}</p></Notice>}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {pages.length === 0 ? (
         <p>{w("quarantine.none")}</p>
       ) : (
-        <div className="pl-quarantine">
-          <ul className="pl-plain pl-list">
+        <>
+          <ul className="pl-plain pl-grid">
             {pages.map((q) => (
-              <li key={q.page_id} className="av-card pl-copy">
-                <div className="pl-copy__pages">
-                  <Thumbnail caseId={caseId} pageNo={q.page_no} alt={w("page_alt", { page: num(q.page_no) })} />
+              <li key={q.page_id} className="av-card pl-pagecard">
+                <div className="pl-excerpt">
+                  <Thumbnail caseId={caseId} pageNo={q.page_no} alt={w("page_alt", { page: num(q.page_no) })} className="pl-thumb pl-thumb--excerpt" />
                 </div>
-                <div className="pl-copy__body">
-                  <h2 className="pl-card__title"><PageRef page={q.page_no} /></h2>
-                  <p>{q.reason ? wordFor("quarantine.reason", q.reason, humanise(q.reason)) : ""}</p>
-                  {q.status === "suggested" && decides && (
-                    <div className="av-row">
-                      <Button variant="secondary" className="pl-choice" aria-pressed={choices[q.page_id] === "not"} onClick={() => choose(q, "not")}>
-                        {w("quarantine.not", { name })}
-                      </Button>
-                      <Button variant="secondary" className="pl-choice" aria-pressed={choices[q.page_id] === "is"} onClick={() => choose(q, "is")}>
-                        {w("quarantine.is", { name })}
-                      </Button>
-                    </div>
-                  )}
-                  {q.status === "confirmed" && (
-                    <div className="av-row">
-                      <span className="av-badge">{w("quarantine.set_aside")}</span>
-                      {decides && !notes[q.page_id] && (
-                        <Button variant="quiet" onClick={() => undo(q)}>{w("quarantine.undo")}</Button>
-                      )}
-                    </div>
-                  )}
-                  {q.status === "purged" && <p>{w("quarantine.purged")}</p>}
-                  {notes[q.page_id] && <p role="status">{notes[q.page_id]}</p>}
+                <div className="pl-pagecard__meta">
+                  <h2 className="pl-pagecard__page"><PageRef page={q.page_no} /></h2>
+                  {q.reason && <span className="pl-chip">{wordFor("quarantine.reason", q.reason, humanise(q.reason))}</span>}
                 </div>
+                {q.status === "suggested" && decides && (
+                  <div className="pl-choices">
+                    <Button variant="secondary" className="pl-choice pl-choice--not" aria-pressed={choices[q.page_id] === "not"} onClick={() => choose(q, "not")}>
+                      {w("quarantine.not", { name })}
+                    </Button>
+                    <Button variant="secondary" className="pl-choice pl-choice--is" aria-pressed={choices[q.page_id] === "is"} onClick={() => choose(q, "is")}>
+                      {w("quarantine.is", { name })}
+                    </Button>
+                  </div>
+                )}
+                {q.status === "confirmed" && (
+                  <div className="av-row">
+                    <span className="av-badge">{w("quarantine.set_aside")}</span>
+                    {decides && !notes[q.page_id] && (
+                      <Button variant="quiet" onClick={() => undo(q)}>{w("quarantine.undo")}</Button>
+                    )}
+                  </div>
+                )}
+                {q.status === "purged" && <p>{w("quarantine.purged")}</p>}
+                {notes[q.page_id] && <p role="status">{notes[q.page_id]}</p>}
               </li>
             ))}
           </ul>
-          <section className="av-card pl-section">
+          <section className="av-card pl-explain-card">
             <h2>{w("quarantine.explain")}</h2>
             <ul className="pl-plain pl-explain">
-              <li><p className="pl-strong">{w("quarantine.e_numbers")}</p><p>{w("quarantine.e_numbers_note")}</p></li>
-              <li><p className="pl-strong">{w("quarantine.e_unused")}</p><p>{w("quarantine.e_unused_note")}</p></li>
-              <li><p className="pl-strong">{party ? w("quarantine.e_told", { party }) : w("quarantine.e_told_anyone")}</p><p>{w("quarantine.e_told_note")}</p></li>
-              <li><p className="pl-strong">{w("quarantine.e_deleted")}</p><p>{wn("quarantine.e_deleted_note", pack.quarantine_purge_days, pack.locale)}</p></li>
+              <li><span className="pl-strong">{w("quarantine.e_numbers")}</span> <span>{w("quarantine.e_numbers_note")}</span></li>
+              <li><span className="pl-strong">{w("quarantine.e_unused")}</span> <span>{w("quarantine.e_unused_note")}</span></li>
+              <li><span className="pl-strong">{party ? w("quarantine.e_told", { party }) : w("quarantine.e_told_anyone")}</span> <span>{w("quarantine.e_told_note")}</span></li>
+              <li><span className="pl-strong">{w("quarantine.e_deleted")}</span> <span>{wn("quarantine.e_deleted_note", pack.quarantine_purge_days, pack.locale)}</span></li>
             </ul>
           </section>
-        </div>
+        </>
       )}
       {decides && pending.length > 0 && (
-        <div className="pl-actions">
-          <LinkButton variant="quiet" to={`/cases/${caseId}/bundle`}>{w("quarantine.later")}</LinkButton>
+        <div className="pl-actions pl-actions--split">
+          <TextLink to={`/cases/${caseId}/bundle`}>{w("quarantine.later")}</TextLink>
           <Button onClick={submit} disabled={busy || (notOurs.length === 0 && ours.length === 0)}>
             {onlySaving ? w("quarantine.save") : wn("quarantine.submit", notOurs.length, pack.locale)}
           </Button>

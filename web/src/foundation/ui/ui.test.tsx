@@ -46,7 +46,8 @@ test("the case header marks done steps with a tick and the current step for scre
     />,
   );
   const [prepare, read, write] = screen.getAllByRole("listitem");
-  expect(prepare).toHaveTextContent("✓Prepare");
+  expect(prepare).toHaveTextContent(/^Prepare$/);
+  expect(prepare!.querySelector("svg")).not.toBeNull();
   expect(read).toHaveAttribute("aria-current", "step");
   expect(read).toHaveTextContent("2Read");
   expect(write).not.toHaveAttribute("aria-current");
@@ -299,6 +300,22 @@ test("text links, back links and arrow buttons are links", () => {
   expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/a");
   expect(screen.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/today");
   expect(screen.getByRole("link", { name: "Prepare my bundle" }).querySelector("svg")).not.toBeNull();
+});
+
+test("a button can carry the arrow of a call to action that moves on", () => {
+  renderUi(
+    <Button arrow onClick={() => undefined}>
+      {"Confirm and continue"}
+    </Button>,
+  );
+  const button = screen.getByRole("button", { name: "Confirm and continue" });
+  expect(button.querySelector("svg")).not.toBeNull();
+  expect(button).toHaveClass("av-button--arrow");
+});
+
+test("radio buttons are drawn in the house green, not the browser's blue", () => {
+  const styles = readFileSync(join(__dirname, "styles.css"), "utf8");
+  expect(styles).toMatch(/input\[type="radio"\][^{]*\{[^}]*accent-color:\s*var\(--green\)/);
 });
 
 test("the dictation bar says the words are the expert's own and offers Dictate", () => {

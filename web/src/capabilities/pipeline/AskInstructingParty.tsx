@@ -19,10 +19,10 @@ import {
   LoadError,
   Loading,
   Notice,
-  TextField,
 } from "../../foundation/ui";
 import { casePath } from "./data";
 import { formatDate, formatNumber } from "./format";
+import { TickIcon } from "./icons";
 import { mail } from "./mail";
 import { w, wn } from "./words";
 
@@ -140,76 +140,70 @@ export function AskInstructingParty() {
   }
 
   return (
-    <div className="av-page av-stack">
-      <BackLink to={`/cases/${caseId}/bundle`}>{w("back")}</BackLink>
-      <h1>{w("ask.title", { label: draft.label })}</h1>
-      <p className="pl-lead">{w("ask.intro")}</p>
+    <div className="av-page pl-ask-page">
+      <header className="pl-ask-head">
+        <BackLink to={`/cases/${caseId}/bundle`}>{w("back")}</BackLink>
+        <h1>{w("ask.title", { label: draft.label })}</h1>
+        <p className="pl-lead">{w("ask.intro")}</p>
+      </header>
       <div className="pl-ask">
-        <section className="av-card pl-letter" aria-label={w("ask.body")}>
-          <TextField
-            name="to"
-            label={w("ask.to")}
-            hint={w("ask.to_hint")}
-            type="email"
-            autoComplete="email"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
+        <section className="pl-letter" aria-label={w("ask.body")}>
+          <dl className="pl-letter__head">
+            <dt>
+              <label htmlFor="pl-ask-to">{w("ask.to")}</label>
+            </dt>
+            <dd>
+              <input id="pl-ask-to" name="to" className="av-input" type="email" autoComplete="email" aria-describedby="pl-ask-to-hint" value={to} onChange={(e) => setTo(e.target.value)} />
+              <span id="pl-ask-to-hint" className="pl-note">{w("ask.to_hint")}</span>
+            </dd>
+            {me.person.full_name && (
+              <>
+                <dt>{w("ask.from")}</dt>
+                <dd>{w("ask.from_usual", { name: me.person.full_name })}</dd>
+              </>
+            )}
+            {editing ? (
+              <>
+                <dt>
+                  <label htmlFor="pl-ask-subject">{w("ask.subject")}</label>
+                </dt>
+                <dd>
+                  <input id="pl-ask-subject" name="subject" className="av-input" value={subject} onChange={(e) => setSubject(e.target.value)} />
+                </dd>
+              </>
+            ) : (
+              <>
+                <dt>{w("ask.subject")}</dt>
+                <dd className="pl-strong">{subject}</dd>
+              </>
+            )}
+          </dl>
           {editing ? (
-            <div className="av-stack">
-              <TextField
-                name="subject"
-                label={w("ask.subject")}
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
-              <div className="av-field">
-                <label className="av-field__label" htmlFor="pl-ask-body">
-                  {w("ask.body")}
-                </label>
-                <textarea
-                  id="pl-ask-body"
-                  className="av-textarea"
-                  rows={12}
-                  value={body}
-                  onChange={(e) => setBody(e.target.value)}
-                />
-              </div>
-              <div className="av-row">
-                <Button variant="secondary" onClick={() => setEditing(false)}>
-                  {w("ask.done_editing")}
-                </Button>
-              </div>
+            <div className="pl-letter__edit">
+              <label className="av-visually-hidden" htmlFor="pl-ask-body">
+                {w("ask.body")}
+              </label>
+              <textarea id="pl-ask-body" className="av-textarea" rows={14} value={body} onChange={(e) => setBody(e.target.value)} />
             </div>
           ) : (
-            <>
-              <dl className="pl-letter__head">
-                {me.person.full_name && (
-                  <div>
-                    <dt>{w("ask.from")}</dt>
-                    <dd>
-                      {w("ask.from_usual", { name: me.person.full_name })}
-                    </dd>
-                  </div>
-                )}
-                <div>
-                  <dt>{w("ask.subject")}</dt>
-                  <dd className="pl-strong">{subject}</dd>
-                </div>
-              </dl>
-              <p className="pl-letter__body">{body}</p>
-              <div className="av-row">
-                <Button variant="secondary" onClick={() => setEditing(true)}>
-                  {w("ask.edit")}
-                </Button>
-              </div>
-            </>
+            <p className="pl-letter__body">{body}</p>
           )}
-          <p className="pl-note">{w("ask.private")}</p>
+          <div className="pl-letter__foot">
+            <span className="pl-note">{w("ask.private")}</span>
+            {editing ? (
+              <Button variant="secondary" onClick={() => setEditing(false)}>
+                {w("ask.done_editing")}
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={() => setEditing(true)}>
+                {w("ask.edit")}
+              </Button>
+            )}
+          </div>
         </section>
-        <div className="av-stack">
+        <aside className="pl-aside">
           {draft.unreadable_document_names.length > 0 && (
-            <section className="av-card pl-section">
+            <section className="av-card pl-next">
               <h2>{w("ask.files")}</h2>
               <ul className="pl-steps-plain">
                 {draft.unreadable_document_names.map((name, i) => (
@@ -219,20 +213,19 @@ export function AskInstructingParty() {
               <p>{w("ask.files_note")}</p>
             </section>
           )}
-          <section className="av-card pl-section">
+          <section className="av-card pl-next">
             <h2>{w("ask.next")}</h2>
-            <ul className="pl-steps-plain">
-              <li>{w("ask.next_noted")}</li>
-              <li>
-                {w("ask.next_arrive", {
-                  last: formatNumber(last, pack.locale),
-                })}
-              </li>
-              <li>{w("ask.next_keep")}</li>
+            <ul className="pl-ticks">
+              {(["ask.next_noted", "ask.next_arrive", "ask.next_keep"] as const).map((key) => (
+                <li key={key}>
+                  <TickIcon />
+                  <span>{key === "ask.next_arrive" ? w(key, { last: formatNumber(last, pack.locale) }) : w(key)}</span>
+                </li>
+              ))}
             </ul>
           </section>
           {draft.extension && (
-            <section className="av-card pl-section">
+            <section className="pl-more">
               <h2>{w("ask.more_time")}</h2>
               <p>
                 {w("ask.more_time_due", {
@@ -254,7 +247,7 @@ export function AskInstructingParty() {
               />
             </section>
           )}
-        </div>
+        </aside>
       </div>
       {notice && (
         <Notice tone={notice.tone}>
@@ -265,7 +258,7 @@ export function AskInstructingParty() {
         <Button variant="secondary" onClick={copy}>
           {w("ask.copy")}
         </Button>
-        <Button onClick={send} disabled={busy}>
+        <Button arrow onClick={send} disabled={busy}>
           {w("ask.send")}
         </Button>
       </div>

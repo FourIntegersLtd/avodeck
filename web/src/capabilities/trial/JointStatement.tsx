@@ -1,22 +1,22 @@
 // S22 Joint statement (docs/design/screens/S22-JointStatement.dc.html): set up the meeting from the pack's
-// meeting types, read the agenda, answer each question with your position from the served report, and
-// prepare the statement for signing. A signed statement is read-only. The server decides every step.
-import { useEffect, useId, useState, type ReactNode } from "react";
+// meeting types, read the agenda, see each question with your position from the served report beside the
+// other expert's, and prepare the statement for signing. Each row's editor opens behind "Change". A signed
+// statement is read-only. The server decides every step.
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { BackLink, Button, Checkbox, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
-import { longDate, pdfBody, saveBlob, tag, vocab } from "./data";
-import { PdfPicker, TrialFrame, TrialHeader, type Frame } from "./frame";
+import { BackLink, Button, ChoicePills, Checkbox, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
+import { longDate, pdfBody, saveBlob, shortDate, tag, vocab } from "./data";
+import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { w } from "./words";
 
 type Meeting = Schemas["MeetingOut"];
 type Item = Schemas["ItemOut"];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
-const SCREEN = "expert_meeting";
 const READ_MS = 3000;
 const ERRORS = {
   change_note_needed: "trial.meeting.error.change_note_needed",
@@ -75,9 +75,10 @@ function SetUp({ frame, onDone }: { frame: Frame; onDone: () => void }) {
   if (types.error) return <div className="av-page"><LoadError onRetry={types.reload} /></div>;
   if (!types.data) return <div className="av-page"><Loading /></div>;
   return (
-    <div className="av-page av-stack">
-      <TrialHeader pack={frame.pack} screen={SCREEN} title={w("meeting.setup_title", { meeting: vocab(frame.pack, "expert_meeting") })} />
-      <p>{w("meeting.setup_lead")}</p>
+    <TrialPage width="s22">
+      <TrialTitle title={w("meeting.setup_title", { meeting: vocab(frame.pack, "expert_meeting") })}>
+        <p className="av-trial-lead">{w("meeting.setup_lead")}</p>
+      </TrialTitle>
       {message && <Notice tone={message.tone === "error" ? "error" : "info"}><p>{message.text}</p></Notice>}
       <div className="av-field">
         <label className="av-field__label" htmlFor={selectId}>{w("meeting.type")}</label>
@@ -90,7 +91,7 @@ function SetUp({ frame, onDone }: { frame: Frame; onDone: () => void }) {
       <div className="av-trial-actions">
         <Button onClick={submit} disabled={busy || !frame.can("case.edit_setup") || !chosen || !on}>{w("meeting.setup")}</Button>
       </div>
-    </div>
+    </TrialPage>
   );
 }
 
@@ -178,31 +179,43 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
 
   const replace = (next: Item) => setMeeting((m) => (m ? { ...m, items: m.items.map((i) => (i.id === next.id ? next : i)) } : m));
   const agenda = meeting.agenda_versions.at(-1);
+  const canEdit = !locked && frame.can("opinion.write");
 
   return (
-    <div className="av-page av-stack">
-      <TrialHeader pack={frame.pack} screen={SCREEN} title={w("meeting.heading", { label: meeting.label, names })} />
-      <BackLink to={screenPath("after_serving", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}`}>{w("meeting.back")}</BackLink>
-      <p>{w("meeting.lead", { date: longDate(meeting.discussion_on, locale) })}</p>
-      <p className="av-trial-muted" data-testid="meeting-line">
-        {[
-          names && w("meeting.with", { names }),
-          agenda && w("meeting.agenda_received", { version: agenda.version_no, date: longDate(agenda.created_at, locale) }),
-        ].filter(Boolean).join(" · ")}
-        {!locked && frame.can("case.edit_setup") && (
-          <>
-            {" · "}
-            <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => setAdding(true)} aria-expanded={adding}>
-              {w("meeting.add_expert")}
-            </button>
-          </>
-        )}
-      </p>
+    <TrialPage width="s22">
+      <div className="av-trial-head">
+        <div className="av-trial-head__text">
+          <BackLink to={screenPath("after_serving", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}`}>{w("meeting.back")}</BackLink>
+          <TrialTitle title={w("meeting.heading", { label: meeting.label, names })}>
+            <p className="av-trial-lead">{w("meeting.lead", { date: longDate(meeting.discussion_on, locale) })}</p>
+            <p className="av-trial-muted av-trial-line" data-testid="meeting-line">
+              {[
+                names && w("meeting.with", { names }),
+                agenda && w("meeting.agenda_received", { version: agenda.version_no, date: shortDate(agenda.created_at, locale) }),
+              ].filter(Boolean).join(" · ")}
+              {!locked && frame.can("case.edit_setup") && (
+                <>
+                  {" · "}
+                  <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => setAdding(true)} aria-expanded={adding}>
+                    {w("meeting.add_expert")}
+                  </button>
+                </>
+              )}
+              {!locked && meeting.items.length > 0 && frame.can("case.upload") && (
+                <>
+                  {" · "}
+                  <PdfPicker link label={w("meeting.agenda.new")} onFile={addAgenda} />
+                </>
+              )}
+            </p>
+          </TrialTitle>
+        </div>
+        <ul className="av-trial-chips">
+          {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={shortDate(meeting.sign_by, locale)} rule={meeting.sign_rule_ref} />}
+          {meeting.send_by && <Deadline label={w("meeting.send_by")} date={shortDate(meeting.send_by, locale)} rule={meeting.send_rule_ref} />}
+        </ul>
+      </div>
       {adding && <AddExpert path={path} onDone={() => { setAdding(false); people.reload(); }} onCancel={() => setAdding(false)} />}
-      <ul className="av-trial-chips">
-        {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={longDate(meeting.sign_by, locale)} rule={meeting.sign_rule_ref} />}
-        {meeting.send_by && <Deadline label={w("meeting.send_by")} date={longDate(meeting.send_by, locale)} rule={meeting.send_rule_ref} />}
-      </ul>
       {meeting.status === "signed" && <Notice tone="success"><p>{w("meeting.signed")}</p></Notice>}
       {meeting.status === "signed_external" && <Notice tone="success"><p>{w("meeting.signed_elsewhere")}</p></Notice>}
       {meeting.status === "out_for_signature" && !message && <Notice><p>{w("meeting.out_for_signature")}</p></Notice>}
@@ -214,12 +227,7 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
           {!locked && frame.can("case.upload") && <PdfPicker label={w("meeting.agenda.add")} onFile={addAgenda} disabled={reading} />}
         </div>
       ) : (
-        <>
-          {meeting.items.map((i) => (
-            <Question key={i.id} caseId={frame.caseId} item={i} locked={locked || !frame.can("opinion.write")} onSaved={replace} />
-          ))}
-          {!locked && frame.can("case.upload") && <PdfPicker label={w("meeting.agenda.new")} onFile={addAgenda} />}
-        </>
+        <Questions caseId={frame.caseId} items={meeting.items} names={names} canEdit={canEdit} onSaved={replace} />
       )}
 
       <Declarations
@@ -241,14 +249,14 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
           {frame.can("opinion.write") && <Button onClick={prepare} disabled={busy}>{w("meeting.prepare")}</Button>}
         </div>
       )}
-    </div>
+    </TrialPage>
   );
 }
 
 function Deadline({ label, date, rule }: { label: string; date: string; rule: string }) {
   return (
     <li className="av-trial-chip">
-      <span className="av-trial-strong">{label}</span> <span>{date}</span>
+      <span><span className="av-trial-strong">{label}</span> {date}</span>
       {rule && <span className="av-trial-chip__rule">{rule}</span>}
     </li>
   );
@@ -281,7 +289,7 @@ function Declarations({ lines, footer }: { lines: string[]; footer: ReactNode })
   const id = useId();
   if (lines.length === 0) return null;
   return (
-    <section aria-labelledby={id} className="av-card av-stack">
+    <section aria-labelledby={id} className="av-card av-stack av-trial-decl">
       <h2 id={id}>{w("meeting.declarations.heading")}</h2>
       <ul className="av-trial-list av-trial-list--plain">
         {lines.map((line) => <li key={line}><Checkbox label={line} checked disabled readOnly /></li>)}
@@ -291,7 +299,86 @@ function Declarations({ lines, footer }: { lines: string[]; footer: ReactNode })
   );
 }
 
-function Question({ caseId, item, locked, onSaved }: { caseId: string; item: Item; locked: boolean; onSaved: (item: Item) => void }) {
+/** The agenda as the board draws it: one row per question, your position beside the other expert's. */
+function Questions({ caseId, items, names, canEdit, onSaved }: { caseId: string; items: Item[]; names: string; canEdit: boolean; onSaved: (item: Item) => void }) {
+  const [open, setOpen] = useState<{ id: string; focus: "note" | null } | null>(null);
+  return (
+    <section className="av-card av-trial-grid-card">
+      <table className="av-trial-grid">
+        <thead>
+          <tr>
+            <th scope="col">{w("meeting.col.question")}</th>
+            <th scope="col">{w("meeting.col.yours")}</th>
+            <th scope="col">{names ? w("meeting.col.theirs", { names }) : w("meeting.item.theirs")}</th>
+            <th scope="col">{w("meeting.item.pages")}</th>
+            <th scope="col">{w("meeting.item.agreed")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.flatMap((item) => {
+            const editing = open?.id === item.id;
+            const rows = [<Row key={item.id} item={item} canEdit={canEdit} onChange={(focus) => setOpen({ id: item.id, focus })} />];
+            if (editing && canEdit) {
+              rows.push(
+                <tr key={`${item.id}-edit`} className="av-trial-editrow">
+                  <td colSpan={5}>
+                    <Editor caseId={caseId} item={item} focus={open.focus} onSaved={onSaved} onClose={() => setOpen(null)} />
+                  </td>
+                </tr>,
+              );
+            }
+            return rows;
+          })}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
+function Row({ item, canEdit, onChange }: { item: Item; canEdit: boolean; onChange: (focus: "note" | null) => void }) {
+  const paras = item.served_paragraphs.join(", ");
+  const changed = item.deviation === "changed";
+  const rowId = useId();
+  return (
+    <tr className={`av-trial-row${changed ? " av-trial-row--changed" : ""}`}>
+      <th scope="row" id={rowId}>{item.number}. {item.text}</th>
+      <td>
+        <div className="av-stack av-trial-cell">
+          <p>
+            <span>{item.own_position}</span>{" "}
+            {paras && <small className="av-trial-muted">{w("meeting.item.para", { paras })}</small>}
+          </p>
+          {changed && (
+            <p className="av-trial-differs">
+              <strong>{w("meeting.item.changed_lead")}</strong> {w("meeting.item.changed_rest")}
+            </p>
+          )}
+          {item.deviation === "unclear" && <p className="av-trial-differs">{w("meeting.item.unclear")}</p>}
+        </div>
+      </td>
+      <td>{item.other_positions}</td>
+      <td>
+        <div className="av-trial-pagelist">
+          {item.pages.map((n) => <PageRef key={n} page={n} />)}
+        </div>
+      </td>
+      <td>
+        <div className="av-trial-agreed">
+          {item.agreed !== null && <span className={`av-trial-tag${item.agreed ? " av-trial-tag--yes" : ""}`}>{item.agreed ? w("meeting.item.yes") : w("meeting.item.no")}</span>}
+          {item.agreed === false && item.reason && <small className="av-trial-muted">{w("meeting.item.reason_shown", { reason: item.reason })}</small>}
+          {canEdit && changed && (
+            <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => onChange("note")} aria-describedby={rowId}>{w("meeting.item.add_note")}</button>
+          )}
+          {canEdit && !changed && (
+            <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => onChange(null)} aria-describedby={rowId}>{w("meeting.item.change")}</button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+function Editor({ caseId, item, focus, onSaved, onClose }: { caseId: string; item: Item; focus: "note" | null; onSaved: (item: Item) => void; onClose: () => void }) {
   const id = useId();
   const [own, setOwn] = useState(item.own_position ?? "");
   const [other, setOther] = useState(item.other_positions ?? "");
@@ -299,7 +386,12 @@ function Question({ caseId, item, locked, onSaved }: { caseId: string; item: Ite
   const [reason, setReason] = useState(item.reason ?? "");
   const [note, setNote] = useState(item.change_note ?? "");
   const [state, setState] = useState<Message>(null);
+  const noteField = useRef<HTMLTextAreaElement>(null);
   const legend = `${w("meeting.item.question", { number: item.number })}: ${item.text}`;
+
+  useEffect(() => {
+    if (focus === "note") noteField.current?.focus();
+  }, [focus]);
 
   const save = async () => {
     setState(null);
@@ -324,71 +416,34 @@ function Question({ caseId, item, locked, onSaved }: { caseId: string; item: Ite
     }
   };
 
-  const paras = item.served_paragraphs.join(", ");
   return (
-    <fieldset className={`av-card av-stack av-trial-question${item.deviation === "changed" ? " av-trial-question--changed" : ""}`}>
+    <fieldset className="av-stack av-trial-editor">
       <legend className="av-trial-question__legend">{legend}</legend>
-      {paras && <p className="av-trial-muted">{w("meeting.item.in_report", { paras })}</p>}
-      {item.pages.length > 0 && (
-        <p className="av-trial-pages">
-          <span className="av-trial-muted">{w("meeting.item.pages")}</span>
-          {item.pages.map((n) => <PageRef key={n} page={n} />)}
-        </p>
-      )}
-      {item.deviation === "changed" && (
-        <Notice tone="warning">
-          <p>{w("meeting.item.changed")}</p>
-          {!locked && <a className="av-text-link" href={`#${id}-note`}>{w("meeting.item.add_note")}</a>}
-        </Notice>
-      )}
-      {item.deviation === "unclear" && <Notice tone="warning"><p>{w("meeting.item.unclear")}</p></Notice>}
-      {locked ? (
-        <dl className="av-trial-facts">
-          <dt>{w("meeting.item.yours")}</dt>
-          <dd className="av-trial-prose">{item.own_position}</dd>
-          <dt>{w("meeting.item.theirs")}</dt>
-          <dd className="av-trial-prose">{item.other_positions}</dd>
-          <dt>{w("meeting.item.agreed")}</dt>
-          <dd>{item.agreed === null ? "" : item.agreed ? w("meeting.item.yes") : w("meeting.item.no")}</dd>
-          {item.reason && (
-            <>
-              <dt>{w("meeting.item.reason")}</dt>
-              <dd className="av-trial-prose">{item.reason}</dd>
-            </>
-          )}
-        </dl>
-      ) : (
-        <>
-          <Area id={`${id}-own`} label={w("meeting.item.yours")} value={own} onChange={setOwn} />
-          <Area id={`${id}-other`} label={w("meeting.item.theirs")} value={other} onChange={setOther} />
-          <fieldset className="av-trial-choice">
-            <legend className="av-field__label">{w("meeting.item.agreed")}</legend>
-            <label className="av-trial-radio">
-              <input type="radio" name={`${id}-agreed`} checked={agreed === true} onChange={() => setAgreed(true)} />
-              <span>{w("meeting.item.yes")}</span>
-            </label>
-            <label className="av-trial-radio">
-              <input type="radio" name={`${id}-agreed`} checked={agreed === false} onChange={() => setAgreed(false)} />
-              <span>{w("meeting.item.no")}</span>
-            </label>
-          </fieldset>
-          {agreed === false && <Area id={`${id}-reason`} label={w("meeting.item.reason")} value={reason} onChange={setReason} short />}
-          {item.deviation === "changed" && <Area id={`${id}-note`} label={w("meeting.item.change_note")} value={note} onChange={setNote} short />}
-          {state && <Notice tone={state.tone}><p>{state.text}</p></Notice>}
-          <div className="av-trial-actions">
-            <Button variant="secondary" onClick={save}>{w("meeting.item.save")}</Button>
-          </div>
-        </>
-      )}
+      <Area id={`${id}-own`} label={w("meeting.item.yours")} value={own} onChange={setOwn} />
+      <Area id={`${id}-other`} label={w("meeting.item.theirs")} value={other} onChange={setOther} />
+      <ChoicePills
+        label={w("meeting.item.agreed")}
+        name={`${id}-agreed`}
+        value={agreed === null ? null : agreed ? "yes" : "no"}
+        onChange={(v) => setAgreed(v === "yes")}
+        options={[{ value: "yes", label: w("meeting.item.yes") }, { value: "no", label: w("meeting.item.no") }]}
+      />
+      {agreed === false && <Area id={`${id}-reason`} label={w("meeting.item.reason")} value={reason} onChange={setReason} short />}
+      {item.deviation === "changed" && <Area id={`${id}-note`} label={w("meeting.item.change_note")} value={note} onChange={setNote} short field={noteField} />}
+      {state && <Notice tone={state.tone}><p>{state.text}</p></Notice>}
+      <div className="av-trial-actions">
+        <Button variant="quiet" onClick={onClose}>{w("meeting.item.close")}</Button>
+        <Button variant="secondary" onClick={save}>{w("meeting.item.save")}</Button>
+      </div>
     </fieldset>
   );
 }
 
-function Area({ id, label, value, onChange, short }: { id: string; label: string; value: string; onChange: (v: string) => void; short?: boolean }) {
+function Area({ id, label, value, onChange, short, field }: { id: string; label: string; value: string; onChange: (v: string) => void; short?: boolean; field?: React.Ref<HTMLTextAreaElement> }) {
   return (
     <div className="av-field">
       <label className="av-field__label" htmlFor={id}>{label}</label>
-      <textarea id={id} className={`av-textarea${short ? " av-trial-short" : ""}`} value={value} onChange={(e) => onChange(e.target.value)} />
+      <textarea id={id} ref={field} className={`av-textarea${short ? " av-trial-short" : ""}`} value={value} onChange={(e) => onChange(e.target.value)} />
     </div>
   );
 }

@@ -8,8 +8,8 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Dialog, LoadError, Loading, Notice, Spinner, TextLink } from "../../foundation/ui";
-import { Balance, Choice, NoteView, partyWords, TextArea } from "./shared";
+import { Button, Callout, ChoicePills, Dialog, LoadError, Loading, Notice, TextLink } from "../../foundation/ui";
+import { Balance, NoteView, partyWords, TextArea } from "./shared";
 
 type Answer = { answer: "yes" | "no" | null; detail: string };
 
@@ -113,35 +113,48 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
     <div className="av-page av-page--narrow av-stack">
       <div className="av-stack av-setup-heading">
         {job && <span className="av-setup-eyebrow">{t("setup.conflicts.eyebrow")}</span>}
-        <h2>{t("setup.conflicts.title")}</h2>
-        <p className="av-muted">{t("setup.conflicts.intro")}</p>
+        <h1>{t("setup.conflicts.title")}</h1>
+        <p className="av-muted av-setup-lead">{t("setup.conflicts.intro", { count: state.questions.length + (state.coverage_question ? 1 : 0) })}</p>
       </div>
       {state.warnings.map((key) => (
-        <Notice key={key} tone="warning">
-          <p>{t(key)}</p>
-        </Notice>
+        <Callout
+          key={key}
+          title={t(key)}
+          icon={
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v6M12 16.5v.5" />
+            </svg>
+          }
+        />
       ))}
       {withdrawn && (
         <Notice tone="success">
           <p>{t("setup.withdraw.done")}</p>
         </Notice>
       )}
-      <section aria-labelledby="setup-conflict-questions" className="av-card av-stack av-setup-rows">
+      <section aria-labelledby="setup-conflict-questions" className="av-card av-stack av-setup-qs">
         <h3 id="setup-conflict-questions">{t("setup.conflicts.questions")}</h3>
         {state.questions.map((q) => {
           const a = answers[q.key] ?? { answer: null, detail: "" };
           return (
-            <Choice
-              key={q.key}
-              legend={q.text}
-              name={`conflict-${q.key}`}
-              value={a.answer}
-              onChange={(v) => setAnswers({ ...answers, [q.key]: { ...a, answer: v as "yes" | "no" } })}
-              options={[
-                { value: "yes", label: t("setup.yes") },
-                { value: "no", label: t("setup.no") },
-              ]}
-            >
+            <div key={q.key} className="av-setup-q av-stack">
+              <div className="av-setup-qrow">
+                <p className="av-setup-qrow__text" aria-hidden="true">
+                  {q.text}
+                </p>
+                <ChoicePills
+                  label={q.text}
+                  hideLabel
+                  name={`conflict-${q.key}`}
+                  value={a.answer}
+                  onChange={(v) => setAnswers({ ...answers, [q.key]: { ...a, answer: v as "yes" | "no" } })}
+                  options={[
+                    { value: "yes", label: t("setup.yes") },
+                    { value: "no", label: t("setup.no") },
+                  ]}
+                />
+              </div>
               {a.answer === "yes" && (
                 <TextArea
                   label={t("setup.conflicts.detail")}
@@ -151,7 +164,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
                   onChange={(e) => setAnswers({ ...answers, [q.key]: { ...a, detail: e.target.value } })}
                 />
               )}
-            </Choice>
+            </div>
           );
         })}
         {state.coverage_question && <CoverageRow question={state.coverage_question} status={state.coverage.status} />}
@@ -170,24 +183,35 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
       <Balance words={partyWords(pack)} />
       {note && <NoteView note={note} />}
       <div className="av-row av-row--spread av-setup-actions">
-        {!withdrawn && (
-          <Button variant="danger" onClick={() => setLeaving(true)}>
-            {t("setup.withdraw.open")}
-          </Button>
-        )}
-        {job && (
+        {job ? (
           <TextLink className="av-setup-preparing" to={`/cases/${caseId}/preparing`}>
-            <Spinner />
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v5l3 2" />
+            </svg>
             {job.eta_seconds != null ? t("setup.conflicts.preparing", { count: Math.max(1, Math.ceil(job.eta_seconds / 60)) }) : t("setup.conflicts.preparing_unknown")}
           </TextLink>
+        ) : (
+          <span />
         )}
         {!withdrawn && state.declared_at && (
           <Button variant="secondary" onClick={() => void declare(false)}>
             {t("setup.conflicts.declare_change")}
           </Button>
         )}
-        {!withdrawn && !state.declared_at && <Button onClick={() => void declare(true)}>{t("setup.conflicts.confirm")}</Button>}
+        {!withdrawn && !state.declared_at && (
+          <Button arrow onClick={() => void declare(true)}>
+            {t("setup.conflicts.confirm")}
+          </Button>
+        )}
       </div>
+      {!withdrawn && (
+        <div>
+          <Button variant="quiet" onClick={() => setLeaving(true)}>
+            {t("setup.withdraw.open")}
+          </Button>
+        </div>
+      )}
       {leaving && (
         <Dialog title={t("setup.withdraw.open")} onClose={() => setLeaving(false)}>
           <form
@@ -217,13 +241,22 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
 /** The specialty's role-coverage question, answered from the profile rather than asked again. */
 function CoverageRow({ question, status }: { question: string; status: Schemas["Coverage"]["status"] }) {
   const answer = status === "covered" ? "yes" : status === "partial" ? "partial" : status === "none" ? "no" : "unknown";
+  const pill = (key: string, selected: boolean) => (
+    <span key={key} className={`av-pill${selected ? " av-pill--selected" : ""}`}>
+      {t(`setup.conflicts.coverage.${key}`)}
+    </span>
+  );
   return (
-    <div role="group" aria-label={question} className="av-setup-row">
-      <span className="av-setup-row__question">
-        {question}
-        <span className="av-muted av-setup-row__source">{t("setup.conflicts.from_profile")}</span>
-      </span>
-      <span className="av-setup-answer">{t(`setup.conflicts.coverage.${answer}`)}</span>
+    <div role="group" aria-label={question} className="av-setup-q">
+      <div className="av-setup-qrow">
+        <p className="av-setup-qrow__text">
+          {question}
+          <span className="av-muted av-setup-row__source">{t("setup.conflicts.from_profile")}</span>
+        </p>
+        <span className="av-pill-group">
+          {answer === "yes" || answer === "no" ? [pill("yes", answer === "yes"), pill("no", answer === "no")] : pill(answer, true)}
+        </span>
+      </div>
     </div>
   );
 }

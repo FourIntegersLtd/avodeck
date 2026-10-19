@@ -14,9 +14,9 @@ export const setupRoutes: RouteObject[] = [
   { path: "cases/new", element: <NewCase /> },
 ];
 export const setupCaseRoutes: RouteObject[] = [
-  { path: "details", element: <CaseDetails /> },
-  { path: "conflicts", element: <Conflicts /> },
-  { path: "questions", element: <Questions /> },
+  { path: "details", element: <CaseDetails />, handle: { screen: "new_case" } },
+  { path: "conflicts", element: <Conflicts />, handle: { screen: "conflicts" } },
+  { path: "questions", element: <Questions />, handle: { screen: "questions" } },
 ];
 
 const profile = () => "/profile";

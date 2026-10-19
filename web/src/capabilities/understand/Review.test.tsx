@@ -89,7 +89,7 @@ test("the number of days a check allows can be changed", async () => {
   inCase("launch");
   const calls = serveThings();
   const { user } = things();
-  const checks = await screen.findByRole("region", { name: "Your checks" });
+  const checks = await screen.findByRole("region", { name: "The checks we run" });
   const days = await within(checks).findByLabelText("Days allowed: Abnormal result no action");
   expect(days).toHaveValue(14);
   await user.clear(days);

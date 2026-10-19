@@ -2,6 +2,7 @@
 // letter's words on show, a question can be flagged as outside the expert's field (with a note to draft),
 // everything can be confirmed at once, and a further letter reopens the questions with a warning.
 import { screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, test } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
@@ -22,10 +23,11 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("shows each question in the letter's own words with where it came from, and passes axe", async () => {
     asked(run);
     const { container } = renderAt(`/cases/${CASE_A}/questions`);
-    expect(await screen.findByRole("heading", { level: 2, name: "What you've been asked" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "What you've been asked" })).toBeInTheDocument();
     const card = await screen.findByRole("article", { name: "Question 1" });
     expect(within(card).getByText(question().text_verbatim)).toBeInTheDocument();
     expect(within(card).getByText("From paragraph 4.1")).toBeInTheDocument();
+    await userEvent.setup().click(within(card).getByRole("button", { name: "Edit wording" }));
     const kinds = within(card).getByLabelText("What kind of question is this?");
     const options = within(kinds).getAllByRole("option").map((o) => o.textContent);
     expect(options).toHaveLength(casePack(run).question_types.length);
@@ -63,7 +65,7 @@ test("changing the wording keeps the letter's own words on show", async () => {
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);
   const card = await screen.findByRole("article", { name: "Question 1" });
-  await user.click(within(card).getByRole("button", { name: "Change the wording" }));
+  await user.click(within(card).getByRole("button", { name: "Edit wording" }));
   const box = within(card).getByLabelText("Your wording");
   await user.clear(box);
   await user.type(box, "Were the February results acted on?");
@@ -90,16 +92,17 @@ test("a question outside your field can be flagged, and a note drafted about it"
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);
   const card = await screen.findByRole("article", { name: "Question 1" });
+  await user.click(within(card).getByRole("button", { name: "Edit wording" }));
   await user.click(within(card).getByLabelText("This may be outside my expertise"));
   await waitFor(() => expect(flagged).toEqual({ outside_expertise: true }));
-  await user.click(await within(card).findByRole("button", { name: "Draft a note about this" }));
+  await user.click(await within(card).findByRole("button", { name: `Draft a note to the ${casePack("launch").instructing_party_types[0]!.label}` }));
   await waitFor(() => expect(drafted).toEqual({ topic: "outside_expertise", question_ids: [question().id] }));
   const draft = await screen.findByRole("region", { name: "A note to send" });
   expect(within(draft).getByText("A question outside my expertise")).toBeInTheDocument();
 });
 
-test("confirm all confirms every question and assumption at once", async () => {
-  asked("launch");
+test("confirm questions locks the set once every question and assumption is confirmed", async () => {
+  asked("launch", { questions: [question({ status: "confirmed" })], assumptions: [assumption({ status: "confirmed" })] });
   let confirmed = 0;
   server.use(
     http.post("/v1/cases/:caseId/questions/confirm-all", () => {
@@ -129,4 +132,19 @@ test("while the letter is being read the screen says so", async () => {
   asked("launch", { reading: true, questions: [], assumptions: [] });
   renderAt(`/cases/${CASE_A}/questions`);
   expect(await screen.findByText("We're still reading the letter. This page will update by itself.")).toBeInTheDocument();
+});
+
+test("confirm questions stays off until every question and assumption is confirmed, and says how many are left", async () => {
+  asked("launch");
+  const { user } = renderAt(`/cases/${CASE_A}/questions`);
+  const button = await screen.findByRole("button", { name: "Confirm questions" });
+  expect(button).toBeDisabled();
+  expect(screen.getByText(/Confirm the last 2 to continue/)).toBeInTheDocument();
+  server.use(
+    http.patch("/v1/cases/:caseId/questions/:id", () => HttpResponse.json(question({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } })),
+    http.patch("/v1/cases/:caseId/assumptions/:id", () => HttpResponse.json(assumption({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } })),
+  );
+  await user.click(within(screen.getByRole("article", { name: "Question 1" })).getByRole("button", { name: "Confirm" }));
+  await user.click(within(screen.getByRole("article", { name: "Assumption 1" })).getByRole("button", { name: "Confirm" }));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Confirm questions" })).toBeEnabled());
 });

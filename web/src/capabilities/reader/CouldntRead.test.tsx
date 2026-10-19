@@ -22,9 +22,10 @@ describe.each([
 ])("Pages we couldn't read under the $name", ({ pack }: { pack: Schemas["CasePack"] }) => {
   test("shows the queue, the first page to do and the count", async () => {
     mockReader(pack, { queue: [queuePage(612, { done: true }), queuePage(640), queuePage(655)] });
-    const { container } = renderAt(PATH);
+    const { container, user } = renderAt(PATH);
     expect(await screen.findByRole("heading", { level: 1, name: "Pages we couldn't read" })).toBeVisible();
     expect(await screen.findByText("1 of 3 done")).toBeVisible();
+    await user.click(screen.getByText("All the pages"));
     expect(screen.getByRole("button", { name: /p\.612/ })).toBeVisible();
     expect(screen.getByRole("button", { name: /p\.640/ })).toHaveAttribute("aria-current", "true");
     await waitFor(() => expect(screen.getByRole("img", { name: "Page 640" })).toHaveAttribute("src", expect.stringMatching(/^blob:/)));

@@ -1,13 +1,14 @@
-// S18 Sign and send (docs/design/screens/S18-SignSend.dc.html): the declaration wording from the pack, one confirm
-// box, signing and marking as sent (both behind the code), downloads, and a served report shown locked and
-// read-only with where it went. The saved signature is added by the server; nothing is drawn here.
-import { useState } from "react";
+// S18 Sign and send (docs/design/screens/S18-SignSend.dc.html): the document and the saved signature, the
+// declaration wording from the pack, one confirm box, signing (behind the code), a note on who it goes to, then
+// marking it as sent (also behind the code); a served report is shown locked and read-only with where it went.
+import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
+import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, Checkbox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { downloadPath, longDate, today, useLocale } from "./shared";
 import { w } from "./words";
 
@@ -35,41 +36,69 @@ export function SignSend() {
   const version = report.data?.version ?? null;
   if (!version) {
     return (
-      <div className="av-page av-stack">
-        <h1>{w("sign.title")}</h1>
+      <div className="av-page rp-page rp-page--narrow">
+        <h1 className="rp-title">{w("sign.title")}</h1>
         <Notice><p>{w("sign.nothing")}</p></Notice>
-        <div className="av-report-footer"><LinkButton to={`/cases/${caseId}/report`}>{w("report.title")}</LinkButton></div>
+        <div className="rp-bar"><span /><LinkButton to={`/cases/${caseId}/report`}>{w("report.title")}</LinkButton></div>
       </div>
     );
   }
   return <SignView caseId={caseId} version={version} check={check.data} declarations={pack.data.declarations} onChanged={report.reload} />;
 }
 
+function Paper() {
+  return (
+    <svg className="rp-thumb" width="96" height="128" viewBox="0 0 96 128" aria-hidden="true" focusable="false">
+      <rect x="0.5" y="0.5" width="95" height="127" rx="2" className="rp-thumb__page" />
+      <rect x="10" y="14" width="34" height="5" className="rp-thumb__title" />
+      <path d="M10 27h76M10 35h76M10 43h60M10 51h76M10 59h40" className="rp-thumb__lines" />
+    </svg>
+  );
+}
+
 function SignView({ caseId, version, check, declarations, onChanged }: { caseId: string; version: Version; check: Schemas["FinalCheckOut"] | null; declarations: Schemas["CasePack"]["declarations"]; onChanged: () => void }) {
   const locale = useLocale();
+  const { pack } = useCaseFrame();
   const status = version.status;
   const ready = !!check && check.passed && check.current;
+  const appendices = (pack.report_appendices ?? []).length;
   const downloads = (
     <div className="av-row">
       <a className="av-button av-button--secondary" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("sign.download_word")}</a>
       <a className="av-button av-button--secondary" href={`${apiOrigin()}${downloadPath(caseId, version.id, "pdf")}`}>{w("sign.download_pdf")}</a>
     </div>
   );
-  return (
-    <div className="av-page av-stack">
-      <h1>{status === "draft" && ready ? w("sign.title_ready") : w("sign.title")}</h1>
-      {status === "draft" && ready && check && <p>{w("sign.checks_passed", { count: check.results.length })}</p>}
-      <section className="av-card av-stack" aria-labelledby="doc-title">
-        <h3 id="doc-title">{version.display_name}</h3>
-        <p>
-          {version.page_count ? <span>{w("sign.pages", { pages: version.page_count })}</span> : null}{" "}
+  const doc = (
+    <section className="rp-card rp-doc" aria-labelledby="doc-title">
+      <Paper />
+      <div>
+        <h3 id="doc-title" className="rp-doc__title">{version.display_name}</h3>
+        <p className="av-muted">
+          {version.page_count ? <span>{appendices > 0 ? w("sign.pages_appendices", { pages: version.page_count, count: appendices }) : w("sign.pages", { pages: version.page_count })}</span> : null}{" "}
           {status === "draft" && !ready && <span className="av-badge">{w("sign.not_ready")}</span>}
           {status === "locked" && <span className="av-badge">{w("sign.locked")}</span>}
           {status === "served" && <span className="av-badge av-badge--on">{w("sign.served")}</span>}
           {status === "withdrawn" && <span className="av-badge">{w("sign.withdrawn")}</span>}
         </p>
         <p className="av-muted">{w("sign.version_dated", { date: longDate(version.created_at, locale) })}</p>
-      </section>
+      </div>
+    </section>
+  );
+  return (
+    <div className="av-page rp-page rp-page--narrow">
+      <div className="rp-hero rp-hero--small">
+        {status === "draft" && ready && (
+          <IconTile tone="mint">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </IconTile>
+        )}
+        <div>
+          <h1 className="rp-title">{status === "draft" && ready ? w("sign.title_ready") : w("sign.title")}</h1>
+          {status === "draft" && ready && check && <p className="rp-lead">{w("sign.checks_passed", { count: check.results.length })}</p>}
+        </div>
+      </div>
       {status === "draft" && (
         <>
           {!ready && (
@@ -77,9 +106,10 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
               <LinkButton variant="secondary" to={`/cases/${caseId}/final-check`}>{w("sign.go_check")}</LinkButton>
             </Notice>
           )}
-          <Draft caseId={caseId} declarations={declarations} downloads={downloads} onDone={onChanged} />
+          <Draft caseId={caseId} doc={doc} declarations={declarations} downloads={downloads} onDone={onChanged} />
         </>
       )}
+      {status !== "draft" && <div className="rp-pair">{doc}</div>}
       {status === "locked" && (
         <>
           {downloads}
@@ -91,9 +121,9 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
           <Notice><p>{w("sign.served_note")}</p></Notice>
           {downloads}
           <Servings caseId={caseId} versionId={version.id} />
-          <div className="av-report-footer">
-            {status === "served" && <Withdraw caseId={caseId} versionId={version.id} onDone={onChanged} />}
-            <LinkButton to={`/cases/${caseId}/invoice`}>{w("sign.invoice")}</LinkButton>
+          <div className="rp-bar">
+            {status === "served" ? <Withdraw caseId={caseId} versionId={version.id} onDone={onChanged} /> : <span />}
+            <LinkButton arrow to={`/cases/${caseId}/invoice`}>{w("sign.invoice")}</LinkButton>
           </div>
         </>
       )}
@@ -108,14 +138,19 @@ function signatureLine(p: Schemas["Profile"]): string {
   return [named, registration].filter(Boolean).join(" · ");
 }
 
-function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; declarations: Schemas["CasePack"]["declarations"]; downloads: React.ReactNode; onDone: () => void }) {
+function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: string; doc: ReactNode; declarations: Schemas["CasePack"]["declarations"]; downloads: ReactNode; onDone: () => void }) {
   const stepUp = useStepUp();
+  const { item, pack } = useCaseFrame();
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; code: string } | null>(null);
   const [read, setRead] = useState(false);
   const [signed, setSigned] = useState(false);
+  const [noPicture, setNoPicture] = useState(false);
   const me = useResource(() => unwrap(api.GET("/v1/me/profile")), []);
+  const vocabulary = pack.vocabulary as Record<string, unknown>;
+  const declarationName = typeof vocabulary.declaration_name === "string" ? vocabulary.declaration_name : null;
+  const party = (pack.instructing_party_types as Array<{ key: string; label?: string }>).find((p) => p.key === item.instructing_party_type)?.label ?? null;
 
   const sign = async () => {
     setError(null);
@@ -144,28 +179,31 @@ function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; de
   };
 
   return (
-    <div className="av-stack">
-      <section className="av-card av-stack" aria-labelledby="sig-title">
-        <h3 id="sig-title">{w("sign.signature")}</h3>
-        {me.data?.full_name && (
-          <p>
-            <strong>{signatureLine(me.data)}</strong>
-          </p>
-        )}
-        <p>{w("sign.signature_body")}</p>
+    <>
+      <div className="rp-pair">
+        {doc}
+        <section className="rp-card rp-signature" aria-labelledby="sig-title">
+          <h3 id="sig-title" className="rp-card__title">{w("sign.signature")}</h3>
+          {noPicture ? (
+            <p className="av-muted">{w("sign.signature_body")}</p>
+          ) : (
+            <img className="rp-signature__image" src={`${apiOrigin()}/v1/me/signature/image`} alt={w("sign.signature_alt")} onError={() => setNoPicture(true)} />
+          )}
+          {me.data?.full_name && <p className="rp-signature__line">{signatureLine(me.data)}</p>}
+        </section>
+      </div>
+      <section className="rp-card" aria-labelledby="decl-title">
+        <h2 id="decl-title" className="rp-card__title">{declarationName ? declarationName.charAt(0).toUpperCase() + declarationName.slice(1) : w("sign.declaration")}</h2>
+        <div className="rp-declaration">
+          {declarations.map((d) =>
+            (d.text ?? "").split("\n\n").map((part) => (
+              <p key={`${d.key}-${part}`} className="av-report-declaration">{part}</p>
+            )),
+          )}
+        </div>
+        <Checkbox label={declarationName ? w("sign.confirm", { declaration: declarationName.toLowerCase() }) : w("sign.confirm_plain")} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
       </section>
-      <section className="av-card av-stack" aria-labelledby="decl-title">
-        <h3 id="decl-title">{w("sign.declaration")}</h3>
-        {declarations.map((d) => (
-          <div key={d.key} className="av-stack">
-            {(d.text ?? "").split("\n\n").map((part) => (
-              <p key={part} className="av-report-declaration">{part}</p>
-            ))}
-          </div>
-        ))}
-        <Checkbox label={w("sign.confirm")} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
-      </section>
-      <p className="av-muted">{w("sign.lock_note")}</p>
+      <p className="rp-note">{party ? w("sign.note", { party }) : w("sign.note_plain")}</p>
       {error && (
         <Notice tone="error">
           <p>{error.message}</p>
@@ -174,11 +212,11 @@ function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; de
       )}
       {read && <Notice tone="success"><p>{w("sign.acknowledged")}</p></Notice>}
       {signed && <Notice tone="success"><p>{w("sign.signed")}</p></Notice>}
-      {downloads}
-      <div className="av-report-footer">
-        <Button disabled={!confirmed || busy} onClick={() => void sign()}>{busy ? w("sign.signing") : w("sign.submit")}</Button>
+      <div className="rp-bar">
+        {downloads}
+        <Button arrow disabled={!confirmed || busy} onClick={() => void sign()}>{busy ? w("sign.signing") : party ? w("sign.submit", { party }) : w("sign.submit_plain")}</Button>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -199,7 +237,7 @@ function Serve({ caseId, versionId, onDone }: { caseId: string; versionId: strin
     }
   };
   return (
-    <section className="av-card av-stack" aria-labelledby="serve-title">
+    <section className="rp-card av-stack" aria-labelledby="serve-title">
       <h3 id="serve-title">{w("sign.serve")}</h3>
       <Notice tone="success"><p>{w("sign.signed")}</p></Notice>
       <p>{w("sign.serve_intro")}</p>
@@ -213,8 +251,9 @@ function Serve({ caseId, versionId, onDone }: { caseId: string; versionId: strin
           ))}
         </select>
       </div>
-      <div className="av-report-footer">
-        <Button onClick={() => void serve()} disabled={!servedOn}>{w("sign.serve")}</Button>
+      <div className="rp-bar">
+        <span />
+        <Button arrow onClick={() => void serve()} disabled={!servedOn}>{w("sign.serve")}</Button>
       </div>
     </section>
   );
@@ -225,7 +264,7 @@ function Servings({ caseId, versionId }: { caseId: string; versionId: string }) 
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/versions/{version_id}/servings", { params: { path: { case_id: caseId, version_id: versionId } } })), [caseId, versionId]);
   if (!found.data || found.data.servings.length === 0) return null;
   return (
-    <section className="av-card av-stack" aria-labelledby="servings-title">
+    <section className="rp-card av-stack" aria-labelledby="servings-title">
       <h3 id="servings-title">{w("sign.servings")}</h3>
       <ul className="av-report-list">
         {found.data.servings.map((s) => (

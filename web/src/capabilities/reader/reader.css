@@ -1,13 +1,20 @@
 /* Slice B screens (09, 10). Design tokens come from the foundation; no inline styles except box positions. */
-.rd { display: flex; flex-direction: column; gap: var(--space-5); }
-.rd-banner { background: var(--mint, #E6F2EC); border: 1px solid #C9E2D4; border-radius: var(--radius); padding: var(--space-3) var(--space-4); }
-.rd-banner p { margin: 0; }
+.rd { --rd-gutter: 40px; display: flex; flex-direction: column; gap: var(--space-5); padding: 0 0 0; }
+.rd > :not(.rd-banner):not(.rd-foot) { margin-inline: var(--rd-gutter); }
+.rd--narrow { max-width: calc(1160px + 2 * var(--rd-gutter)); margin-inline: auto; width: 100%; padding-top: var(--space-5); box-sizing: border-box; }
+@media (max-width: 700px) { .rd { --rd-gutter: 16px; } }
+.rd-banner { background: var(--mint, #E6F2EC); border-bottom: 1px solid #C9E2D4; padding: var(--space-3) var(--rd-gutter); }
+.rd-banner__row { display: flex; align-items: center; gap: var(--space-4); }
+.rd-banner__row p { margin: 0; flex: 1; }
+.rd-banner__eye { color: var(--green); flex: none; }
+.rd-banner .rd-why { color: var(--green-dark); white-space: nowrap; font-weight: 700; margin-left: auto; }
 .rd-work { display: flex; flex-wrap: wrap; gap: var(--space-5); align-items: flex-start; }
 .rd-pane { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
-.rd-side { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.rd-side { flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .rd-side h2 { margin: 0; }
 .rd-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
-.rd-source { margin: 0; font-size: 18px; }
+.rd-source { margin: 0; font-size: 18px; flex: 1 1 auto; }
+.rd-side__head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); }
 .rd-ref { font-family: var(--font-mono); color: var(--green); }
 .rd-zoom { display: flex; align-items: center; gap: var(--space-3); }
 .rd-zoom .av-button { min-width: 52px; }
@@ -31,7 +38,7 @@
 .rd-note { margin: 0; color: var(--ink-soft); }
 .rd-keys { color: var(--ink-soft); }
 .rd-keys p { margin: 0 0 var(--space-2); }
-.rd-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); padding: var(--space-4) 0; border-top: 1px solid var(--line); }
+.rd-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-5); padding: var(--space-4) var(--rd-gutter); border-top: 1px solid var(--line); background: var(--surface); }
 .rd-progress { flex: 1 1 320px; display: flex; flex-direction: column; gap: var(--space-2); }
 .rd-progress p { margin: 0; }
 .rd-progress progress { width: 100%; height: 12px; accent-color: var(--leaf, #2F9E6E); }
@@ -69,3 +76,21 @@
 .rd-actions-row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
 .rd-actions-row label:has(+ input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
 .rd-copy { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; }
+
+/* Suggestion card, as the canvas draws it: a small label, the details as rows, a quiet "Change a detail". */
+.rd-state { margin: 0; font-size: var(--text-small); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.rd-tick { margin: 0; display: flex; align-items: center; gap: var(--space-3); font-weight: 700; color: var(--green-dark); }
+.rd-rows { margin: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.rd-rows > div { display: grid; grid-template-columns: 7.5em 1fr; gap: var(--space-3); }
+.rd-rows dt { color: var(--ink-soft); }
+.rd-rows dd { margin: 0; }
+.rd-cuts { margin: 0; display: flex; flex-direction: column; padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius); }
+.rd-cuts span { color: var(--ink-soft); }
+.rd-why-not summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--green-dark); }
+.rd-label--small { font-size: var(--text-small); color: var(--ink-soft); margin: 0; }
+.rd-pages summary { cursor: pointer; min-height: 52px; display: flex; align-items: center; font-weight: 700; color: var(--green-dark); }
+.rd-choices { display: flex; flex-direction: column; gap: var(--space-3); }
+.rd-choices .av-button { width: 100%; justify-content: flex-start; color: var(--ink); border-color: var(--line); }
+.rd-card .av-button--quiet { align-self: flex-start; padding-left: 0; }
+.rd-side__head h2 { font-size: 22px; }
+.rd-head .rd-progress { flex: 0 1 280px; }

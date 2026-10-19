@@ -39,7 +39,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("the case details page shows who instructed you in the pack's words, and passes axe", async () => {
     details(run, { suggestions: [{ field: "party_role", value: "other_side" }] });
     const { container } = renderAt(`/cases/${CASE_A}/details`);
-    expect(await screen.findByRole("heading", { level: 2, name: "Set up the case" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Set up the case" })).toBeInTheDocument();
     const found = await screen.findByRole("region", { name: "Found in the letter" });
     const words = casePack(run).party_roles.find((r) => r.key === "other_side")!.label!;
     expect(await within(found).findByText(new RegExp(words, "i"))).toBeInTheDocument();
