@@ -65,6 +65,92 @@
         "title": "AdjustIn",
         "type": "object"
       },
+      "AgendaQueued": {
+        "properties": {
+          "agenda_version_id": {
+            "format": "uuid",
+            "title": "Agenda Version Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "agenda_version_id"
+        ],
+        "title": "AgendaQueued",
+        "type": "object"
+      },
+      "AgendaVersionOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "item_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Count"
+          },
+          "read_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_no",
+          "read_at",
+          "item_count",
+          "created_at"
+        ],
+        "title": "AgendaVersionOut",
+        "type": "object"
+      },
+      "AgendaVersionsOut": {
+        "properties": {
+          "versions": {
+            "items": {
+              "$ref": "#/components/schemas/AgendaVersionOut"
+            },
+            "title": "Versions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "versions"
+        ],
+        "title": "AgendaVersionsOut",
+        "type": "object"
+      },
       "Answer": {
         "additionalProperties": false,
         "properties": {
@@ -100,6 +186,25 @@
           "answer"
         ],
         "title": "Answer",
+        "type": "object"
+      },
+      "AnswerSource": {
+        "properties": {
+          "kind": {
+            "const": "written_answer",
+            "default": "written_answer",
+            "title": "Kind",
+            "type": "string"
+          },
+          "question_no": {
+            "title": "Question No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "question_no"
+        ],
+        "title": "AnswerSource",
         "type": "object"
       },
       "AnswersIn": {
@@ -778,6 +883,108 @@
           "profile"
         ],
         "title": "BillingProfileOut",
+        "type": "object"
+      },
+      "BuildQueued": {
+        "properties": {
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "title": "BuildQueued",
+        "type": "object"
+      },
+      "BundleOut": {
+        "properties": {
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Count"
+          },
+          "received_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received On"
+          },
+          "status": {
+            "enum": [
+              "received",
+              "matching",
+              "matched",
+              "superseded"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "hearing_id",
+          "received_on",
+          "page_count",
+          "version"
+        ],
+        "title": "BundleOut",
+        "type": "object"
+      },
+      "BundleQueued": {
+        "properties": {
+          "court_bundle_id": {
+            "format": "uuid",
+            "title": "Court Bundle Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "court_bundle_id"
+        ],
+        "title": "BundleQueued",
         "type": "object"
       },
       "BundleSummary": {
@@ -2836,6 +3043,37 @@
         "title": "Comments",
         "type": "object"
       },
+      "ConcordanceOut": {
+        "properties": {
+          "bundle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BundleOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "counts": {
+            "$ref": "#/components/schemas/Counts"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Rows",
+            "type": "array"
+          }
+        },
+        "required": [
+          "bundle",
+          "rows",
+          "counts"
+        ],
+        "title": "ConcordanceOut",
+        "type": "object"
+      },
       "ConfirmationSent": {
         "properties": {
           "status": {
@@ -3091,6 +3329,27 @@
           "note"
         ],
         "title": "Consultation",
+        "type": "object"
+      },
+      "Counts": {
+        "properties": {
+          "matched": {
+            "default": 0,
+            "title": "Matched",
+            "type": "integer"
+          },
+          "missing": {
+            "default": 0,
+            "title": "Missing",
+            "type": "integer"
+          },
+          "to_confirm": {
+            "default": 0,
+            "title": "To Confirm",
+            "type": "integer"
+          }
+        },
+        "title": "Counts",
         "type": "object"
       },
       "Coverage": {
@@ -3903,6 +4162,46 @@
         "title": "Document",
         "type": "object"
       },
+      "Download": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "ciphertext": {
+            "title": "Ciphertext",
+            "type": "string"
+          },
+          "format_version": {
+            "title": "Format Version",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "iv": {
+            "title": "Iv",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "format_version",
+          "key",
+          "iv",
+          "ciphertext"
+        ],
+        "title": "Download",
+        "type": "object"
+      },
       "DuplicateCheck": {
         "properties": {
           "matches": {
@@ -4215,6 +4514,23 @@
           "status"
         ],
         "title": "Entry",
+        "type": "object"
+      },
+      "EsignOutcome": {
+        "properties": {
+          "status": {
+            "enum": [
+              "signed",
+              "declined"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "EsignOutcome",
         "type": "object"
       },
       "EstimateIn": {
@@ -5907,6 +6223,216 @@
         "title": "InvoicesOut",
         "type": "object"
       },
+      "ItemChange": {
+        "additionalProperties": false,
+        "properties": {
+          "agreed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed"
+          },
+          "change_note": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Note"
+          },
+          "other_positions": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Positions"
+          },
+          "own_position": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Own Position"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "ItemChange",
+        "type": "object"
+      },
+      "ItemOut": {
+        "properties": {
+          "agreed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed"
+          },
+          "change_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Change Note"
+          },
+          "changed_from_previous": {
+            "anyOf": [
+              {
+                "enum": [
+                  "same",
+                  "changed",
+                  "new"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed From Previous"
+          },
+          "deviation": {
+            "anyOf": [
+              {
+                "enum": [
+                  "consistent",
+                  "changed",
+                  "unclear"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviation"
+          },
+          "deviation_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviation Reason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "other_positions": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Other Positions"
+          },
+          "own_position": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Own Position"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "served_paragraphs": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Served Paragraphs",
+            "type": "array"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "text",
+          "own_position",
+          "other_positions",
+          "agreed",
+          "reason",
+          "change_note",
+          "deviation",
+          "deviation_reason",
+          "served_paragraphs",
+          "changed_from_previous",
+          "version"
+        ],
+        "title": "ItemOut",
+        "type": "object"
+      },
       "Job": {
         "properties": {
           "case_id": {
@@ -6252,6 +6778,29 @@
         "title": "Lane",
         "type": "object"
       },
+      "LatestOut": {
+        "properties": {
+          "pack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "settings": {
+            "$ref": "#/components/schemas/TrialPackSettingsOut"
+          }
+        },
+        "required": [
+          "settings",
+          "pack"
+        ],
+        "title": "LatestOut",
+        "type": "object"
+      },
       "LinkDecision": {
         "properties": {
           "status": {
@@ -6580,6 +7129,407 @@
         "title": "Me",
         "type": "object"
       },
+      "MeetingIn": {
+        "additionalProperties": false,
+        "properties": {
+          "discussion_on": {
+            "format": "date",
+            "title": "Discussion On",
+            "type": "string"
+          },
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/ParticipantIn"
+            },
+            "maxItems": 20,
+            "title": "Participants",
+            "type": "array"
+          },
+          "type": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "discussion_on"
+        ],
+        "title": "MeetingIn",
+        "type": "object"
+      },
+      "MeetingOut": {
+        "properties": {
+          "agenda_versions": {
+            "items": {
+              "$ref": "#/components/schemas/AgendaVersionOut"
+            },
+            "title": "Agenda Versions",
+            "type": "array"
+          },
+          "certificate_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Sha256"
+          },
+          "declarations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Declarations",
+            "type": "array"
+          },
+          "discussion_on": {
+            "format": "date",
+            "title": "Discussion On",
+            "type": "string"
+          },
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ItemOut"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "prepared_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared Pages"
+          },
+          "prepared_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared Sha256"
+          },
+          "send_by": {
+            "format": "date",
+            "title": "Send By",
+            "type": "string"
+          },
+          "send_rule_ref": {
+            "title": "Send Rule Ref",
+            "type": "string"
+          },
+          "sign_by": {
+            "format": "date",
+            "title": "Sign By",
+            "type": "string"
+          },
+          "sign_rule_ref": {
+            "title": "Sign Rule Ref",
+            "type": "string"
+          },
+          "signed_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed Sha256"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "out_for_signature",
+              "signed",
+              "signed_external"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "label",
+          "status",
+          "hearing_id",
+          "discussion_on",
+          "sign_by",
+          "sign_rule_ref",
+          "send_by",
+          "send_rule_ref",
+          "declarations",
+          "prepared_sha256",
+          "prepared_pages",
+          "certificate_sha256",
+          "signed_sha256",
+          "version",
+          "items",
+          "agenda_versions"
+        ],
+        "title": "MeetingOut",
+        "type": "object"
+      },
+      "MeetingSummary": {
+        "properties": {
+          "certificate_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certificate Sha256"
+          },
+          "declarations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Declarations",
+            "type": "array"
+          },
+          "discussion_on": {
+            "format": "date",
+            "title": "Discussion On",
+            "type": "string"
+          },
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "prepared_pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared Pages"
+          },
+          "prepared_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prepared Sha256"
+          },
+          "send_by": {
+            "format": "date",
+            "title": "Send By",
+            "type": "string"
+          },
+          "send_rule_ref": {
+            "title": "Send Rule Ref",
+            "type": "string"
+          },
+          "sign_by": {
+            "format": "date",
+            "title": "Sign By",
+            "type": "string"
+          },
+          "sign_rule_ref": {
+            "title": "Sign Rule Ref",
+            "type": "string"
+          },
+          "signed_sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed Sha256"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "out_for_signature",
+              "signed",
+              "signed_external"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "label",
+          "status",
+          "hearing_id",
+          "discussion_on",
+          "sign_by",
+          "sign_rule_ref",
+          "send_by",
+          "send_rule_ref",
+          "declarations",
+          "prepared_sha256",
+          "prepared_pages",
+          "certificate_sha256",
+          "signed_sha256",
+          "version"
+        ],
+        "title": "MeetingSummary",
+        "type": "object"
+      },
+      "MeetingTypeOut": {
+        "properties": {
+          "declarations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Declarations",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "declarations",
+          "notes"
+        ],
+        "title": "MeetingTypeOut",
+        "type": "object"
+      },
+      "MeetingTypesOut": {
+        "properties": {
+          "types": {
+            "items": {
+              "$ref": "#/components/schemas/MeetingTypeOut"
+            },
+            "title": "Types",
+            "type": "array"
+          }
+        },
+        "required": [
+          "types"
+        ],
+        "title": "MeetingTypesOut",
+        "type": "object"
+      },
+      "MeetingsOut": {
+        "properties": {
+          "meetings": {
+            "items": {
+              "$ref": "#/components/schemas/MeetingSummary"
+            },
+            "title": "Meetings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "meetings"
+        ],
+        "title": "MeetingsOut",
+        "type": "object"
+      },
       "Member": {
         "properties": {
           "added_at": {
@@ -6869,6 +7819,68 @@
           "missing_items"
         ],
         "title": "MissingItems",
+        "type": "object"
+      },
+      "MissingPage": {
+        "properties": {
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "paragraphs": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "page_no",
+          "paragraphs"
+        ],
+        "title": "MissingPage",
+        "type": "object"
+      },
+      "MissingPages": {
+        "properties": {
+          "bundle_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bundle Version"
+          },
+          "missing": {
+            "items": {
+              "$ref": "#/components/schemas/MissingPage"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "received_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Received On"
+          }
+        },
+        "required": [
+          "missing",
+          "received_on",
+          "bundle_version"
+        ],
+        "title": "MissingPages",
         "type": "object"
       },
       "MoveIn": {
@@ -7322,6 +8334,22 @@
           "params"
         ],
         "title": "Note",
+        "type": "object"
+      },
+      "NoteChecked": {
+        "properties": {
+          "sentences": {
+            "items": {
+              "$ref": "#/components/schemas/SentenceOut"
+            },
+            "title": "Sentences",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sentences"
+        ],
+        "title": "NoteChecked",
         "type": "object"
       },
       "NoteDraft": {
@@ -8423,6 +9451,67 @@
         "title": "PackCombination",
         "type": "object"
       },
+      "PackOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "page_count": {
+            "title": "Page Count",
+            "type": "integer"
+          },
+          "sections": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "stale_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale Reason"
+          },
+          "status": {
+            "const": "ready",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "sha256",
+          "page_count",
+          "sections",
+          "stale",
+          "stale_reason",
+          "created_at"
+        ],
+        "title": "PackOut",
+        "type": "object"
+      },
       "PackRef": {
         "properties": {
           "code": {
@@ -8444,6 +9533,185 @@
           "version"
         ],
         "title": "PackRef",
+        "type": "object"
+      },
+      "PackageIn": {
+        "additionalProperties": false,
+        "properties": {
+          "days": {
+            "default": 30,
+            "maximum": 90.0,
+            "minimum": 1.0,
+            "title": "Days",
+            "type": "integer"
+          },
+          "device_label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Device Label",
+            "type": "string"
+          },
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "include_images": {
+            "const": false,
+            "default": false,
+            "title": "Include Images",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "device_label"
+        ],
+        "title": "PackageIn",
+        "type": "object"
+      },
+      "PackageOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_label": {
+            "title": "Device Label",
+            "type": "string"
+          },
+          "downloaded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downloaded At"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "format_version": {
+            "title": "Format Version",
+            "type": "integer"
+          },
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "include_images": {
+            "title": "Include Images",
+            "type": "boolean"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "status": {
+            "enum": [
+              "built",
+              "downloaded",
+              "revoked",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "device_label",
+          "hearing_id",
+          "format_version",
+          "include_images",
+          "sha256",
+          "status",
+          "expires_at",
+          "downloaded_at",
+          "revoked_at",
+          "created_at"
+        ],
+        "title": "PackageOut",
+        "type": "object"
+      },
+      "PackageStatus": {
+        "properties": {
+          "status": {
+            "enum": [
+              "built",
+              "downloaded",
+              "revoked",
+              "expired"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "PackageStatus",
+        "type": "object"
+      },
+      "PackagesOut": {
+        "properties": {
+          "packages": {
+            "items": {
+              "$ref": "#/components/schemas/PackageOut"
+            },
+            "title": "Packages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "packages"
+        ],
+        "title": "PackagesOut",
         "type": "object"
       },
       "PageChange": {
@@ -8795,6 +10063,122 @@
           "words"
         ],
         "title": "PageWords",
+        "type": "object"
+      },
+      "ParticipantIn": {
+        "additionalProperties": false,
+        "properties": {
+          "discipline": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discipline"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "person_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Person Id"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "ParticipantIn",
+        "type": "object"
+      },
+      "ParticipantOut": {
+        "properties": {
+          "discipline": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discipline"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "on_avodeck": {
+            "title": "On Avodeck",
+            "type": "boolean"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "discipline",
+          "side",
+          "on_avodeck"
+        ],
+        "title": "ParticipantOut",
+        "type": "object"
+      },
+      "ParticipantsOut": {
+        "properties": {
+          "participants": {
+            "items": {
+              "$ref": "#/components/schemas/ParticipantOut"
+            },
+            "title": "Participants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "participants"
+        ],
+        "title": "ParticipantsOut",
         "type": "object"
       },
       "Party": {
@@ -9365,6 +10749,24 @@
           "job_id"
         ],
         "title": "PrefillStarted",
+        "type": "object"
+      },
+      "Prepared": {
+        "properties": {
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sha256",
+          "pages"
+        ],
+        "title": "Prepared",
         "type": "object"
       },
       "Processing": {
@@ -10567,6 +11969,25 @@
         "title": "ReportOut",
         "type": "object"
       },
+      "ReportSource": {
+        "properties": {
+          "kind": {
+            "const": "report",
+            "default": "report",
+            "title": "Kind",
+            "type": "string"
+          },
+          "para_no": {
+            "title": "Para No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "para_no"
+        ],
+        "title": "ReportSource",
+        "type": "object"
+      },
       "RequestDraft": {
         "properties": {
           "body": {
@@ -11060,6 +12481,103 @@
         "title": "Rounds",
         "type": "object"
       },
+      "RowChange": {
+        "additionalProperties": false,
+        "properties": {
+          "trial_page_no": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Page No"
+          }
+        },
+        "required": [
+          "trial_page_no"
+        ],
+        "title": "RowChange",
+        "type": "object"
+      },
+      "RowOut": {
+        "properties": {
+          "confirmed": {
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "method": {
+            "enum": [
+              "text",
+              "sequence",
+              "expert",
+              "none"
+            ],
+            "title": "Method",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "paragraphs": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "status": {
+            "enum": [
+              "matched",
+              "to_confirm",
+              "missing"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trial_page_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Page No"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "page_no",
+          "trial_page_no",
+          "status",
+          "confirmed",
+          "method",
+          "score",
+          "paragraphs",
+          "version"
+        ],
+        "title": "RowOut",
+        "type": "object"
+      },
       "SectionIn": {
         "additionalProperties": false,
         "properties": {
@@ -11214,6 +12732,56 @@
           "status"
         ],
         "title": "Sent",
+        "type": "object"
+      },
+      "SentenceOut": {
+        "properties": {
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportSource"
+              },
+              {
+                "$ref": "#/components/schemas/AnswerSource"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
+          "sourced": {
+            "title": "Sourced",
+            "type": "boolean"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "text",
+          "sourced",
+          "source",
+          "reason"
+        ],
+        "title": "SentenceOut",
         "type": "object"
       },
       "ServeIn": {
@@ -12874,6 +14442,113 @@
           "text"
         ],
         "title": "TranscriptionIn",
+        "type": "object"
+      },
+      "TrialNoteIn": {
+        "additionalProperties": false,
+        "properties": {
+          "text": {
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "text"
+        ],
+        "title": "TrialNoteIn",
+        "type": "object"
+      },
+      "TrialPackSettingsIn": {
+        "additionalProperties": false,
+        "properties": {
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "include_guidance": {
+            "default": false,
+            "title": "Include Guidance",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "enum": [
+                "report",
+                "chronology",
+                "joint_statement",
+                "written_answers",
+                "legal_tests",
+                "guidance"
+              ],
+              "type": "string"
+            },
+            "maxItems": 6,
+            "minItems": 1,
+            "title": "Sections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sections"
+        ],
+        "title": "TrialPackSettingsIn",
+        "type": "object"
+      },
+      "TrialPackSettingsOut": {
+        "properties": {
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "include_guidance": {
+            "title": "Include Guidance",
+            "type": "boolean"
+          },
+          "sections": {
+            "items": {
+              "enum": [
+                "report",
+                "chronology",
+                "joint_statement",
+                "written_answers",
+                "legal_tests",
+                "guidance"
+              ],
+              "type": "string"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sections",
+          "include_guidance",
+          "hearing_id",
+          "version"
+        ],
+        "title": "TrialPackSettingsOut",
         "type": "object"
       },
       "UnreadablePage": {
@@ -14554,6 +16229,95 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/agenda-items/{item_id}": {
+      "patch": {
+        "operationId": "change_item_v1_cases__case_id__agenda_items__item_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ItemOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Item",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/archive": {
       "post": {
         "operationId": "archive_v1_cases__case_id__archive_post",
@@ -15201,6 +16965,289 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/concordance": {
+      "get": {
+        "operationId": "get_concordance_v1_cases__case_id__concordance_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "matched",
+                    "to_confirm",
+                    "missing"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConcordanceOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Concordance",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/concordance/export": {
+      "get": {
+        "operationId": "export_concordance_v1_cases__case_id__concordance_export_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "csv",
+              "enum": [
+                "csv",
+                "pdf"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/pdf": {},
+              "text/csv": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Export Concordance",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/concordance/tell-instructing-party": {
+      "post": {
+        "operationId": "tell_instructing_party_v1_cases__case_id__concordance_tell_instructing_party_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingPages"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Tell Instructing Party",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/concordance/{row_id}": {
+      "patch": {
+        "operationId": "confirm_page_v1_cases__case_id__concordance__row_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "row_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Row Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RowChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RowOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Confirm Page",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/conflicts": {
       "get": {
         "operationId": "get_conflicts_v1_cases__case_id__conflicts_get",
@@ -15533,6 +17580,173 @@
         "summary": "Put Note",
         "tags": [
           "understand"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/court-bundles": {
+      "post": {
+        "operationId": "upload_court_bundle_v1_cases__case_id__court_bundles_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "received_on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Received On"
+            }
+          },
+          {
+            "in": "query",
+            "name": "hearing_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Hearing Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Upload Court Bundle",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/court-bundles/{bundle_id}/supersede": {
+      "post": {
+        "operationId": "supersede_court_bundle_v1_cases__case_id__court_bundles__bundle_id__supersede_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "bundle_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Bundle Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "received_on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Received On"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BundleQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Supersede Court Bundle",
+        "tags": [
+          "trial"
         ]
       }
     },
@@ -16286,6 +18500,745 @@
         "summary": "List Exhibits",
         "tags": [
           "pipeline"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings": {
+      "get": {
+        "operationId": "list_meetings_v1_cases__case_id__expert_meetings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Meetings",
+        "tags": [
+          "trial"
+        ]
+      },
+      "post": {
+        "operationId": "create_meeting_v1_cases__case_id__expert_meetings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeetingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Create Meeting",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/types": {
+      "get": {
+        "description": "The kinds of expert meeting the case's packs know, with their wording (rule 11).",
+        "operationId": "list_meeting_types_v1_cases__case_id__expert_meetings_types_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingTypesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Meeting Types",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/{meeting_id}": {
+      "get": {
+        "operationId": "get_meeting_v1_cases__case_id__expert_meetings__meeting_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Meeting",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/{meeting_id}/agenda": {
+      "post": {
+        "operationId": "upload_agenda_v1_cases__case_id__expert_meetings__meeting_id__agenda_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgendaQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Upload Agenda",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/{meeting_id}/agenda-versions": {
+      "get": {
+        "operationId": "list_agenda_versions_v1_cases__case_id__expert_meetings__meeting_id__agenda_versions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgendaVersionsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Agenda Versions",
+        "tags": [
+          "trial"
+        ]
+      },
+      "post": {
+        "operationId": "new_agenda_version_v1_cases__case_id__expert_meetings__meeting_id__agenda_versions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgendaQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "New Agenda Version",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/{meeting_id}/participants": {
+      "get": {
+        "operationId": "list_participants_v1_cases__case_id__expert_meetings__meeting_id__participants_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Participants",
+        "tags": [
+          "trial"
+        ]
+      },
+      "post": {
+        "operationId": "add_participant_v1_cases__case_id__expert_meetings__meeting_id__participants_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParticipantIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParticipantOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Participant",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/{meeting_id}/prepare": {
+      "post": {
+        "operationId": "prepare_statement_v1_cases__case_id__expert_meetings__meeting_id__prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Prepared"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Prepare Statement",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/{meeting_id}/send-for-signature": {
+      "post": {
+        "operationId": "send_for_signature_v1_cases__case_id__expert_meetings__meeting_id__send_for_signature_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Send For Signature",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/expert-meetings/{meeting_id}/signed-external": {
+      "post": {
+        "operationId": "signed_external_v1_cases__case_id__expert_meetings__meeting_id__signed_external_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "meeting_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Meeting Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeetingSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Signed External",
+        "tags": [
+          "trial"
         ]
       }
     },
@@ -19266,6 +22219,363 @@
         "summary": "Check New Pages",
         "tags": [
           "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/offline-packages": {
+      "get": {
+        "operationId": "list_packages_v1_cases__case_id__offline_packages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Packages",
+        "tags": [
+          "trial"
+        ]
+      },
+      "post": {
+        "operationId": "create_package_v1_cases__case_id__offline_packages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackageIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Create Package",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/offline-packages/{package_id}": {
+      "delete": {
+        "operationId": "delete_package_v1_cases__case_id__offline_packages__package_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Delete Package",
+        "tags": [
+          "trial"
+        ]
+      },
+      "get": {
+        "operationId": "get_package_v1_cases__case_id__offline_packages__package_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Package",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/offline-packages/{package_id}/download": {
+      "get": {
+        "operationId": "download_package_v1_cases__case_id__offline_packages__package_id__download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Download"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Download Package",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/offline-packages/{package_id}/status": {
+      "get": {
+        "operationId": "package_status_v1_cases__case_id__offline_packages__package_id__status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "package_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Package Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Package Status",
+        "tags": [
+          "trial"
         ]
       }
     },
@@ -24967,6 +28277,357 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/trial-pack": {
+      "post": {
+        "operationId": "build_pack_v1_cases__case_id__trial_pack_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BuildQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Build Pack",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/trial-pack/check-new": {
+      "post": {
+        "operationId": "check_new_note_v1_cases__case_id__trial_pack_check_new_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteChecked"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Check New Note",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/trial-pack/latest": {
+      "get": {
+        "operationId": "latest_pack_v1_cases__case_id__trial_pack_latest_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LatestOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Latest Pack",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/trial-pack/latest/download": {
+      "get": {
+        "operationId": "download_pack_v1_cases__case_id__trial_pack_latest_download_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "application/pdf": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Download Pack",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/trial-pack/settings": {
+      "get": {
+        "operationId": "get_settings_v1_cases__case_id__trial_pack_settings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialPackSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Settings",
+        "tags": [
+          "trial"
+        ]
+      },
+      "put": {
+        "operationId": "put_settings_v1_cases__case_id__trial_pack_settings_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TrialPackSettingsIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrialPackSettingsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Put Settings",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/uploads": {
       "post": {
         "operationId": "start_upload_v1_cases__case_id__uploads_post",
@@ -28213,6 +31874,37 @@
         "summary": "Complete Upload",
         "tags": [
           "uploads"
+        ]
+      }
+    },
+    "/v1/webhooks/esign": {
+      "post": {
+        "operationId": "esign_webhook_v1_webhooks_esign_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EsignOutcome"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Esign Webhook",
+        "tags": [
+          "trial"
         ]
       }
     }
