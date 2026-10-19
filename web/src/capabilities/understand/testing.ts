@@ -133,6 +133,7 @@ export function consultation(over: Partial<Schemas["Consultation"]> = {}): Schem
     guidance_changed: [],
     on: "2024-05-15",
     question_numbers: [2, 3],
+    page_marks: [],
     note: null,
     ...over,
   };
