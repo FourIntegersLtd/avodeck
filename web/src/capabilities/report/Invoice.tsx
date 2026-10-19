@@ -1,23 +1,23 @@
 // S18b Time and invoice (docs/design/screens/S18b-Invoice.dc.html): time by workflow step (step names from the
-// pack), audited adjustments, the expert's billing details, invoices made from the time, sending behind the code,
-// payments and credit notes. A sent invoice never changes; mistakes are put right with a credit note. The time
-// estimate per step sits beside the time; when the time runs over it by more than the pack's threshold the server
-// sends a gentle notice naming the instructing party (in the pack's word), which never blocks anything. Bank
-// details for the invoice's "How to pay" box are saved behind the code.
+// pack) with audited adjustments beside a paper invoice; Download and Send invoice at the bottom (sending behind
+// the code); payments and credit notes; a sent invoice never changes, mistakes are put right with a credit note.
+// The time estimate per step, the billing details and the bank details sit behind one link at the foot. When the
+// time runs over the estimate by more than the pack's threshold the server sends a gentle notice naming the
+// instructing party (in the pack's word), which never blocks anything.
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Dialog, LoadError, Loading, Notice, stepLabel, TextField } from "../../foundation/ui";
+import { Button, Dialog, IconTile, LoadError, Loading, Notice, stepLabel, TextField } from "../../foundation/ui";
 import { longDate, money, useLocale } from "./shared";
 import { w } from "./words";
 
 type Invoice = Schemas["InvoiceOut"];
 const ERROR_CODES = ["no_billing_profile", "no_hourly_rate", "already_sent", "invalid", "stale", "reason_needed"] as const;
 const ERRORS: Record<string, string> = Object.fromEntries(ERROR_CODES.map((code) => [code, `report.invoice.error.${code}`]));
-const STATUSES = ["draft", "sent", "part_paid", "paid", "written_off"] as const;
+const PAYMENT = ["paid", "part_paid", "written_off"] as const;
 
 export function InvoiceScreen() {
   const { caseId = "" } = useParams();
@@ -33,13 +33,21 @@ export function InvoiceScreen() {
   const served = servings.data?.servings.at(-1);
   const sentTo = sent && served && time.data?.instructing_party ? w("invoice.sent_to_on", { party: time.data.instructing_party, date: longDate(served.served_on, locale) }) : null;
   return (
-    <div className="av-page av-stack">
-      <h1>{sent ? w("invoice.heading_sent") : w("invoice.title")}</h1>
-      <p>{sentTo ? `${sentTo} ${w("invoice.intro")}` : w("invoice.intro")}</p>
-      <TimeCard caseId={caseId} />
-      <EstimateCard caseId={caseId} />
-      <BillingCard />
-      <Invoices caseId={caseId} />
+    <div className="av-page rp-page rp-page--wide2">
+      <div className="rp-hero rp-hero--small">
+        {sent && (
+          <IconTile tone="mint">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M5 12.5l4.5 4.5L19 7.5" />
+            </svg>
+          </IconTile>
+        )}
+        <div>
+          <h1 className="rp-title">{sent ? w("invoice.heading_sent") : w("invoice.title")}</h1>
+          <p className="rp-lead">{sentTo ? `${sentTo} ${w("invoice.intro")}` : w("invoice.intro")}</p>
+        </div>
+      </div>
+      <Workspace caseId={caseId} />
     </div>
   );
 }
@@ -49,6 +57,94 @@ function duration(seconds: number): string {
   return w("invoice.hours", { hours: Math.floor(total / 3600), minutes: Math.floor((total % 3600) / 60) });
 }
 
+async function loadProfile(): Promise<{ profile: Schemas["BillingProfile"] | null; etag: string }> {
+  const result = await api.GET("/v1/me/billing-profile");
+  const body = await unwrap(Promise.resolve(result));
+  return { profile: body.profile, etag: result.response.headers.get("etag") ?? '"0"' };
+}
+
+/** The time card and the paper invoice side by side, then the bottom bar and the forms behind one link. */
+function Workspace({ caseId }: { caseId: string }) {
+  const stepUp = useStepUp();
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } } })), [caseId]);
+  const billing = useResource(loadProfile, []);
+  const theCase = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })), [caseId]);
+  const [expenses, setExpenses] = useState("");
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const act = async (work: () => Promise<unknown>) => {
+    setError(null);
+    try {
+      if ((await work()) !== undefined) found.reload();
+    } catch (err) {
+      setError(errorMessage(err, ERRORS));
+    }
+  };
+  const create = () =>
+    act(async () => {
+      const made = await unwrap(api.POST("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } }, body: { expenses: expenses.trim() || "0" } }));
+      setExpenses("");
+      return made;
+    });
+  if (found.error || billing.error) return <LoadError onRetry={() => { found.reload(); billing.reload(); }} />;
+  if (!found.data || !billing.data) return <Loading />;
+  const list = found.data.invoices;
+  const latest = list.at(-1) ?? null;
+  const missing = billing.data.profile === null && !saved;
+  const from = billing.data.profile?.legal_name ?? null;
+  const caseLabel = theCase.data?.label ?? null;
+  const feeNote = list.some((invoice) => invoice.statements.length > 0);
+  const pdf = (invoice: Invoice) => `${apiOrigin()}/v1/cases/${caseId}/invoices/${invoice.id}/pdf`;
+  const send = (invoice: Invoice) => act(() => stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/invoices/{invoice_id}/send", { params: { path: { case_id: caseId, invoice_id: invoice.id } }, body: { to: null } }))));
+  return (
+    <>
+      {missing && <Notice tone="warning"><p>{w("invoice.billing_missing")}</p></Notice>}
+      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      <div className="rp-grid">
+        <TimeCard caseId={caseId} />
+        {list.length === 0 ? (
+          <article className="rp-paper rp-paper--empty" aria-label={w("invoice.paper_title")}>
+            <h3 className="rp-paper__title">{w("invoice.paper_title")}</h3>
+            <p className="av-muted">{w("invoice.none")}</p>
+            <TextField label={w("invoice.expenses")} name="expenses" inputMode="decimal" value={expenses} onChange={(e) => setExpenses(e.target.value)} />
+          </article>
+        ) : (
+          list.map((invoice) => (
+            <InvoicePaper key={invoice.id} caseId={caseId} invoice={invoice} from={from} caseLabel={caseLabel} act={act} download={invoice === latest ? null : pdf(invoice)} />
+          ))
+        )}
+      </div>
+      <div className="rp-bar">
+        <span className="av-muted rp-bar__note">{feeNote ? w("invoice.fee_note") : ""}</span>
+        <div className="rp-bar__actions">
+          {latest ? (
+            <>
+              <a className="av-button av-button--secondary" href={pdf(latest)}>{w("invoice.download")}</a>
+              {latest.status === "draft" && <Button arrow onClick={() => void send(latest)}>{w("invoice.send")}</Button>}
+            </>
+          ) : (
+            <Button arrow onClick={() => void create()}>{w("invoice.create")}</Button>
+          )}
+        </div>
+      </div>
+      <details className="rp-fold" open={missing || undefined}>
+        <summary className="av-text-link">{w("invoice.more")}</summary>
+        <div className="av-stack">
+          <EstimateCard caseId={caseId} />
+          <BillingForm initial={billing.data} onSaved={() => setSaved(true)} />
+          {latest && (
+            <section className="av-card av-stack" aria-labelledby="another-title">
+              <h3 id="another-title">{w("invoice.list")}</h3>
+              <TextField label={w("invoice.expenses")} name="expenses" inputMode="decimal" value={expenses} onChange={(e) => setExpenses(e.target.value)} />
+              <div className="av-row"><Button variant="secondary" onClick={() => void create()}>{w("invoice.create")}</Button></div>
+            </section>
+          )}
+        </div>
+      </details>
+    </>
+  );
+}
+
 function TimeCard({ caseId }: { caseId: string }) {
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId]);
   const [adjusting, setAdjusting] = useState(false);
@@ -56,31 +152,123 @@ function TimeCard({ caseId }: { caseId: string }) {
   if (!found.data) return <Loading />;
   const time = found.data;
   return (
-    <section className="av-card av-stack" aria-labelledby="time-title">
-      <div className="av-row av-row--spread">
-        <h3 id="time-title">{w("invoice.time")}</h3>
-        <Button variant="secondary" onClick={() => setAdjusting(true)}>{w("invoice.adjust")}</Button>
+    <>
+      <section className="rp-card rp-time" aria-labelledby="time-title">
+        <div className="rp-time__head">
+          <h2 id="time-title" className="rp-card__title">{w("invoice.time")}</h2>
+          <button type="button" className="av-text-link rp-linkbtn" onClick={() => setAdjusting(true)}>{w("invoice.adjust")}</button>
+        </div>
+        <ul className="rp-time__list">
+          {time.stages.map((s) => (
+            <li key={s.stage} aria-label={stepLabel(s.stage)} className="rp-time__row">
+              <span>{stepLabel(s.stage)}</span>
+              <meter className="rp-time__bar" min={0} max={Math.max(time.total_seconds, 1)} value={s.seconds} aria-label={stepLabel(s.stage)} />
+              <span className="av-mono rp-time__value">{duration(s.seconds)}</span>
+            </li>
+          ))}
+          <li className="rp-time__row rp-time__total">
+            <strong>{w("invoice.total")}</strong>
+            <strong className="av-mono rp-time__value">{duration(time.total_seconds)}</strong>
+          </li>
+        </ul>
+        {time.adjusted && <p className="av-muted rp-small">{w("invoice.adjusted")}</p>}
+        <p className="av-muted rp-small">{w("invoice.time_note")}</p>
+        {adjusting && <Adjust caseId={caseId} stages={time.stages} onClose={() => setAdjusting(false)} onSaved={() => { setAdjusting(false); found.reload(); }} />}
+      </section>
+      {time.estimate_hours != null && !time.over_estimate && time.instructing_party && (
+        <div className="rp-within"><Notice tone="success"><p>{w("invoice.within_estimate", { party: time.instructing_party, hours: Number(time.estimate_hours) })}</p></Notice></div>
+      )}
+    </>
+  );
+}
+
+function BillingForm({ initial, onSaved }: { initial: { profile: Schemas["BillingProfile"] | null; etag: string }; onSaved: () => void }) {
+  const [etag, setEtag] = useState(initial.etag);
+  const [missing, setMissing] = useState(initial.profile === null);
+  return (
+    <>
+      <BillingDetails initial={initial.profile} etag={etag} onSaved={(tag) => { setEtag(tag); setMissing(false); onSaved(); }} />
+      {!missing && <BankForm initial={initial.profile?.bank ?? null} etag={etag} onSaved={setEtag} />}
+    </>
+  );
+}
+
+function InvoicePaper({ caseId, invoice, from, caseLabel, act, download }: { caseId: string; invoice: Invoice; from: string | null; caseLabel: string | null; act: (work: () => Promise<unknown>) => Promise<void>; download: string | null }) {
+  const locale = useLocale();
+  const [part, setPart] = useState("");
+  const [crediting, setCrediting] = useState(false);
+  const base = { params: { path: { case_id: caseId, invoice_id: invoice.id } } };
+  const money_ = (amount: string | number) => money(amount, invoice.currency, locale);
+  const pay = (status: "part_paid" | "paid" | "written_off", paid_amount?: string) =>
+    act(() => unwrap(api.PATCH("/v1/cases/{case_id}/invoices/{invoice_id}/payment", { ...base, body: paid_amount ? { status, paid_amount } : { status } })));
+  const label = invoice.number_text ? w("invoice.number", { number: invoice.number_text }) : w("invoice.draft");
+  const isDraft = invoice.status === "draft";
+  const open = invoice.status === "sent" || invoice.status === "part_paid";
+  const paymentWord = (PAYMENT as readonly string[]).includes(invoice.status) ? w(`invoice.payment_${invoice.status as (typeof PAYMENT)[number]}`) : w("invoice.payment_unpaid");
+
+  return (
+    <article className="rp-paper" aria-label={label}>
+      <div className="rp-paper__head">
+        <h3 className="rp-paper__title">{w("invoice.paper_title")}</h3>
+        {invoice.number_text ? <span className="av-mono rp-paper__number">{invoice.number_text}</span> : <span className="av-badge">{w("invoice.status.draft")}</span>}
       </div>
-      <ul className="av-report-list">
-        {time.stages.map((s) => (
-          <li key={s.stage} aria-label={stepLabel(s.stage)} className="av-report-item av-report-item--spread">
-            <span>{stepLabel(s.stage)}</span>
-            <meter className="av-report-bar" min={0} max={Math.max(time.total_seconds, 1)} value={s.seconds} aria-label={stepLabel(s.stage)} />
-            <span className="av-report-mono">{duration(s.seconds)}</span>
+      <div className="rp-paper__who">
+        {from && <p>{w("invoice.from", { name: from })}</p>}
+        {invoice.sent_to && <p>{w("invoice.to", { name: invoice.sent_to })}</p>}
+        {caseLabel && <p>{w("invoice.case", { name: caseLabel })}</p>}
+        <p>{w("invoice.date", { date: longDate(invoice.sent_at ?? invoice.created_at, locale) })}</p>
+      </div>
+      <ul className="rp-paper__lines">
+        {invoice.lines.map((line, i) => (
+          <li key={i}>
+            <span>{line.kind === "time" ? w("invoice.line_time", { hours: String(line.hours), rate: money_(String(line.rate)) }) : w("invoice.line_expenses")}</span>
+            <span>{money_(String(line.amount))}</span>
           </li>
         ))}
-        <li className="av-report-item av-report-item--spread">
-          <strong>{w("invoice.total")}</strong>
-          <strong className="av-report-mono">{duration(time.total_seconds)}</strong>
+        {Number(invoice.tax) > 0 && (
+          <li><span>{w("invoice.tax")}</span><span>{money_(invoice.tax)}</span></li>
+        )}
+        <li className="rp-paper__total">
+          <strong>{w("invoice.total_due")}</strong>
+          <strong>{money_(invoice.total)}</strong>
         </li>
       </ul>
-      {time.estimate_hours != null && !time.over_estimate && time.instructing_party && (
-        <Notice tone="success"><p>{w("invoice.within_estimate", { party: time.instructing_party, hours: Number(time.estimate_hours) })}</p></Notice>
+      {invoice.estimate_amount != null && (
+        <p className="rp-paper__small" data-estimate="true">{w("invoice.estimate_line", { estimate: money_(invoice.estimate_amount), amount: money_(invoice.total) })}</p>
       )}
-      {time.adjusted && <p className="av-muted">{w("invoice.adjusted")}</p>}
-      <p className="av-muted">{w("invoice.time_note")}</p>
-      {adjusting && <Adjust caseId={caseId} stages={time.stages} onClose={() => setAdjusting(false)} onSaved={() => { setAdjusting(false); found.reload(); }} />}
-    </section>
+      {invoice.sent_at && <p className="rp-paper__small">{w("invoice.sent", { date: longDate(invoice.sent_at, locale) })}</p>}
+      {Number(invoice.paid_amount) > 0 && <p className="rp-paper__small">{w("invoice.paid_so_far", { amount: money_(invoice.paid_amount) })}</p>}
+      {invoice.credit_notes.map((c) => (
+        <p key={c.id} className="rp-paper__small">{w("invoice.credit_line", { number: c.number_text ?? "", amount: money_(c.amount) })}</p>
+      ))}
+      {invoice.statements.map((line) => (
+        <p key={line} className="rp-paper__small">{line}</p>
+      ))}
+      <p className="rp-paper__small">{w("invoice.locked_note")}</p>
+      <div className="rp-payment">
+        <span><strong>{w("invoice.payment")}</strong> <span>{paymentWord}</span></span>
+        {open && <button type="button" className="av-text-link rp-linkbtn" onClick={() => void pay("paid")}>{w("invoice.mark_paid")}</button>}
+      </div>
+      {(open || !isDraft || download) && (
+        <details className="rp-fold rp-fold--inner">
+          <summary className="av-text-link">{w("invoice.more_payment")}</summary>
+          <div className="av-stack">
+            {download && <a className="av-button av-button--secondary" href={download}>{w("invoice.download")}</a>}
+            {open && (
+              <>
+                <div className="av-row">
+                  <TextField label={w("invoice.part_amount")} name="paid_amount" inputMode="decimal" value={part} onChange={(e) => setPart(e.target.value)} />
+                  <Button variant="secondary" disabled={!part.trim()} onClick={() => void pay("part_paid", part.trim())}>{w("invoice.mark_part")}</Button>
+                </div>
+                <div className="av-row"><Button variant="quiet" onClick={() => void pay("written_off")}>{w("invoice.written_off")}</Button></div>
+              </>
+            )}
+            {!isDraft && <div className="av-row"><Button variant="secondary" onClick={() => setCrediting(true)}>{w("invoice.credit")}</Button></div>}
+          </div>
+        </details>
+      )}
+      {crediting && <Credit caseId={caseId} invoiceId={invoice.id} onClose={() => setCrediting(false)} onSaved={() => { setCrediting(false); void act(() => Promise.resolve(true)); }} />}
+    </article>
   );
 }
 
@@ -190,31 +378,7 @@ function Adjust({ caseId, stages, onClose, onSaved }: { caseId: string; stages: 
   );
 }
 
-async function loadProfile(): Promise<{ profile: Schemas["BillingProfile"] | null; etag: string }> {
-  const result = await api.GET("/v1/me/billing-profile");
-  const body = await unwrap(Promise.resolve(result));
-  return { profile: body.profile, etag: result.response.headers.get("etag") ?? '"0"' };
-}
-
-function BillingCard() {
-  const found = useResource(loadProfile, []);
-  if (found.error) return <LoadError onRetry={found.reload} />;
-  if (!found.data) return <Loading />;
-  return <BillingForm initial={found.data} />;
-}
-
-function BillingForm({ initial }: { initial: { profile: Schemas["BillingProfile"] | null; etag: string } }) {
-  const [etag, setEtag] = useState(initial.etag);
-  const [missing, setMissing] = useState(initial.profile === null);
-  return (
-    <>
-      <BillingDetails initial={initial.profile} etag={etag} missing={missing} onSaved={(tag) => { setEtag(tag); setMissing(false); }} />
-      {!missing && <BankForm initial={initial.profile?.bank ?? null} etag={etag} onSaved={setEtag} />}
-    </>
-  );
-}
-
-function BillingDetails({ initial: p, etag, missing, onSaved }: { initial: Schemas["BillingProfile"] | null; etag: string; missing: boolean; onSaved: (etag: string) => void }) {
+function BillingDetails({ initial: p, etag, onSaved }: { initial: Schemas["BillingProfile"] | null; etag: string; onSaved: (etag: string) => void }) {
   const [name, setName] = useState(p?.legal_name ?? "");
   const [address, setAddress] = useState(p?.address ?? "");
   const [taxNumber, setTaxNumber] = useState(p?.tax_number ?? "");
@@ -242,7 +406,6 @@ function BillingDetails({ initial: p, etag, missing, onSaved }: { initial: Schem
   return (
     <section className="av-card av-stack" aria-labelledby="billing-title">
       <h3 id="billing-title">{w("invoice.billing")}</h3>
-      {missing && <Notice tone="warning"><p>{w("invoice.billing_missing")}</p></Notice>}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <TextField label={w("invoice.billing_name")} name="legal_name" value={name} onChange={(e) => setName(e.target.value)} />
       <TextField label={w("invoice.billing_address")} name="address" value={address} onChange={(e) => setAddress(e.target.value)} />
@@ -300,127 +463,6 @@ function BankForm({ initial, etag, onSaved }: { initial: Bank | null; etag: stri
         {saved && <span role="status">{w("invoice.billing_saved")}</span>}
       </div>
     </section>
-  );
-}
-
-function Invoices({ caseId }: { caseId: string }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } } })), [caseId]);
-  const billing = useResource(() => unwrap(api.GET("/v1/me/billing-profile")), []);
-  const theCase = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })), [caseId]);
-  const [expenses, setExpenses] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const create = async () => {
-    setError(null);
-    try {
-      await unwrap(api.POST("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } }, body: { expenses: expenses.trim() || "0" } }));
-      setExpenses("");
-      found.reload();
-    } catch (err) {
-      setError(errorMessage(err, ERRORS));
-    }
-  };
-  if (found.error) return <LoadError onRetry={found.reload} />;
-  if (!found.data) return <Loading />;
-  const list = found.data.invoices;
-  return (
-    <section className="av-card av-stack" aria-labelledby="invoices-title">
-      <h3 id="invoices-title">{w("invoice.list")}</h3>
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {list.length === 0 && <p className="av-muted">{w("invoice.none")}</p>}
-      {list.map((invoice) => (
-        <InvoiceCard key={invoice.id} caseId={caseId} invoice={invoice} from={billing.data?.profile?.legal_name ?? null} caseLabel={theCase.data?.label ?? null} onChanged={found.reload} />
-      ))}
-      <TextField label={w("invoice.expenses")} name="expenses" inputMode="decimal" value={expenses} onChange={(e) => setExpenses(e.target.value)} />
-      <div className="av-report-footer">
-        <Button onClick={() => void create()}>{w("invoice.create")}</Button>
-      </div>
-    </section>
-  );
-}
-
-function InvoiceCard({ caseId, invoice, from, caseLabel, onChanged }: { caseId: string; invoice: Invoice; from: string | null; caseLabel: string | null; onChanged: () => void }) {
-  const locale = useLocale();
-  const stepUp = useStepUp();
-  const [error, setError] = useState<string | null>(null);
-  const [part, setPart] = useState("");
-  const [crediting, setCrediting] = useState(false);
-  const base = { params: { path: { case_id: caseId, invoice_id: invoice.id } } };
-  const money_ = (amount: string | number) => money(amount, invoice.currency, locale);
-  const act = async (work: () => Promise<unknown>) => {
-    setError(null);
-    try {
-      if ((await work()) !== undefined) onChanged();
-    } catch (err) {
-      setError(errorMessage(err, ERRORS));
-    }
-  };
-  const pay = (status: "part_paid" | "paid" | "written_off", paid_amount?: string) =>
-    act(() => unwrap(api.PATCH("/v1/cases/{case_id}/invoices/{invoice_id}/payment", { ...base, body: paid_amount ? { status, paid_amount } : { status } })));
-  const label = invoice.number_text ? w("invoice.number", { number: invoice.number_text }) : w("invoice.draft");
-  const status = (STATUSES as readonly string[]).includes(invoice.status) ? w(`invoice.status.${invoice.status as (typeof STATUSES)[number]}`) : invoice.status;
-
-  return (
-    <article className="av-report-invoice av-stack" aria-label={label}>
-      <div className="av-row av-row--spread">
-        <h4>{label}</h4>
-        <span className="av-badge">{status}</span>
-      </div>
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      <div className="av-stack">
-        {from && <p>{w("invoice.from", { name: from })}</p>}
-        {invoice.sent_to && <p>{w("invoice.to", { name: invoice.sent_to })}</p>}
-        {caseLabel && <p>{w("invoice.case", { name: caseLabel })}</p>}
-        <p>{w("invoice.date", { date: longDate(invoice.sent_at ?? invoice.created_at, locale) })}</p>
-      </div>
-      <ul className="av-report-list">
-        {invoice.lines.map((line, i) => (
-          <li key={i} className="av-report-item av-report-item--spread">
-            <span>{line.kind === "time" ? w("invoice.line_time", { hours: String(line.hours), rate: money_(String(line.rate)) }) : w("invoice.line_expenses")}</span>
-            <span className="av-report-mono">{money_(String(line.amount))}</span>
-          </li>
-        ))}
-        {Number(invoice.tax) > 0 && (
-          <li className="av-report-item av-report-item--spread"><span>{w("invoice.tax")}</span><span className="av-report-mono">{money_(invoice.tax)}</span></li>
-        )}
-        <li className="av-report-item av-report-item--spread">
-          <strong>{w("invoice.total_due")}</strong>
-          <strong className="av-report-mono">{money_(invoice.total)}</strong>
-        </li>
-      </ul>
-      {invoice.estimate_amount != null && (
-        <p data-estimate="true">{w("invoice.estimate_line", { estimate: money_(invoice.estimate_amount), amount: money_(invoice.total) })}</p>
-      )}
-      {invoice.sent_at && <p className="av-muted">{w("invoice.sent", { date: longDate(invoice.sent_at, locale) })}</p>}
-      {Number(invoice.paid_amount) > 0 && <p className="av-muted">{w("invoice.paid_so_far", { amount: money_(invoice.paid_amount) })}</p>}
-      {invoice.credit_notes.map((c) => (
-        <p key={c.id} className="av-muted">{w("invoice.credit_line", { number: c.number_text ?? "", amount: money_(c.amount) })}</p>
-      ))}
-      {invoice.statements.map((line) => (
-        <p key={line} className="av-muted">{line}</p>
-      ))}
-      {invoice.statements.length > 0 && <p className="av-muted">{w("invoice.fee_note")}</p>}
-      <p className="av-muted">{w("invoice.locked_note")}</p>
-      <div className="av-row">
-        <a className="av-button av-button--secondary" href={`${apiOrigin()}/v1/cases/${caseId}/invoices/${invoice.id}/pdf`}>{w("invoice.download")}</a>
-        {invoice.status === "draft" && (
-          <Button onClick={() => void act(() => stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/invoices/{invoice_id}/send", { ...base, body: { to: null } }))))}>{w("invoice.send")}</Button>
-        )}
-        {invoice.status !== "draft" && <Button variant="secondary" onClick={() => setCrediting(true)}>{w("invoice.credit")}</Button>}
-      </div>
-      {(invoice.status === "sent" || invoice.status === "part_paid") && (
-        <div className="av-stack">
-          <div className="av-row">
-            <Button variant="secondary" onClick={() => void pay("paid")}>{w("invoice.mark_paid")}</Button>
-            <Button variant="quiet" onClick={() => void pay("written_off")}>{w("invoice.written_off")}</Button>
-          </div>
-          <div className="av-row">
-            <TextField label={w("invoice.part_amount")} name="paid_amount" inputMode="decimal" value={part} onChange={(e) => setPart(e.target.value)} />
-            <Button variant="secondary" disabled={!part.trim()} onClick={() => void pay("part_paid", part.trim())}>{w("invoice.mark_part")}</Button>
-          </div>
-        </div>
-      )}
-      {crediting && <Credit caseId={caseId} invoiceId={invoice.id} onClose={() => setCrediting(false)} onSaved={() => { setCrediting(false); onChanged(); }} />}
-    </article>
   );
 }
 
