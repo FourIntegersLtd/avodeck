@@ -54,8 +54,8 @@ test("the locked version sits in a pill at the top, with the paragraphs behind V
   expect(await screen.findByText("Mrs A should have been referred in early March 2024.")).toBeInTheDocument();
 });
 
-describe("the steps that belong to the experts and the trial bundle", () => {
-  test("the timeline shows the experts' discussion and the trial bundle, each with its date and status", async () => {
+describe("the steps that belong to the experts and the court bundle", () => {
+  test("the timeline shows the experts' discussion and the bundle, each with its date and status", async () => {
     serve("launch", {
       hearings: [trial()],
       steps: {
@@ -67,11 +67,11 @@ describe("the steps that belong to the experts and the trial bundle", () => {
     const next = await screen.findByRole("region", { name: "What happens next" });
     const talk = within(next).getByText("Experts' discussion").closest("li") as HTMLElement;
     expect(within(talk).getByText("10 February 2027 · Signed")).toBeInTheDocument();
-    const bundle = within(next).getByText("Trial bundle").closest("li") as HTMLElement;
+    const bundle = within(next).getByText(/bundle/i).closest("li") as HTMLElement;
     expect(within(bundle).getByText("Built 30 May 2027")).toBeInTheDocument();
   });
 
-  test("a trial bundle that needs rebuilding says so, and one not yet built says that", async () => {
+  test("a bundle that needs rebuilding says so, and one not yet built says that", async () => {
     serve("launch", { hearings: [trial()], steps: { meetings: [], pack: { built_on: "2027-05-30", stale: true } } });
     renderAt(url);
     expect(await screen.findByText("Out of date. Build it again.")).toBeInTheDocument();
