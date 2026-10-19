@@ -19,7 +19,7 @@ _ANSWERED = "('confirmed', 'edited')"
 
 
 async def _one(conn: AsyncConnection, query: str, case_id: uuid.UUID) -> tuple[Any, ...]:
-    cur = await conn.execute(query, {"case": case_id})  # type: ignore[call-overload]
+    cur = await conn.execute(query, {"case": case_id})
     row = await cur.fetchone()
     assert row is not None
     return row

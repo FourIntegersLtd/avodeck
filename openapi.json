@@ -1798,6 +1798,22 @@
         "title": "CasePack",
         "type": "object"
       },
+      "CaseStepProgress": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepProgress"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "title": "CaseStepProgress",
+        "type": "object"
+      },
       "CaseUpdate": {
         "additionalProperties": false,
         "description": "Only the fields sent are changed. Party and track values must be keys the case's packs offer.",
@@ -12259,6 +12275,55 @@
           "seconds"
         ],
         "title": "StageTime",
+        "type": "object"
+      },
+      "StepProgress": {
+        "properties": {
+          "done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "key",
+          "done",
+          "total",
+          "percent"
+        ],
+        "title": "StepProgress",
         "type": "object"
       },
       "Subject": {
@@ -24424,6 +24489,60 @@
         "summary": "Start Spot Check",
         "tags": [
           "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/steps/progress": {
+      "get": {
+        "description": "How far each step of the case's workflow is, counted from the case's own records (read-only).",
+        "operationId": "get_case_step_progress_v1_cases__case_id__steps_progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseStepProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Case Step Progress",
+        "tags": [
+          "packs"
         ]
       }
     },

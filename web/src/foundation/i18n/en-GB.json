@@ -20,6 +20,7 @@
   "case.where.unread_other": "Before you write your report: {{formatted}} pages still to read.",
   "case.where.show": "Show me",
   "ui.case_header.progress": "{{percent}}%",
+  "ui.case_header.progress_count": "{{done}} of {{total}}",
   "app.nav.account": "Account",
   "app.loading": "Loading…",
   "app.not_found.title": "We can't find that page",
