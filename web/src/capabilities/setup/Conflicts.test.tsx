@@ -45,7 +45,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("asks each question with yes or no, warns about coverage, shows your balance, and passes axe", async () => {
     conflicts(run);
     const { container } = renderAt(`/cases/${CASE_A}/conflicts`);
-    expect(await screen.findByRole("heading", { level: 2, name: "A quick check before you start" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "A quick check before you start" })).toBeInTheDocument();
     const first = await screen.findByRole("radiogroup", { name: "Do you know any of the people in this case?" });
     expect(within(first).getByRole("radio", { name: "Yes" })).toBeInTheDocument();
     expect(within(first).getByRole("radio", { name: "No" })).toBeInTheDocument();

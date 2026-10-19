@@ -89,3 +89,28 @@ test("Confirm and continue saves the answers, declares them and opens the questi
   await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_A}/questions`));
   expect(calls).toEqual(["put", "declare"]);
 });
+
+test("the title is a level-1 heading and the intro counts the questions", async () => {
+  open("launch");
+  renderAt(`/cases/${CASE_A}/conflicts`);
+  expect(await screen.findByRole("heading", { level: 1, name: "A quick check before you start" })).toBeInTheDocument();
+  expect(screen.getByText(/2 questions\. Anything you declare here goes into your report's conflicts section automatically\./)).toBeInTheDocument();
+});
+
+test("the role-coverage answer is drawn as Yes and No with the answer marked", async () => {
+  open("launch");
+  renderAt(`/cases/${CASE_A}/conflicts`);
+  const row = await screen.findByRole("group", { name: "Were you working throughout the period of the case?" });
+  expect(within(row).getByText("Yes")).toHaveClass("av-pill--selected");
+  expect(within(row).getByText("No")).not.toHaveClass("av-pill--selected");
+});
+
+test("the balance is a bar with a legend, and stepping back is a quiet link rather than a red button", async () => {
+  open("launch");
+  renderAt(`/cases/${CASE_A}/conflicts`);
+  const balance = await screen.findByRole("region", { name: "Your balance over the last 12 months" });
+  expect(await within(balance).findByRole("img", { name: "Your balance over the last 12 months" })).toBeInTheDocument();
+  const back = screen.getByRole("button", { name: "Step back from this case" });
+  expect(back).not.toHaveClass("av-button--danger");
+  expect(screen.getByRole("button", { name: "Confirm and continue" }).querySelector("svg")).not.toBeNull();
+});
