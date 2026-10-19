@@ -241,3 +241,20 @@ async def test_a_stranger_gets_404_on_every_route(
     ):
         response = await stranger.request(method, base(world) + path, json=body)
         assert response.status_code == 404, (method, path)
+
+
+async def test_a_page_carries_the_period_in_question(
+    seed: Seed, client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    """S09's banner names the period ("Feb to Aug 2024"): the page carries the case's start and end, or none."""
+    case = world["case"]
+    seed.page(case, seed.document(case), 1)
+    client = await client_for(world["expert"])
+    none = (await client.get(f"{base(world)}/pages/1")).json()
+    assert (none["period_start"], none["period_end"]) == (None, None)
+    admin.execute(
+        "update app.cases set period_start = %s, period_end = %s where id = %s",
+        (date(2024, 2, 1), date(2024, 8, 31), case),
+    )
+    got = (await client.get(f"{base(world)}/pages/1")).json()
+    assert (got["period_start"], got["period_end"]) == ("2024-02-01", "2024-08-31")

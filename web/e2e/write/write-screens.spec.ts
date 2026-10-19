@@ -10,6 +10,8 @@ const PAGE = "91111111-1111-4111-8111-111111111111";
 const SIDES = [{ code: "supports_claim", label: "Side one" }, { code: "supports_clinician", label: "Side two" }];
 const fact = { id: FACT, page_id: PAGE, page_no: 118, kind: "symptom", value: "Bleeding for 3 weeks", event_date: "2024-05-15" };
 
+const HEADER = { number: 1, short_title: "A question", kind: "breach", kind_label_key: "question_type.breach", para_ref: null };
+
 async function stub(page: Page) {
   await stubApi(page, { signedIn: true });
   const reply = (path: string, body: unknown) =>
@@ -21,12 +23,12 @@ async function stub(page: Page) {
   });
   await reply(`/questions/${Q1}/points`, {
     sides: SIDES, points: [{ id: PAGE, side: "supports_claim", status: "accepted", origin: "ai", reason: null, dismissed_reason: null, flagged: false, version: 1, fact }],
-    unused: [], relevant: [], claims: [], range_note: { prompt: "Prompt from the pack", text: null, version: 0 },
+    unused: [], relevant: [], claims: [], range_note: { prompt: "Prompt from the pack", text: null, version: 0, dictated_on: null }, question: HEADER,
   });
   await reply(`/questions/${Q1}/workspace`, {
     question_id: Q1, chips: [{ fact_id: FACT, page_id: PAGE, page_no: 118, kind: "symptom", value: "Bleeding for 3 weeks", event_date: null, quote_verbatim: "bleeding" }],
     guidance_on: null, guidance: [], points: { sides: SIDES.map((s) => ({ ...s, count: 1 })), differ: 0 },
-    views: [{ code: "v1", label: "View one" }], legal_test: "The pack's test.", opinion: null,
+    views: [{ code: "v1", label: "View one" }], legal_test: "The pack's test.", opinion: null, question: HEADER,
   });
 }
 

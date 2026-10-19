@@ -11,6 +11,7 @@ from app.features.write import (  # noqa: E402, F401
     routes_lint,
     routes_opinion,
     routes_points,
+    routes_progress,
     routes_range_note,
     routes_witness,
     routes_workspace,

@@ -155,3 +155,27 @@ def checked_items(
         else:
             rejected.append(found)
     return accepted, rejected
+
+
+SHORT_TITLE_MAX = 40
+_CLAUSE_END = re.compile(r"[,;:?!]|\.(?=\s|$)")
+
+
+def short_title(text: str, label: str | None = None) -> str:
+    """A label of at most 40 characters for a question, for tabs and lists.
+
+    The model's `short_title` when it is a clean label (one line, 1 to 40 characters, no placeholder from the
+    identifier strip), else the first clause of the question's own words, cut at a word. A label only: the
+    model's words are never kept as prose and the question's own words are never changed (rule 1).
+    """
+    if label is not None:
+        clean = " ".join(label.split())
+        if clean and "\n" not in label and len(clean) <= SHORT_TITLE_MAX and not _PLACEHOLDER.search(clean):
+            return clean
+    words = " ".join(text.split())
+    end = _CLAUSE_END.search(words)
+    clause = (words[: end.start()] if end else words).strip() or words
+    if len(clause) <= SHORT_TITLE_MAX:
+        return clause
+    cut = clause[: SHORT_TITLE_MAX + 1]
+    return (cut[: cut.rfind(" ")] if " " in cut else clause[:SHORT_TITLE_MAX]).rstrip(" ,;:.")

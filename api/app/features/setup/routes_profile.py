@@ -21,6 +21,7 @@ PACK_CODE = r"^[a-z][a-z0-9-]{0,39}$"
 
 
 class Profile(BaseModel):
+    version: int = Field(description="The same number as the ETag; send it back as If-Match.")
     full_name: str | None
     profession: str | None
     specialties: list[str]
@@ -73,7 +74,7 @@ async def _profile(conn: DbConn) -> tuple[Profile, int]:
     if row is None:
         raise not_found()
     tag = int(row.pop("tag"))
-    return Profile(**row), tag
+    return Profile(**row, version=tag), tag
 
 
 @router.get("/me/profile", response_model=Profile)
@@ -117,6 +118,7 @@ async def update_profile(
 
 class Role(BaseModel):
     id: uuid.UUID
+    version: int = Field(description="The same number as the ETag; send it back as If-Match to change the role.")
     specialty: str
     role_title: str
     setting: str | None
@@ -175,7 +177,7 @@ async def _role(conn: DbConn, role_id: uuid.UUID) -> dict[str, Any]:
 def _role_out(row: dict[str, Any], response: Response | None = None) -> Role:
     if response is not None:
         response.headers["etag"] = etag(row["version"])
-    return Role(**{k: v for k, v in row.items() if k != "version"})
+    return Role(**row)
 
 
 @router.get("/me/roles", response_model=list[Role])

@@ -22,3 +22,10 @@
 .av-write-fieldset { border: 0; margin: 0; padding: 0; }
 .av-write-fieldset legend { font-size: var(--text-h2); font-weight: 700; padding: 0; }
 .av-write-excerpt { max-height: 4.6em; overflow: hidden; margin: var(--space-1) 0; white-space: pre-wrap; }
+.av-write-footer--between { justify-content: space-between; }
+.av-write-done { display: flex; align-items: center; gap: var(--space-3); margin: 0; color: var(--green-dark); font-weight: 700; }
+.av-write-pass { display: flex; align-items: center; gap: var(--space-3); margin: 0; color: var(--green-dark); }
+.av-write-badge--dark { background: var(--green-dark); color: #fff; }
+.av-write-tab svg { margin-right: var(--space-2); }
+.av-write-copy { margin: 0; white-space: pre-wrap; }
+.av-write-flagged { background: #fdf1e3; color: inherit; border-radius: 6px; padding: 2px 6px; margin-left: -6px; }

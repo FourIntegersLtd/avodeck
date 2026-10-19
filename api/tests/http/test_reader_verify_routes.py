@@ -541,3 +541,25 @@ async def test_a_please_check_change_without_words_asks_for_words_by_code(
     recheck(admin, world, fact["id"])
     response = await act(client, world, verified, action="edit", new_value=fact["value"])
     assert response.status_code == 422 and response.json()["error"]["code"] == "words_needed"
+
+
+async def test_a_suggestion_names_the_other_records_of_the_same_day_on_its_page(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    client = world["client"]
+    await read(client, world)
+    listed = await facts(client, world)
+    by_kind = {f["kind"]: f for f in listed if f["kind"] in ("prescription", "examination", "result")}
+    related = by_kind["prescription"]["related"]
+    assert {r["kind"] for r in related} == {"examination", "safety_netting"}
+    assert all(r["event_date"] == "2024-05-15" and r["fact_id"] and r["status"] == "suggested" for r in related)
+    assert by_kind["result"]["related"] == []  # same day, same kind: not another record
+    exam = next(r for r in related if r["kind"] == "examination")
+    assert exam["value"] == "64.2 kg"
+
+    prescription = by_kind["prescription"]
+    exam = next(f for f in listed if f["kind"] == "examination")
+    assert (await act(client, world, exam, action="correct")).status_code == 200
+    again = {f["kind"]: f for f in await facts(client, world)}
+    assert next(r for r in again["prescription"]["related"] if r["kind"] == "examination")["status"] == "verified"
+    assert prescription["id"] == again["prescription"]["id"]
