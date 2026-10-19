@@ -20,10 +20,10 @@ from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
 from app.core.storage import SupabaseStorage, storage_settings
 from app.features.trial.ports import (
+    GHearings,
+    GReportChanges,
+    GWrittenAnswers,
     Hearings,
-    NoHearings,
-    NoReportChanges,
-    NoWrittenAnswers,
     ReportChanges,
     WrittenAnswers,
 )
@@ -37,9 +37,9 @@ class TrialServices:
     kit: AiKit | None = None
     ocr: OcrClient | None = None
     packs: PackLibrary = field(default_factory=default_library)
-    hearings: Hearings = field(default_factory=NoHearings)
-    answers: WrittenAnswers = field(default_factory=NoWrittenAnswers)
-    changes: ReportChanges = field(default_factory=NoReportChanges)
+    hearings: Hearings = field(default_factory=GHearings)
+    answers: WrittenAnswers = field(default_factory=GWrittenAnswers)
+    changes: ReportChanges = field(default_factory=GReportChanges)
 
     def case_crypto(self) -> CaseCrypto:
         if self.crypto is None:

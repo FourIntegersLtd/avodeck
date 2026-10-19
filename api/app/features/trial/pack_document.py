@@ -155,10 +155,12 @@ async def pack_document(
         elif section == "written_answers":
             doc.section("written_answers")
             doc.heading(word(lang, "written_answers"))
-            answers = answers_of(await services.answers.served(conn, crypto, case_id))
-            if not answers:
+            rounds = await services.answers.served(conn, crypto, case_id)
+            if not answers_of(rounds):
                 doc.para(word(lang, "none_yet"))
-            doc.paras(f"{a.question_no}. {with_trial_refs(pack, refs, a.text)}" for a in answers)
+            for answered in rounds:
+                doc.para(word(lang, "answers_round", number=answered.round_no))
+                doc.paras(f"{a.question_no}. {with_trial_refs(pack, refs, a.text)}" for a in answered.answers)
         elif section == "legal_tests":
             text = pack.legal_tests()
             if text.strip():
