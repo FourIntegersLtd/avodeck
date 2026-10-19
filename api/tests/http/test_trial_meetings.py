@@ -406,3 +406,27 @@ async def test_each_agenda_item_lists_the_pages_its_served_paragraphs_cite(
     items = (await get(client_for, world, created["id"])).json()["items"]
     assert items[0]["pages"] == [118]
     assert all(isinstance(i["pages"], list) for i in items)
+
+
+async def test_the_deadline_chips_carry_the_packs_own_phrase(client_for: ClientFor, world: World) -> None:
+    created = await create(client_for, world)
+    assert created["sign_rule_phrase"] and created["send_rule_phrase"]
+    if world.combo == LAUNCH:
+        assert created["sign_rule_phrase"] == "7 days after the discussion"
+        assert created["send_rule_phrase"] == "within 14 days"
+    else:
+        assert "5" in created["sign_rule_phrase"] and "10" in created["send_rule_phrase"]
+
+
+async def test_a_changed_row_quotes_what_the_served_report_said(
+    client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
+) -> None:
+    model()
+    created = await create(client_for, world)
+    await agenda(client_for, worker_db, world, created["id"])
+    item = (await get(client_for, world, created["id"])).json()["items"][0]
+    assert item["served_text"] == SERVED_VIEW
+    changed = (await edit(client_for, world, item, own_position=CHANGED_VIEW)).json()
+    assert changed["own_position"] == CHANGED_VIEW and changed["served_text"] == SERVED_VIEW
+    other = (await get(client_for, world, created["id"])).json()["items"][1]
+    assert other["served_text"] and other["served_text"] != SERVED_VIEW

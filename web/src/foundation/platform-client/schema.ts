@@ -6634,6 +6634,8 @@ export interface components {
             reason: string | null;
             /** Served Paragraphs */
             served_paragraphs: number[];
+            /** Served Text */
+            served_text?: string | null;
             /** Text */
             text: string;
             /** Version */
@@ -6977,6 +6979,8 @@ export interface components {
              * Format: date
              */
             send_by: string;
+            /** Send Rule Phrase */
+            send_rule_phrase?: string | null;
             /** Send Rule Ref */
             send_rule_ref: string;
             /**
@@ -6984,6 +6988,8 @@ export interface components {
              * Format: date
              */
             sign_by: string;
+            /** Sign Rule Phrase */
+            sign_rule_phrase?: string | null;
             /** Sign Rule Ref */
             sign_rule_ref: string;
             /** Signed Sha256 */
@@ -7052,6 +7058,8 @@ export interface components {
              * Format: date
              */
             send_by: string;
+            /** Send Rule Phrase */
+            send_rule_phrase?: string | null;
             /** Send Rule Ref */
             send_rule_ref: string;
             /**
@@ -7059,6 +7067,8 @@ export interface components {
              * Format: date
              */
             sign_by: string;
+            /** Sign Rule Phrase */
+            sign_rule_phrase?: string | null;
             /** Sign Rule Ref */
             sign_rule_ref: string;
             /** Signed Sha256 */
@@ -8319,6 +8329,8 @@ export interface components {
         };
         /** PreviewOut */
         PreviewOut: {
+            /** Case Label */
+            case_label?: string | null;
             /** Sections */
             sections: components["schemas"]["SectionPages"][];
             /** Sheets */
@@ -9328,6 +9340,8 @@ export interface components {
             asked: string | null;
             /** Number */
             number: number;
+            /** Pack Page No */
+            pack_page_no?: number | null;
             /** Pages */
             pages: components["schemas"]["SheetPage"][];
             /** Reason */

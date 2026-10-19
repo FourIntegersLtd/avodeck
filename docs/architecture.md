@@ -731,7 +731,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | PUT | `/cases/{case_id}/readiness-replies/{question_no}` | The expert's reply to a readiness question |
 | PUT | `/cases/{case_id}/trial-pack/settings` | Sections to include |
 | GET | `/cases/{case_id}/trial-pack/settings` | Sections chosen so far |
-| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question) |
+| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question, each with its page in the printed pack), with the case label for the sheet footer |
 | POST | `/cases/{case_id}/trial-pack` | Build large-print PDF (202 + job) |
 | GET | `/cases/{case_id}/trial-pack/latest` | Preview pages |
 | GET | `/cases/{case_id}/trial-pack/latest/download` | PDF streamed by the API (🔒 export) |
