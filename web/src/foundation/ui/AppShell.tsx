@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Link, NavLink, useMatch } from "react-router-dom";
+import { Link, useLocation, useMatch } from "react-router-dom";
 import { t } from "../i18n";
 import { useMessages } from "../lib/messages";
 import { screenPath } from "../lib/screens";
@@ -13,6 +13,24 @@ export interface AppShellProps {
   name?: string | null;
 }
 
+/**
+ * The one place to highlight: a place whose address has a #part wins when you are on exactly that
+ * part (Cases is "/today#your-cases"); otherwise the first place whose page you are on (Today).
+ */
+function currentPlace(nav: Array<readonly [string, string]>, at: { pathname: string; hash: string }): string | null {
+  const on = (to: string) => {
+    const [path = "", hash] = to.split("#");
+    const samePage = at.pathname === path || at.pathname.startsWith(`${path}/`);
+    return { samePage, hash: hash ? `#${hash}` : "" };
+  };
+  const exact = nav.find(([, to]) => {
+    const place = on(to);
+    return place.samePage && place.hash !== "" && place.hash === at.hash;
+  });
+  if (exact) return exact[0];
+  return nav.find(([, to]) => on(to).samePage && on(to).hash === "")?.[0] ?? null;
+}
+
 /** The signed-in frame (S03 header): skip link, logo, main places, the bell, the person, and the page. */
 export function AppShell({ children, name }: AppShellProps) {
   const messages = useMessages();
@@ -23,6 +41,8 @@ export function AppShell({ children, name }: AppShellProps) {
     return to ? [[key, to] as const] : [];
   });
   const help = screenPath("help");
+  const nav: Array<readonly [string, string]> = [["today", "/today"], ...places];
+  const current = currentPlace(nav, useLocation());
   // A case screen has its own single bar (logo, case, steps, avatar) from the case frame.
   const inCase = useMatch("/cases/:caseId/*") !== null;
   return (
@@ -37,12 +57,11 @@ export function AppShell({ children, name }: AppShellProps) {
             <Logo />
             <nav className="av-shell__nav" aria-label={t("app.nav.label")}>
               <ul>
-                <li>
-                  <NavLink to="/today">{t("app.nav.today")}</NavLink>
-                </li>
-                {places.map(([key, to]) => (
+                {nav.map(([key, to]) => (
                   <li key={key}>
-                    <NavLink to={to}>{t(`app.nav.${key}`)}</NavLink>
+                    <Link to={to} aria-current={key === current ? "page" : undefined}>
+                      {t(`app.nav.${key}`)}
+                    </Link>
                   </li>
                 ))}
               </ul>

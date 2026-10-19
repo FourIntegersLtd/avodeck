@@ -7,7 +7,7 @@ import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { LinkButton, LoadError, Loading, stepLabel } from "../../foundation/ui";
+import { IconTile, LinkButton, LoadError, Loading, ProgressRing, stepLabel } from "../../foundation/ui";
 
 type CasePack = Schemas["CasePack"];
 type CaseCard = Schemas["CaseCard"];
@@ -50,7 +50,12 @@ export function Today() {
           </p>
           <h1 className="av-today__title">{t(greetingKey(hourIn(me.person.timezone)), { name })}</h1>
         </div>
-        {hasScreen("new_case") && <LinkButton to={screenPath("new_case")!}>{t("today.cases.new")}</LinkButton>}
+        {hasScreen("new_case") && (
+          <LinkButton to={screenPath("new_case")!} className="av-today__new">
+            <Icon d="M12 5v14M5 12h14" />
+            {t("today.cases.new")}
+          </LinkButton>
+        )}
       </div>
       {today.error && <LoadError onRetry={today.reload} />}
       {!today.data && !today.error && <Loading />}
@@ -90,20 +95,45 @@ function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: C
       <h2 id="needs-you">{ranked.length ? t("today.needs_you.heading", { count: ranked.length }) : t("today.needs_you.none")}</h2>
       {ranked.length > 0 && (
         <ol className="av-needs">
-          {ranked.map((item) => {
+          {ranked.map((item, index) => {
             const caseLabel = item.case_id ? label(item.case_id) : "";
             const params = { ...(item.params as Record<string, string | number>), case: caseLabel, count: item.count ?? undefined, minutes: item.minutes ?? undefined };
             const known = hasMessage(item.label_key);
             const detailKey = item.label_key.replace(/\.label$/, ".detail");
             const path = screenPath(item.screen, { caseId: item.case_id, params: item.params as Record<string, unknown> });
             const target = path && hasMessage(item.action_key) ? { to: path, text: t(item.action_key, params) } : item.case_id ? { to: `/cases/${item.case_id}`, text: t("today.needs_you.open") } : null;
+            const words = known ? t(item.label_key, params) : t("today.needs_you.fallback", { case: caseLabel });
+            // The board names the case first ("Mrs A · 127 pages still to read") unless the words already
+            // do, or the row opens something outside the case (your profile).
+            const namesCase = !known || t(item.label_key, { ...params, case: "\u0001" }).includes("\u0001");
+            const aboutCase = !path || path.startsWith(`/cases/${item.case_id}`);
+            const [before = "", after = ""] = t("today.needs_you.title", { case: "\u0001", words: "\u0002" }).split(/\u0001|\u0002/).slice(1);
+            const title =
+              caseLabel && aboutCase && !namesCase ? (
+                <>
+                  <span>{caseLabel}</span>
+                  {before}
+                  <span>{words}</span>
+                  {after}
+                </>
+              ) : (
+                words
+              );
+            const deadline = Boolean(item.due_at);
             return (
               <li key={`${item.kind}-${item.case_id ?? ""}-${item.rank}`} className="av-needs__item">
+                <IconTile tone={deadline ? "amber" : "mint"}>
+                  <Icon d={deadline ? "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2" : "M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"} size={26} />
+                </IconTile>
                 <div className="av-needs__text">
-                  <p className="av-case-card__title">{known ? t(item.label_key, params) : t("today.needs_you.fallback", { case: caseLabel })}</p>
+                  <p className="av-needs__title">{title}</p>
                   {known && detailKey !== item.label_key && hasMessage(detailKey) && <p className="av-muted">{t(detailKey, params)}</p>}
                 </div>
-                {target && <LinkButton to={target.to}>{target.text}</LinkButton>}
+                {target && (
+                  <LinkButton to={target.to} variant={index === 0 ? "primary" : "secondary"}>
+                    {target.text}
+                  </LinkButton>
+                )}
               </li>
             );
           })}
@@ -166,9 +196,9 @@ function CaseCardView({ card, pack, locale }: { card: CaseCard; pack: CasePack |
     <Link to={`/cases/${card.case_id}`} className="av-card av-case-card">
       {stepIndex >= 0 && <StepRing step={stepLabel(card.stage!)} number={stepIndex + 1} total={steps.length} />}
       <div className="av-case-card__body">
-        <h3 className="av-case-card__title">{card.label}</h3>
-        <span className="av-row">
-          {card.organisation_kind !== "personal" && <span className="av-badge">{card.organisation_name}</span>}
+        <span className="av-case-card__name">
+          <h3 className="av-case-card__title">{card.label}</h3>
+          {card.organisation_kind !== "personal" && <span className="av-badge av-badge--org">{card.organisation_name}</span>}
           {card.on_hold && <span className="av-badge av-badge--look">{t("case.on_hold")}</span>}
         </span>
         <span className="av-case-card__foot">
@@ -180,29 +210,21 @@ function CaseCardView({ card, pack, locale }: { card: CaseCard; pack: CasePack |
   );
 }
 
-/** How far along a case is: a ring filled to the pack step, with the step's name inside. */
+/** How far along a case is: the design system's ring filled to the pack step, with the step's name inside. */
 function StepRing({ step, number, total }: { step: string; number: number; total: number }) {
-  const r = 34;
-  const length = 2 * Math.PI * r;
   return (
-    <span className="av-ring" role="img" aria-label={t("case.step_ring", { step, number, total })}>
-      <svg width="80" height="80" viewBox="0 0 80 80" aria-hidden="true" focusable="false">
-        <circle cx="40" cy="40" r={r} fill="none" stroke="var(--line)" strokeWidth="6" />
-        <circle
-          cx="40"
-          cy="40"
-          r={r}
-          fill="none"
-          stroke="var(--green-bright)"
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={`${(length * number) / total} ${length}`}
-          transform="rotate(-90 40 40)"
-        />
-      </svg>
-      <span className="av-ring__label" aria-hidden="true">
-        {step}
-      </span>
-    </span>
+    <ProgressRing value={number} max={total} label={t("case.step_ring", { step, number, total })}>
+      {step}
+    </ProgressRing>
   );
 }
+
+/** A line icon on a 24px grid. */
+function Icon({ d, size = 20 }: { d: string; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
+  );
+}
+

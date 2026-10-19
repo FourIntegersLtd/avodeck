@@ -17,6 +17,8 @@ export { ChoicePills, Segmented } from "./Choices";
 export type { ChoiceOption } from "./Choices";
 export { PageRef, QChip } from "./Chips";
 export { Dialog } from "./Dialog";
+export { FocusedHeader } from "./FocusedHeader";
+export type { FocusedHeaderProps } from "./FocusedHeader";
 export { DictationBar, DictationBox } from "./DictationBox";
 export { DropZone } from "./DropZone";
 export type { DropZoneProps } from "./DropZone";
