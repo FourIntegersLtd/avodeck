@@ -1,5 +1,5 @@
 question_types:
-  - {key: breach, label_key: question_type.breach}
-  - {key: causation, label_key: question_type.causation}
-  - {key: other, label_key: question_type.other}
+  - {key: breach, label_key: question_type.breach, colour: blue, parts: [{key: standard, label_key: question_part.standard}, {key: timing, label_key: question_part.timing}]}
+  - {key: causation, label_key: question_type.causation, colour: amber, parts: [{key: effect, label_key: question_part.effect}, {key: timing, label_key: question_part.timing}]}
+  - {key: other, label_key: question_type.other, colour: green, parts: [{key: whole, label_key: question_part.whole}]}
 # Which types fall outside an expert's usual expertise is declared by the specialty pack (outside_expertise_question_types).

@@ -10,6 +10,8 @@ export function errorMessage(error: unknown, own: Record<string, string> = {}): 
     too_many_attempts: "errors.too_many_attempts",
     invalid_code: "errors.invalid_code",
     invalid_token: "errors.invalid_token",
+    already_confirmed: "errors.already_confirmed",
+    questions_locked: "errors.questions_locked",
   };
   return t(shared[code] ?? "errors.generic");
 }

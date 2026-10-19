@@ -97,6 +97,16 @@
         "recent_months",
         "gap_min_months"
       ]
+    },
+    "outside_expertise_parts": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "description": "Question-part keys the expert still answers when a question is outside their expertise."
     }
   },
   "additionalProperties": false,

@@ -38,6 +38,9 @@
             "text_key": "zz.qualifications"
           }
         ],
+        "page_limit": {
+          "zz_track": 7
+        },
         "rule_ref": "Rule Z"
       },
       "currency": "XTS",
@@ -76,6 +79,24 @@
           "rule_ref": "Rule Z.9",
           "text": "I affirm this test report is mine.",
           "version": "0.0.1"
+        }
+      ],
+      "document_kinds": [
+        {
+          "key": "instructions",
+          "label_key": "document_kind.instructions"
+        },
+        {
+          "key": "records",
+          "label_key": "document_kind.records"
+        },
+        {
+          "key": "other",
+          "label_key": "document_kind.other"
+        },
+        {
+          "key": "zz_exhibit",
+          "label_key": "document_kind.zz_exhibit"
         }
       ],
       "expert_roles": [
@@ -146,6 +167,9 @@
           "label": "Zz below what a therapist should do"
         }
       ],
+      "outside_expertise_parts": [
+        "zz_a"
+      ],
       "party_roles": [
         {
           "key": "instructing_side",
@@ -174,12 +198,34 @@
       "quarantine_purge_days": 9,
       "question_types": [
         {
+          "colour": "red",
           "key": "capacity",
-          "label_key": "zz.question_type.capacity"
+          "label_key": "zz.question_type.capacity",
+          "parts": [
+            {
+              "key": "zz_a",
+              "label_key": "zz.part.a"
+            },
+            {
+              "key": "zz_b",
+              "label_key": "zz.part.b"
+            }
+          ]
         },
         {
+          "colour": "green",
           "key": "liability",
-          "label_key": "zz.question_type.liability"
+          "label_key": "zz.question_type.liability",
+          "parts": [
+            {
+              "key": "zz_b",
+              "label_key": "zz.part.b"
+            },
+            {
+              "key": "zz_c",
+              "label_key": "zz.part.c"
+            }
+          ]
         }
       ],
       "range_note_prompt": "Zz what other therapists might do",
@@ -227,6 +273,23 @@
           "statement": true
         }
       ],
+      "subject_statuses": [
+        {
+          "key": "present",
+          "label": "present subject",
+          "representative": null
+        },
+        {
+          "key": "absent",
+          "label": "absent subject",
+          "representative": null
+        },
+        {
+          "key": "dependent",
+          "label": "dependent subject",
+          "representative": "guardian ad item"
+        }
+      ],
       "timezone": "America/Halifax",
       "versions": {
         "case_type": "zz-case@0.0.4",
@@ -238,6 +301,7 @@
         "clinician": "therapist",
         "clinicians": "therapists",
         "court_bundle": "hearing binder",
+        "coverage_question": "zz coverage question?",
         "coverage_roles": {
           "practitioner": "zz practitioner",
           "supervisor": "zz supervisor"
@@ -259,10 +323,22 @@
           "measurements": "zz measurements",
           "sessions": "zz sessions"
         },
+        "other_side_example": "zz example of the other party",
+        "other_side_prompt": "Who is the respondent zz?",
+        "outside_expertise_hint": "zz outside-expertise hint",
+        "party_name_ignore_words": [
+          "zzthe",
+          "zzand",
+          "zzco"
+        ],
         "party_roles": {
           "instructing_side": "petitioner",
           "joint": "neutral",
           "other_side": "respondent"
+        },
+        "party_roles_plural": {
+          "instructing_side": "petitioners",
+          "other_side": "respondents"
         },
         "practice": "clinic",
         "report_rules_name": "Rule Z",
@@ -274,6 +350,7 @@
         "subject_representatives": {
           "dependent": "guardian ad item"
         },
+        "subject_status_hint": "zz hint about the present or absent subject",
         "subject_statuses": {
           "absent": "absent subject",
           "dependent": "dependent subject",
@@ -382,10 +459,21 @@
           "insurer": "carrier",
           "lawyer": "counsel"
         },
+        "other_side_example": "zz example of the other party",
+        "other_side_prompt": "Who is the respondent zz?",
+        "party_name_ignore_words": [
+          "zzthe",
+          "zzand",
+          "zzco"
+        ],
         "party_roles": {
           "instructing_side": "petitioner",
           "joint": "neutral",
           "other_side": "respondent"
+        },
+        "party_roles_plural": {
+          "instructing_side": "petitioners",
+          "other_side": "respondents"
         },
         "report_rules_name": "Rule Z",
         "request_notes": {
@@ -396,6 +484,7 @@
         "subject_representatives": {
           "dependent": "guardian ad item"
         },
+        "subject_status_hint": "zz hint about the present or absent subject",
         "subject_statuses": {
           "absent": "absent subject",
           "dependent": "dependent subject",
@@ -556,6 +645,9 @@
             "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
           }
         ],
+        "page_limit": {
+          "intermediate_track": 20
+        },
         "rule_ref": "CPR Part 35 / PD35"
       },
       "currency": "GBP",
@@ -602,6 +694,20 @@
           "rule_ref": "PD35 para 3.3",
           "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
           "version": "2026.10.0"
+        }
+      ],
+      "document_kinds": [
+        {
+          "key": "instructions",
+          "label_key": "document_kind.instructions"
+        },
+        {
+          "key": "records",
+          "label_key": "document_kind.records"
+        },
+        {
+          "key": "other",
+          "label_key": "document_kind.other"
         }
       ],
       "expert_roles": [
@@ -825,6 +931,9 @@
           "label": "Below the standard of a reasonable GP"
         }
       ],
+      "outside_expertise_parts": [
+        "timing"
+      ],
       "party_roles": [
         {
           "key": "instructing_side",
@@ -857,16 +966,45 @@
       "quarantine_purge_days": 14,
       "question_types": [
         {
+          "colour": "blue",
           "key": "breach",
-          "label_key": "question_type.breach"
+          "label_key": "question_type.breach",
+          "parts": [
+            {
+              "key": "standard",
+              "label_key": "question_part.standard"
+            },
+            {
+              "key": "timing",
+              "label_key": "question_part.timing"
+            }
+          ]
         },
         {
+          "colour": "amber",
           "key": "causation",
-          "label_key": "question_type.causation"
+          "label_key": "question_type.causation",
+          "parts": [
+            {
+              "key": "effect",
+              "label_key": "question_part.effect"
+            },
+            {
+              "key": "timing",
+              "label_key": "question_part.timing"
+            }
+          ]
         },
         {
+          "colour": "green",
           "key": "other",
-          "label_key": "question_type.other"
+          "label_key": "question_type.other",
+          "parts": [
+            {
+              "key": "whole",
+              "label_key": "question_part.whole"
+            }
+          ]
         }
       ],
       "range_note_prompt": "What other GPs might reasonably do",
@@ -962,6 +1100,23 @@
           "statement": true
         }
       ],
+      "subject_statuses": [
+        {
+          "key": "living",
+          "label": "living",
+          "representative": null
+        },
+        {
+          "key": "deceased",
+          "label": "has died",
+          "representative": "personal representative"
+        },
+        {
+          "key": "minor",
+          "label": "under 18",
+          "representative": "litigation friend"
+        }
+      ],
       "timezone": "Europe/London",
       "versions": {
         "case_type": "clin-neg-breach@2026.10.3",
@@ -974,6 +1129,7 @@
         "clinician": "GP",
         "clinicians": "GPs",
         "court_bundle": "trial bundle",
+        "coverage_question": "Were you working in general practice throughout the period of the claim?",
         "coverage_roles": {
           "locum": "locum",
           "partner": "partner",
@@ -1000,10 +1156,38 @@
           "primary_care_visits": "GP visits",
           "results": "Results"
         },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "outside_expertise_hint": "This looks outside what a general practitioner usually covers. You decide whether to answer it, or only part of it.",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
         "party_roles": {
           "instructing_side": "claimant",
           "joint": "jointly instructed",
           "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
         },
         "practice": "GP surgery",
         "report_rules_name": "Part 35",
@@ -1019,6 +1203,7 @@
           "deceased": "personal representative",
           "minor": "litigation friend"
         },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
         "subject_statuses": {
           "deceased": "has died",
           "living": "living",
@@ -1202,10 +1387,37 @@
           "insurer": "insurer",
           "lawyer": "solicitor"
         },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
         "party_roles": {
           "instructing_side": "claimant",
           "joint": "jointly instructed",
           "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
         },
         "report_rules_name": "Part 35",
         "request_notes": {
@@ -1217,6 +1429,7 @@
           "deceased": "personal representative",
           "minor": "litigation friend"
         },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
         "subject_statuses": {
           "deceased": "has died",
           "living": "living",

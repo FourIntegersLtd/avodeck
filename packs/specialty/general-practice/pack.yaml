@@ -12,3 +12,4 @@ record_gaps:                # where a record source goes quiet (a series that st
   regular_months: 12        # a regular series has entries in at least this many months...
   recent_months: 6          # ...at least this many of them in the 12 months up to its last entry
   gap_min_months: 3         # a gap is a series that stops at least this many months before its source ends
+outside_expertise_parts: [timing]   # still answered when a question is outside the expert's expertise (question-part keys)

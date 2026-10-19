@@ -18,6 +18,34 @@
           "label_key": {
             "type": "string",
             "minLength": 1
+          },
+          "colour": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]*$",
+            "description": "A design-system colour token name (e.g. blue)."
+          },
+          "parts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "label_key"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]*$"
+                },
+                "label_key": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              }
+            },
+            "description": "The parts a question of this type can be answered in."
           }
         },
         "additionalProperties": false,

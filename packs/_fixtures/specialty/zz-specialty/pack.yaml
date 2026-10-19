@@ -12,3 +12,4 @@ record_gaps:
   regular_months: 12
   recent_months: 6
   gap_min_months: 4
+outside_expertise_parts: [zz_a]

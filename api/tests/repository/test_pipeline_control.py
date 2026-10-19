@@ -259,7 +259,17 @@ async def test_the_preparing_screen_finds_the_case_s_latest_processing_job(
     ).fetchone()  # type: ignore[misc]
     assert queued["id"] == str(first), "the upload's first job (the scan) is not followed"
     assert queued["status"] in ("queued", "running")
-    assert set(queued) == {"id", "kind", "status", "step", "pct", "eta_seconds", "error_code"}
+    assert set(queued) == {
+        "id",
+        "kind",
+        "status",
+        "step",
+        "pct",
+        "eta_seconds",
+        "step_done",
+        "step_total",
+        "error_code",
+    }
 
     await h.drain()
     (latest,) = h.admin.execute(
