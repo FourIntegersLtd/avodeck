@@ -4,21 +4,22 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
+import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { longDate, saveBlob, tag, vocab } from "./data";
+import { BackLink, Button, LinkButton, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
+import { longDate, printBlob, saveBlob, tag, vocab } from "./data";
 import { TrialFrame, TrialHeader, type Frame } from "./frame";
 import { forgetCopy, hasCopy, PIN_PATTERN, saveCopy } from "./offline";
-import { w, type TrialKey } from "./words";
+import { w, wn, type TrialKey } from "./words";
 
 type Section = Schemas["TrialPackSettingsIn"]["sections"][number];
 type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
 const SCREEN = "trial_pack";
 const POLL_MS = 800;
-const SECTIONS: Section[] = ["report", "chronology", "joint_statement", "written_answers", "legal_tests"];
+const SECTIONS: Section[] = ["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests"];
 const ERRORS = {
   not_served: "trial.pack.error.not_served",
   precondition_failed: "trial.pack.error.stale",
@@ -31,14 +32,69 @@ export function TrialPack() {
 }
 
 function Pack({ frame }: { frame: Frame }) {
+  const path = { case_id: frame.caseId };
+  // The preview is a help: when it can't be had, the rest of the screen still works.
+  const preview = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/preview", { params: { path } })).catch(() => null), [frame.caseId]);
+  const sheets = preview.data?.sheets ?? [];
   return (
     <div className="av-page av-stack">
       <TrialHeader pack={frame.pack} screen={SCREEN} title={w("pack.title")} />
+      <BackLink to={screenPath("court_bundle_pages", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}/trial-pages`}>{w("pack.back")}</BackLink>
       <p>{w("pack.lead")}</p>
-      <Contents frame={frame} />
-      <Check frame={frame} />
+      <div className="av-trial-split">
+        <div className="av-stack">
+          <Contents frame={frame} pages={preview.data?.sections ?? []} onChanged={preview.reload} />
+          <Check frame={frame} />
+        </div>
+        {sheets.length > 0 && <Preview sheets={sheets} bundleName={vocab(frame.pack, "court_bundle")} />}
+      </div>
       {frame.can("report.sign") && <OfflineCopy frame={frame} />}
     </div>
+  );
+}
+
+function Preview({ sheets, bundleName }: { sheets: Schemas["SheetOut"][]; bundleName: string }) {
+  const id = useId();
+  const [at, setAt] = useState(0);
+  const sheet = sheets[Math.min(at, sheets.length - 1)]!;
+  return (
+    <section aria-labelledby={id} className="av-trial-preview av-stack">
+      <h2 id={id} className="av-visually-hidden">{w("pack.preview.heading")}</h2>
+      <div className="av-trial-preview__bar">
+        <p className="av-trial-strong">{w("pack.preview.sheet", { n: at + 1, of: sheets.length })}</p>
+        <div className="av-row">
+          <Button variant="secondary" aria-label={w("pack.preview.previous")} onClick={() => setAt(at - 1)} disabled={at === 0}>‹</Button>
+          <Button variant="secondary" aria-label={w("pack.preview.next")} onClick={() => setAt(at + 1)} disabled={at >= sheets.length - 1}>›</Button>
+        </div>
+      </div>
+      <article className="av-trial-sheet av-stack">
+        <header className="av-trial-sheet__head">
+          <h3>{w("pack.sheet.title", { number: sheet.number, text: sheet.text })}</h3>
+          <p className="av-trial-sheet__pages">
+            {sheet.pages.map((p) => (
+              <span key={p.page_no}>
+                {p.trial_page_no !== null && p.status !== "missing" && <span className="av-mono">{w("pack.sheet.trial_page", { court_bundle: bundleName, page: p.trial_page_no })} · </span>}
+                <PageRef page={p.page_no} />
+                {(p.status === "missing" || p.trial_page_no === null) && <span className="av-trial-sheet__flag">{w("pack.sheet.not_in_bundle", { court_bundle: bundleName })}</span>}
+              </span>
+            ))}
+          </p>
+        </header>
+        {sheet.answer && (
+          <div>
+            <p className="av-trial-sheet__label">{w("pack.sheet.my_answer")}</p>
+            <p className="av-trial-prose">{sheet.answer}</p>
+          </div>
+        )}
+        {(sheet.asked || sheet.reason) && (
+          <div>
+            <p className="av-trial-sheet__label">{w("pack.sheet.asked")}</p>
+            {sheet.asked && <p className="av-trial-prose">{sheet.asked}</p>}
+            {sheet.agreed === false && sheet.reason && <p className="av-trial-prose">{w("pack.sheet.reason", { reason: sheet.reason })}</p>}
+          </div>
+        )}
+      </article>
+    </section>
   );
 }
 
@@ -47,7 +103,7 @@ function sectionLabel(section: Section, frame: Frame): string {
   return w(`pack.section.${section}` as TrialKey);
 }
 
-function Contents({ frame }: { frame: Frame }) {
+function Contents({ frame, pages, onChanged }: { frame: Frame; pages: Schemas["SectionPages"][]; onChanged: () => void }) {
   const path = { case_id: frame.caseId };
   const stepUp = useStepUp();
   const settings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/settings", { params: { path } })), [frame.caseId]);
@@ -59,6 +115,8 @@ function Contents({ frame }: { frame: Frame }) {
   const [job, setJob] = useState<string | null>(null);
   const reloadLatest = useRef(latest.reload);
   reloadLatest.current = latest.reload;
+  const changed = useRef(onChanged);
+  changed.current = onChanged;
 
   useEffect(() => {
     if (!settings.data) return;
@@ -77,6 +135,7 @@ function Contents({ frame }: { frame: Frame }) {
         setJob(null);
         if (state.status === "failed") setMessage({ tone: "error", text: w("pack.failed") });
         reloadLatest.current();
+        changed.current();
       } catch (error) {
         if (!live) return;
         setJob(null);
@@ -113,6 +172,7 @@ function Contents({ frame }: { frame: Frame }) {
       );
       setVersion(next.version);
       setMessage({ tone: "success", text: w("pack.saved") });
+      onChanged();
     } catch (error) {
       fail(error);
       settings.reload();
@@ -139,6 +199,17 @@ function Contents({ frame }: { frame: Frame }) {
     }
   };
 
+  const print = async () => {
+    setMessage(null);
+    try {
+      const blob = await stepUp(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/latest/download", { params: { path }, parseAs: "blob" })));
+      if (blob) printBlob(blob as Blob);
+    } catch (error) {
+      fail(error);
+    }
+  };
+
+  const countOf = (key: string) => pages.find((p) => p.key === key)?.pages;
   const pack = latest.data.pack;
   const canBuild = frame.can("report.build");
   return (
@@ -147,9 +218,9 @@ function Contents({ frame }: { frame: Frame }) {
       <fieldset className="av-card av-stack">
         <legend className="av-trial-legend">{w("pack.sections.heading")}</legend>
         {SECTIONS.map((s) => (
-          <Choice key={s} label={sectionLabel(s, frame)} hint={w(`pack.section.${s}_hint` as TrialKey)} checked={chosen.has(s)} onChange={() => toggle(s)} disabled={!canBuild} />
+          <Choice key={s} label={sectionLabel(s, frame)} hint={w(`pack.section.${s}_hint` as TrialKey)} pages={countOf(s)} checked={chosen.has(s)} onChange={() => toggle(s)} disabled={!canBuild} />
         ))}
-        <Choice label={w("pack.section.guidance")} hint={w("pack.section.guidance_hint")} checked={guidance ?? false} onChange={() => setGuidance((g) => !g)} disabled={!canBuild} />
+        <Choice label={w("pack.section.guidance")} hint={w("pack.section.guidance_hint")} pages={countOf("guidance")} checked={guidance ?? false} onChange={() => setGuidance((g) => !g)} disabled={!canBuild} />
         {canBuild && (
           <div className="av-trial-actions">
             <Button variant="secondary" onClick={save}>{w("pack.save")}</Button>
@@ -178,6 +249,7 @@ function Contents({ frame }: { frame: Frame }) {
         )}
         <div className="av-trial-actions">
           {pack && frame.can("case.view_content") && <Button variant="secondary" onClick={download}>{w("pack.download")}</Button>}
+          {pack && frame.can("case.view_content") && <Button variant="secondary" onClick={print}>{w("pack.print")}</Button>}
           {canBuild && <Button onClick={build} disabled={job !== null}>{pack ? w("pack.rebuild") : w("pack.build")}</Button>}
         </div>
       </section>
@@ -185,14 +257,17 @@ function Contents({ frame }: { frame: Frame }) {
   );
 }
 
-function Choice({ label, hint, checked, onChange, disabled }: { label: string; hint: string; checked: boolean; onChange: () => void; disabled?: boolean }) {
+function Choice({ label, hint, pages, checked, onChange, disabled }: { label: string; hint: string; pages?: number; checked: boolean; onChange: () => void; disabled?: boolean }) {
   const id = useId();
   return (
     <div className="av-trial-choice-row">
-      <label className="av-checkbox">
-        <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} aria-describedby={id} />
-        <span>{label}</span>
-      </label>
+      <div className="av-trial-choice-row__main">
+        <label className="av-checkbox">
+          <input type="checkbox" checked={checked} onChange={onChange} disabled={disabled} aria-describedby={id} />
+          <span>{label}</span>
+        </label>
+        {pages !== undefined && <span className="av-trial-muted">{wn("pack.pages", pages)}</span>}
+      </div>
       <p id={id} className="av-trial-muted av-trial-hint">{hint}</p>
     </div>
   );

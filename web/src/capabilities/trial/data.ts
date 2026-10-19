@@ -64,3 +64,24 @@ export function sourceLabel(pack: Schemas["CasePack"], key: string | null | unde
   const words = (pack.vocabulary as Record<string, unknown>).source_types as Record<string, string> | undefined;
   return words?.[key] ?? key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
 }
+
+/** Prints a PDF the API sent: it is loaded into a hidden frame and that frame's print dialog opens. */
+export function printBlob(blob: Blob): void {
+  const href = URL.createObjectURL(blob);
+  const frame = document.createElement("iframe");
+  frame.hidden = true;
+  frame.title = "print";
+  frame.onload = () => {
+    try {
+      frame.contentWindow?.print();
+    } catch {
+      // jsdom has no printing; the browser prints the file
+    }
+  };
+  frame.src = href;
+  document.body.appendChild(frame);
+  window.setTimeout(() => {
+    frame.remove();
+    URL.revokeObjectURL(href);
+  }, 120_000);
+}
