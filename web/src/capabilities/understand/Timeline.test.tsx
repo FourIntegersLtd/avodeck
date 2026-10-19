@@ -114,7 +114,7 @@ describe("the picture of the record", () => {
     expect(within(second).getByText("1 entry")).toBeInTheDocument();
     expect(await within(second).findByText("Q1")).toBeInTheDocument();
     expect(within(second).getByText("Q2")).toBeInTheDocument();
-    expect(within(second).getAllByText("Hb 98, ferritin 9").length).toBeGreaterThan(0);
+    expect(within(second).getAllByText("Seen in surgery").length).toBeGreaterThan(0);
   });
 
   test("shows the months across the record and can zoom to one month", async () => {
