@@ -8,7 +8,7 @@ import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, PageRef } from "../../foundation/ui";
+import { Button, DictationBar, LinkButton, LoadError, Loading, Notice, PageRef } from "../../foundation/ui";
 import { KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
@@ -88,7 +88,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   return (
     <div className="av-page av-stack">
       <div>
-        <h2>{w("points.title")}</h2>
+        <h2 className="av-write-title">{w("points.title")}</h2>
         <p className="av-muted">{w("points.intro")}</p>
       </div>
       <QuestionTabs caseId={caseId} chosen={chosen} screen="points" />
@@ -119,20 +119,20 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                     {point.status === "stale" && <p className="av-write-badge">{w("points.stale_point")}</p>}
                     <div className="av-write-actions">
                       {(point.status === "suggested" || point.status === "stale") && (
-                        <Button variant="secondary" onClick={() => void change(point, { status: "accepted" })}>
+                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void change(point, { status: "accepted" })}>
                           {w("points.keep")}
-                        </Button>
+                        </button>
                       )}
                       {data.sides
                         .filter((s) => s.code !== point.side)
                         .map((s) => (
-                          <Button key={s.code} variant="secondary" onClick={() => void change(point, { side: s.code })}>
+                          <button type="button" key={s.code} className="av-text-link av-write-linkbutton" onClick={() => void change(point, { side: s.code })}>
                             {w("points.move", { side: s.label })}
-                          </Button>
+                          </button>
                         ))}
-                      <Button variant="secondary" onClick={() => setRemoving(point)}>
+                      <button type="button" className="av-text-link av-write-linkbutton" onClick={() => setRemoving(point)}>
                         {w("points.remove")}
-                      </Button>
+                      </button>
                     </div>
                   </li>
                 ))}
@@ -193,7 +193,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
 
       <div className="av-write-columns">
         <section className="av-card av-stack">
-          <DictationBox
+          <DictationBar
             caseId={caseId}
             context="range_note"
             label={data.range_note.prompt}

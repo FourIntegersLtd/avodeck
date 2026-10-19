@@ -3,6 +3,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { CASE_A, stubApi } from "../foundation/helpers";
+import packFixtures from "../../src/foundation/platform-client/pack-fixtures.json" with { type: "json" };
 
 const Q1 = "a1111111-1111-4111-8111-111111111111";
 const FACT = "f1111111-1111-4111-8111-111111111111";
@@ -14,6 +15,8 @@ const HEADER = { number: 1, short_title: "A question", kind: "breach", kind_labe
 
 async function stub(page: Page) {
   await stubApi(page, { signedIn: true });
+  // The real case pack, so the step bar shows every step of the case type.
+  await page.route(`**/v1/cases/${CASE_A}/pack`, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(packFixtures.launch.case_pack) }));
   const reply = (path: string, body: unknown) =>
     page.route(`**/v1/cases/${CASE_A}${path}`, (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) }));
   await reply("", { id: CASE_A, label: "Mrs A", status: "open", instructing_party_type: null, allowed_actions: [] });

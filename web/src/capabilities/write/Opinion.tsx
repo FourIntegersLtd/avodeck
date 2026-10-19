@@ -18,7 +18,8 @@ import {
   Button,
   Checkbox,
   Dialog,
-  DictationBox,
+  ChoicePills,
+  DictationBar,
   LinkButton,
   LoadError,
   Loading,
@@ -163,6 +164,7 @@ function Editor({
   );
   const [current, setCurrent] = useState(space.opinion?.version ?? 0);
   const [tick, setTick] = useState(0);
+  const [ownTest, setOwnTest] = useState(Boolean(space.opinion?.test_text));
   const [savedBody, setSavedBody] = useState(space.opinion?.body ?? "");
   const [changedRefs, setChangedRefs] = useState<number[]>(
     space.opinion?.changed_citations ?? [],
@@ -427,8 +429,8 @@ function Editor({
   const open = issues.filter((i) => i.status === "open");
   const sides = space.points.sides;
   return (
-    <div className="av-page av-stack">
-      <h2>{w("opinion.title")}</h2>
+    <div className="av-page av-page--wide av-stack">
+      <h2 className="av-visually-hidden">{w("opinion.title")}</h2>
       <div className="av-write-split">
         <aside className="av-stack" data-chips>
           <section className="av-card" aria-labelledby="chips-title" data-chips>
@@ -501,7 +503,7 @@ function Editor({
                 <span>{w("opinion.from_paragraph", { ref: paraRef })}</span>
               )}
             </p>
-            <h3>{question.confirmed_text ?? question.text_verbatim}</h3>
+            <h3 className="av-write-question">{question.confirmed_text ?? question.text_verbatim}</h3>
           </div>
           {message && (
             <Notice
@@ -524,15 +526,15 @@ function Editor({
               ))}
             </Notice>
           )}
-          <section className="av-card av-stack">
+          <section className="av-card av-write-paper">
             <div ref={box}>
-              <DictationBox
+              <DictationBar
                 caseId={caseId}
                 context="opinion"
                 label={w("opinion.editor")}
                 value={fields.body}
                 onChange={(body) => edit({ body })}
-                rows={12}
+                rows={10}
               />
             </div>
             <p className="av-muted">{w("opinion.yours_only")}</p>
@@ -548,34 +550,38 @@ function Editor({
           />
 
           <div className="av-write-columns">
-            <fieldset className="av-card av-write-fieldset">
-              <legend>{w("opinion.view")}</legend>
-              {space.views.map((v) => (
-                <label key={v.code} className="av-write-radio">
-                  <input
-                    type="radio"
-                    name="view"
-                    checked={fields.view === v.code}
-                    onChange={() => edit({ view: v.code })}
-                  />
-                  <span>{v.label}</span>
-                </label>
-              ))}
-            </fieldset>
             <section className="av-card av-stack">
-              <h3>
-                <label htmlFor="test-text">{w("opinion.test")}</label>
-              </h3>
-              <textarea
-                id="test-text"
-                className="av-textarea"
-                rows={4}
-                value={fields.test}
-                onChange={(e) => edit({ test: e.target.value })}
+              <h3>{w("opinion.view")}</h3>
+              <ChoicePills
+                label={w("opinion.view")}
+                hideLabel
+                name="view"
+                value={fields.view}
+                onChange={(view) => edit({ view })}
+                options={space.views.map((v) => ({ value: v.code, label: v.label }))}
               />
-              <p className="av-muted">
-                {w("opinion.test_reference")} <span>{space.legal_test}</span>
-              </p>
+            </section>
+            <section className="av-card av-stack">
+              <h3>{w("opinion.test")}</h3>
+              <p className="av-write-test">{space.legal_test}</p>
+              {ownTest ? (
+                <div>
+                  <label className="av-field__label" htmlFor="test-text">
+                    {w("opinion.test")}
+                  </label>
+                  <textarea
+                    id="test-text"
+                    className="av-textarea"
+                    rows={4}
+                    value={fields.test}
+                    onChange={(e) => edit({ test: e.target.value })}
+                  />
+                </div>
+              ) : (
+                <button type="button" className="av-text-link av-write-linkbutton" onClick={() => setOwnTest(true)}>
+                  {w("opinion.test_own")}
+                </button>
+              )}
               <Checkbox
                 label={w("opinion.provisional")}
                 checked={fields.provisional}
@@ -656,14 +662,11 @@ function Editor({
                   </span>
                 </>
               )}
+              {" · "}
+              <button type="button" className="av-text-link av-write-linkbutton" aria-expanded={showVersions} onClick={() => setShowVersions((v) => !v)}>
+                {w("opinion.versions")}
+              </button>
             </p>
-            <Button
-              variant="secondary"
-              aria-expanded={showVersions}
-              onClick={() => setShowVersions((s) => !s)}
-            >
-              {w("opinion.versions")}
-            </Button>
             {chosen.next ? (
               <LinkButton arrow to={`/cases/${caseId}/opinion?q=${chosen.next.id}`}>
                 {w("opinion.next")}
