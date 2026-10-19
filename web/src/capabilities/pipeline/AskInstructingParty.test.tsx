@@ -1,6 +1,6 @@
 // Screen 08b, ask the instructing party for what's missing: the API drafts the email from the pack's
 // wording; the expert edits it, it is noted in the case record, and their own email opens with it.
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server, signedIn } from "../../test/api";
@@ -140,5 +140,30 @@ describe.each([
     await user.click(screen.getByRole("checkbox", { name: `Add a line asking for 14 more days if they arrive after ${formatDate("2026-11-16", pack.locale)}` }));
     expect(await screen.findByText("Body with the extra line")).toBeVisible();
     expect(asked.at(-1)).toEqual({ extension: true });
+  });
+
+  test("opens as a read-only email with To, From and Subject rows; the fields come with Edit the email", async () => {
+    mock(pack);
+    const { user } = renderAt(PATH);
+    expect(await screen.findByText("Records needed - Mrs A")).toBeVisible();
+    expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "Subject" })).toBeNull();
+    expect(screen.getByText("From")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Edit the email" }));
+    expect(screen.getByRole("textbox", { name: "Message" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Subject" })).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "To" })).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Done editing" }));
+    expect(screen.queryByRole("textbox", { name: "Message" })).toBeNull();
+  });
+
+  test("what happens next is ticked, and Send from my email carries an arrow", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const next = (await screen.findByRole("heading", { name: "What happens next" })).closest("section")!;
+    const items = within(next).getAllByRole("listitem");
+    expect(items).toHaveLength(3);
+    items.forEach((li) => expect(li.querySelector("svg")).not.toBeNull());
+    expect(screen.getByRole("button", { name: "Send from my email" }).querySelector("svg")).not.toBeNull();
   });
 });

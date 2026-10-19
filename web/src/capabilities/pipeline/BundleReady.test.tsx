@@ -66,9 +66,9 @@ describe.each([
   test("recordings and pages in another language are listed", async () => {
     mock(pack);
     renderAt(PATH);
-    const kept = card(await screen.findByText("1 recording or image Avodeck can't read."));
-    expect(kept).toHaveTextContent("Kept and listed for you, but not read.");
-    expect(kept).toHaveTextContent("p.903");
+    const kept = card(await screen.findByText("1 voice recording and 1 page not in English."));
+    expect(kept).toHaveTextContent("The recording is kept but not read.");
+    expect(kept).toHaveTextContent("The page (p.903, Welsh) may need a certified translation.");
   });
 
   test("what looks missing is listed, with the pack's words for asking", async () => {
@@ -87,7 +87,7 @@ describe.each([
     renderAt(PATH);
     const table = await screen.findByRole("table");
     const rows = within(table).getAllByRole("row");
-    expect(rows[0]).toHaveTextContent("File");
+    expect(rows[0]).toHaveTextContent("Where it came from");
     expect(rows[0]).toHaveTextContent("How it was obtained");
     expect(rows[1]).toHaveTextContent("practice-records.pdf");
     expect(rows[1]).toHaveTextContent("600");
@@ -135,14 +135,34 @@ describe.each([
     expect(screen.queryByRole("link", { name: "Check them" })).toBeNull();
   });
 
-  test("the source bar is one drawn bar with a tile of page counts for each source", async () => {
+  test("the sources are one tall stack of pages with a label and page count for each source", async () => {
     mock(pack);
     renderAt(PATH);
     await screen.findByRole("heading", { level: 1, name: "Your bundle is ready" });
-    expect(screen.getByRole("img", { name: "Where the pages came from" })).toBeVisible();
-    const tiles = within(screen.getByRole("list", { name: "Where the pages came from" })).getAllByRole("listitem");
-    expect(tiles[0]!.querySelector(".av-mono")).toHaveTextContent(/^[\d,]+$/);
-    expect(tiles[0]).toHaveTextContent(/pages$/);
+    const stack = screen.getByRole("img", { name: "Where the pages came from" });
+    expect(stack.tagName.toLowerCase()).toBe("svg");
+    expect(stack.querySelectorAll("rect").length).toBeGreaterThanOrEqual(sources.length);
+    const labels = within(screen.getByRole("list", { name: "Where the pages came from" })).getAllByRole("listitem");
+    expect(labels).toHaveLength(sources.length);
+    expect(labels[0]!.querySelector(".av-mono")).toHaveTextContent(/^[\d,]+$/);
+  });
+
+  test("each card has an icon tile, and the cards that need a look are outlined in amber", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const other = card(await screen.findByText("4 pages may belong to someone else."));
+    expect(other.querySelector(".av-icon-tile--amber")).not.toBeNull();
+    expect(other).toHaveClass("pl-card--amber");
+    expect(card("37 copies set aside. Nothing deleted.").querySelector(".av-icon-tile--mint")).not.toBeNull();
+    expect(card("1,231 pages, numbered 1 to 1,231.").querySelector(".av-icon-tile")).not.toBeNull();
+  });
+
+  test("the files table has no heading above it, and Start reading carries an arrow", async () => {
+    mock(pack);
+    renderAt(PATH);
+    await screen.findByRole("table");
+    expect(screen.getByRole("heading", { name: "Your files" })).toHaveClass("av-visually-hidden");
+    expect(screen.getByRole("link", { name: "Start reading" }).querySelector("svg")).not.toBeNull();
   });
 
   test("the unreadable card says what the pages mostly are", async () => {
