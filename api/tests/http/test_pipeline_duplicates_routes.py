@@ -211,7 +211,9 @@ async def test_anyone_without_access_to_the_case_gets_404(bundle: Harness) -> No
 
 
 async def put_aside(h: Harness, page_id: uuid.UUID | str, copy_of: int, **kwargs: Any) -> httpx.Response:
-    return await h.client.put(f"/v1/cases/{h.case_id}/pages/{page_id}/duplicate", json={"copy_of_page_no": copy_of}, **kwargs)
+    return await h.client.put(
+        f"/v1/cases/{h.case_id}/pages/{page_id}/duplicate", json={"copy_of_page_no": copy_of}, **kwargs
+    )
 
 
 async def test_the_expert_sets_a_page_aside_as_a_copy_of_another(bundle: Harness) -> None:
