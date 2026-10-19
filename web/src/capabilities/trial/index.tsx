@@ -14,11 +14,11 @@ registerScreen("court_bundle_pages", ({ caseId }) => `/cases/${caseId}/trial-pag
 registerScreen("trial_pack", ({ caseId }) => `/cases/${caseId}/trial-pack`);
 registerScreen("witness_box", ({ caseId }) => `/cases/${caseId}/witness-box`);
 
-/** S22-S24: signed-in, each with its own case header. */
-export const trialRoutes: RouteObject[] = [
-  { path: "cases/:caseId/joint-statement", element: <JointStatement /> },
-  { path: "cases/:caseId/trial-pages", element: <TrialPages /> },
-  { path: "cases/:caseId/trial-pack", element: <TrialPack /> },
+/** S22-S24: inside the case frame, which draws the case bar and marks the pack step that holds each screen. */
+export const trialCaseRoutes: RouteObject[] = [
+  { path: "joint-statement", element: <JointStatement />, handle: { screen: "expert_meeting" } },
+  { path: "trial-pages", element: <TrialPages />, handle: { screen: "court_bundle_pages" } },
+  { path: "trial-pack", element: <TrialPack />, handle: { screen: "trial_pack" } },
 ];
 
 /** S25: works from the copy on this device with no connection and no sign-in (rule 4's exception). */

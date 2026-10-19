@@ -11,6 +11,9 @@ import { TRIAL_MESSAGES as M } from "./words";
 const url = `/cases/${CASE}/joint-statement`;
 const k = (key: string) => M[`trial.${key}`]!;
 
+const rowOf = (n: number) => screen.findByRole("row", { name: (name) => name.includes(`${n}. ${item(n as 1 | 2 | 3).text}`) });
+const editor = (n: number) => screen.findByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", String(n))}: ${item(n as 1 | 2 | 3).text}` });
+
 beforeEach(() => {
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:statement"), revokeObjectURL: vi.fn() }));
 });
@@ -22,7 +25,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     server.use(http.post("/v1/cases/:caseId/expert-meetings", async ({ request }) => (await record(request), json(meetingOut(), 201))));
     const { user, container } = renderAt(url);
     // Wait for the screen's own heading: while the session loads, the shell shows a hidden one of its own.
-    const heading = await screen.findByRole("heading", { level: 1, name: (name) => name.includes(term(run, "expert_meeting")) });
+    const heading = await screen.findByRole("heading", { level: 2, name: (name) => name.includes(term(run, "expert_meeting")) });
     expect(heading).toHaveTextContent(term(run, "expert_meeting"));
     const kind = screen.getByLabelText(k("meeting.type"));
     expect(within(kind).getByRole("option", { name: MEETING_TYPE.label })).toBeInTheDocument();
@@ -39,16 +42,22 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
   });
 
-  test("shows the questions with both positions, the deadlines and the pack's declarations", async () => {
+  test("shows the questions in a table with both positions, the deadlines and the pack's declarations", async () => {
     serveMeeting(run);
     const { container } = renderAt(url);
     const title = k("meeting.heading").replace("{{label}}", MEETING_TYPE.label).replace("{{names}}", "Dr R");
-    expect(await screen.findByRole("heading", { level: 1, name: title })).toBeInTheDocument();
-    expect(screen.getByText(/19 February 2027/)).toBeInTheDocument();
-    expect(screen.getByText(/26 February 2027/)).toBeInTheDocument();
-    const first = screen.getByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", "1")}: ${item(1).text}` });
-    expect(within(first).getByLabelText(k("meeting.item.yours"))).toHaveValue(item(1).own_position);
-    expect(within(first).getByLabelText(k("meeting.item.theirs"))).toHaveValue(item(1).other_positions);
+    expect(await screen.findByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+    expect(screen.getByText(/19 Feb\b/)).toBeInTheDocument();
+    expect(screen.getByText(/26 Feb\b/)).toBeInTheDocument();
+    const table = screen.getByRole("table");
+    for (const name of [k("meeting.col.question"), k("meeting.col.yours"), k("meeting.col.theirs").replace("{{names}}", "Dr R"), k("meeting.item.pages"), k("meeting.item.agreed")]) {
+      expect(within(table).getByRole("columnheader", { name })).toBeInTheDocument();
+    }
+    const first = await rowOf(1);
+    expect(within(first).getByText(item(1).own_position!, { exact: false })).toBeInTheDocument();
+    expect(within(first).getByText(item(1).other_positions!)).toBeInTheDocument();
+    expect(within(first).getByText(k("meeting.item.yes"))).toBeInTheDocument();
+    expect(within(first).queryByRole("textbox")).not.toBeInTheDocument();
     const declarations = screen.getByRole("region", { name: k("meeting.declarations.heading") });
     for (const line of MEETING_TYPE.declarations) expect(within(declarations).getByText(line)).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
@@ -62,8 +71,11 @@ test("a position that differs from the served report asks for a note, sent with 
     http.patch("/v1/cases/:caseId/agenda-items/:itemId", async ({ request }) => (await record(request), json(item(3, { change_note: "New evidence", version: 6 })))),
   );
   const { user } = renderAt(url);
-  const third = await screen.findByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", "3")}: ${item(3).text}` });
-  expect(within(third).getByText(k("meeting.item.changed"))).toBeInTheDocument();
+  const row = await rowOf(3);
+  expect(within(row).getByText(k("meeting.item.changed_lead"))).toBeInTheDocument();
+  await user.click(within(row).getByRole("button", { name: k("meeting.item.add_note") }));
+  const third = await editor(3);
+  expect(within(third).getByLabelText(k("meeting.item.change_note"))).toHaveFocus();
   await user.type(within(third).getByLabelText(k("meeting.item.change_note")), "New evidence");
   await user.click(within(third).getByRole("button", { name: k("meeting.item.save") }));
   await waitFor(() =>
@@ -76,7 +88,10 @@ test("a question not agreed takes a reason", async () => {
   const { sent, record } = serveMeeting("launch");
   server.use(http.patch("/v1/cases/:caseId/agenda-items/:itemId", async ({ request }) => (await record(request), json(item(1, { agreed: false, reason: "We differ", version: 4 })))));
   const { user } = renderAt(url);
-  const first = await screen.findByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", "1")}: ${item(1).text}` });
+  await user.click(within(await rowOf(1)).getByRole("button", { name: k("meeting.item.change") }));
+  const first = await editor(1);
+  expect(within(first).getByLabelText(k("meeting.item.yours"))).toHaveValue(item(1).own_position);
+  expect(within(first).getByLabelText(k("meeting.item.theirs"))).toHaveValue(item(1).other_positions);
   await user.click(within(first).getByRole("radio", { name: k("meeting.item.no") }));
   await user.type(within(first).getByLabelText(k("meeting.item.reason")), "We differ");
   await user.click(within(first).getByRole("button", { name: k("meeting.item.save") }));
@@ -125,7 +140,8 @@ test("a signed statement is shown read-only", async () => {
   expect(await screen.findByText(k("meeting.signed"))).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: k("meeting.item.save") })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: k("meeting.prepare") })).not.toBeInTheDocument();
-  expect(screen.getAllByText(item(1).own_position!)[0]).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: k("meeting.item.change") })).not.toBeInTheDocument();
+  expect(within(await rowOf(1)).getByText(item(1).own_position!, { exact: false })).toBeInTheDocument();
 });
 
 test("a signed copy made elsewhere is added as a PDF", async () => {
@@ -137,8 +153,6 @@ test("a signed copy made elsewhere is added as a PDF", async () => {
 });
 
 describe("the screen as designed", () => {
-  const q3 = () => screen.findByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", "3")}: ${item(3).text}` });
-
   test("a link back to after serving, who it is with, the agenda version and when it arrived", async () => {
     serveMeeting("launch");
     renderAt(url);
@@ -146,7 +160,7 @@ describe("the screen as designed", () => {
     expect(back).toHaveAttribute("href", expect.stringContaining(`/cases/${CASE}`));
     const line = await screen.findByTestId("meeting-line");
     expect(line).toHaveTextContent("Dr R");
-    expect(line).toHaveTextContent("10 February 2027");
+    expect(line).toHaveTextContent("10 Feb");
     expect(line).toHaveTextContent("2");
   });
 
@@ -155,24 +169,37 @@ describe("the screen as designed", () => {
     renderAt(url);
     const sign = await screen.findByText(k("meeting.sign_by"));
     expect(sign.closest("li")).toHaveTextContent("Rule Z.9");
+    expect(sign.closest("li")).toHaveTextContent("19 Feb");
     expect(screen.getByText(k("meeting.send_by")).closest("li")).toHaveTextContent("Rule Z.10");
   });
 
   test("each question shows the pages it cites as page references", async () => {
     serveMeeting("launch");
     renderAt(url);
-    const second = await screen.findByRole("group", { name: `${k("meeting.item.question").replace("{{number}}", "2")}: ${item(2).text}` });
+    const second = await rowOf(2);
     expect(within(second).getByText("p.214")).toBeInTheDocument();
     expect(within(second).getByText("p.87")).toBeInTheDocument();
   });
 
-  test("a changed position links straight to its note", async () => {
+  test("a changed position is marked in its row and its note link opens the editor at the note", async () => {
+    serveMeeting("launch");
+    const { user } = renderAt(url);
+    const row = await rowOf(3);
+    expect(row).toHaveClass("av-trial-row--changed");
+    await user.click(within(row).getByRole("button", { name: k("meeting.item.add_note") }));
+    expect(within(await editor(3)).getByLabelText(k("meeting.item.change_note"))).toHaveFocus();
+  });
+
+  test("each question shows the paragraph of the report it comes from", async () => {
     serveMeeting("launch");
     renderAt(url);
-    const third = await q3();
-    const link = within(third).getByRole("link", { name: k("meeting.item.add_note") });
-    const target = document.getElementById(link.getAttribute("href")!.slice(1));
-    expect(target).toBe(within(third).getByLabelText(k("meeting.item.change_note")));
+    expect(within(await rowOf(1)).getByText(k("meeting.item.para").replace("{{paras}}", "13"))).toBeInTheDocument();
+  });
+
+  test("a question not agreed shows its reason in the row", async () => {
+    serveMeeting("launch");
+    renderAt(url);
+    expect(within(await rowOf(2)).getByText(k("meeting.item.reason_shown").replace("{{reason}}", item(2).reason!))).toBeInTheDocument();
   });
 
   test("the pack's declarations are shown ticked and cannot be unticked", async () => {
@@ -205,4 +232,12 @@ describe("the screen as designed", () => {
     const prepare = await screen.findByRole("button", { name: k("meeting.prepare") });
     expect(prepare.className).not.toMatch(/secondary/);
   });
+});
+
+test("it sits in the case frame: the case bar with the case name as the page's main heading", async () => {
+  serveMeeting("launch");
+  renderAt(url);
+  expect(await screen.findByRole("heading", { level: 1, name: "Mrs A" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: M["trial.meeting.back"]! })).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 });

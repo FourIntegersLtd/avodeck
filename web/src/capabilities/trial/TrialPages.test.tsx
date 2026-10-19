@@ -36,14 +36,15 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     serveConcordance(run);
     const { container } = renderAt(url);
     const bundle = term(run, "court_bundle");
-    expect(await screen.findByRole("heading", { level: 1, name: k("pages.title") })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: k("pages.title") })).toBeInTheDocument();
     expect(screen.getByTestId("tile-matched")).toHaveTextContent(`1${k("pages.tile_matched_one")}`);
     const missing = screen.getByRole("region", { name: fill(M["trial.pages.missing_heading_one"]!, { count: 1, court_bundle: bundle }) });
-    expect(within(missing).getByText(fill(k("pages.missing_row"), { page: 214, paras: "11, 4" }))).toBeInTheDocument();
+    expect(within(missing).getByText(fill(M["trial.pages.missing_row_other"]!, { page: 214, paras: "11 and 4" }))).toBeInTheDocument();
     const table = screen.getByRole("table");
     expect(within(table).getByRole("columnheader", { name: fill(k("pages.col.trial"), { court_bundle: bundle }) })).toBeInTheDocument();
     const matched = within(table).getByRole("row", { name: /p\.118/ });
-    expect(within(matched).getByText("2407")).toBeInTheDocument();
+    // The bundle's short name is the first letters of the pack's word for it, and numbers have thousands separators.
+    expect(within(matched).getByText(fill(k("pages.trial_ref"), { abbr: run === "launch" ? "TB" : "HB", number: "2,407" }))).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
   });
@@ -105,7 +106,7 @@ describe("the screen as designed", () => {
     renderAt(url);
     const card = await screen.findByTestId("bundle-card");
     expect(card).toHaveTextContent(fill(k("pages.replaces"), { date: "20 May 2027" }));
-    expect(card).toHaveTextContent("3914");
+    expect(card).toHaveTextContent("3,914");
   });
 
   test("the matched and missing counts are tiles with the number and what it counts", async () => {
@@ -122,8 +123,8 @@ describe("the screen as designed", () => {
     serveConcordance("launch", concordanceOut({ rows: withDoc }));
     renderAt(url);
     const line = await screen.findByText(/p\.214 · .+ · /);
-    expect(line).toHaveTextContent("20 February 2024");
-    expect(line).toHaveTextContent("11, 4");
+    expect(line).toHaveTextContent("20 Feb 2024");
+    expect(line).toHaveTextContent("11 and 4");
   });
 
   test("the table shows a few matched rows with the document, the rest behind 'and N more'", async () => {
@@ -134,7 +135,7 @@ describe("the screen as designed", () => {
     expect(within(table).getByRole("columnheader", { name: k("pages.col.document") })).toBeInTheDocument();
     expect(within(within(table).getByRole("row", { name: /p\.118/ })).getByText(/15 May 2024/)).toBeInTheDocument();
     expect(within(table).queryByRole("row", { name: /p\.307/ })).not.toBeInTheDocument();
-    expect(screen.getByText(fill(k("pages.and_more"), { count: 6 }))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(fill(k("pages.and_more"), { count: 6 })))).toBeInTheDocument();
     expect(within(table).getByRole("row", { name: /p\.103/ })).toBeInTheDocument(); // one to confirm always shows
     await user.click(screen.getByRole("button", { name: k("pages.show_all") }));
     expect(within(table).getByRole("row", { name: /p\.307/ })).toBeInTheDocument();
@@ -153,7 +154,24 @@ describe("the screen as designed", () => {
     const { user } = renderAt(url);
     const bundle = term("launch", "court_bundle");
     await screen.findByRole("table");
+    expect(screen.queryByLabelText(k("pages.received_on"))).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: k("pages.new_version") }));
     await user.upload(screen.getByLabelText(fill(k("pages.replace"), { court_bundle: bundle })), pdf("v3.pdf"));
     await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/court-bundles/${BUNDLE}/supersede`, contentType: "application/pdf" }));
   });
+});
+
+test("it sits in the case frame: the case bar with the case name as the page's main heading", async () => {
+  serveConcordance("launch");
+  renderAt(url);
+  expect(await screen.findByRole("heading", { level: 1, name: "Mrs A" })).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+});
+
+test("the table is printed from a plain button and the screen's one main action is the arrow button", async () => {
+  serveConcordance("launch");
+  renderAt(url);
+  const print = await screen.findByRole("button", { name: k("pages.export_pdf") });
+  expect(print.className).toMatch(/secondary/);
+  expect(screen.getByRole("link", { name: k("pages.to_pack") }).className).toMatch(/arrow/);
 });
