@@ -36,6 +36,6 @@ class AfterServingSteps(BaseModel):
 async def steps(case_id: uuid.UUID, access: View, conn: DbConn) -> AfterServingSteps:
     pack = await trial_steps.latest_pack_step(conn, case_id)
     return AfterServingSteps(
-        meetings=[MeetingStepOut(**m.__dict__) for m in await trial_steps.meeting_steps(conn, case_id)],  # type: ignore[arg-type]
+        meetings=[MeetingStepOut(**m.__dict__) for m in await trial_steps.meeting_steps(conn, case_id)],
         pack=PackStepOut(built_on=pack.built_on, stale=pack.stale) if pack else None,
     )

@@ -67,7 +67,9 @@ class DeadlineOut(BaseModel):
     cancelled_at: datetime | None = None
     last_reminded_on: date | None
     version: int
-    days_left: int | None = Field(default=None, description="Court days from today to the due day; negative once missed.")
+    days_left: int | None = Field(
+        default=None, description="Court days from today to the due day; negative once missed."
+    )
 
 
 class Deadlines(BaseModel):

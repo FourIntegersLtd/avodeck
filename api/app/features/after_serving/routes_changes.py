@@ -12,8 +12,8 @@ from __future__ import annotations
 import json
 import uuid
 from datetime import date, datetime
-from zoneinfo import ZoneInfo
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import Response
 from pydantic import BaseModel, Field
@@ -306,9 +306,7 @@ async def latest_supplementary(conn: Any, case_id: uuid.UUID, served: uuid.UUID)
 
 
 @router.get("/cases/{case_id}/report-changes", response_model=ReportChanges)
-async def list_changes(
-    case_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, pack: Pack
-) -> ReportChanges:
+async def list_changes(case_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, pack: Pack) -> ReportChanges:
     rows = await fetch_all(
         conn, f"select {_CHANGE} from app.report_changes where case_id = %s order by created_at, id", (case_id,)
     )
@@ -321,7 +319,9 @@ async def list_changes(
             Supplementary(
                 **latest,
                 signed_by=signer.full_name if signer else None,
-                signed_on=latest["locked_at"].astimezone(ZoneInfo(pack.timezone)).date() if latest["locked_at"] else None,
+                signed_on=latest["locked_at"].astimezone(ZoneInfo(pack.timezone)).date()
+                if latest["locked_at"]
+                else None,
             )
             if latest
             else None
