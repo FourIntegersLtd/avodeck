@@ -7,8 +7,8 @@ import { useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
-import { pageLabel, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
+import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, PageRef } from "../../foundation/ui";
+import { QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
 type Data = Schemas["Points"];
@@ -80,6 +80,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
       setNoteSaved(true);
     });
 
+  const done = chosen.progress?.questions.find((p) => p.question_id === questionId)?.points_done ?? false;
   const live = data.points.filter((p) => p.status !== "dismissed");
   return (
     <div className="av-page av-stack">
@@ -106,7 +107,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                   <li key={point.id} className="av-write-item">
                     <div className="av-write-item__head">
                       <span>{point.fact.value}</span>
-                      <span className="av-write-page">{pageLabel(point.fact.page_no)}</span>
+                      <PageRef page={point.fact.page_no} />
                     </div>
                     {point.flagged && <p className="av-muted">{w("points.flagged")}</p>}
                     {point.status === "stale" && <p className="av-write-badge">{w("points.stale_point")}</p>}
@@ -143,7 +144,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
             <li key={fact.id} className="av-write-item">
               <div className="av-write-item__head">
                 <span>{fact.value}</span>
-                <span className="av-write-page">{pageLabel(fact.page_no)}</span>
+                <PageRef page={fact.page_no} />
               </div>
               <div className="av-write-actions">
                 {data.sides.map((s) => (
@@ -167,12 +168,17 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
               <li key={r.id} className="av-write-item">
                 <div className="av-write-item__head">
                   <span>{r.fact.value}</span>
-                  <span className="av-write-page">{pageLabel(r.fact.page_no)}</span>
+                  <PageRef page={r.fact.page_no} />
                 </div>
                 <p>{r.why_relevant}</p>
-                <Button variant="secondary" onClick={() => void dismissRelevant(r)}>
-                  {w("points.relevant_dismiss")}
-                </Button>
+                <div className="av-write-actions">
+                  <LinkButton variant="secondary" to={`/cases/${caseId}/consultation/${r.fact.id}`}>
+                    {w("points.relevant_look")}
+                  </LinkButton>
+                  <Button variant="secondary" onClick={() => void dismissRelevant(r)}>
+                    {w("points.relevant_dismiss")}
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
@@ -217,7 +223,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                   {claim.facts.length === 0 && <p>{w("points.record_none")}</p>}
                   {claim.facts.map((f) => (
                     <p key={f.id}>
-                      <span>{f.value}</span> <span className="av-write-page">{pageLabel(f.page_no)}</span>
+                      <span>{f.value}</span> <PageRef page={f.page_no} />
                     </p>
                   ))}
                 </div>
@@ -236,8 +242,17 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
         </section>
       </div>
 
-      <div className="av-write-footer">
-        <LinkButton to={`/cases/${caseId}/opinion?q=${questionId}`}>{w("points.write")}</LinkButton>
+      <div className="av-write-footer av-write-footer--between">
+        {done && (
+          <p role="status" className="av-write-done">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M8 12l3 3 5-6" />
+            </svg>
+            {w("points.done", { number: chosen.current.number })}
+          </p>
+        )}
+        <LinkButton arrow to={`/cases/${caseId}/opinion?q=${questionId}`}>{w("points.write")}</LinkButton>
       </div>
 
       {removing && (

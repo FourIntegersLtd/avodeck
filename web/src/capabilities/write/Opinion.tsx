@@ -23,9 +23,9 @@ import {
   LoadError,
   Loading,
   Notice,
+  PageRef,
 } from "../../foundation/ui";
 import {
-  pageLabel,
   ReasonDialog,
   versionTag,
   WithQuestion,
@@ -443,7 +443,7 @@ function Editor({
                 onClick={() => insert(chip)}
               >
                 <span>{chip.value}</span>
-                <span className="av-write-page">{pageLabel(chip.page_no)}</span>
+                <PageRef page={chip.page_no} />
               </button>
             ))}
           </section>
@@ -492,9 +492,12 @@ function Editor({
         <div className="av-stack" onBlur={(e) => void leave(e)}>
           <div>
             <p className="av-muted">
-              <span className="av-write-badge">
+              <span className="av-write-badge av-write-badge--dark">
                 {w("tab.question_short", { number: question.number })}
-              </span>
+              </span>{" "}
+              {question.para_ref && (
+                <span>{w("opinion.from_paragraph", { ref: question.para_ref })}</span>
+              )}
             </p>
             <h3>{question.confirmed_text ?? question.text_verbatim}</h3>
           </div>
@@ -572,9 +575,6 @@ function Editor({
 
           <section className="av-card av-stack" aria-labelledby="checks-title">
             <h3 id="checks-title">{w("opinion.checks")}</h3>
-            {open.length === 0 && (
-              <p className="av-muted">{w("opinion.checks_clear")}</p>
-            )}
             {open.map((issue) => (
               <div key={issue.id} className="av-write-item__head">
                 <p>
@@ -593,11 +593,27 @@ function Editor({
                 </Button>
               </div>
             ))}
+            {(
+              [
+                ["uncited_fact", "opinion.check_uncited_ok"],
+                ["loaded_language", "opinion.check_loaded_ok"],
+                ["outside_expertise", "opinion.check_expertise_ok"],
+              ] as const
+            )
+              .filter(([type]) => !open.some((i) => i.type === type))
+              .map(([type, key]) => (
+                <p key={type} className="av-write-pass">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M5 12l5 5 9-10" />
+                  </svg>
+                  {w(key)}
+                </p>
+              ))}
           </section>
 
-          <div className="av-write-footer">
+          <div className="av-write-footer av-write-footer--between">
             <p role="status" className="av-muted">
-              {status === "saving"
+              <span>{status === "saving"
                 ? w("opinion.saving")
                 : status === "saved"
                   ? w("opinion.saved")
@@ -605,7 +621,18 @@ function Editor({
                     ? w("opinion.save_failed")
                     : status === "stopped"
                       ? w("opinion.save_stopped")
-                      : w("opinion.unsaved")}
+                      : w("opinion.unsaved")}</span>
+              {chosen.progress && (
+                <>
+                  {" · "}
+                  <span>
+                    {w("opinion.answered", {
+                      answered: chosen.progress.answered + (opinionId && !space.opinion ? 1 : 0),
+                      total: chosen.progress.total,
+                    })}
+                  </span>
+                </>
+              )}
             </p>
             <Button
               variant="secondary"
@@ -615,7 +642,7 @@ function Editor({
               {w("opinion.versions")}
             </Button>
             {chosen.next ? (
-              <LinkButton to={`/cases/${caseId}/opinion?q=${chosen.next.id}`}>
+              <LinkButton arrow to={`/cases/${caseId}/opinion?q=${chosen.next.id}`}>
                 {w("opinion.next")}
               </LinkButton>
             ) : (

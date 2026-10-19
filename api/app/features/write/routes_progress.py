@@ -43,5 +43,6 @@ order by q.number
 async def write_progress(case_id: uuid.UUID, access: View, conn: DbConn) -> WriteProgress:
     """Per answerable question: are its points settled, and is there an opinion; plus the answered count."""
     cur = await conn.execute(_SQL, (case_id, list(ANSWERABLE)))
-    rows = [QuestionProgress(question_id=r[0], number=r[1], points_done=r[2], has_opinion=r[3]) for r in await cur.fetchall()]
+    found = await cur.fetchall()
+    rows = [QuestionProgress(question_id=r[0], number=r[1], points_done=r[2], has_opinion=r[3]) for r in found]
     return WriteProgress(answered=sum(r.has_opinion for r in rows), total=len(rows), questions=rows)

@@ -44,6 +44,9 @@ const WORDS = {
   "points.range_save": "Save my note",
   "points.range_saved": "Saved.",
   "points.write": "Write my opinion",
+  "points.tab_done": "Points done.",
+  "points.done": "Done for question {{number}}. You can now write your opinion.",
+  "points.relevant_look": "Look at it",
   "points.stale": "This changed in another window. We've shown you the latest.",
 
   "opinion.title": "Your opinion",
@@ -92,6 +95,11 @@ const WORDS = {
   "opinion.stale_yours": "Keep what I wrote here",
   "opinion.stale_saved": "Keep the saved version",
   "opinion.next": "Next question",
+  "opinion.answered": "{{answered}} of {{total}} questions answered",
+  "opinion.from_paragraph": "from paragraph {{ref}} of your instructions",
+  "opinion.check_uncited_ok": "Every fact you state has a page number.",
+  "opinion.check_loaded_ok": "No loaded words.",
+  "opinion.check_expertise_ok": "Nothing outside your expertise.",
   "opinion.back_to_points": "Back to points against",
 
   "today.questions_without_opinion_one": "{{case}}: {{count}} question without your opinion",
