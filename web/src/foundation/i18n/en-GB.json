@@ -143,6 +143,7 @@
   "account.email.change": "Change email",
   "account.email.new": "New email address",
   "account.email.send": "Send the links",
+  "account.email.cancel": "Cancel",
   "account.email.sent": "We've sent a link to your old and new addresses. Open both links to finish.",
   "account.password.label": "Password",
   "account.password.change": "Change password",

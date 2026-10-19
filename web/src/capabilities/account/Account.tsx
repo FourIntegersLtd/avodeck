@@ -8,7 +8,8 @@ import { useSession } from "../../foundation/lib/session";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { screenPath } from "../../foundation/lib/screens";
+import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 
 export function Account() {
   const { me } = useSession();
@@ -31,6 +32,7 @@ export function Account() {
   return (
     <div className="av-page av-page--narrow av-stack">
       <div>
+        <BackLink to={screenPath("profile") ?? "/today"}>{t("app.nav.profile")}</BackLink>
         <h1>{t("account.title")}</h1>
         <p className="av-muted">{t("account.intro")}</p>
       </div>
@@ -92,6 +94,9 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
           <form className="av-stack" onSubmit={(e) => void send(e)} noValidate>
             <TextField label={t("account.email.new")} name="new_email" type="email" autoComplete="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
             <Button type="submit">{t("account.email.send")}</Button>
+            <Button variant="quiet" onClick={() => setChanging(false)}>
+              {t("account.email.cancel")}
+            </Button>
           </form>
         )}
         {sent && (
