@@ -2416,6 +2416,17 @@
       },
       "CheckResult": {
         "properties": {
+          "checked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked"
+          },
           "code": {
             "anyOf": [
               {
@@ -2430,6 +2441,17 @@
           "count": {
             "title": "Count",
             "type": "integer"
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explain"
           },
           "fix": {
             "anyOf": [
@@ -2470,6 +2492,28 @@
               }
             ],
             "title": "Text"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
           }
         },
         "required": [
@@ -12938,6 +12982,17 @@
           "checklist": {
             "$ref": "#/components/schemas/Checklist"
           },
+          "court_track_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Track Label"
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/SectionOut"
@@ -16503,6 +16558,17 @@
               }
             ],
             "title": "Template Fallback"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "type": {
             "title": "Type",

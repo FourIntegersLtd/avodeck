@@ -851,26 +851,32 @@
       ],
       "final_checks": [
         {
+          "explain": "The declaration must appear word for word as the court requires.",
           "key": "statement_of_truth_exact",
           "text": "Statement of truth present with exact wording from declarations.md"
         },
         {
+          "explain": "The court expects every item on the list beside your report to be covered.",
           "key": "required_contents_present",
           "text": "Every item in report.yaml required_contents is addressed"
         },
         {
+          "explain": "Your report is longer than the court allows on this track. Shorten it, or ask the court.",
           "key": "page_limit",
           "text": "Page count within the track limit (only if the case track has one)"
         },
         {
+          "explain": "Answer the question in full, or say in a sentence that the rest is for another expert.",
           "key": "questions_answered",
           "text": "Every question in the letter of instruction has an answer or an explained deferral"
         },
         {
+          "explain": "Points against the care were found for this question. Decide each one so your report is balanced.",
           "key": "points_against_considered",
           "text": "Points against considered for every breach question"
         },
         {
+          "explain": "Guidance you named was not yet in force on the date of the care. Check the dates.",
           "key": "guidance_in_force",
           "text": "Guidance cited was in force on the date of the care in question"
         }
@@ -1148,6 +1154,12 @@
         "clinician": "GP",
         "clinicians": "GPs",
         "court_bundle": "trial bundle",
+        "court_tracks": {
+          "fast": "fast track",
+          "intermediate": "intermediate track",
+          "multi": "multi-track",
+          "small_claims": "small claims track"
+        },
         "coverage_question": "Were you working in general practice throughout the period of the claim?",
         "coverage_roles": {
           "locum": "locum",
@@ -1410,6 +1422,12 @@
       "version": "2026.10.6",
       "vocabulary": {
         "court_bundle": "trial bundle",
+        "court_tracks": {
+          "fast": "fast track",
+          "intermediate": "intermediate track",
+          "multi": "multi-track",
+          "small_claims": "small claims track"
+        },
         "declaration_name": "statement of truth",
         "expert_meeting": "experts' discussion",
         "expert_meeting_document": "joint statement",

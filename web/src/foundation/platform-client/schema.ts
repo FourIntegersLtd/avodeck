@@ -5090,10 +5090,14 @@ export interface components {
         };
         /** CheckResult */
         CheckResult: {
+            /** Checked */
+            checked?: number | null;
             /** Code */
             code?: string | null;
             /** Count */
             count: number;
+            /** Explain */
+            explain?: string | null;
             fix?: components["schemas"]["Fix"] | null;
             /** Fixes */
             fixes: components["schemas"]["Fix"][];
@@ -5105,6 +5109,10 @@ export interface components {
             source: string;
             /** Text */
             text?: string | null;
+            /** Total */
+            total?: number | null;
+            /** Unit */
+            unit?: string | null;
         };
         /** Checklist */
         Checklist: {
@@ -8777,6 +8785,8 @@ export interface components {
         /** ReportOut */
         ReportOut: {
             checklist: components["schemas"]["Checklist"];
+            /** Court Track Label */
+            court_track_label?: string | null;
             /** Sections */
             sections: components["schemas"]["SectionOut"][];
             version: components["schemas"]["VersionOut"] | null;
@@ -10021,6 +10031,8 @@ export interface components {
             status: string;
             /** Template Fallback */
             template_fallback?: boolean | null;
+            /** Title */
+            title?: string | null;
             /** Type */
             type: string;
             /** Version No */
