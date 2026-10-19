@@ -15,7 +15,7 @@ The expert prepares the joint statement with the other expert, with deviations f
 ## Endpoints (architecture 5.2)
 - `POST /v1/cases/{id}/expert-meetings`; `POST …/{meeting_id}/agenda` → 202; `GET …/{meeting_id}`; `PATCH /v1/cases/{id}/agenda-items/{item_id}`; `POST …/{meeting_id}/prepare`; `POST …/{meeting_id}/send-for-signature` 🔒 (MVP of this slice: download for signing); `POST /webhooks/esign` (signature-verified)
 - `POST /v1/cases/{id}/court-bundles` → 202; `GET /v1/cases/{id}/concordance?status=`; `PATCH /v1/cases/{id}/concordance/{row_id}`; `GET …/concordance/export?format=pdf|csv`; `POST …/concordance/tell-instructing-party`
-- `POST /v1/cases/{id}/trial-pack/check-new`; `PUT /v1/cases/{id}/trial-pack/settings`; `POST /v1/cases/{id}/trial-pack` → 202; `GET …/trial-pack/latest`; `GET …/trial-pack/latest/download`
+- `POST /v1/cases/{id}/trial-pack/check-new`; `PUT /v1/cases/{id}/trial-pack/settings`; `POST /v1/cases/{id}/trial-pack` → 202; `GET …/trial-pack/latest`; `GET …/trial-pack/latest/download`; `GET …/trial-pack/preview` (per-section page counts and readiness sheets built from the agenda items and the served report)
 - `POST /v1/cases/{id}/offline-packages` 🔒; `GET …/offline-packages/{pkg_id}/download` 🔒; `GET …/offline-packages/{pkg_id}/status`; `DELETE …/offline-packages/{pkg_id}`
 
 ## Tables owned
@@ -100,3 +100,8 @@ Root checklist, plus: on staging the synthetic case produces a signed joint stat
 - Ports onto G (`ports.py`) follow G's shapes: one `ReportChange` per paragraph (`served_version_id`, `paragraph_id`, `kind`, `old_text`, `new_text`, `reason`); written answers as rounds with `answers_version_id`. The real adapters are wired after G's PR #29 merges.
 - Offline screens are exported as `trialOfflineRoutes` and mounted outside the signed-in guard by the foundation's `offlineRoutesFrom` convention (any capability export ending in `OfflineRoutes`).
 - Sending for signature returns the prepared statement and a signing reference; a copy signed elsewhere comes back through `signed-external`. The e-signature provider itself is not wired yet.
+
+
+## Design pass (S22-S24)
+
+S22-S24 now follow their boards. New server parts: `pages` on each agenda item, `source_type`/`document_date` on each concordance row and `replaces_received_on` on the bundle, a `readiness` pack section (one page per question) and the preview endpoint above. Not built: a "reply" column on readiness sheets (no data holds it; slice D owns points against), "Tell the solicitor / Leave it out" on the nothing-new callout (the check works on pasted notes), and the "Built for the trial from" date.

@@ -720,6 +720,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases/{case_id}/trial-pack/check-new` | T-24 nothing-new check on notes |
 | PUT | `/cases/{case_id}/trial-pack/settings` | Sections to include |
 | GET | `/cases/{case_id}/trial-pack/settings` | Sections chosen so far |
+| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question) |
 | POST | `/cases/{case_id}/trial-pack` | Build large-print PDF (202 + job) |
 | GET | `/cases/{case_id}/trial-pack/latest` | Preview pages |
 | GET | `/cases/{case_id}/trial-pack/latest/download` | PDF streamed by the API (🔒 export) |
