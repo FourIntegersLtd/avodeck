@@ -202,3 +202,23 @@ test("the footer gives the page limit for the case's track", async () => {
   renderAt(url);
   expect(await screen.findByText(`31 pages · limit ${limit} pages`)).toBeInTheDocument();
 });
+
+describe("after the report is served (rule 8)", () => {
+  test.each(["served", "withdrawn"] as const)("a %s report has no build button and points to the correct-report screen", async (status) => {
+    serve("launch", { report: reportOut("launch", { version: versionOut({ status }), versions: [versionOut({ status })] }) });
+    renderAt(url);
+    const link = await screen.findByRole("link", { name: M["report.report.served_link"]! });
+    expect(link).toHaveAttribute("href", `/cases/${CASE_A}/correct-report`);
+    expect(screen.getByText(M["report.report.served"]!)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: M["report.report.rebuild"]! })).toBeNull();
+    expect(screen.queryByRole("button", { name: M["report.report.build"]! })).toBeNull();
+  });
+
+  test("when the server refuses a build because the report was served, it shows the same notice", async () => {
+    serve("launch");
+    server.use(http.post("/v1/cases/:caseId/report/build", () => apiError(409, "served_use_supplementary")));
+    const { user } = renderAt(url);
+    await user.click(await screen.findByRole("button", { name: M["report.report.rebuild"]! }));
+    expect(await screen.findByRole("link", { name: M["report.report.served_link"]! })).toHaveAttribute("href", `/cases/${CASE_A}/correct-report`);
+  });
+});
