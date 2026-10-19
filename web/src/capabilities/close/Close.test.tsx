@@ -74,12 +74,15 @@ function serve(opts: { item?: Schemas["Case"]; close?: Schemas["CloseSummary"]; 
   return { sent, record };
 }
 
+// The app shell supplies the page's one main landmark; the screen renders inside it.
 function renderClose() {
   return renderUi(
     <MemoryRouter initialEntries={[`/cases/${CASE_A}/close`]}>
-      <Routes>
-        <Route path="cases/:caseId/close" element={<Close />} />
-      </Routes>
+      <main id="main">
+        <Routes>
+          <Route path="cases/:caseId/close" element={<Close />} />
+        </Routes>
+      </main>
     </MemoryRouter>,
   );
 }
