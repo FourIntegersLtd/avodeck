@@ -162,7 +162,18 @@ class Appended(BaseModel):
 
 
 class RequestDraftAsk(BaseModel):
-    """Nothing to choose yet: the draft lists every open missing item and every unreadable page."""
+    """The draft lists every open missing item and every unreadable page. `extension` adds the pack's
+    line asking for more time if the records arrive late."""
+
+    extension: bool = False
+
+
+class RequestExtension(BaseModel):
+    """What the screen offers: ask for `days` more days if records arrive after `after_date`."""
+
+    days: int
+    due_date: dt.date
+    after_date: dt.date
 
 
 class RequestDraft(BaseModel):
@@ -174,6 +185,7 @@ class RequestDraft(BaseModel):
     clearer_copy_page_nos: list[int]
     translation_page_ids: list[uuid.UUID] = []  # pages to ask a certified translation of (F37)
     translation_page_nos: list[int] = []
+    extension: RequestExtension | None = None  # None when the pack sets no day count or the case has no due date
 
 
 _ADDRESS = r"^[^@\s,;?&]+@[^@\s,;?&]+\.[^@\s,;?&]+$"

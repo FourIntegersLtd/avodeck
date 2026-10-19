@@ -10570,6 +10570,16 @@
             "title": "Clearer Copy Page Nos",
             "type": "array"
           },
+          "extension": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequestExtension"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -10616,9 +10626,41 @@
         "type": "object"
       },
       "RequestDraftAsk": {
-        "description": "Nothing to choose yet: the draft lists every open missing item and every unreadable page.",
-        "properties": {},
+        "description": "The draft lists every open missing item and every unreadable page. `extension` adds the pack's\nline asking for more time if the records arrive late.",
+        "properties": {
+          "extension": {
+            "default": false,
+            "title": "Extension",
+            "type": "boolean"
+          }
+        },
         "title": "RequestDraftAsk",
+        "type": "object"
+      },
+      "RequestExtension": {
+        "description": "What the screen offers: ask for `days` more days if records arrive after `after_date`.",
+        "properties": {
+          "after_date": {
+            "format": "date",
+            "title": "After Date",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "due_date",
+          "after_date"
+        ],
+        "title": "RequestExtension",
         "type": "object"
       },
       "RequestLogged": {
