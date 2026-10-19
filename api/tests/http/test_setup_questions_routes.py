@@ -394,3 +394,27 @@ async def test_a_note_is_drafted_to_every_current_instructing_party(
         json={"topic": "questions_reopened", "question_ids": [str(uuid.uuid4())]},
     )
     assert unknown.status_code == 422
+
+
+# --- who answers which part of a question outside the expert's expertise ----------------------------
+
+
+async def test_a_question_outside_expertise_keeps_only_the_packs_answer_parts(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+    flagged = [q for q in got["questions"] if q["outside_expertise"]]
+    plain = [q for q in got["questions"] if not q["outside_expertise"]]
+    assert flagged and plain
+    assert all(q["outside_expertise_source"] == "pack" and q["answer_parts"] for q in flagged)
+    assert all(q["outside_expertise_source"] is None and q["answer_parts"] is None for q in plain)
+
+    q = plain[0]
+    path = url(world, f"questions/{q['id']}")
+    marked = await client.patch(path, json={"outside_expertise": True}, headers={"if-match": f'"{q["version"]}"'})
+    assert marked.status_code == 200, marked.status_code
+    assert marked.json()["outside_expertise_source"] == "expert"
+    assert marked.json()["answer_parts"] == flagged[0]["answer_parts"]
+    cleared = await client.patch(path, json={"outside_expertise": False}, headers={"if-match": marked.headers["etag"]})
+    assert cleared.json()["outside_expertise_source"] is None and cleared.json()["answer_parts"] is None
