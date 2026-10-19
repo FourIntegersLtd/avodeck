@@ -489,7 +489,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown); `changed_since_declared` when an answer changed after the latest declaration |
+| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text, the pack's `coverage_question` and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown); `changed_since_declared` when an answer changed after the latest declaration |
 | POST | `/cases/{case_id}/conflicts/declare` | Record the declaration (all questions answered, else 409); drafts the note to every current instructing party |
 | POST | `/cases/{case_id}/withdraw` | 🔒 `{reason}` → case `withdrawn`; drafts the note | |
 
