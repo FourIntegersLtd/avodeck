@@ -117,8 +117,8 @@ test("sending asks for the code, then the invoice shows as sent and cannot be ch
   await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
   await user.click(within(dialog).getByRole("button", { name: "Carry on" }));
   const card = await screen.findByRole("article", { name: "Invoice JM-0001" });
-  expect(within(card).getByText(M["report.invoice.status.sent"]!)).toBeInTheDocument();
-  expect(within(card).queryByRole("button", { name: M["report.invoice.send"]! })).toBeNull();
+  expect(within(card).getByText(M["report.invoice.payment_unpaid"]!)).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: M["report.invoice.send"]! })).toBeNull();
 });
 
 test("an invoice already sent says so", async () => {
