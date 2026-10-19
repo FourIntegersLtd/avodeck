@@ -8730,6 +8730,30 @@
             "title": "Document Id",
             "type": "string"
           },
+          "expert_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Name"
+          },
+          "expert_role": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Role"
+          },
           "received_on": {
             "format": "date",
             "title": "Received On",
@@ -9780,10 +9804,43 @@
             "title": "Document Id",
             "type": "string"
           },
+          "expert_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Name"
+          },
+          "expert_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Role"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
           },
           "positions": {
             "items": {
@@ -11419,6 +11476,17 @@
             "format": "uuid",
             "title": "Question Id",
             "type": "string"
+          },
+          "question_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question No"
           },
           "theirs": {
             "items": {
@@ -16876,6 +16944,14 @@
           "number": {
             "title": "Number",
             "type": "integer"
+          },
+          "page_nos": {
+            "description": "Numbers of the pages the linked paragraphs cite, in order, once each.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Page Nos",
+            "type": "array"
           },
           "para_ref": {
             "anyOf": [
