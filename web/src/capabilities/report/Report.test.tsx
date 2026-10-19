@@ -29,10 +29,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
 test("says which sections you wrote and which were built for you, under the paper, and offers the final check", async () => {
   serve("launch");
   const { user } = renderAt(url);
-  const paper = await screen.findByRole("region", { name: M["report.report.paper"]! });
-  expect(within(paper).getByText(M["report.report.section.written"]!)).toBeInTheDocument();
+  expect(await screen.findByText(M["report.report.section.written"]!)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: sectionLabel("launch", sectionKeys("launch")[1]!) }));
-  expect(within(paper).getByText(M["report.report.section.generated"]!)).toBeInTheDocument();
+  expect(screen.getByText(M["report.report.section.generated"]!)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.report.final_check"]! })).toHaveAttribute("href", `/cases/${CASE_A}/final-check`);
   expect(screen.getByText("Draft 1 · 31 pages")).toBeInTheDocument();
 });

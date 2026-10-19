@@ -29,7 +29,7 @@ test("the title has a tick tile; Adjust is a link-styled button on the time card
   renderAt(url);
   const title = await screen.findByRole("heading", { level: 1, name: M["report.invoice.heading_sent"]! });
   expect(title.parentElement?.parentElement?.querySelector(".av-icon-tile--mint")).not.toBeNull();
-  expect(screen.getByRole("button", { name: M["report.invoice.adjust"]! })).toHaveClass("av-text-link");
+  expect(await screen.findByRole("button", { name: M["report.invoice.adjust"]! })).toHaveClass("av-text-link");
 });
 
 test("the invoice number is in mono, the payment line has Mark as paid, and the invoice has one Download and one Send", async () => {

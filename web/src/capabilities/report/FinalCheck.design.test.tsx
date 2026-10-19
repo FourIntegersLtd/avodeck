@@ -15,7 +15,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     serve(run, { check: failedCheck() });
     const { container } = renderAt(url);
     expect(await screen.findByRole("img", { name: "1 of 3 checks passed" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Final check: 1 thing to fix");
+    expect(screen.getByRole("heading", { level: 1, name: /^Final check/ })).toHaveTextContent("Final check: 1 thing to fix");
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
   });
