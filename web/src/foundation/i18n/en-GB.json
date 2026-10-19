@@ -177,6 +177,7 @@
   "sign_in.note.code": "Next, we'll send a 6-digit code to your phone.",
   "sign_in.note.lost": "Lost your phone?",
   "sign_in.note.link_end": ".",
+  "sign_in.note.private_in": "Your records are stored in {{place}} and never used to train AI.",
   "sign_in.note.private": "Your records stay private and are never used to train AI.",
   "setup.saved": "Saved",
   "setup.stale": "Someone changed this while you were working. Please reload the page to see the latest version.",
