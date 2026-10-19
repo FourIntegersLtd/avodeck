@@ -8,15 +8,12 @@ pauses (`storage_unavailable`); without the AI kit a task that needs the model p
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from pathlib import Path
 
-from app.core.ai.bedrock import RecordedBedrock
+from app.core.ai.clients import live_or_recorded
 from app.core.ai.kit import AiKit
 from app.core.ai.ocr import OcrClient
-from app.core.ai.recordings import FixtureStore
-from app.core.config import ConfigError, ai_settings
+from app.core.config import ConfigError
 from app.core.contracts.reading import PageReadLog, PageReads
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
@@ -82,15 +79,8 @@ def from_env() -> TrialServices:
         storage: SupabaseStorage | None = SupabaseStorage(storage_settings())
     except ConfigError:
         storage = None
-    kit: AiKit | None = None
-    recordings = os.environ.get("AI_RECORDINGS_DIR", "").strip()
-    try:
-        settings = ai_settings()
-    except ConfigError:
-        settings = None
-    if settings is not None and recordings:
-        kit = AiKit(settings, RecordedBedrock(settings, FixtureStore(Path(recordings))))
-    return TrialServices(crypto=crypto, storage=storage, reads=PageReads(), kit=kit)
+    ai = live_or_recorded()
+    return TrialServices(crypto=crypto, storage=storage, reads=PageReads(), kit=ai.kit, ocr=ai.ocr)
 
 
 def current() -> TrialServices:
