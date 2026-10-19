@@ -166,3 +166,56 @@ test("removing the copy asks the server and forgets it on this device", async ()
   expect(await within(section).findByText(k("pack.offline.deleted"))).toBeInTheDocument();
   expect((await findCopy(CASE)).state).toBe("none");
 });
+
+describe("the screen as designed", () => {
+  test("a link back to the trial page numbers", async () => {
+    servePack("launch");
+    renderAt(url);
+    const back = await screen.findByRole("link", { name: k("pack.back") });
+    expect(back).toHaveAttribute("href", `/cases/${CASE}/trial-pages`);
+  });
+
+  test("each part says how many pages it would add, and readiness sheets can be ticked", async () => {
+    const { sent, record } = servePack("launch");
+    server.use(http.put("/v1/cases/:caseId/trial-pack/settings", async ({ request }) => (await record(request), etagged(settingsOut({ sections: ["report", "chronology", "readiness"] as never, version: 3 }), 3))));
+    const { user } = renderAt(url);
+    const report = await screen.findByRole("checkbox", { name: k("pack.section.report") });
+    expect(report.closest(".av-trial-choice-row")).toHaveTextContent(fill(k("pack.pages_other"), { count: 31 }));
+    expect(screen.getByRole("checkbox", { name: k("pack.section.readiness") }).closest(".av-trial-choice-row")).toHaveTextContent(fill(k("pack.pages_other"), { count: 2 }));
+    await user.click(screen.getByRole("checkbox", { name: k("pack.section.readiness") }));
+    await user.click(screen.getByRole("button", { name: k("pack.save") }));
+    await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "PUT", body: { sections: ["report", "chronology", "readiness"] } }));
+  });
+
+  test("the preview shows one readiness sheet at a time and steps between them", async () => {
+    servePack("launch");
+    const { user } = renderAt(url);
+    const preview = await screen.findByRole("region", { name: k("pack.preview.heading") });
+    expect(within(preview).getByText(fill(k("pack.preview.sheet"), { n: 1, of: 2 }))).toBeInTheDocument();
+    expect(within(preview).getByText(/Did Dr P need to examine/)).toBeInTheDocument();
+    expect(within(preview).getByText(k("pack.sheet.my_answer"))).toBeInTheDocument();
+    expect(within(preview).getByText(k("pack.sheet.asked"))).toBeInTheDocument();
+    expect(within(preview).getByRole("button", { name: k("pack.preview.previous") })).toBeDisabled();
+    await user.click(within(preview).getByRole("button", { name: k("pack.preview.next") }));
+    expect(within(preview).getByText(fill(k("pack.preview.sheet"), { n: 2, of: 2 }))).toBeInTheDocument();
+    expect(within(preview).getByText(/Was the February result/)).toBeInTheDocument();
+    expect(within(preview).getByText("p.214")).toBeInTheDocument();
+    expect(within(preview).getByText(/We differ on whether/)).toBeInTheDocument();
+    expect(within(preview).getByRole("button", { name: k("pack.preview.next") })).toBeDisabled();
+  });
+
+  test("with no readiness sheets there is no preview to step through", async () => {
+    servePack("launch", { preview: { sections: [], total_pages: 0, sheets: [] } });
+    renderAt(url);
+    await screen.findByRole("heading", { level: 1, name: k("pack.title") });
+    expect(screen.queryByRole("region", { name: k("pack.preview.heading") })).not.toBeInTheDocument();
+  });
+
+  test("printing the pack fetches the PDF behind the code", async () => {
+    const { sent, record } = servePack("launch");
+    server.use(http.get("/v1/cases/:caseId/trial-pack/latest/download", async ({ request }) => (await record(request), blobReply("application/pdf"))));
+    const { user } = renderAt(url);
+    await user.click(await screen.findByRole("button", { name: k("pack.print") }));
+    await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "GET", path: `/v1/cases/${CASE}/trial-pack/latest/download` }));
+  });
+});

@@ -97,6 +97,25 @@ export function packOut(over: Partial<Schemas["PackOut"]> = {}): Schemas["PackOu
   return { id: PACK, status: "ready", sha256: "c".repeat(64), page_count: 54, sections: ["report", "chronology"], stale: false, stale_reason: null, created_at: "2027-06-03T09:00:00Z", ...over };
 }
 
+export function previewOut(over: Partial<Schemas["PreviewOut"]> = {}): Schemas["PreviewOut"] {
+  return {
+    sections: [{ key: "report", pages: 31 }, { key: "chronology", pages: 9 }, { key: "readiness", pages: 2 }, { key: "joint_statement", pages: 6 }],
+    total_pages: 48,
+    sheets: [
+      {
+        number: 1, text: "Did Dr P need to examine Mrs A on 15 May 2024?", answer: "Yes. Bleeding with known anaemia called for an examination.",
+        asked: "Yes, an examination was required.", agreed: true, reason: null, pages: [{ page_no: 118, trial_page_no: 2407, status: "matched" }],
+      },
+      {
+        number: 2, text: "Was the February result acted on appropriately?", answer: "No. Iron was started without looking for a cause.",
+        asked: "Iron first, review later, was reasonable.", agreed: false, reason: "We differ on whether a cause should have been sought.",
+        pages: [{ page_no: 214, trial_page_no: null, status: "missing" }, { page_no: 87, trial_page_no: 2376, status: "matched" }],
+      },
+    ],
+    ...over,
+  };
+}
+
 export function copyOut(over: Partial<Schemas["PackageOut"]> = {}): Schemas["PackageOut"] {
   return {
     id: COPY, device_label: "My tablet", hearing_id: null, format_version: 1, include_images: false, sha256: "d".repeat(64), status: "built",
@@ -147,12 +166,13 @@ export function serveConcordance(run: PackRun, body: Schemas["ConcordanceOut"] =
   return { sent, record };
 }
 
-export function servePack(run: PackRun, opts: { latest?: Schemas["LatestOut"]; copies?: Schemas["PackageOut"][] } = {}) {
+export function servePack(run: PackRun, opts: { latest?: Schemas["LatestOut"]; copies?: Schemas["PackageOut"][]; preview?: Schemas["PreviewOut"] } = {}) {
   expertCase(run);
   const { sent, record } = recorder();
   server.use(
     http.get("/v1/cases/:caseId/trial-pack/settings", () => etagged(settingsOut(), 2)),
     http.get("/v1/cases/:caseId/trial-pack/latest", () => json(opts.latest ?? { pack: packOut(), settings: settingsOut() })),
+    http.get("/v1/cases/:caseId/trial-pack/preview", () => json(opts.preview ?? previewOut())),
     http.get("/v1/cases/:caseId/offline-packages", () => json({ packages: opts.copies ?? [] })),
   );
   return { sent, record };
