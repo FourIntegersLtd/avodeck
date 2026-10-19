@@ -12,7 +12,7 @@ export function contentSecurityPolicy(apiOrigin = ""): string {
     ["connect-src", connect],
     ["script-src", ["'self'"]],
     ["style-src", ["'self'"]],
-    ["img-src", ["'self'", "data:"]],
+    ["img-src", ["'self'", "data:", "blob:"]], // blob: is an object URL the page made from bytes FastAPI streamed
     ["font-src", ["'self'"]],
     ["media-src", ["'self'", "blob:"]],
     ["object-src", ["'none'"]],

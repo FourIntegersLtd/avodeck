@@ -11,6 +11,7 @@ import { BackLink, Button, DictationBox, Dialog, LoadError, Loading, Notice, QCh
 import { Comments } from "./Comments";
 import { GuidanceChanged, kindWord, longDate, pageLabel, statusOf, TextArea, useCan } from "./shared";
 import { w } from "./words";
+import { pageImage } from "./pageImage";
 
 type Entry = Schemas["Entry"];
 
@@ -126,18 +127,8 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
   );
 }
 
-async function pageDataUrl(caseId: string, pageNo: number): Promise<string | null> {
-  const { data } = await api.GET("/v1/cases/{case_id}/pages/{page_no}/image", { params: { path: { case_id: caseId, page_no: pageNo } }, parseAs: "blob" });
-  if (!data) return null;
-  const blob = data as Blob;
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return `data:${blob.type || "image/jpeg"};base64,${btoa(binary)}`;
-}
-
 function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
-  const shown = useResource(() => pageDataUrl(caseId, pageNo), [caseId, pageNo]);
+  const shown = useResource(() => pageImage(caseId, pageNo), [caseId, pageNo]);
   return (
     <section aria-labelledby="consult-page" className="av-card av-stack av-understand-page">
       <h2 id="consult-page">{w("consultation.page_title")}</h2>
