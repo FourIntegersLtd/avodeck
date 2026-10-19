@@ -89,4 +89,17 @@
 .av-understand-guidance { display: flex; flex-direction: column; gap: var(--space-1); }
 .av-understand-inforce { align-self: flex-start; background: var(--green-tint); color: var(--green-dark); }
 .av-understand-comments > summary { cursor: pointer; display: flex; align-items: center; min-height: var(--button-min-height); font-weight: 700; color: var(--green); }
-.av-understand-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-4); }
+.av-understand-foot--end { justify-content: flex-end; }
+
+/* S13: the findings on the left, the checks we run in a panel on the right. */
+.av-understand-things { display: grid; gap: var(--space-5); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 960px) { .av-understand-things { grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr); } }
+.av-understand-things h2 { margin-top: 0; }
+.av-understand-finding--open { border: 2px solid var(--amber-border); }
+.av-understand-finding__head { display: flex; align-items: center; gap: var(--space-3); }
+.av-understand-finding__head h3 { margin: 0; }
+.av-understand-finding__evidence { padding-left: calc(var(--space-3) + 44px); }
+.av-understand-finding__evidence .av-understand-event { border-top: 0; justify-content: space-between; padding: 0; min-height: 0; }
+.av-understand-checks .av-understand-check { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-top: 1px solid var(--surface-muted); }
+.av-understand-checks .av-switch { flex-direction: row-reverse; justify-content: space-between; flex: 1; }
+.av-understand-days > summary, .av-understand-links > summary { cursor: pointer; display: flex; align-items: center; min-height: var(--button-min-height); font-weight: 700; color: var(--green); }
