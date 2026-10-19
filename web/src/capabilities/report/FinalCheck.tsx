@@ -174,7 +174,7 @@ function SpotCheck({ caseId }: { caseId: string }) {
       {started && (
         <Notice tone="success">
           <p>{w("check.spot_sent")}</p>
-          <p className="av-report-mono">{w("check.spot_link", { path: `/spot-check/${started.token}` })}</p>
+          <p className="av-report-mono">{w("check.spot_link", { path: `${window.location.origin}/spot-check/${started.token}` })}</p>
           <p>{w("check.spot_once", { date: longDate(started.expires_at, locale) })}</p>
         </Notice>
       )}

@@ -29,7 +29,7 @@ from app.features.report.assemble import (
     section_keys,
     template_order,
 )
-from app.features.report.common import Build, Crypto, Pack, Queued, Reads, Storage, View, invalid, not_found
+from app.features.report.common import Build, Crypto, Pack, Queued, Reads, Storage, View, invalid, not_found, refuse_if_served
 from app.features.report.pdf_out import page_png
 from app.features.report.router import router
 
@@ -126,6 +126,7 @@ async def _settings(conn: DbConn, case_id: uuid.UUID, *, lock: bool = False) -> 
 
 @router.post("/cases/{case_id}/report/build", status_code=202, response_model=Queued)
 async def build_report(case_id: uuid.UUID, access: Build, conn: DbConn) -> Queued:
+    await refuse_if_served(conn, case_id)
     return Queued(job_id=await registry.enqueue(conn, case_id, "build_report"))
 
 

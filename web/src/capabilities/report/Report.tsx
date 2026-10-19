@@ -5,9 +5,10 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { screenPath } from "../../foundation/lib/screens";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
 import { downloadPath, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
@@ -15,6 +16,7 @@ import { w } from "./words";
 type Report = Schemas["ReportOut"];
 const STYLES = ["page", "paragraph"] as const;
 const ERRORS = { stale: "report.stale", not_built: "report.not_built" };
+const AFTER_SERVING_TYPES = ["answers", "supplementary"];
 
 export function ReportScreen() {
   const { caseId = "" } = useParams();
@@ -25,10 +27,11 @@ export function ReportScreen() {
   const [error, setError] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
   const [styleVersion, setStyleVersion] = useState<number | null>(null);
+  const [refused, setRefused] = useState(false);
 
   if (found.error || settings.error) return <div className="av-page"><LoadError onRetry={() => { found.reload(); settings.reload(); }} /></div>;
   if (found.data === undefined || !settings.data) return <div className="av-page"><Loading /></div>;
-  const data = (found.data ?? { version: null, sections: [], checklist: { items: [] } }) as unknown as Report;
+  const data = (found.data ?? { version: null, versions: [], sections: [], checklist: { items: [] } }) as unknown as Report;
   const version = data.version;
   const currentStyle = style ?? settings.data.citation_style;
   const currentVersion = styleVersion ?? settings.data.version;
@@ -38,7 +41,8 @@ export function ReportScreen() {
     try {
       await work();
     } catch (err) {
-      setError(errorMessage(err, ERRORS));
+      if (err instanceof ApiError && err.code === "served_use_supplementary") setRefused(true);
+      else setError(errorMessage(err, ERRORS));
     }
   };
 
@@ -62,6 +66,8 @@ export function ReportScreen() {
       if (saved.job_id) wait.start();
     });
 
+  // Rule 8: once the main report is served (or withdrawn) it is locked; changes go in a supplementary report.
+  const served = refused || data.versions.some((v) => !AFTER_SERVING_TYPES.includes(v.type) && (v.status === "served" || v.status === "withdrawn"));
   const done = data.checklist.items.filter((item) => item.done).length;
   const limits = (pack.compliance_checklist as { page_limit?: Record<string, number> }).page_limit ?? {};
   const limit = item.court_track ? limits[item.court_track] : undefined;
@@ -71,6 +77,12 @@ export function ReportScreen() {
       <h1>{w("report.title")}</h1>
       <p>{w("report.intro")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {served && (
+        <Notice tone="warning">
+          <p>{w("report.served")}</p>
+          <LinkButton to={screenPath("S21b", { caseId }) ?? `/cases/${caseId}`}>{w("report.served_link")}</LinkButton>
+        </Notice>
+      )}
       {wait.waiting && <Notice><p>{w("building")}</p></Notice>}
       {!version && <Notice><p>{w("report.empty")}</p></Notice>}
       {version && (
@@ -118,9 +130,11 @@ export function ReportScreen() {
       </div>
 
       <div className="av-report-footer">
-        <Button variant="secondary" onClick={() => void build()} disabled={wait.waiting}>
-          {version ? w("report.rebuild") : w("report.build")}
-        </Button>
+        {!served && (
+          <Button variant="secondary" onClick={() => void build()} disabled={wait.waiting}>
+            {version ? w("report.rebuild") : w("report.build")}
+          </Button>
+        )}
         {version?.page_count ? <span className="av-muted">{limit != null ? w("report.pages_footer_limit", { pages: version.page_count, limit }) : w("report.pages_footer_nolimit", { pages: version.page_count })}</span> : null}
         {version && <LinkButton to={`/cases/${caseId}/final-check`}>{w("report.final_check")}</LinkButton>}
       </div>

@@ -29,7 +29,7 @@ from app.core.contracts.citations import citation_problems
 from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.features.report.checks import declaration_version, named_expert
-from app.features.report.common import Crypto, Pack, Reads, Sign, Storage, View, not_found
+from app.features.report.common import Crypto, Pack, Reads, Sign, Storage, View, not_found, refuse_if_served
 from app.features.report.jobs import file_path, latest_draft
 from app.features.report.router import router
 from app.features.report.signing import (
@@ -122,6 +122,7 @@ async def sign_report(
     reads: Reads,
     pack: Pack,
 ) -> SignedOut:
+    await refuse_if_served(conn, case_id)
     version_id = await latest_draft(conn, case_id)
     if version_id is None:
         raise conflict("not_built", "Build the report first.")
