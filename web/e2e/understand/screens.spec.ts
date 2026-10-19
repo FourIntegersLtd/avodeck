@@ -11,6 +11,15 @@ for (const run of PACKS) {
       await expect(page.getByRole("heading", { level: 2, name: "The timeline" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Line 1" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Not on a line yet" })).toBeVisible();
+      await expect(page.getByRole("list", { name: "Months" })).toBeVisible();
+      // A dot is a drawn circle in a real colour (an undefined colour token once made them invisible).
+      const dot = await page.locator(".av-understand-event--dot > a").first().evaluate((a) => {
+        const css = getComputedStyle(a, "::before");
+        return { w: css.width, bg: css.backgroundColor };
+      });
+      expect(dot.w).toBe("20px");
+      expect(dot.bg).not.toBe("rgba(0, 0, 0, 0)");
+      await expect(page.getByRole("link", { name: /Look at the 1 thing we found/ })).toBeVisible();
       await checkScreen(page);
     });
 

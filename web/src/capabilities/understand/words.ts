@@ -46,6 +46,13 @@ const WORDS = {
   "timeline.as_seen_on": "{{title}} on",
   "timeline.as_seen_clear": "Clear the day",
   "timeline.lane_icon": "Line {{label}}",
+  "timeline.legend_dots": "What the dots mean",
+  "timeline.legend_question": "Linked question",
+  "timeline.look_one": "Look at the {{count}} thing we found",
+  "timeline.look_other": "Look at the {{count}} things we found",
+  "timeline.look_none": "Look at the things we found",
+  "timeline.as_seen_toggle": "{{title}} on…",
+  "timeline.adjust": "Change the dates or question",
   "timeline.nothing": "Nothing matches. Try clearing a filter.",
 
   "consultation.page_title": "The page",
