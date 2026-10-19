@@ -520,6 +520,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/bundle/sorted` | Pages grouped by the pack's sources, then by the date printed on each page (never from facts); every page keeps its own number; quarantined pages left out |
 | GET | `/cases/{case_id}/duplicates` | Pairs to review; thumbnails via `/pages/{page_no}/thumbnail` |
 | PATCH | `/cases/{case_id}/pages/{page_id}/duplicate` | Confirm or undo "copy of page X" |
+| PUT | `/cases/{case_id}/pages/{page_id}/duplicate` | `{copy_of_page_no}`: set a page aside as a copy of another (named expert confirms; an assistant suggests); 422 if it is its own copy, 409 if the original is itself a copy |
 | PATCH | `/cases/{case_id}/documents/{doc_id}` | Edit provenance (how obtained, received date) |
 | GET | `/cases/{case_id}/missing-items` | Documents pages mention that the bundle does not hold, with the page that mentions each |
 | PATCH | `/cases/{case_id}/missing-items/{item_id}` | Not available (reason), open again, or mark received (a page added later); If-Match |
