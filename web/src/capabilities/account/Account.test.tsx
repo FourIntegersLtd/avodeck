@@ -136,3 +136,19 @@ test("sign out ends this session and goes back to sign in", async () => {
   await user.click(await screen.findByRole("button", { name: "Sign out" }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/sign-in"));
 });
+
+test("backup codes say how many are left, and the count follows making new ones", async () => {
+  account();
+  let left = 7;
+  server.use(
+    http.get("/v1/auth/mfa/recovery-codes", () => json({ remaining: left, total: 10 })),
+    http.post("/v1/auth/mfa/recovery-codes", () => {
+      left = 10;
+      return json({ recovery_codes: ["AAAAA-BBBBB"] });
+    }),
+  );
+  const { user } = renderAt("/account");
+  expect(await screen.findByText("7 of 10 left.")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Make new codes" }));
+  expect(await screen.findByText("10 of 10 left.")).toBeInTheDocument();
+});
