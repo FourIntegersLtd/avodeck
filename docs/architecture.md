@@ -364,6 +364,7 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | `agenda_items` | Each agenda question with each expert's position. | agenda_version_id, number, text_verbatim, own_position, other_positions, agreed, reason, served_paragraph_ids[], deviation_status |
 | `court_bundles` | The court's own paginated bundle, in versions as it is re-issued. | case_id, document_id, version, section_prefix, superseded_by_id, pages, received_on |
 | `concordance` | Which of our pages is which page in a court bundle version. | case_id, court_bundle_id, page_id, trial_page_no, score, method, confirmed |
+| `trial_pack_settings` | What the expert chose to put in the trial pack. | case_id, sections[], include_guidance, hearing_id, requested_job_id, version |
 | `trial_packs` | The large-print pack for a hearing; marked stale if new material arrives. | case_id, hearing_id, sections, pdf_path, sha256, built_at, stale |
 | `offline_packages` | The encrypted copy for the witness box, per device. | case_id, hearing_id, device_label, format_version, built_at, expires_at, revoked_at |
 
@@ -694,6 +695,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does | Notes |
 |---|---|---|---|
 | POST | `/cases/{case_id}/expert-meetings` | Create `{type, other_expert_name, discussion_on}`; deadlines from the pack's meeting rules | |
+| GET | `/cases/{case_id}/expert-meetings` | The case's meetings | |
+| GET | `/cases/{case_id}/expert-meetings/types` | Meeting types and their wording from the pack | |
 | POST | `/cases/{case_id}/expert-meetings/{meeting_id}/agenda` | Register agenda → T-22a, T-22b | 202 + job |
 | GET | `/cases/{case_id}/expert-meetings/{meeting_id}` | Items with positions, agreement, deviation warnings | |
 | PATCH | `/cases/{case_id}/agenda-items/{item_id}` | Positions, agreed, reason → T-22c | |
@@ -708,7 +711,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases/{case_id}/court-bundles` | Register the court bundle → T-23 OCR + matching (202 + job) |
 | GET | `/cases/{case_id}/concordance?status=low|missing|all` | Old page → trial page with scores; missing pages |
 | PATCH | `/cases/{case_id}/concordance/{row_id}` | Confirm or correct a match |
-| GET | `/cases/{case_id}/concordance/export?format=pdf|csv` | Print table |
+| GET | `/cases/{case_id}/concordance/export?format=pdf|csv` | Print table (🔒 export) |
 | POST | `/cases/{case_id}/concordance/tell-instructing-party` | Draft note listing missing pages |
 
 **24 Trial pack**
@@ -717,17 +720,20 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 |---|---|---|
 | POST | `/cases/{case_id}/trial-pack/check-new` | T-24 nothing-new check on notes |
 | PUT | `/cases/{case_id}/trial-pack/settings` | Sections to include |
+| GET | `/cases/{case_id}/trial-pack/settings` | Sections chosen so far |
 | POST | `/cases/{case_id}/trial-pack` | Build large-print PDF (202 + job) |
 | GET | `/cases/{case_id}/trial-pack/latest` | Preview pages |
-| GET | `/cases/{case_id}/trial-pack/latest/download` | PDF streamed by the API |
+| GET | `/cases/{case_id}/trial-pack/latest/download` | PDF streamed by the API (🔒 export) |
 
 **25 In the witness box**
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
 | POST | `/cases/{case_id}/offline-packages` | Build encrypted package `{device_label, expires_at}` | 🔒 |
+| GET | `/cases/{case_id}/offline-packages` and `/{pkg_id}` | This case's copies and their state | |
+| GET | `/cases/{case_id}/offline-packages/{pkg_id}/status` | The copy's status only, no case content and no step-up; the witness box wipes its copy on revoked, expired or 404 | |
 | GET | `/cases/{case_id}/offline-packages/{pkg_id}/download` | Encrypted package streamed once by the API | 🔒 |
-| DELETE | `/cases/{case_id}/offline-packages/{pkg_id}` | Revoke (device refuses to open after next check-in) | |
+| DELETE | `/cases/{case_id}/offline-packages/{pkg_id}` | Revoke (the device wipes its copy at the next online status check) | 🔒 |
 | | *(on device, the one unavoidable exception)* | Search runs locally in the browser (SQLite-WASM FTS5) because courtrooms may have no connection; package encrypted, read-only, auto-expires | |
 
 **26 Close the case**
