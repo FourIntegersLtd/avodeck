@@ -1,5 +1,6 @@
 // Test stand-ins for slice I's API: typed bodies from the generated schema. Pack words (the court bundle's
 // name, the meeting document) come from the pack fixtures, never written here.
+import type { CopyContent } from "./copy";
 import { HttpResponse } from "msw";
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server } from "../../test/api";
@@ -38,19 +39,19 @@ export function item(n: 1 | 2 | 3, over: Partial<Schemas["ItemOut"]> = {}): Sche
     {
       id: ITEMS[0]!, number: 1, text: "Did Dr P need to examine Mrs A on 15 May 2024?",
       own_position: "Yes. Bleeding with known anaemia called for an examination.", other_positions: "Yes, an examination was required.",
-      agreed: true, reason: null, change_note: null, deviation: "consistent", deviation_reason: "same_words", served_paragraphs: [13], pages: [118],
+      agreed: true, reason: null, change_note: null, deviation: "consistent", deviation_reason: "same_words", served_paragraphs: [13], served_text: "Bleeding with known anaemia called for an examination [p.118].", pages: [118],
       changed_from_previous: "same", version: 3,
     },
     {
       id: ITEMS[1]!, number: 2, text: "Was the February result acted on appropriately?",
       own_position: "No. Iron was started without looking for a cause.", other_positions: "Iron first, review later, was reasonable.",
       agreed: false, reason: "We differ on whether a cause should have been sought at once.", change_note: null, deviation: "consistent",
-      deviation_reason: "copied_from_report", served_paragraphs: [4], pages: [214, 87], changed_from_previous: "same", version: 2,
+      deviation_reason: "copied_from_report", served_paragraphs: [4], served_text: "Iron was started on 19 February 2024 [p.103].", pages: [214, 87], changed_from_previous: "same", version: 2,
     },
     {
       id: ITEMS[2]!, number: 3, text: "By what date should Mrs A have been referred?",
       own_position: "By 15 May 2024 at the latest.", other_positions: "By 15 May 2024.", agreed: true, reason: null, change_note: null,
-      deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], pages: [118], changed_from_previous: "changed", version: 5,
+      deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], served_text: "Zz early March 2024, soon after the blood result [p.118].", pages: [118], changed_from_previous: "changed", version: 5,
     },
   ];
   return { ...base[n - 1]!, ...over };
@@ -59,7 +60,7 @@ export function item(n: 1 | 2 | 3, over: Partial<Schemas["ItemOut"]> = {}): Sche
 export function meetingOut(over: Partial<Schemas["MeetingOut"]> = {}): Schemas["MeetingOut"] {
   return {
     id: MEETING, type: MEETING_TYPE.key, label: MEETING_TYPE.label, status: "draft", hearing_id: null, discussion_on: "2027-02-12",
-    sign_by: "2027-02-19", sign_rule_ref: "Rule Z.9", send_by: "2027-02-26", send_rule_ref: "Rule Z.10",
+    sign_by: "2027-02-19", sign_rule_ref: "Rule Z.9", sign_rule_phrase: "Zz 5 working days after the conference", send_by: "2027-02-26", send_rule_ref: "Rule Z.10", send_rule_phrase: "Zz within 10 working days",
     declarations: MEETING_TYPE.declarations, prepared_sha256: null, prepared_pages: null, certificate_sha256: null, signed_sha256: null,
     version: 4, items: [item(1), item(2), item(3)],
     agenda_versions: [{ id: "a9777777-7777-4777-8777-777777777777", version_no: 2, read_at: "2027-02-10T09:00:00Z", item_count: 3, created_at: "2027-02-10T09:00:00Z" }],
@@ -101,15 +102,16 @@ export function previewOut(over: Partial<Schemas["PreviewOut"]> = {}): Schemas["
   return {
     sections: [{ key: "report", pages: 31 }, { key: "chronology", pages: 9 }, { key: "readiness", pages: 2 }, { key: "joint_statement", pages: 6 }],
     total_pages: 48,
+    case_label: "Mrs A",
     sheets: [
       {
         number: 1, text: "Did Dr P need to examine Mrs A on 15 May 2024?", answer: "Yes. Bleeding with known anaemia called for an examination.",
-        asked: "Yes, an examination was required.", agreed: true, reason: null, pages: [{ page_no: 118, trial_page_no: 2407, status: "matched" }],
+        asked: "Yes, an examination was required.", agreed: true, reason: null, pages: [{ page_no: 118, trial_page_no: 2407, status: "matched" }], pack_page_no: 40,
       },
       {
         number: 2, text: "Was the February result acted on appropriately?", answer: "No. Iron was started without looking for a cause.",
         asked: "Iron first, review later, was reasonable.", agreed: false, reason: "We differ on whether a cause should have been sought.",
-        pages: [{ page_no: 214, trial_page_no: null, status: "missing" }, { page_no: 87, trial_page_no: 2376, status: "matched" }],
+        pages: [{ page_no: 214, trial_page_no: null, status: "missing" }, { page_no: 87, trial_page_no: 2376, status: "matched" }], pack_page_no: 41,
       },
     ],
     ...over,
@@ -192,27 +194,16 @@ export function copyContent(over: Partial<CopyContent> = {}): CopyContent {
       ],
     },
     facts: [
-      { kind: "consultation", text: "Bleeding reported, no examination", date: "2024-05-15", page_no: 118, trial_page_no: 2407 },
-      { kind: "prescription", text: "Ferrous sulphate 200 mg", date: "2024-02-19", page_no: 103, trial_page_no: null },
+      { kind: "consultation", text: "Bleeding reported, no examination", date: "2024-05-15", page_no: 118, trial_page_no: 2407, source_type: "primary_care_record" },
+      { kind: "prescription", text: "Ferrous sulphate 200 mg", date: "2024-02-19", page_no: 103, trial_page_no: null, source_type: "hospital" },
     ],
+    case_label: "Mrs A",
+    source_types: [{ key: "primary_care_record", label: "Zz record", colour: "#1E6B4E" }, { key: "hospital", label: "Zz hospital", colour: "#4C6E91" }],
     concordance: [{ page_no: 118, trial_page_no: 2407, status: "matched" }, { page_no: 103, trial_page_no: null, status: "to_confirm" }],
     joint_statement: { type: MEETING_TYPE.key, status: "signed", items: [{ number: 1, text: item(1).text, own_position: item(1).own_position, agreed: true, reason: null }] },
     answers: [{ question_no: 2, text: "The haemoglobin was 98 on page 103." }],
     ...over,
   };
-}
-
-export interface CopyContent {
-  format_version: number;
-  case_id: string;
-  built_at: string;
-  date_order: string;
-  court_bundle: string;
-  report: { version_no: number; served_on: string | null; paragraphs: { para_no: number; section: string; text: string; pages: { page_no: number; trial_page_no: number | null }[] }[] } | null;
-  facts: { kind: string; text: string; date: string | null; page_no: number | null; trial_page_no: number | null }[];
-  concordance: { page_no: number; trial_page_no: number | null; status: string }[];
-  joint_statement: { type: string; status: string; items: { number: number; text: string; own_position: string | null; agreed: boolean | null; reason: string | null }[] } | null;
-  answers: { question_no: number; text: string }[];
 }
 
 const b64 = (bytes: ArrayBuffer | Uint8Array) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
