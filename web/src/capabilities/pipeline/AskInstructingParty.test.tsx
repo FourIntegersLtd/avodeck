@@ -110,4 +110,12 @@ describe.each([
     renderAt(PATH);
     expect(await screen.findByRole("button", { name: "Try again" })).toBeVisible();
   });
+
+  test("shows who it is from and the To field without pressing Edit", async () => {
+    mock(pack);
+    renderAt(PATH);
+    expect(await screen.findByText("Dr Jane Morgan \u00b7 your usual email")).toBeVisible();
+    expect(screen.getByLabelText("To")).toBeVisible();
+    expect(screen.queryByText("Need more time?")).toBeNull();
+  });
 });
