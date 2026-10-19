@@ -1228,6 +1228,11 @@
       },
       "CaseCheck": {
         "properties": {
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
           "default_on": {
             "title": "Default On",
             "type": "boolean"
@@ -1243,6 +1248,17 @@
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
           },
           "rule": {
             "title": "Rule",
@@ -3060,6 +3076,14 @@
             "title": "On",
             "type": "string"
           },
+          "question_numbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Question Numbers",
+            "type": "array"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -3091,6 +3115,40 @@
           "note"
         ],
         "title": "Consultation",
+        "type": "object"
+      },
+      "Counts": {
+        "description": "The numbers on the filter chips, counted over everything the person may see (before any filter).",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "integer"
+          },
+          "not_linked": {
+            "title": "Not Linked",
+            "type": "integer"
+          },
+          "please_check": {
+            "title": "Please Check",
+            "type": "integer"
+          },
+          "things_to_look": {
+            "title": "Things To Look",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked",
+          "please_check",
+          "things_to_look",
+          "not_linked",
+          "total"
+        ],
+        "title": "Counts",
         "type": "object"
       },
       "Coverage": {
@@ -4193,6 +4251,11 @@
             "title": "Fact Id",
             "type": "string"
           },
+          "has_finding": {
+            "default": false,
+            "title": "Has Finding",
+            "type": "boolean"
+          },
           "kind": {
             "title": "Kind",
             "type": "string"
@@ -4201,9 +4264,31 @@
             "title": "Page No",
             "type": "integer"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           }
         },
         "required": [
@@ -4330,9 +4415,31 @@
             "title": "Question Ids",
             "type": "array"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           }
         },
         "required": [
@@ -4346,6 +4453,55 @@
           "has_finding"
         ],
         "title": "Event",
+        "type": "object"
+      },
+      "Evidence": {
+        "properties": {
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "fact_id",
+          "kind",
+          "page_no",
+          "event_date",
+          "summary"
+        ],
+        "title": "Evidence",
         "type": "object"
       },
       "Exhibit": {
@@ -4711,6 +4867,14 @@
               }
             ],
             "title": "Decision"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "title": "Evidence",
+            "type": "array"
           },
           "evidence_fact_ids": {
             "items": {
@@ -8317,6 +8481,50 @@
           "instructing_party"
         ],
         "title": "OverEstimate",
+        "type": "object"
+      },
+      "OwnCheck": {
+        "properties": {
+          "applies_to": {
+            "pattern": "^[a-z0-9_]{1,60}$",
+            "title": "Applies To",
+            "type": "string"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "followup_kinds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Followup Kinds",
+            "type": "array"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "window_days": {
+            "maximum": 3650.0,
+            "minimum": 1.0,
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "label",
+          "applies_to",
+          "followup_kinds",
+          "window_days"
+        ],
+        "title": "OwnCheck",
         "type": "object"
       },
       "OwnParagraph": {
@@ -12005,6 +12213,36 @@
         "title": "SortedPages",
         "type": "object"
       },
+      "Source": {
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "colour"
+        ],
+        "title": "Source",
+        "type": "object"
+      },
       "SourceCount": {
         "properties": {
           "pages": {
@@ -12630,6 +12868,16 @@
       },
       "Timeline": {
         "properties": {
+          "counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Counts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "guidance_changed": {
             "default": [],
             "items": {
@@ -12643,6 +12891,14 @@
               "$ref": "#/components/schemas/Lane"
             },
             "title": "Lanes",
+            "type": "array"
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            },
+            "title": "Sources",
             "type": "array"
           },
           "unplaced": {
@@ -26299,15 +26555,38 @@
     },
     "/v1/me/checks/custom": {
       "post": {
+        "description": "Add a check of your own for cases of this kind: one rule type (`not_followed_up`), kinds from the pack.",
         "operationId": "custom_check_v1_me_checks_custom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnCheck"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "501": {
+          "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CaseCheck"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           },
           "default": {
             "content": {

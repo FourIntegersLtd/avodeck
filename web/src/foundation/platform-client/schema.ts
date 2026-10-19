@@ -3035,7 +3035,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Custom Check */
+        /**
+         * Custom Check
+         * @description Add a check of your own for cases of this kind: one rule type (`not_followed_up`), kinds from the pack.
+         */
         post: operations["custom_check_v1_me_checks_custom_post"];
         delete?: never;
         options?: never;
@@ -3977,6 +3980,11 @@ export interface components {
         };
         /** CaseCheck */
         CaseCheck: {
+            /**
+             * Custom
+             * @default false
+             */
+            custom: boolean;
             /** Default On */
             default_on: boolean;
             /** Enabled */
@@ -3985,6 +3993,8 @@ export interface components {
             gentle: boolean;
             /** Key */
             key: string;
+            /** Label */
+            label?: string | null;
             /** Rule */
             rule: string;
             /** Window Days */
@@ -4648,12 +4658,33 @@ export interface components {
              * Format: date
              */
             on: string;
+            /**
+             * Question Numbers
+             * @default []
+             */
+            question_numbers: number[];
             /** Title */
             title: string;
             /** Unknown */
             unknown: components["schemas"]["Entry"][];
             /** Visible */
             visible: components["schemas"]["Entry"][];
+        };
+        /**
+         * Counts
+         * @description The numbers on the filter chips, counted over everything the person may see (before any filter).
+         */
+        Counts: {
+            /** Checked */
+            checked: number;
+            /** Not Linked */
+            not_linked: number;
+            /** Please Check */
+            please_check: number;
+            /** Things To Look */
+            things_to_look: number;
+            /** Total */
+            total: number;
         };
         /** Coverage */
         Coverage: {
@@ -5050,12 +5081,21 @@ export interface components {
              * Format: uuid
              */
             fact_id: string;
+            /**
+             * Has Finding
+             * @default false
+             */
+            has_finding: boolean;
             /** Kind */
             kind: string;
             /** Page No */
             page_no: number;
+            /** Source */
+            source?: string | null;
             /** Status */
             status: string;
+            /** Summary */
+            summary?: string | null;
         };
         /** EstimateIn */
         EstimateIn: {
@@ -5090,8 +5130,28 @@ export interface components {
             page_no: number;
             /** Question Ids */
             question_ids: string[];
+            /** Source */
+            source?: string | null;
             /** Status */
             status: string;
+            /** Summary */
+            summary?: string | null;
+        };
+        /** Evidence */
+        Evidence: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Kind */
+            kind: string;
+            /** Page No */
+            page_no: number;
+            /** Summary */
+            summary: string | null;
         };
         /**
          * Exhibit
@@ -5239,6 +5299,11 @@ export interface components {
             check_key: string;
             /** Decision */
             decision: string | null;
+            /**
+             * Evidence
+             * @default []
+             */
+            evidence: components["schemas"]["Evidence"][];
             /** Evidence Fact Ids */
             evidence_fact_ids: string[];
             /** Evidence Pages */
@@ -6540,6 +6605,22 @@ export interface components {
             /** Percent */
             percent: number;
         };
+        /** OwnCheck */
+        OwnCheck: {
+            /** Applies To */
+            applies_to: string;
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Followup Kinds */
+            followup_kinds: string[];
+            /** Label */
+            label: string;
+            /** Window Days */
+            window_days: number;
+        };
         /** OwnParagraph */
         OwnParagraph: {
             /** Para No */
@@ -7773,6 +7854,15 @@ export interface components {
             /** Pages */
             pages: components["schemas"]["SortedPage"][];
         };
+        /** Source */
+        Source: {
+            /** Colour */
+            colour: string | null;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /** SourceCount */
         SourceCount: {
             /** Pages */
@@ -8012,6 +8102,7 @@ export interface components {
         };
         /** Timeline */
         Timeline: {
+            counts?: components["schemas"]["Counts"] | null;
             /**
              * Guidance Changed
              * @default []
@@ -8019,6 +8110,11 @@ export interface components {
             guidance_changed: string[];
             /** Lanes */
             lanes: components["schemas"]["Lane"][];
+            /**
+             * Sources
+             * @default []
+             */
+            sources: components["schemas"]["Source"][];
             /** Unplaced */
             unplaced: components["schemas"]["Event"][];
         };
@@ -16712,15 +16808,28 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OwnCheck"];
+            };
+        };
         responses: {
             /** @description Successful Response */
-            501: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["CaseCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

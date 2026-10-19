@@ -34,6 +34,8 @@ class Event(BaseModel):
     status: str
     question_ids: list[uuid.UUID]
     has_finding: bool
+    summary: str | None = None
+    source: str | None = None
 
 
 class Lane(BaseModel):
@@ -42,9 +44,27 @@ class Lane(BaseModel):
     events: list[Event]
 
 
+class Source(BaseModel):
+    key: str
+    label: str
+    colour: str | None
+
+
+class Counts(BaseModel):
+    """The numbers on the filter chips, counted over everything the person may see (before any filter)."""
+
+    checked: int
+    please_check: int
+    things_to_look: int
+    not_linked: int
+    total: int
+
+
 class Timeline(BaseModel):
     lanes: list[Lane]
     unplaced: list[Event]
+    sources: list[Source] = []
+    counts: Counts | None = None
     guidance_changed: list[str] = []
 
 
@@ -62,11 +82,7 @@ async def timeline(
     pack = await case_pack(request, conn, case_id)
     facts = await repo.visible_facts(request, conn, case_id)
     links = await repo.linked_questions(conn, case_id)
-    cur = await conn.execute(
-        "select distinct unnest(evidence_fact_ids) from app.findings where case_id = %s and status = 'open'",
-        (case_id,),
-    )
-    flagged = {r[0] for r in await cur.fetchall()}
+    flagged = await repo.flagged_facts(conn, case_id)
 
     def keep(fact: repo.SeenFact) -> bool:
         if since is not None and (fact.event_date is None or fact.event_date < since):
@@ -89,12 +105,27 @@ async def timeline(
             status=fact.status,
             question_ids=links.get(fact.fact_id, []),
             has_finding=fact.fact_id in flagged,
+            summary=repo.summary_of(fact),
+            source=fact.source,
         )
 
     lanes = pack.lanes()
     placed, unplaced = arrange([f for f in facts if keep(f)], lanes, kind=lambda f: f.kind, fields=lambda f: f.fields)
     labels = pack.vocabulary.get("lanes", {})
+    source_words = pack.vocabulary.get("source_types", {})
+    counts = Counts(
+        checked=sum(1 for f in facts if f.status in repo.CHECKED),
+        please_check=sum(1 for f in facts if f.status not in repo.CHECKED),
+        things_to_look=sum(1 for f in facts if f.fact_id in flagged),
+        not_linked=sum(1 for f in facts if not links.get(f.fact_id)),
+        total=len(facts),
+    )
     return Timeline(
+        sources=[
+            Source(key=str(s["key"]), label=str(source_words.get(s["key"], s["key"])), colour=s.get("colour"))
+            for s in pack.source_types()
+        ],
+        counts=counts,
         lanes=[Lane(key=key, label=str(labels.get(key, key)), events=[event(f) for f in got]) for key, got in placed],
         unplaced=[event(f) for f in unplaced],
         guidance_changed=await guidelines.changed(conn, case_id, pack.guidelines()),

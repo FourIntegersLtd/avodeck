@@ -39,6 +39,9 @@ class Entry(BaseModel):
     event_date: date | None
     available_at: date | None
     status: str
+    summary: str | None = None
+    source: str | None = None
+    has_finding: bool = False
 
 
 class Guidance(BaseModel):
@@ -59,9 +62,10 @@ class Consultation(BaseModel):
     guidance_changed: list[str] = []
     on: date
     note: str | None
+    question_numbers: list[int] = []
 
 
-def _entry(fact: repo.SeenFact) -> Entry:
+def _entry(fact: repo.SeenFact, flagged: set[uuid.UUID] = frozenset()) -> Entry:  # type: ignore[assignment]
     return Entry(
         fact_id=fact.fact_id,
         kind=fact.kind,
@@ -69,6 +73,9 @@ def _entry(fact: repo.SeenFact) -> Entry:
         event_date=fact.event_date,
         available_at=fact.available_at,
         status=fact.status,
+        summary=repo.summary_of(fact),
+        source=fact.source,
+        has_finding=fact.fact_id in flagged,
     )
 
 
@@ -93,10 +100,17 @@ async def consultation(
     on = on or visit.event_date or visit.available_at
     if on is None:
         raise invalid("fact_id", message="This entry has no date.")
+    flagged = await repo.flagged_facts(conn, case_id)
+    cur = await conn.execute(
+        "select distinct q.number from app.fact_question_links l join app.questions q on q.id = l.question_id"
+        " where l.case_id = %s and l.fact_id = %s and l.status = 'confirmed' order by q.number",
+        (case_id, fact_id),
+    )
+    numbers = [int(r[0]) for r in await cur.fetchall()]
     view = seen_on(on, (SeenItem(f.fact_id, f.available_at, f.status) for f in facts), exclude=fact_id)
 
     def pick(items: list[SeenItem]) -> list[Entry]:
-        return [_entry(by_id[i.fact_id]) for i in items]
+        return [_entry(by_id[i.fact_id], flagged) for i in items]
 
     table = pack.guidelines()
     shown = [r for r in table if in_force([r], str(r["code"]), on)]
@@ -113,7 +127,7 @@ async def consultation(
     note = await cur.fetchone()
     return Consultation(
         title=pack.term("as_seen_title"),
-        entry=_entry(visit),
+        entry=_entry(visit, flagged),
         visible=pick(view.visible),
         later_count=len(view.later),
         later=pick(view.later),
@@ -122,6 +136,7 @@ async def consultation(
         guidance_changed=await guidelines.changed(conn, case_id, table),
         on=on,
         note=note[0] if note else None,
+        question_numbers=numbers,
     )
 
 

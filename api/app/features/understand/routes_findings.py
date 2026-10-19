@@ -9,7 +9,8 @@ gone stays listed (`status: gone`, "no longer found") so the expert's decision n
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Literal
+from datetime import date
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Response
 from psycopg.rows import dict_row
@@ -30,6 +31,14 @@ Decision = Literal["relevant", "not_relevant", "explained_elsewhere"]
 NEEDS_REASON = {"not_relevant", "explained_elsewhere"}
 
 
+class Evidence(BaseModel):
+    fact_id: uuid.UUID
+    kind: str
+    page_no: int
+    event_date: date | None
+    summary: str | None
+
+
 class FindingOut(BaseModel):
     id: uuid.UUID
     check_key: str
@@ -40,6 +49,7 @@ class FindingOut(BaseModel):
     decision: str | None
     reason: str | None
     version: int
+    evidence: list[Evidence] = []
     status: Literal["open", "gone"] = "open"
 
 
@@ -71,13 +81,29 @@ _F = (
 _SHOWN = "(f.status = 'open' or f.decision is not null)"
 
 
+async def _with_evidence(conn: DbConn, rows: list[dict[str, Any]]) -> list[FindingOut]:
+    ids = {i for r in rows for i in r["evidence_fact_ids"]}
+    got: dict[uuid.UUID, Evidence] = {}
+    if ids:
+        async with conn.cursor(row_factory=dict_row) as cur:
+            await cur.execute(
+                "select f.id as fact_id, f.kind, p.bundle_page_no as page_no, f.event_date, f.value"
+                " from app.facts f join app.pages p on p.id = f.page_id where f.id = any (%s)",
+                (list(ids),),
+            )
+            for r in await cur.fetchall():
+                text = " ".join((r.pop("value") or "").split())
+                got[r["fact_id"]] = Evidence(**r, summary=text[:80] or None)
+    return [FindingOut(**r, evidence=[got[i] for i in r["evidence_fact_ids"] if i in got]) for r in rows]
+
+
 async def _one(conn: DbConn, case_id: uuid.UUID, finding_id: uuid.UUID) -> FindingOut:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(f"{_F} where f.id = %s and f.case_id = %s and {_SHOWN}", (finding_id, case_id))
         row = await cur.fetchone()
     if row is None:
         raise not_found()
-    return FindingOut(**row)
+    return (await _with_evidence(conn, [row]))[0]
 
 
 @router.get("/cases/{case_id}/findings", response_model=Findings)
@@ -87,7 +113,7 @@ async def list_findings(case_id: uuid.UUID, access: View, conn: DbConn) -> Findi
             f"{_F} where f.case_id = %s and {_SHOWN} order by f.status desc, f.created_at, f.id", (case_id,)
         )
         rows = await cur.fetchall()
-    return Findings(findings=[FindingOut(**r) for r in rows])
+    return Findings(findings=await _with_evidence(conn, rows))
 
 
 @router.post("/cases/{case_id}/findings/rerun", status_code=202, response_model=Queued)
