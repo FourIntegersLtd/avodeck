@@ -21,7 +21,7 @@ pytestmark = pytest.mark.anyio
 
 def step_with(combo: Combo, meter: str) -> str:
     steps = combo.raw("case-type", "workflow.yaml")["steps"]
-    return next(s["key"] for s in steps if meter in s.get("meters", []))
+    return str(next(s["key"] for s in steps if meter in s.get("meters", [])))
 
 
 async def progress(client_for: ClientFor, person: uuid.UUID, case: uuid.UUID) -> dict[str, dict[str, Any]]:
