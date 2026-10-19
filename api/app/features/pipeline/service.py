@@ -36,9 +36,9 @@ from psycopg import AsyncConnection
 from app.core import audit, notifications
 from app.core.ai import pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
+from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
-from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.ocr import OcrFailed, OcrPage
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
