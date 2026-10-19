@@ -395,3 +395,14 @@ async def test_the_meeting_types_offered_come_from_the_pack(client_for: ClientFo
     assert first["declarations"] == list(kind["standard_declarations"])  # type: ignore[call-overload]
     assert first["notes"] == kind.get("notes")
     assert (await (await client_for(world.outsider)).get(world.url("expert-meetings/types"))).status_code == 404
+
+
+async def test_each_agenda_item_lists_the_pages_its_served_paragraphs_cite(
+    client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted]
+) -> None:
+    model()
+    created = await create(client_for, world)
+    await agenda(client_for, worker_db, world, created["id"])
+    items = (await get(client_for, world, created["id"])).json()["items"]
+    assert items[0]["pages"] == [118]
+    assert all(isinstance(i["pages"], list) for i in items)

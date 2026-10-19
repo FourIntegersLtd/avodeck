@@ -166,3 +166,28 @@ async def test_pages_to_confirm_show_on_today(client_for: ClientFor, world: Worl
     today = (await (await client_for(world.expert)).get("/v1/today")).json()
     [item] = [i for i in today["needs_you"] if i["kind"] == "trial_pages_to_confirm"]
     assert item["case_id"] == str(world.case) and item["count"] == 5 and item["screen"] == "S23"
+
+
+async def test_rows_carry_the_source_type_and_document_date_and_the_bundle_says_what_it_replaces(
+    client_for: ClientFor, world: World, worker_db: Database
+) -> None:
+    client = await client_for(world.expert)
+    first, _ = trial_bundle()
+    old = await upload_bundle(client, worker_db, world, first, received_on="2026-11-01")
+    before = await concordance(client_for, world)
+    assert before["bundle"]["replaces_received_on"] is None
+    rows = {r["page_no"]: r for r in before["rows"]}
+    assert rows[118]["document_date"] == "2024-03-12" and "source_type" in rows[118]
+    second, _ = trial_bundle(removed=[214], rescanned=[], extra=3)
+    resp = await client.post(
+        world.url(f"court-bundles/{old['court_bundle_id']}/supersede"),
+        content=second,
+        headers={"content-type": "application/pdf"},
+        params={"received_on": "2026-12-01"},
+    )
+    assert resp.status_code == 202, resp.text
+    from tests.fixtures.trial.fixtures import run_job
+
+    await run_job(worker_db, world, "match_trial_bundle", resp.json()["job_id"])
+    after = await concordance(client_for, world)
+    assert after["bundle"]["replaces_received_on"] == "2026-11-01"
