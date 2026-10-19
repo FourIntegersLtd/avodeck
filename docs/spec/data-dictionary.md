@@ -585,6 +585,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | Field | In plain words |
 |---|---|
 | question_id / text | The expert's note on what other reasonable clinicians might have done |
+| created_at | The day the note was first written; screen 14 shows it as "Dictated 14 Oct" |
 
 ### relevant_facts
 | Field | In plain words |
@@ -642,6 +643,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | Field | In plain words |
 |---|---|
 | sentence_index / type / words | Which sentence, what kind of warning, which words |
+| (shown, not stored) sentence_start / sentence_end | Where that sentence sits in the saved text, worked out when the warning is sent, so screen 15 can mark it |
 | dismissed_reason | Why the expert chose to ignore it |
 
 ## Report

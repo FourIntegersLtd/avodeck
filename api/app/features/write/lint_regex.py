@@ -33,6 +33,21 @@ def sentences(body: str) -> list[str]:
     return [s for s in _SENTENCE_END.split(body.strip()) if s.strip()]
 
 
+def sentence_spans(body: str) -> list[tuple[int, int]]:
+    """Where each sentence of `sentences(body)` sits in `body` (start, end), so the screen can mark it."""
+    lead = len(body) - len(body.lstrip())
+    text = body.strip()
+    spans: list[tuple[int, int]] = []
+    pos = 0
+    for gap in _SENTENCE_END.finditer(text):
+        if text[pos : gap.start()].strip():
+            spans.append((lead + pos, lead + gap.start()))
+        pos = gap.end()
+    if text[pos:].strip():
+        spans.append((lead + pos, lead + len(text)))
+    return spans
+
+
 @lru_cache(maxsize=32)
 def _loaded(phrases: tuple[str, ...]) -> re.Pattern[str] | None:
     parts = [r"\s+".join(map(re.escape, p.split())) for p in sorted(phrases, key=len, reverse=True) if p.split()]

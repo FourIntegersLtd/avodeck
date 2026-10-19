@@ -7,6 +7,7 @@ the case key. Saves take If-Match with the note's version (`"0"` before the firs
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
 from fastapi import Request, Response
 from psycopg.errors import UniqueViolation
@@ -23,6 +24,7 @@ class RangeNote(BaseModel):
     prompt: str
     text: str | None
     version: int
+    dictated_on: date | None = None
 
 
 class RangeNoteIn(BaseModel):
@@ -31,13 +33,14 @@ class RangeNoteIn(BaseModel):
     text: str = Field(max_length=20_000)
 
 
-async def _current(conn: DbConn, case_id: uuid.UUID, question_id: uuid.UUID) -> tuple[bytes, int] | None:
+async def _current(conn: DbConn, case_id: uuid.UUID, question_id: uuid.UUID) -> tuple[bytes, int, date] | None:
     cur = await conn.execute(
-        "select text, version from app.range_notes where case_id = %s and question_id = %s for update",
+        "select text, version, (created_at at time zone 'utc')::date from app.range_notes"
+        " where case_id = %s and question_id = %s for update",
         (case_id, question_id),
     )
     row = await cur.fetchone()
-    return None if row is None else (bytes(row[0]), row[1])
+    return None if row is None else (bytes(row[0]), row[1], row[2])
 
 
 async def range_note(
@@ -47,7 +50,7 @@ async def range_note(
     if current is None:
         return RangeNote(prompt=prompt, text=None, version=0)
     text = (await crypto.decrypt(conn, case_id, current[0], purpose=TEXT)).decode()
-    return RangeNote(prompt=prompt, text=text, version=current[1])
+    return RangeNote(prompt=prompt, text=text, version=current[1], dictated_on=current[2])
 
 
 @router.put("/cases/{case_id}/questions/{question_id}/range-note", response_model=RangeNote)
@@ -86,4 +89,4 @@ async def save_range_note(
     assert row is not None
     response.headers["ETag"] = etag(row[0])
     pack = await case_pack(request, conn, case_id)
-    return RangeNote(prompt=pack.range_note_prompt(), text=saving.text, version=row[0])
+    return await range_note(conn, crypto, case_id, question_id, pack.range_note_prompt())
