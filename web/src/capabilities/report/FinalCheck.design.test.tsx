@@ -101,7 +101,7 @@ test("each thing to fix has an explanation line: the pack's own words, else the 
   const core = screen.getByRole("listitem", { name: "Every date has a page" });
   expect(within(core).getByText(M["report.check.explain.dates_cited"]!)).toBeInTheDocument();
   const unknown = screen.getByRole("listitem", { name: "Something new" });
-  expect(unknown.querySelectorAll("p")).toHaveLength(0);
+  expect(unknown.querySelectorAll("p:not(.av-callout__title)")).toHaveLength(0);
 });
 
 test("a passed check's count carries its unit word, and a pair reads 'n of total'", async () => {

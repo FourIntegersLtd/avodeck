@@ -188,7 +188,13 @@ function TimeCard({ caseId }: { caseId: string }) {
         {adjusting && <Adjust caseId={caseId} stages={time.stages} onClose={() => setAdjusting(false)} onSaved={() => { setAdjusting(false); found.reload(); }} />}
       </section>
       {time.estimate_hours != null && !time.over_estimate && time.instructing_party && (
-        <div className="rp-within"><Notice tone="success"><p>{w("invoice.within_estimate", { party: time.instructing_party, hours: Number(time.estimate_hours) })}</p></Notice></div>
+        <div className="rp-within"><Notice tone="success">
+          <p className="rp-within__line">
+            <svg className="rp-tick" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+            <strong>{w("invoice.within_estimate_lead")}</strong>{" "}
+            {w("invoice.within_estimate_rest", { party: time.instructing_party, hours: Number(time.estimate_hours) })}
+          </p>
+        </Notice></div>
       )}
     </>
   );

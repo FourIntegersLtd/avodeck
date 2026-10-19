@@ -693,7 +693,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 ### final_check_runs
 | Field | In plain words |
 |---|---|
-| results / passed / at | Each check's result, whether all passed, and when |
+| results / passed / at | Each check's result, whether all passed, and when. A result may carry how much it looked at (a number, an optional total and a unit word such as fact, quote, page, question or guideline) and, for a pack check, the pack's one-line explanation |
 
 ### spot_checks
 | Field | In plain words |
