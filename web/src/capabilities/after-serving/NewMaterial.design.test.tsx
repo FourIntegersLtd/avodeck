@@ -54,3 +54,18 @@ test("where the experts differ is a list of the question, your view and theirs, 
   expect(within(differ).getByText("Theirs.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Prepare for the experts' discussion" })).toHaveAttribute("href", `/cases/${CASE_A}/joint-statement`);
 });
+
+test("the report card says when it arrived, beside the pages card", async () => {
+  serve("launch", { pages: [page(1232, false)], opposing: report([claim()]) });
+  renderAt(url);
+  const pages = await screen.findByRole("region", { name: "1 new page" });
+  const theirs = screen.getByRole("region", { name: "The other expert's report" });
+  expect(pages.parentElement).toBe(theirs.parentElement);
+  expect(within(theirs).getByText("Received 9 December")).toBeInTheDocument();
+});
+
+test("the way on to the discussion shows even when no positions are listed", async () => {
+  serve("launch", { opposing: { ...report([claim()]), positions: [] } });
+  renderAt(url);
+  expect(await screen.findByRole("link", { name: "Prepare for the experts' discussion" })).toBeInTheDocument();
+});
