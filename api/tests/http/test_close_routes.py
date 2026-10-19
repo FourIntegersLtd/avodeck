@@ -636,6 +636,42 @@ async def test_a_download_waits_for_the_export_to_finish(
     assert resp.status_code == 409
 
 
+# --- choosing which files go in the export ---------------------------------------------------------------
+
+
+@pytest.mark.parametrize("files", [[], ["reads", "reads"], ["reads", "bundle"], "reads"])
+async def test_an_export_selection_must_be_known_kinds_listed_once(
+    files: Any, client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    resp = await (await client_for(team["expert"])).post(f"/v1/cases/{case}/export", json={"files": files})
+    assert resp.status_code == 422, resp.text
+    assert jobs_of(admin, case, "export_case") == [], "nothing is queued for a selection that is refused"
+
+
+@pytest.mark.parametrize("person", ["expert", "admin"])
+async def test_the_export_lists_the_file_kinds_with_counts(
+    person: str, client_for: ClientFor, seed: Seed, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    resp = await (await client_for(team[person])).get(f"/v1/cases/{case}/export/files")
+    assert resp.status_code == 200, resp.text
+    assert [(f["kind"], f["count"], f["selected"]) for f in resp.json()["files"]] == [
+        ("reports", 0, True),
+        ("method", 0, True),
+        ("reads", 0, True),
+        ("invoice", 0, False),
+    ]
+
+
+async def test_the_file_list_is_for_case_members_only(
+    client_for: ClientFor, seed: Seed, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "settled")
+    resp = await (await client_for(team["outsider"])).get(f"/v1/cases/{case}/export/files")
+    assert resp.status_code == 404
+
+
 # --- after review: reopening a due case, withdrawn retention, exports, who sees deletion ---------------
 
 
