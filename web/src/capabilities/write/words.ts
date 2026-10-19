@@ -6,6 +6,8 @@ import { registerMessages, t } from "../../foundation/i18n";
 const WORDS = {
   "tab.question": "Question {{number}}",
   "tab.question_short": "Q{{number}}",
+  "tab.question_titled": "Q{{number}} · {{title}}",
+  "tab.question_kind": "Q{{number}} · {{kind}}",
   "nothing_to_answer": "There are no questions to answer yet. Check the questions you've been asked first.",
   "open_questions": "Check the questions",
 
@@ -29,6 +31,7 @@ const WORDS = {
   "points.relevant_title_one": "You haven't used {{count}} relevant fact yet.",
   "points.relevant_title_other": "You haven't used {{count}} relevant facts yet.",
   "points.relevant_dismiss": "Not needed",
+  "points.dictated": "Dictated {{date}}",
   "points.differ": "Where the accounts differ",
   "points.differ_none": "No accounts differ from the record.",
   "points.statement": "The statement:",
@@ -44,6 +47,9 @@ const WORDS = {
   "points.range_save": "Save my note",
   "points.range_saved": "Saved.",
   "points.write": "Write my opinion",
+  "points.tab_done": "Points done.",
+  "points.done": "Done for question {{number}}. You can now write your opinion.",
+  "points.relevant_look": "Look at it",
   "points.stale": "This changed in another window. We've shown you the latest.",
 
   "opinion.title": "Your opinion",
@@ -63,6 +69,8 @@ const WORDS = {
   "opinion.provisional": "My view is provisional",
   "opinion.test": "The test you're applying",
   "opinion.test_reference": "The test the case type uses, for reference:",
+  "opinion.flagged_copy": "Your text with the sentences to check marked",
+  "opinion.add_page": "Add the page",
   "opinion.checks": "Checks on what you've written",
   "opinion.checks_clear": "Nothing to check.",
   "opinion.issue.uncited_fact": "A sentence states a fact without a page number: {{words}}",
@@ -92,6 +100,11 @@ const WORDS = {
   "opinion.stale_yours": "Keep what I wrote here",
   "opinion.stale_saved": "Keep the saved version",
   "opinion.next": "Next question",
+  "opinion.answered": "{{answered}} of {{total}} questions answered",
+  "opinion.from_paragraph": "from paragraph {{ref}} of your instructions",
+  "opinion.check_uncited_ok": "Every fact you state has a page number.",
+  "opinion.check_loaded_ok": "No loaded words.",
+  "opinion.check_expertise_ok": "Nothing outside your expertise.",
   "opinion.back_to_points": "Back to points against",
 
   "today.questions_without_opinion_one": "{{case}}: {{count}} question without your opinion",

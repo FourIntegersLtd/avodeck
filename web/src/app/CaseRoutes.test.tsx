@@ -5,6 +5,7 @@ import { render, screen } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { expect, test } from "vitest";
 import { setupCaseRoutes, setupRoutes } from "../capabilities/setup";
+import { registerScreen } from "../foundation/lib/screens";
 import { http, json, server, signedIn } from "../test/api";
 import { launchPack } from "../test/fixtures";
 import { AppProviders } from "./AppProviders";
@@ -13,11 +14,20 @@ import { capabilityCaseRoutes, capabilityRoutes } from "./capabilityRoutes";
 
 const CASE = "11111111-1111-4111-8111-111111111111";
 
-function renderCase(path: string) {
+function renderCase(path: string, stage: string | null = null) {
   signedIn();
-  server.use(http.get("/v1/cases/:caseId", () => json({ id: CASE, label: "Case Zed", allowed_actions: [] })));
+  server.use(http.get("/v1/cases/:caseId", () => json({ id: CASE, label: "Case Zed", allowed_actions: [], stage })));
   const router = createMemoryRouter(
-    [{ path: "cases/:caseId", element: <CaseLayout />, children: [{ path: "child", element: <p>Child screen</p> }] }],
+    [
+      {
+        path: "cases/:caseId",
+        element: <CaseLayout />,
+        children: [
+          { path: "child", element: <p>Child screen</p> },
+          { path: "conflicts", element: <p>Conflicts screen</p> },
+        ],
+      },
+    ],
     { initialEntries: [path] },
   );
   render(
@@ -34,8 +44,17 @@ test("a child route renders inside the case frame", async () => {
   expect(screen.queryByText("This part of the case is not ready yet.")).toBeNull();
 });
 
-test("the case itself still shows the frame and the coming notice", async () => {
-  renderCase(`/cases/${CASE}`);
+test("the case itself opens the first registered screen of the step the case is at", async () => {
+  registerScreen("new_case", () => "/cases/new");
+  registerScreen("conflicts", ({ caseId }) => `/cases/${caseId}/conflicts`);
+  renderCase(`/cases/${CASE}`, "prepare");
+  expect(await screen.findByText("Conflicts screen")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: "Case Zed" })).toBeInTheDocument();
+  expect(screen.queryByText("This part of the case is not ready yet.")).toBeNull();
+});
+
+test("the case itself shows the coming notice only when its step has no screen yet", async () => {
+  renderCase(`/cases/${CASE}`, null);
   expect(await screen.findByRole("heading", { level: 1, name: "Case Zed" })).toBeInTheDocument();
   expect(screen.getByText("This part of the case is not ready yet.")).toBeInTheDocument();
   expect(screen.queryByText("Child screen")).toBeNull();

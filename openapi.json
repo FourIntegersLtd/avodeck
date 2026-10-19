@@ -1267,6 +1267,17 @@
             "title": "Specialty",
             "type": "string"
           },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -7119,9 +7130,31 @@
             "title": "Id",
             "type": "string"
           },
+          "sentence_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentence End"
+          },
           "sentence_index": {
             "title": "Sentence Index",
             "type": "integer"
+          },
+          "sentence_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentence Start"
           },
           "source": {
             "title": "Source",
@@ -10808,6 +10841,9 @@
             "title": "Points",
             "type": "array"
           },
+          "question": {
+            "$ref": "#/components/schemas/QuestionHeader"
+          },
           "range_note": {
             "$ref": "#/components/schemas/RangeNote"
           },
@@ -10839,7 +10875,8 @@
           "unused",
           "relevant",
           "claims",
-          "range_note"
+          "range_note",
+          "question"
         ],
         "title": "Points",
         "type": "object"
@@ -11500,6 +11537,54 @@
         "title": "QuestionChange",
         "type": "object"
       },
+      "QuestionHeader": {
+        "description": "What the boards print about a question: its number, a short title, the kind (with the pack's label key).",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Label Key"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "short_title",
+          "kind",
+          "kind_label_key",
+          "para_ref"
+        ],
+        "title": "QuestionHeader",
+        "type": "object"
+      },
       "QuestionOut": {
         "properties": {
           "answer_parts": {
@@ -11624,6 +11709,40 @@
           "version"
         ],
         "title": "QuestionOut",
+        "type": "object"
+      },
+      "QuestionProgress": {
+        "properties": {
+          "has_opinion": {
+            "title": "Has Opinion",
+            "type": "boolean"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "points_done": {
+            "title": "Points Done",
+            "type": "boolean"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "number",
+          "short_title",
+          "points_done",
+          "has_opinion"
+        ],
+        "title": "QuestionProgress",
         "type": "object"
       },
       "QuestionUpdate": {
@@ -11784,6 +11903,18 @@
       },
       "RangeNote": {
         "properties": {
+          "dictated_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dictated On"
+          },
           "prompt": {
             "title": "Prompt",
             "type": "string"
@@ -15495,6 +15626,9 @@
           "points": {
             "$ref": "#/components/schemas/PointsSummary"
           },
+          "question": {
+            "$ref": "#/components/schemas/QuestionHeader"
+          },
           "question_id": {
             "format": "uuid",
             "title": "Question Id",
@@ -15516,7 +15650,8 @@
           "points",
           "views",
           "legal_test",
-          "opinion"
+          "opinion",
+          "question"
         ],
         "title": "Workspace",
         "type": "object"
@@ -15578,6 +15713,32 @@
           "url"
         ],
         "title": "WorkspaceGuidance",
+        "type": "object"
+      },
+      "WriteProgress": {
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "integer"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionProgress"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "answered",
+          "total",
+          "questions"
+        ],
+        "title": "WriteProgress",
         "type": "object"
       },
       "WrittenQuestionOut": {
@@ -29412,6 +29573,60 @@
           }
         },
         "summary": "Compare",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/write-progress": {
+      "get": {
+        "description": "Per answerable question: are its points settled, and is there an opinion; plus the answered count.",
+        "operationId": "write_progress_v1_cases__case_id__write_progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Write Progress",
         "tags": [
           "write"
         ]

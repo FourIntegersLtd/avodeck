@@ -3206,6 +3206,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/write-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Write Progress
+         * @description Per answerable question: are its points settled, and is there an opinion; plus the answered count.
+         */
+        get: operations["write_progress_v1_cases__case_id__write_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/written-question-rounds": {
         parameters: {
             query?: never;
@@ -4511,6 +4531,8 @@ export interface components {
             period_start?: string | null;
             /** Specialty */
             specialty: string;
+            /** Stage */
+            stage?: string | null;
             /** Status */
             status: string;
             /** Subject Status */
@@ -6579,8 +6601,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Sentence End */
+            sentence_end?: number | null;
             /** Sentence Index */
             sentence_index: number;
+            /** Sentence Start */
+            sentence_start?: number | null;
             /** Source */
             source: string;
             /** Status */
@@ -7877,6 +7903,7 @@ export interface components {
             claims: components["schemas"]["ClaimOut"][];
             /** Points */
             points: components["schemas"]["PointOut"][];
+            question: components["schemas"]["QuestionHeader"];
             range_note: components["schemas"]["RangeNote"];
             /** Relevant */
             relevant: components["schemas"]["RelevantOut"][];
@@ -8071,6 +8098,22 @@ export interface components {
             /** Paragraph Ids */
             paragraph_ids?: string[] | null;
         };
+        /**
+         * QuestionHeader
+         * @description What the boards print about a question: its number, a short title, the kind (with the pack's label key).
+         */
+        QuestionHeader: {
+            /** Kind */
+            kind: string;
+            /** Kind Label Key */
+            kind_label_key: string | null;
+            /** Number */
+            number: number;
+            /** Para Ref */
+            para_ref: string | null;
+            /** Short Title */
+            short_title: string;
+        };
         /** QuestionOut */
         QuestionOut: {
             /**
@@ -8113,6 +8156,22 @@ export interface components {
             text_verbatim: string;
             /** Version */
             version: number;
+        };
+        /** QuestionProgress */
+        QuestionProgress: {
+            /** Has Opinion */
+            has_opinion: boolean;
+            /** Number */
+            number: number;
+            /** Points Done */
+            points_done: boolean;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Short Title */
+            short_title: string;
         };
         /**
          * QuestionUpdate
@@ -8177,6 +8236,8 @@ export interface components {
         };
         /** RangeNote */
         RangeNote: {
+            /** Dictated On */
+            dictated_on?: string | null;
             /** Prompt */
             prompt: string;
             /** Text */
@@ -9516,6 +9577,7 @@ export interface components {
             legal_test: string;
             opinion: components["schemas"]["OpinionOut"] | null;
             points: components["schemas"]["PointsSummary"];
+            question: components["schemas"]["QuestionHeader"];
             /**
              * Question Id
              * Format: uuid
@@ -9543,6 +9605,15 @@ export interface components {
             url: string | null;
             /** Version Label */
             version_label: string;
+        };
+        /** WriteProgress */
+        WriteProgress: {
+            /** Answered */
+            answered: number;
+            /** Questions */
+            questions: components["schemas"]["QuestionProgress"][];
+            /** Total */
+            total: number;
         };
         /** WrittenQuestionOut */
         WrittenQuestionOut: {
@@ -18565,6 +18636,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    write_progress_v1_cases__case_id__write_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProgress"];
                 };
             };
             /** @description Validation Error */
