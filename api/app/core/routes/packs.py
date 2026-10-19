@@ -87,6 +87,7 @@ class CasePack(BaseModel):
     subject_statuses: list[dict[str, str | None]] = []
     document_kinds: list[dict[str, str]] = []
     outside_expertise_parts: list[str] = []
+    written_question_classifications: list[str] = []
 
 
 def _library(request: Request) -> PackLibrary:
@@ -139,6 +140,7 @@ def case_pack(pack: MergedPack) -> CasePack:
         subject_statuses=pack.subject_statuses(),
         document_kinds=pack.document_kinds(),
         outside_expertise_parts=pack.outside_expertise_parts(),
+        written_question_classifications=pack.written_question_classifications(),
     )
 
 

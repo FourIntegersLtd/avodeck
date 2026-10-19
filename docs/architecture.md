@@ -350,11 +350,12 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | Table | In plain words | Key fields |
 |---|---|---|
 | `court_directions` | Orders from the court that set or change deadlines and hearings. | case_id, made_on, reference, text, created_deadline_ids[] |
-| `deadlines` | Every date that matters (questions due, meeting, trial), worked out from the pack or a court order. | case_id, kind, rule_ref, due_on, calendar, source (pack/direction/manual), pack_version, done_at |
+| `deadlines` | Every date that matters (questions due, meeting, trial), worked out from the pack or a court order. | case_id, kind, rule_ref, due_on, calendar, source (pack/direction/manual), pack_version, done_at, cancelled_at |
 | `deadline_changes` | Every time a deadline moved and why (extension, new order). | deadline_id, old_due_on, new_due_on, reason, source_id, at |
 | `hearings` | Trials and other hearings, with adjournments kept as history. | case_id, type, starts_on, ends_on, venue, status, replaced_by_hearing_id |
 | `written_question_rounds` | Each batch of written questions from a party, with its deadline. | case_id, from_party_id, received_on, deadline_id |
 | `written_questions` | Each written question and the expert's answer. | case_id, round_id, rule_ref, number, text_verbatim, word_ids[], classification, paragraph_ids[], answer_text, status |
+| `opposing_reports` | Each other side's expert report registered for checking, with when it was checked and the positions compared. | case_id, document_id, received_on, job_id, checked_at, claims_found, positions |
 | `opposing_claims` | Statements in the other side's expert report checked against the pages they cite. | case_id, document_id, text_verbatim, word_ids[], cited_page_ref, cited_value, status, evidence_word_ids[], expert_confirmed |
 | `report_changes` | Corrections or changes of opinion after serving, which become a supplementary report. | case_id, kind, paragraph_id, old_text, new_text, reason, dependent_paragraph_ids[], supplementary_version_id |
 | `expert_meetings` | A meeting of experts and the document they sign (e.g. joint statement). | case_id, type, discussion_on, sign_by, send_by, status, signed_document_id, signed_hash |
@@ -671,7 +672,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does |
 |---|---|---|
 | POST | `/cases/{case_id}/documents/append` | New pages (as 08b) → pipeline + T-21a |
-| GET | `/cases/{case_id}/new-since-served` | New pages, which may matter |
+| GET | `/cases/{case_id}/new-since-served` | New pages, which may matter (shown only on pages the expert has read) |
+| POST | `/cases/{case_id}/new-since-served/check` | Look for new pages that may matter → T-21a (202 + job) |
 | POST | `/cases/{case_id}/opposing-reports` | Register report → T-21b, T-21c, T-21d (202 + job) |
 | GET | `/cases/{case_id}/opposing-reports/{doc_id}` | Claims with status and evidence; positions side by side |
 | PATCH | `/cases/{case_id}/opposing-claims/{claim_id}` | Expert confirms / dismisses discrepancy |
@@ -681,6 +683,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does | Notes |
 |---|---|---|---|
 | POST | `/cases/{case_id}/report-changes` | `{kind, paragraph_id, new_text, reason}` → T-21e dependencies | |
+| GET | `/cases/{case_id}/report-changes` | Open changes and the supplementary draft they belong to | |
 | GET / PATCH | `/cases/{case_id}/report-changes/{change_id}` | Review dependent paragraphs, edit | |
 | POST | `/cases/{case_id}/report-changes/supplementary` | Build supplementary report from open changes | 202 + job |
 | POST | `/cases/{case_id}/report/versions/{v}/sign` | Sign and lock the supplementary report | 🔒 |
