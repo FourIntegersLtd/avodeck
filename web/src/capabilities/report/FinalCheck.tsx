@@ -1,14 +1,14 @@
 // S17 Final check (docs/design/screens/S17-FinalCheck.dc.html): the score ring and what failed, with a way to fix
 // it; what passed with its counts; tone and expertise warnings as places in the report (never edits); and the
 // colleague spot-check behind one link.
-import { useId, useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, IconTile, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
+import { Button, Callout, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
 import { longDate, useLocale, useSectionName, useWaiting } from "./shared";
 import { w } from "./words";
 
@@ -30,12 +30,10 @@ async function latest(caseId: string): Promise<Check | null> {
 
 function AlertIcon() {
   return (
-    <IconTile tone="amber">
-      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
-        <circle cx="12" cy="12" r="9" />
-        <path d="M12 7.5v5.5M12 16.5v.01" />
-      </svg>
-    </IconTile>
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5v5.5M12 16.5v.01" />
+    </svg>
   );
 }
 
@@ -94,12 +92,10 @@ export function FinalCheck() {
             <Failed key={r.key} caseId={caseId} result={r} />
           ))}
           {notRun.map((r) => (
-            <li key={r.key} className="rp-fix" aria-label={nameOf(r)}>
-              <AlertIcon />
-              <div className="rp-fix__text">
-                <p className="rp-fix__title">{nameOf(r)}</p>
-                <p className="rp-fix__why">{w("check.not_run")}</p>
-              </div>
+            <li key={r.key} aria-label={nameOf(r)}>
+              <Callout title={nameOf(r)} icon={<AlertIcon />}>
+                <p>{w("check.not_run")}</p>
+              </Callout>
             </li>
           ))}
         </ul>
@@ -148,17 +144,13 @@ export function FinalCheck() {
 }
 
 function Failed({ caseId, result }: { caseId: string; result: Result }) {
-  const id = useId();
   const fix = result.fixes[0] ?? result.fix;
   const to = fix ? (screenPath(fix.screen, { caseId, params: { item: fix.item } }) ?? `/cases/${caseId}`) : null;
   return (
-    <li className="rp-fix" aria-labelledby={id}>
-      <AlertIcon />
-      <div className="rp-fix__text">
-        <p id={id} className="rp-fix__title">{nameOf(result)}</p>
-        {result.count > 1 && <p className="rp-fix__why">{w("check.count", { count: result.count })}</p>}
-      </div>
-      {to && <LinkButton to={to}>{w("check.fix")}</LinkButton>}
+    <li aria-label={nameOf(result)}>
+      <Callout title={nameOf(result)} icon={<AlertIcon />} actions={to ? <LinkButton to={to}>{w("check.fix")}</LinkButton> : undefined}>
+        {result.count > 1 && <p>{w("check.count", { count: result.count })}</p>}
+      </Callout>
     </li>
   );
 }
