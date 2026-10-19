@@ -128,8 +128,7 @@ describe.each([
 
   test("page numbers use the shared page reference and the screen has a way back", async () => {
     const { container } = (mock(pack), renderAt(PATH));
-    await screen.findByRole("heading", { level: 1 });
-    expect(container.querySelectorAll(".av-page-ref").length).toBeGreaterThan(0);
+    await waitFor(() => expect(container.querySelectorAll(".av-page-ref").length).toBeGreaterThan(0));
     expect(screen.getByRole("link", { name: "Your bundle" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle`);
   });
 });

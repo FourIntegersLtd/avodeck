@@ -44,7 +44,7 @@ describe.each([
     const { container } = renderAt(PATH);
     expect(await screen.findByRole("heading", { level: 1, name: `${label} for what's missing` })).toBeVisible();
     expect(screen.getByText("We've written it for you. Change anything you like, then send it from your own email.")).toBeVisible();
-    expect(screen.getByText("Records needed - Mrs A")).toBeVisible();
+    expect(await screen.findByText("Records needed - Mrs A")).toBeVisible();
     expect(screen.getByText(/Colonoscopy report from September/)).toBeVisible();
     expect(screen.getByText("Patient details are left out. Page numbers are from your bundle.")).toBeVisible();
     expect(screen.getByRole("heading", { name: "What happens next" })).toBeVisible();
