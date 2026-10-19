@@ -2,7 +2,7 @@
 // "How we tell you things" is the foundation's too; organisations and closing the account belong to slice O.
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { formatRelative, t } from "../../foundation/i18n";
+import { formatRelative, humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useStepUp } from "../../foundation/lib/stepUp";
@@ -30,7 +30,7 @@ export function Account() {
   };
 
   return (
-    <div className="av-page av-page--narrow av-stack">
+    <div className="av-page av-account av-stack">
       <div>
         <BackLink to={screenPath("profile") ?? "/today"}>{t("app.nav.profile")}</BackLink>
         <h1>{t("account.title")}</h1>
@@ -42,22 +42,39 @@ export function Account() {
         </Notice>
       )}
       <SigningIn email={me.person.email} act={act} />
-      <Devices act={act} locale={me.person.locale} />
+      <Devices
+        act={act}
+        locale={me.person.locale}
+        signOut={() =>
+          void act(async () => {
+            await unwrap(api.POST("/v1/auth/sign-out"));
+            navigate("/sign-in", { replace: true });
+          })
+        }
+      />
+      <Organisations memberships={me.memberships} />
       <HowWeTellYou />
-      <div>
-        <Button
-          variant="secondary"
-          onClick={() =>
-            void act(async () => {
-              await unwrap(api.POST("/v1/auth/sign-out"));
-              navigate("/sign-in", { replace: true });
-            })
-          }
-        >
-          {t("account.sign_out")}
-        </Button>
-      </div>
     </div>
+  );
+}
+
+/** "Your organisations": each one you belong to and your role there (from /v1/me). Settings and leaving are slice O's. */
+function Organisations({ memberships }: { memberships: Schemas["Membership"][] }) {
+  if (memberships.length === 0) return null;
+  return (
+    <section aria-labelledby="your-organisations" className="av-card av-account-card">
+      <h2 id="your-organisations">{t("account.orgs.title")}</h2>
+      <ul className="av-rows" role="list">
+        {memberships.map((m) => (
+          <li key={m.organisation_id} className="av-row-item">
+            <div className="av-row-item__text">
+              <p className="av-field__label">{m.kind === "personal" ? t("today.filter.personal") : m.name}</p>
+              <p className="av-muted">{t(`account.orgs.role.${m.role}`, {}, humanise(m.role))}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -76,17 +93,17 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
     });
   };
   return (
-    <section aria-labelledby="signing-in" className="av-card">
+    <section aria-labelledby="signing-in" className="av-card av-account-card">
       <h2 id="signing-in">{t("account.sign_in.title")}</h2>
       <div className="av-rows">
         <div className="av-row-item">
-          <div>
+          <div className="av-row-item__text">
             <p className="av-field__label">{t("account.email.label")}</p>
             <p className="av-muted">{email}</p>
           </div>
           {!changing && (
-            <Button variant="secondary" onClick={() => setChanging(true)}>
-              {t("account.email.change")}
+            <Button variant="quiet" aria-label={t("account.email.change")} onClick={() => setChanging(true)}>
+              {t("account.change")}
             </Button>
           )}
         </div>
@@ -105,13 +122,17 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
           </Notice>
         )}
         <div className="av-row-item">
-          <p className="av-field__label">{t("account.password.label")}</p>
-          <Button variant="secondary" onClick={() => void act(() => unwrap(api.POST("/v1/auth/password/forgot", { body: { email } })), "account.password.sent")}>
-            {t("account.password.change")}
+          <p className="av-field__label av-row-item__text">{t("account.password.label")}</p>
+          <Button
+            variant="quiet"
+            aria-label={t("account.password.change")}
+            onClick={() => void act(() => unwrap(api.POST("/v1/auth/password/forgot", { body: { email } })), "account.password.sent")}
+          >
+            {t("account.change")}
           </Button>
         </div>
         <div className="av-row-item">
-          <div>
+          <div className="av-row-item__text">
             <p className="av-field__label">{t("account.code.value")}</p>
             <p className="av-muted">{t("account.code.always_on")}</p>
           </div>
@@ -133,7 +154,7 @@ function BackupCodes({ act }: { act: Act }) {
         <p className="av-field__label">{t("account.backup.title")}</p>
         <p className="av-muted">
           {t("account.backup.intro")}
-          {left.data && ` ${t("account.backup.left", { remaining: left.data.remaining, total: left.data.total })}`}
+          {left.data && ` ${t("account.backup.left", { remaining: left.data.remaining, total: left.data.total })}`} {t("account.backup.keep")}
         </p>
       </div>
       {codes && (
@@ -148,6 +169,7 @@ function BackupCodes({ act }: { act: Act }) {
       )}
       <Button
           variant="secondary"
+          className="av-button--small"
           onClick={() =>
             void act(async () => {
               const made = await unwrap(api.POST("/v1/auth/mfa/recovery-codes"));
@@ -163,9 +185,14 @@ function BackupCodes({ act }: { act: Act }) {
   );
 }
 
-function Devices({ act, locale }: { act: Act; locale: string | null | undefined }) {
+function Devices({ act, locale, signOut }: { act: Act; locale: string | null | undefined; signOut: () => void }) {
+  const signOutHere = (
+    <Button variant="quiet" onClick={signOut}>
+      {t("account.sign_out")}
+    </Button>
+  );
   const devices = useResource(() => unwrap(api.GET("/v1/me/sessions")), []);
-  const signOut = (id: string) =>
+  const signOutOne = (id: string) =>
     act(async () => {
       await unwrap(api.DELETE("/v1/me/sessions/{session_id}", { params: { path: { session_id: id } } }));
       devices.reload();
@@ -176,28 +203,32 @@ function Devices({ act, locale }: { act: Act; locale: string | null | undefined 
       devices.reload();
     }, "account.devices.signed_out_others");
   return (
-    <section aria-labelledby="devices" className="av-card av-stack">
+    <section aria-labelledby="devices" className="av-card av-account-card">
       <div className="av-row-item av-row-item--head">
         <h2 id="devices">{t("account.devices.title")}</h2>
         {devices.data && devices.data.some((d) => !d.current) && (
-          <Button variant="secondary" onClick={() => void signOutOthers()}>
+          <Button variant="secondary" className="av-button--small" onClick={() => void signOutOthers()}>
             {t("account.devices.sign_out_others")}
           </Button>
         )}
       </div>
       {devices.error && <LoadError onRetry={devices.reload} />}
       {!devices.data && !devices.error && <Loading />}
+      {/* Signing out of this device stays reachable while the list can't be shown. */}
+      {(devices.error || devices.data?.every((d) => !d.current)) && <div>{signOutHere}</div>}
       {devices.data && (
         <ul className="av-rows" role="list">
           {devices.data.map((d) => (
             <li key={d.id} className="av-row-item">
-              <div>
+              <div className="av-row-item__text">
                 <p className="av-field__label">{d.device_label}</p>
                 <p className="av-muted">{d.current ? t("account.devices.this_device") : formatRelative(new Date(d.last_seen_at), locale)}</p>
               </div>
-              {!d.current && (
-                <Button variant="secondary" onClick={() => void signOut(d.id)}>
-                  {t("account.devices.sign_out_one", { device: d.device_label })}
+              {d.current ? (
+                signOutHere
+              ) : (
+                <Button variant="quiet" aria-label={t("account.devices.sign_out_one", { device: d.device_label })} onClick={() => void signOutOne(d.id)}>
+                  {t("account.sign_out")}
                 </Button>
               )}
             </li>
@@ -235,7 +266,7 @@ function HowWeTellYou() {
     }
   };
   return (
-    <section aria-labelledby="how-we-tell-you" className="av-card av-stack">
+    <section aria-labelledby="how-we-tell-you" className="av-card av-account-card">
       <h2 id="how-we-tell-you">{t("account.notify.title")}</h2>
       <p className="av-muted">{t("account.notify.intro")}</p>
       {failed && (

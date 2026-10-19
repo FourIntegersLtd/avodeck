@@ -53,9 +53,13 @@ export function CaseHeader({ steps, current, title, children, bar, caseId, subti
           const to = bar ? stepPath(step, caseId) : null;
           const inner = (
             <span className="av-step__pill">
-              <span className="av-step__marker" aria-hidden={state === "done" ? true : undefined}>
-                {state === "done" ? "✓" : String(i + 1)}
-              </span>
+              {state === "done" ? (
+                <svg className="av-step__tick" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 12l5 5 9-10" />
+                </svg>
+              ) : (
+                <span className="av-step__marker">{String(i + 1)}</span>
+              )}
               {stepLabel(step.key)}
               {progress?.[step.key] && <span className="av-step__pct">{stepProgressText(progress[step.key]!)}</span>}
             </span>
