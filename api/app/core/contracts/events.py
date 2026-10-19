@@ -1,6 +1,9 @@
 """In-process events between slices.
 
-- `ReportServed` is emitted by F when a report is served; G listens (`subscribe` / `emit`).
+- `ReportServed` is emitted by F when a report is served; G listens (`subscribe` / `emit`). `served_by`
+  is the person who served; G's handler acts as them and refuses an event without one.
+- `CaseWithdrawn` is published by C inside the withdraw transaction; each subscriber that cancels
+  something for the case (G's deadlines) appends how many to `cancelled`, which C reports.
 - `DocumentUploaded` is published by core when an upload completes, inside the request's
   transaction; A listens to queue scanning and processing (`subscribe_in_transaction` / `publish`).
   An in-transaction subscriber gets the same connection, so what it writes commits with the
@@ -12,7 +15,7 @@ from __future__ import annotations
 import uuid
 from collections import defaultdict
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any, TypeVar
 
@@ -26,6 +29,13 @@ class ReportServed:
     case_id: uuid.UUID
     report_version_id: uuid.UUID
     served_on: date
+    served_by: uuid.UUID | None = None
+
+
+@dataclass(frozen=True)
+class CaseWithdrawn:
+    case_id: uuid.UUID
+    cancelled: list[int] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

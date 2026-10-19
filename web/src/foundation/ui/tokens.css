@@ -18,16 +18,19 @@
   --red-tint: #FDECEA;
   --blue: #2F4A66;
   --blue-tint: #EAF0F6;
+  --blue-tint-strong: #D7E3EE;
+  --amber-bright: #B45309;
+  --amber-border: #E8C9A6;
   --focus: #B45309;
 
   --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --text-small: 17px;
-  --text-body: 18px;
+  --text-body: 17px;
   --text-large: 21px;
   --text-h2: 24px;
   --text-h1: 32px;
-  --line-height: 1.55;
+  --line-height: 1.5;
 
   --button-min-height: 52px;
   --radius: 12px;
@@ -40,4 +43,6 @@
   --space-6: 32px;
   --space-7: 48px;
   --page-width: 1180px;
+  --page-width-narrow: 920px;
+  --page-width-wide: 1120px;
 }

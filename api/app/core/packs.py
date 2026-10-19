@@ -496,6 +496,10 @@ class MergedPack:
     def expert_roles(self) -> list[str]:
         return list(self._ct["expert_roles"])
 
+    def written_question_classifications(self) -> list[str]:
+        """How the jurisdiction sorts written questions from the other side (first: within the rules)."""
+        return [str(k) for k in self._j.get("written_question_classifications", [])]
+
     def registration_bodies(self) -> list[str]:
         return list(self._j["registration_bodies"].get(self.profession, []))
 

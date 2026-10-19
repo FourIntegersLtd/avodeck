@@ -414,7 +414,7 @@ async def test_serving_records_the_date_and_route_serves_the_case_and_emits_repo
         "select served_on, sent_via from app.report_servings where report_version_id = %s", (version,)
     ).fetchall()
     assert serving == [(date.today(), "email")]
-    assert heard == [events.ReportServed(ready.case, uuid.UUID(version), date.today())]
+    assert heard == [events.ReportServed(ready.case, uuid.UUID(version), date.today(), ready.expert)]
     audit = admin.execute(
         "select action from app.audit_log where case_id = %s and action = 'report.served'", (ready.case,)
     ).fetchall()

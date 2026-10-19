@@ -81,7 +81,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 ## Chunk B notes (2026-10-17)
 - T-02 (built in chunk C): `POST /v1/me/template/suggestions` suggests a report section per heading from the pack's report sections plus `other`; it runs on request, is never saved, and the expert saves the map with `PATCH /v1/me/template/mapping`.
-- **Gap, deadlines on withdraw:** `POST /withdraw` returns `deadlines_cancelled: 0`. Deadlines belong to the slices that set them; they must read the case's `withdrawn` status.
+- **Deadlines on withdraw:** `POST /withdraw` publishes `CaseWithdrawn`; slice G cancels the open deadlines and `deadlines_cancelled` is the real count.
 - **Retention on withdraw (resolved on rebase):** withdraw does not set `delete_after`; slice H's 0802 starts retention for withdrawn cases.
 - **Gap, i18n:** the keys the API returns (`setup.conflicts.warning.coverage_{none,partial}`, `setup.conflicts.question.<key>`, `setup.questions.warning.*`, `setup.today.{questions_to_confirm,profile_incomplete}[_action]`, note `label_key`s) go into `web/src/foundation/i18n/en-GB.json` with the screens (chunk C).
 - **Gap, evals:** no `evals/.../expected/setup-*.json` rows yet; T-04 and the conflicts expectations are in the recorded fixtures and tests (`api/tests/fixtures/setup/record_setup.py`).
@@ -104,7 +104,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - `app.expert_has_served` is revoked from public and granted to `app_api` and `app_worker` only (0360).
 - Conflict answers keep an append-only `conflict_answer_history`, written only by a trigger (0370); saving the same answer again writes nothing. After a declaration, a changed answer sets `changed_since_declared` and warns `setup.conflicts.warning.declare_again` until the expert declares again (which drafts the note to every current instructing party); this holds after serving too, so no change is silent.
 - The duplicate check takes an optional `case_id` that leaves that case out; S04 sends it on a check again, once this case's key is saved.
-- Withdrawing from a served case keeps its served report locked (tested). **Gap, deadlines on withdraw** (unchanged): `deadlines_cancelled` is 0; the deadline-owning slices must read the `withdrawn` status.
+- Withdrawing from a served case keeps its served report locked (tested). Withdrawing cancels the case's open deadlines (slice G, through `CaseWithdrawn`) and reports how many.
 - **Decision, T-02 runs on request** (finding 11): `POST /v1/me/template/suggestions` calls T-02 inside the request instead of as a 202 job, because it reads only the headings of one template (a few hundred words), is never saved and the expert waits for it on S02. See `docs/decisions/0014-t02-template-suggestions-on-request.md`; move it to a job if the eval shows calls over the request time budget.
 - **Gap, plain text** (finding 13): `assumptions.text_verbatim`/`confirmed_text` and `case_instructing_parties.name`/`firm`/`email`/`reference` are stored as plain text (protected by RLS and storage encryption, not the per-case key), unlike party names, details and oral instructions. Encrypting them needs a migration and a change to every reader (slices D and E read assumptions); noted in the data dictionary.
 

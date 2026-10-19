@@ -229,7 +229,7 @@
       ],
       "timezone": "America/Halifax",
       "versions": {
-        "case_type": "zz-case@0.0.3",
+        "case_type": "zz-case@0.0.4",
         "jurisdiction": "zz-test@0.0.6",
         "specialty": "zz-specialty@0.0.2"
       },
@@ -302,9 +302,14 @@
           "screens": [
             "opinion",
             "report",
-            "sign_send"
+            "sign_send",
+            "court_orders"
           ]
         }
+      ],
+      "written_question_classifications": [
+        "permitted",
+        "not_permitted"
       ]
     },
     "jurisdiction": {
@@ -959,7 +964,7 @@
       ],
       "timezone": "Europe/London",
       "versions": {
-        "case_type": "clin-neg-breach@2026.10.2",
+        "case_type": "clin-neg-breach@2026.10.3",
         "jurisdiction": "gb-eaw@2026.10.6",
         "overlay": "gb-eaw/general-practice@2026.10.1",
         "specialty": "general-practice@2026.10.2"
@@ -1064,6 +1069,7 @@
           "key": "court",
           "screens": [
             "after_serving",
+            "court_orders",
             "written_questions",
             "new_material",
             "correct_report",
@@ -1074,6 +1080,10 @@
             "close"
           ]
         }
+      ],
+      "written_question_classifications": [
+        "clarifies",
+        "goes_beyond"
       ]
     },
     "jurisdiction": {

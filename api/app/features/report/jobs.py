@@ -23,6 +23,7 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from app.core.contracts import profile
+from app.core.contracts.reports import AFTER_SERVING_TYPES
 from app.core.crypto import CaseCrypto, SecretBox
 from app.core.jobs import JobContext, registry
 from app.core.storage import SupabaseStorage, case_prefix
@@ -163,9 +164,11 @@ async def build_report(ctx: JobContext) -> None:
 
 
 async def latest_draft(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID | None:
+    """The newest draft of this slice's report; slice G's own versions (answers, supplementary) are skipped."""
     cur = await conn.execute(
-        "select id from app.report_versions where case_id = %s and status = 'draft' order by version_no desc limit 1",
-        (case_id,),
+        "select id from app.report_versions where case_id = %s and status = 'draft' and type <> all(%s)"
+        " order by version_no desc limit 1",
+        (case_id, list(AFTER_SERVING_TYPES)),
     )
     row = await cur.fetchone()
     return row[0] if row else None
