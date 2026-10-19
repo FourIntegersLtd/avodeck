@@ -26,7 +26,6 @@
 .av-understand-track .av-understand-event--dot { position: absolute; top: 0; display: block; border-top: 0; padding: 0; min-height: 0; }
 .av-understand-event--dot > a { min-width: 28px; justify-content: center; }
 .av-understand-event--dot > a::before { content: ""; width: 20px; height: 20px; border-radius: 50%; background: var(--lane-colour); display: inline-block; }
-.av-understand-event--dot > a { font-size: 0; }
 .av-understand-tip { display: none; flex-direction: column; gap: var(--space-1); position: absolute; top: 100%; left: 0; z-index: 2; min-width: 16em; padding: var(--space-3); background: var(--surface); border: 1px solid var(--surface-muted); border-radius: var(--radius-md, 8px); }
 .av-understand-event:not(.av-understand-event--dot) .av-understand-tip { display: flex; position: static; border: 0; padding: 0; flex-direction: row; flex-wrap: wrap; gap: var(--space-3); min-width: 0; }
 .av-understand-event--dot:hover .av-understand-tip, .av-understand-event--dot:focus-within .av-understand-tip { display: flex; }
