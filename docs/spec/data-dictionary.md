@@ -870,6 +870,14 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | page_id / trial_page_no | Our page and its number in the court bundle |
 | score / method / confirmed | How sure the match is, how it was found, and whether the expert confirmed it |
 
+### trial_pack_settings
+| Field | In plain words |
+|---|---|
+| sections / include_guidance | Which parts go in the trial pack, and whether the pack's guidance pages are added |
+| hearing_id | Which hearing the pack is for |
+| requested_job_id | The build that is running now, if any |
+| version | Changes each time the choice is saved, so two edits cannot overwrite each other |
+
 ### trial_packs
 | Field | In plain words |
 |---|---|

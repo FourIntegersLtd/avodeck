@@ -513,6 +513,10 @@ class MergedPack:
     def question_types(self) -> list[dict[str, Any]]:
         return self._registry("questions.yaml", "question_types")
 
+    def meeting_types(self) -> list[dict[str, Any]]:
+        """Expert meeting types (`meetings.yaml`): label, standard declarations, notes, deadline keys."""
+        return self._registry("meetings.yaml", "types")
+
     def report_sections(self) -> list[dict[str, Any]]:
         return self._registry("report_sections.yaml", "sections")
 

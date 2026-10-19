@@ -1,0 +1,9 @@
+types:
+  - key: zz_conference
+    label: Zz conference minute
+    sign_deadline: zz_conference_signed
+    send_deadline: zz_conference_sent
+    standard_declarations:
+      - Zz we affirm our duty to the tribunal.
+      - Zz no one asked us to avoid agreeing.
+    notes: Zz counsel do not see the minute before it is signed.
