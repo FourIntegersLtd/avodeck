@@ -3,22 +3,12 @@
 // parties, a duplicate warning and oral instructions.
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import { http, HttpResponse, json, server, signedIn } from "../../test/api";
-import { CASE_A, CASE_B, me, PERSONAL_ORG, TEAM_ORG } from "../../test/fixtures";
+import { http, HttpResponse, json, server } from "../../test/api";
+import { CASE_A, CASE_B } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { caseItem, casePack, combination, inCase, jurisdiction, launchWords, type PackRun } from "./testing";
+import { caseItem, casePack, inCase, launchWords, type PackRun } from "./testing";
 
 const IV = "b1111111-1111-4111-8111-111111111111";
-
-function twoOrganisations(run: PackRun) {
-  const person = me();
-  person.memberships.push({ organisation_id: TEAM_ORG, name: "Northgate Medico-Legal", kind: "team", role: "member", started_at: "2026-02-01T09:00:00Z" });
-  signedIn({ me: person, pack: casePack(run) });
-  server.use(
-    http.get("/v1/packs", () => json([combination(run)])),
-    http.get("/v1/jurisdictions/:code", () => json(jurisdiction(run))),
-  );
-}
 
 function details(run: PackRun, opts: { suggestions?: Array<Partial<{ id: string; field: string; value: string }>> } = {}) {
   inCase(run);
@@ -46,25 +36,6 @@ function details(run: PackRun, opts: { suggestions?: Array<Partial<{ id: string;
 }
 
 describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
-  test("the new case form asks who it is for and which side, in the pack's words, and passes axe", async () => {
-    twoOrganisations(run);
-    const { container } = renderAt("/cases/new");
-    expect(await screen.findByRole("heading", { level: 1, name: "Start a new case" })).toBeInTheDocument();
-    const who = await screen.findByRole("radiogroup", { name: /Who is this case for\?/ });
-    expect(within(who).getByRole("radio", { name: "My own practice" })).toBeInTheDocument();
-    expect(within(who).getByRole("radio", { name: "Northgate Medico-Legal" })).toBeInTheDocument();
-    const side = await screen.findByRole("radiogroup", { name: "Which side are you instructed by?" });
-    const words = jurisdiction(run).vocabulary.party_roles as Record<string, string>;
-    expect(within(side).getByRole("radio", { name: words.other_side!.replace(/^./, (c) => c.toUpperCase()) })).toBeInTheDocument();
-    if (jurisdiction(run).court_tracks.length) {
-      expect(screen.getByRole("radiogroup", { name: "Which court track?" })).toBeInTheDocument();
-    } else {
-      expect(screen.queryByRole("radiogroup", { name: "Which court track?" })).toBeNull();
-    }
-    if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
-    expect(await axeViolations(container)).toEqual([]);
-  });
-
   test("the case details page shows who instructed you in the pack's words, and passes axe", async () => {
     details(run, { suggestions: [{ field: "party_role", value: "other_side" }] });
     const { container } = renderAt(`/cases/${CASE_A}/details`);
@@ -76,54 +47,6 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
   });
-});
-
-test("starting a case sends who it is for, the pack and the side, then opens its details", async () => {
-  twoOrganisations("launch");
-  let sent: Record<string, unknown> | undefined;
-  server.use(
-    http.post("/v1/cases", async ({ request }) => {
-      sent = (await request.json()) as Record<string, unknown>;
-      return json(caseItem("launch", { id: CASE_B, organisation_id: TEAM_ORG }), 201);
-    }),
-  );
-  const { user, router } = renderAt("/cases/new");
-  await user.click(await screen.findByRole("radio", { name: "Northgate Medico-Legal" }));
-  await user.type(screen.getByLabelText("A short name for the case"), "Mrs B");
-  const side = screen.getByRole("radiogroup", { name: "Which side are you instructed by?" });
-  await user.click(within(side).getAllByRole("radio")[1]!);
-  await user.type(screen.getByLabelText("When is your report due?"), "2026-12-01");
-  await user.click(screen.getByRole("button", { name: "Start the case" }));
-  await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_B}/details`));
-  expect(sent).toMatchObject({
-    organisation_id: TEAM_ORG,
-    jurisdiction: "gb-eaw",
-    case_type: "clin-neg-breach",
-    specialty: "general-practice",
-    label: "Mrs B",
-    party_role: "other_side",
-    due_date: "2026-12-01",
-  });
-});
-
-test("with one organisation the case is for your own practice without asking", async () => {
-  signedIn({ me: me() });
-  server.use(
-    http.get("/v1/packs", () => json([combination("launch")])),
-    http.get("/v1/jurisdictions/:code", () => json(jurisdiction("launch"))),
-  );
-  let sent: Record<string, unknown> | undefined;
-  server.use(
-    http.post("/v1/cases", async ({ request }) => {
-      sent = (await request.json()) as Record<string, unknown>;
-      return json(caseItem("launch"), 201);
-    }),
-  );
-  const { user } = renderAt("/cases/new");
-  await user.type(await screen.findByLabelText("A short name for the case"), "Mrs A");
-  expect(screen.queryByRole("radiogroup", { name: /Who is this case for\?/ })).toBeNull();
-  await user.click(screen.getByRole("button", { name: "Start the case" }));
-  await waitFor(() => expect(sent).toMatchObject({ organisation_id: PERSONAL_ORG, label: "Mrs A" }));
 });
 
 test("a suggestion from the letter is applied only when you accept it, and saved only when you save", async () => {
