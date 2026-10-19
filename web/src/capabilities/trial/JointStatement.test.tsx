@@ -160,7 +160,7 @@ describe("the screen as designed", () => {
     expect(back).toHaveAttribute("href", expect.stringContaining(`/cases/${CASE}`));
     const line = await screen.findByTestId("meeting-line");
     expect(line).toHaveTextContent("Dr R");
-    expect(line).toHaveTextContent("10 February 2027");
+    expect(line).toHaveTextContent("10 Feb");
     expect(line).toHaveTextContent("2");
   });
 

@@ -135,7 +135,7 @@ describe("the screen as designed", () => {
     expect(within(table).getByRole("columnheader", { name: k("pages.col.document") })).toBeInTheDocument();
     expect(within(within(table).getByRole("row", { name: /p\.118/ })).getByText(/15 May 2024/)).toBeInTheDocument();
     expect(within(table).queryByRole("row", { name: /p\.307/ })).not.toBeInTheDocument();
-    expect(screen.getByText(fill(k("pages.and_more"), { count: 6 }))).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(fill(k("pages.and_more"), { count: 6 })))).toBeInTheDocument();
     expect(within(table).getByRole("row", { name: /p\.103/ })).toBeInTheDocument(); // one to confirm always shows
     await user.click(screen.getByRole("button", { name: k("pages.show_all") }));
     expect(within(table).getByRole("row", { name: /p\.307/ })).toBeInTheDocument();

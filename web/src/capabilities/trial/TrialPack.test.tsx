@@ -123,7 +123,8 @@ test("checking a new note says which sentences come from what was served", async
 test("the pack says when it was built", async () => {
   servePack("launch");
   renderAt(url);
-  expect(await screen.findByText(fill(k("pack.built"), { date: "3 June 2027" }))).toBeInTheDocument();
+  const built = fill(k("pack.built"), { date: "3 June 2027" });
+  expect(await screen.findByText((_, el) => el?.tagName === "P" && (el.textContent ?? "").includes(built))).toBeInTheDocument();
 });
 
 test("a reply is written under a question's sheet and saved with the question number", async () => {
