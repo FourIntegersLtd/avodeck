@@ -10271,22 +10271,6 @@
             ],
             "title": "Sha256"
           },
-          "stale": {
-            "default": false,
-            "title": "Stale",
-            "type": "boolean"
-          },
-          "stale_reason": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stale Reason"
-          },
           "status": {
             "enum": [
               "built",
