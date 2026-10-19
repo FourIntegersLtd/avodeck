@@ -34,8 +34,8 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     renderAt(url);
     const contents = await screen.findByRole("list", { name: M["report.report.contents"]! });
     const items = within(contents).getAllByRole("listitem");
-    expect(items[0]).toHaveTextContent(`1${sectionLabel(run, first!)}`.replace(/\s+/g, ""));
-    expect(items[1]).toHaveTextContent(`2${sectionLabel(run, second!)}`.replace(/\s+/g, ""));
+    expect(items[0]).toHaveTextContent(`1 ${sectionLabel(run, first!)}`);
+    expect(items[1]).toHaveTextContent(`2 ${sectionLabel(run, second!)}`);
     expect(within(items[0]!).getByRole("button", { name: sectionLabel(run, first!) })).toHaveAttribute("aria-current", "true");
     const paper = await screen.findByRole("region", { name: M["report.report.paper"]! });
     expect(within(paper).getByRole("heading", { name: `1. ${sectionLabel(run, first!)}` })).toBeInTheDocument();

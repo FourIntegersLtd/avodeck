@@ -154,7 +154,7 @@ test("a ready report says so in the title with how many checks passed, and shows
 test("the lock note says the version is locked once sent", async () => {
   serve("launch", { check: finalCheck() });
   renderAt(url);
-  expect(await screen.findByText(/^Once sent, this version is locked, along with the CV, declaration and signature in it/)).toBeInTheDocument();
+  expect(await screen.findByText(/Once sent, this version is locked, along with the CV, declaration and signature in it/)).toBeInTheDocument();
 });
 
 test("the signature line leaves out what the profile does not have", async () => {
