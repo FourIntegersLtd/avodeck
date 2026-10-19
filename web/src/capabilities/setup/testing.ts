@@ -83,6 +83,7 @@ export function inCase(run: PackRun, over: Partial<Schemas["Case"]> = {}) {
   server.use(
     http.get("/v1/cases/:caseId", () => json(caseItem(run, over), 200)),
     http.get("/v1/jurisdictions/:code", () => json(jurisdiction(run))),
+    http.get("/v1/cases/:caseId/process", () => json({ job: null })),
     http.get("/v1/me/stats/balance", () => json({ counts: { other_side: 14, instructing_side: 9 }, months: 12 })),
   );
 }
@@ -95,6 +96,8 @@ export function question(over: Partial<Schemas["QuestionOut"]> = {}): Schemas["Q
     confirmed_text: null,
     kind: "breach",
     outside_expertise: false,
+    outside_expertise_source: null,
+    answer_parts: null,
     para_ref: "4.1",
     status: "suggested",
     version: 1,

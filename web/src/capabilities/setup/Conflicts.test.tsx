@@ -12,6 +12,7 @@ type State = {
   questions: Array<{ key: string; text: string; detail_required: boolean; answer: "yes" | "no" | null; detail: string | null }>;
   complete: boolean;
   paragraph: string | null;
+  coverage_question?: string | null;
   coverage: { status: "covered" | "partial" | "none" | "unknown"; period_start: string | null; period_end: string | null };
   warnings: string[];
   declared_at: string | null;
@@ -26,6 +27,7 @@ function state(over: Partial<State> = {}): State {
     ],
     complete: false,
     paragraph: null,
+    coverage_question: "Were you working throughout the period of the case?",
     coverage: { status: "partial", period_start: "2024-02-01", period_end: "2024-08-31" },
     warnings: ["setup.conflicts.warning.coverage_partial"],
     declared_at: null,
@@ -64,18 +66,20 @@ test("a yes needs a few words of detail before the answers are saved", async () 
       sent = await request.json();
       return json(state({ complete: true, paragraph: "I disclose the following. I met them once in 2019." }));
     }),
+    http.post("/v1/cases/:caseId/conflicts/declare", () => json({ declared_at: "2026-10-17T09:00:00Z", outcome: "disclosed", note: note("conflict_declared") })),
+    http.get("/v1/cases/:caseId/questions", () => json({ questions: [], assumptions: [], locked: false, reading: true, reopened: false, rejected: 0, warnings: [], version_no: 1, instruction_version_id: null })),
   );
   const { user } = renderAt(`/cases/${CASE_A}/conflicts`);
   const first = await screen.findByRole("radiogroup", { name: "Do you know any of the people in this case?" });
   await user.click(within(first).getByRole("radio", { name: "Yes" }));
   const second = screen.getByRole("radiogroup", { name: "Do you hold a stake in the result?" });
   await user.click(within(second).getByRole("radio", { name: "No" }));
-  await user.click(screen.getByRole("button", { name: "Save my answers" }));
+  await user.click(screen.getByRole("button", { name: "Confirm and continue" }));
   expect(await screen.findByText("Please say a few words about this.")).toBeInTheDocument();
   expect(sent).toBeUndefined();
 
   await user.type(screen.getByLabelText("Please tell us more"), "I met them once in 2019.");
-  await user.click(screen.getByRole("button", { name: "Save my answers" }));
+  await user.click(screen.getByRole("button", { name: "Confirm and continue" }));
   await waitFor(() =>
     expect(sent).toEqual({
       answers: [
@@ -84,8 +88,6 @@ test("a yes needs a few words of detail before the answers are saved", async () 
       ],
     }),
   );
-  const paragraph = await screen.findByRole("region", { name: "What we'll add to your report" });
-  expect(within(paragraph).getByText("I disclose the following. I met them once in 2019.")).toBeInTheDocument();
 });
 
 test("confirming the answers declares them and moves on to the questions", async () => {
