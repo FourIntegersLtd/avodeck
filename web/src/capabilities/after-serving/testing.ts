@@ -72,7 +72,7 @@ export function etagged(body: unknown, version: number, status = 200) {
 
 /** Signed in under a pack, with a stub for every slice G read; `record` notes what a handler was sent. */
 export function serve(run: PackRun, opts: {
-  deadlines?: Schemas["DeadlineOut"][]; served?: Schemas["Served"]; hearings?: Schemas["HearingOut"][]; directions?: Schemas["DirectionOut"][];
+  deadlines?: Schemas["DeadlineOut"][]; served?: Schemas["Served"]; hearings?: Schemas["HearingOut"][]; directions?: Schemas["DirectionOut"][]; steps?: Schemas["AfterServingSteps"];
   rounds?: Schemas["RoundOut"][]; questions?: Schemas["WrittenQuestionOut"][]; pages?: Schemas["NewPage"][]; opposing?: Schemas["OpposingReport"] | null;
   changes?: Schemas["ReportChangeOut"][]; supplementary?: Schemas["Supplementary"] | null; deadlineChanges?: Record<string, unknown[]>;
 } = {}) {
@@ -87,6 +87,7 @@ export function serve(run: PackRun, opts: {
     http.get("/v1/cases/:caseId/deadlines/:id/changes", ({ params }) => json({ changes: opts.deadlineChanges?.[String(params.id)] ?? [] } as never)),
     http.get("/v1/cases/:caseId/report/served", () => json((opts.served ?? served()) as never)),
     http.get("/v1/cases/:caseId/hearings", () => json({ hearings: opts.hearings ?? [] })),
+    http.get("/v1/cases/:caseId/after-serving/steps", () => json((opts.steps ?? { meetings: [], pack: null }) as never)),
     http.get("/v1/cases/:caseId/court-directions", () => json({ directions: opts.directions ?? [] })),
     http.get("/v1/cases/:caseId/written-question-rounds", () => json({ rounds: opts.rounds ?? [round()] })),
     http.get("/v1/cases/:caseId/written-questions", () => json({ questions: opts.questions ?? [question()] })),

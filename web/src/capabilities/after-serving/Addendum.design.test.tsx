@@ -55,3 +55,12 @@ test("the footer offers to read it in full, and a note says to tell the instruct
   await user.click(screen.getByRole("button", { name: "Read it in full" }));
   expect(await screen.findByRole("region", { name: "Your supplementary report in full" })).toBeInTheDocument();
 });
+
+test("a signed supplementary report says who signed it and when", async () => {
+  serve("launch", {
+    changes: [withDependent],
+    supplementary: { ...supplementary, status: "locked", locked_at: "2027-01-05T10:00:00Z", signed_by: "Dr Sam Example", signed_on: "2027-01-05" },
+  });
+  renderAt(url);
+  expect(await screen.findByText("Signed by Dr Sam Example, 5 January 2027")).toBeInTheDocument();
+});
