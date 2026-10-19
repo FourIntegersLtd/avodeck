@@ -48,3 +48,8 @@ def test_an_invoice_file_that_breaks_its_schema_is_refused(tmp_path: Path) -> No
     (fixture_root / "jurisdiction" / FIXTURE.jurisdiction / "invoice.yaml").write_text("statements: [1]\n")
     with pytest.raises(packs.PackError, match="invoice.yaml"):
         packs.load_library(launch_root, fixture_root)
+
+
+def test_the_launch_invoice_states_its_payment_terms_as_well(library: packs.PackLibrary) -> None:
+    """Screen 18b shows the payment terms beside the outcome statement: both are pack lines frozen on the invoice."""
+    assert len(library.combine(*LAUNCH.codes).invoice_statements()) >= 2

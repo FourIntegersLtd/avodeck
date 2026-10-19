@@ -180,3 +180,11 @@ async def test_adjusting_time_needs_invoice_create(client_for: ClientFor, world:
     resp = await (await client_for(world.assistant)).patch(world.url("time/adjust"), json=body)
     assert resp.status_code == 200, resp.text
     assert resp.json()["total_seconds"] == 60
+
+
+async def test_time_names_the_instructing_party_in_the_packs_word(client_for: ClientFor, world: World) -> None:
+    """Screens 18 and 18b say who the report went to in the pack's own word, with or without an estimate."""
+    parties = default_library().combine(*world.combo.codes).instructing_party_types()
+    resp = await (await client_for(world.expert)).get(world.url("time"))
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["instructing_party"] == (str(parties[0]["label"]) if parties else None)
