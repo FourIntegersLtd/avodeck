@@ -9,6 +9,7 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
+from app.core.contracts.facts import CITABLE_STATUSES
 from app.core.contracts.served import ServedReport
 from app.core.crypto import CaseCrypto
 from app.features.trial.common import AGENDA_TEXT, AGREED_REASON, CHANGE_NOTE, OTHER_POSITIONS, POSITION, unseal
@@ -99,7 +100,13 @@ def status_of(row: dict[str, Any]) -> str:
 
 
 async def concordance(conn: AsyncConnection, bundle_id: uuid.UUID) -> list[dict[str, Any]]:
-    rows = await many(conn, "select * from app.concordance where court_bundle_id = %s order by page_no", (bundle_id,))
+    rows = await many(
+        conn,
+        "select k.*, p.source_type, (select min(f.event_date) from app.facts f where f.page_id = k.page_id"
+        " and f.status = any(%s)) as document_date from app.concordance k join app.pages p on p.id = k.page_id"
+        " where k.court_bundle_id = %s order by k.page_no",
+        (sorted(CITABLE_STATUSES), bundle_id),
+    )
     for row in rows:
         row["status"] = status_of(row)
     return rows

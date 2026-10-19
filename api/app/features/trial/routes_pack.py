@@ -26,20 +26,21 @@ from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.trial import ai_tasks, repo
+from app.features.trial.pdfs import render
 from app.features.trial.common import NO_STORE, Build, Crypto, Pack, Storage, View, conflict, invalid, not_found
-from app.features.trial.pack_document import DEFAULT_SECTIONS
+from app.features.trial.pack_document import DEFAULT_SECTIONS, SECTIONS, pack_document, sheets
 from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
 
-Section = Literal["report", "chronology", "joint_statement", "written_answers", "legal_tests", "guidance"]
+Section = Literal["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests", "guidance"]
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
 MAX_SENTENCES = 60
 
 
 class TrialPackSettingsIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    sections: list[Section] = Field(min_length=1, max_length=6)
+    sections: list[Section] = Field(min_length=1, max_length=7)
     include_guidance: bool = False
     hearing_id: uuid.UUID | None = None
 
@@ -69,6 +70,33 @@ class LatestOut(BaseModel):
 
 class BuildQueued(BaseModel):
     job_id: uuid.UUID
+
+
+class SectionPages(BaseModel):
+    key: Section
+    pages: int
+
+
+class SheetPage(BaseModel):
+    page_no: int
+    trial_page_no: int | None
+    status: Literal["matched", "to_confirm", "missing", "unmatched"]
+
+
+class SheetOut(BaseModel):
+    number: int
+    text: str
+    answer: str | None
+    asked: str | None
+    agreed: bool | None
+    reason: str | None
+    pages: list[SheetPage]
+
+
+class PreviewOut(BaseModel):
+    sections: list[SectionPages]
+    total_pages: int
+    sheets: list[SheetOut]
 
 
 class TrialNoteIn(BaseModel):
@@ -189,6 +217,33 @@ async def latest_pack(case_id: uuid.UUID, conn: DbConn, access: View) -> LatestO
         else None
     )
     return LatestOut(settings=_settings(await _row(conn, case_id)), pack=pack)
+
+
+@router.get("/cases/{case_id}/trial-pack/preview", response_model=PreviewOut)
+async def preview_pack(case_id: uuid.UUID, conn: DbConn, access: View, pack: Pack, crypto: Crypto) -> PreviewOut:
+    """What each section would add (pages when printed on their own) and the readiness sheets, for the screen."""
+    served = await latest_served(conn, crypto, case_id)
+    if served is None:
+        return PreviewOut(sections=[], total_pages=0, sheets=[])
+    services = current()
+    refs = await repo.page_refs(conn, case_id)
+    counts: list[SectionPages] = []
+    for key in SECTIONS:
+        built = await pack_document(conn, services, pack, case_id, {"sections": [key], "include_guidance": False})
+        if built is not None and built.document.blocks:
+            counts.append(SectionPages(key=key, pages=render(built.document)[1]))  # type: ignore[arg-type]
+    out = []
+    for sheet in await sheets(conn, services, case_id, served):
+        pages = [
+            SheetPage(
+                page_no=n,
+                trial_page_no=refs[n].trial_page_no if n in refs else None,
+                status=refs[n].status if n in refs else "unmatched",  # type: ignore[arg-type]
+            )
+            for n in sheet.pages
+        ]
+        out.append(SheetOut(**{**sheet.__dict__, "pages": pages}))
+    return PreviewOut(sections=counts, total_pages=sum(c.pages for c in counts), sheets=out)
 
 
 @router.get(

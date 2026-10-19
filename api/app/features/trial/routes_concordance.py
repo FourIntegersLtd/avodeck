@@ -61,6 +61,7 @@ class BundleOut(BaseModel):
     received_on: date | None
     page_count: int | None
     version: int
+    replaces_received_on: date | None = None
 
 
 class RowOut(BaseModel):
@@ -73,6 +74,8 @@ class RowOut(BaseModel):
     score: float
     paragraphs: list[int]
     version: int
+    source_type: str | None = None
+    document_date: date | None = None
 
 
 class Counts(BaseModel):
@@ -125,6 +128,8 @@ def _row(row: dict[str, Any], cited: dict[uuid.UUID, list[int]]) -> RowOut:
         score=round(float(row["score"]), 3),
         paragraphs=cited.get(row["page_id"], []),
         version=row["version"],
+        source_type=row.get("source_type"),
+        document_date=row.get("document_date"),
     )
 
 
@@ -235,8 +240,17 @@ async def get_concordance(
     case_id: uuid.UUID, conn: DbConn, access: View, crypto: Crypto, status: Status | None = None
 ) -> ConcordanceOut:
     bundle, rows = await _current(conn, crypto, case_id)
+    out = _bundle(bundle) if bundle else None
+    if out is not None:
+        before = await repo.one(
+            conn,
+            "select received_on from app.court_bundles where case_id = %s and hearing_id is not distinct from %s"
+            " and status = 'superseded' and version < %s order by version desc limit 1",
+            (case_id, out.hearing_id, out.version),
+        )
+        out.replaces_received_on = before["received_on"] if before else None
     return ConcordanceOut(
-        bundle=_bundle(bundle) if bundle else None,
+        bundle=out,
         rows=[r for r in rows if status is None or r.status == status],
         counts=_counts(rows),
     )
