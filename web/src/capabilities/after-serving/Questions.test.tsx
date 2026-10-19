@@ -17,7 +17,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     serve(run, { questions: [question({ suggested_classification: suggestion(run) })] });
     const { container } = renderAt(url);
     expect(await screen.findByRole("heading", { level: 2, name: cap(questionsName(run)) })).toBeInTheDocument();
-    expect(await screen.findByText("Would your opinion change if the examination was not recorded?")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 3, name: "Would your opinion change if the examination was not recorded?" })).toBeInTheDocument();
     expect(screen.getByText(run === "launch" ? M["after_serving.classification.clarifies"]! : "Permitted")).toBeInTheDocument();
     expect(screen.getByText(M["after_serving.questions.suggested"]!)).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
