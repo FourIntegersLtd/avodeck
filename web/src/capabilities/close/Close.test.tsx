@@ -211,3 +211,51 @@ test("after deletion only the certificate answers, and the screen still shows it
 test("the screen is registered at the case's close path", () => {
   expect(closeRoutes.map((r) => r.path)).toEqual(["cases/:caseId/close"]);
 });
+
+// --- design match (docs/design/screens/S26-Close.dc.html) ---------------------------------------------
+
+test("the bar names the case and the page title sits in the page, with the party and date underneath", async () => {
+  const party = fixturePack.instructing_party_types[0]!;
+  serve({ pack: fixturePack, item: theCase({ instructing_party_type: party.key }) });
+  renderClose();
+  const title = await screen.findByRole("heading", { level: 1, name: CLOSE_MESSAGES["close.heading.settled"] });
+  expect(within(screen.getByRole("banner")).queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+  expect(within(screen.getByRole("banner")).getByText("Mrs A")).toBeInTheDocument();
+  expect(screen.getByRole("main")).toContainElement(title);
+  expect(screen.getByText(new RegExp(`${party.label}.*2027`))).toBeInTheDocument();
+});
+
+test("each of the three decisions carries its step number", async () => {
+  serve();
+  renderClose();
+  for (const [n, key] of [["1", "close.copies.heading"], ["2", "close.keep.heading"], ["3", "close.proof.heading"]] as const) {
+    const section = (await screen.findByRole("heading", { name: CLOSE_MESSAGES[key] })).closest("section")!;
+    expect(within(section).getByText(n)).toBeInTheDocument();
+  }
+});
+
+test("the copies are listed with ticks and the proof section previews the certificate", async () => {
+  serve();
+  renderClose();
+  const copies = (await screen.findByRole("heading", { name: CLOSE_MESSAGES["close.copies.heading"] })).closest("section")!;
+  // The files are one set: every row is included, so they are ticks, not choices.
+  expect(within(copies).getAllByRole("listitem")).toHaveLength(4);
+  expect(within(copies).queryByRole("checkbox")).not.toBeInTheDocument();
+  const proof = screen.getByRole("heading", { name: CLOSE_MESSAGES["close.proof.heading"] }).closest("section")!;
+  const preview = within(proof).getByRole("group", { name: CLOSE_MESSAGES["close.proof.certificate"] });
+  expect(within(preview).getByText(/Mrs A/)).toBeInTheDocument();
+  expect(within(preview).getByText(/2033/)).toBeInTheDocument();
+  expect(within(preview).getByText(CLOSE_MESSAGES["close.proof.kept"]!)).toBeInTheDocument();
+  expect(within(proof).getByText(/Scheduled for/)).toBeInTheDocument();
+});
+
+test("pausing deletion has its own card under the three, with its question and a plain button", async () => {
+  serve();
+  renderClose();
+  const heading = await screen.findByRole("heading", { level: 2, name: CLOSE_MESSAGES["close.hold.question"] });
+  const card = heading.closest("section")!;
+  expect(within(card).getByRole("button", { name: CLOSE_MESSAGES["close.hold.pause"] })).toBeInTheDocument();
+  expect(within(card).getByText(/remind you before it ends/)).toBeInTheDocument();
+  const proof = screen.getByRole("heading", { name: CLOSE_MESSAGES["close.proof.heading"] }).closest("section")!;
+  expect(proof).not.toContainElement(card);
+});
