@@ -47,6 +47,13 @@ test("the banner shows how many of the five parts are done as a ring", async () 
   expect(ring).toBeInTheDocument();
 });
 
+test("the progress sentence is shown once, in the banner", async () => {
+  open();
+  renderAt("/profile");
+  await screen.findByRole("img", { name: "3 of 5 parts done" });
+  expect(screen.getAllByText("3 of 5 parts done")).toHaveLength(1);
+});
+
 test("the template shows its styles as chips and a Replace link, and a Done button closes the page", async () => {
   open();
   const { container } = renderAt("/profile");
