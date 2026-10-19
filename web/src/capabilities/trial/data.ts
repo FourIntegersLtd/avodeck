@@ -94,3 +94,51 @@ export function partyWord(frame: Frame): string {
   const found = frame.pack.instructing_party_types.find((p) => p.key === type);
   return found?.label ?? w("pages.tell_fallback");
 }
+
+function format(locale: string | null | undefined, options: Intl.DateTimeFormatOptions, iso: string): string {
+  const date = iso.length === 10 ? new Date(`${iso}T00:00:00Z`) : new Date(iso);
+  try {
+    return new Intl.DateTimeFormat(locale ?? undefined, { ...options, timeZone: "UTC" }).format(date);
+  } catch {
+    return new Intl.DateTimeFormat(undefined, { ...options, timeZone: "UTC" }).format(date);
+  }
+}
+
+/** "19 Feb", as the boards write a deadline. */
+export const shortDate = (iso: string, locale?: string | null) => format(locale, { day: "numeric", month: "short" }, iso);
+
+/** "1 Mar 2024", as the boards write a document's date. */
+export const mediumDate = (iso: string, locale?: string | null) => format(locale, { day: "numeric", month: "short", year: "numeric" }, iso);
+
+/** A whole number with the locale's thousands separator: "3,914". */
+export function num(n: number, locale?: string | null): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined).format(n);
+  } catch {
+    return String(n);
+  }
+}
+
+/** "11 and 4": the locale's way of joining a list. */
+export function joined(items: Array<string | number>, locale?: string | null): string {
+  const words = items.map(String);
+  try {
+    return new Intl.ListFormat(locale ?? undefined, { style: "long", type: "conjunction" }).format(words);
+  } catch {
+    return words.join(", ");
+  }
+}
+
+/** The bundle's short name on the boards ("TB"): the first letters of the pack's word for it. */
+export function bundleAbbr(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word[0]!.toUpperCase())
+    .join("");
+}
+
+/** "TB 2,407": a court bundle page in the bundle's short name. */
+export function trialRef(name: string, page: number, locale?: string | null): string {
+  return w("pages.trial_ref", { abbr: bundleAbbr(name), number: num(page, locale) });
+}
