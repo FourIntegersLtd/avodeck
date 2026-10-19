@@ -58,7 +58,7 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     if (path === `${c}/questions`) return json(route, { questions: [{ id: "a1111111-1111-4111-8111-111111111111", number: 1, text_verbatim: "Q", confirmed_text: null, kind: "x", outside_expertise: false, para_ref: null, status: "confirmed", version: 1, source_word_ids: [], instruction_version_id: "b1111111-1111-4111-8111-111111111111" }], assumptions: [], locked: false, reading: false, reopened: false, rejected: 0, warnings: [], version_no: 1, instruction_version_id: "b1111111-1111-4111-8111-111111111111" });
     if (path === `${c}/timeline`) {
       sentAt = Date.now();
-      return json(route, { lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
+      return json(route, { range: null, as_seen_on: null, as_seen_title: null, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
     }
     if (path === `${c}/consultations/${FACT_1}`) {
       return json(route, {
@@ -72,6 +72,10 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
         guidance: [{ code: "G1", title: "Guidance title", version_label: "2023 edition", url: "https://example.test/g1" }],
         note: null,
       });
+    }
+    if (path === `${c}/consultations/${FACT_1}/later-notes`) return json(route, { notes: [] });
+    if (path.startsWith(`${c}/pages/`) && path.endsWith("/image")) {
+      return route.fulfill({ status: 200, contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") });
     }
     if (path === `${c}/comments`) return json(route, { comments: [] });
     if (path === `${c}/findings`) {

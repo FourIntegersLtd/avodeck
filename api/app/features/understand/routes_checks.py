@@ -2,7 +2,8 @@
 
 `GET /v1/me/checks` lists the person's settings; with `case_id` it lists the case's pack checks with
 those settings applied (the person must be able to see the case, otherwise 404). Changes apply to the
-next run only. An expert may add a check of their own (`POST /v1/me/checks/custom`): a label and the settings of one rule
+next run only. An expert may add a check of their own (`POST /v1/me/checks/custom`): a label and the settings of
+one rule
 type the engine already has ("nothing followed this entry within N days"), using only kinds the case's pack has.
 """
 
@@ -13,8 +14,8 @@ import uuid
 from typing import Any
 
 from fastapi import Request
-from psycopg.types.json import Jsonb
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from pydantic import BaseModel, Field
 
 from app.core.auth.access import check_case_access

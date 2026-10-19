@@ -32,3 +32,8 @@
 .av-understand-event--dot:hover .av-understand-tip, .av-understand-event--dot:focus-within .av-understand-tip { display: flex; }
 .av-understand-chips { display: inline-flex; gap: var(--space-1); }
 .av-understand-event--dot .av-understand-chips { position: absolute; top: 28px; left: 0; }
+.av-understand-range { margin: 0; }
+.av-understand-lane__icon { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 8px; color: #fff; font-weight: 700; flex: none; align-self: center; }
+.av-understand-split { display: grid; gap: var(--space-5); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 960px) { .av-understand-split { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; } }
+.av-understand-page img { display: block; width: 100%; height: auto; border-radius: var(--radius-md, 8px); }

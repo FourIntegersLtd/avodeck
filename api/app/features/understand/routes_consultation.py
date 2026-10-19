@@ -140,6 +140,66 @@ async def consultation(
     )
 
 
+class LaterNote(BaseModel):
+    fact_id: uuid.UUID
+    kind: str
+    page_no: int
+    event_date: date | None
+    available_at: date | None
+    has_note: bool
+
+
+class LaterNotes(BaseModel):
+    notes: list[LaterNote]
+
+
+@router.get("/cases/{case_id}/consultations/{fact_id}/later-notes", response_model=LaterNotes)
+async def later_notes(
+    case_id: uuid.UUID,
+    fact_id: uuid.UUID,
+    access: View,
+    request: Request,
+    conn: DbConn,
+    on: Annotated[date | None, Query(description="The day shown (default: the visit).")] = None,
+) -> LaterNotes:
+    """Later entries of the same kind that arrived after the day: listed so the expert knows they exist.
+
+    Their words are not sent (they were not in front of the clinician). Rule 3 still applies: only entries
+    the person may see.
+    """
+    facts = await repo.visible_facts(request, conn, case_id)
+    visit = next((f for f in facts if f.fact_id == fact_id), None)
+    if visit is None:
+        raise not_found()
+    day = on or visit.event_date or visit.available_at
+    if day is None:
+        raise invalid("fact_id", message="This entry has no date.")
+    later = [
+        f
+        for f in facts
+        if f.fact_id != fact_id and f.kind == visit.kind and f.available_at is not None and f.available_at > day
+    ]
+    cur = await conn.execute(
+        "select fact_id from app.consultation_notes where case_id = %s and person_id = app.current_person_id()",
+        (case_id,),
+    )
+    mine = {r[0] for r in await cur.fetchall()}
+    later.sort(key=lambda f: (f.available_at, f.page_no))
+    return LaterNotes(
+        notes=[
+            LaterNote(
+                fact_id=f.fact_id,
+                kind=f.kind,
+                page_no=f.page_no,
+                event_date=f.event_date,
+                available_at=f.available_at,
+                has_note=f.fact_id in mine,
+            )
+            for f in later
+        ]
+    )
+
+
 class AvailabilityChange(BaseModel):
     available_at: date | None = None
     unknown: bool = False

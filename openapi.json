@@ -6884,6 +6884,17 @@
       },
       "Lane": {
         "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/Event"
@@ -6906,6 +6917,77 @@
           "events"
         ],
         "title": "Lane",
+        "type": "object"
+      },
+      "LaterNote": {
+        "properties": {
+          "available_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available At"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "has_note": {
+            "title": "Has Note",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fact_id",
+          "kind",
+          "page_no",
+          "event_date",
+          "available_at",
+          "has_note"
+        ],
+        "title": "LaterNote",
+        "type": "object"
+      },
+      "LaterNotes": {
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/LaterNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "LaterNotes",
         "type": "object"
       },
       "LatestOut": {
@@ -11727,6 +11809,26 @@
         "title": "Queued",
         "type": "object"
       },
+      "Range": {
+        "properties": {
+          "first": {
+            "format": "date",
+            "title": "First",
+            "type": "string"
+          },
+          "last": {
+            "format": "date",
+            "title": "Last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ],
+        "title": "Range",
+        "type": "object"
+      },
       "RangeNote": {
         "properties": {
           "prompt": {
@@ -14372,6 +14474,29 @@
       },
       "Timeline": {
         "properties": {
+          "as_seen_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Seen On"
+          },
+          "as_seen_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Seen Title"
+          },
           "counts": {
             "anyOf": [
               {
@@ -14396,6 +14521,16 @@
             },
             "title": "Lanes",
             "type": "array"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Range"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "sources": {
             "default": [],
@@ -17712,6 +17847,89 @@
           }
         },
         "summary": "Consultation",
+        "tags": [
+          "understand"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/consultations/{fact_id}/later-notes": {
+      "get": {
+        "description": "Later entries of the same kind that arrived after the day: listed so the expert knows they exist.\n\nTheir words are not sent (they were not in front of the clinician). Rule 3 still applies: only entries\nthe person may see.",
+        "operationId": "later_notes_v1_cases__case_id__consultations__fact_id__later_notes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Fact Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The day shown (default: the visit).",
+            "in": "query",
+            "name": "on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The day shown (default: the visit).",
+              "title": "On"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaterNotes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Later Notes",
         "tags": [
           "understand"
         ]
@@ -28381,6 +28599,47 @@
                 }
               ],
               "title": "Question Id"
+            }
+          },
+          {
+            "description": "Only entries not linked to a question, or with a thing to look at.",
+            "in": "query",
+            "name": "only",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "not_linked",
+                    "things_to_look"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only entries not linked to a question, or with a thing to look at.",
+              "title": "Only"
+            }
+          },
+          {
+            "description": "Only what had arrived by this day.",
+            "in": "query",
+            "name": "as_seen_on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only what had arrived by this day.",
+              "title": "As Seen On"
             }
           }
         ],

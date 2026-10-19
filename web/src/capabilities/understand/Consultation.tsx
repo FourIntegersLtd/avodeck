@@ -126,6 +126,61 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
   );
 }
 
+async function pageDataUrl(caseId: string, pageNo: number): Promise<string | null> {
+  const { data } = await api.GET("/v1/cases/{case_id}/pages/{page_no}/image", { params: { path: { case_id: caseId, page_no: pageNo } }, parseAs: "blob" });
+  if (!data) return null;
+  const blob = data as Blob;
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return `data:${blob.type || "image/jpeg"};base64,${btoa(binary)}`;
+}
+
+function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
+  const shown = useResource(() => pageDataUrl(caseId, pageNo), [caseId, pageNo]);
+  return (
+    <section aria-labelledby="consult-page" className="av-card av-stack av-understand-page">
+      <h2 id="consult-page">{w("consultation.page_title")}</h2>
+      {shown.error ? (
+        <p className="av-muted">{w("consultation.page_none")}</p>
+      ) : shown.data ? (
+        <img src={shown.data} alt={w("consultation.page_alt", { page: pageNo })} />
+      ) : (
+        <p className="av-muted">{w("consultation.page_loading")}</p>
+      )}
+    </section>
+  );
+}
+
+function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/consultations/{fact_id}/later-notes", { params: { path: { case_id: caseId, fact_id: factId } } })), [caseId, factId]);
+  return (
+    <section aria-labelledby="consult-later-notes" className="av-card av-stack">
+      <h2 id="consult-later-notes">{w("consultation.later_notes_title")}</h2>
+      <p className="av-muted">{w("consultation.later_notes_hint")}</p>
+      {found.error ? (
+        <LoadError onRetry={found.reload} />
+      ) : !found.data ? (
+        <Loading />
+      ) : found.data.notes.length === 0 ? (
+        <p className="av-muted">{w("consultation.later_notes_none")}</p>
+      ) : (
+        <ul className="av-understand-list">
+          {found.data.notes.map((n) => (
+            <li key={n.fact_id} className="av-understand-event">
+              <span>
+                {longDate(n.event_date)} · {kindWord(n.kind)}
+              </span>
+              <span className="av-muted">{pageLabel(n.page_no)}</span>
+              {n.has_note && <span>{w("consultation.later_notes_mine")}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function Consultation() {
   const { caseId = "", factId = "" } = useParams();
   const [changing, setChanging] = useState<Entry | null>(null);
@@ -171,6 +226,8 @@ export function Consultation() {
         <label className="av-field__label" htmlFor="consult-on">{w("consultation.on_label")}</label>
         <input id="consult-on" className="av-input" type="date" value={typed ?? c.on} onChange={(e) => pick(e.target.value)} />
       </div>
+      <div className="av-understand-split">
+      <div className="av-stack">
       <section aria-labelledby="consult-seen" className="av-card av-stack">
         <h2 id="consult-seen">{w("consultation.seen")}</h2>
         {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <Entries items={c.visible} onChange={change} />}
@@ -201,6 +258,10 @@ export function Consultation() {
           })}
         </ul>
       </section>
+      <LaterNotes caseId={caseId} factId={factId} />
+      </div>
+      {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} />}
+      </div>
       <NoteEditor key={`${factId}-${c.note ?? ""}`} caseId={caseId} factId={factId} initial={c.note ?? ""} canAdd={can("consultation.note")} />
       <div>
         <BackLink to={`/cases/${caseId}/timeline`}>{w("consultation.back_bottom")}</BackLink>

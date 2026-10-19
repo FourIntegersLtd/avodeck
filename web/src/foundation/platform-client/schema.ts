@@ -530,6 +530,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/consultations/{fact_id}/later-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Later Notes
+         * @description Later entries of the same kind that arrived after the day: listed so the expert knows they exist.
+         *
+         *     Their words are not sent (they were not in front of the clinician). Rule 3 still applies: only entries
+         *     the person may see.
+         */
+        get: operations["later_notes_v1_cases__case_id__consultations__fact_id__later_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/consultations/{fact_id}/note": {
         parameters: {
             query?: never;
@@ -6445,12 +6468,37 @@ export interface components {
         };
         /** Lane */
         Lane: {
+            /** Colour */
+            colour?: string | null;
             /** Events */
             events: components["schemas"]["Event"][];
             /** Key */
             key: string;
             /** Label */
             label: string;
+        };
+        /** LaterNote */
+        LaterNote: {
+            /** Available At */
+            available_at: string | null;
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Has Note */
+            has_note: boolean;
+            /** Kind */
+            kind: string;
+            /** Page No */
+            page_no: number;
+        };
+        /** LaterNotes */
+        LaterNotes: {
+            /** Notes */
+            notes: components["schemas"]["LaterNote"][];
         };
         /** LatestOut */
         LatestOut: {
@@ -8112,6 +8160,19 @@ export interface components {
              */
             job_id: string;
         };
+        /** Range */
+        Range: {
+            /**
+             * First
+             * Format: date
+             */
+            first: string;
+            /**
+             * Last
+             * Format: date
+             */
+            last: string;
+        };
         /** RangeNote */
         RangeNote: {
             /** Prompt */
@@ -9076,6 +9137,10 @@ export interface components {
         };
         /** Timeline */
         Timeline: {
+            /** As Seen On */
+            as_seen_on?: string | null;
+            /** As Seen Title */
+            as_seen_title?: string | null;
             counts?: components["schemas"]["TimelineCounts"] | null;
             /**
              * Guidance Changed
@@ -9084,6 +9149,7 @@ export interface components {
             guidance_changed: string[];
             /** Lanes */
             lanes: components["schemas"]["Lane"][];
+            range?: components["schemas"]["Range"] | null;
             /**
              * Sources
              * @default []
@@ -10861,6 +10927,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Consultation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    later_notes_v1_cases__case_id__consultations__fact_id__later_notes_get: {
+        parameters: {
+            query?: {
+                /** @description The day shown (default: the visit). */
+                on?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+                fact_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaterNotes"];
                 };
             };
             /** @description Validation Error */
@@ -17842,6 +17952,10 @@ export interface operations {
                 to?: string | null;
                 status?: ("suggested" | "verified" | "edited") | null;
                 question_id?: string | null;
+                /** @description Only entries not linked to a question, or with a thing to look at. */
+                only?: ("not_linked" | "things_to_look") | null;
+                /** @description Only what had arrived by this day. */
+                as_seen_on?: string | null;
             };
             header?: never;
             path: {

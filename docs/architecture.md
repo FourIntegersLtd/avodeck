@@ -564,7 +564,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=` | Events by lane with verification status and links |
+| GET | `/cases/{case_id}/timeline?from=&to=&status=&question_id=&only=&as_seen_on=` | Events by lane with verification status and links |
 | GET | `/cases/{case_id}/fact-links?status=` | Fact–question links (`stale` when the fact was rejected) |
 | POST | `/cases/{case_id}/fact-links/suggest` | Run T-11 (202 + job) |
 | PATCH | `/cases/{case_id}/fact-links/{link_id}` | Confirm / reject suggested link |
@@ -576,6 +576,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 |---|---|---|
 | GET | `/cases/{case_id}/consultations/{fact_id}?as_seen=true` | The entry, what was available on that date, what wasn't, later notes (hidden), guidance in force |
 | PATCH | `/cases/{case_id}/facts/{fact_id}/availability` | Expert overrides availability `{available_at | unknown, reason}` |
+| GET | `/cases/{case_id}/consultations/{fact_id}/later-notes` | Later entries of the same kind, without their words |
 | PUT | `/cases/{case_id}/consultations/{fact_id}/note` | Expert's note |
 | GET | `/guidelines/in-force?code=&date=&case_id=` | Version label + link from the curated table for the case's jurisdiction and specialty |
 
