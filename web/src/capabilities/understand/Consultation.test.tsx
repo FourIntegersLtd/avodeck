@@ -7,7 +7,7 @@ import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { forgetPages } from "./pageImage";
-import { comment, consultation, timeline, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
+import { comment, consultation, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
 
 function serve(body = consultation()) {
   const calls: Array<{ method: string; url: URL; body: unknown }> = [];
@@ -173,7 +173,7 @@ describe("as the design shows it", () => {
     inCase("launch");
     serve();
     const { user } = open();
-    const toggle = await screen.findByRole("switch", { name: /As the clinician saw it on 15 May 2024/ });
+    const toggle = await screen.findByRole("switch", { name: /Seen on the day on 15 May 2024/ });
     expect(screen.getByText("Anything that arrived later is hidden")).toBeInTheDocument();
     const later = screen.getByText("Show what came later (1)").closest("details")!;
     expect(later).not.toHaveAttribute("open");
