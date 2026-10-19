@@ -156,14 +156,14 @@ describe("as the design shows it", () => {
     expect(within(seen).getByText("Thing to look at")).toBeInTheDocument();
   });
 
-  test("the note can be dictated, and 'Save note and go back' saves then returns to the timeline", async () => {
+  test("the note can be dictated, and 'Save note and continue' saves then returns to the timeline", async () => {
     inCase("launch");
     const calls = serve(consultation({ note: null }));
     server.use(http.get("/v1/cases/:caseId/timeline", () => json(timeline())));
     const { user } = open();
     expect(await screen.findByRole("button", { name: "Dictate" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Your note"), "Seen late");
-    await user.click(screen.getByRole("button", { name: "Save note and go back" }));
+    await user.click(screen.getByRole("button", { name: "Save note and continue" }));
     await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ body: "Seen late" }));
     expect(await screen.findByRole("heading", { level: 2, name: "The timeline" })).toBeInTheDocument();
   });

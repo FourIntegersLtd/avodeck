@@ -1,3 +1,4 @@
+import { registerScreen } from "../../foundation/lib/screens";
 // S13 Things to look at: open findings with the pages they rest on, gentler words for gentle checks, a decision
 // on each (a reason is required for "not relevant" and "explained elsewhere"), checking again, and the checks you use.
 import { screen, waitFor, within } from "@testing-library/react";
@@ -152,9 +153,17 @@ test("you can add your own check: it needs a name, a kind of entry to follow, an
   await waitFor(() => expect(calls.find((c) => c.url.pathname === "/v1/me/checks/custom")?.body).toEqual({ case_id: CASE_A, label: "Letters answered", applies_to: "result", followup_kinds: ["letter"], window_days: 30 }));
 });
 
-test("the way on is 'Start writing'", async () => {
+test("the way on is 'Start writing', which goes to the points against", async () => {
   inCase("launch");
   serve();
   open();
-  expect(await screen.findByRole("link", { name: "Start writing" })).toHaveAttribute("href", `/cases/${CASE_A}/opinion`);
+  expect(await screen.findByRole("link", { name: "Start writing" })).toHaveAttribute("href", `/cases/${CASE_A}/points`);
+});
+
+test("'Start writing' uses the points-against screen when a slice has registered it", async () => {
+  registerScreen("points_against", ({ caseId }) => `/cases/${caseId}/points-against`);
+  inCase("launch");
+  serve();
+  open();
+  expect(await screen.findByRole("link", { name: "Start writing" })).toHaveAttribute("href", `/cases/${CASE_A}/points-against`);
 });
