@@ -4539,6 +4539,17 @@ export interface components {
         BillingProfileOut: {
             profile: components["schemas"]["BillingProfile"] | null;
         };
+        /** Box */
+        Box: {
+            /** X0 */
+            x0: number;
+            /** X1 */
+            x1: number;
+            /** Y0 */
+            y0: number;
+            /** Y1 */
+            y1: number;
+        };
         /** BuildQueued */
         BuildQueued: {
             /**
@@ -4757,12 +4768,16 @@ export interface components {
             enabled: boolean;
             /** Gentle */
             gentle: boolean;
+            /** Icon */
+            icon?: string | null;
             /** Key */
             key: string;
             /** Label */
             label?: string | null;
             /** Rule */
             rule: string;
+            /** Title */
+            title?: string | null;
             /** Window Days */
             window_days: number | null;
         };
@@ -5464,14 +5479,23 @@ export interface components {
              */
             on: string;
             /**
+             * Page Marks
+             * @default []
+             */
+            page_marks: components["schemas"]["PageMark"][];
+            /**
              * Question Numbers
              * @default []
              */
             question_numbers: number[];
+            /** Seen Title */
+            seen_title?: string | null;
             /** Title */
             title: string;
             /** Unknown */
             unknown: components["schemas"]["Entry"][];
+            /** Unseen Title */
+            unseen_title?: string | null;
             /** Visible */
             visible: components["schemas"]["Entry"][];
         };
@@ -5912,6 +5936,8 @@ export interface components {
         };
         /** Entry */
         Entry: {
+            /** Author Line */
+            author_line?: string | null;
             /** Available At */
             available_at: string | null;
             /** Event Date */
@@ -6188,6 +6214,8 @@ export interface components {
             evidence_pages: number[];
             /** Gentle */
             gentle: boolean;
+            /** Icon */
+            icon?: string | null;
             /**
              * Id
              * Format: uuid
@@ -6203,6 +6231,8 @@ export interface components {
              * @enum {string}
              */
             status: "open" | "gone";
+            /** Title */
+            title?: string | null;
             /** Version */
             version: number;
         };
@@ -6750,10 +6780,14 @@ export interface components {
             colour?: string | null;
             /** Events */
             events: components["schemas"]["Event"][];
+            /** Icon */
+            icon?: string | null;
             /** Key */
             key: string;
             /** Label */
             label: string;
+            /** Subtitle */
+            subtitle?: string | null;
         };
         /** LaterNote */
         LaterNote: {
@@ -7984,6 +8018,23 @@ export interface components {
             next_cursor: number | null;
             /** Pages */
             pages: components["schemas"]["PageSummary"][];
+        };
+        /**
+         * PageMark
+         * @description Where an entry sits on the visit's page (a share of the page, 0 to 1): the visit, or a later entry to blur.
+         */
+        PageMark: {
+            box: components["schemas"]["Box"];
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "entry" | "later";
         };
         /** PageReplacement */
         PageReplacement: {

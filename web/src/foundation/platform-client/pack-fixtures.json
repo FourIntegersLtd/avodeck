@@ -14,6 +14,7 @@
             ],
             "field": "unit"
           },
+          "icon": "flask",
           "key": "zz_measurement_unanswered",
           "label_spans": true,
           "rule": "no_action_within",
@@ -23,6 +24,7 @@
           "applies_to": "session",
           "field": "duration_minutes",
           "gentle": true,
+          "icon": "visit",
           "key": "zz_session_length_recorded",
           "or_kinds": [
             "measurement"
@@ -129,18 +131,21 @@
       ],
       "lanes": [
         {
+          "icon": "visit",
           "key": "sessions",
           "kinds": [
             "session"
           ]
         },
         {
+          "icon": "flask",
           "key": "measurements",
           "kinds": [
             "measurement"
           ]
         },
         {
+          "icon": "mail",
           "key": "letters",
           "kinds": [
             "measurement"
@@ -309,6 +314,10 @@
         "declaration_name": "affirmation",
         "expert_meeting": "expert conference",
         "expert_meeting_document": "conference minute",
+        "finding_titles": {
+          "zz_measurement_unanswered": "zz measurement unanswered",
+          "zz_session_length_recorded": "zz no session length"
+        },
         "instructing_party_request": {
           "body": "To the {instructing_party},\n\nFor file {case_reference} please supply:\n{missing_items}\n\nLegible copies needed:\n{clearer_copies}\n\n{expert_name}",
           "label": "Ask the carrier",
@@ -317,6 +326,16 @@
         "instructing_party_types": {
           "insurer": "carrier",
           "lawyer": "counsel"
+        },
+        "lane_subtitle_one": {
+          "letters": "{count} zz letter",
+          "measurements": "{count} zz measurement",
+          "sessions": "{count} zz session"
+        },
+        "lane_subtitle_other": {
+          "letters": "{count} zz letters",
+          "measurements": "{count} zz measurements",
+          "sessions": "{count} zz sessions"
         },
         "lanes": {
           "letters": "zz letters",
@@ -542,6 +561,7 @@
             ],
             "field": "flag"
           },
+          "icon": "flask",
           "key": "abnormal_result_no_action",
           "label_spans": true,
           "rule": "no_action_within",
@@ -554,12 +574,14 @@
           ],
           "acknowledges_field": "acknowledges_referral_dated",
           "applies_to": "referral",
+          "icon": "mail",
           "key": "referral_acknowledged",
           "rule": "not_acknowledged_within",
           "window_days": 42
         },
         {
           "applies_to": "prescription",
+          "icon": "pill",
           "key": "repeat_medicine_monitoring",
           "rule": "monitoring_overdue",
           "table": "drug_monitoring"
@@ -570,6 +592,7 @@
             "phone_consultation",
             "home_visit"
           ],
+          "icon": "moon",
           "key": "ooh_reached_clinician",
           "rule": "not_reached_clinician",
           "when": {
@@ -585,6 +608,7 @@
           ],
           "applies_to": "letter",
           "field": "actions_requested",
+          "icon": "mail",
           "key": "hospital_letter_actions",
           "label_spans": true,
           "rule": "actions_not_done"
@@ -593,6 +617,7 @@
           "applies_to": "consultation",
           "field": "examination",
           "gentle": true,
+          "icon": "visit",
           "key": "examination_recorded",
           "or_kinds": [
             "examination"
@@ -604,6 +629,7 @@
           "applies_to": "consultation",
           "field": "safety_netting",
           "gentle": true,
+          "icon": "visit",
           "key": "safety_netting_recorded",
           "or_kinds": [
             "safety_netting"
@@ -620,6 +646,7 @@
             "home_visit",
             "task"
           ],
+          "icon": "calendar",
           "key": "missed_appointment_followed_up",
           "rule": "not_followed_up",
           "window_days": 14
@@ -734,6 +761,7 @@
       ],
       "fact_kinds": [
         {
+          "author_field": "clinician_name",
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -747,6 +775,7 @@
           "key": "consultation"
         },
         {
+          "author_field": "clinician_name",
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -759,6 +788,7 @@
           "key": "phone_consultation"
         },
         {
+          "author_field": "clinician_name",
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -883,6 +913,7 @@
       ],
       "lanes": [
         {
+          "icon": "visit",
           "key": "primary_care_visits",
           "kinds": [
             "consultation",
@@ -894,12 +925,14 @@
           ]
         },
         {
+          "icon": "flask",
           "key": "results",
           "kinds": [
             "result"
           ]
         },
         {
+          "icon": "moon",
           "key": "out_of_hours",
           "kinds": [
             "consultation",
@@ -914,12 +947,14 @@
           }
         },
         {
+          "icon": "pill",
           "key": "prescriptions",
           "kinds": [
             "prescription"
           ]
         },
         {
+          "icon": "mail",
           "key": "hospital_and_letters",
           "kinds": [
             "letter",
@@ -927,6 +962,7 @@
           ]
         },
         {
+          "icon": "calendar",
           "key": "appointments",
           "kinds": [
             "missed_appointment"
@@ -1157,6 +1193,16 @@
         "declaration_name": "statement of truth",
         "expert_meeting": "experts' discussion",
         "expert_meeting_document": "joint statement",
+        "finding_titles": {
+          "abnormal_result_no_action": "An abnormal result had no action recorded",
+          "examination_recorded": "No examination recorded",
+          "hospital_letter_actions": "A hospital letter asked for something that was not done",
+          "missed_appointment_followed_up": "A missed appointment was not followed up",
+          "ooh_reached_clinician": "An out-of-hours call never reached the GP record",
+          "referral_acknowledged": "A referral was not acknowledged in time",
+          "repeat_medicine_monitoring": "A repeat medicine was issued without its monitoring test",
+          "safety_netting_recorded": "No safety-netting advice recorded"
+        },
         "instructing_party_request": {
           "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
           "label": "Ask the solicitor",
@@ -1166,6 +1212,22 @@
           "coroner": "coroner",
           "insurer": "insurer",
           "lawyer": "solicitor"
+        },
+        "lane_subtitle_one": {
+          "appointments": "{count} missed",
+          "hospital_and_letters": "{count} event",
+          "out_of_hours": "{count} call to 111",
+          "prescriptions": "{count} issue",
+          "primary_care_visits": "{count} visit or call",
+          "results": "{count} blood test"
+        },
+        "lane_subtitle_other": {
+          "appointments": "{count} missed",
+          "hospital_and_letters": "{count} events",
+          "out_of_hours": "{count} calls to 111",
+          "prescriptions": "{count} issues",
+          "primary_care_visits": "{count} visits and calls",
+          "results": "{count} blood tests"
         },
         "lanes": {
           "appointments": "Appointments",
@@ -1218,6 +1280,7 @@
           "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
           "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
         },
+        "seen_title": "What the GP had in front of them",
         "source_types": {
           "primary_care_record": "GP record"
         },
@@ -1231,6 +1294,12 @@
           "deceased": "has died",
           "living": "living",
           "minor": "under 18"
+        },
+        "unseen_title": "Not in front of the GP",
+        "visit_modes": {
+          "consultation": "face to face",
+          "home_visit": "at home",
+          "phone_consultation": "by phone"
         },
         "written_questions": "questions from the other side",
         "written_questions_formal": "Part 35 questions"
