@@ -16,7 +16,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("shows what failed first, with a way to fix it, and passes axe", async () => {
     serve(run, { check: failedCheck() });
     const { container } = renderAt(url);
-    expect(await screen.findByRole("heading", { level: 2, name: "Final check: 1 thing to fix" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Final check: 1 thing to fix" })).toBeInTheDocument();
     const failed = screen.getByRole("listitem", { name: "Question 4 hasn't been answered yet." });
     expect(within(failed).getByRole("link", { name: M["report.check.fix"]! })).toHaveAttribute("href", `/cases/${CASE_A}/opinion`);
     expect(screen.getByText(M["report.check.not_run"]!)).toBeInTheDocument();
@@ -28,7 +28,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
 test("a clean run says all clear, counts what passed and offers signing", async () => {
   serve("launch", { check: finalCheck() });
   renderAt(url);
-  expect(await screen.findByRole("heading", { level: 2, name: M["report.check.title_ok"]! })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 1, name: M["report.check.title_ok"]! })).toBeInTheDocument();
   expect(screen.getByText("2 of 2")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.check.sign"]! })).toHaveAttribute("href", `/cases/${CASE_A}/sign`);
 });
@@ -57,7 +57,7 @@ test("before the first run it says so and runs the check, then shows the result"
   expect(await screen.findByText(M["report.check.none"]!)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: M["report.check.run"]! }));
   expect(await screen.findByText(M["report.check.running"]!)).toBeInTheDocument();
-  expect(await screen.findByRole("heading", { level: 2, name: M["report.check.title_ok"]! })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { level: 1, name: M["report.check.title_ok"]! })).toBeInTheDocument();
 });
 
 test("running the check before a report is built points to the build", async () => {
@@ -119,4 +119,24 @@ test("past spot-checks show who answered, what they agreed with and any facts th
   expect(screen.getByText("Waiting for waiting@example.test")).toBeInTheDocument();
   expect(screen.getByText("locked@example.test: locked after wrong codes")).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByText(/token/i)).toBeNull());
+});
+
+test("passed checks are status rows with their counts, and the rest sit behind See all N checks", async () => {
+  const results = Array.from({ length: 9 }, (_, i) => checkResult({ key: `check_${i}`, text: `Passed check ${i}`, count: i === 0 ? 214 : 0 }));
+  serve("launch", { check: finalCheck({ results }) });
+  const { user } = renderAt(url);
+  const first = await screen.findByRole("listitem", { name: "Passed check 0" });
+  expect(within(first).getByText("214")).toBeInTheDocument();
+  expect(screen.queryByText("Passed check 8")).toBeNull();
+  await user.click(screen.getByRole("button", { name: "See all 9 checks" }));
+  expect(screen.getByText("Passed check 8")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /See all/ })).toBeNull();
+});
+
+test("the footer links down to the colleague spot-check", async () => {
+  serve("launch", { check: finalCheck() });
+  renderAt(url);
+  const link = await screen.findByRole("link", { name: M["report.check.spot"]! });
+  expect(link).toHaveAttribute("href", "#spot-check");
+  expect(document.getElementById("spot-check")).not.toBeNull();
 });

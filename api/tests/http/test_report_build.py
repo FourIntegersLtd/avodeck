@@ -40,6 +40,7 @@ from tests.fixtures.report.world import (
     template_headings,
     template_mapping,
 )
+from tests.support.contracts import add_question
 from tests.support.db import ClientFor
 from tests.support.files import local_storage
 from tests.support.packs import BOTH, Combo
@@ -308,3 +309,33 @@ async def test_who_may_build_and_read_the_report(client_for: ClientFor, world: W
 async def test_importing_from_word_is_not_built_yet(client_for: ClientFor, world: World) -> None:
     answer = await (await client_for(world.expert)).post(world.url("report/word-import"))
     assert answer.status_code == 501
+
+
+async def test_the_opinion_section_counts_answered_questions(
+    client_for: ClientFor, admin: psycopg.Connection, world: World
+) -> None:
+    """Screen 16 shows '1 of 2' beside the opinion section: questions with an opinion out of confirmed questions."""
+    add_question(admin, world.case, status="confirmed")
+    body = (await (await client_for(world.expert)).get(world.url("report"))).json()
+    by_key = {s["key"]: s for s in body["sections"]}
+    assert (by_key["opinion"]["done"], by_key["opinion"]["total"]) == (1, 2)
+    others = [s for k, s in by_key.items() if k != "opinion"]
+    assert others and all(s["done"] is None and s["total"] is None for s in others)
+
+
+@pytest.mark.usefixtures("services")
+async def test_paragraphs_are_the_built_reports_words_as_text(
+    client_for: ClientFor, worker_db: Database, world: World
+) -> None:
+    """Screen 16's text preview: read-only, one section at a time, nothing before a build, same people as the report."""
+    client = await client_for(world.expert)
+    assert (await client.get(world.url("report/paragraphs"))).status_code == 404, "nothing built yet"
+    await build_now(client_for, worker_db, world)
+    everything = (await client.get(world.url("report/paragraphs"))).json()
+    assert [p["para_no"] for p in everything["paragraphs"]] == sorted(p["para_no"] for p in everything["paragraphs"])
+    mine = (await client.get(world.url("report/paragraphs"), params={"section": "opinion"})).json()["paragraphs"]
+    assert mine and {p["section"] for p in mine} == {"opinion"}
+    assert any("Ferritin 9" in p["text"] or "plan was written down" in p["text"] for p in mine)
+    assert (await client.get(world.url("report/paragraphs"), params={"section": "Bad Key"})).status_code == 422
+    assert (await (await client_for(world.outsider)).get(world.url("report/paragraphs"))).status_code == 404
+    assert (await (await client_for(world.viewer)).get(world.url("report/paragraphs"))).status_code == 200

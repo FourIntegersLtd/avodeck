@@ -16,7 +16,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("lists the pack's sections and what the court requires, and passes axe", async () => {
     serve(run);
     const { container } = renderAt(url);
-    expect(await screen.findByRole("heading", { level: 2, name: M["report.report.title"] })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: M["report.report.title"] })).toBeInTheDocument();
     for (const key of sectionKeys(run)) expect(await screen.findByText(sectionLabel(run, key))).toBeInTheDocument();
     const checklist = screen.getByRole("region", { name: M["report.report.checklist"] });
     for (const item of checklistItems(run)) expect(within(checklist).getByText(item.text ?? humanise(item.key))).toBeInTheDocument();
@@ -117,4 +117,52 @@ test("shows the methodology note and a preview of the pages that moves on", asyn
   await user.click(screen.getByRole("button", { name: M["report.report.preview_next"]! }));
   expect(screen.getByRole("img", { name: "Page 2 of your report" })).toBeInTheDocument();
   expect(V1).toBeTruthy();
+});
+
+test("lists the sections as numbered contents with a tick for each one that is done", async () => {
+  const sections = sectionKeys("launch").map((key, i, all) => ({ key, written: i === 0, generated: i !== 0 && i !== all.length - 1 }));
+  serve("launch", { report: reportOut("launch", { sections }) });
+  renderAt(url);
+  const contents = await screen.findByRole("list", { name: M["report.report.contents"]! });
+  expect(contents.tagName).toBe("OL");
+  const items = within(contents).getAllByRole("listitem");
+  expect(items).toHaveLength(sections.length);
+  expect(within(items[0]!).getByText("✓")).toBeInTheDocument();
+  expect(within(items.at(-1)!).getByText("○")).toBeInTheDocument();
+  expect(within(items.at(-1)!).getByText(M["report.report.section.todo"]!)).toBeInTheDocument();
+});
+
+test("offers the report in Word, captions the preview with its page count and shows the pages beside the final check", async () => {
+  serve("launch");
+  renderAt(url);
+  expect(await screen.findByRole("link", { name: M["report.report.open_word"]! })).toHaveAttribute("href", expect.stringContaining(`/v1/cases/${CASE_A}/report/versions/${V1}/download?format=docx`));
+  expect(screen.getByText("Page 1 of 31")).toBeInTheDocument();
+  expect(screen.getByText("31 pages")).toBeInTheDocument();
+});
+
+test("keeps the how-you-used-Avodeck wording behind a Read the wording disclosure", async () => {
+  serve("launch");
+  renderAt(url);
+  const summary = await screen.findByText(M["report.report.wording"]!);
+  const details = summary.closest("details");
+  expect(details).not.toBeNull();
+  expect(within(details as HTMLElement).getByText(M["report.report.methodology_body"]!)).toBeInTheDocument();
+});
+
+test("shows how far through the opinion section you are, and only there", async () => {
+  const sections = sectionKeys("launch").map((key) => ({ key, written: false, generated: true, ...(key === "opinion" ? { done: 1, total: 2 } : {}) }));
+  serve("launch", { report: reportOut("launch", { sections: sections as never }) });
+  renderAt(url);
+  const row = await screen.findByRole("listitem", { name: sectionLabel("launch", "opinion") });
+  expect(within(row).getByText("1 of 2")).toBeInTheDocument();
+  const others = screen.getAllByRole("listitem").filter((li) => li !== row && li.closest("ol"));
+  for (const li of others) expect(within(li).queryByText(/^\d+ of \d+$/)).toBeNull();
+});
+
+test("a section can be read as text, read-only, without the Word file", async () => {
+  serve("launch", { paragraphs: [{ para_no: 1, section: "opinion", text: "The plan was written down.", question_id: null }, { para_no: 2, section: "other", text: "Not this one", question_id: null }] });
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: `${M["report.report.read_text"]} ${sectionLabel("launch", "opinion")}` }));
+  expect(await screen.findByText("The plan was written down.")).toBeInTheDocument();
+  expect(screen.queryByText("Not this one")).toBeNull();
 });

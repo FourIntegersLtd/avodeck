@@ -16,8 +16,8 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("shows the declaration wording from the pack, the downloads, and passes axe", async () => {
     serve(run, { check: finalCheck() });
     const { container } = renderAt(url);
-    expect(await screen.findByRole("heading", { level: 2, name: M["report.sign.title"] })).toBeInTheDocument();
-    expect(await screen.findByText(M["report.sign.ready"]!)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: M["report.sign.title_ready"] })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: M["report.sign.title_ready"]! })).toBeInTheDocument();
     for (const d of declarations(run)) for (const part of d.text.split("\n\n")) expect(screen.getByText(part)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: M["report.sign.download_word"]! })).toHaveAttribute("href", expect.stringContaining(`/v1/cases/${CASE_A}/report/versions/${V1}/download?format=docx`));
     expect(screen.getByRole("link", { name: M["report.sign.download_pdf"]! })).toHaveAttribute("href", expect.stringContaining("format=pdf"));
@@ -135,4 +135,30 @@ test("withdrawing a served report asks for a reason first", async () => {
   await user.type(within(dialog).getByLabelText(M["report.sign.withdraw_reason"]!), "Instructions ended");
   await user.click(within(dialog).getByRole("button", { name: M["report.sign.withdraw_confirm"]! }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", body: { reason: "Instructions ended" } }));
+});
+
+test("a ready report says so in the title with how many checks passed, and shows the document and signature cards", async () => {
+  serve("launch", { check: finalCheck() });
+  renderAt(url);
+  expect(await screen.findByRole("heading", { level: 1, name: M["report.sign.title_ready"]! })).toBeInTheDocument();
+  expect(screen.getByText("All 2 checks passed.")).toBeInTheDocument();
+  const doc = screen.getByRole("region", { name: "Draft 1" });
+  expect(within(doc).getByText("31 pages")).toBeInTheDocument();
+  expect(within(doc).getByText("Version dated 18 October 2026")).toBeInTheDocument();
+  const signature = screen.getByRole("region", { name: M["report.sign.signature"]! });
+  expect(await within(signature).findByText("Jane Morgan, Doctor · Body 123")).toBeInTheDocument();
+});
+
+test("the lock note says the version is locked once sent", async () => {
+  serve("launch", { check: finalCheck() });
+  renderAt(url);
+  expect(await screen.findByText(/^Once sent, this version is locked, along with the CV, declaration and signature in it/)).toBeInTheDocument();
+});
+
+test("the signature line leaves out what the profile does not have", async () => {
+  serve("launch", { check: finalCheck() });
+  server.use(http.get("/v1/me/profile", () => json({ full_name: "Jane Morgan", profession: null, registration_body: null, registration_number: null, specialties: [] } as never)));
+  renderAt(url);
+  const signature = await screen.findByRole("region", { name: M["report.sign.signature"]! });
+  expect(await within(signature).findByText("Jane Morgan")).toBeInTheDocument();
 });
