@@ -368,8 +368,12 @@ async def signed(client_for: ClientFor, w: World) -> str:
     return str(resp.json()["version"]["id"])
 
 
+# Yesterday by the runner's clock is never in the future in any pack timezone (zz-test is UTC-3).
+SERVED_ON = date.today() - timedelta(days=1)
+
+
 def served_body(**extra: Any) -> dict[str, Any]:
-    return {"served_on": date.today().isoformat(), "sent_via": "email", **extra}
+    return {"served_on": SERVED_ON.isoformat(), "sent_via": "email", **extra}
 
 
 async def test_serving_needs_recent_mfa_and_the_named_expert(client_for: ClientFor, ready: World) -> None:
@@ -413,8 +417,8 @@ async def test_serving_records_the_date_and_route_serves_the_case_and_emits_repo
     serving = admin.execute(
         "select served_on, sent_via from app.report_servings where report_version_id = %s", (version,)
     ).fetchall()
-    assert serving == [(date.today(), "email")]
-    assert heard == [events.ReportServed(ready.case, uuid.UUID(version), date.today(), ready.expert)]
+    assert serving == [(SERVED_ON, "email")]
+    assert heard == [events.ReportServed(ready.case, uuid.UUID(version), SERVED_ON, ready.expert)]
     audit = admin.execute(
         "select action from app.audit_log where case_id = %s and action = 'report.served'", (ready.case,)
     ).fetchall()
