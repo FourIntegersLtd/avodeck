@@ -15,7 +15,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("the declaration card carries the pack's name for it, and the tick box uses it too", async () => {
     serve(run, { check: finalCheck() });
     const { container } = renderAt(url);
-    expect(await screen.findByRole("heading", { name: declarationName(run) })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: declarationName(run).charAt(0).toUpperCase() + declarationName(run).slice(1) })).toBeInTheDocument();
     expect(screen.getByRole("checkbox", { name: `I have read the whole report and I confirm the ${declarationName(run).toLowerCase()}.` })).toBeInTheDocument();
     for (const d of declarations(run)) for (const part of d.text.split("\n\n")) expect(screen.getByText(part)).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
