@@ -12,8 +12,9 @@ policy for the next settlement; a case already due for deletion cannot be reopen
 
 from __future__ import annotations
 
+import json
 import uuid
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from datetime import date
 from typing import Any
 
@@ -21,13 +22,22 @@ from psycopg import AsyncConnection
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access
+from app.core.contracts.invoices import case_invoice_rows
+from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError, conflict
 from app.core.jobs import registry
 from app.core.packs import PackLibrary
 from app.core.storage import StorageError, SupabaseStorage, case_prefix
 from app.features.close import repo
-from app.features.close.schemas import CloseSummary, Hold
+from app.features.close.schemas import (
+    EXPORT_KINDS,
+    EXPORT_KINDS_BY_DEFAULT,
+    CloseSummary,
+    ExportFile,
+    ExportFiles,
+    Hold,
+)
 
 CLOSED = ("settled", "archived", "withdrawn")
 # The download is sent in pieces of this size. CaseCrypto opens a file whole (one AES-GCM seal), so
@@ -173,9 +183,43 @@ async def release_hold(conn: AsyncConnection, case_id: uuid.UUID, hold_id: uuid.
     return Hold(**row)
 
 
-async def request_export(conn: AsyncConnection, case_id: uuid.UUID) -> uuid.UUID:
+def selection_path(case_id: uuid.UUID, job_id: uuid.UUID) -> str:
+    """Where the chosen kinds wait for the job (jobs carry no payload). Under the case prefix, so
+    a deletion run sweeps it; the job removes it once read."""
+    return f"{case_prefix(case_id)}/exports/{job_id}/selection.json"
+
+
+async def export_files(conn: AsyncConnection, case_id: uuid.UUID) -> ExportFiles:
+    """The kinds of file an export can hold, with how many items each has."""
+    cur = await conn.execute(
+        "select count(*) from app.report_versions"
+        " where case_id = %s and (pdf_path is not null or docx_path is not null)",
+        (case_id,),
+    )
+    row = await cur.fetchone()
+    counts = {
+        "reports": int(row[0]) if row else 0,
+        "method": sum((await verification_counts(conn, case_id)).values()),
+        "reads": len(await page_read_log(conn, case_id)),
+        "invoice": len(await case_invoice_rows(conn, case_id)),
+    }
+    return ExportFiles(
+        files=[ExportFile(kind=k, count=counts[k], selected=k in EXPORT_KINDS_BY_DEFAULT) for k in EXPORT_KINDS]
+    )
+
+
+async def request_export(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    kinds: Sequence[str] | None = None,
+    storage: SupabaseStorage | None = None,
+    crypto: CaseCrypto | None = None,
+) -> uuid.UUID:
     await _locked_case(conn, case_id)  # refused once deletion has started
     job_id = await registry.enqueue(conn, case_id, "export_case")
+    if kinds and storage and crypto:
+        path = selection_path(case_id, job_id)
+        await storage.put(path, await crypto.encrypt(conn, case_id, json.dumps(sorted(kinds)).encode(), purpose=path))
     await _record(conn, case_id, "case.export_requested", f"export:{job_id}")
     return job_id
 

@@ -27,6 +27,8 @@ from app.features.close.schemas import (
     AuditTrail,
     Certificate,
     CloseSummary,
+    ExportFiles,
+    ExportRequest,
     Hold,
     HoldCreate,
     JobQueued,
@@ -180,10 +182,24 @@ async def deletion_certificate(
 @router.post("/export", status_code=202, response_model=JobQueued)
 async def request_export(
     case_id: uuid.UUID,
+    request: Request,
     conn: DbConn,
     _: _access("case.export"),  # type: ignore[valid-type]
+    body: ExportRequest | None = None,
 ) -> JobQueued:
-    return JobQueued(job_id=await service.request_export(conn, case_id))
+    kinds = body.files if body else None
+    # Storage holds the selection, so it is looked up only when one is made.
+    storage, crypto = (_storage(request), _crypto(request)) if kinds else (None, None)
+    return JobQueued(job_id=await service.request_export(conn, case_id, kinds, storage, crypto))
+
+
+@router.get("/export/files", response_model=ExportFiles)
+async def export_files(
+    case_id: uuid.UUID,
+    conn: DbConn,
+    _: _access("case.view_metadata"),  # type: ignore[valid-type]
+) -> ExportFiles:
+    return await service.export_files(conn, case_id)
 
 
 @router.get(

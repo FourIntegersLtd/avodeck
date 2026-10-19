@@ -31,8 +31,9 @@ from app.core.email import deletion_certificate_mail
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.notifications import notify
 from app.core.packs import PackLibrary, default_library
-from app.core.storage import SupabaseStorage, case_prefix, storage_settings
-from app.features.close.service import DEFAULT_POLICY, delete_after, export_path
+from app.core.storage import StorageError, SupabaseStorage, case_prefix, storage_settings
+from app.features.close.schemas import EXPORT_KINDS
+from app.features.close.service import DEFAULT_POLICY, delete_after, export_path, selection_path
 
 logger = logging.getLogger("app.features.close")
 
@@ -49,6 +50,10 @@ PAUSED_KIND = "deletion_paused"
 VARIANTS = ("full", "admin")
 # Parts of the record of work whose slice is not built yet: exported as labelled empty files.
 NOT_YET_AVAILABLE: tuple[tuple[str, str], ...] = ()
+
+
+REQUEST_HEADER = ["seq", "sent_at", "sent_via", "follow_up_on", "missing_item_count", "page_count", "subject", "body"]
+READ_HEADER = ["seq", "page_no", "person_id", "read_at", "dwell_seconds", "counts_for_citing", "prev_hash", "hash"]
 
 
 class _Services:
@@ -297,6 +302,7 @@ async def export_case(ctx: JobContext) -> None:
         if asked is None:
             return
         variants: tuple[str, ...] = ("full",) if asked["expert"] else ("admin",)
+        kinds = await _chosen_kinds(conn, ctx, storage, crypto)
         reports = await _all(
             conn,
             "select version_no, pdf_path, docx_path, sha256 from app.report_versions where case_id = %s"
@@ -322,38 +328,56 @@ async def export_case(ctx: JobContext) -> None:
                     names[v].append(name)
                     hashes[v].append(row)
 
-            add("requests.csv", None, _csv(
-                ["seq", "sent_at", "sent_via", "follow_up_on", "missing_item_count", "page_count", "subject", "body"],
-                [[q.seq, q.sent_at.isoformat(), q.sent_via, q.follow_up_on or "", q.missing_item_count, q.page_count,
-                  q.subject, q.body] for q in await logged_requests(conn, ctx.case_id, crypto)],
-            ))  # fmt: skip
-            add("logs/page-reads.csv", None, _csv(
-                ["seq", "page_no", "person_id", "read_at", "dwell_seconds", "counts_for_citing", "prev_hash", "hash"],
-                [[e.seq, e.page_no, e.person_id, e.read_at.isoformat(), e.dwell_seconds, e.counts_for_citing,
-                  e.prev_hash, e.hash] for e in await page_read_log(conn, ctx.case_id)],
-            ))  # fmt: skip
-            add("invoices.csv", None, _csv(
-                ["number", "status", "sent_at", "total", "tax", "currency", "paid", "credited"],
-                [[i.number_text, i.status, i.sent_at.isoformat(), f"{i.total:.2f}", f"{i.tax:.2f}", i.currency,
-                  f"{i.paid_amount:.2f}", f"{i.credited:.2f}"] for i in await case_invoice_rows(conn, ctx.case_id)],
-            ))  # fmt: skip
-            counts = await verification_counts(conn, ctx.case_id)
-            add("logs/methodology.csv", None, _csv(["action", "count"], [[k, counts[k]] for k in sorted(counts)]))
-            for r in reports:
-                for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
-                    if path is not None:
-                        data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-                        add(f"report-versions/v{r['version_no']}.{ext}", recorded, data)
-            for d in documents if "full" in variants else []:
-                path = d["storage_path"]
-                data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
-                add(f"bundle/{d['id']}{PurePosixPath(path).suffix}", d["sha256"], data)
+            if "method" in kinds:
+                add("requests.csv", None, _csv(
+                    REQUEST_HEADER,
+                    [[q.seq, q.sent_at.isoformat(), q.sent_via, q.follow_up_on or "", q.missing_item_count, q.page_count,
+                      q.subject, q.body] for q in await logged_requests(conn, ctx.case_id, crypto)],
+                ))  # fmt: skip
+                counts = await verification_counts(conn, ctx.case_id)
+                add("logs/methodology.csv", None, _csv(["action", "count"], [[k, counts[k]] for k in sorted(counts)]))
+            if "reads" in kinds:
+                add("logs/page-reads.csv", None, _csv(
+                    READ_HEADER,
+                    [[e.seq, e.page_no, e.person_id, e.read_at.isoformat(), e.dwell_seconds, e.counts_for_citing,
+                      e.prev_hash, e.hash] for e in await page_read_log(conn, ctx.case_id)],
+                ))  # fmt: skip
+            if "invoice" in kinds:
+                add("invoices.csv", None, _csv(
+                    ["number", "status", "sent_at", "total", "tax", "currency", "paid", "credited"],
+                    [[i.number_text, i.status, i.sent_at.isoformat(), f"{i.total:.2f}", f"{i.tax:.2f}", i.currency,
+                      f"{i.paid_amount:.2f}", f"{i.credited:.2f}"] for i in await case_invoice_rows(conn, ctx.case_id)],
+                ))  # fmt: skip
+            if "reports" in kinds:  # the report versions, and for the named expert the records they rest on
+                for r in reports:
+                    for path, ext, recorded in ((r["pdf_path"], "pdf", r["sha256"]), (r["docx_path"], "docx", None)):
+                        if path is not None:
+                            data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
+                            add(f"report-versions/v{r['version_no']}.{ext}", recorded, data)
+                for d in documents if "full" in variants else []:
+                    path = d["storage_path"]
+                    data = await crypto.decrypt(conn, ctx.case_id, await storage.get(path), purpose=path)
+                    add(f"bundle/{d['id']}{PurePosixPath(path).suffix}", d["sha256"], data)
             for variant in variants:
                 _finish_zip(archives[variant], names[variant], hashes[variant], ctx.case_id, variant)
                 files[variant].seek(0)
                 target = export_path(ctx.case_id, ctx.job_id, variant)
                 blob = await crypto.encrypt(conn, ctx.case_id, files[variant].read(), purpose=target)
                 await storage.put(target, blob)
+
+
+async def _chosen_kinds(
+    conn: AsyncConnection, ctx: JobContext, storage: SupabaseStorage, crypto: CaseCrypto
+) -> frozenset[str]:
+    """The kinds the requester ticked (read once, then the note is removed); every kind if none."""
+    path = selection_path(ctx.case_id, ctx.job_id)
+    try:
+        blob = await storage.get(path)
+    except StorageError:
+        return frozenset(EXPORT_KINDS)
+    chosen = json.loads(await crypto.decrypt(conn, ctx.case_id, blob, purpose=path))
+    await storage.delete([path])
+    return frozenset(k for k in chosen if k in EXPORT_KINDS)
 
 
 def _csv(header: list[str], rows: list[list[Any]]) -> bytes:
