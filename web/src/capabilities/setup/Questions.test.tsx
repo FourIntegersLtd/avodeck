@@ -113,10 +113,10 @@ test("confirm all confirms every question and assumption at once", async () => {
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);
-  await user.click(await screen.findByRole("button", { name: "Confirm all" }));
+  await user.click(await screen.findByRole("button", { name: "Confirm questions" }));
   await waitFor(() => expect(confirmed).toBe(1));
   expect(await screen.findByText("You've confirmed what you've been asked.")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Confirm all" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Confirm questions" })).toBeNull();
 });
 
 test("a further letter reopens the questions with a warning", async () => {
