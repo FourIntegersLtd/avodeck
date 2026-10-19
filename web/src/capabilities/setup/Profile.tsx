@@ -191,6 +191,30 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
       setError(errorMessage(err, { invalid: "setup.roles.invalid" }));
     }
   };
+  const [editing, setEditing] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ role_title: "", started_on: "", ended_on: "" });
+  const startEdit = (r: Schemas["Role"]) => {
+    setError(null);
+    setEditing(r.id);
+    setEdit({ role_title: r.role_title, started_on: r.started_on ?? "", ended_on: r.ended_on ?? "" });
+  };
+  const saveEdit = async (e: FormEvent, r: Schemas["Role"]) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const role = await unwrap(
+        api.PATCH("/v1/me/roles/{role_id}", {
+          params: { path: { role_id: r.id } },
+          headers: ifMatch(`"${r.version}"`),
+          body: { role_title: edit.role_title, started_on: edit.started_on, ended_on: edit.ended_on || null, setting: r.setting ?? null },
+        }),
+      );
+      setRoles(roles.map((x) => (x.id === r.id ? role : x)));
+      setEditing(null);
+    } catch (err) {
+      setError(errorMessage(err, { invalid: "setup.roles.invalid", stale: "setup.roles.stale" }));
+    }
+  };
   const remove = async (id: string) => {
     try {
       await unwrap(api.DELETE("/v1/me/roles/{role_id}", { params: { path: { role_id: id } } }));
@@ -203,17 +227,38 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
     <Section id="setup-roles" title={t("setup.roles.title")} intro={t("setup.roles.intro")}>
       {roles.length > 0 && (
         <ul className="av-rows av-setup-plain">
-          {roles.map((r) => (
-            <li key={r.id} className="av-row-item av-row--spread">
-              <span className="av-row-item__text">
-                <strong>{r.role_title}</strong>
-                <span className="av-muted">{t("setup.roles.years", { from: year(r.started_on), to: year(r.ended_on) })}</span>
-              </span>
-              <Button variant="quiet" onClick={() => void remove(r.id)}>
-                {t("setup.remove", { name: r.role_title })}
-              </Button>
-            </li>
-          ))}
+          {roles.map((r) =>
+            editing === r.id ? (
+              <li key={r.id} className="av-row-item">
+                <form className="av-stack" onSubmit={(e) => void saveEdit(e, r)}>
+                  <TextField label={t("setup.roles.edit_role")} name="role_title" required value={edit.role_title} onChange={(e) => setEdit({ ...edit, role_title: e.target.value })} />
+                  <TextField label={t("setup.roles.from")} name="started_on" type="date" required value={edit.started_on} onChange={(e) => setEdit({ ...edit, started_on: e.target.value })} />
+                  <TextField label={t("setup.roles.edit_until")} hint={t("setup.roles.to_hint")} name="ended_on" type="date" value={edit.ended_on} onChange={(e) => setEdit({ ...edit, ended_on: e.target.value })} />
+                  <div className="av-row">
+                    <Button type="submit">{t("setup.roles.save")}</Button>
+                    <Button variant="quiet" onClick={() => setEditing(null)}>
+                      {t("setup.cancel")}
+                    </Button>
+                  </div>
+                </form>
+              </li>
+            ) : (
+              <li key={r.id} className="av-row-item av-row--spread">
+                <span className="av-row-item__text">
+                  <strong>{r.role_title}</strong>
+                  <span className="av-muted">{t("setup.roles.years", { from: year(r.started_on), to: year(r.ended_on) })}</span>
+                </span>
+                <span className="av-row">
+                  <Button variant="quiet" onClick={() => startEdit(r)}>
+                    {t("setup.roles.edit", { name: r.role_title })}
+                  </Button>
+                  <Button variant="quiet" onClick={() => void remove(r.id)}>
+                    {t("setup.remove", { name: r.role_title })}
+                  </Button>
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       )}
       {error && (
@@ -438,8 +483,27 @@ function DeclarationSection({ declaration, signed, onSigned }: { declaration: Ta
   };
   return (
     <Section id="setup-declaration" title={t("setup.declaration.title")}>
-      {current?.data.wording.map((w) => (
-        <div key={w.key} className="av-stack av-setup-wording">
+      {current && current.data.wording.length > 0 && (
+        <ul className="av-rows av-setup-plain">
+          <li className="av-row-item">
+            <span className="av-row-item__text">
+              <strong>{humanise(current.data.wording[0]!.key)}</strong>
+              <span className="av-muted">{t("setup.declaration.tile_fixed")}</span>
+            </span>
+          </li>
+          <li className="av-row-item av-row--spread">
+            <span className="av-row-item__text">
+              <strong>{t("setup.declaration.tile_yours")}</strong>
+              <span className="av-muted">
+                {current.data.wording[0]!.points ? t("setup.declaration.tile_points", { count: current.data.wording[0]!.points }) : t("setup.declaration.tile_plain")}
+              </span>
+            </span>
+            <a href="#declaration-wording">{t("setup.declaration.review")}</a>
+          </li>
+        </ul>
+      )}
+      {current?.data.wording.map((w, i) => (
+        <div key={w.key} id={i === 0 ? "declaration-wording" : undefined} className="av-stack av-setup-wording">
           <h3>{humanise(w.key)}</h3>
           <p className="av-muted">{t("setup.declaration.fixed")}</p>
           <div className="av-setup-quote">

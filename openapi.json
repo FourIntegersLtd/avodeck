@@ -1437,6 +1437,56 @@
         "title": "CaseCreate",
         "type": "object"
       },
+      "CaseFile": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pages in the PDF; null when unknown.",
+            "title": "Page Count"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bytes, as uploaded.",
+            "title": "Size"
+          }
+        },
+        "required": [
+          "document_id",
+          "filename",
+          "kind",
+          "size",
+          "page_count"
+        ],
+        "title": "CaseFile",
+        "type": "object"
+      },
       "CaseLink": {
         "properties": {
           "created_at": {
@@ -9602,9 +9652,15 @@
             },
             "title": "Specialties",
             "type": "array"
+          },
+          "version": {
+            "description": "The same number as the ETag; send it back as If-Match.",
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
+          "version",
           "full_name",
           "profession",
           "specialties",
@@ -10002,6 +10058,11 @@
             ],
             "title": "Para Ref"
           },
+          "short_title": {
+            "description": "A label of at most 40 characters for tabs and lists (the model's, else its first clause).",
+            "title": "Short Title",
+            "type": "string"
+          },
           "source_word_ids": {
             "items": {
               "type": "string"
@@ -10028,6 +10089,7 @@
           "number",
           "text_verbatim",
           "confirmed_text",
+          "short_title",
           "source_word_ids",
           "para_ref",
           "kind",
@@ -10842,10 +10904,16 @@
             "format": "date",
             "title": "Started On",
             "type": "string"
+          },
+          "version": {
+            "description": "The same number as the ETag; send it back as If-Match to change the role.",
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "id",
+          "version",
           "specialty",
           "role_title",
           "setting",
@@ -13455,6 +13523,18 @@
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How many numbered points the wording has; null if it has none.",
+            "title": "Points"
           },
           "rule_ref": {
             "anyOf": [
@@ -17048,6 +17128,63 @@
         "summary": "Verify Fact",
         "tags": [
           "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/files": {
+      "get": {
+        "operationId": "list_files_v1_cases__case_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CaseFile"
+                  },
+                  "title": "Response List Files V1 Cases  Case Id  Files Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Files",
+        "tags": [
+          "setup"
         ]
       }
     },

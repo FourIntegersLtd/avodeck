@@ -442,7 +442,12 @@ async def test_each_question_has_a_short_label_from_the_model_or_its_own_first_c
     got = await read_letter(await client_for(world["expert"]), world, worker_db)
     titles = [q["short_title"] for q in got["questions"]]
     # three come from the model's label; the fourth was left out, so it is the question's first clause
-    assert titles == ["Standard of care", "The May consultation", "Urgent referral", "If Mrs Ashworth had been referred"]
+    assert titles == [
+        "Standard of care",
+        "The May consultation",
+        "Urgent referral",
+        "If Mrs Ashworth had been referred",
+    ]
     assert all(0 < len(t) <= 40 for t in titles)
 
 

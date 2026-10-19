@@ -270,6 +270,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | instruction_version_id | Which set of instructions asked it |
 | number | Its number in the letter |
 | text_verbatim | The exact words of the question |
+| short_title | A label of at most 40 characters for tabs and lists: the model's label, or the first clause of the question when it gave none. A label only; never replaces the question |
 | source_word_ids[] | Where those words are in the letter, as proof |
 | para_ref | The paragraph of the letter |
 | kind | Type of question (e.g. breach, causation) from the pack |

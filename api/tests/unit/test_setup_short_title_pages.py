@@ -24,7 +24,8 @@ _c.save()
 
 
 def test_a_clean_model_label_is_used() -> None:
-    assert short_title("Was the care below the standard of a reasonable practitioner?", "Breach of duty") == "Breach of duty"
+    text = "Was the care below the standard of a reasonable practitioner?"
+    assert short_title(text, "Breach of duty") == "Breach of duty"
 
 
 @pytest.mark.parametrize("label", [None, "", "   ", "x" * 41, "two\nlines"])

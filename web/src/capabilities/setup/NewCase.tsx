@@ -55,7 +55,10 @@ const ICONS = {
 /** The words of a vocabulary map (key -> word), in the pack's order. */
 const wordsOf = (map: unknown): Record<string, string> => (map && typeof map === "object" ? (map as Record<string, string>) : {});
 
-type Added = { letters: string[]; records: number; other: number };
+type Added = { letters: { name: string; id: string }[]; records: string[]; other: string[] };
+type Pages = Record<string, number | null>;
+
+const pagesText = (n: number) => t("setup.new_case.pages", { count: n, n: n.toLocaleString() });
 
 function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination"][]; jurisdictions: Schemas["JurisdictionSummary"][] }) {
   const { me } = useSession();
@@ -73,7 +76,8 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
   const [firm, setFirm] = useState("");
   const [against, setAgainst] = useState("");
   const [oral, setOral] = useState("");
-  const [added, setAdded] = useState<Added>({ letters: [], records: 0, other: 0 });
+  const [added, setAdded] = useState<Added>({ letters: [], records: [], other: [] });
+  const [pages, setPages] = useState<Pages>({});
   const [made, setMade] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -151,13 +155,23 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
           const document_id = await uploadFile(id, file, "instructions");
           await unwrap(api.POST("/v1/cases/{case_id}/instructions", { ...path, body: { kind: added.letters.length > 0 ? "supplementary" : "letter", document_id } }));
           await unwrap(api.POST("/v1/cases/{case_id}/prefill", path));
-          setAdded((a) => ({ ...a, letters: [...a.letters, file.name] }));
+          setAdded((a) => ({ ...a, letters: [...a.letters, { name: file.name, id: document_id }] }));
         } else {
-          await uploadFile(id, file, kind);
-          setAdded((a) => ({ ...a, [kind]: a[kind] + 1 }));
+          const document_id = await uploadFile(id, file, kind);
+          setAdded((a) => ({ ...a, [kind]: [...a[kind], document_id] }));
         }
       }
+      await countPages(id);
     });
+  /** The page counts of the files dropped so far (read from each PDF's page tree; a failure just shows no count). */
+  const countPages = async (id: string) => {
+    try {
+      const files = await unwrap(api.GET("/v1/cases/{case_id}/files", { params: { path: { case_id: id } } }));
+      setPages(Object.fromEntries(files.map((f) => [f.document_id, f.page_count])));
+    } catch {
+      /* the counts are a nicety; the files are safe */
+    }
+  };
   const apply = (s: Schemas["Suggestion"]) => {
     if (s.field === "instructing_party_name") setInstructedBy(s.value);
     else if (s.field === "party_role") setSide(s.value);
@@ -187,13 +201,13 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
       </div>
       <section aria-label={t("setup.new_case.files")} className="av-setup-drops">
         <DropZone title={t("setup.new_case.letter")} icon={ICONS.letter} accept="application/pdf,.pdf,.docx" disabled={busy} onFiles={drop("letter")}>
-          {added.letters.length > 0 && <AddedFiles lines={added.letters} />}
+          {added.letters.length > 0 && <AddedFiles lines={added.letters.map((l) => ({ text: l.name, detail: pageDetail(pages[l.id]) }))} />}
         </DropZone>
         <DropZone title={t("setup.new_case.records")} hint={t("setup.new_case.records_hint")} icon={ICONS.records} multiple disabled={busy} onFiles={drop("records")}>
-          {added.records > 0 && <AddedFiles lines={[t("setup.new_case.files_count", { count: added.records })]} />}
+          {added.records.length > 0 && <AddedFiles lines={[{ text: filesLine(added.records, pages) }]} />}
         </DropZone>
         <DropZone title={t("setup.new_case.other")} hint={t("setup.new_case.other_hint")} icon={ICONS.other} multiple disabled={busy} onFiles={drop("other")}>
-          {added.other > 0 && <AddedFiles lines={[t("setup.new_case.files_count", { count: added.other })]} />}
+          {added.other.length > 0 && <AddedFiles lines={[{ text: filesLine(added.other, pages) }]} />}
         </DropZone>
       </section>
       {made && <FoundInLetter caseId={made} words={words} types={partyTypes} onUse={apply} />}
@@ -262,12 +276,23 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
   );
 }
 
-function AddedFiles({ lines }: { lines: string[] }) {
+const pageDetail = (n: number | null | undefined) => (n == null ? undefined : pagesText(n));
+
+/** "6 files · 1,268 pages" when every file's pages are known, else just "6 files". */
+function filesLine(ids: string[], pages: Pages): string {
+  const files = t("setup.new_case.files_count", { count: ids.length });
+  const counts = ids.map((id) => pages[id]);
+  if (counts.some((n) => n == null)) return files;
+  return t("setup.new_case.files_pages", { files, pages: pagesText(counts.reduce<number>((sum, n) => sum + (n ?? 0), 0)) });
+}
+
+function AddedFiles({ lines }: { lines: { text: string; detail?: string | undefined }[] }) {
   return (
     <ul className="av-setup-plain av-setup-added">
       {lines.map((line) => (
-        <li key={line}>
-          <strong className="av-setup-confirmed">{t("setup.new_case.added")}</strong> <span>{line}</span>
+        <li key={line.text}>
+          <strong className="av-setup-confirmed">{t("setup.new_case.added")}</strong> <span>{line.text}</span>
+          {line.detail && <span className="av-muted"> {line.detail}</span>}
         </li>
       ))}
     </ul>

@@ -10,7 +10,6 @@ import pytest
 from tests.support.seed import Seed
 
 
-
 def test_short_title_is_a_nullable_label_of_at_most_forty_characters(admin_dsn: str, seed: Seed) -> None:
     person = seed.person()
     org = seed.org(kind="personal", members={person: "owner"})

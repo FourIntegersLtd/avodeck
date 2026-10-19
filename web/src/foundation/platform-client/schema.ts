@@ -804,6 +804,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Files */
+        get: operations["list_files_v1_cases__case_id__files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/findings": {
         parameters: {
             query?: never;
@@ -4035,6 +4052,28 @@ export interface components {
             /** Subject Status */
             subject_status?: string | null;
         };
+        /** CaseFile */
+        CaseFile: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Page Count
+             * @description Pages in the PDF; null when unknown.
+             */
+            page_count: number | null;
+            /**
+             * Size
+             * @description Bytes, as uploaded.
+             */
+            size: number | null;
+        };
         /** CaseLink */
         CaseLink: {
             /**
@@ -6947,6 +6986,11 @@ export interface components {
             registration_number: string | null;
             /** Specialties */
             specialties: string[];
+            /**
+             * Version
+             * @description The same number as the ETag; send it back as If-Match.
+             */
+            version: number;
         };
         /**
          * ProfileUpdate
@@ -7052,6 +7096,11 @@ export interface components {
             outside_expertise_source?: ("pack" | "expert") | null;
             /** Para Ref */
             para_ref: string | null;
+            /**
+             * Short Title
+             * @description A label of at most 40 characters for tabs and lists (the model's, else its first clause).
+             */
+            short_title: string;
             /** Source Word Ids */
             source_word_ids: string[];
             /** Status */
@@ -7360,6 +7409,11 @@ export interface components {
              * Format: date
              */
             started_on: string;
+            /**
+             * Version
+             * @description The same number as the ETag; send it back as If-Match to change the role.
+             */
+            version: number;
         };
         /** RoleCreate */
         RoleCreate: {
@@ -8311,6 +8365,11 @@ export interface components {
         Wording: {
             /** Key */
             key: string;
+            /**
+             * Points
+             * @description How many numbered points the wording has; null if it has none.
+             */
+            points?: number | null;
             /** Rule Ref */
             rule_ref?: string | null;
             /** Text */
@@ -10559,6 +10618,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["FactOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_files_v1_cases__case_id__files_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFile"][];
                 };
             };
             /** @description Validation Error */

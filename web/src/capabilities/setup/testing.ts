@@ -92,6 +92,7 @@ export function question(over: Partial<Schemas["QuestionOut"]> = {}): Schemas["Q
   return {
     id: "a1111111-1111-4111-8111-111111111111",
     number: 1,
+    short_title: "Blood results",
     text_verbatim: "Whether the blood results of 19 February 2024 were acted on appropriately.",
     confirmed_text: null,
     kind: "breach",
