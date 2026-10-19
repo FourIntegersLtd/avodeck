@@ -238,6 +238,6 @@ test("it sits in the case frame: the case bar with the case name as the page's m
   serveMeeting("launch");
   renderAt(url);
   expect(await screen.findByRole("heading", { level: 1, name: "Mrs A" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: M["trial.meeting.back"]! })).toBeInTheDocument();
+  expect(await screen.findByRole("link", { name: M["trial.meeting.back"]! })).toBeInTheDocument();
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
 });
