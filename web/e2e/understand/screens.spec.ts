@@ -39,7 +39,7 @@ for (const run of PACKS) {
       await page.goto(`/cases/${CASE_A}/things-to-look-at`);
       await expect(page.getByRole("heading", { level: 2, name: "Things to look at" })).toBeVisible();
       await expect(page.getByText("1 of 2 decided")).toBeVisible();
-      await expect(page.getByRole("region", { name: "Your checks" })).toBeVisible();
+      await expect(page.getByRole("region", { name: "The checks we run" })).toBeVisible();
       await checkScreen(page);
     });
   });
