@@ -33,11 +33,11 @@ describe.each([
   });
 
   test("a suggestion shows its details as rows, without the date already in its title", async () => {
-    mockReader(pack, { alreadyRead: true, facts: [fact(1, { fields: { date: "2024-05-15", who: "Dr P, GP", how: "Face to face" } }), fact(2)] });
+    mockReader(pack, { alreadyRead: true, facts: [fact(1, { fields: { date: "2024-05-15", who: "Dr P, senior", how: "Face to face" } }), fact(2)] });
     renderAt(PATH);
     const card = await screen.findByRole("article", { name: /Dr P consultation/ });
     expect(within(card).getByText("Who")).toBeVisible();
-    expect(within(card).getByText("Dr P, GP")).toBeVisible();
+    expect(within(card).getByText("Dr P, senior")).toBeVisible();
     expect(within(card).getByText("How")).toBeVisible();
     expect(within(card).queryByText("Date")).not.toBeInTheDocument();
   });
@@ -49,7 +49,7 @@ describe.each([
     expect(within(card).getByText("Please check")).toBeVisible();
     const why = within(card).getByLabelText("Why not? (optional)");
     expect(why).not.toBeVisible();
-    await user.click(within(card).getByText("Say why it is not right"));
+    await user.click(within(card).getByText("Add a reason"));
     expect(why).toBeVisible();
   });
 });

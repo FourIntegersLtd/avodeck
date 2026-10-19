@@ -1,8 +1,9 @@
 // One suggestion: what we found, its state, and the actions the expert can take on it.
 import { useId, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
+import { t } from "../../foundation/i18n";
 import { Button, IconTile, StatusBadge } from "../../foundation/ui";
-import { kindLabel, longDate } from "./data";
+import { humanise, kindLabel, longDate } from "./data";
 import { w } from "./words";
 
 export interface FactCardProps {
@@ -40,6 +41,15 @@ export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight:
   };
 }
 
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
+
+/** The fact's own details as label and value rows. A date is left out: the title already carries it. */
+function detailRows(fact: Schemas["FactOut"]): Array<[string, string]> {
+  return Object.entries(fact.fields ?? {}).flatMap(([key, value]): Array<[string, string]> =>
+    (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value)) ? [[humanise(key), String(value)]] : [],
+  );
+}
+
 export function FactCard(p: FactCardProps) {
   const { fact } = p;
   const id = useId();
@@ -50,11 +60,30 @@ export function FactCard(p: FactCardProps) {
   const cls = ["rd-card", p.focused && "rd-card--focus", checked && "rd-card--checked", rejected && "rd-card--rejected"].filter(Boolean).join(" ");
   return (
     <article className={cls} aria-labelledby={`${id}-t`} onFocusCapture={p.onFocus} onClick={p.onFocus}>
-      <StatusBadge status={recheck ? "please_check" : checked ? "checked" : rejected ? "not_right" : "please_check"} />
+      {checked && !recheck ? (
+        <p className="rd-tick">
+          <IconTile tone="mint">✓</IconTile>
+          <span>{t("ui.status.checked")}</span>
+        </p>
+      ) : rejected ? (
+        <StatusBadge status="not_right" />
+      ) : (
+        <p className="rd-state">{t("ui.status.please_check")}</p>
+      )}
       <p className="rd-kind">{kindLabel(fact.kind)}</p>
       <h3 id={`${id}-t`} className="rd-value">
         {fact.value}
       </h3>
+      {detailRows(fact).length > 0 && (
+        <dl className="rd-rows">
+          {detailRows(fact).map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
       {(fact.related ?? []).map((r) => {
         const live = p.allFacts?.find((f) => f.id === r.fact_id)?.status ?? r.status;
         const done = live === "verified" || live === "edited";
@@ -70,7 +99,12 @@ export function FactCard(p: FactCardProps) {
         );
       })}
       {recheck && <p className="rd-note">{w("fact.recheck")}</p>}
-      {fact.flagged && <p className="rd-note">{w("fact.in_points_against")}</p>}
+      {fact.flagged && (
+        <p className="rd-cuts">
+          <strong>{w("fact.cuts_against")}</strong>
+          <span>{w("fact.in_points_against")}</span>
+        </p>
+      )}
 
       {rejected ? (
         <div className="rd-actions">
@@ -118,16 +152,21 @@ export function FactCard(p: FactCardProps) {
                 {w("fact.not_right")}
               </Button>
             )}
-            {can.edit && (
-              <Button variant="secondary" disabled={p.busy} onClick={p.onStartEdit} aria-keyshortcuts="3">
-                {w("fact.change")}
-              </Button>
-            )}
           </div>
-          <label className="rd-reason">
-            <span>{w("fact.why_not")}</span>
-            <input className="av-input" value={p.reason} maxLength={200} onChange={(e) => p.onReason(e.target.value)} />
-          </label>
+          {can.edit && (
+            <Button variant="quiet" disabled={p.busy} onClick={p.onStartEdit} aria-keyshortcuts="3">
+              {w("fact.change")}
+            </Button>
+          )}
+          {can.notRight && (
+            <details className="rd-why-not">
+              <summary>{w("fact.say_why")}</summary>
+              <label className="rd-reason">
+                <span>{w("fact.why_not")}</span>
+                <input className="av-input" value={p.reason} maxLength={200} onChange={(e) => p.onReason(e.target.value)} />
+              </label>
+            </details>
+          )}
           {checked && (
             <Button variant="secondary" disabled={p.busy} onClick={p.onFlag}>
               {fact.flagged ? w("fact.points_against_off") : w("fact.points_against")}

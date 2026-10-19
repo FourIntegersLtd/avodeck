@@ -7,8 +7,9 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
-import { casePath, periodRange, sourceLabel } from "./data";
+import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
+import { casePath, count, periodRange, sourceLabel } from "./data";
+import { Arrow } from "./Arrow";
 import { allowed, FactCard } from "./FactCard";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
@@ -240,19 +241,24 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   if (!detail.data) return <Loading />;
   const page = detail.data;
   const left = progress.data ? Math.max(0, progress.data.total - progress.data.read) : 0;
-  const minutes = progress.data ? Math.ceil(progress.data.seconds_left / 60) : 0;
   const hard = queue.data ? queue.data.total - queue.data.done : 0;
 
   return (
     <div className="rd">
       {page.in_period && (
         <div className="rd-banner">
-          <p>
-            <strong>{w("read.in_period")}</strong>{page.period_start && page.period_end ? ` ${periodRange(page.period_start, page.period_end, pack.locale)} ` : " "}{read ? w("read.in_period_after") : ""}{" "}
+          <div className="rd-banner__row">
+            <svg className="rd-banner__eye" width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+            <p>
+              <strong>{w("read.in_period")}</strong>{page.period_start && page.period_end ? ` ${periodRange(page.period_start, page.period_end, pack.locale)} ` : " "}{read ? w("read.in_period_after") : ""}
+            </p>
             <button type="button" className="av-text-link rd-why" aria-expanded={why} onClick={() => setWhy((v) => !v)}>
               {w("read.why")}
             </button>
-          </p>
+          </div>
           {why && <p className="rd-why-text">{w("read.why_text")}</p>}
         </div>
       )}
@@ -260,8 +266,17 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         <section className="rd-pane" aria-label={w("read.page_alt", { page: pageNo })}>
           <div className="rd-bar">
             <p className="rd-source">
-              <strong>{sourceLabel(pack, page.source_type)}</strong> <span className="rd-ref">{w("read.page_ref", { page: pageNo })}</span>
+              <strong>{sourceLabel(pack, page.source_type)}</strong>
             </p>
+            <div className="rd-zoom">
+              <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={zoom <= ZOOMS[0]!} onClick={() => setZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(zoom) - 1)]!)}>
+                −
+              </Button>
+              <span className="rd-ref" aria-live="polite">{w("read.zoom_level", { percent: zoom })}</span>
+              <Button variant="secondary" aria-label={w("read.zoom_in")} disabled={zoom >= ZOOMS[ZOOMS.length - 1]!} onClick={() => setZoom(ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(zoom) + 1)]!)}>
+                +
+              </Button>
+            </div>
             <div className="rd-tools">
               <Button variant="secondary" disabled={busy} onClick={() => void turnPage()}>
                 {w("read.turn")}
@@ -273,15 +288,6 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                 {w("read.not_patient")}
               </LinkButton>
             </div>
-            <div className="rd-zoom">
-              <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={zoom <= ZOOMS[0]!} onClick={() => setZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(zoom) - 1)]!)}>
-                −
-              </Button>
-              <span className="rd-ref" aria-live="polite">{w("read.zoom_level", { percent: zoom })}</span>
-              <Button variant="secondary" aria-label={w("read.zoom_in")} disabled={zoom >= ZOOMS[ZOOMS.length - 1]!} onClick={() => setZoom(ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(zoom) + 1)]!)}>
-                +
-              </Button>
-            </div>
           </div>
           <PageImage key={imageKey} caseId={caseId} pageNo={pageNo} zoom={zoom}>
             <Highlights facts={facts ?? []} focus={focus} />
@@ -290,7 +296,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         </section>
 
         <aside className="rd-side" aria-label={w("read.found")}>
-          <h2>{w("read.found")}</h2>
+          <div className="rd-side__head">
+            <h2>{w("read.found")}</h2>
+            <PageRef page={pageNo} />
+          </div>
           {notice && <Notice tone="error">{notice}</Notice>}
           {info && !notice && <Notice tone="success">{info}</Notice>}
           {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
@@ -318,22 +327,25 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               onFlag={() => toggleFlag(f)}
             />
           ))}
-          <div className="rd-keys">
-            <p>
-              <strong>{w("read.keys.heading")}</strong>
-            </p>
-            <p className="rd-hints">
-              <span><kbd>C</kbd> {w("read.keys.correct")}</span>
-              <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
-              <span><kbd>→</kbd> {w("read.keys.next")}</span>
-            </p>
-            <p>{w("read.keys.more")}</p>
-          </div>
+          {read && (
+            <div className="rd-keys">
+              <p>
+                <strong>{w("read.keys.heading")}</strong>
+              </p>
+              <p className="rd-hints">
+                <span><kbd>C</kbd> {w("read.keys.correct")}</span>
+                <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
+                <span><kbd>→</kbd> {w("read.keys.next")}</span>
+              </p>
+              <p>{w("read.keys.more")}</p>
+            </div>
+          )}
         </aside>
       </div>
 
       <footer className="rd-foot">
-        <Button variant="secondary" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
+        <Button variant="secondary" className="av-button--arrow" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
+          <Arrow back />
           {w("read.previous")}
         </Button>
         <div className="rd-progress">
@@ -341,8 +353,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             <>
               <p>
                 {left === 0
-                  ? w("read.progress_done", { read: progress.data.read, total: progress.data.total })
-                  : w("read.progress", { read: progress.data.read, total: progress.data.total, n: minutes, count: minutes })}
+                  ? w("read.progress_all", { page: pageNo, total: count(progress.data.total, pack.locale) })
+                  : w("read.progress", { page: pageNo, total: count(progress.data.total, pack.locale), read: count(progress.data.read, pack.locale), left: count(left, pack.locale) })}
               </p>
               <ProgressBar max={progress.data.total || 1} value={progress.data.read} label={w("read.progress_done", { read: progress.data.read, total: progress.data.total })} />
             </>
@@ -353,7 +365,14 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             {w("read.couldnt_read", { count: hard })}
           </Link>
         )}
-        {read ? <Button disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>{w("read.next")}</Button> : <Button disabled={busy} onClick={() => void markRead()}>{w("read.mark_read")}</Button>}
+        {read ? (
+          <Button className="av-button--arrow" disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>
+            {w("read.next")}
+            <Arrow />
+          </Button>
+        ) : (
+          <Button disabled={busy} onClick={() => void markRead()}>{w("read.mark_read")}</Button>
+        )}
       </footer>
     </div>
   );
