@@ -2730,6 +2730,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/write-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Write Progress
+         * @description Per answerable question: are its points settled, and is there an opinion; plus the answered count.
+         */
+        get: operations["write_progress_v1_cases__case_id__write_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/written-question-rounds": {
         parameters: {
             query?: never;
@@ -7046,6 +7066,20 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** QuestionProgress */
+        QuestionProgress: {
+            /** Has Opinion */
+            has_opinion: boolean;
+            /** Number */
+            number: number;
+            /** Points Done */
+            points_done: boolean;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+        };
         /**
          * QuestionUpdate
          * @description `text` is the expert's own wording (the exact words stay); `confirm` accepts the exact words.
@@ -8342,6 +8376,15 @@ export interface components {
             url: string | null;
             /** Version Label */
             version_label: string;
+        };
+        /** WriteProgress */
+        WriteProgress: {
+            /** Answered */
+            answered: number;
+            /** Questions */
+            questions: components["schemas"]["QuestionProgress"][];
+            /** Total */
+            total: number;
         };
         /** WrittenQuestionOut */
         WrittenQuestionOut: {
@@ -15906,6 +15949,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    write_progress_v1_cases__case_id__write_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProgress"];
                 };
             };
             /** @description Validation Error */

@@ -9995,6 +9995,35 @@
         "title": "QuestionOut",
         "type": "object"
       },
+      "QuestionProgress": {
+        "properties": {
+          "has_opinion": {
+            "title": "Has Opinion",
+            "type": "boolean"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "points_done": {
+            "title": "Points Done",
+            "type": "boolean"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "number",
+          "points_done",
+          "has_opinion"
+        ],
+        "title": "QuestionProgress",
+        "type": "object"
+      },
       "QuestionUpdate": {
         "additionalProperties": false,
         "description": "`text` is the expert's own wording (the exact words stay); `confirm` accepts the exact words.",
@@ -13575,6 +13604,32 @@
           "url"
         ],
         "title": "WorkspaceGuidance",
+        "type": "object"
+      },
+      "WriteProgress": {
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "integer"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionProgress"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "answered",
+          "total",
+          "questions"
+        ],
+        "title": "WriteProgress",
         "type": "object"
       },
       "WrittenQuestionOut": {
@@ -25194,6 +25249,60 @@
           }
         },
         "summary": "Compare",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/write-progress": {
+      "get": {
+        "description": "Per answerable question: are its points settled, and is there an opinion; plus the answered count.",
+        "operationId": "write_progress_v1_cases__case_id__write_progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Write Progress",
         "tags": [
           "write"
         ]

@@ -80,10 +80,22 @@ export function lintIssue(over: Partial<Schemas["LintIssueOut"]> = {}): Schemas[
   return { id: "11111111-aaaa-4aaa-8aaa-111111111111", sentence_index: 0, source: "regex", status: "open", type: "uncited_fact", words: "she had a lump", ...over };
 }
 
+export function progress(over: Partial<Schemas["WriteProgress"]> = {}): Schemas["WriteProgress"] {
+  return {
+    answered: 1,
+    total: 2,
+    questions: [
+      { question_id: Q1, number: 1, points_done: true, has_opinion: true },
+      { question_id: Q2, number: 2, points_done: false, has_opinion: false },
+    ],
+    ...over,
+  };
+}
+
 export type Sent = { method: string; path: string; body: unknown; ifMatch: string | null };
 
 /** Signed in under a pack, with two answerable questions and a stub for each slice E endpoint. */
-export function serve(run: PackRun, opts: { points?: Schemas["Points"]; workspace?: Schemas["Workspace"] } = {}) {
+export function serve(run: PackRun, opts: { points?: Schemas["Points"]; workspace?: Schemas["Workspace"]; progress?: Schemas["WriteProgress"] } = {}) {
   inCase(run);
   const sent: Sent[] = [];
   const record = async (request: Request) => {
@@ -96,6 +108,7 @@ export function serve(run: PackRun, opts: { points?: Schemas["Points"]; workspac
       json(questions({ questions: [question({ id: Q1, number: 1, kind, status: "confirmed" }), question({ id: Q2, number: 2, kind, status: "edited", text_verbatim: "Second question." }), question({ id: "a3333333-3333-4333-8333-333333333333", number: 3, status: "suggested" })] })),
     ),
     http.get("/v1/cases/:caseId/questions/:q/points", () => json(opts.points ?? pointsBody(run))),
+    http.get("/v1/cases/:caseId/write-progress", () => json(opts.progress ?? progress())),
     http.get("/v1/cases/:caseId/questions/:q/workspace", () => json(opts.workspace ?? workspace(run))),
   );
   return { sent, record };
