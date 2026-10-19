@@ -506,9 +506,12 @@ async def test_once_served_or_withdrawn_a_new_build_check_or_sign_goes_through_t
     if withdrawn:
         resp = await client.post(ready.url(f"report/versions/{version}/withdraw"), json={"reason": "factual_error"})
         assert resp.status_code == 200, resp.text
-    for path, body in (("report/build", None), ("report/final-check", None), ("report/sign", SIGN)):
+    build = await client.post(ready.url("report/build"))
+    assert build.status_code == 409 and code(build) == "served_use_supplementary", build.text
+    # With no new main draft, final check and sign keep the not_built answer slice G relies on.
+    for path, body in (("report/final-check", None), ("report/sign", SIGN)):
         resp = await client.post(ready.url(path), json=body) if body else await client.post(ready.url(path))
-        assert resp.status_code == 409 and code(resp) == "served_use_supplementary", (path, resp.text)
+        assert resp.status_code == 409 and code(resp) == "not_built", (path, resp.text)
     shown = (await client.get(ready.url("report"))).json()
     assert shown["version"]["status"] == ("withdrawn" if withdrawn else "served")
 
