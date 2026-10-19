@@ -9,7 +9,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { dateRange, keyName, longDate, Select, shortDate, useLocale, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -46,10 +46,15 @@ export function CourtOrders() {
   const sourceName = (s: string) => keyName("source", s);
 
   return (
-    <div className="av-page av-stack">
-      <LinkButton variant="quiet" to={`/cases/${caseId}/served`}>{w("back")}</LinkButton>
-      <h2>{w("orders.title")}</h2>
-      <p>{w("orders.intro")}</p>
+    <div className="av-page av-after-page av-stack">
+      <div className="av-stack">
+        <div>
+          <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
+          <h2>{w("orders.title")}</h2>
+          <p className="av-muted av-after-lede">{w("orders.intro")}</p>
+        </div>
+        {adding !== "order" && <div><Button onClick={() => setAdding("order")}>{w("orders.add")}</Button></div>}
+      </div>
       {trialMoved && (
         <Callout
           title={w("orders.trial_moved")}
@@ -60,37 +65,21 @@ export function CourtOrders() {
       )}
       {directions.data.directions.some((d) => d.stay) && <Notice tone="warning"><p>{w("orders.stayed")}</p></Notice>}
 
-      <section className="av-card av-stack" aria-labelledby="dates-title">
-        <h3 id="dates-title">{w("deadlines.title")}</h3>
-        <ul className="av-after-list">
-          {deadlines.data.deadlines.map((d) => (
-            <li key={d.id} className="av-after-item av-after-item--spread">
-              <span>
-                <strong>{keyName("kind", d.kind)}</strong>{" "}
-                <span className="av-after-mono">{w("due", { date: longDate(d.due_on, locale) })}</span>{" "}
-                <span className="av-badge">{sourceName(d.source)}</span>
-              </span>
-              <Button variant="secondary" onClick={() => setMoving(d)}>{w("deadlines.move")}</Button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section className="av-card av-stack" aria-labelledby="hearings-title">
+      <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="hearings-title">
         <h3 id="hearings-title">{w("hearings.title")}</h3>
         {hearings.data.hearings.length === 0 && <p>{w("hearings.none")}</p>}
-        <ul className="av-after-list">
+        <ul className="av-after-hearings">
           {ordered.map((h) => (
             <HearingRow key={`${h.id}-${h.version}`} caseId={caseId} hearing={h} locale={locale} onDone={refresh} />
           ))}
         </ul>
-        {adding === "hearing" ? <HearingForm caseId={caseId} onDone={() => { setAdding(null); refresh(); }} /> : <Button variant="secondary" onClick={() => setAdding("hearing")}>{w("hearings.add")}</Button>}
+        {adding === "hearing" ? <HearingForm caseId={caseId} onDone={() => { setAdding(null); refresh(); }} /> : <div><button type="button" className="av-after-linkbtn" onClick={() => setAdding("hearing")}>{w("hearings.add")}</button></div>}
       </section>
 
-      <section className="av-card av-stack" aria-labelledby="orders-list">
+      <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="orders-list">
         <h3 id="orders-list">{w("orders.list")}</h3>
         {directions.data.directions.length === 0 && <p>{w("orders.none")}</p>}
-        <ul className="av-after-list">
+        <ul className="av-after-orders">
           {directions.data.directions.map((d) => {
             const set = d.created_deadline_ids
               .map((id) => deadlines.data!.deadlines.find((x) => x.id === id))
@@ -98,10 +87,12 @@ export function CourtOrders() {
               .map((x) => `${keyName("kind", x.kind)}, ${shortDate(x.due_on, locale)}`);
             return (
               <li key={d.id}>
-                <article className="av-after-item av-stack" aria-labelledby={`order-${d.id}`}>
-                  <strong id={`order-${d.id}`}>{w("orders.made", { date: longDate(d.made_on, locale) })}</strong>
-                  {d.reference && <span className="av-after-mono">{d.reference}</span>}
-                  {d.text && <p className="av-after-words">{d.text}</p>}
+                <article className="av-after-order av-stack" aria-labelledby={`order-${d.id}`}>
+                  <div className="av-after-order__top">
+                    <strong id={`order-${d.id}`}>{w("orders.made", { date: longDate(d.made_on, locale) })}</strong>
+                    {d.reference && <span className="av-after-mono av-muted">{d.reference}</span>}
+                  </div>
+                  {d.text && <p className="av-after-words av-after-quote">{d.text}</p>}
                   {set.length > 0 && <p className="av-muted">{w("orders.dates_set", { dates: set.join("; ") })}</p>}
                 </article>
               </li>
@@ -111,14 +102,14 @@ export function CourtOrders() {
         {adding === "order" ? (
           <OrderForm caseId={caseId} kinds={pack.deadline_rules.map((r) => String((r as { key: string }).key))} onDone={() => { setAdding(null); refresh(); }} />
         ) : (
-          <div className="av-after-footer"><Button onClick={() => setAdding("order")}>{w("orders.add")}</Button></div>
+          null
         )}
       </section>
 
       {(history.data ?? []).length > 0 && (
-        <section className="av-card av-stack" aria-labelledby="history-title">
+        <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="history-title">
           <h3 id="history-title">{w("deadlines.history")}</h3>
-          <table className="av-after-table" aria-labelledby="history-title">
+          <table className="av-after-dates" aria-labelledby="history-title">
             <thead>
               <tr>
                 <th scope="col">{w("deadlines.col_deadline")}</th>
@@ -140,6 +131,22 @@ export function CourtOrders() {
           </table>
         </section>
       )}
+
+      <details className="av-after-disclosure">
+        <summary id="dates-title">{w("deadlines.title")}</summary>
+        <ul className="av-after-list">
+          {deadlines.data.deadlines.map((d) => (
+            <li key={d.id} className="av-after-item av-after-item--spread">
+              <span>
+                <strong>{keyName("kind", d.kind)}</strong>{" "}
+                <span className="av-after-mono">{w("due", { date: longDate(d.due_on, locale) })}</span>{" "}
+                <span className="av-badge">{sourceName(d.source)}</span>
+              </span>
+              <Button variant="secondary" onClick={() => setMoving(d)}>{w("deadlines.move")}</Button>
+            </li>
+          ))}
+        </ul>
+      </details>
 
       <HoldOrWithdraw caseId={caseId} onHold={item.on_hold} onDone={() => { reloadCase(); refresh(); }} />
 
@@ -180,16 +187,18 @@ function HoldOrWithdraw({ caseId, onHold, onDone }: { caseId: string; onHold: bo
     }
   };
   return (
-    <section className="av-card av-stack" aria-labelledby="hold-title">
-      <h3 id="hold-title">{w("hold.title")}</h3>
-      <p>{w("hold.hint")}</p>
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {withdrawn && <Notice tone="success"><p>{w("hold.withdrawn")}</p></Notice>}
+    <section className="av-after-hold" aria-labelledby="hold-title">
+      <div className="av-after-hold__text">
+        <h3 id="hold-title">{w("hold.title")}</h3>
+        <p className="av-muted">{w("hold.hint")}</p>
+        {error && <Notice tone="error"><p>{error}</p></Notice>}
+        {withdrawn && <Notice tone="success"><p>{w("hold.withdrawn")}</p></Notice>}
+      </div>
       {!withdrawn && (
-        <div className="av-row">
+        <>
           <Button variant="secondary" onClick={() => void toggle()}>{onHold ? w("hold.resume") : w("hold.put")}</Button>
-          <Button variant="secondary" onClick={() => setAsking(true)}>{w("hold.withdraw")}</Button>
-        </div>
+          <Button variant="secondary" className="av-after-amberbtn" onClick={() => setAsking(true)}>{w("hold.withdraw")}</Button>
+        </>
       )}
       {asking && (
         <Dialog title={w("hold.withdraw")} onClose={() => setAsking(false)}>
@@ -349,18 +358,17 @@ function HearingRow({ caseId, hearing, locale, onDone }: { caseId: string; heari
   const [changing, setChanging] = useState(false);
   const days = Math.round((Date.parse(hearing.ends_on) - Date.parse(hearing.starts_on)) / 86400000) + 1;
   const where = [hearing.venue, w("hearings.days", { count: days })].filter(Boolean).join(" · ");
+  const live = !hearing.replaced_by_hearing_id && hearing.status !== "adjourned";
   return (
-    <li className="av-after-item av-after-item--spread" aria-label={keyName("hearings.type", hearing.type)}>
-      <span className="av-stack">
-        <strong className="av-after-mono">{dateRange(hearing.starts_on, hearing.ends_on, locale)}</strong>
-        <span>{keyName("hearings.type", hearing.type)}</span>
+    <li className={`av-after-hearing${live ? "" : " av-after-hearing--past"}`} aria-label={keyName("hearings.type", hearing.type)}>
+      <span className="av-after-mono av-after-hearing__date">{dateRange(hearing.starts_on, hearing.ends_on, locale)}</span>
+      <span className="av-after-hearing__what">
+        <strong>{keyName("hearings.type", hearing.type)}</strong>
         <span className="av-muted">{where}</span>
       </span>
-      <span className="av-row">
-        <span className="av-badge">{known ? w(`hearings.status.${hearing.status as "scheduled"}`) : hearing.status}</span>
-        {hearing.status === "scheduled" && !changing && <Button variant="secondary" onClick={() => setChanging(true)}>{w("hearings.change")}</Button>}
-        {changing && <Button variant="secondary" onClick={() => void adjourn()}>{w("hearings.adjourn")}</Button>}
-      </span>
+      <span className={`av-after-state${hearing.status === "scheduled" ? " av-after-state--on" : ""}`}>{known ? w(`hearings.status.${hearing.status as "scheduled"}`) : hearing.status}</span>
+      {hearing.status === "scheduled" && !changing && <button type="button" className="av-after-linkbtn" onClick={() => setChanging(true)}>{w("hearings.change")}</button>}
+      {changing && <Button variant="secondary" onClick={() => void adjourn()}>{w("hearings.adjourn")}</Button>}
       {error && <span role="alert">{error}</span>}
     </li>
   );

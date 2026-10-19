@@ -26,6 +26,23 @@ test("when the trial moved there is a banner with the way to rebuild the trial p
   expect(await axeViolations(container)).toEqual([]);
 });
 
+test("Add a court order sits under the intro, before the banner and the sections", async () => {
+  serve("launch", { hearings: moved });
+  renderAt(url);
+  const add = await screen.findByRole("button", { name: "Add a court order" });
+  const banner = screen.getByRole("alert");
+  expect(add.compareDocumentPosition(banner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getAllByRole("button", { name: "Add a court order" })).toHaveLength(1);
+});
+
+test("moving a date is kept behind a disclosure, not shown as a list beside the board's sections", async () => {
+  serve("launch", { deadlines: [deadline({ id: D1 })] });
+  renderAt(url);
+  const move = (await screen.findAllByRole("button", { name: "Move this date" }))[0]!;
+  expect(move.closest("details")).not.toBeNull();
+  expect((move.closest("details") as HTMLDetailsElement).open).toBe(false);
+});
+
 test("with no moved trial there is no banner", async () => {
   serve("launch", { hearings: [hearing({})] });
   renderAt(url);

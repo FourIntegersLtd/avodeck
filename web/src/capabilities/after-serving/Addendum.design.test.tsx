@@ -23,6 +23,23 @@ test("a saved change shows what the report said struck through, the view now and
   expect(await axeViolations(container)).toEqual([]);
 });
 
+test("the kind of change is a group of two option cards, each with its own hint", async () => {
+  serve("launch");
+  renderAt(url);
+  const group = await screen.findByRole("radiogroup", { name: "What kind of change is it?" });
+  expect(within(group).getAllByRole("radio")).toHaveLength(2);
+  expect(within(group).getByText("A fact or detail was wrong")).toBeInTheDocument();
+});
+
+test("the served report waits behind a closed disclosure, the checked panel and summary sit in the side column", async () => {
+  serve("launch", { changes: [change()] });
+  renderAt(url);
+  const served = (await screen.findByText("Report 1 · locked")).closest("details") as HTMLDetailsElement;
+  expect(served.open).toBe(false);
+  const side = screen.getByRole("complementary", { name: "What we've checked" }).parentElement as HTMLElement;
+  expect(within(side).getByRole("region", { name: "Supplementary report" })).toBeInTheDocument();
+});
+
 test("another paragraph opens a fresh form beside the saved change", async () => {
   serve("launch", { changes: [change()] });
   const { user } = renderAt(url);
