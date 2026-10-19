@@ -83,7 +83,7 @@ export function Close() {
       subtitle={`${caseSubtitle(item.data, pack.data)} · ${w(`status.${status}` as CloseKey)}`}
       person={person}
     />
-    <main className="av-page av-stack av-close">
+    <div className="av-page av-stack av-close">
       <div className="av-close-title">
         {!deleted && (
           <span className="av-close-title__mark" aria-hidden="true">
@@ -121,7 +121,7 @@ export function Close() {
           {!summary.deletion_started && <Closing party={partyWord(pack.data, item.data.instructing_party_type)} caseId={caseId} status={summary.status} can={can} onDone={refresh} setMessage={setMessage} />}
         </>
       )}
-    </main>
+    </div>
     </>
   );
 }
