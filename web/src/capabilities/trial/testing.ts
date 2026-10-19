@@ -38,19 +38,19 @@ export function item(n: 1 | 2 | 3, over: Partial<Schemas["ItemOut"]> = {}): Sche
     {
       id: ITEMS[0]!, number: 1, text: "Did Dr P need to examine Mrs A on 15 May 2024?",
       own_position: "Yes. Bleeding with known anaemia called for an examination.", other_positions: "Yes, an examination was required.",
-      agreed: true, reason: null, change_note: null, deviation: "consistent", deviation_reason: "same_words", served_paragraphs: [13],
+      agreed: true, reason: null, change_note: null, deviation: "consistent", deviation_reason: "same_words", served_paragraphs: [13], pages: [118],
       changed_from_previous: "same", version: 3,
     },
     {
       id: ITEMS[1]!, number: 2, text: "Was the February result acted on appropriately?",
       own_position: "No. Iron was started without looking for a cause.", other_positions: "Iron first, review later, was reasonable.",
       agreed: false, reason: "We differ on whether a cause should have been sought at once.", change_note: null, deviation: "consistent",
-      deviation_reason: "copied_from_report", served_paragraphs: [4], changed_from_previous: "same", version: 2,
+      deviation_reason: "copied_from_report", served_paragraphs: [4], pages: [214, 87], changed_from_previous: "same", version: 2,
     },
     {
       id: ITEMS[2]!, number: 3, text: "By what date should Mrs A have been referred?",
       own_position: "By 15 May 2024 at the latest.", other_positions: "By 15 May 2024.", agreed: true, reason: null, change_note: null,
-      deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], changed_from_previous: "changed", version: 5,
+      deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], pages: [118], changed_from_previous: "changed", version: 5,
     },
   ];
   return { ...base[n - 1]!, ...over };
