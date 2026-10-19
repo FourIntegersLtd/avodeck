@@ -16,10 +16,10 @@ The expert prepares the joint statement with the other expert, with deviations f
 - `POST /v1/cases/{id}/expert-meetings`; `POST …/{meeting_id}/agenda` → 202; `GET …/{meeting_id}`; `PATCH /v1/cases/{id}/agenda-items/{item_id}`; `POST …/{meeting_id}/prepare`; `POST …/{meeting_id}/send-for-signature` 🔒 (MVP of this slice: download for signing); `POST /webhooks/esign` (signature-verified)
 - `POST /v1/cases/{id}/court-bundles` → 202; `GET /v1/cases/{id}/concordance?status=`; `PATCH /v1/cases/{id}/concordance/{row_id}`; `GET …/concordance/export?format=pdf|csv`; `POST …/concordance/tell-instructing-party`
 - `POST /v1/cases/{id}/trial-pack/check-new`; `PUT /v1/cases/{id}/trial-pack/settings`; `POST /v1/cases/{id}/trial-pack` → 202; `GET …/trial-pack/latest`; `GET …/trial-pack/latest/download`
-- `POST /v1/cases/{id}/offline-packages` 🔒; `GET …/offline-packages/{pkg_id}/download` 🔒; `DELETE …/offline-packages/{pkg_id}`
+- `POST /v1/cases/{id}/offline-packages` 🔒; `GET …/offline-packages/{pkg_id}/download` 🔒; `GET …/offline-packages/{pkg_id}/status`; `DELETE …/offline-packages/{pkg_id}`
 
 ## Tables owned
-`expert_meetings`, `agenda_items`, `court_bundles`, `concordance`, `trial_packs`, `offline_packages`.
+`expert_meetings`, `agenda_items`, `court_bundles`, `concordance`, `trial_pack_settings`, `trial_packs`, `offline_packages` (plus `expert_meeting_participants` and `agenda_versions`).
 
 ## Worker jobs
 - **`match_trial_bundle`:**
@@ -91,3 +91,12 @@ Supplementary reports (G), deletion of packages on close (H calls our revoke), l
 
 ## Definition of done
 Root checklist, plus: on staging the synthetic case produces a signed joint statement, a confirmed concordance, a trial pack and an offline package that works in airplane mode.
+
+## Scope notes (first build)
+
+- The witness-box copy (S25) is kept on the device in IndexedDB, still sealed (`web/src/capabilities/trial/witnessBoxStore.ts`, the only module the foundation storage guard and eslint allow IndexedDB in). It outlives a page load; removing it or opening it past its end date deletes it. Browsers with no IndexedDB keep it in memory.
+- The copy opens only with a PIN (at least 6 numbers) the expert chooses at download: the released key is wrapped by a key made from it (PBKDF2-SHA256, 600,000 rounds, random salt) and only the wrapped key and salt are stored. Five wrong PINs wipe the copy. The PIN is never sent or kept, so a forgotten PIN means making a new copy.
+- When online, S25 calls only the status check and wipes the copy on revoked, expired or 404; offline or on a network failure it keeps the copy. H's close does not yet revoke offline packages (logged in cross-slice).
+- Ports onto G (`ports.py`) follow G's shapes: one `ReportChange` per paragraph (`served_version_id`, `paragraph_id`, `kind`, `old_text`, `new_text`, `reason`); written answers as rounds with `answers_version_id`. The real adapters are wired after G's PR #29 merges.
+- Offline screens are exported as `trialOfflineRoutes` and mounted outside the signed-in guard by the foundation's `offlineRoutesFrom` convention (any capability export ending in `OfflineRoutes`).
+- Sending for signature returns the prepared statement and a signing reference; a copy signed elsewhere comes back through `signed-external`. The e-signature provider itself is not wired yet.
