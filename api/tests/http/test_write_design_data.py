@@ -105,8 +105,12 @@ async def test_a_range_note_remembers_the_day_it_was_first_written(
     assert first.status_code == 200, first.text
     on = first.json()["dictated_on"]
     assert on is not None
-    admin.execute("update app.range_notes set created_at = '2024-10-14T09:00:00Z' where question_id = %s", (world.question,))
-    second = await client.put(path, json={"text": "Some would wait a week"}, headers={"If-Match": '"1"'})
+    admin.execute(
+        "update app.range_notes set created_at = '2024-10-14T09:00:00Z' where question_id = %s", (world.question,)
+    )
+    version = admin.execute("select version from app.range_notes where question_id = %s", (world.question,)).fetchone()
+    assert version is not None
+    second = await client.put(path, json={"text": "Some would wait a week"}, headers={"If-Match": f'"{version[0]}"'})
     assert second.json()["dictated_on"] == "2024-10-14"
     listed = await client.get(world.url(f"questions/{world.question}/points"))
     assert listed.json()["range_note"]["dictated_on"] == "2024-10-14"
