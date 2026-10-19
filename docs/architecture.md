@@ -690,7 +690,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does | Notes |
 |---|---|---|---|
 | POST | `/cases/{case_id}/report-changes` | `{kind, paragraph_id, new_text, reason}` → T-21e dependencies | |
-| GET | `/cases/{case_id}/report-changes` | Open changes and the supplementary draft they belong to | |
+| GET | `/cases/{case_id}/report-changes` | Open changes and the supplementary draft they belong to; once signed it carries `signed_by` (the named expert) and `signed_on` (court day) | |
+| GET | `/cases/{case_id}/after-serving/steps` | Experts' discussions and the latest trial pack's state for the S19 timeline (read from slice I through `core/contracts/trial_steps`) | |
 | GET / PATCH | `/cases/{case_id}/report-changes/{change_id}` | Review dependent paragraphs, edit | |
 | POST | `/cases/{case_id}/report-changes/supplementary` | Build supplementary report from open changes | 202 + job |
 | POST | `/cases/{case_id}/report/versions/{v}/sign` | Sign and lock the supplementary report | 🔒 |

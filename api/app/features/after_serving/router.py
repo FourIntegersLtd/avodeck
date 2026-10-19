@@ -44,6 +44,7 @@ from app.features.after_serving import (  # noqa: E402, F401
     routes_deadlines,
     routes_new_material,
     routes_questions,
+    routes_steps,
     today,
 )
 

@@ -5,10 +5,12 @@ import { useState, type FormEvent } from "react";
 import { useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { screenPath } from "../../foundation/lib/screens";
+import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { keyName, longDate, Select, useLocale, versionTag } from "./shared";
+import { Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { dateRange, keyName, longDate, Select, shortDate, useLocale, versionTag } from "./shared";
 import { w } from "./words";
 
 const ERRORS = { stale: "after_serving.error.stale", invalid: "after_serving.error.invalid" };
@@ -18,7 +20,7 @@ const HEARING_TYPES = ["trial", "case_management", "other"] as const;
 export function CourtOrders() {
   const { caseId = "" } = useParams();
   const locale = useLocale();
-  const { pack } = useCaseFrame();
+  const { item, pack, reload: reloadCase } = useCaseFrame();
   const path = { params: { path: { case_id: caseId } } };
   const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId]);
   const hearings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/hearings", path)), [caseId]);
@@ -37,6 +39,10 @@ export function CourtOrders() {
   if (!deadlines.data || !hearings.data || !directions.data) return <div className="av-page"><Loading /></div>;
   const kindOf = (id: string) => deadlines.data!.deadlines.find((d) => d.id === id)?.kind ?? "";
   const refresh = () => { deadlines.reload(); hearings.reload(); directions.reload(); history.reload(); };
+  const trialPack = screenPath("trial_pack", { caseId });
+  const trialMoved = hearings.data.hearings.some((h) => h.type === HEARING_TYPES[0] && h.replaced_by_hearing_id);
+  const live = (h: Schemas["HearingOut"]) => !h.replaced_by_hearing_id && h.status !== "adjourned";
+  const ordered = [...hearings.data.hearings].sort((a, b) => Number(live(b)) - Number(live(a)) || b.starts_on.localeCompare(a.starts_on));
   const sourceName = (s: string) => keyName("source", s);
 
   return (
@@ -44,6 +50,14 @@ export function CourtOrders() {
       <LinkButton variant="quiet" to={`/cases/${caseId}/served`}>{w("back")}</LinkButton>
       <h2>{w("orders.title")}</h2>
       <p>{w("orders.intro")}</p>
+      {trialMoved && (
+        <Callout
+          title={w("orders.trial_moved")}
+          actions={trialPack ? <LinkButton to={trialPack}>{w("orders.rebuild")}</LinkButton> : undefined}
+        >
+          <p>{w("orders.trial_moved_hint")}</p>
+        </Callout>
+      )}
       {directions.data.directions.some((d) => d.stay) && <Notice tone="warning"><p>{w("orders.stayed")}</p></Notice>}
 
       <section className="av-card av-stack" aria-labelledby="dates-title">
@@ -66,7 +80,7 @@ export function CourtOrders() {
         <h3 id="hearings-title">{w("hearings.title")}</h3>
         {hearings.data.hearings.length === 0 && <p>{w("hearings.none")}</p>}
         <ul className="av-after-list">
-          {hearings.data.hearings.map((h) => (
+          {ordered.map((h) => (
             <HearingRow key={`${h.id}-${h.version}`} caseId={caseId} hearing={h} locale={locale} onDone={refresh} />
           ))}
         </ul>
@@ -77,13 +91,22 @@ export function CourtOrders() {
         <h3 id="orders-list">{w("orders.list")}</h3>
         {directions.data.directions.length === 0 && <p>{w("orders.none")}</p>}
         <ul className="av-after-list">
-          {directions.data.directions.map((d) => (
-            <li key={d.id} className="av-after-item av-stack">
-              <strong>{w("orders.made", { date: longDate(d.made_on, locale) })}</strong>
-              {d.reference && <span className="av-after-mono">{d.reference}</span>}
-              {d.text && <p className="av-after-words">{d.text}</p>}
-            </li>
-          ))}
+          {directions.data.directions.map((d) => {
+            const set = d.created_deadline_ids
+              .map((id) => deadlines.data!.deadlines.find((x) => x.id === id))
+              .filter((x): x is Schemas["DeadlineOut"] => !!x)
+              .map((x) => `${keyName("kind", x.kind)}, ${shortDate(x.due_on, locale)}`);
+            return (
+              <li key={d.id}>
+                <article className="av-after-item av-stack" aria-labelledby={`order-${d.id}`}>
+                  <strong id={`order-${d.id}`}>{w("orders.made", { date: longDate(d.made_on, locale) })}</strong>
+                  {d.reference && <span className="av-after-mono">{d.reference}</span>}
+                  {d.text && <p className="av-after-words">{d.text}</p>}
+                  {set.length > 0 && <p className="av-muted">{w("orders.dates_set", { dates: set.join("; ") })}</p>}
+                </article>
+              </li>
+            );
+          })}
         </ul>
         {adding === "order" ? (
           <OrderForm caseId={caseId} kinds={pack.deadline_rules.map((r) => String((r as { key: string }).key))} onDone={() => { setAdding(null); refresh(); }} />
@@ -95,21 +118,93 @@ export function CourtOrders() {
       {(history.data ?? []).length > 0 && (
         <section className="av-card av-stack" aria-labelledby="history-title">
           <h3 id="history-title">{w("deadlines.history")}</h3>
-          <ul className="av-after-list">
-            {history.data!.map((c) => (
-              <li key={c.id} className="av-after-item av-after-item--spread">
-                <strong>{keyName("kind", kindOf(c.deadline))}</strong>
-                {c.old_due_on && <span className="av-after-mono">{w("deadlines.was", { date: longDate(c.old_due_on, locale) })}</span>}
-                <span className="av-after-mono">{w("deadlines.now", { date: longDate(c.new_due_on, locale) })}</span>
-                <span>{keyName("deadlines.reason", c.reason)}</span>
-              </li>
-            ))}
-          </ul>
+          <table className="av-after-table" aria-labelledby="history-title">
+            <thead>
+              <tr>
+                <th scope="col">{w("deadlines.col_deadline")}</th>
+                <th scope="col">{w("deadlines.col_was")}</th>
+                <th scope="col">{w("deadlines.col_now")}</th>
+                <th scope="col">{w("deadlines.col_why")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.data!.map((c) => (
+                <tr key={c.id}>
+                  <td><strong>{keyName("kind", kindOf(c.deadline))}</strong></td>
+                  <td className="av-after-mono">{c.old_due_on ? <del>{shortDate(c.old_due_on, locale)}</del> : "–"}</td>
+                  <td className="av-after-mono">{shortDate(c.new_due_on, locale)}</td>
+                  <td>{keyName("deadlines.reason", c.reason)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
       )}
 
+      <HoldOrWithdraw caseId={caseId} onHold={item.on_hold} onDone={() => { reloadCase(); refresh(); }} />
+
       {moving && <MoveDialog caseId={caseId} deadline={moving} onClose={() => setMoving(null)} onDone={() => { setMoving(null); refresh(); }} />}
     </div>
+  );
+}
+
+const HOLD_ERRORS = { stale: "after_serving.error.stale", invalid: "after_serving.error.invalid" };
+
+function HoldOrWithdraw({ caseId, onHold, onDone }: { caseId: string; onHold: boolean; onDone: () => void }) {
+  const stepUp = useStepUp();
+  const [reason, setReason] = useState("");
+  const [asking, setAsking] = useState(false);
+  const [withdrawn, setWithdrawn] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const path = { params: { path: { case_id: caseId } } };
+  const toggle = async () => {
+    setError(null);
+    try {
+      await unwrap(onHold ? api.POST("/v1/cases/{case_id}/resume", path) : api.POST("/v1/cases/{case_id}/hold", path));
+      onDone();
+    } catch (err) {
+      setError(errorMessage(err, HOLD_ERRORS));
+    }
+  };
+  const withdraw = async () => {
+    setError(null);
+    try {
+      const out = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/withdraw", { ...path, body: { reason } })));
+      if (out) {
+        setAsking(false);
+        setWithdrawn(true);
+        onDone();
+      }
+    } catch (err) {
+      setError(errorMessage(err, HOLD_ERRORS));
+    }
+  };
+  return (
+    <section className="av-card av-stack" aria-labelledby="hold-title">
+      <h3 id="hold-title">{w("hold.title")}</h3>
+      <p>{w("hold.hint")}</p>
+      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {withdrawn && <Notice tone="success"><p>{w("hold.withdrawn")}</p></Notice>}
+      {!withdrawn && (
+        <div className="av-row">
+          <Button variant="secondary" onClick={() => void toggle()}>{onHold ? w("hold.resume") : w("hold.put")}</Button>
+          <Button variant="secondary" onClick={() => setAsking(true)}>{w("hold.withdraw")}</Button>
+        </div>
+      )}
+      {asking && (
+        <Dialog title={w("hold.withdraw")} onClose={() => setAsking(false)}>
+          <form className="av-stack" onSubmit={(e: FormEvent) => { e.preventDefault(); void withdraw(); }}>
+            <h3>{w("hold.withdraw")}</h3>
+            <p>{w("hold.withdraw_hint")}</p>
+            <TextField label={w("hold.reason")} name="reason" value={reason} onChange={(e) => setReason(e.target.value)} />
+            <div className="av-row">
+              <Button type="submit" disabled={!reason.trim()}>{w("hold.confirm")}</Button>
+              <Button variant="secondary" onClick={() => setAsking(false)}>{w("cancel")}</Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </section>
   );
 }
 
@@ -251,16 +346,22 @@ function HearingRow({ caseId, hearing, locale, onDone }: { caseId: string; heari
     }
   };
   const known = ["scheduled", "heard", "vacated", "adjourned"].includes(hearing.status);
+  const [changing, setChanging] = useState(false);
+  const days = Math.round((Date.parse(hearing.ends_on) - Date.parse(hearing.starts_on)) / 86400000) + 1;
+  const where = [hearing.venue, w("hearings.days", { count: days })].filter(Boolean).join(" · ");
   return (
-    <li className="av-after-item av-after-item--spread">
-      <span>
-        <strong className="av-after-mono">{longDate(hearing.starts_on, locale)} – {longDate(hearing.ends_on, locale)}</strong>{" "}
-        <span>{keyName("hearings.type", hearing.type)}</span>{" "}
-        {hearing.venue && <span>{hearing.venue}</span>}{" "}
+    <li className="av-after-item av-after-item--spread" aria-label={keyName("hearings.type", hearing.type)}>
+      <span className="av-stack">
+        <strong className="av-after-mono">{dateRange(hearing.starts_on, hearing.ends_on, locale)}</strong>
+        <span>{keyName("hearings.type", hearing.type)}</span>
+        <span className="av-muted">{where}</span>
+      </span>
+      <span className="av-row">
         <span className="av-badge">{known ? w(`hearings.status.${hearing.status as "scheduled"}`) : hearing.status}</span>
+        {hearing.status === "scheduled" && !changing && <Button variant="secondary" onClick={() => setChanging(true)}>{w("hearings.change")}</Button>}
+        {changing && <Button variant="secondary" onClick={() => void adjourn()}>{w("hearings.adjourn")}</Button>}
       </span>
       {error && <span role="alert">{error}</span>}
-      {hearing.status === "scheduled" && <Button variant="secondary" onClick={() => void adjourn()}>{w("hearings.adjourn")}</Button>}
     </li>
   );
 }

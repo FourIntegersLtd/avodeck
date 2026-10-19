@@ -26,6 +26,7 @@ from app.features.after_serving.common import (
     Setup,
     View,
     conflict,
+    days_left,
     due_at,
     fetch_all,
     fetch_one,
@@ -66,6 +67,9 @@ class DeadlineOut(BaseModel):
     cancelled_at: datetime | None = None
     last_reminded_on: date | None
     version: int
+    days_left: int | None = Field(
+        default=None, description="Court days from today to the due day; negative once missed."
+    )
 
 
 class Deadlines(BaseModel):
@@ -165,7 +169,9 @@ class Hearings(BaseModel):
 
 
 def deadline_out(row: dict[str, Any]) -> DeadlineOut:
-    return DeadlineOut(**row, due_at=due_at(row["due_on"], row["timezone"]))
+    return DeadlineOut(
+        **row, due_at=due_at(row["due_on"], row["timezone"]), days_left=days_left(row["due_on"], row["timezone"])
+    )
 
 
 async def served_on(conn: Any, case_id: uuid.UUID) -> date | None:

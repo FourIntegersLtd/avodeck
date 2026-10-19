@@ -13,12 +13,14 @@ import json
 import uuid
 from datetime import date, datetime
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 from fastapi import Response
 from pydantic import BaseModel, Field
 
 from app.core import audit
 from app.core.contracts.citations import Citation
+from app.core.contracts.profile import named_expert
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.after_serving import docs, supplementary
@@ -155,6 +157,8 @@ class Supplementary(BaseModel):
     sha256: str | None
     prev_version_id: uuid.UUID | None
     locked_at: datetime | None
+    signed_by: str | None = None
+    signed_on: date | None = None
 
 
 class ReportChanges(BaseModel):
@@ -302,15 +306,26 @@ async def latest_supplementary(conn: Any, case_id: uuid.UUID, served: uuid.UUID)
 
 
 @router.get("/cases/{case_id}/report-changes", response_model=ReportChanges)
-async def list_changes(case_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto) -> ReportChanges:
+async def list_changes(case_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto, pack: Pack) -> ReportChanges:
     rows = await fetch_all(
         conn, f"select {_CHANGE} from app.report_changes where case_id = %s order by created_at, id", (case_id,)
     )
     served = await served_version(conn, case_id)
     latest = await latest_supplementary(conn, case_id, served) if served else None
+    signer = await named_expert(conn, case_id) if latest and latest["locked_at"] else None
     return ReportChanges(
         changes=[await change_out(conn, crypto, case_id, r) for r in rows],
-        supplementary=Supplementary(**latest) if latest else None,
+        supplementary=(
+            Supplementary(
+                **latest,
+                signed_by=signer.full_name if signer else None,
+                signed_on=latest["locked_at"].astimezone(ZoneInfo(pack.timezone)).date()
+                if latest["locked_at"]
+                else None,
+            )
+            if latest
+            else None
+        ),
     )
 
 

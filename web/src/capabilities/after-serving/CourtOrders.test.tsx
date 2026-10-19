@@ -84,7 +84,7 @@ test("a hearing is saved with its kind, days and place; hearings and orders alre
   });
   server.use(http.post("/v1/cases/:caseId/hearings", async ({ request }) => (await record(request), json({ id: "h2", type: "other", starts_on: "2027-07-01", ends_on: "2027-07-02", status: "scheduled", venue: "Room 2", direction_id: null, replaced_by_hearing_id: null, changed_at: null, version: 1 }, 201))));
   const { user } = renderAt(url);
-  expect(await screen.findByText("Court 4")).toBeInTheDocument();
+  expect(await screen.findByText("Court 4 · 3 days")).toBeInTheDocument();
   expect(screen.getByText(M["after_serving.hearings.status.scheduled"]!)).toBeInTheDocument();
   expect(screen.getByText("The experts shall discuss.")).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: M["after_serving.hearings.add"]! }));
@@ -101,8 +101,8 @@ test("the history of a moved date shows what it was and what it is now", async (
   serve("launch", { deadlineChanges: { [D1]: [{ id: "c", at: "2027-01-20T10:00:00Z", changed_by: null, old_due_on: "2026-12-26", new_due_on: "2027-01-09", reason: "court_order", source: "direction", source_id: null }] } });
   renderAt(url);
   expect(await screen.findByText(M["after_serving.deadlines.history"]!)).toBeInTheDocument();
-  expect(await screen.findByText("Was 26 December 2026")).toBeInTheDocument();
-  expect(screen.getByText("Now 9 January 2027")).toBeInTheDocument();
+  expect(await screen.findByText("26 Dec")).toBeInTheDocument();
+  expect(screen.getByText("9 Jan")).toBeInTheDocument();
 });
 
 test("S29 opens under the pack's court orders screen", () => {

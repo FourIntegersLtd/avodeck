@@ -24,7 +24,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const { container } = renderAt(url);
     expect(await screen.findByRole("heading", { level: 2, name: M["after_serving.new.title"] })).toBeInTheDocument();
     expect(await screen.findByText("2 new pages")).toBeInTheDocument();
-    expect(screen.getByText("Read 1 of 2")).toBeInTheDocument();
+    expect(screen.getByText("Numbered 1,232 to 1,233 · read 1 of 2")).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
   });

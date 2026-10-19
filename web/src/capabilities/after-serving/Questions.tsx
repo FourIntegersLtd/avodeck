@@ -4,14 +4,14 @@
 // declaration wording come from the pack.
 import { useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { t } from "../../foundation/i18n";
+import { hasMessage, t } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, Dialog, DictationBox, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { capitalise, declarationParts, keyName, longDate, Select, useLocale, useWaiting, versionTag } from "./shared";
+import { capitalise, declarationParts, keyName, longDate, Select, useLocale, useWaiting, versionTag, weekdayDate } from "./shared";
 import { w } from "./words";
 
 type Round = Schemas["RoundOut"];
@@ -43,6 +43,11 @@ export function QuestionsScreen() {
   if (!rounds.data || !questions.data || !deadlines.data) return <div className="av-page"><Loading /></div>;
   const vocab = (pack.vocabulary as Record<string, unknown>).written_questions;
   const classes = pack.written_question_classifications ?? [];
+  const firstOpen = rounds.data.rounds.find((r) => r.status !== "answered");
+  const firstDeadline = firstOpen && deadlines.data.deadlines.find((d) => d.id === firstOpen.deadline_id);
+  const chip = firstOpen && firstDeadline && firstDeadline.days_left != null
+    ? { left: firstDeadline.days_left, due: firstDeadline.due_on, number: firstOpen.number }
+    : null;
   const reloadAll = () => { rounds.reload(); questions.reload(); deadlines.reload(); };
 
   return (
@@ -52,6 +57,32 @@ export function QuestionsScreen() {
       <p>{w("questions.intro")}</p>
       {wait.waiting && <Notice><p>{w("questions.reading")}</p></Notice>}
       {rounds.data.rounds.length === 0 && <Notice><p>{w("questions.none")}</p></Notice>}
+      {chip && (
+        <div className="av-after-chip-row av-row">
+          <div className="av-after-chip">
+            <strong>{Math.abs(chip.left)}</strong>
+            <span>{w(chip.left >= 0 ? "questions.days_left" : "questions.days_over", { count: Math.abs(chip.left) })}</span>
+          </div>
+          <p className="av-after-mono">{w("questions.set_due", { ordinal: ordinal(chip.number), date: weekdayDate(chip.due, locale) })}</p>
+        </div>
+      )}
+      <div className="av-after-split">
+      {questions.data.questions.length > 0 && (
+        <nav className="av-after-nav" aria-label={w("questions.list")}>
+          <ul className="av-after-list">
+            {questions.data.questions.map((q) => (
+              <li key={q.id}>
+                <a href={`#question-${q.number}`} className="av-after-nav__link">
+                  <strong>{w("questions.number", { number: q.number })}</strong>
+                  <span className="av-badge">{keyName("status", q.status)}</span>
+                  <span className="av-muted">{q.text_verbatim.length > 60 ? `${q.text_verbatim.slice(0, 60)}…` : q.text_verbatim}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+      <div className="av-stack">
       {rounds.data.rounds.map((round) => (
         <RoundView
           key={round.id}
@@ -68,8 +99,15 @@ export function QuestionsScreen() {
         />
       ))}
       <AddRound caseId={caseId} document={document} onDone={reloadAll} />
+      </div>
+      </div>
     </div>
   );
+}
+
+function ordinal(number: number): string {
+  const key = `after_serving.ordinal.${number}`;
+  return hasMessage(key) ? t(key) : w("questions.set_n", { number });
 }
 
 function partyWord(pack: Schemas["CasePack"]): string {
@@ -154,13 +192,23 @@ function QuestionCard({ caseId, question, classes, party, onReload }: { caseId: 
       setError(errorMessage(err, ERRORS));
     }
   };
+  const noteKey = classification && hasMessage(`after_serving.classification_note.${classification}`) ? `after_serving.classification_note.${classification}` : null;
+  const tellButton = <Button variant="secondary" onClick={() => void tell()}>{w("questions.tell", { party: party || w("questions.tell_party") })}</Button>;
   const options = classes.includes(classification) || !classification ? classes : [...classes, classification];
 
   return (
-    <li className="av-after-item av-stack">
+    <li className="av-after-item av-stack" id={`question-${question.number}`}>
       <h4>{w("questions.number", { number: question.number })}</h4>
       <p className="av-after-words">{question.text_verbatim}</p>
-      {question.para_ref && <p className="av-muted">{w("questions.about", { para: question.para_ref })}</p>}
+      {question.para_ref && (
+        <p className="av-muted"><strong>{w("questions.about_label")}</strong> <span>{w("questions.about_paras", { para: question.para_ref })}</span></p>
+      )}
+      {noteKey && (
+        <div role="note" aria-label={w("questions.beyond_title", { number: question.number })} className="av-after-flag av-stack">
+          <p>{t(noteKey)}</p>
+          {tellButton}
+        </div>
+      )}
       <Select
         label={w("questions.classification")}
         value={classification}
@@ -176,7 +224,7 @@ function QuestionCard({ caseId, question, classes, party, onReload }: { caseId: 
       {note && <Notice><h5>{w("questions.tell_title")}</h5><p>{t(note.key, note.params as Record<string, string | number>)}</p></Notice>}
       {told && !note && <p className="av-muted">{w("questions.told", { date: longDate(told, locale) })}</p>}
       <div className="av-row">
-        <Button variant="secondary" onClick={() => void tell()}>{w("questions.tell", { party: party || w("questions.tell_party") })}</Button>
+        {!noteKey && tellButton}
         <Button onClick={() => void patch({ answer_text: answer })}>{w("questions.answer_save")}</Button>
       </div>
       {stale && (

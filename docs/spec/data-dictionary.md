@@ -658,6 +658,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | locked_at | When it was signed and frozen; after this nothing in the row can change except serving or withdrawing it |
 | withdrawn_at / withdrawn_reason | If the expert later withdrew it, when and why (it's never deleted) |
 | prev_version_id | The version it follows on from |
+| (shown on a signed supplementary report) | Who signed it is the case's named expert and the day is `locked_at` in the court's time zone; neither is stored separately |
 
 ### report_snapshots
 | Field | In plain words |
@@ -783,6 +784,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | calendar | Counted in calendar days or working days |
 | source | From the pack's default, a court order, or entered by hand |
 | pack_version / done_at | Which pack version worked it out; when it was done |
+| days_left (shown, not stored) | Whole days from today to due_on, counted in the deadline's own time zone; below zero when late |
 | cancelled_at | When it was cancelled because the case was withdrawn (never cleared; no reminder goes out; the deadline can no longer change) |
 
 ### deadline_changes

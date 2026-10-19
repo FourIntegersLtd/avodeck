@@ -99,3 +99,5 @@ Expert meetings and joint statements (I), trial bundles (I), Gmail/Outlook sendi
 
 ## Definition of done
 Root checklist, plus: on staging the synthetic served case receives questions, new records and the other expert's report, and the expert produces a signed supplementary report without the served version changing.
+
+- Design pass: `GET /deadlines` carries `days_left`, counted by the server in the court's time zone. S19 timeline and cards, S20 days-left chip and question list, S21 claims table, S21b was/now cards and summary, and S29 rebuild banner, hearing rows, dates table and hold/withdraw match their boards. S19 also shows the experts' discussion and trial bundle steps (`GET /after-serving/steps`, read-only via the new `core/contracts/trial_steps.py`), and S21b shows 'Signed by {name}, {date}' from `Supplementary.signed_by` / `signed_on`. Nothing skipped.

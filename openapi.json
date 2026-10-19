@@ -65,6 +65,33 @@
         "title": "AdjustIn",
         "type": "object"
       },
+      "AfterServingSteps": {
+        "properties": {
+          "meetings": {
+            "items": {
+              "$ref": "#/components/schemas/MeetingStepOut"
+            },
+            "title": "Meetings",
+            "type": "array"
+          },
+          "pack": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PackStepOut"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "meetings",
+          "pack"
+        ],
+        "title": "AfterServingSteps",
+        "type": "object"
+      },
       "AgendaQueued": {
         "properties": {
           "agenda_version_id": {
@@ -3750,6 +3777,18 @@
           "created_from": {
             "title": "Created From",
             "type": "string"
+          },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Court days from today to the due day; negative once missed.",
+            "title": "Days Left"
           },
           "done_at": {
             "anyOf": [
@@ -7563,6 +7602,48 @@
         "title": "MeetingOut",
         "type": "object"
       },
+      "MeetingStepOut": {
+        "properties": {
+          "discussion_on": {
+            "format": "date",
+            "title": "Discussion On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "sign_by": {
+            "format": "date",
+            "title": "Sign By",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "out_for_signature",
+              "signed",
+              "signed_external"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "discussion_on",
+          "sign_by",
+          "status"
+        ],
+        "title": "MeetingStepOut",
+        "type": "object"
+      },
       "MeetingSummary": {
         "properties": {
           "certificate_sha256": {
@@ -9796,6 +9877,25 @@
           "version"
         ],
         "title": "PackRef",
+        "type": "object"
+      },
+      "PackStepOut": {
+        "properties": {
+          "built_on": {
+            "format": "date",
+            "title": "Built On",
+            "type": "string"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "built_on",
+          "stale"
+        ],
+        "title": "PackStepOut",
         "type": "object"
       },
       "PackageIn": {
@@ -14933,6 +15033,29 @@
             ],
             "title": "Sha256"
           },
+          "signed_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed By"
+          },
+          "signed_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signed On"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -17297,6 +17420,59 @@
         "summary": "Update Case",
         "tags": [
           "cases"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/after-serving/steps": {
+      "get": {
+        "operationId": "steps_v1_cases__case_id__after_serving_steps_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AfterServingSteps"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Steps",
+        "tags": [
+          "after_serving"
         ]
       }
     },
