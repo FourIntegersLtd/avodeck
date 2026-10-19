@@ -40,6 +40,7 @@ const WORDS = {
   "meeting.item.change": "Change",
   "meeting.item.close": "Close",
   "meeting.item.changed_lead": "This differs from your served report.",
+  "meeting.item.changed_was": "Your report said: “{{text}}” (para {{paras}}).",
   "meeting.item.changed_rest": "Add a short note explaining why you've changed.",
   "meeting.col.question": "Agenda question",
   "meeting.col.yours": "Your position",
@@ -130,6 +131,7 @@ const WORDS = {
   "pack.preview.sheet": "Preview · Readiness sheet {{n}} of {{of}}",
   "pack.preview.previous": "Previous sheet",
   "pack.preview.next": "Next sheet",
+  "pack.sheet.footer": "{{case}} · Trial pack · Page {{page}} of {{pages}}",
   "pack.sheet.title": "Question {{number}} · {{text}}",
   "pack.sheet.trial_page": "{{court_bundle}} p.{{page}}",
   "pack.sheet.not_in_bundle": "not yet in the {{court_bundle}}",
@@ -207,6 +209,7 @@ const WORDS = {
   // S25: in the witness box (works with no connection)
   "lookup.title": "In the witness box",
   "lookup.bar_title": "Trial",
+  "lookup.bar_case": "{{case}} · Trial",
   "lookup.read_only": "Read only · works offline",
   "lookup.exit": "Exit",
   "lookup.search": "Type a date, some words, or a page number",
