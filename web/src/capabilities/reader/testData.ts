@@ -43,6 +43,8 @@ export function pageDetail(n: number, over: Partial<Schemas["PageDetail"]> = {})
     source_type: "primary_care_record",
     read: false,
     in_period: true,
+    period_start: null,
+    period_end: null,
     unreadable: false,
     rotation: 0,
     relevance: null,

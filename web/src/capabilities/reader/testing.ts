@@ -30,6 +30,8 @@ export interface ReaderOpts {
   /** The page detail says read although the server holds no read record (to prove a 423 shows nothing). */
   pageSaysRead?: boolean;
   inPeriod?: boolean;
+  /** The case's period of interest, as dates (default: none). */
+  period?: { start: string; end: string };
   facts?: Schemas["FactOut"][];
   queue?: Schemas["UnreadablePage"][];
   /** The page's words (default: `pageWords()`). */
@@ -107,7 +109,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       return json({ fact_id: params.id, flagged: false });
     }),
     http.get(`${c}/pages/:n`, ({ params }) =>
-      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null })),
+      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null })),
     ),
     http.put(`${c}/pages/:n/transcription`, async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;

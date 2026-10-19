@@ -15,6 +15,19 @@ describe.each([
   { name: "launch packs", pack: launchPack },
   { name: "fixture packs", pack: fixturePack },
 ])("Reading, as designed, under the $name", ({ pack }: { pack: Schemas["CasePack"] }) => {
+  test("the banner names the period in question", async () => {
+    mockReader(pack, { period: { start: "2024-02-01", end: "2024-08-31" } });
+    renderAt(PATH);
+    expect(await screen.findByText(/Feb(ruary)? 2024 to Aug(ust)? 2024/)).toBeVisible();
+  });
+
+  test("with no period on the case the banner names none", async () => {
+    mockReader(pack);
+    renderAt(PATH);
+    await screen.findByText(/You're in the period in question/);
+    expect(screen.queryByText(/ to .* 20\d\d/)).not.toBeInTheDocument();
+  });
+
   test("Turn page turns the page a quarter and reads it again", async () => {
     const api = mockReader(pack);
     const { user } = renderAt(PATH);
