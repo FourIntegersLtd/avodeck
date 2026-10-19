@@ -9,7 +9,6 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
-import { Arrow } from "./Arrow";
 import { allowed, FactCard } from "./FactCard";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
@@ -344,8 +343,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       </div>
 
       <footer className="rd-foot">
-        <Button variant="secondary" className="av-button--arrow" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
-          <Arrow back />
+        <Button variant="secondary" arrow="back" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
           {w("read.previous")}
         </Button>
         <div className="rd-progress">
@@ -366,9 +364,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           </Link>
         )}
         {read ? (
-          <Button className="av-button--arrow" disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>
+          <Button arrow disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>
             {w("read.next")}
-            <Arrow />
           </Button>
         ) : (
           <Button disabled={busy} onClick={() => void markRead()}>{w("read.mark_read")}</Button>

@@ -8,8 +8,8 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, ChoicePills, Dialog, IconTile, LoadError, Loading, Notice, TextLink } from "../../foundation/ui";
-import { ArrowIcon, Balance, NoteView, partyWords, TextArea } from "./shared";
+import { Button, Callout, ChoicePills, Dialog, LoadError, Loading, Notice, TextLink } from "../../foundation/ui";
+import { Balance, NoteView, partyWords, TextArea } from "./shared";
 
 type Answer = { answer: "yes" | "no" | null; detail: string };
 
@@ -117,15 +117,16 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
         <p className="av-muted av-setup-lead">{t("setup.conflicts.intro", { count: state.questions.length + (state.coverage_question ? 1 : 0) })}</p>
       </div>
       {state.warnings.map((key) => (
-        <div key={key} role="alert" className="av-setup-warning">
-          <IconTile tone="amber">
+        <Callout
+          key={key}
+          title={t(key)}
+          icon={
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true" focusable="false">
               <circle cx="12" cy="12" r="9" />
               <path d="M12 7v6M12 16.5v.5" />
             </svg>
-          </IconTile>
-          <p>{t(key)}</p>
-        </div>
+          }
+        />
       ))}
       {withdrawn && (
         <Notice tone="success">
@@ -199,9 +200,8 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
           </Button>
         )}
         {!withdrawn && !state.declared_at && (
-          <Button onClick={() => void declare(true)}>
+          <Button arrow onClick={() => void declare(true)}>
             {t("setup.conflicts.confirm")}
-            <ArrowIcon />
           </Button>
         )}
       </div>

@@ -175,12 +175,12 @@ test("a file drop turns into an Added card, and the other two stay as they were"
   const { user } = renderAt("/cases/new");
   await user.type(await screen.findByLabelText("A short name for the case"), "Mrs B");
   const zone = screen.getByText("Letter of instruction").closest(".av-dropzone") as HTMLElement;
-  const card = zone.closest(".av-setup-drop") as HTMLElement;
-  expect(card).not.toHaveClass("av-setup-drop--added");
+  const card = zone;
+  expect(card).not.toHaveClass("av-dropzone--added");
   await user.upload(zone.querySelector("input[type=file]") as HTMLInputElement, new File([new Uint8Array(1000)], "letter.pdf", { type: "application/pdf" }));
-  await waitFor(() => expect(card).toHaveClass("av-setup-drop--added"));
+  await waitFor(() => expect(card).toHaveClass("av-dropzone--added"));
   expect(within(card).getByText("Added")).toBeInTheDocument();
-  expect((screen.getByText("Medical records").closest(".av-setup-drop") as HTMLElement)).not.toHaveClass("av-setup-drop--added");
+  expect(screen.getByText("Medical records").closest(".av-dropzone") as HTMLElement).not.toHaveClass("av-dropzone--added");
 });
 
 test("the patient and the court track are small switches, the side is a row of pills", async () => {

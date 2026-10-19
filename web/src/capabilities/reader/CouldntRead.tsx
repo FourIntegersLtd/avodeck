@@ -5,7 +5,6 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, ChoicePills, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
-import { Arrow } from "./Arrow";
 import { casePath, count, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
 import { uploadLaterRecords } from "./upload";
@@ -222,9 +221,8 @@ export function CouldntRead() {
                 </Button>
               </div>
             )}
-            <Button wide className="av-button--arrow" disabled={busy || !text.trim()} onClick={() => void saveAndNext()}>
+            <Button wide arrow disabled={busy || !text.trim()} onClick={() => void saveAndNext()}>
               {w("unreadable.save_next")}
-              <Arrow />
             </Button>
           </section>
         </div>

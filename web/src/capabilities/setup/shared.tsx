@@ -263,12 +263,3 @@ export function FileButton({ label, accept, onChange, link }: { label: string; a
     </div>
   );
 }
-
-/** The arrow of a call to action that moves on, for a button that does something first. */
-export function ArrowIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  );
-}
