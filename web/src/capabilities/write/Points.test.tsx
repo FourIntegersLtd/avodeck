@@ -6,7 +6,7 @@ import { http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { claim, FACT_2, ok, pointFact, pointOut, pointsBody, Q1, Q2, serve, sides, type PackRun } from "./testing";
+import { claim, FACT_2, ok, pointFact, pointOut, pointsBody, progress, Q1, Q2, serve, sides, type PackRun } from "./testing";
 import { WRITE_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/points`;
@@ -148,4 +148,29 @@ test("each account shows its label (the expert's own over the AI's) and says whe
 
 test("the screens' own words name no court or judge (those come from the packs)", () => {
   expect(Object.values(M).join(" ")).not.toMatch(/\b(court|judge)s?\b/i);
+});
+
+test("a question tab says when its points are done", async () => {
+  serve("launch");
+  renderAt(`${url}?q=${Q2}`);
+  const tabs = await screen.findAllByRole("link", { name: /Question \d/ });
+  expect(within(tabs[0]!).getByText(M["write.points.tab_done"]!)).toBeInTheDocument();
+  expect(within(tabs[1]!).queryByText(M["write.points.tab_done"]!)).not.toBeInTheDocument();
+});
+
+test("the done line shows only once this question's points are settled", async () => {
+  serve("launch");
+  const first = renderAt(`${url}?q=${Q1}`);
+  expect(await screen.findByText("Done for question 1. You can now write your opinion.")).toBeInTheDocument();
+  first.unmount();
+  serve("launch");
+  renderAt(`${url}?q=${Q2}`);
+  await screen.findByRole("region", { name: sides("launch")[0]!.label });
+  expect(screen.queryByText(/^Done for question/)).not.toBeInTheDocument();
+});
+
+test("a relevant fact the draft has not used links to the page as the clinician saw it", async () => {
+  serve("launch", { points: pointsBody("launch", { relevant: [{ id: "d1111111-1111-4111-8111-111111111111", status: "suggested", why_relevant: "Mentions pain", version: 1, fact: pointFact({ id: FACT_2, value: "Out-of-hours call" }) }] }), progress: progress() });
+  renderAt(`${url}?q=${Q1}`);
+  expect(await screen.findByRole("link", { name: M["write.points.relevant_look"]! })).toHaveAttribute("href", `/cases/${CASE_A}/consultation/${FACT_2}`);
 });

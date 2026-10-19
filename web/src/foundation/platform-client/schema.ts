@@ -1105,6 +1105,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Files */
+        get: operations["list_files_v1_cases__case_id__files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/findings": {
         parameters: {
             query?: never;
@@ -1851,7 +1868,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Set Aside Page
+         * @description Set a page aside as a copy of another; the named expert confirms, an assistant only suggests.
+         */
+        put: operations["set_aside_page_v1_cases__case_id__pages__page_id__duplicate_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3187,6 +3208,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/write-progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Write Progress
+         * @description Per answerable question: are its points settled, and is there an opinion; plus the answered count.
+         */
+        get: operations["write_progress_v1_cases__case_id__write_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/written-question-rounds": {
         parameters: {
             query?: never;
@@ -4495,6 +4536,8 @@ export interface components {
             period_start?: string | null;
             /** Specialty */
             specialty: string;
+            /** Stage */
+            stage?: string | null;
             /** Status */
             status: string;
             /** Subject Status */
@@ -4608,6 +4651,28 @@ export interface components {
             specialty: string;
             /** Subject Status */
             subject_status?: string | null;
+        };
+        /** CaseFile */
+        CaseFile: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
+            /** Kind */
+            kind: string;
+            /**
+             * Page Count
+             * @description Pages in the PDF; null when unknown.
+             */
+            page_count: number | null;
+            /**
+             * Size
+             * @description Bytes, as uploaded.
+             */
+            size: number | null;
         };
         /** CaseLink */
         CaseLink: {
@@ -5191,6 +5256,11 @@ export interface components {
             /** Complete */
             complete: boolean;
             coverage: components["schemas"]["Coverage"];
+            /**
+             * Coverage Question
+             * @description The specialty's role-coverage question.
+             */
+            coverage_question?: string | null;
             /** Declared At */
             declared_at: string | null;
             /** Outcome */
@@ -5632,6 +5702,11 @@ export interface components {
              */
             action: "confirm" | "undo";
         };
+        /** DuplicateSetAside */
+        DuplicateSetAside: {
+            /** Copy Of Page No */
+            copy_of_page_no: number;
+        };
         /** Duplicates */
         Duplicates: {
             /** Duplicates */
@@ -5835,6 +5910,11 @@ export interface components {
              * @default false
              */
             needs_recheck: boolean;
+            /**
+             * Related
+             * @description Other suggestions or checked facts on this page for the same day, of another kind.
+             */
+            related?: components["schemas"]["RelatedFact"][];
             /** Status */
             status: string;
             /** Value */
@@ -6572,8 +6652,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Sentence End */
+            sentence_end?: number | null;
             /** Sentence Index */
             sentence_index: number;
+            /** Sentence Start */
+            sentence_start?: number | null;
             /** Source */
             source: string;
             /** Status */
@@ -7603,7 +7687,7 @@ export interface components {
             /** Needs Clearer Copy */
             needs_clearer_copy?: boolean | null;
             /** Relevance */
-            relevance?: ("relevant" | "background") | null;
+            relevance?: ("relevant" | "background" | "nothing") | null;
         };
         /**
          * PageDetail
@@ -7629,6 +7713,10 @@ export interface components {
             page_id: string;
             /** Page No */
             page_no: number;
+            /** Period End */
+            period_end: string | null;
+            /** Period Start */
+            period_start: string | null;
             /** Read */
             read: boolean;
             /** Relevance */
@@ -7882,6 +7970,7 @@ export interface components {
             claims: components["schemas"]["ClaimOut"][];
             /** Points */
             points: components["schemas"]["PointOut"][];
+            question: components["schemas"]["QuestionHeader"];
             range_note: components["schemas"]["RangeNote"];
             /** Relevant */
             relevant: components["schemas"]["RelevantOut"][];
@@ -7995,6 +8084,11 @@ export interface components {
             registration_number: string | null;
             /** Specialties */
             specialties: string[];
+            /**
+             * Version
+             * @description The same number as the ETag; send it back as If-Match.
+             */
+            version: number;
         };
         /**
          * ProfileUpdate
@@ -8071,8 +8165,29 @@ export interface components {
             /** Paragraph Ids */
             paragraph_ids?: string[] | null;
         };
+        /**
+         * QuestionHeader
+         * @description What the boards print about a question: its number, a short title, the kind (with the pack's label key).
+         */
+        QuestionHeader: {
+            /** Kind */
+            kind: string;
+            /** Kind Label Key */
+            kind_label_key: string | null;
+            /** Number */
+            number: number;
+            /** Para Ref */
+            para_ref: string | null;
+            /** Short Title */
+            short_title: string;
+        };
         /** QuestionOut */
         QuestionOut: {
+            /**
+             * Answer Parts
+             * @description Question-part keys still answered when the question is outside expertise.
+             */
+            answer_parts?: string[] | null;
             /** Confirmed Text */
             confirmed_text: string | null;
             /**
@@ -8088,8 +8203,18 @@ export interface components {
             number: number;
             /** Outside Expertise */
             outside_expertise: boolean;
+            /**
+             * Outside Expertise Source
+             * @description Who says the question is outside the expert's expertise.
+             */
+            outside_expertise_source?: ("pack" | "expert") | null;
             /** Para Ref */
             para_ref: string | null;
+            /**
+             * Short Title
+             * @description A label of at most 40 characters for tabs and lists (the model's, else its first clause).
+             */
+            short_title: string;
             /** Source Word Ids */
             source_word_ids: string[];
             /** Status */
@@ -8098,6 +8223,22 @@ export interface components {
             text_verbatim: string;
             /** Version */
             version: number;
+        };
+        /** QuestionProgress */
+        QuestionProgress: {
+            /** Has Opinion */
+            has_opinion: boolean;
+            /** Number */
+            number: number;
+            /** Points Done */
+            points_done: boolean;
+            /**
+             * Question Id
+             * Format: uuid
+             */
+            question_id: string;
+            /** Short Title */
+            short_title: string;
         };
         /**
          * QuestionUpdate
@@ -8175,6 +8316,8 @@ export interface components {
         };
         /** RangeNote */
         RangeNote: {
+            /** Dictated On */
+            dictated_on?: string | null;
             /** Prompt */
             prompt: string;
             /** Text */
@@ -8241,6 +8384,25 @@ export interface components {
         RecoveryCodes: {
             /** Recovery Codes */
             recovery_codes: string[];
+        };
+        /**
+         * RelatedFact
+         * @description Another record found on the same page for the same day (a visit and its prescription).
+         */
+        RelatedFact: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Value */
+            value: string | null;
         };
         /** RelevantChange */
         RelevantChange: {
@@ -8422,6 +8584,11 @@ export interface components {
              * Format: date
              */
             started_on: string;
+            /**
+             * Version
+             * @description The same number as the ETag; send it back as If-Match to change the role.
+             */
+            version: number;
         };
         /** RoleCreate */
         RoleCreate: {
@@ -9248,7 +9415,7 @@ export interface components {
         /** TranscriptionIn */
         TranscriptionIn: {
             /** Relevance */
-            relevance?: ("relevant" | "background") | null;
+            relevance?: ("relevant" | "background" | "nothing") | null;
             /** Text */
             text: string;
         };
@@ -9286,8 +9453,18 @@ export interface components {
             done: boolean;
             /** Handwriting */
             handwriting: boolean | null;
+            /**
+             * Has Clearer Copy
+             * @description A clearer copy has been added for it.
+             */
+            has_clearer_copy: boolean;
             /** Has Transcription */
             has_transcription: boolean;
+            /**
+             * Is Copy
+             * @description Set aside as a copy of another page.
+             */
+            is_copy: boolean;
             /** Needs Clearer Copy */
             needs_clearer_copy: boolean;
             /**
@@ -9485,6 +9662,11 @@ export interface components {
         Wording: {
             /** Key */
             key: string;
+            /**
+             * Points
+             * @description How many numbered points the wording has; null if it has none.
+             */
+            points?: number | null;
             /** Rule Ref */
             rule_ref?: string | null;
             /** Text */
@@ -9504,6 +9686,7 @@ export interface components {
             legal_test: string;
             opinion: components["schemas"]["OpinionOut"] | null;
             points: components["schemas"]["PointsSummary"];
+            question: components["schemas"]["QuestionHeader"];
             /**
              * Question Id
              * Format: uuid
@@ -9531,6 +9714,15 @@ export interface components {
             url: string | null;
             /** Version Label */
             version_label: string;
+        };
+        /** WriteProgress */
+        WriteProgress: {
+            /** Answered */
+            answered: number;
+            /** Questions */
+            questions: components["schemas"]["QuestionProgress"][];
+            /** Total */
+            total: number;
         };
         /** WrittenQuestionOut */
         WrittenQuestionOut: {
@@ -12602,6 +12794,46 @@ export interface operations {
             };
         };
     };
+    list_files_v1_cases__case_id__files_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseFile"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     list_findings_v1_cases__case_id__findings_get: {
         parameters: {
             query?: never;
@@ -14704,6 +14936,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadableQueue"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    set_aside_page_v1_cases__case_id__pages__page_id__duplicate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateSetAside"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatePage"];
                 };
             };
             /** @description Validation Error */
@@ -18443,6 +18720,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Queued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    write_progress_v1_cases__case_id__write_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WriteProgress"];
                 };
             };
             /** @description Validation Error */

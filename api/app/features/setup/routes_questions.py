@@ -13,7 +13,7 @@ instructing parties are drafted for every current one (S4).
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Request, Response
 from psycopg.errors import RaiseException
@@ -26,6 +26,7 @@ from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.setup.common import CODE, invalid, not_found
+from app.features.setup.letter import short_title
 from app.features.setup.notes import NoteDraft, NoteItem, NoteTopic, draft
 from app.features.setup.router import router
 from app.features.setup.routes_case import ViewContent, _pack, conflict
@@ -41,10 +42,19 @@ class QuestionOut(BaseModel):
     number: int
     text_verbatim: str
     confirmed_text: str | None
+    short_title: str = Field(
+        description="A label of at most 40 characters for tabs and lists (the model's, else its first clause)."
+    )
     source_word_ids: list[str]
     para_ref: str | None
     kind: str
     outside_expertise: bool
+    outside_expertise_source: Literal["pack", "expert"] | None = Field(
+        default=None, description="Who says the question is outside the expert's expertise."
+    )
+    answer_parts: list[str] | None = Field(
+        default=None, description="Question-part keys still answered when the question is outside expertise."
+    )
     status: str
     version: int
 
@@ -75,13 +85,19 @@ class Questions(BaseModel):
 
 
 _Q = (
-    "select id, instruction_version_id, number, text_verbatim, confirmed_text, source_word_ids, para_ref, kind,"
-    " outside_expertise, status, version from app.questions"
+    "select id, instruction_version_id, number, text_verbatim, confirmed_text, short_title, source_word_ids, para_ref,"
+    " kind,"
+    " outside_expertise, outside_expertise_source, answer_parts, status, version from app.questions"
 )
 _A = (
     "select id, instruction_version_id, number, text_verbatim, confirmed_text, source_word_ids, para_ref, status,"
     " version from app.assumptions"
 )
+
+
+def _question(row: dict[str, Any]) -> QuestionOut:
+    """A stored question; one read before short titles existed gets its first clause."""
+    return QuestionOut(**{**row, "short_title": short_title(row["text_verbatim"], row["short_title"])})
 
 
 async def _latest(conn: DbConn, case_id: uuid.UUID) -> dict[str, Any] | None:
@@ -113,7 +129,7 @@ async def list_questions(case_id: uuid.UUID, access: ViewContent, conn: DbConn) 
     latest = await _latest(conn, case_id)
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(f"{_Q} where case_id = %s order by number, id", (case_id,))  # noqa: S608
-        questions = [QuestionOut(**r) for r in await cur.fetchall()]
+        questions = [_question(r) for r in await cur.fetchall()]
         await cur.execute(f"{_A} where case_id = %s order by number, id", (case_id,))  # noqa: S608
         assumptions = [AssumptionOut(**r) for r in await cur.fetchall()]
     locked = bool(latest and latest["locked"])
@@ -243,9 +259,14 @@ async def update_question(
         changes["kind"] = body.kind
     if body.outside_expertise is not None:
         changes["outside_expertise"] = body.outside_expertise
+        if row["status"] == "suggested":  # a confirmed question keeps its parts and source (database guard)
+            parts = (await _pack(request, conn, case_id)).outside_expertise_parts()
+            on = body.outside_expertise
+            changes["answer_parts"] = (parts or None) if on else None
+            changes["outside_expertise_source"] = "expert" if on else None
     await _update(conn, "questions", question_id, if_match, changes)
     await audit.record(conn, action="question.changed", target=f"question:{question_id}", case_id=case_id)
-    out = QuestionOut(**await _row(conn, _Q, question_id, case_id))
+    out = _question(await _row(conn, _Q, question_id, case_id))
     response.headers["etag"] = etag(out.version)
     return out
 

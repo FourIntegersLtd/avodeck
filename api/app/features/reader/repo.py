@@ -61,7 +61,7 @@ _PAGE_COLUMNS = """
 """
 
 _DETAIL_COLUMNS = """,
-    p.rotation, p.relevance, p.needs_clearer_copy,
+    p.rotation, p.relevance, p.needs_clearer_copy, c.period_start, c.period_end,
     (select s.bundle_page_no from app.pages s where s.id = p.superseded_by_page_id) as superseded_by_page_no,
     p.handwriting, p.transcribed_by_expert_text is not null as has_transcription,
     (select min(r.at) from app.page_reads r where r.page_id = p.id and r.person_id = %(person)s) as first_read_at
@@ -117,7 +117,24 @@ async def page_facts(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UU
            order by (f.bbox ->> 'y0')::float nulls last, f.created_at, f.id""",  # noqa: S608 (fixed fragment)
         {"case": case_id, "page": page_id, "points": POINTS, "recheck": RECHECK},
     )
-    return [_row(cur, r) for r in await cur.fetchall()]
+    facts = [_row(cur, r) for r in await cur.fetchall()]
+    for f in facts:
+        f["related"] = [
+            {
+                "fact_id": o["id"],
+                "kind": o["kind"],
+                "value": o["value"],
+                "event_date": o["event_date"],
+                "status": o["status"],
+            }
+            for o in facts
+            if o is not f
+            and f["event_date"] is not None
+            and o["event_date"] == f["event_date"]
+            and o["kind"] != f["kind"]
+            and o["status"] != "rejected"
+        ][:3]
+    return facts
 
 
 async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> tuple[int, int, int]:
@@ -320,7 +337,9 @@ async def unreadable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[di
     """The pages the computer couldn't read (not set aside), in page order, with what the expert has done."""
     cur = await conn.execute(
         """select p.bundle_page_no as page_no, p.id as page_id, p.source_type, p.handwriting, p.relevance,
-                  p.transcribed_by_expert_text is not null as has_transcription, p.needs_clearer_copy
+                  p.transcribed_by_expert_text is not null as has_transcription, p.needs_clearer_copy,
+                  p.duplicate_of_page_id is not null as is_copy,
+                  exists (select 1 from app.page_replacements r where r.page_id = p.id) as has_clearer_copy
            from app.pages p where p.case_id = %s and p.unreadable and not p.quarantined
            order by p.bundle_page_no""",
         (case_id,),
@@ -367,6 +386,8 @@ async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> lis
         """select p.case_id, count(*)::int from app.pages p
            where p.case_id = any(%s) and p.unreadable and not p.quarantined
              and p.transcribed_by_expert_text is null and not p.needs_clearer_copy
+             and p.relevance is distinct from 'nothing' and p.duplicate_of_page_id is null
+             and not exists (select 1 from app.page_replacements r where r.page_id = p.id)
            group by p.case_id""",
         (case_ids,),
     )

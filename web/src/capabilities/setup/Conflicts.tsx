@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Dialog, LoadError, Loading, Notice } from "../../foundation/ui";
+import { Button, Dialog, LoadError, Loading, Notice, Spinner, TextLink } from "../../foundation/ui";
 import { Balance, Choice, NoteView, partyWords, TextArea } from "./shared";
 
 type Answer = { answer: "yes" | "no" | null; detail: string };
@@ -39,19 +39,27 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
   const [leaving, setLeaving] = useState(false);
   const [reason, setReason] = useState("");
   const [withdrawn, setWithdrawn] = useState(false);
+  const preparing = useResource(async () => (await unwrap(api.GET("/v1/cases/{case_id}/process", path))).job, [caseId]);
+  const job = preparing.data && ["queued", "running"].includes(preparing.data.status) ? preparing.data : null;
 
   const needsDetail = (q: Schemas["ConflictQuestion"]) => {
     const a = answers[q.key];
     return q.detail_required && a?.answer === "yes" && !a.detail.trim();
   };
-  const save = async () => {
+  const unsaved = state.questions.some((q) => {
+    const a = answers[q.key];
+    return a?.answer !== q.answer || (a?.answer === "yes" && a.detail.trim() !== (q.detail ?? ""));
+  });
+  /** Checks and saves the answers if they changed; false means something needs the expert's attention. */
+  const save = async (): Promise<Schemas["Conflicts"] | null> => {
     setTried(true);
     setError(null);
+    if (!unsaved && state.complete) return state;
     if (state.questions.some((q) => !answers[q.key]?.answer)) {
       setError(t("setup.conflicts.answer_all"));
-      return;
+      return null;
     }
-    if (state.questions.some(needsDetail)) return;
+    if (state.questions.some(needsDetail)) return null;
     const body = {
       answers: state.questions.map((q) => {
         const a = answers[q.key]!;
@@ -60,20 +68,29 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
       }),
     };
     try {
-      setState(await unwrap(api.PUT("/v1/cases/{case_id}/conflicts", { ...path, body })));
+      const saved = await unwrap(api.PUT("/v1/cases/{case_id}/conflicts", { ...path, body }));
+      setState(saved);
+      return saved;
     } catch (err) {
       setError(errorMessage(err, { invalid: "setup.conflicts.invalid" }));
+      return null;
     }
   };
+  /** One action: save what changed, declare it, then move on (or show the note when declaring a change). */
   const declare = async (moveOn: boolean) => {
-    setError(null);
+    const saved = await save();
+    if (!saved) return;
+    if (moveOn && saved.declared_at && !saved.changed_since_declared) {
+      navigate(`/cases/${caseId}/questions`);
+      return;
+    }
     try {
       const done = await unwrap(api.POST("/v1/cases/{case_id}/conflicts/declare", path));
       if (moveOn) {
         navigate(`/cases/${caseId}/questions`);
         return;
       }
-      setState({ ...state, declared_at: done.declared_at, outcome: done.outcome });
+      setState({ ...saved, declared_at: done.declared_at, outcome: done.outcome, changed_since_declared: false });
       setNote(done.note);
     } catch (err) {
       setError(errorMessage(err, { invalid: "setup.conflicts.answer_all" }));
@@ -94,7 +111,8 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
 
   return (
     <div className="av-page av-page--narrow av-stack">
-      <div>
+      <div className="av-stack av-setup-heading">
+        {job && <span className="av-setup-eyebrow">{t("setup.conflicts.eyebrow")}</span>}
         <h2>{t("setup.conflicts.title")}</h2>
         <p className="av-muted">{t("setup.conflicts.intro")}</p>
       </div>
@@ -108,7 +126,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
           <p>{t("setup.withdraw.done")}</p>
         </Notice>
       )}
-      <section aria-labelledby="setup-conflict-questions" className="av-card av-stack">
+      <section aria-labelledby="setup-conflict-questions" className="av-card av-stack av-setup-rows">
         <h3 id="setup-conflict-questions">{t("setup.conflicts.questions")}</h3>
         {state.questions.map((q) => {
           const a = answers[q.key] ?? { answer: null, detail: "" };
@@ -136,16 +154,12 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
             </Choice>
           );
         })}
+        {state.coverage_question && <CoverageRow question={state.coverage_question} status={state.coverage.status} />}
         {error && (
           <Notice tone="error">
             <p>{error}</p>
           </Notice>
         )}
-        <div>
-          <Button variant={state.complete ? "secondary" : "primary"} onClick={() => void save()}>
-            {t("setup.conflicts.save")}
-          </Button>
-        </div>
       </section>
       {state.paragraph && (
         <section aria-labelledby="setup-conflict-paragraph" className="av-card av-stack">
@@ -161,12 +175,18 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
             {t("setup.withdraw.open")}
           </Button>
         )}
-        {state.complete && !withdrawn && state.declared_at && (
+        {job && (
+          <TextLink className="av-setup-preparing" to={`/cases/${caseId}/preparing`}>
+            <Spinner />
+            {job.eta_seconds != null ? t("setup.conflicts.preparing", { count: Math.max(1, Math.ceil(job.eta_seconds / 60)) }) : t("setup.conflicts.preparing_unknown")}
+          </TextLink>
+        )}
+        {!withdrawn && state.declared_at && (
           <Button variant="secondary" onClick={() => void declare(false)}>
             {t("setup.conflicts.declare_change")}
           </Button>
         )}
-        {state.complete && !withdrawn && !state.declared_at && <Button onClick={() => void declare(true)}>{t("setup.conflicts.confirm")}</Button>}
+        {!withdrawn && !state.declared_at && <Button onClick={() => void declare(true)}>{t("setup.conflicts.confirm")}</Button>}
       </div>
       {leaving && (
         <Dialog title={t("setup.withdraw.open")} onClose={() => setLeaving(false)}>
@@ -190,6 +210,20 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
           </form>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+/** The specialty's role-coverage question, answered from the profile rather than asked again. */
+function CoverageRow({ question, status }: { question: string; status: Schemas["Coverage"]["status"] }) {
+  const answer = status === "covered" ? "yes" : status === "partial" ? "partial" : status === "none" ? "no" : "unknown";
+  return (
+    <div role="group" aria-label={question} className="av-setup-row">
+      <span className="av-setup-row__question">
+        {question}
+        <span className="av-muted av-setup-row__source">{t("setup.conflicts.from_profile")}</span>
+      </span>
+      <span className="av-setup-answer">{t(`setup.conflicts.coverage.${answer}`)}</span>
     </div>
   );
 }

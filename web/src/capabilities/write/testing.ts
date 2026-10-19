@@ -42,9 +42,15 @@ export function pointsBody(run: PackRun, over: Partial<Schemas["Points"]> = {}):
     unused: [pointFact({ id: FACT_2, page_id: PAGE_2, page_no: 214, value: "Iron deficiency on file" })],
     relevant: [],
     claims: [],
-    range_note: { prompt: (casePack(run) as unknown as { range_note_prompt: string }).range_note_prompt, text: null, version: 0 },
+    range_note: { prompt: (casePack(run) as unknown as { range_note_prompt: string }).range_note_prompt, text: null, version: 0, dictated_on: null },
+    question: header(run),
     ...over,
   };
+}
+
+export function header(run: PackRun, over: Partial<Schemas["QuestionHeader"]> = {}): Schemas["QuestionHeader"] {
+  const first = casePack(run).question_types[0]!;
+  return { number: 1, short_title: "February bloods", kind: String(first.key), kind_label_key: String(first.label_key), para_ref: null, ...over };
 }
 
 export function claim(over: Partial<Schemas["ClaimOut"]> = {}): Schemas["ClaimOut"] {
@@ -72,18 +78,31 @@ export function workspace(run: PackRun, over: Partial<Schemas["Workspace"]> = {}
     views: views(run),
     legal_test: "The pack's own test of what a reasonable practitioner does.",
     opinion: null,
+    question: header(run),
     ...over,
   };
 }
 
 export function lintIssue(over: Partial<Schemas["LintIssueOut"]> = {}): Schemas["LintIssueOut"] {
-  return { id: "11111111-aaaa-4aaa-8aaa-111111111111", sentence_index: 0, source: "regex", status: "open", type: "uncited_fact", words: "she had a lump", ...over };
+  return { id: "11111111-aaaa-4aaa-8aaa-111111111111", sentence_index: 0, sentence_start: 0, sentence_end: 14, source: "regex", status: "open", type: "uncited_fact", words: "she had a lump", ...over };
+}
+
+export function progress(over: Partial<Schemas["WriteProgress"]> = {}): Schemas["WriteProgress"] {
+  return {
+    answered: 1,
+    total: 2,
+    questions: [
+      { question_id: Q1, number: 1, short_title: "February bloods", points_done: true, has_opinion: true },
+      { question_id: Q2, number: 2, short_title: "15 May visit", points_done: false, has_opinion: false },
+    ],
+    ...over,
+  };
 }
 
 export type Sent = { method: string; path: string; body: unknown; ifMatch: string | null };
 
 /** Signed in under a pack, with two answerable questions and a stub for each slice E endpoint. */
-export function serve(run: PackRun, opts: { points?: Schemas["Points"]; workspace?: Schemas["Workspace"] } = {}) {
+export function serve(run: PackRun, opts: { points?: Schemas["Points"]; workspace?: Schemas["Workspace"]; progress?: Schemas["WriteProgress"] } = {}) {
   inCase(run);
   const sent: Sent[] = [];
   const record = async (request: Request) => {
@@ -96,6 +115,7 @@ export function serve(run: PackRun, opts: { points?: Schemas["Points"]; workspac
       json(questions({ questions: [question({ id: Q1, number: 1, kind, status: "confirmed" }), question({ id: Q2, number: 2, kind, status: "edited", text_verbatim: "Second question." }), question({ id: "a3333333-3333-4333-8333-333333333333", number: 3, status: "suggested" })] })),
     ),
     http.get("/v1/cases/:caseId/questions/:q/points", () => json(opts.points ?? pointsBody(run))),
+    http.get("/v1/cases/:caseId/write-progress", () => json(opts.progress ?? progress())),
     http.get("/v1/cases/:caseId/questions/:q/workspace", () => json(opts.workspace ?? workspace(run))),
   );
   return { sent, record };

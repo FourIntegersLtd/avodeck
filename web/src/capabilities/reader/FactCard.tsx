@@ -1,13 +1,15 @@
 // One suggestion: what we found, its state, and the actions the expert can take on it.
 import { useId, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
-import { Button, StatusBadge } from "../../foundation/ui";
-import { kindLabel } from "./data";
+import { Button, IconTile, StatusBadge } from "../../foundation/ui";
+import { kindLabel, longDate } from "./data";
 import { w } from "./words";
 
 export interface FactCardProps {
   fact: Schemas["FactOut"];
   pack: Schemas["CasePack"];
+  /** Every suggestion on the page, to say whether a related record has been checked. */
+  allFacts?: Schemas["FactOut"][];
   focused: boolean;
   busy: boolean;
   editing: string | null;
@@ -53,6 +55,20 @@ export function FactCard(p: FactCardProps) {
       <h3 id={`${id}-t`} className="rd-value">
         {fact.value}
       </h3>
+      {(fact.related ?? []).map((r) => {
+        const live = p.allFacts?.find((f) => f.id === r.fact_id)?.status ?? r.status;
+        const done = live === "verified" || live === "edited";
+        return (
+          <p key={r.fact_id} className="rd-related">
+            <IconTile tone={done ? "mint" : "amber"}>{done ? "✓" : "•"}</IconTile>
+            <span>
+              {w("read.related", { kind: kindLabel(r.kind), date: longDate(r.event_date) })}
+              <br />
+              {w(done ? "read.related_checked" : "read.related_open", { value: r.value ?? "" })}
+            </span>
+          </p>
+        );
+      })}
       {recheck && <p className="rd-note">{w("fact.recheck")}</p>}
       {fact.flagged && <p className="rd-note">{w("fact.in_points_against")}</p>}
 

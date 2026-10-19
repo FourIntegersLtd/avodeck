@@ -97,7 +97,14 @@ async def list_pages(
 @router.get("/pages/unreadable", response_model=UnreadableQueue)
 async def unreadable_pages(case_id: uuid.UUID, access: View, conn: DbConn) -> UnreadableQueue:
     pages = [
-        UnreadablePage(**r, done=r["has_transcription"] or r["needs_clearer_copy"])
+        UnreadablePage(
+            **r,
+            done=r["has_transcription"]
+            or r["needs_clearer_copy"]
+            or r["relevance"] == "nothing"
+            or r["is_copy"]
+            or r["has_clearer_copy"],
+        )
         for r in await repo.unreadable_pages(conn, case_id)
     ]
     return UnreadableQueue(pages=pages, done=sum(p.done for p in pages), total=len(pages))
@@ -113,6 +120,8 @@ def _detail(r: dict) -> PageDetail:  # type: ignore[type-arg]
         page_no=r["bundle_page_no"],
         page_id=r["id"],
         **_summary(r),
+        period_start=r["period_start"],
+        period_end=r["period_end"],
         rotation=r["rotation"],
         relevance=r["relevance"],
         needs_clearer_copy=r["needs_clearer_copy"],

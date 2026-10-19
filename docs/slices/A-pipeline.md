@@ -14,7 +14,7 @@ After upload, the expert gets a numbered, sorted bundle: every page read by OCR,
 ## Endpoints (architecture 5.2)
 - `POST /v1/cases/{id}/process` → 202 job; `GET /v1/cases/{id}/process` → the latest processing job (screen 07 follows it)
 - `GET /v1/cases/{id}/bundle/summary`
-- `GET /v1/cases/{id}/duplicates`; `PATCH /v1/cases/{id}/pages/{page_id}/duplicate`
+- `GET /v1/cases/{id}/duplicates`; `PUT` and `PATCH /v1/cases/{id}/pages/{page_id}/duplicate`
 - `PATCH /v1/cases/{id}/documents/{doc_id}` (provenance)
 - `PATCH /v1/cases/{id}/missing-items/{item_id}`
 - `POST /v1/cases/{id}/instructing-party-requests/draft`; `POST /v1/cases/{id}/instructing-party-requests` (returns `mailto:` link in MVP)
