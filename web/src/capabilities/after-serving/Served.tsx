@@ -144,7 +144,7 @@ export function ServedScreen() {
           <TextLink to={`/cases/${caseId}/new-material`}>{w("served.new_action")}<ArrowIcon /></TextLink>
         </section>
         <section className="av-after-tile" aria-labelledby="served-changes">
-          <span className="av-after-tile__icon-quiet" aria-hidden="true"><PencilIcon /></span>
+          <IconTile tone="grey"><PencilIcon /></IconTile>
           <h3 id="served-changes">{w("served.changes")}</h3>
           <p>{made > 0 ? w("served.changes_made", { count: made }) : w("served.changes_body")}</p>
           <TextLink to={`/cases/${caseId}/correct-report`}>{w("served.changes_action")}<ArrowIcon /></TextLink>

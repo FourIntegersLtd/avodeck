@@ -61,8 +61,7 @@
 .av-after-tile--next { border: 2px solid var(--green); }
 .av-after-tile h3 { margin: 0; font-size: 20px; }
 .av-after-tile p { margin: 0; color: var(--ink-soft); }
-.av-after-tile .av-icon-tile, .av-after-tile__icon-quiet { width: 48px; height: 48px; border-radius: 14px; }
-.av-after-tile__icon-quiet { display: inline-flex; align-items: center; justify-content: center; background: var(--surface-soft); color: var(--ink-soft); }
+.av-after-tile .av-icon-tile { width: 48px; height: 48px; border-radius: 14px; }
 .av-after-tile .av-text-link { gap: var(--space-2); text-decoration: none; margin-top: auto; }
 .av-after-tile .av-text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
 
