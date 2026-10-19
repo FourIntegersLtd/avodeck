@@ -145,7 +145,7 @@ test("Prepare my bundle sends every answer, starts the bundle and opens the chec
   await user.type(screen.getByLabelText("Their firm or organisation"), "Rees & Co");
   await user.click(within(screen.getByRole("radiogroup", { name: "Which side are you instructed by?" })).getAllByRole("radio")[1]!);
   await user.type(screen.getByLabelText(String(jurisdiction("launch").vocabulary.other_side_prompt)), "Dr P");
-  await user.click(within(screen.getByRole("radiogroup", { name: "The patient is" })).getAllByRole("radio")[1]!);
+  await user.click(within(screen.getByRole("radiogroup", { name: "The patient is" })).getByRole("radio", { name: "Has died" }));
   await user.type(screen.getByLabelText("When is your report due?"), "2026-12-01");
   await user.type(screen.getByLabelText("Were you told anything by phone that isn't in the letter?"), "Look at the May visit.");
   await user.click(screen.getByRole("button", { name: "Prepare my bundle" }));
@@ -164,6 +164,6 @@ test("Save and finish later keeps the case and goes back without starting the bu
   const { user, router } = renderAt("/cases/new");
   await user.type(await screen.findByLabelText("A short name for the case"), "Mrs B");
   await user.click(screen.getByRole("button", { name: "Save and finish later" }));
-  await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
   expect(calls).toEqual(["create"]);
 });

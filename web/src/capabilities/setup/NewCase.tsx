@@ -2,15 +2,15 @@
 // details: the letter, what was found in it (suggestions the expert accepts one at a time; the case changes
 // only when they save), who instructed them, a check for an earlier case about the same person and anything
 // they were told by phone. The server decides everything; this screen shows and sends.
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { Choice, FileButton, packWord, partyWords, Section, Select, uploadFile, withEtag, type Option } from "./shared";
+import { Button, DictationBox, DropZone, LinkButton, LoadError, Loading, Notice, Spinner, TextField, TextLink } from "../../foundation/ui";
+import { Choice, FileButton, packWord, partyWords, Section, Select, TextArea, uploadFile, withEtag, type Option } from "./shared";
 
 const trackLabel = (key: string) => t(`setup.court_track.${key}`, {}, humanise(key));
 
@@ -32,6 +32,31 @@ export function NewCase() {
   return <NewCaseForm {...found.data} />;
 }
 
+const ICONS = {
+  letter: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7l9 6 9-6" />
+    </svg>
+  ),
+  records: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M7 3h8l4 4v13H7z" />
+      <path d="M4 6v15h12" />
+    </svg>
+  ),
+  other: (
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" aria-hidden="true" focusable="false">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  ),
+};
+
+/** The words of a vocabulary map (key -> word), in the pack's order. */
+const wordsOf = (map: unknown): Record<string, string> => (map && typeof map === "object" ? (map as Record<string, string>) : {});
+
+type Added = { letters: string[]; records: number; other: number };
+
 function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination"][]; jurisdictions: Schemas["JurisdictionSummary"][] }) {
   const { me } = useSession();
   const navigate = useNavigate();
@@ -43,46 +68,137 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
   const [side, setSide] = useState<string | null>(null);
   const [track, setTrack] = useState<string | null>(null);
   const [due, setDue] = useState("");
+  const [subject, setSubject] = useState<string | null>(null);
+  const [instructedBy, setInstructedBy] = useState("");
+  const [firm, setFirm] = useState("");
+  const [against, setAgainst] = useState("");
+  const [oral, setOral] = useState("");
+  const [added, setAdded] = useState<Added>({ letters: [], records: 0, other: 0 });
+  const [made, setMade] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const etag = useRef("");
+  const sent = useRef({ instructing: false, party: false });
   const pack = packs[combo];
   const place = jurisdictions.find((j) => j.code === pack?.jurisdiction.code);
-  const words = (place?.vocabulary.party_roles ?? {}) as Record<string, string>;
+  const vocabulary = place?.vocabulary ?? {};
+  const words = wordsOf(vocabulary.party_roles);
+  const partyTypes = wordsOf(vocabulary.instructing_party_types);
+  const statuses = Object.entries(wordsOf(vocabulary.subject_statuses));
+  const sender = Object.values(partyTypes)[0] ?? "";
+  const typeKey = Object.keys(partyTypes)[0] ?? "";
 
-  const start = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!pack) return;
+  const fields = () => ({
+    label: label.trim() || t("setup.new_case.untitled"),
+    party_role: side,
+    court_track: track,
+    due_date: due || null,
+    subject_status: subject,
+  });
+  /** The case, made the first time something needs it and kept up to date after that. */
+  const ensureCase = async (): Promise<string> => {
+    if (made) return made;
+    if (!pack) throw new Error("no pack");
+    const created = await withEtag(
+      api.POST("/v1/cases", {
+        body: { organisation_id: organisation, jurisdiction: pack.jurisdiction.code, case_type: pack.case_type.code, specialty: pack.specialty.code, ...fields() },
+      }),
+    );
+    etag.current = created.etag;
+    setMade(created.data.id);
+    return created.data.id;
+  };
+  const guard = async (work: () => Promise<void>) => {
     setError(null);
     setBusy(true);
     try {
-      const created = await unwrap(
-        api.POST("/v1/cases", {
-          body: {
-            organisation_id: organisation,
-            jurisdiction: pack.jurisdiction.code,
-            case_type: pack.case_type.code,
-            specialty: pack.specialty.code,
-            label: label.trim(),
-            party_role: side,
-            court_track: track,
-            due_date: due || null,
-          },
-        }),
-      );
-      navigate(`/cases/${created.id}/details`);
+      await work();
     } catch (err) {
       setError(errorMessage(err, { invalid: "setup.new_case.invalid", forbidden: "setup.new_case.forbidden" }));
+    } finally {
       setBusy(false);
     }
   };
+  /** Saves every answer to the case; the case is made now if nothing needed it before. */
+  const saveAll = async (): Promise<string> => {
+    const existed = made;
+    const id = await ensureCase();
+    if (existed) {
+      const next = await withEtag(api.PATCH("/v1/cases/{case_id}", { params: { path: { case_id: id } }, body: fields(), headers: ifMatch(etag.current) }));
+      etag.current = next.etag;
+    }
+    const path = { params: { path: { case_id: id } } };
+    if (instructedBy.trim() && firm.trim() && !sent.current.instructing) {
+      await unwrap(api.POST("/v1/cases/{case_id}/instructing-parties", { ...path, body: { type_key: typeKey, name: instructedBy.trim(), firm: firm.trim() } }));
+      sent.current.instructing = true;
+    }
+    if (against.trim() && !sent.current.party) {
+      await unwrap(api.POST("/v1/cases/{case_id}/parties", { ...path, body: { role_key: "other_side", name: against.trim() } }));
+      sent.current.party = true;
+    }
+    if (oral.trim()) {
+      await unwrap(api.PUT("/v1/cases/{case_id}/oral-instructions", { ...path, body: { received_on: new Date().toISOString().slice(0, 10), text: oral.trim() } }));
+    }
+    return id;
+  };
+
+  const drop = (kind: "letter" | "records" | "other") => (files: File[]) =>
+    void guard(async () => {
+      const id = await ensureCase();
+      for (const file of files) {
+        const path = { params: { path: { case_id: id } } };
+        if (kind === "letter") {
+          const document_id = await uploadFile(id, file, "instructions");
+          await unwrap(api.POST("/v1/cases/{case_id}/instructions", { ...path, body: { kind: added.letters.length > 0 ? "supplementary" : "letter", document_id } }));
+          await unwrap(api.POST("/v1/cases/{case_id}/prefill", path));
+          setAdded((a) => ({ ...a, letters: [...a.letters, file.name] }));
+        } else {
+          await uploadFile(id, file, kind);
+          setAdded((a) => ({ ...a, [kind]: a[kind] + 1 }));
+        }
+      }
+    });
+  const apply = (s: Schemas["Suggestion"]) => {
+    if (s.field === "instructing_party_name") setInstructedBy(s.value);
+    else if (s.field === "party_role") setSide(s.value);
+    else if (s.field === "court_track") setTrack(s.value);
+    else if (s.field === "due_date") setDue(s.value);
+  };
+  const prepare = () =>
+    void guard(async () => {
+      const id = await saveAll();
+      await unwrap(api.POST("/v1/cases/{case_id}/process", { params: { path: { case_id: id } } }));
+      navigate(`/cases/${id}/conflicts`);
+    });
+  const later = () =>
+    void guard(async () => {
+      await saveAll();
+      navigate("/");
+    });
 
   return (
-    <div className="av-page av-page--narrow av-stack">
-      <div>
-        <h1>{t("setup.new_case.title")}</h1>
-        <p className="av-muted">{t("setup.new_case.intro")}</p>
+    <div className="av-page av-stack">
+      <div className="av-row av-row--spread">
+        <div>
+          <h1>{t("setup.new_case.title")}</h1>
+          <p className="av-muted">{t("setup.new_case.intro", { sender })}</p>
+        </div>
+        <TextLink to="/">{t("setup.cancel")}</TextLink>
       </div>
-      <form className="av-card av-stack" onSubmit={(e) => void start(e)}>
+      <section aria-label={t("setup.new_case.files")} className="av-setup-drops">
+        <DropZone title={t("setup.new_case.letter")} icon={ICONS.letter} accept="application/pdf,.pdf,.docx" disabled={busy} onFiles={drop("letter")}>
+          {added.letters.length > 0 && <AddedFiles lines={added.letters} />}
+        </DropZone>
+        <DropZone title={t("setup.new_case.records")} hint={t("setup.new_case.records_hint")} icon={ICONS.records} multiple disabled={busy} onFiles={drop("records")}>
+          {added.records > 0 && <AddedFiles lines={[t("setup.new_case.files_count", { count: added.records })]} />}
+        </DropZone>
+        <DropZone title={t("setup.new_case.other")} hint={t("setup.new_case.other_hint")} icon={ICONS.other} multiple disabled={busy} onFiles={drop("other")}>
+          {added.other > 0 && <AddedFiles lines={[t("setup.new_case.files_count", { count: added.other })]} />}
+        </DropZone>
+      </section>
+      {made && <FoundInLetter caseId={made} words={words} types={partyTypes} onUse={apply} />}
+      <section aria-labelledby="setup-few-questions" className="av-card av-stack">
+        <h2 id="setup-few-questions">{t("setup.new_case.few_questions")}</h2>
         {memberships.length > 1 && (
           <Choice
             legend={t("setup.new_case.who_for")}
@@ -103,23 +219,58 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
           />
         )}
         <TextField label={t("setup.case.label")} hint={t("setup.case.label_hint")} name="label" required value={label} onChange={(e) => setLabel(e.target.value)} />
-        {Object.keys(words).length > 0 && <Choice legend={t("setup.case.side")} name="side" value={side} onChange={setSide} options={sideOptions(words)} />}
-        {place && place.court_tracks.length > 0 && (
-          <Choice legend={t("setup.case.track")} name="track" value={track} onChange={setTrack} options={place.court_tracks.map((k) => ({ value: k, label: trackLabel(k) }))} />
-        )}
-        <TextField label={t("setup.case.due")} name="due_date" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
-        {error && (
-          <Notice tone="error">
-            <p>{error}</p>
-          </Notice>
-        )}
-        <div className="av-row av-setup-actions">
-          <Button type="submit" disabled={busy || !label.trim()}>
-            {t("setup.new_case.start")}
-          </Button>
+        <div className="av-setup-pair">
+          <TextField label={t("setup.instructed.title")} name="instructed_by" value={instructedBy} onChange={(e) => setInstructedBy(e.target.value)} />
+          <TextField label={t("setup.new_case.their_firm")} name="firm" value={firm} onChange={(e) => setFirm(e.target.value)} />
         </div>
-      </form>
+        {Object.keys(words).length > 0 && <Choice legend={t("setup.case.side")} name="side" value={side} onChange={setSide} options={sideOptions(words)} />}
+        <div className="av-setup-pair">
+          <TextField label={String(vocabulary.other_side_prompt ?? "")} hint={String(vocabulary.other_side_example ?? "")} name="against" value={against} onChange={(e) => setAgainst(e.target.value)} />
+          {statuses.length > 0 && (
+            <Choice
+              legend={t("setup.new_case.subject_is")}
+              hint={vocabulary.subject_status_hint ? String(vocabulary.subject_status_hint) : undefined}
+              name="subject_status"
+              value={subject}
+              onChange={setSubject}
+              options={statuses.map(([value, word]) => ({ value, label: humanise(word) }))}
+            />
+          )}
+        </div>
+        <div className="av-setup-pair">
+          <TextField label={t("setup.case.due")} name="due_date" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
+          {place && place.court_tracks.length > 0 && (
+            <Choice legend={t("setup.case.track")} name="track" value={track} onChange={setTrack} options={place.court_tracks.map((k) => ({ value: k, label: trackLabel(k) }))} />
+          )}
+        </div>
+        <TextArea label={t("setup.oral.title")} hint={t("setup.oral.intro")} rows={3} value={oral} onChange={(e) => setOral(e.target.value)} />
+      </section>
+      {error && (
+        <Notice tone="error">
+          <p>{error}</p>
+        </Notice>
+      )}
+      <div className="av-row av-row--spread av-setup-footer">
+        <Button variant="quiet" disabled={busy || !label.trim()} onClick={later}>
+          {t("setup.new_case.later")}
+        </Button>
+        <Button disabled={busy || !label.trim()} onClick={prepare}>
+          {t("setup.new_case.prepare")}
+        </Button>
+      </div>
     </div>
+  );
+}
+
+function AddedFiles({ lines }: { lines: string[] }) {
+  return (
+    <ul className="av-setup-plain av-setup-added">
+      {lines.map((line) => (
+        <li key={line}>
+          <strong className="av-setup-confirmed">{t("setup.new_case.added")}</strong> <span>{line}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -323,7 +474,10 @@ function FoundInLetter({
     <Section id="setup-found" title={t("setup.prefill.title")} intro={t("setup.prefill.intro")}>
       {reading && (
         <Notice>
-          <p>{t("setup.letter.reading")}</p>
+          <p className="av-row">
+            <Spinner />
+            {t("setup.letter.reading")}
+          </p>
         </Notice>
       )}
       <ul className="av-rows av-setup-plain">

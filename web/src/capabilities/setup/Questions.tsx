@@ -304,7 +304,7 @@ function KindPill({ kind, pack }: { kind: string | null | undefined; pack?: Sche
 
 /** Why a question may be outside the expert's field, and the parts the pack says the expert still answers. */
 function OutsideExpertise({ question, pack, locked, onAnswer }: { question: QuestionItem; pack?: Schemas["CasePack"]; locked: boolean; onAnswer: () => void }) {
-  const type = pack?.question_types.find((q) => q.key === question.kind);
+  const type = (pack?.question_types as { key: string; parts?: { key: string; label_key?: string }[] }[] | undefined)?.find((q) => q.key === question.kind);
   const parts = (question.answer_parts ?? [])
     .map((key) => {
       const part = type?.parts?.find((p) => p.key === key);
