@@ -7,7 +7,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server } from "../../test/api";
 import { axeViolations, renderAt } from "../../test/render";
 import { findCopy, memoryStore, setCopyStore, unlockCopy } from "./offline";
-import { blobReply, CASE, COPY, copyOut, etagged, launchWords, packOut, PIN, sealed, servePack, settingsOut, term, type PackRun } from "./testing";
+import { blobReply, CASE, COPY, copyOut, etagged, launchWords, packOut, PIN, previewOut, sealed, servePack, settingsOut, term, type PackRun } from "./testing";
 import { TRIAL_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE}/trial-pack`;
@@ -112,6 +112,57 @@ test("checking a new note says which sentences come from what was served", async
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/trial-pack/check-new`, body: { text: "The plan was recorded. Zz the patient moved abroad." } }));
   expect(await screen.findByText(fill(k("pack.check.from_report"), { para: 2 }))).toBeInTheDocument();
   expect(screen.getByText(k("pack.check.not_served"))).toBeInTheDocument();
+});
+
+test("the pack says when it was built", async () => {
+  servePack("launch");
+  renderAt(url);
+  expect(await screen.findByText(fill(k("pack.built"), { date: "3 June 2027" }))).toBeInTheDocument();
+});
+
+test("a reply is written under a question's sheet and saved with the question number", async () => {
+  const { sent, record } = servePack("launch");
+  server.use(http.put("/v1/cases/:caseId/readiness-replies/:n", async ({ request }) => (await record(request), json({ question_no: 1, reply: "Zz my reply.", replied_at: "2027-06-04T10:00:00Z" }))));
+  const { user } = renderAt(url);
+  const preview = await screen.findByRole("region", { name: k("pack.preview.heading") });
+  await user.type(within(preview).getByLabelText(k("pack.sheet.my_reply")), "Zz my reply.");
+  await user.click(within(preview).getByRole("button", { name: k("pack.sheet.reply_save") }));
+  await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "PUT", path: `/v1/cases/${CASE}/readiness-replies/1`, body: { reply: "Zz my reply." } }));
+  expect(await within(preview).findByText(fill(k("pack.sheet.replied"), { date: "4 June 2027" }))).toBeInTheDocument();
+});
+
+test("a reply already written is shown in the sheet with its date", async () => {
+  const base = previewOut();
+  servePack("launch", { preview: { ...base, sheets: [{ ...base.sheets[0]!, reply: "Zz kept reply.", replied_at: "2027-06-01T08:00:00Z" }, ...base.sheets.slice(1)] } });
+  renderAt(url);
+  const preview = await screen.findByRole("region", { name: k("pack.preview.heading") });
+  expect(within(preview).getByLabelText(k("pack.sheet.my_reply"))).toHaveValue("Zz kept reply.");
+  expect(within(preview).getByText(fill(k("pack.sheet.replied"), { date: "1 June 2027" }))).toBeInTheDocument();
+});
+
+test("a sentence found in nothing served can be told to the instructing party or left out, and the choice is kept", async () => {
+  const { sent, record } = servePack("launch");
+  const NOTE_ID = "a9777777-7777-4777-8777-777777777777";
+  const reply: Schemas["NoteChecked"] = {
+    sentences: [
+      { index: 0, text: "The plan was recorded.", sourced: true, source: { kind: "report", para_no: 2 }, reason: "same_words" },
+      { index: 1, text: "Zz the patient moved abroad.", sourced: false, source: null, reason: "not_found", note_id: NOTE_ID, choice: null },
+      { index: 2, text: "Zz and left.", sourced: false, source: null, reason: "not_found", note_id: "a9777777-7777-4777-8777-777777777778", choice: "leave_out" },
+    ],
+  };
+  server.use(
+    http.post("/v1/cases/:caseId/trial-pack/check-new", () => json(reply)),
+    http.put("/v1/cases/:caseId/trial-pack/notes/:id", async ({ request }) => (await record(request), json({ id: NOTE_ID, text: "Zz the patient moved abroad.", choice: "tell", decided_at: "2027-06-04T10:00:00Z" }))),
+  );
+  const { user } = renderAt(url);
+  await user.type(await screen.findByLabelText(k("pack.check.label")), "Zz the patient moved abroad.");
+  await user.click(screen.getByRole("button", { name: k("pack.check.run") }));
+  expect(await screen.findByText(k("pack.check.left_out"))).toBeInTheDocument();
+  expect(screen.getAllByRole("button", { name: k("pack.check.leave_out") })).toHaveLength(1);
+  await user.click(screen.getByRole("button", { name: /^Tell / }));
+  await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "PUT", path: `/v1/cases/${CASE}/trial-pack/notes/${NOTE_ID}`, body: { choice: "tell" } }));
+  expect(await screen.findByText(k("pack.check.told"))).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: k("pack.check.leave_out") })).not.toBeInTheDocument();
 });
 
 test("a copy for the witness box is made, put on this device sealed, and can be opened there", async () => {

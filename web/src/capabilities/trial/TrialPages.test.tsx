@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { http, json, server } from "../../test/api";
 import { axeViolations, renderAt } from "../../test/render";
-import { BUNDLE, blobReply, CASE, concordanceOut, launchWords, pdf, ROWS, rows, serveConcordance, term, type PackRun } from "./testing";
+import { BUNDLE, blobReply, bundleOut, CASE, concordanceOut, launchWords, pdf, ROWS, rows, serveConcordance, term, type PackRun } from "./testing";
 import { TRIAL_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE}/trial-pages`;
@@ -72,6 +72,13 @@ test("telling the instructing party lists the missing pages to send", async () =
   await user.click(await screen.findByRole("button", { name: /^Tell / }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/concordance/tell-instructing-party` }));
   expect(await screen.findByText(k("pages.told"))).toBeInTheDocument();
+});
+
+test("pages already told about stay told after a reload, with no button to tell again", async () => {
+  serveConcordance("launch", concordanceOut({ bundle: bundleOut({ missing_told_at: "2027-06-03T09:00:00Z" }) }));
+  renderAt(url);
+  expect(await screen.findByText(k("pages.told"))).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /^Tell / })).not.toBeInTheDocument();
 });
 
 test("the table downloads as a spreadsheet behind the code", async () => {
