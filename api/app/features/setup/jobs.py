@@ -136,6 +136,7 @@ async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, 
     questions, rejected_q = checked_items(letter, out["questions"])
     assumptions, rejected_a = checked_items(letter, out["assumptions"])
     outside = set(pack.outside_expertise_question_types())
+    outside_parts = pack.outside_expertise_parts() or None
 
     async def save(conn: AsyncConnection) -> None:
         cur = await conn.execute(
@@ -170,7 +171,8 @@ async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, 
             kind = str(item["kind"])
             await conn.execute(
                 "insert into app.questions (case_id, instruction_version_id, number, text_verbatim, source_word_ids,"
-                " para_ref, kind, outside_expertise) values (%s, %s, %s, %s, %s, %s, %s, %s)",
+                " para_ref, kind, outside_expertise, answer_parts, outside_expertise_source)"
+                " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     ctx.case_id,
                     version_id,
@@ -180,6 +182,8 @@ async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, 
                     letter.para_ref(found.start),
                     kind,
                     kind in outside,
+                    outside_parts if kind in outside else None,
+                    "pack" if kind in outside else None,
                 ),
             )
             number += 1

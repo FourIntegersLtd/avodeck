@@ -13,7 +13,7 @@ instructing parties are drafted for every current one (S4).
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Request, Response
 from psycopg.errors import RaiseException
@@ -45,6 +45,12 @@ class QuestionOut(BaseModel):
     para_ref: str | None
     kind: str
     outside_expertise: bool
+    outside_expertise_source: Literal["pack", "expert"] | None = Field(
+        default=None, description="Who says the question is outside the expert's expertise."
+    )
+    answer_parts: list[str] | None = Field(
+        default=None, description="Question-part keys still answered when the question is outside expertise."
+    )
     status: str
     version: int
 
@@ -76,7 +82,7 @@ class Questions(BaseModel):
 
 _Q = (
     "select id, instruction_version_id, number, text_verbatim, confirmed_text, source_word_ids, para_ref, kind,"
-    " outside_expertise, status, version from app.questions"
+    " outside_expertise, outside_expertise_source, answer_parts, status, version from app.questions"
 )
 _A = (
     "select id, instruction_version_id, number, text_verbatim, confirmed_text, source_word_ids, para_ref, status,"
@@ -243,6 +249,11 @@ async def update_question(
         changes["kind"] = body.kind
     if body.outside_expertise is not None:
         changes["outside_expertise"] = body.outside_expertise
+        if row["status"] == "suggested":  # a confirmed question keeps its parts and source (database guard)
+            parts = (await _pack(request, conn, case_id)).outside_expertise_parts()
+            on = body.outside_expertise
+            changes["answer_parts"] = (parts or None) if on else None
+            changes["outside_expertise_source"] = "expert" if on else None
     await _update(conn, "questions", question_id, if_match, changes)
     await audit.record(conn, action="question.changed", target=f"question:{question_id}", case_id=case_id)
     out = QuestionOut(**await _row(conn, _Q, question_id, case_id))
