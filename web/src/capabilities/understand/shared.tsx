@@ -25,6 +25,10 @@ export const statusOf = (status: string): Status => (status === "verified" || st
 /** The pack names fact kinds by key; with no words for one we show the key in plain letters. */
 export const kindWord = (kind: string) => humanise(kind);
 
+/** "2024-05-15" -> "15 May" (the year is left out; the screens that use it sit inside one record). */
+export const shortDay = (iso: string | null | undefined): string => (iso ? SHORT_DAY.format(new Date(`${iso}T00:00:00Z`)) : w("common.no_date"));
+const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+
 export const pageLabel = (page: number) => w("common.page", { page });
 
 export function TextArea({ label, hint, ...box }: { label: string; hint?: string } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id">) {

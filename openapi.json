@@ -912,6 +912,34 @@
         "title": "BillingProfileOut",
         "type": "object"
       },
+      "Box": {
+        "properties": {
+          "x0": {
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "title": "Box",
+        "type": "object"
+      },
       "BuildQueued": {
         "properties": {
           "job_id": {
@@ -1514,6 +1542,17 @@
             "title": "Gentle",
             "type": "boolean"
           },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -1532,6 +1571,17 @@
           "rule": {
             "title": "Rule",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "window_days": {
             "anyOf": [
@@ -3498,6 +3548,14 @@
             "title": "On",
             "type": "string"
           },
+          "page_marks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PageMark"
+            },
+            "title": "Page Marks",
+            "type": "array"
+          },
           "question_numbers": {
             "default": [],
             "items": {
@@ -3505,6 +3563,17 @@
             },
             "title": "Question Numbers",
             "type": "array"
+          },
+          "seen_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen Title"
           },
           "title": {
             "title": "Title",
@@ -3516,6 +3585,17 @@
             },
             "title": "Unknown",
             "type": "array"
+          },
+          "unseen_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unseen Title"
           },
           "visible": {
             "items": {
@@ -4701,6 +4781,17 @@
       },
       "Entry": {
         "properties": {
+          "author_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Line"
+          },
           "available_at": {
             "anyOf": [
               {
@@ -5474,6 +5565,17 @@
             "title": "Gentle",
             "type": "boolean"
           },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -5502,6 +5604,17 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "version": {
             "title": "Version",
@@ -7218,6 +7331,17 @@
             "title": "Events",
             "type": "array"
           },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -7225,6 +7349,17 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
           }
         },
         "required": [
@@ -10724,6 +10859,34 @@
           "next_cursor"
         ],
         "title": "PageList",
+        "type": "object"
+      },
+      "PageMark": {
+        "description": "Where an entry sits on the visit's page (a share of the page, 0 to 1): the visit, or a later entry to blur.",
+        "properties": {
+          "box": {
+            "$ref": "#/components/schemas/Box"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "entry",
+              "later"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "role",
+          "box"
+        ],
+        "title": "PageMark",
         "type": "object"
       },
       "PageReplacement": {

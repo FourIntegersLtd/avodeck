@@ -1,5 +1,6 @@
 checks:
   - key: zz_measurement_unanswered
+    icon: flask
     rule: no_action_within
     applies_to: measurement
     flag: {field: unit, any_of: [zz_high, zz_low]}
@@ -7,6 +8,7 @@ checks:
     action_kinds: [session]
     label_spans: true
   - key: zz_session_length_recorded
+    icon: visit
     rule: field_missing
     applies_to: session
     field: duration_minutes
