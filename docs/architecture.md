@@ -355,7 +355,7 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | `hearings` | Trials and other hearings, with adjournments kept as history. | case_id, type, starts_on, ends_on, venue, status, replaced_by_hearing_id |
 | `written_question_rounds` | Each batch of written questions from a party, with its deadline. | case_id, from_party_id, received_on, deadline_id |
 | `written_questions` | Each written question and the expert's answer. | case_id, round_id, rule_ref, number, text_verbatim, word_ids[], classification, paragraph_ids[], answer_text, status |
-| `opposing_reports` | Each other side's expert report registered for checking, with when it was checked and the positions compared. | case_id, document_id, received_on, job_id, checked_at, claims_found, positions |
+| `opposing_reports` | Each other side's expert report registered for checking, with when it was checked and the positions compared. | case_id, document_id, received_on, expert_name, expert_role, job_id, checked_at, claims_found, positions |
 | `opposing_claims` | Statements in the other side's expert report checked against the pages they cite. | case_id, document_id, text_verbatim, word_ids[], cited_page_ref, cited_value, status, evidence_word_ids[], expert_confirmed |
 | `report_changes` | Corrections or changes of opinion after serving, which become a supplementary report. | case_id, kind, paragraph_id, old_text, new_text, reason, dependent_paragraph_ids[], supplementary_version_id |
 | `expert_meetings` | A meeting of experts and the document they sign (e.g. joint statement). | case_id, type, discussion_on, sign_by, send_by, status, signed_document_id, signed_hash |
@@ -731,7 +731,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | PUT | `/cases/{case_id}/readiness-replies/{question_no}` | The expert's reply to a readiness question |
 | PUT | `/cases/{case_id}/trial-pack/settings` | Sections to include |
 | GET | `/cases/{case_id}/trial-pack/settings` | Sections chosen so far |
-| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question) |
+| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question, each with its page in the printed pack), with the case label for the sheet footer |
 | POST | `/cases/{case_id}/trial-pack` | Build large-print PDF (202 + job) |
 | GET | `/cases/{case_id}/trial-pack/latest` | Preview pages |
 | GET | `/cases/{case_id}/trial-pack/latest/download` | PDF streamed by the API (🔒 export) |

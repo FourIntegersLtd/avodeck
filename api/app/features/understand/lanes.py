@@ -45,3 +45,12 @@ def arrange[T](
         key = lane_for(kind(fact), fields(fact), lanes)
         (keyed[key] if key is not None else unplaced).append(fact)
     return list(keyed.items()), unplaced
+
+
+def subtitle(vocabulary: Mapping[str, Any], key: str, count: int) -> str | None:
+    """The pack's line under a lane's name ("4 visits and calls"): its singular form for one entry, else its plural."""
+    if count == 0:
+        return None
+    words = vocabulary.get("lane_subtitle_one" if count == 1 else "lane_subtitle_other")
+    template = words.get(key) if isinstance(words, Mapping) else None
+    return template.replace("{count}", str(count)) if isinstance(template, str) else None

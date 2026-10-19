@@ -19,6 +19,10 @@
             "type": "string",
             "minLength": 1
           },
+          "phrase": {
+            "type": "string",
+            "minLength": 1
+          },
           "days": {
             "type": "integer",
             "minimum": 1

@@ -156,6 +156,12 @@ async def page_numbers(conn: AsyncConnection, page_ids: list[uuid.UUID]) -> dict
     return {pid: int(no) for pid, no in await cur.fetchall() if no is not None}
 
 
+async def page_sources(conn: AsyncConnection, page_ids: list[uuid.UUID]) -> dict[uuid.UUID, str]:
+    """The record source type slice A gave each page (a key of the pack's `source_types`), where it has one."""
+    cur = await conn.execute("select id, source_type from app.pages where id = any(%s)", (page_ids,))
+    return {pid: str(kind) for pid, kind in await cur.fetchall() if kind}
+
+
 # --- what the expert prepares for the day ---------------------------------------------------------------------
 
 

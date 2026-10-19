@@ -112,6 +112,9 @@ class WrittenQuestionOut(BaseModel):
     answer_text: str | None
     citation_refs: list[Citation]
     told_instructing_party_at: datetime | None
+    page_nos: list[int] = Field(
+        default_factory=list, description="Numbers of the pages the linked paragraphs cite, in order, once each."
+    )
     version: int
 
 
@@ -222,10 +225,25 @@ async def import_questions(case_id: uuid.UUID, body: ImportIn, access: Upload, c
 # --- questions ------------------------------------------------------------------------------------------
 
 
+async def _pages_cited(conn: Any, case_id: uuid.UUID, paragraph_ids: list[uuid.UUID]) -> list[int]:
+    """Bundle page numbers of the facts the linked report paragraphs cite (numbers only, no page content)."""
+    if not paragraph_ids:
+        return []
+    rows = await fetch_all(
+        conn,
+        "select distinct p.bundle_page_no from app.citations c join app.pages p on p.id = c.page_id"
+        " where c.case_id = %s and c.paragraph_id = any(%s) and p.bundle_page_no is not null"
+        " order by p.bundle_page_no",
+        (case_id, paragraph_ids),
+    )
+    return [int(r["bundle_page_no"]) for r in rows]
+
+
 async def question_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, Any]) -> WrittenQuestionOut:
     values = dict(row)
     values["text_verbatim"] = await unseal(conn, crypto, case_id, row["text_verbatim"], QUESTION) or ""
     values["answer_text"] = await unseal(conn, crypto, case_id, row["answer_text"], ANSWER)
+    values["page_nos"] = await _pages_cited(conn, case_id, row["paragraph_ids"] or [])
     return WrittenQuestionOut(**values)
 
 

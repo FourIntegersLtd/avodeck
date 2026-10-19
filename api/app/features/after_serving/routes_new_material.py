@@ -14,7 +14,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 
 from fastapi import Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.core import audit
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -111,6 +111,8 @@ async def check_new_pages(case_id: uuid.UUID, access: Upload, conn: DbConn) -> Q
 class NewOpposingReport(BaseModel):
     document_id: uuid.UUID
     received_on: date
+    expert_name: str | None = Field(default=None, max_length=200)
+    expert_role: str | None = Field(default=None, max_length=200)
 
 
 class OpposingQueued(BaseModel):
@@ -149,6 +151,7 @@ class TheirParagraph(BaseModel):
 
 class Position(BaseModel):
     question_id: uuid.UUID
+    question_no: int | None = None
     own: list[OwnParagraph]
     theirs: list[TheirParagraph]
 
@@ -157,6 +160,9 @@ class OpposingReport(BaseModel):
     id: uuid.UUID
     document_id: uuid.UUID
     received_on: date
+    expert_name: str | None = None
+    expert_role: str | None = None
+    pages: int | None = None
     checked_at: datetime | None
     claims_found: int | None
     claims: list[OpposingClaimOut]
@@ -182,9 +188,9 @@ async def register_opposing_report(
     job_id = await registry.enqueue(conn, case_id, "verify_opposing")
     row = await fetch_one(
         conn,
-        "insert into app.opposing_reports (case_id, document_id, received_on, job_id, created_by)"
-        " values (%s, %s, %s, %s, app.current_person_id()) returning id",
-        (case_id, body.document_id, body.received_on, job_id),
+        "insert into app.opposing_reports (case_id, document_id, received_on, job_id, created_by, expert_name,"
+        " expert_role) values (%s, %s, %s, %s, app.current_person_id(), %s, %s) returning id",
+        (case_id, body.document_id, body.received_on, job_id, body.expert_name, body.expert_role),
     )
     assert row is not None
     return OpposingQueued(id=row["id"], job_id=job_id)
@@ -261,11 +267,16 @@ async def _positions(
     for c in claims:
         if c.paragraph_ref is not None:
             theirs.setdefault(c.paragraph_ref, c.text_verbatim)
+    numbers = {
+        r["id"]: int(r["number"])
+        for r in await fetch_all(conn, "select id, number from app.questions where case_id = %s", (case_id,))
+    }
     out = []
     for p in stored or []:
         out.append(
             Position(
                 question_id=p["question_id"],
+                question_no=numbers.get(uuid.UUID(str(p["question_id"]))),
                 own=[
                     OwnParagraph(paragraph_id=own[pid].id, para_no=own[pid].para_no, text=own[pid].text)
                     for pid in (uuid.UUID(str(x)) for x in p.get("own_paragraph_ids", []))
@@ -287,8 +298,9 @@ async def opposing_report(
 ) -> OpposingReport:
     report = await fetch_one(
         conn,
-        "select id, document_id, received_on, checked_at, claims_found, positions from app.opposing_reports"
-        " where case_id = %s and document_id = %s",
+        "select r.id, r.document_id, r.received_on, r.expert_name, r.expert_role, d.pages, r.checked_at,"
+        " r.claims_found, r.positions from app.opposing_reports r join app.documents d on d.id = r.document_id"
+        " where r.case_id = %s and r.document_id = %s",
         (case_id, document_id),
     )
     if report is None:
@@ -303,6 +315,9 @@ async def opposing_report(
         id=report["id"],
         document_id=report["document_id"],
         received_on=report["received_on"],
+        expert_name=report["expert_name"],
+        expert_role=report["expert_role"],
+        pages=report["pages"],
         checked_at=report["checked_at"],
         claims_found=report["claims_found"],
         claims=claims,

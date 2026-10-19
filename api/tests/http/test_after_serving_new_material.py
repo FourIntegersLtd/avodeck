@@ -405,3 +405,40 @@ async def test_a_claims_check_stays_hidden_until_the_viewer_has_read_its_page(
     assert shown[3]["status"] == "matches" and shown[3]["our_quote"] == "Ferritin 9 ug/L"
     other = await (await client_for(served.assistant)).get(served.url(f"opposing-reports/{document}"))
     assert {c["claim_no"]: c for c in other.json()["claims"]}[3]["status"] == "read_first", "each viewer reads"
+
+
+async def test_the_other_experts_name_role_and_page_count_come_with_their_report(
+    client_for: ClientFor,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    model.answers.update({"T-21b": t21b, "T-21c": t21c, "T-21d": t21d_for(served)})
+    document = await store_document(storage, admin, aconn, served.case, THEIR_REPORT, "opposing_report")
+    admin.execute("update app.documents set pages = 34 where id = %s", (document,))
+    client = await client_for(served.expert)
+    body = {"document_id": str(document), "received_on": "2026-04-02", "expert_name": "Dr R", "expert_role": "Expert"}
+    too_long = await client.post(served.url("opposing-reports"), json={**body, "expert_name": "x" * 201})
+    assert too_long.status_code == 422
+    queued = await client.post(served.url("opposing-reports"), json=body)
+    assert queued.status_code == 202, queued.text
+    await run_job(worker_db, served, queued, "verify_opposing")
+    report = (await client.get(served.url(f"opposing-reports/{document}"))).json()
+    assert (report["expert_name"], report["expert_role"], report["pages"]) == ("Dr R", "Expert", 34)
+    assert [p["question_no"] for p in report["positions"]] == [1], "the differ row names its question's number"
+
+
+async def test_a_report_registered_without_a_name_has_none(
+    client_for: ClientFor,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    _, report = await checked_report(client_for, storage, admin, aconn, worker_db, model, served)
+    assert (report["expert_name"], report["expert_role"], report["pages"]) == (None, None, None)

@@ -37,6 +37,8 @@ function Pack({ frame }: { frame: Frame }) {
   const preview = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/preview", { params: { path } })).catch(() => null), [frame.caseId]);
   const latest = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/latest", { params: { path } })), [frame.caseId]);
   const sheets = preview.data?.sheets ?? [];
+  const caseLabel = preview.data?.case_label;
+  const totalPages = preview.data?.total_pages ?? 0;
   const made = latest.data?.pack;
   return (
     <TrialPage width="s24">
@@ -51,7 +53,7 @@ function Pack({ frame }: { frame: Frame }) {
         latest={latest}
         pages={preview.data?.sections ?? []}
         onChanged={preview.reload}
-        preview={sheets.length > 0 ? <Preview frame={frame} sheets={sheets} bundleName={vocab(frame.pack, "court_bundle")} /> : null}
+        preview={sheets.length > 0 ? <Preview frame={frame} sheets={sheets} bundleName={vocab(frame.pack, "court_bundle")} caseLabel={caseLabel} totalPages={totalPages} /> : null}
       />
     </TrialPage>
   );
@@ -64,7 +66,7 @@ const PRINTER = (
   </svg>
 );
 
-function Preview({ frame, sheets, bundleName }: { frame: Frame; sheets: Schemas["SheetOut"][]; bundleName: string }) {
+function Preview({ frame, sheets, bundleName, caseLabel, totalPages }: { frame: Frame; sheets: Schemas["SheetOut"][]; bundleName: string; caseLabel: string | null | undefined; totalPages: number }) {
   const id = useId();
   const [at, setAt] = useState(0);
   const sheet = sheets[Math.min(at, sheets.length - 1)]!;
@@ -78,13 +80,13 @@ function Preview({ frame, sheets, bundleName }: { frame: Frame; sheets: Schemas[
           <Button variant="secondary" className="av-trial-arrowbtn" aria-label={w("pack.preview.next")} onClick={() => setAt(at + 1)} disabled={at >= sheets.length - 1}>›</Button>
         </div>
       </div>
-      <Sheet key={sheet.number} frame={frame} sheet={sheet} bundleName={bundleName} />
+      <Sheet key={sheet.number} frame={frame} sheet={sheet} bundleName={bundleName} caseLabel={caseLabel} totalPages={totalPages} />
     </section>
   );
 }
 
 /** One readiness sheet as the court sees it: the question, my answer, what I may be asked and my reply. */
-function Sheet({ frame, sheet, bundleName }: { frame: Frame; sheet: Schemas["SheetOut"]; bundleName: string }) {
+function Sheet({ frame, sheet, bundleName, caseLabel, totalPages }: { frame: Frame; sheet: Schemas["SheetOut"]; bundleName: string; caseLabel: string | null | undefined; totalPages: number }) {
   const id = useId();
   const [reply, setReply] = useState(sheet.reply ?? "");
   const [draft, setDraft] = useState(sheet.reply ?? "");
@@ -166,6 +168,9 @@ function Sheet({ frame, sheet, bundleName }: { frame: Frame; sheet: Schemas["She
             <Button variant="secondary" onClick={save} disabled={!draft.trim()}>{w("pack.sheet.reply_save")}</Button>
           </div>
         </div>
+      )}
+      {caseLabel && sheet.pack_page_no != null && totalPages > 0 && (
+        <p className="av-trial-sheet__footer">{w("pack.sheet.footer", { case: caseLabel, page: sheet.pack_page_no, pages: totalPages })}</p>
       )}
     </article>
   );

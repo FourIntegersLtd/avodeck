@@ -6,3 +6,7 @@ source_types:
 lanes:
   primary_care_visits: GP visits
   out_of_hours: Out of hours and NHS 111
+lane_subtitle_one:
+  out_of_hours: "{count} call to 111"
+lane_subtitle_other:
+  out_of_hours: "{count} calls to 111"

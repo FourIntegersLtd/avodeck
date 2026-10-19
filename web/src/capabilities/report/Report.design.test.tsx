@@ -121,3 +121,10 @@ test.each([
   renderAt(url);
   expect(await screen.findByText(line)).toBeInTheDocument();
 });
+
+test("the footer names the court track the server gives, before the page limit", async () => {
+  serve("launch", { report: reportOut("launch", { court_track_label: "multi-track" }) });
+  server.use(http.get("/v1/cases/:caseId", () => json(caseItem("launch", { court_track: "some_other_track", instructing_party_type: null }), 200)));
+  renderAt(url);
+  expect(await screen.findByText("Draft 1 · 31 pages · multi-track, no page limit")).toBeInTheDocument();
+});

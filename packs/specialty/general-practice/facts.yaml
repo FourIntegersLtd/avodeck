@@ -1,13 +1,16 @@
 # Fact kinds this specialty adds, with the fields extracted for each (values are copied words from
 # the page, never prose). Field types: string, integer, number, date, boolean.
 # arrives: true marks a kind that comes from outside the clinician (it is never treated as available
-# on its own event date). `setting` is optional (e.g. out_of_hours) and chooses a conditional lane.
+# on its own event date). `author_field` names the field holding who saw the patient (screen 12). `setting` is optional (e.g. out_of_hours) and chooses a conditional lane.
 fact_kinds:
   - key: consultation
+    author_field: clinician_name
     fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
   - key: phone_consultation
+    author_field: clinician_name
     fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, plan: string, safety_netting: string}
   - key: home_visit
+    author_field: clinician_name
     fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
   - key: result
     arrives: true

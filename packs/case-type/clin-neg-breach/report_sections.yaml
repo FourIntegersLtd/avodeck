@@ -1,3 +1,4 @@
+report_name: Breach of duty report   # the document title is this, a colon and the case's patient label
 # Sections assembled into the expert's own Word template (mapped on screen 02).
 sections:
   - {key: introduction, label: Introduction}

@@ -4539,6 +4539,17 @@ export interface components {
         BillingProfileOut: {
             profile: components["schemas"]["BillingProfile"] | null;
         };
+        /** Box */
+        Box: {
+            /** X0 */
+            x0: number;
+            /** X1 */
+            x1: number;
+            /** Y0 */
+            y0: number;
+            /** Y1 */
+            y1: number;
+        };
         /** BuildQueued */
         BuildQueued: {
             /**
@@ -4757,12 +4768,16 @@ export interface components {
             enabled: boolean;
             /** Gentle */
             gentle: boolean;
+            /** Icon */
+            icon?: string | null;
             /** Key */
             key: string;
             /** Label */
             label?: string | null;
             /** Rule */
             rule: string;
+            /** Title */
+            title?: string | null;
             /** Window Days */
             window_days: number | null;
         };
@@ -5090,10 +5105,14 @@ export interface components {
         };
         /** CheckResult */
         CheckResult: {
+            /** Checked */
+            checked?: number | null;
             /** Code */
             code?: string | null;
             /** Count */
             count: number;
+            /** Explain */
+            explain?: string | null;
             fix?: components["schemas"]["Fix"] | null;
             /** Fixes */
             fixes: components["schemas"]["Fix"][];
@@ -5105,6 +5124,10 @@ export interface components {
             source: string;
             /** Text */
             text?: string | null;
+            /** Total */
+            total?: number | null;
+            /** Unit */
+            unit?: string | null;
         };
         /** Checklist */
         Checklist: {
@@ -5464,14 +5487,23 @@ export interface components {
              */
             on: string;
             /**
+             * Page Marks
+             * @default []
+             */
+            page_marks: components["schemas"]["PageMark"][];
+            /**
              * Question Numbers
              * @default []
              */
             question_numbers: number[];
+            /** Seen Title */
+            seen_title?: string | null;
             /** Title */
             title: string;
             /** Unknown */
             unknown: components["schemas"]["Entry"][];
+            /** Unseen Title */
+            unseen_title?: string | null;
             /** Visible */
             visible: components["schemas"]["Entry"][];
         };
@@ -5912,6 +5944,8 @@ export interface components {
         };
         /** Entry */
         Entry: {
+            /** Author Line */
+            author_line?: string | null;
             /** Available At */
             available_at: string | null;
             /** Event Date */
@@ -6188,6 +6222,8 @@ export interface components {
             evidence_pages: number[];
             /** Gentle */
             gentle: boolean;
+            /** Icon */
+            icon?: string | null;
             /**
              * Id
              * Format: uuid
@@ -6203,6 +6239,8 @@ export interface components {
              * @enum {string}
              */
             status: "open" | "gone";
+            /** Title */
+            title?: string | null;
             /** Version */
             version: number;
         };
@@ -6626,6 +6664,8 @@ export interface components {
             reason: string | null;
             /** Served Paragraphs */
             served_paragraphs: number[];
+            /** Served Text */
+            served_text?: string | null;
             /** Text */
             text: string;
             /** Version */
@@ -6750,10 +6790,14 @@ export interface components {
             colour?: string | null;
             /** Events */
             events: components["schemas"]["Event"][];
+            /** Icon */
+            icon?: string | null;
             /** Key */
             key: string;
             /** Label */
             label: string;
+            /** Subtitle */
+            subtitle?: string | null;
         };
         /** LaterNote */
         LaterNote: {
@@ -6969,6 +7013,8 @@ export interface components {
              * Format: date
              */
             send_by: string;
+            /** Send Rule Phrase */
+            send_rule_phrase?: string | null;
             /** Send Rule Ref */
             send_rule_ref: string;
             /**
@@ -6976,6 +7022,8 @@ export interface components {
              * Format: date
              */
             sign_by: string;
+            /** Sign Rule Phrase */
+            sign_rule_phrase?: string | null;
             /** Sign Rule Ref */
             sign_rule_ref: string;
             /** Signed Sha256 */
@@ -7044,6 +7092,8 @@ export interface components {
              * Format: date
              */
             send_by: string;
+            /** Send Rule Phrase */
+            send_rule_phrase?: string | null;
             /** Send Rule Ref */
             send_rule_ref: string;
             /**
@@ -7051,6 +7101,8 @@ export interface components {
              * Format: date
              */
             sign_by: string;
+            /** Sign Rule Phrase */
+            sign_rule_phrase?: string | null;
             /** Sign Rule Ref */
             sign_rule_ref: string;
             /** Signed Sha256 */
@@ -7336,6 +7388,10 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
+            /** Expert Name */
+            expert_name?: string | null;
+            /** Expert Role */
+            expert_role?: string | null;
             /**
              * Received On
              * Format: date
@@ -7700,11 +7756,17 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
+            /** Expert Name */
+            expert_name?: string | null;
+            /** Expert Role */
+            expert_role?: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Pages */
+            pages?: number | null;
             /** Positions */
             positions: components["schemas"]["Position"][];
             /**
@@ -7985,6 +8047,23 @@ export interface components {
             /** Pages */
             pages: components["schemas"]["PageSummary"][];
         };
+        /**
+         * PageMark
+         * @description Where an entry sits on the visit's page (a share of the page, 0 to 1): the visit, or a later entry to blur.
+         */
+        PageMark: {
+            box: components["schemas"]["Box"];
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "entry" | "later";
+        };
         /** PageReplacement */
         PageReplacement: {
             /**
@@ -8264,6 +8343,8 @@ export interface components {
              * Format: uuid
              */
             question_id: string;
+            /** Question No */
+            question_no?: number | null;
             /** Theirs */
             theirs: components["schemas"]["TheirParagraph"][];
         };
@@ -8299,6 +8380,8 @@ export interface components {
         };
         /** PreviewOut */
         PreviewOut: {
+            /** Case Label */
+            case_label?: string | null;
             /** Sections */
             sections: components["schemas"]["SectionPages"][];
             /** Sheets */
@@ -8777,6 +8860,8 @@ export interface components {
         /** ReportOut */
         ReportOut: {
             checklist: components["schemas"]["Checklist"];
+            /** Court Track Label */
+            court_track_label?: string | null;
             /** Sections */
             sections: components["schemas"]["SectionOut"][];
             version: components["schemas"]["VersionOut"] | null;
@@ -9306,6 +9391,8 @@ export interface components {
             asked: string | null;
             /** Number */
             number: number;
+            /** Pack Page No */
+            pack_page_no?: number | null;
             /** Pages */
             pages: components["schemas"]["SheetPage"][];
             /** Reason */
@@ -10021,6 +10108,8 @@ export interface components {
             status: string;
             /** Template Fallback */
             template_fallback?: boolean | null;
+            /** Title */
+            title?: string | null;
             /** Type */
             type: string;
             /** Version No */
@@ -10154,6 +10243,11 @@ export interface components {
             id: string;
             /** Number */
             number: number;
+            /**
+             * Page Nos
+             * @description Numbers of the pages the linked paragraphs cite, in order, once each.
+             */
+            page_nos?: number[];
             /** Para Ref */
             para_ref: string | null;
             /** Paragraph Ids */

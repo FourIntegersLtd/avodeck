@@ -107,12 +107,14 @@ class SheetOut(BaseModel):
     pages: list[SheetPage]
     reply: str | None = None
     replied_at: datetime | None = None
+    pack_page_no: int | None = None
 
 
 class PreviewOut(BaseModel):
     sections: list[SectionPages]
     total_pages: int
     sheets: list[SheetOut]
+    case_label: str | None = None
 
 
 class TrialNoteIn(BaseModel):
@@ -258,8 +260,15 @@ async def preview_pack(case_id: uuid.UUID, conn: DbConn, access: View, pack: Pac
             )
             for n in sheet.pages
         ]
-        out.append(SheetOut(**{**sheet.__dict__, "pages": pages}))
-    return PreviewOut(sections=counts, total_pages=sum(c.pages for c in counts), sheets=out)
+        landed = built.document.marks.get(f"sheet:{sheet.number}") if built is not None else None
+        out.append(SheetOut(**{**sheet.__dict__, "pages": pages, "pack_page_no": landed}))
+    label = await repo.one(conn, "select label from app.cases where id = %s", (case_id,))
+    return PreviewOut(
+        sections=counts,
+        total_pages=sum(c.pages for c in counts),
+        sheets=out,
+        case_label=label["label"] if label else None,
+    )
 
 
 @router.get(

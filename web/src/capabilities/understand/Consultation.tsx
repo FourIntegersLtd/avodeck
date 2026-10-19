@@ -15,6 +15,10 @@ import { w } from "./words";
 import { pageImage } from "./pageImage";
 
 type Entry = Schemas["Entry"];
+type PageMark = Schemas["PageMark"];
+
+const pct = (share: number) => `${Math.round(share * 10000) / 100}%`;
+const placed = (m: PageMark): React.CSSProperties => ({ left: pct(m.box.x0), top: pct(m.box.y0), width: pct(m.box.x1 - m.box.x0), height: pct(m.box.y1 - m.box.y0) });
 
 function Arrival({ entry }: { entry: Entry }) {
   return <span className="av-muted">{entry.available_at ? w("consultation.arrived", { date: longDate(entry.available_at) }) : w("consultation.arrival_unknown")}</span>;
@@ -146,7 +150,7 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
   );
 }
 
-function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
+function PagePanel({ caseId, pageNo, marks }: { caseId: string; pageNo: number; marks: PageMark[] }) {
   const shown = useResource(() => pageImage(caseId, pageNo), [caseId, pageNo]);
   return (
     <section aria-labelledby="consult-page" className="av-card av-stack av-understand-page av-understand-area-page">
@@ -157,10 +161,16 @@ function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
       {shown.error ? (
         <p className="av-muted">{w("consultation.page_none")}</p>
       ) : shown.data ? (
-        <img src={shown.data} alt={w("consultation.page_alt", { page: pageNo })} />
+        <div className="av-understand-page__sheet">
+          <img src={shown.data} alt={w("consultation.page_alt", { page: pageNo })} />
+          {marks.map((m) => (
+            <span key={`${m.fact_id}-${m.role}`} className={`av-understand-mark av-understand-mark--${m.role}`} data-testid={`page-mark-${m.role}`} style={placed(m)} aria-hidden="true" />
+          ))}
+        </div>
       ) : (
         <p className="av-muted">{w("consultation.page_loading")}</p>
       )}
+      {marks.some((m) => m.role === "later") && <p className="av-muted">{w("consultation.marks_note")}</p>}
     </section>
   );
 }
@@ -227,6 +237,7 @@ export function Consultation() {
         <div>
           <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
           <h2>{w("consultation.heading", { kind: kindWord(c.entry.kind), date: longDate(day) })}</h2>
+          {c.entry.author_line && <p className="av-understand-author">{c.entry.author_line}</p>}
           {c.question_numbers.length > 0 ? (
             <div role="group" aria-label={w("consultation.linked_to")} className="av-understand-chips av-understand-linked">
               <span className="av-muted">{w("consultation.linked_to")}</span>
@@ -252,10 +263,10 @@ export function Consultation() {
       </div>
       <GuidanceChanged codes={c.guidance_changed} />
       <div className="av-understand-consult">
-        {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} />}
+        {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} marks={c.page_marks ?? []} />}
         <div className="av-stack av-understand-area-aside">
           <section aria-labelledby="consult-seen" className="av-card av-stack av-understand-card">
-            <h2 id="consult-seen">{w("consultation.seen")}</h2>
+            <h2 id="consult-seen">{c.seen_title ?? w("consultation.seen")}</h2>
             {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <Entries items={c.visible} onChange={change} />}
             <details className="av-understand-later" open={!asSeen || undefined}>
               <summary>{w("consultation.later", { count: c.later_count })}</summary>
@@ -264,7 +275,7 @@ export function Consultation() {
           </section>
           {c.unknown.length > 0 && (
             <section aria-labelledby="consult-unknown" className="av-card av-stack av-understand-card av-understand-card--soft">
-              <h2 id="consult-unknown">{w("consultation.unknown")}</h2>
+              <h2 id="consult-unknown">{c.unseen_title ?? w("consultation.unknown")}</h2>
               <p className="av-muted">{w("consultation.unknown_hint")}</p>
               <Entries items={c.unknown} onChange={change} />
             </section>

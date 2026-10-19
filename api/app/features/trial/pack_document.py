@@ -124,6 +124,7 @@ async def pack_document(
             for i, sheet in enumerate(sheet_list):
                 if i:
                     doc.page_break()
+                doc.mark(f"sheet:{sheet.number}")
                 doc.heading(word(lang, "sheet", number=sheet.number, text=sheet.text), 2)
                 if sheet.pages:
                     doc.para(" ".join(page_ref(pack, refs, n) for n in sheet.pages))
