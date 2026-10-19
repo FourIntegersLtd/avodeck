@@ -7,7 +7,7 @@ import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { forgetPages } from "./pageImage";
-import { comment, consultation, timeline, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
+import { comment, consultation, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
 
 function serve(body = consultation()) {
   const calls: Array<{ method: string; url: URL; body: unknown }> = [];
@@ -47,7 +47,8 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const calls = serve(consultation({ title: run === "launch" ? "As the clinician saw it" : "What the assessor had in hand" }));
     const { container } = open();
     const title = run === "launch" ? "As the clinician saw it on 15 May 2024" : "What the assessor had in hand on 15 May 2024";
-    expect(await screen.findByRole("heading", { level: 2, name: title })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Consultation · 15 May 2024" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: new RegExp(`^${title}`) })).toHaveAttribute("aria-checked", "true");
     expect(calls[0]!.url.searchParams.get("as_seen")).toBe("true");
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
@@ -156,16 +157,39 @@ describe("as the design shows it", () => {
     expect(within(seen).getByText("Thing to look at")).toBeInTheDocument();
   });
 
-  test("the note can be dictated, and 'Save note and go back' saves then returns to the timeline", async () => {
+  test("the note can be dictated, and 'Save note and continue' saves then opens the things to look at", async () => {
     inCase("launch");
     const calls = serve(consultation({ note: null }));
-    server.use(http.get("/v1/cases/:caseId/timeline", () => json(timeline())));
+    server.use(http.get("/v1/cases/:caseId/findings", () => json({ findings: [] })), http.get("/v1/me/checks", () => json({ checks: [] })));
     const { user } = open();
     expect(await screen.findByRole("button", { name: "Dictate" })).toBeInTheDocument();
     await user.type(screen.getByLabelText("Your note"), "Seen late");
-    await user.click(screen.getByRole("button", { name: "Save note and go back" }));
+    await user.click(screen.getByRole("button", { name: "Save note and continue" }));
     await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ body: "Seen late" }));
-    expect(await screen.findByRole("heading", { level: 2, name: "The timeline" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 2, name: "Things to look at" })).toBeInTheDocument();
+  });
+
+  test("the switch says what is hidden, and turning it off opens what came later", async () => {
+    inCase("launch");
+    serve();
+    const { user } = open();
+    const toggle = await screen.findByRole("switch", { name: /Seen on the day on 15 May 2024/ });
+    expect(screen.getByText("Anything that arrived later is hidden")).toBeInTheDocument();
+    const later = screen.getByText("Show what came later (1)").closest("details")!;
+    expect(later).not.toHaveAttribute("open");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(later).toHaveAttribute("open");
+  });
+
+  test("the page comes before the cards, and the note sits under it with a way back at the foot", async () => {
+    inCase("launch");
+    serve();
+    open();
+    const page = await screen.findByRole("region", { name: "The page" });
+    const seen = screen.getByRole("region", { name: "In the record that day" });
+    expect(page.compareDocumentPosition(seen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Back to the timeline" })).toHaveAttribute("href", `/cases/${CASE_A}/timeline`);
   });
 });
 

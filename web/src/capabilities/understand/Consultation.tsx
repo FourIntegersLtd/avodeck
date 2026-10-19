@@ -4,12 +4,13 @@
 // expert may change when something arrived, with a reason. Buttons follow what the person may do on the case.
 import { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, DictationBox, Dialog, LoadError, Loading, Notice, QChip, StatusBadge } from "../../foundation/ui";
+import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, StatusBadge, ToggleSwitch } from "../../foundation/ui";
 import { Comments } from "./Comments";
-import { GuidanceChanged, kindWord, longDate, pageLabel, statusOf, TextArea, useCan } from "./shared";
+import { GuidanceChanged, kindWord, longDate, statusOf, TextArea, useCan } from "./shared";
 import { w } from "./words";
 import { pageImage } from "./pageImage";
 
@@ -19,19 +20,30 @@ function Arrival({ entry }: { entry: Entry }) {
   return <span className="av-muted">{entry.available_at ? w("consultation.arrived", { date: longDate(entry.available_at) }) : w("consultation.arrival_unknown")}</span>;
 }
 
+/** A dot for a fact's state: filled when you checked it, dashed when it still needs checking, amber for a thing to look at. */
+function StateDot({ entry }: { entry: Entry }) {
+  const state = entry.has_finding ? "look" : statusOf(entry.status) === "checked" ? "checked" : "please_check";
+  return <span className="av-understand-key" data-state={state} aria-hidden="true" />;
+}
+
 function Entries({ items, onChange }: { items: Entry[]; onChange?: (e: Entry) => void }) {
   return (
-    <ul className="av-understand-list">
+    <ul className="av-understand-list av-understand-entries">
       {items.map((e) => (
-        <li key={e.fact_id} className="av-understand-event">
-          <span>
-            {kindWord(e.kind)} · {longDate(e.event_date)}
+        <li key={e.fact_id} className="av-understand-entry">
+          <StateDot entry={e} />
+          <span className="av-understand-entry__words">
+            <span>
+              <strong>
+                {kindWord(e.kind)}, {longDate(e.event_date)}.
+              </strong>{" "}
+              {e.summary}
+            </span>
+            <Arrival entry={e} />
+            <span className="av-visually-hidden">{statusOf(e.status) === "checked" ? t("ui.status.checked") : t("ui.status.please_check")}</span>
+            {e.has_finding && <StatusBadge status="look" />}
           </span>
-          <span className="av-muted">{pageLabel(e.page_no)}</span>
-          {e.summary && <span>{e.summary}</span>}
-          <StatusBadge status={statusOf(e.status)} />
-          {e.has_finding && <StatusBadge status="look" />}
-          <Arrival entry={e} />
+          <PageRef page={e.page_no} />
           {onChange && (
             <Button variant="secondary" onClick={() => onChange(e)}>
               {w("consultation.change_arrival")}
@@ -92,46 +104,56 @@ function ArrivalDialog({ caseId, entry, onClose, onSaved }: { caseId: string; en
   );
 }
 
+/** The note card and the foot of the screen (the way back, and save and carry on to the things to look at). */
 function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factId: string; initial: string; canAdd: boolean }) {
   const [body, setBody] = useState(initial);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const writable = canAdd || initial !== "";
   const save = async (thenLeave: boolean) => {
     setError(null);
     setSaved(false);
     try {
-      await unwrap(api.PUT("/v1/cases/{case_id}/consultations/{fact_id}/note", { params: { path: { case_id: caseId, fact_id: factId } }, body: { body } }));
+      if (writable) await unwrap(api.PUT("/v1/cases/{case_id}/consultations/{fact_id}/note", { params: { path: { case_id: caseId, fact_id: factId } }, body: { body } }));
       setSaved(true);
-      if (thenLeave) navigate(`/cases/${caseId}/timeline`);
+      if (thenLeave) navigate(`/cases/${caseId}/things-to-look-at`);
     } catch (err) {
       setError(errorMessage(err));
     }
   };
   return (
-    <section aria-labelledby="consult-note" className="av-card av-stack">
-      <h2 id="consult-note">{w("consultation.note_title")}</h2>
-      <p className="av-muted" id="consult-note-hint">{w("consultation.note_hint")}</p>
-      {(canAdd || initial) && (
-        <DictationBox caseId={caseId} context="consultation_note" label={w("consultation.note")} rows={5} bar value={body} onChange={(v) => { setBody(v); setSaved(false); }} />
-      )}
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {saved && <Notice tone="success"><p>{w("consultation.note_saved")}</p></Notice>}
-      {(canAdd || initial) && (
-        <div className="av-row">
-          <Button variant="secondary" onClick={() => void save(false)}>{w("consultation.note_save")}</Button>
-          <Button onClick={() => void save(true)}>{w("consultation.note_continue")}</Button>
-        </div>
-      )}
-    </section>
+    <>
+      <section aria-labelledby="consult-note" className="av-card av-stack av-understand-area-note">
+        <h2 id="consult-note">{w("consultation.note_title")}</h2>
+        <p className="av-muted" id="consult-note-hint">{w("consultation.note_hint")}</p>
+        {writable && <DictationBox caseId={caseId} context="consultation_note" label={w("consultation.note")} rows={4} bar value={body} onChange={(v) => { setBody(v); setSaved(false); }} />}
+        {error && <Notice tone="error"><p>{error}</p></Notice>}
+        {saved && <Notice tone="success"><p>{w("consultation.note_saved")}</p></Notice>}
+        {writable && (
+          <div className="av-row">
+            <Button variant="quiet" onClick={() => void save(false)}>{w("consultation.note_save")}</Button>
+          </div>
+        )}
+      </section>
+      <div className="av-understand-foot av-understand-area-foot">
+        <LinkButton to={`/cases/${caseId}/timeline`} variant="secondary">
+          {w("consultation.back_bottom")}
+        </LinkButton>
+        <Button arrow onClick={() => void save(true)}>{w("consultation.note_continue")}</Button>
+      </div>
+    </>
   );
 }
 
 function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
   const shown = useResource(() => pageImage(caseId, pageNo), [caseId, pageNo]);
   return (
-    <section aria-labelledby="consult-page" className="av-card av-stack av-understand-page">
-      <h2 id="consult-page">{w("consultation.page_title")}</h2>
+    <section aria-labelledby="consult-page" className="av-card av-stack av-understand-page av-understand-area-page">
+      <div className="av-understand-page__head">
+        <h2 id="consult-page">{w("consultation.page_title")}</h2>
+        <PageRef page={pageNo} />
+      </div>
       {shown.error ? (
         <p className="av-muted">{w("consultation.page_none")}</p>
       ) : shown.data ? (
@@ -146,7 +168,7 @@ function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
 function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/consultations/{fact_id}/later-notes", { params: { path: { case_id: caseId, fact_id: factId } } })), [caseId, factId]);
   return (
-    <section aria-labelledby="consult-later-notes" className="av-card av-stack">
+    <section aria-labelledby="consult-later-notes" className="av-card av-stack av-understand-card">
       <h2 id="consult-later-notes">{w("consultation.later_notes_title")}</h2>
       <p className="av-muted">{w("consultation.later_notes_hint")}</p>
       {found.error ? (
@@ -156,14 +178,16 @@ function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
       ) : found.data.notes.length === 0 ? (
         <p className="av-muted">{w("consultation.later_notes_none")}</p>
       ) : (
-        <ul className="av-understand-list">
+        <ul className="av-understand-list av-understand-entries">
           {found.data.notes.map((n) => (
-            <li key={n.fact_id} className="av-understand-event">
-              <span>
-                {longDate(n.event_date)} · {kindWord(n.kind)}
+            <li key={n.fact_id} className="av-understand-entry av-understand-entry--plain">
+              <span className="av-understand-entry__words">
+                <span>
+                  {longDate(n.event_date)} · {kindWord(n.kind)}
+                </span>
+                {n.has_note && <span className="av-muted">{w("consultation.later_notes_mine")}</span>}
               </span>
-              <span className="av-muted">{pageLabel(n.page_no)}</span>
-              {n.has_note && <span>{w("consultation.later_notes_mine")}</span>}
+              <PageRef page={n.page_no} />
             </li>
           ))}
         </ul>
@@ -177,6 +201,7 @@ export function Consultation() {
   const [changing, setChanging] = useState<Entry | null>(null);
   const [on, setOn] = useState<string | null>(null);
   const [typed, setTyped] = useState<string | null>(null);
+  const [asSeen, setAsSeen] = useState(true);
   const can = useCan(caseId);
   const found = useResource(
     () =>
@@ -197,67 +222,82 @@ export function Consultation() {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setOn(value);
   };
   return (
-    <div className="av-page av-stack">
-      <div>
-        <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
-        <h2>{w("consultation.on", { title: c.title, date: longDate(day) })}</h2>
-        <p className="av-muted">
-          {kindWord(c.entry.kind)} · {pageLabel(c.entry.page_no)} · {w("consultation.hint")}
-        </p>
-        {c.question_numbers.length > 0 && (
-          <div role="group" aria-label={w("consultation.linked_to")} className="av-understand-chips">
-            {c.question_numbers.map((n) => (
-              <QChip key={n} n={n} />
-            ))}
-          </div>
-        )}
+    <div className="av-page av-page--wide av-stack">
+      <div className="av-understand-top">
+        <div>
+          <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
+          <h2>{w("consultation.heading", { kind: kindWord(c.entry.kind), date: longDate(day) })}</h2>
+          {c.question_numbers.length > 0 ? (
+            <div role="group" aria-label={w("consultation.linked_to")} className="av-understand-chips av-understand-linked">
+              <span className="av-muted">{w("consultation.linked_to")}</span>
+              {c.question_numbers.map((n) => (
+                <QChip key={n} n={n} />
+              ))}
+            </div>
+          ) : (
+            <p className="av-muted">{w("timeline.not_linked")}</p>
+          )}
+        </div>
+        <div className="av-understand-asseen">
+          <ToggleSwitch label={w("consultation.on", { title: c.title, date: longDate(c.on) })} checked={asSeen} onChange={setAsSeen} />
+          <span className="av-understand-asseen__hint">{w("consultation.switch_hint")}</span>
+          <details className="av-understand-asseen__day">
+            <summary>{w("consultation.change_day")}</summary>
+            <div className="av-field">
+              <label className="av-field__label" htmlFor="consult-on">{w("consultation.on_label")}</label>
+              <input id="consult-on" className="av-input" type="date" value={typed ?? c.on} onChange={(e) => pick(e.target.value)} />
+            </div>
+          </details>
+        </div>
       </div>
       <GuidanceChanged codes={c.guidance_changed} />
-      <div className="av-field">
-        <label className="av-field__label" htmlFor="consult-on">{w("consultation.on_label")}</label>
-        <input id="consult-on" className="av-input" type="date" value={typed ?? c.on} onChange={(e) => pick(e.target.value)} />
+      <div className="av-understand-consult">
+        {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} />}
+        <div className="av-stack av-understand-area-aside">
+          <section aria-labelledby="consult-seen" className="av-card av-stack av-understand-card">
+            <h2 id="consult-seen">{w("consultation.seen")}</h2>
+            {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <Entries items={c.visible} onChange={change} />}
+            <details className="av-understand-later" open={!asSeen || undefined}>
+              <summary>{w("consultation.later", { count: c.later_count })}</summary>
+              {c.later.length === 0 ? <p className="av-muted">{w("consultation.later_none")}</p> : <Entries items={c.later} onChange={change} />}
+            </details>
+          </section>
+          {c.unknown.length > 0 && (
+            <section aria-labelledby="consult-unknown" className="av-card av-stack av-understand-card av-understand-card--soft">
+              <h2 id="consult-unknown">{w("consultation.unknown")}</h2>
+              <p className="av-muted">{w("consultation.unknown_hint")}</p>
+              <Entries items={c.unknown} onChange={change} />
+            </section>
+          )}
+          <section aria-labelledby="consult-guidance" className="av-card av-stack av-understand-card">
+            <h2 id="consult-guidance">{w("consultation.guidance")}</h2>
+            {c.guidance.length === 0 && <p className="av-muted">{w("consultation.guidance_none")}</p>}
+            <ul className="av-understand-list">
+              {c.guidance.map((g) => {
+                const name = `${g.title ?? g.code} (${g.code})`;
+                return (
+                  <li key={`${g.code}-${g.version_label}`} className="av-understand-guidance">
+                    {g.url ? <a href={g.url} target="_blank" rel="noopener noreferrer">{name}</a> : <strong>{name}</strong>}
+                    <span className="av-muted">{g.version_label}</span>
+                  </li>
+                );
+              })}
+            </ul>
+            {c.guidance.length > 0 && (
+              <>
+                <span className="av-understand-count av-understand-inforce">{w("consultation.in_force", { date: longDate(c.on) })}</span>
+                <p className="av-muted">{w("consultation.guidance_hint")}</p>
+              </>
+            )}
+          </section>
+          <LaterNotes caseId={caseId} factId={factId} />
+          <details className="av-understand-comments">
+            <summary>{w("comments.title")}</summary>
+            <Comments caseId={caseId} targetKind="fact" targetId={factId} />
+          </details>
+        </div>
+        <NoteEditor key={`${factId}-${c.note ?? ""}`} caseId={caseId} factId={factId} initial={c.note ?? ""} canAdd={can("consultation.note")} />
       </div>
-      <div className="av-understand-split">
-      <div className="av-stack">
-      <section aria-labelledby="consult-seen" className="av-card av-stack">
-        <h2 id="consult-seen">{w("consultation.seen")}</h2>
-        {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <Entries items={c.visible} onChange={change} />}
-        <details className="av-understand-later">
-          <summary>{w("consultation.later", { count: c.later_count })}</summary>
-          {c.later.length === 0 ? <p className="av-muted">{w("consultation.later_none")}</p> : <Entries items={c.later} onChange={change} />}
-        </details>
-      </section>
-      {c.unknown.length > 0 && (
-        <section aria-labelledby="consult-unknown" className="av-card av-stack">
-          <h2 id="consult-unknown">{w("consultation.unknown")}</h2>
-          <p className="av-muted">{w("consultation.unknown_hint")}</p>
-          <Entries items={c.unknown} onChange={change} />
-        </section>
-      )}
-      <section aria-labelledby="consult-guidance" className="av-card av-stack">
-        <h2 id="consult-guidance">{w("consultation.guidance")}</h2>
-        {c.guidance.length === 0 && <p className="av-muted">{w("consultation.guidance_none")}</p>}
-        <ul className="av-understand-list">
-          {c.guidance.map((g) => {
-            const name = `${g.title ?? g.code} (${g.code})`;
-            return (
-              <li key={`${g.code}-${g.version_label}`} className="av-understand-event">
-                {g.url ? <a href={g.url} target="_blank" rel="noopener noreferrer">{name}</a> : <span>{name}</span>}
-                <span className="av-muted">{g.version_label}</span>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-      <LaterNotes caseId={caseId} factId={factId} />
-      </div>
-      {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} />}
-      </div>
-      <NoteEditor key={`${factId}-${c.note ?? ""}`} caseId={caseId} factId={factId} initial={c.note ?? ""} canAdd={can("consultation.note")} />
-      <div>
-        <BackLink to={`/cases/${caseId}/timeline`}>{w("consultation.back_bottom")}</BackLink>
-      </div>
-      <Comments caseId={caseId} targetKind="fact" targetId={factId} />
       {changing && (
         <ArrivalDialog
           caseId={caseId}

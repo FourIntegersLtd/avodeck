@@ -6,7 +6,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, ChoicePills, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
+import { Button, ChoicePills, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
 import { casePath, kindWord, longDate, useCan } from "./shared";
@@ -55,10 +55,17 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
   const shown = new Set(finding.evidence.map((e) => e.page_no));
   const other = finding.evidence_pages.filter((p) => !shown.has(p));
   return (
-    <article aria-labelledby={titleId} className="av-card av-stack">
-      <div>
-        <h3 id={titleId}>{findingTitle(finding)}</h3>
-        <ul className="av-understand-list">
+    <article aria-labelledby={titleId} className={`av-card av-stack av-understand-finding${finding.decision ? "" : " av-understand-finding--open"}`}>
+      <div className="av-understand-finding__body">
+        <div className="av-understand-finding__head">
+          <IconTile tone="amber">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+              <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+            </svg>
+          </IconTile>
+          <h3 id={titleId}>{findingTitle(finding)}</h3>
+        </div>
+        <ul className="av-understand-list av-understand-finding__evidence">
           {finding.evidence.map((e) => (
             <li key={e.fact_id} className="av-understand-event">
               <span className="av-muted">{e.summary ? w("things.evidence", { date: longDate(e.event_date), summary: e.summary }) : `${kindWord(e.kind)} · ${longDate(e.event_date)}`}</span>
@@ -89,7 +96,7 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
           {needs && (
             <>
               <p className="av-muted">{w("things.reason_hint")}</p>
-              <DictationBox caseId={caseId} context="finding_reason" label={w("things.reason")} rows={3} value={reason} onChange={(v) => { setReason(v); setSaved(false); }} />
+              <DictationBox caseId={caseId} context="finding_reason" label={w("things.reason")} rows={2} bar value={reason} onChange={(v) => { setReason(v); setSaved(false); }} />
               <div>
                 <Button disabled={!ready} onClick={() => void save(decision, reason.trim())}>{w("things.save")}</Button>
               </div>
@@ -191,7 +198,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
     }
   };
   return (
-    <section aria-labelledby="things-checks" className="av-card av-stack">
+    <section aria-labelledby="things-checks" className="av-card av-stack av-understand-checks">
       <div>
         <h2 id="things-checks">{w("things.checks")}</h2>
         <p className="av-muted">{w("things.checks_hint")}</p>
@@ -210,24 +217,29 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
       )}
       <p className="av-muted">{w("things.gentle_note")}</p>
       {adding && <AddCheck caseId={caseId} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); found.reload(); }} />}
-      {timed.map((c) => (
-        <TextField
-          key={`days-${c.key}`}
-          name={`days-${c.key}`}
-          label={w("things.days", { check: t(`understand.check.${c.key}`, {}, humanise(c.key)) })}
-          type="number"
-          min={1}
-          inputMode="numeric"
-          value={days[c.key] ?? String(c.window_days)}
-          onChange={(e) => { setDays((d) => ({ ...d, [c.key]: e.target.value })); setDaysSaved(false); }}
-        />
-      ))}
       {timed.length > 0 && (
-        <div>
-          <Button variant="secondary" onClick={() => void saveDays()}>{w("things.days_save")}</Button>
-        </div>
+        <details className="av-understand-days">
+          <summary>{w("things.days_open")}</summary>
+          <div className="av-stack">
+            {timed.map((c) => (
+              <TextField
+                key={`days-${c.key}`}
+                name={`days-${c.key}`}
+                label={w("things.days", { check: t(`understand.check.${c.key}`, {}, humanise(c.key)) })}
+                type="number"
+                min={1}
+                inputMode="numeric"
+                value={days[c.key] ?? String(c.window_days)}
+                onChange={(e) => { setDays((d) => ({ ...d, [c.key]: e.target.value })); setDaysSaved(false); }}
+              />
+            ))}
+            <div>
+              <Button variant="secondary" onClick={() => void saveDays()}>{w("things.days_save")}</Button>
+            </div>
+            {daysSaved && <p className="av-muted" role="status">{w("things.days_saved")}</p>}
+          </div>
+        </details>
       )}
-      {daysSaved && <p className="av-muted" role="status">{w("things.days_saved")}</p>}
     </section>
   );
 }
@@ -254,26 +266,35 @@ export function ThingsToLook() {
     }
   };
   return (
-    <div className="av-page av-stack">
-      <div>
-        <h2>{w("things.title")}</h2>
-        <p className="av-muted">{w("things.intro")}</p>
-        {findings.length > 0 && <p><strong>{w("things.progress", { done, total: findings.length })}</strong></p>}
-      </div>
-      {findings.length === 0 && <p className="av-muted">{w("things.none")}</p>}
-      {findings.map((f) => (
-        <FindingCard key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => setDecided((d) => ({ ...d, [out.id]: out }))} />
-      ))}
-      {can("finding.decide") && (
-        <div className="av-row">
-          <Button variant="secondary" onClick={() => void rerun()}>{w("things.rerun")}</Button>
+    <div className="av-page av-page--wide av-stack">
+      <div className="av-understand-things">
+        <div className="av-understand-things__main av-stack">
+          <div>
+            <h2>{w("things.title")}</h2>
+            <p className="av-muted">{w("things.intro")}</p>
+            {findings.length > 0 && <p><strong>{w("things.progress", { done, total: findings.length })}</strong></p>}
+          </div>
+          {findings.length === 0 && <p className="av-muted">{w("things.none")}</p>}
+          {findings.map((f) => (
+            <FindingCard key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => setDecided((d) => ({ ...d, [out.id]: out }))} />
+          ))}
+          {can("finding.decide") && (
+            <div className="av-row">
+              <Button variant="quiet" onClick={() => void rerun()}>{w("things.rerun")}</Button>
+            </div>
+          )}
+          {error && <Notice tone="error"><p>{error}</p></Notice>}
+          {started && <Notice><p>{w("things.rerun_started")}</p></Notice>}
+          <details className="av-understand-links">
+            <summary>{w("things.links_open")}</summary>
+            <LinkReview caseId={caseId} can={can} />
+          </details>
         </div>
-      )}
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {started && <Notice><p>{w("things.rerun_started")}</p></Notice>}
-      <LinkReview caseId={caseId} can={can} />
-      <Checks caseId={caseId} can={can} />
-      <div>
+        <div className="av-understand-things__side">
+          <Checks caseId={caseId} can={can} />
+        </div>
+      </div>
+      <div className="av-understand-foot av-understand-foot--end">
         <LinkButton to={`/cases/${caseId}/opinion`} arrow>{w("things.start_writing")}</LinkButton>
       </div>
     </div>

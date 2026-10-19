@@ -157,3 +157,56 @@ describe("the picture of the record", () => {
     expect(board).toHaveAttribute("data-zoom", "month");
   });
 });
+
+describe("the board layout", () => {
+  test("ends with the way on to the things we found, with their number", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const on = await screen.findByRole("link", { name: "Look at the 1 thing we found" });
+    expect(on).toHaveAttribute("href", `/cases/${CASE_A}/things-to-look-at`);
+  });
+
+  test("the legend names what a filled dot, a dashed dot and an amber dot mean", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const legend = await screen.findByRole("list", { name: "What the dots mean" });
+    expect(within(legend).getByText("Checked by you")).toBeInTheDocument();
+    expect(within(legend).getByText("Please check")).toBeInTheDocument();
+    expect(within(legend).getByText("Thing to look at")).toBeInTheDocument();
+  });
+
+  test("each dot carries its state and a visible date", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const second = await screen.findByRole("region", { name: "Lane two words" });
+    const dot = within(second).getByRole("link", { name: /Result/ }).closest("li")!;
+    expect(dot).toHaveAttribute("data-state", "look");
+    expect(within(dot).getByText("19 Feb")).toBeInTheDocument();
+    const first = screen.getByRole("region", { name: "Lane one words" });
+    expect(within(first).getByRole("link", { name: /Consultation/ }).closest("li")).toHaveAttribute("data-state", "checked");
+  });
+
+  test("the day switch is named in the pack's words and opens the day field", async () => {
+    inCase("launch");
+    const seen = serve();
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    const toggle = await screen.findByRole("switch", { name: "Seen on the day on…" });
+    expect(toggle).toHaveAttribute("aria-checked", "false");
+    await user.click(toggle);
+    expect(toggle).toHaveAttribute("aria-checked", "true");
+    await user.type(screen.getByLabelText("Seen on the day on"), "2024-03-01");
+    await waitFor(() => expect(seen.at(-1)!.searchParams.get("as_seen_on")).toBe("2024-03-01"));
+    await user.click(toggle);
+    await waitFor(() => expect(seen.at(-1)!.searchParams.get("as_seen_on")).toBeNull());
+  });
+
+  test("dates and question sit behind one link, so the board stays as drawn", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    expect(await screen.findByText("Change the dates or question")).toBeInTheDocument();
+  });
+});
