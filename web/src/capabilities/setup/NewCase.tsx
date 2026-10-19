@@ -10,6 +10,7 @@ import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, DropZone, LinkButton, LoadError, Loading, Notice, Spinner, TextField, TextLink } from "../../foundation/ui";
+import { sw } from "./words";
 import { Choice, FileButton, packWord, partyWords, Section, Select, TextArea, uploadFile, withEtag, type Option } from "./shared";
 
 const trackLabel = (key: string) => t(`setup.court_track.${key}`, {}, humanise(key));
@@ -257,7 +258,7 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
             <Choice legend={t("setup.case.track")} name="track" value={track} onChange={setTrack} options={place.court_tracks.map((k) => ({ value: k, label: trackLabel(k) }))} />
           )}
         </div>
-        <TextArea label={t("setup.oral.title")} hint={t("setup.oral.intro")} rows={3} value={oral} onChange={(e) => setOral(e.target.value)} />
+        <TextArea label={t("setup.oral.title")} hint={sw("new_case.oral_hint")} rows={3} value={oral} onChange={(e) => setOral(e.target.value)} />
       </section>
       {error && (
         <Notice tone="error">
