@@ -13,7 +13,7 @@ Avodeck assembles the expert's report in their own Word template, with the court
 - Today cards: registers "report ready to check", "final check failed" and "invoice not sent"
 
 ## Endpoints (architecture 5.2)
-- `POST /v1/cases/{id}/report/build` → 202; `GET /v1/cases/{id}/report`; `GET /v1/cases/{id}/report/preview/{page}`; `PATCH /v1/cases/{id}/report/settings`; `GET /v1/cases/{id}/report/methodology`
+- `POST /v1/cases/{id}/report/build` → 202; `GET /v1/cases/{id}/report`; `GET /v1/cases/{id}/report/preview/{page}`; `GET /v1/cases/{id}/report/paragraphs?section=` (text of the built paragraphs, read-only; the report's `sections[].done/total` count answered questions on the opinion section); `PATCH /v1/cases/{id}/report/settings`; `GET /v1/cases/{id}/report/methodology`
 - `POST /v1/cases/{id}/report/word-import` (Phase 2; returns 501 in MVP)
 - `POST /v1/cases/{id}/report/final-check` → 202; `GET /v1/cases/{id}/report/final-check/latest`
 - `POST /v1/cases/{id}/spot-checks`; `GET/POST /v1/spot-checks/{token}[/responses]` (no login; expiring token plus emailed code)

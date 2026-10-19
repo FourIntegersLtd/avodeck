@@ -92,7 +92,7 @@ export function etagged(body: unknown, version: number, status = 200) {
 export function serve(run: PackRun, opts: {
   report?: Schemas["ReportOut"] | null; settings?: Schemas["SettingsOut"]; check?: Schemas["FinalCheckOut"] | null;
   spots?: Schemas["SpotCheckOut"][]; time?: Schemas["TimeOut"]; profile?: Schemas["BillingProfile"] | null; invoices?: Schemas["InvoiceOut"][];
-  servings?: Schemas["ServingOut"][];
+  servings?: Schemas["ServingOut"][]; paragraphs?: Array<{ para_no: number; section: string; text: string; question_id: string | null }>;
 } = {}) {
   inCase(run);
   const sent: Sent[] = [];
@@ -106,9 +106,14 @@ export function serve(run: PackRun, opts: {
     http.get("/v1/cases/:caseId/report/settings", () => etagged(opts.settings ?? settingsOut(), (opts.settings ?? settingsOut()).version)),
     http.get("/v1/cases/:caseId/report/methodology", () => json({ pages_read: 1231, pages_total: 1231, tasks: [] })),
     http.get("/v1/cases/:caseId/report/final-check/latest", () => (opts.check ? json(opts.check) : HttpResponse.json({ error: { code: "not_found", message: "x" } }, { status: 404 }))),
+    http.get("/v1/cases/:caseId/report/paragraphs", ({ request }) => {
+      const section = new URL(request.url).searchParams.get("section");
+      return json({ version_id: V1, paragraphs: (opts.paragraphs ?? []).filter((p) => !section || p.section === section) } as never);
+    }),
     http.get("/v1/cases/:caseId/spot-checks", () => json({ spot_checks: opts.spots ?? [] })),
     http.get("/v1/cases/:caseId/report/versions/:v/servings", () => json({ servings: opts.servings ?? [] })),
     http.get("/v1/cases/:caseId/time", () => json(opts.time ?? { adjusted: false, total_seconds: 72900, stages: steps.map((stage, i) => ({ stage, seconds: (i + 1) * 600 })) })),
+    http.get("/v1/me/profile", () => json({ full_name: "Jane Morgan", profession: "Doctor", registration_body: "Body", registration_number: "123", specialties: [], currency: null, default_jurisdiction: null, default_retention: null, hourly_rate: null } as never)),
     http.get("/v1/me/billing-profile", () => etagged({ profile: opts.profile === undefined ? profile() : opts.profile }, opts.profile === null ? 0 : 2)),
     http.get("/v1/cases/:caseId/invoices", () => json({ invoices: opts.invoices ?? [] })),
   );

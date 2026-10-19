@@ -2082,6 +2082,22 @@
         "title": "CasePack",
         "type": "object"
       },
+      "CaseStepProgress": {
+        "properties": {
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/StepProgress"
+            },
+            "title": "Steps",
+            "type": "array"
+          }
+        },
+        "required": [
+          "steps"
+        ],
+        "title": "CaseStepProgress",
+        "type": "object"
+      },
       "CaseUpdate": {
         "additionalProperties": false,
         "description": "Only the fields sent are changed. Party and track values must be keys the case's packs offer.",
@@ -10465,6 +10481,63 @@
         "title": "PageWords",
         "type": "object"
       },
+      "ParagraphOut": {
+        "properties": {
+          "para_no": {
+            "title": "Para No",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "para_no",
+          "section",
+          "text"
+        ],
+        "title": "ParagraphOut",
+        "type": "object"
+      },
+      "ParagraphsOut": {
+        "properties": {
+          "paragraphs": {
+            "items": {
+              "$ref": "#/components/schemas/ParagraphOut"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "paragraphs"
+        ],
+        "title": "ParagraphsOut",
+        "type": "object"
+      },
       "ParticipantIn": {
         "additionalProperties": false,
         "properties": {
@@ -12285,6 +12358,24 @@
         "title": "Recover",
         "type": "object"
       },
+      "RecoveryCodeCount": {
+        "properties": {
+          "remaining": {
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "remaining",
+          "total"
+        ],
+        "title": "RecoveryCodeCount",
+        "type": "object"
+      },
       "RecoveryCodes": {
         "properties": {
           "recovery_codes": {
@@ -12602,6 +12693,16 @@
             "title": "Clearer Copy Page Nos",
             "type": "array"
           },
+          "extension": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RequestExtension"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -12648,9 +12749,41 @@
         "type": "object"
       },
       "RequestDraftAsk": {
-        "description": "Nothing to choose yet: the draft lists every open missing item and every unreadable page.",
-        "properties": {},
+        "description": "The draft lists every open missing item and every unreadable page. `extension` adds the pack's\nline asking for more time if the records arrive late.",
+        "properties": {
+          "extension": {
+            "default": false,
+            "title": "Extension",
+            "type": "boolean"
+          }
+        },
         "title": "RequestDraftAsk",
+        "type": "object"
+      },
+      "RequestExtension": {
+        "description": "What the screen offers: ask for `days` more days if records arrive after `after_date`.",
+        "properties": {
+          "after_date": {
+            "format": "date",
+            "title": "After Date",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "due_date": {
+            "format": "date",
+            "title": "Due Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "days",
+          "due_date",
+          "after_date"
+        ],
+        "title": "RequestExtension",
         "type": "object"
       },
       "RequestLogged": {
@@ -13202,6 +13335,17 @@
       },
       "SectionOut": {
         "properties": {
+          "done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
           "generated": {
             "title": "Generated",
             "type": "boolean"
@@ -13209,6 +13353,17 @@
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           },
           "written": {
             "title": "Written",
@@ -14428,6 +14583,55 @@
         "title": "StageTime",
         "type": "object"
       },
+      "StepProgress": {
+        "properties": {
+          "done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "percent": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Percent"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          }
+        },
+        "required": [
+          "key",
+          "done",
+          "total",
+          "percent"
+        ],
+        "title": "StepProgress",
+        "type": "object"
+      },
       "Subject": {
         "properties": {
           "label": {
@@ -14782,6 +14986,17 @@
               }
             ],
             "title": "Estimate Hours"
+          },
+          "instructing_party": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructing Party"
           },
           "over_estimate": {
             "anyOf": [
@@ -16440,6 +16655,36 @@
       }
     },
     "/v1/auth/mfa/recovery-codes": {
+      "get": {
+        "description": "How many backup codes are still unused (S28 \"7 of 10 left\"); never the codes.",
+        "operationId": "count_recovery_codes_v1_auth_mfa_recovery_codes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodeCount"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Count Recovery Codes",
+        "tags": [
+          "auth"
+        ]
+      },
       "post": {
         "description": "\ud83d\udd12 Ten new recovery codes for the signed-in person only; the old set stops working.",
         "operationId": "regenerate_recovery_codes_v1_auth_mfa_recovery_codes_post",
@@ -27358,6 +27603,77 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/report/paragraphs": {
+      "get": {
+        "description": "The latest built report's words as plain text, read-only (screen 16). Nothing is generated here.",
+        "operationId": "paragraphs_v1_cases__case_id__report_paragraphs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Section"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParagraphsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Paragraphs",
+        "tags": [
+          "report"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/report/preview/{page}": {
       "get": {
         "operationId": "preview_v1_cases__case_id__report_preview__page__get",
@@ -28685,6 +29001,60 @@
         "summary": "Start Spot Check",
         "tags": [
           "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/steps/progress": {
+      "get": {
+        "description": "How far each step of the case's workflow is, counted from the case's own records (read-only).",
+        "operationId": "get_case_step_progress_v1_cases__case_id__steps_progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaseStepProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Case Step Progress",
+        "tags": [
+          "packs"
         ]
       }
     },

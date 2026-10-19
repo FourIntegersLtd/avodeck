@@ -36,7 +36,7 @@ export function SignSend() {
   if (!version) {
     return (
       <div className="av-page av-stack">
-        <h2>{w("sign.title")}</h2>
+        <h1>{w("sign.title")}</h1>
         <Notice><p>{w("sign.nothing")}</p></Notice>
         <div className="av-report-footer"><LinkButton to={`/cases/${caseId}/report`}>{w("report.title")}</LinkButton></div>
       </div>
@@ -46,6 +46,7 @@ export function SignSend() {
 }
 
 function SignView({ caseId, version, check, declarations, onChanged }: { caseId: string; version: Version; check: Schemas["FinalCheckOut"] | null; declarations: Schemas["CasePack"]["declarations"]; onChanged: () => void }) {
+  const locale = useLocale();
   const status = version.status;
   const ready = !!check && check.passed && check.current;
   const downloads = (
@@ -56,14 +57,19 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
   );
   return (
     <div className="av-page av-stack">
-      <h2>{w("sign.title")}</h2>
-      <p>
-        <strong>{version.page_count ? w("sign.version", { name: version.display_name, pages: version.page_count }) : version.display_name}</strong>{" "}
-        {status === "draft" && <span className={ready ? "av-badge av-badge--on" : "av-badge"}>{ready ? w("sign.ready") : w("sign.not_ready")}</span>}
-        {status === "locked" && <span className="av-badge">{w("sign.locked")}</span>}
-        {status === "served" && <span className="av-badge av-badge--on">{w("sign.served")}</span>}
-        {status === "withdrawn" && <span className="av-badge">{w("sign.withdrawn")}</span>}
-      </p>
+      <h1>{status === "draft" && ready ? w("sign.title_ready") : w("sign.title")}</h1>
+      {status === "draft" && ready && check && <p>{w("sign.checks_passed", { count: check.results.length })}</p>}
+      <section className="av-card av-stack" aria-labelledby="doc-title">
+        <h3 id="doc-title">{version.display_name}</h3>
+        <p>
+          {version.page_count ? <span>{w("sign.pages", { pages: version.page_count })}</span> : null}{" "}
+          {status === "draft" && !ready && <span className="av-badge">{w("sign.not_ready")}</span>}
+          {status === "locked" && <span className="av-badge">{w("sign.locked")}</span>}
+          {status === "served" && <span className="av-badge av-badge--on">{w("sign.served")}</span>}
+          {status === "withdrawn" && <span className="av-badge">{w("sign.withdrawn")}</span>}
+        </p>
+        <p className="av-muted">{w("sign.version_dated", { date: longDate(version.created_at, locale) })}</p>
+      </section>
       {status === "draft" && (
         <>
           {!ready && (
@@ -95,6 +101,13 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
   );
 }
 
+/** "Name, profession · body number", leaving out whatever the profile does not have. */
+function signatureLine(p: Schemas["Profile"]): string {
+  const registration = [p.registration_body, p.registration_number].filter(Boolean).join(" ");
+  const named = [p.full_name, p.profession].filter(Boolean).join(", ");
+  return [named, registration].filter(Boolean).join(" · ");
+}
+
 function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; declarations: Schemas["CasePack"]["declarations"]; downloads: React.ReactNode; onDone: () => void }) {
   const stepUp = useStepUp();
   const [confirmed, setConfirmed] = useState(false);
@@ -102,6 +115,7 @@ function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; de
   const [error, setError] = useState<{ message: string; code: string } | null>(null);
   const [read, setRead] = useState(false);
   const [signed, setSigned] = useState(false);
+  const me = useResource(() => unwrap(api.GET("/v1/me/profile")), []);
 
   const sign = async () => {
     setError(null);
@@ -133,6 +147,11 @@ function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; de
     <div className="av-stack">
       <section className="av-card av-stack" aria-labelledby="sig-title">
         <h3 id="sig-title">{w("sign.signature")}</h3>
+        {me.data?.full_name && (
+          <p>
+            <strong>{signatureLine(me.data)}</strong>
+          </p>
+        )}
         <p>{w("sign.signature_body")}</p>
       </section>
       <section className="av-card av-stack" aria-labelledby="decl-title">

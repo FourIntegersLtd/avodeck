@@ -134,4 +134,20 @@ describe.each([
     expect(screen.queryByRole("link", { name: words.askLabel })).toBeNull();
     expect(screen.queryByRole("link", { name: "Check them" })).toBeNull();
   });
+
+  test("the source bar is one drawn bar with a tile of page counts for each source", async () => {
+    mock(pack);
+    renderAt(PATH);
+    await screen.findByRole("heading", { level: 1, name: "Your bundle is ready" });
+    expect(screen.getByRole("img", { name: "Where the pages came from" })).toBeVisible();
+    const tiles = within(screen.getByRole("list", { name: "Where the pages came from" })).getAllByRole("listitem");
+    expect(tiles[0]!.querySelector(".av-mono")).toHaveTextContent(/^[\d,]+$/);
+    expect(tiles[0]).toHaveTextContent(/pages$/);
+  });
+
+  test("the unreadable card says what the pages mostly are", async () => {
+    mock(pack);
+    renderAt(PATH);
+    expect(await screen.findByText("Mostly handwriting and faint scans. We'll show you these one by one.")).toBeVisible();
+  });
 });

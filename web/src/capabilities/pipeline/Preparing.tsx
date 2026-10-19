@@ -2,13 +2,13 @@
 // the job's event stream and opens screen 08 when the bundle is ready. The server decides everything;
 // this screen only shows the job's step, progress and time left.
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice } from "../../foundation/ui";
+import { Button, LoadError, Loading, Notice, ProgressBar, Spinner, TextLink } from "../../foundation/ui";
 import { can, casePath } from "./data";
 import { w, wn } from "./words";
 
@@ -126,6 +126,13 @@ export function Preparing() {
   const current = job ? (job.status === "done" ? STEPS.length : STEPS.indexOf(job.step as (typeof STEPS)[number])) : -1;
   const questions = screenPath("questions", { caseId });
 
+  const stopButton =
+    running && uploads ? (
+      <button type="button" className="av-text-link" onClick={stop} disabled={busy}>
+        {w("preparing.stop")}
+      </button>
+    ) : null;
+
   return (
     <div className="av-page pl-preparing">
       <h1>{w("preparing.title")}</h1>
@@ -150,11 +157,16 @@ export function Preparing() {
             const state = i < current ? "done" : i === current ? "current" : "waiting";
             return (
               <li key={step} className={`pl-step pl-step--${state}`}>
-                <StepMark state={state} />
+                {state === "current" ? <Spinner /> : <StepMark state={state} />}
                 <div className="pl-step__body">
                   <span className="pl-step__name">{w(`preparing.step.${step}`)}</span>
+                  {state === "current" && job.step_total != null && job.step_total > 0 && (
+                    <span className="av-mono pl-step__count">
+                      {w("preparing.count", { done: new Intl.NumberFormat(pack.locale).format(job.step_done ?? 0), total: new Intl.NumberFormat(pack.locale).format(job.step_total) })}
+                    </span>
+                  )}
                   <span className="av-visually-hidden">{w(`preparing.state.${state}`)}</span>
-                  {state === "current" && job.pct != null && <Progress pct={job.pct} />}
+                  {state === "current" && job.pct != null && <ProgressBar value={Math.max(0, Math.min(100, job.pct))} max={100} label={w("preparing.progress", { pct: Math.max(0, Math.min(100, job.pct)) })} />}
                 </div>
               </li>
             );
@@ -164,15 +176,14 @@ export function Preparing() {
       <div className="pl-notes">
         <p>{w("preparing.kept")}</p>
         <p>{w("preparing.close")}</p>
-        {exhibits > 0 && <p>{wn("preparing.exhibits", exhibits, pack.locale)}</p>}
-        {running && uploads && (
-          <Button variant="quiet" onClick={stop} disabled={busy}>
-            {w("preparing.stop")}
-          </Button>
+        {(exhibits > 0 || stopButton) && (
+          <p>
+            {exhibits > 0 && wn("preparing.exhibits", exhibits, pack.locale)} {stopButton}
+          </p>
         )}
         {questions && (
           <p>
-            <Link to={questions}>{w("preparing.meanwhile")}</Link>
+            <TextLink to={questions}>{w("preparing.meanwhile")}</TextLink>
           </p>
         )}
       </div>
@@ -186,17 +197,5 @@ function StepMark({ state }: { state: "done" | "current" | "waiting" }) {
       <circle cx="17" cy="17" r="15" />
       {state === "done" && <path d="M11 17.5l4 4 8-8" />}
     </svg>
-  );
-}
-
-function Progress({ pct }: { pct: number }) {
-  const value = Math.max(0, Math.min(100, pct));
-  return (
-    <div role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={value} aria-label={w("preparing.progress", { pct: value })} className="pl-progress">
-      <svg width="100%" height="8" viewBox="0 0 100 8" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-        <rect className="pl-progress__track" x="0" y="0" width="100" height="8" rx="4" />
-        <rect className="pl-progress__bar" x="0" y="0" width={value} height="8" rx="4" />
-      </svg>
-    </div>
   );
 }

@@ -1,12 +1,11 @@
 // Screen 08, the copies set aside: each copy beside its original. The expert confirms a copy or keeps
 // the page; every change sends the version it loaded, and a 412 shows the latest instead.
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice } from "../../foundation/ui";
+import { BackLink, Button, LoadError, Loading, Notice } from "../../foundation/ui";
 import { can, casePath } from "./data";
 import { formatNumber } from "./format";
 import { Thumbnail } from "./Thumbnail";
@@ -58,7 +57,7 @@ export function Copies() {
 
   return (
     <div className="av-page av-stack">
-      <Link className="pl-back" to={`/cases/${caseId}/bundle`}>{w("back")}</Link>
+      <BackLink to={`/cases/${caseId}/bundle`}>{w("back")}</BackLink>
       <h1>{w("copies.title")}</h1>
       <p className="pl-lead">{w("copies.intro")}</p>
       {notice && <Notice tone={notice.tone}><p>{notice.text}</p></Notice>}

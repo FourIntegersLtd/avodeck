@@ -342,6 +342,10 @@
         },
         "practice": "clinic",
         "report_rules_name": "Rule Z",
+        "request_extension": {
+          "days": "9",
+          "text": "Zz: {days} more days may be needed. {instructing_party} to confirm."
+        },
         "request_notes": {
           "quarantine": "Withheld as another subject's records: {pages}. {instructing_party} to confirm.",
           "translation": "Translate for the file, pages {pages}."
@@ -361,6 +365,9 @@
       "workflow_steps": [
         {
           "key": "gather",
+          "meters": [
+            "questions_confirmed"
+          ],
           "screens": [
             "new_case",
             "preparing",
@@ -369,6 +376,10 @@
         },
         {
           "key": "review",
+          "meters": [
+            "pages_read",
+            "facts_decided"
+          ],
           "screens": [
             "reader",
             "timeline"
@@ -376,6 +387,10 @@
         },
         {
           "key": "conclude",
+          "meters": [
+            "questions_with_opinion",
+            "report_stages"
+          ],
           "screens": [
             "opinion",
             "report",
@@ -476,6 +491,10 @@
           "other_side": "respondents"
         },
         "report_rules_name": "Rule Z",
+        "request_extension": {
+          "days": "9",
+          "text": "Zz: {days} more days may be needed. {instructing_party} to confirm."
+        },
         "request_notes": {
           "quarantine": "Withheld as another subject's records: {pages}. {instructing_party} to confirm.",
           "translation": "Translate for the file, pages {pages}."
@@ -1191,6 +1210,10 @@
         },
         "practice": "GP surgery",
         "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
         "request_notes": {
           "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
           "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
@@ -1215,6 +1238,9 @@
       "workflow_steps": [
         {
           "key": "prepare",
+          "meters": [
+            "questions_confirmed"
+          ],
           "screens": [
             "new_case",
             "conflicts",
@@ -1226,6 +1252,9 @@
         },
         {
           "key": "read",
+          "meters": [
+            "pages_read"
+          ],
           "screens": [
             "reader",
             "couldnt_read"
@@ -1233,6 +1262,9 @@
         },
         {
           "key": "understand",
+          "meters": [
+            "facts_decided"
+          ],
           "screens": [
             "timeline",
             "as_clinician_saw_it",
@@ -1241,6 +1273,10 @@
         },
         {
           "key": "write",
+          "meters": [
+            "questions_with_opinion",
+            "report_stages"
+          ],
           "screens": [
             "points_against",
             "opinion",
@@ -1420,6 +1456,10 @@
           "other_side": "defendants"
         },
         "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
         "request_notes": {
           "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
           "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."

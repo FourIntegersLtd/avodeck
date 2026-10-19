@@ -121,11 +121,15 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
 
 function BackupCodes({ act }: { act: Act }) {
   const [codes, setCodes] = useState<string[] | null>(null);
+  const left = useResource(() => unwrap(api.GET("/v1/auth/mfa/recovery-codes")), []);
   return (
     <div className="av-row-item">
       <div className="av-row-item__text">
         <p className="av-field__label">{t("account.backup.title")}</p>
-        <p className="av-muted">{t("account.backup.intro")}</p>
+        <p className="av-muted">
+          {t("account.backup.intro")}
+          {left.data && ` ${t("account.backup.left", { remaining: left.data.remaining, total: left.data.total })}`}
+        </p>
       </div>
       {codes && (
         <Notice tone="success">
@@ -143,6 +147,7 @@ function BackupCodes({ act }: { act: Act }) {
             void act(async () => {
               const made = await unwrap(api.POST("/v1/auth/mfa/recovery-codes"));
               setCodes(made.recovery_codes);
+              left.reload();
               return made;
             })
           }

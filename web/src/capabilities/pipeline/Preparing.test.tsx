@@ -207,4 +207,12 @@ describe.each([
     renderAt(PATH);
     expect(await screen.findByRole("button", { name: "Try again" })).toBeVisible();
   });
+
+  test("the step being done shows its own count, and Stop sits inside the note about recordings", async () => {
+    mockCase(pack, { job: processingJob({ step_done: 840, step_total: 1268 }) });
+    renderAt(PATH);
+    expect(await screen.findByText("840 of 1,268")).toBeVisible();
+    const stop = screen.getByRole("button", { name: "Stop preparing" });
+    expect(stop.closest("p")).toHaveTextContent("1 recording or image was kept as it is.");
+  });
 });

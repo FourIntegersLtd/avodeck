@@ -52,7 +52,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Count Recovery Codes
+         * @description How many backup codes are still unused (S28 "7 of 10 left"); never the codes.
+         */
+        get: operations["count_recovery_codes_v1_auth_mfa_recovery_codes_get"];
         put?: never;
         /**
          * Regenerate Recovery Codes
@@ -2610,6 +2614,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/report/paragraphs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Paragraphs
+         * @description The latest built report's words as plain text, read-only (screen 16). Nothing is generated here.
+         */
+        get: operations["paragraphs_v1_cases__case_id__report_paragraphs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/report/preview/{page}": {
         parameters: {
             query?: never;
@@ -2903,6 +2927,26 @@ export interface paths {
         put?: never;
         /** Start Spot Check */
         post: operations["start_spot_check_v1_cases__case_id__spot_checks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/steps/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Case Step Progress
+         * @description How far each step of the case's workflow is, counted from the case's own records (read-only).
+         */
+        get: operations["get_case_step_progress_v1_cases__case_id__steps_progress_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4846,6 +4890,11 @@ export interface components {
              * @default []
              */
             written_question_classifications: string[];
+        };
+        /** CaseStepProgress */
+        CaseStepProgress: {
+            /** Steps */
+            steps: components["schemas"]["StepProgress"][];
         };
         /**
          * CaseUpdate
@@ -7796,6 +7845,27 @@ export interface components {
             /** Words */
             words: components["schemas"]["PageWord"][];
         };
+        /** ParagraphOut */
+        ParagraphOut: {
+            /** Para No */
+            para_no: number;
+            /** Question Id */
+            question_id?: string | null;
+            /** Section */
+            section: string;
+            /** Text */
+            text: string;
+        };
+        /** ParagraphsOut */
+        ParagraphsOut: {
+            /** Paragraphs */
+            paragraphs: components["schemas"]["ParagraphOut"][];
+            /**
+             * Version Id
+             * Format: uuid
+             */
+            version_id: string;
+        };
         /** ParticipantIn */
         ParticipantIn: {
             /** Discipline */
@@ -8380,6 +8450,13 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** RecoveryCodeCount */
+        RecoveryCodeCount: {
+            /** Remaining */
+            remaining: number;
+            /** Total */
+            total: number;
+        };
         /** RecoveryCodes */
         RecoveryCodes: {
             /** Recovery Codes */
@@ -8500,6 +8577,7 @@ export interface components {
             clearer_copy_page_ids: string[];
             /** Clearer Copy Page Nos */
             clearer_copy_page_nos: number[];
+            extension?: components["schemas"]["RequestExtension"] | null;
             /** Label */
             label: string;
             /** Missing Item Ids */
@@ -8519,9 +8597,34 @@ export interface components {
         };
         /**
          * RequestDraftAsk
-         * @description Nothing to choose yet: the draft lists every open missing item and every unreadable page.
+         * @description The draft lists every open missing item and every unreadable page. `extension` adds the pack's
+         *     line asking for more time if the records arrive late.
          */
-        RequestDraftAsk: Record<string, never>;
+        RequestDraftAsk: {
+            /**
+             * Extension
+             * @default false
+             */
+            extension: boolean;
+        };
+        /**
+         * RequestExtension
+         * @description What the screen offers: ask for `days` more days if records arrive after `after_date`.
+         */
+        RequestExtension: {
+            /**
+             * After Date
+             * Format: date
+             */
+            after_date: string;
+            /** Days */
+            days: number;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+        };
         /** RequestLogged */
         RequestLogged: {
             /**
@@ -8710,10 +8813,14 @@ export interface components {
         };
         /** SectionOut */
         SectionOut: {
+            /** Done */
+            done?: number | null;
             /** Generated */
             generated: boolean;
             /** Key */
             key: string;
+            /** Total */
+            total?: number | null;
             /** Written */
             written: boolean;
         };
@@ -9157,6 +9264,17 @@ export interface components {
             /** Stage */
             stage: string;
         };
+        /** StepProgress */
+        StepProgress: {
+            /** Done */
+            done: number | null;
+            /** Key */
+            key: string;
+            /** Percent */
+            percent: number | null;
+            /** Total */
+            total: number | null;
+        };
         /** Subject */
         Subject: {
             /** Label */
@@ -9296,6 +9414,8 @@ export interface components {
             adjusted: boolean;
             /** Estimate Hours */
             estimate_hours?: string | null;
+            /** Instructing Party */
+            instructing_party?: string | null;
             over_estimate?: components["schemas"]["OverEstimate"] | null;
             /** Stages */
             stages: components["schemas"]["StageTime"][];
@@ -9894,6 +10014,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    count_recovery_codes_v1_auth_mfa_recovery_codes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodeCount"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
@@ -17075,6 +17224,48 @@ export interface operations {
             };
         };
     };
+    paragraphs_v1_cases__case_id__report_paragraphs_get: {
+        parameters: {
+            query?: {
+                section?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ParagraphsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     preview_v1_cases__case_id__report_preview__page__get: {
         parameters: {
             query?: never;
@@ -17946,6 +18137,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpotCheckStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_case_step_progress_v1_cases__case_id__steps_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseStepProgress"];
                 };
             };
             /** @description Validation Error */

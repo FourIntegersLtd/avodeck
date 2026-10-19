@@ -89,6 +89,7 @@ class TimeOut(BaseModel):
     adjusted: bool
     estimate_hours: Decimal | None = None
     over_estimate: OverEstimate | None = None
+    instructing_party: str | None = None
 
 
 def stage_for(pack: MergedPack, screen: str) -> str | None:
@@ -151,12 +152,14 @@ async def totals(conn: Any, case_id: uuid.UUID, pack: MergedPack) -> TimeOut:
         for k in keys
     ]
     shown = [s.estimate_hours for s in stages if s.estimate_hours is not None]
+    parties = pack.instructing_party_types()
     return TimeOut(
         stages=stages,
         total_seconds=sum(s.seconds for s in stages),
         adjusted=any(a for _, a in rows.values()),
         estimate_hours=sum(shown, Decimal(0)).quantize(Decimal("0.01")) if shown else None,
         over_estimate=_over(pack, stages),
+        instructing_party=str(parties[0]["label"]) if parties else None,
     )
 
 

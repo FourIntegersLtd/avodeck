@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
+import { BackLink, Button, LinkButton, LoadError, Loading, Notice, PageRef } from "../../foundation/ui";
 import { can, casePath, partyWord } from "./data";
 import { formatNumber } from "./format";
 import { Thumbnail } from "./Thumbnail";
@@ -89,6 +89,7 @@ export function NotThisPatient() {
 
   return (
     <div className="av-page av-stack">
+      <BackLink to={`/cases/${caseId}/bundle`}>{w("back")}</BackLink>
       <h1>{w("quarantine.title")}</h1>
       <p className="pl-lead">{w("quarantine.intro", { name })}</p>
       {!decides && <Notice><p>{w("quarantine.only_expert")}</p></Notice>}
@@ -104,7 +105,7 @@ export function NotThisPatient() {
                   <Thumbnail caseId={caseId} pageNo={q.page_no} alt={w("page_alt", { page: num(q.page_no) })} />
                 </div>
                 <div className="pl-copy__body">
-                  <h2 className="pl-card__title av-mono">{w("page_ref", { page: num(q.page_no) })}</h2>
+                  <h2 className="pl-card__title"><PageRef page={q.page_no} /></h2>
                   <p>{q.reason ? wordFor("quarantine.reason", q.reason, humanise(q.reason)) : ""}</p>
                   {q.status === "suggested" && decides && (
                     <div className="av-row">

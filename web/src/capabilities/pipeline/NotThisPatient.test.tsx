@@ -126,6 +126,12 @@ describe.each([
     expect(await screen.findByText("No pages are waiting to be checked.")).toBeVisible();
   });
 
+  test("page numbers use the shared page reference and the screen has a way back", async () => {
+    const { container } = (mock(pack), renderAt(PATH));
+    await waitFor(() => expect(container.querySelectorAll(".av-page-ref").length).toBeGreaterThan(0));
+    expect(screen.getByRole("link", { name: "Your bundle" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle`);
+  });
+
   test("?page= adds exactly that page so the expert can say it is not the patient's", async () => {
     mock(pack, { suggestions: [] });
     const posted: string[] = [];
