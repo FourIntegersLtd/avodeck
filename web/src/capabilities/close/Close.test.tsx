@@ -293,7 +293,7 @@ test("each file shows how many it holds", async () => {
 });
 
 test("the case bar has no stray dot when the case has no type or date", async () => {
-  serve({ item: theCase({ case_type: null }) });
+  serve({ item: theCase({ case_type: undefined }) });
   renderClose();
   await screen.findByRole("heading", { level: 1, name: CLOSE_MESSAGES["close.heading.settled"] });
   expect(screen.queryByText(/^\s*·/)).not.toBeInTheDocument();
