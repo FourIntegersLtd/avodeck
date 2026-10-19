@@ -6,10 +6,10 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, ChoicePills, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
-import { casePath, pageLabel, TextArea, useCan } from "./shared";
+import { casePath, kindWord, longDate, useCan } from "./shared";
 import { w } from "./words";
 
 type Finding = Schemas["FindingOut"];
@@ -32,13 +32,13 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
   const needs = decision !== null && NEEDS_REASON.has(decision);
   const ready = decision !== null && (!needs || reason.trim() !== "");
   const titleId = `finding-${finding.id}`;
-  const save = async () => {
+  const save = async (chosen: string, why: string | null) => {
     setError(null);
     try {
       const out = await unwrap(
         api.PATCH("/v1/cases/{case_id}/findings/{finding_id}", {
           params: { path: { case_id: caseId, finding_id: finding.id } },
-          body: { decision: decision as (typeof DECISIONS)[number], reason: needs ? reason.trim() : null },
+          body: { decision: chosen as (typeof DECISIONS)[number], reason: why },
         }),
       );
       setSaved(true);
@@ -47,43 +47,115 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
       setError(errorMessage(err));
     }
   };
+  const choose = (value: string) => {
+    setDecision(value);
+    setSaved(false);
+    if (!NEEDS_REASON.has(value)) void save(value, null);
+  };
+  const shown = new Set(finding.evidence.map((e) => e.page_no));
+  const other = finding.evidence_pages.filter((p) => !shown.has(p));
   return (
     <article aria-labelledby={titleId} className="av-card av-stack">
       <div>
         <h3 id={titleId}>{findingTitle(finding)}</h3>
-        <p className="av-muted">
-          {w("things.pages")}: <span>{finding.evidence_pages.map(pageLabel).join(", ")}</span>
-        </p>
+        <ul className="av-understand-list">
+          {finding.evidence.map((e) => (
+            <li key={e.fact_id} className="av-understand-event">
+              <span className="av-muted">{e.summary ? w("things.evidence", { date: longDate(e.event_date), summary: e.summary }) : `${kindWord(e.kind)} · ${longDate(e.event_date)}`}</span>
+              <PageRef page={e.page_no} to={`/cases/${caseId}/read/${e.page_no}`} />
+            </li>
+          ))}
+        </ul>
+        {other.length > 0 && (
+          <p className="av-muted">
+            {w("things.pages")}: <span>{other.map((p) => w("common.page", { page: p })).join(", ")}</span>
+          </p>
+        )}
         {finding.status === "gone" && <p><strong>{w("things.gone")}</strong></p>}
       </div>
       {!canDecide ? (
         finding.decision && <p>{w("things.decision")}: {t(`understand.things.decision.${finding.decision}`)}</p>
       ) : (
-      <>
-      <fieldset className="av-understand-choice">
-        <legend className="av-field__label">{w("things.decision")}</legend>
-        <div className="av-understand-choice__options">
-          {DECISIONS.map((d) => (
-            <label key={d} className="av-checkbox av-understand-option">
-              <input type="radio" name={`decision-${finding.id}`} value={d} checked={decision === d} onChange={() => { setDecision(d); setSaved(false); }} />
-              <span>{t(`understand.things.decision.${d}`)}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
-      {needs && <TextArea label={w("things.reason")} hint={w("things.reason_hint")} rows={3} required value={reason} onChange={(e) => { setReason(e.target.value); setSaved(false); }} />}
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {saved && <p className="av-muted" role="status">{w("things.decided")}</p>}
-      <div>
-        <Button disabled={!ready} onClick={() => void save()}>{w("things.save")}</Button>
-      </div>
-      </>
+        <>
+          <ChoicePills
+            label={w("things.decision")}
+            hideLabel
+            tone="amber"
+            name={`decision-${finding.id}`}
+            value={decision}
+            onChange={choose}
+            options={DECISIONS.map((d) => ({ value: d, label: t(`understand.things.decision.${d}`) }))}
+          />
+          {needs && (
+            <>
+              <p className="av-muted">{w("things.reason_hint")}</p>
+              <DictationBox caseId={caseId} context="finding_reason" label={w("things.reason")} rows={3} value={reason} onChange={(v) => { setReason(v); setSaved(false); }} />
+              <div>
+                <Button disabled={!ready} onClick={() => void save(decision, reason.trim())}>{w("things.save")}</Button>
+              </div>
+            </>
+          )}
+          {error && <Notice tone="error"><p>{error}</p></Notice>}
+          {saved && <p className="av-muted" role="status">{w("things.decided")}</p>}
+        </>
       )}
     </article>
   );
 }
 
-function Checks({ caseId }: { caseId: string }) {
+function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () => void; onAdded: () => void }) {
+  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId]);
+  const kinds = ((pack.data?.fact_kinds ?? []) as Array<{ key: string }>).map((k) => k.key);
+  const [label, setLabel] = useState("");
+  const [from, setFrom] = useState("");
+  const [follow, setFollow] = useState("");
+  const [days, setDays] = useState("14");
+  const [error, setError] = useState<string | null>(null);
+  const n = Number(days);
+  const ready = label.trim() !== "" && from !== "" && follow !== "" && Number.isInteger(n) && n > 0;
+  const add = async () => {
+    setError(null);
+    try {
+      await unwrap(api.POST("/v1/me/checks/custom", { body: { case_id: caseId, label: label.trim(), applies_to: from, followup_kinds: [follow], window_days: n } }));
+      onAdded();
+    } catch (err) {
+      setError(errorMessage(err));
+    }
+  };
+  const options = (
+    <>
+      <option value="">{w("things.own.choose")}</option>
+      {kinds.map((k) => (
+        <option key={k} value={k}>{kindWord(k)}</option>
+      ))}
+    </>
+  );
+  return (
+    <Dialog title={w("things.own")} onClose={onClose}>
+      <form className="av-stack" onSubmit={(e) => { e.preventDefault(); if (ready) void add(); }}>
+        <p className="av-muted">{w("things.own_hint")}</p>
+        <TextField name="own-label" label={w("things.own.label")} maxLength={80} value={label} onChange={(e) => setLabel(e.target.value)} />
+        <div className="av-field">
+          <label className="av-field__label" htmlFor="own-from">{w("things.own.from")}</label>
+          <select id="own-from" className="av-input" value={from} onChange={(e) => setFrom(e.target.value)}>{options}</select>
+        </div>
+        <div className="av-field">
+          <label className="av-field__label" htmlFor="own-follow">{w("things.own.follow")}</label>
+          <select id="own-follow" className="av-input" value={follow} onChange={(e) => setFollow(e.target.value)}>{options}</select>
+        </div>
+        <TextField name="own-days" label={w("things.own.days")} type="number" min={1} inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
+        {error && <Notice tone="error"><p>{error}</p></Notice>}
+        <div className="av-row">
+          <Button type="submit" disabled={!ready}>{w("things.own.add")}</Button>
+          <Button variant="secondary" onClick={onClose}>{w("common.cancel")}</Button>
+        </div>
+      </form>
+    </Dialog>
+  );
+}
+
+function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }) {
+  const [adding, setAdding] = useState(false);
   const found = useResource(() => unwrap(api.GET("/v1/me/checks", { params: { query: { case_id: caseId } } })), [caseId]);
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [days, setDays] = useState<Record<string, string>>({});
@@ -126,8 +198,18 @@ function Checks({ caseId }: { caseId: string }) {
       </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {checks.map((c) => (
-        <Checkbox key={c.key} label={t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(e) => void toggle(c.key, e.target.checked)} />
+        <div key={c.key} className="av-understand-check">
+          <ToggleSwitch label={c.label ?? t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
+          {c.gentle && <span className="av-muted">{w("things.gentle")}</span>}
+        </div>
       ))}
+      {can("finding.decide") && (
+        <div>
+          <Button variant="secondary" onClick={() => setAdding(true)}>{w("things.own")}</Button>
+        </div>
+      )}
+      <p className="av-muted">{w("things.gentle_note")}</p>
+      {adding && <AddCheck caseId={caseId} onClose={() => setAdding(false)} onAdded={() => { setAdding(false); found.reload(); }} />}
       {timed.map((c) => (
         <TextField
           key={`days-${c.key}`}
@@ -190,7 +272,10 @@ export function ThingsToLook() {
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {started && <Notice><p>{w("things.rerun_started")}</p></Notice>}
       <LinkReview caseId={caseId} can={can} />
-      <Checks caseId={caseId} />
+      <Checks caseId={caseId} can={can} />
+      <div>
+        <LinkButton to={`/cases/${caseId}/opinion`} arrow>{w("things.start_writing")}</LinkButton>
+      </div>
     </div>
   );
 }

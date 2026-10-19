@@ -9,3 +9,26 @@
 .av-understand-choice { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .av-understand-choice__options { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
 .av-understand-option { min-height: var(--button-min-height); align-items: center; }
+
+/* S11: the board. Each line is a track; an entry sits on it by date and opens on hover or focus. */
+.av-understand-counts { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.av-understand-count { font-weight: 700; padding: var(--space-1) var(--space-3); border-radius: 999px; background: var(--surface-muted); }
+.av-understand-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
+.av-understand-legend li { display: inline-flex; align-items: center; gap: var(--space-2); }
+.av-understand-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+.av-understand-board { overflow-x: auto; }
+.av-understand-canvas { position: relative; min-width: 100%; width: 100%; }
+.av-understand-board[data-zoom="month"] .av-understand-canvas { width: calc(var(--months, 1) * 100%); }
+.av-understand-months { list-style: none; margin: 0; padding: 0; position: relative; height: 2em; }
+.av-understand-months li { position: absolute; top: 0; white-space: nowrap; font-weight: 700; }
+.av-understand-lane__head { display: flex; align-items: baseline; gap: var(--space-3); }
+.av-understand-track { position: relative; height: calc(var(--button-min-height) + var(--space-3)); }
+.av-understand-track .av-understand-event--dot { position: absolute; top: 0; display: block; border-top: 0; padding: 0; min-height: 0; }
+.av-understand-event--dot > a { min-width: 28px; justify-content: center; }
+.av-understand-event--dot > a::before { content: ""; width: 20px; height: 20px; border-radius: 50%; background: var(--lane-colour); display: inline-block; }
+.av-understand-event--dot > a { font-size: 0; }
+.av-understand-tip { display: none; flex-direction: column; gap: var(--space-1); position: absolute; top: 100%; left: 0; z-index: 2; min-width: 16em; padding: var(--space-3); background: var(--surface); border: 1px solid var(--surface-muted); border-radius: var(--radius-md, 8px); }
+.av-understand-event:not(.av-understand-event--dot) .av-understand-tip { display: flex; position: static; border: 0; padding: 0; flex-direction: row; flex-wrap: wrap; gap: var(--space-3); min-width: 0; }
+.av-understand-event--dot:hover .av-understand-tip, .av-understand-event--dot:focus-within .av-understand-tip { display: flex; }
+.av-understand-chips { display: inline-flex; gap: var(--space-1); }
+.av-understand-event--dot .av-understand-chips { position: absolute; top: 28px; left: 0; }
