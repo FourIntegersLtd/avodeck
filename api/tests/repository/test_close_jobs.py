@@ -991,3 +991,68 @@ async def test_deletion_removes_the_page_embeddings(
     await run(close_jobs.delete_case, case, "delete_case")
     assert rows_of(admin, "page_embeddings", case) == 0
     assert rows_of(admin, "pages", case) == 0
+
+
+# --- choosing which files go in the export ----------------------------------------------------------------
+
+
+async def test_only_the_chosen_kinds_go_in_the_zip(
+    run: Run,
+    seed: Seed,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+    client_for: ClientFor,
+) -> None:
+    case, expert = world["case"], world["expert"]
+    await served_report(admin, storage, crypto, worker_db, case)
+    add_sent_invoice(admin, case, expert)
+    page = seed.page(case, seed.document(case), 3)
+    admin.execute(
+        "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)",
+        (case, page, expert),
+    )
+    client = await client_for(expert)
+    resp = await client.post(f"/v1/cases/{case}/export", json={"files": ["reads", "invoice"]})
+    assert resp.status_code == 202, resp.text
+    job = uuid.UUID(resp.json()["job_id"])
+    await run(close_jobs.export_case, case, "export_case", job=job)
+    finish(admin, job)
+    archive = zipfile.ZipFile(io.BytesIO((await client.get(f"/v1/cases/{case}/export/{job}/download")).content))
+    names = set(archive.namelist())
+    assert {"logs/page-reads.csv", "invoices.csv", "hashes.csv", "manifest.json"} <= names
+    assert not {n for n in names if n.startswith(("report-versions/", "bundle/"))}
+    assert "logs/methodology.csv" not in names and "requests.csv" not in names
+    assert sorted(json.loads(archive.read("manifest.json"))["files"]) == ["invoices.csv", "logs/page-reads.csv"]
+    assert await storage.list_recursive(f"{case_prefix(case)}/exports/{job}") == [], (
+        "the selection note is gone once the files are built and downloaded"
+    )
+
+
+async def test_the_file_list_counts_what_each_kind_holds(
+    seed: Seed,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_db: Database,
+    world: dict[str, Any],
+    client_for: ClientFor,
+) -> None:
+    case, expert = world["case"], world["expert"]
+    await served_report(admin, storage, crypto, worker_db, case)
+    add_sent_invoice(admin, case, expert)
+    page = seed.page(case, seed.document(case), 3)
+    for _ in range(2):
+        admin.execute(
+            "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)",
+            (case, page, expert),
+        )
+    resp = await (await client_for(expert)).get(f"/v1/cases/{case}/export/files")
+    assert {f["kind"]: f["count"] for f in resp.json()["files"]} == {
+        "reports": 1,
+        "method": 0,
+        "reads": 2,
+        "invoice": 1,
+    }

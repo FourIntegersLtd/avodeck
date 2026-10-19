@@ -84,5 +84,36 @@ class Certificate(BaseModel):
     sent_to: list[str]
 
 
+ExportKind = Literal["reports", "method", "reads", "invoice"]
+EXPORT_KINDS: tuple[ExportKind, ...] = ("reports", "method", "reads", "invoice")
+# Ticked when the screen opens: the invoice is the expert's own paperwork, so it is opt-in.
+EXPORT_KINDS_BY_DEFAULT: frozenset[str] = frozenset({"reports", "method", "reads"})
+
+
+class ExportRequest(BaseModel):
+    """Which kinds of file to build; leave out `files` for all of them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    files: list[ExportKind] | None = Field(default=None, min_length=1, max_length=len(EXPORT_KINDS))
+
+    @field_validator("files")
+    @classmethod
+    def _once_each(cls, value: list[ExportKind] | None) -> list[ExportKind] | None:
+        if value is not None and len(set(value)) != len(value):
+            raise ValueError("each kind once")
+        return value
+
+
+class ExportFile(BaseModel):
+    kind: ExportKind
+    count: int  # how many items the kind holds (report versions, page reads, invoices, ...)
+    selected: bool  # ticked by default
+
+
+class ExportFiles(BaseModel):
+    files: list[ExportFile]
+
+
 class JobQueued(BaseModel):
     job_id: uuid.UUID

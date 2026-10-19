@@ -66,7 +66,11 @@ export function Close() {
   let intro: string | null = w("intro.open");
   if (deleted) intro = null;
   else if (summary.deletion_started) intro = w("intro.deleting");
-  else if (summary.settled_at) intro = w("intro.settled", { date: formatDate(summary.settled_at, locale) });
+  else if (summary.settled_at) {
+    const date = formatDate(summary.settled_at, locale);
+    const party = partyWord(pack.data, item.data.instructing_party_type);
+    intro = party ? w("intro.settled_by", { party, date }) : w("intro.settled", { date });
+  }
 
   return (
     <>
@@ -75,12 +79,22 @@ export function Close() {
       caseId={caseId}
       steps={steps}
       current={stepFor(pack.data, "close")}
-      title={<h1 className="av-case-bar__title">{w(headingKey)}</h1>}
-      subtitle={`${item.data.label} · ${caseSubtitle(item.data, pack.data)}`}
+      title={<span className="av-case-bar__title">{item.data.label}</span>}
+      subtitle={`${caseSubtitle(item.data, pack.data)} · ${w(`status.${status}` as CloseKey)}`}
       person={person}
     />
-    <div className="av-page av-stack">
-      {intro && <p>{intro}</p>}
+    <main className="av-page av-stack av-close">
+      <div className="av-close-title">
+        {!deleted && (
+          <span className="av-close-title__mark" aria-hidden="true">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+          </span>
+        )}
+        <div>
+          <h1>{w(headingKey)}</h1>
+          {intro && <p className="av-close-title__lead">{intro}</p>}
+        </div>
+      </div>
       {message && (
         <Notice tone={message.tone}>
           <p>{message.text}</p>
@@ -90,6 +104,7 @@ export function Close() {
         can("case.view_certificate") && <Certificate caseId={caseId} locale={locale} />
       ) : (
         <>
+          <div className="av-close-grid">
           {can("case.export") && <Copies caseId={caseId} adminCopy={!can("case.settle")} />}
           {can("case.retention") && !summary.deletion_started && (
             <Keep
@@ -100,11 +115,13 @@ export function Close() {
               onSaved={close.reload}
             />
           )}
-          <Proof caseId={caseId} summary={summary} locale={locale} canHold={can("legal_hold.set")} canRelease={can("legal_hold.release")} onChanged={close.reload} />
-          {!summary.deletion_started && <Closing caseId={caseId} status={summary.status} can={can} onDone={refresh} setMessage={setMessage} />}
+          <Proof caseLabel={item.data.label} party={partyWord(pack.data, item.data.instructing_party_type)} summary={summary} locale={locale} />
+          </div>
+          <Hold caseId={caseId} summary={summary} locale={locale} canHold={can("legal_hold.set")} canRelease={can("legal_hold.release")} onChanged={close.reload} />
+          {!summary.deletion_started && <Closing party={partyWord(pack.data, item.data.instructing_party_type)} caseId={caseId} status={summary.status} can={can} onDone={refresh} setMessage={setMessage} />}
         </>
       )}
-    </div>
+    </main>
     </>
   );
 }
@@ -114,11 +131,14 @@ function partyWord(pack: Schemas["CasePack"], key: string | null | undefined): s
   return pack.instructing_party_types.find((p) => p.key === key)?.label ?? null;
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, step, children }: { title: string; step?: number; children: ReactNode }) {
   const id = useId();
   return (
-    <section className="av-section av-card av-stack" aria-labelledby={id}>
-      <h2 id={id}>{title}</h2>
+    <section className="av-card av-stack av-close-card" aria-labelledby={id}>
+      <div className="av-close-card__head">
+        {step !== undefined && <span className="av-close-card__step">{step}</span>}
+        <h2 id={id}>{title}</h2>
+      </div>
       {children}
     </section>
   );
@@ -130,6 +150,12 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   const stepUp = useStepUp();
   const [making, setMaking] = useState<Making>({ state: "idle" });
   const [error, setError] = useState<string | null>(null);
+  const kinds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/export/files", { params: { path: { case_id: caseId } } })), [caseId]);
+  // Ticks the user has changed; anything else follows the server's defaults.
+  const [changed, setChanged] = useState<Record<string, boolean>>({});
+  const files = kinds.data?.files ?? [];
+  const isOn = (f: { kind: string; selected: boolean }) => changed[f.kind] ?? f.selected;
+  const chosen = files.filter(isOn).map((f) => f.kind);
 
   useEffect(() => {
     if (making.state !== "making") return;
@@ -153,7 +179,7 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   const make = async () => {
     setError(null);
     try {
-      const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/export", { params: { path: { case_id: caseId } } })));
+      const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/export", { params: { path: { case_id: caseId } }, body: { files: chosen } })));
       if (started) setMaking({ state: "making", job: started.job_id });
     } catch (err) {
       setError(errorMessage(err, OWN_ERRORS));
@@ -182,14 +208,24 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   };
 
   return (
-    <Section title={w("copies.heading")}>
+    <Section title={w("copies.heading")} step={1}>
       <p>{adminCopy ? w("copies.admin_lead") : w("copies.lead")}</p>
-      <ul>
-        <li>{w("copies.reports")}</li>
-        <li>{w("copies.method")}</li>
-        <li>{w("copies.reads")}</li>
-        <li>{w("copies.invoice")}</li>
-      </ul>
+      {kinds.error ? (
+        <LoadError onRetry={kinds.reload} />
+      ) : (
+        <div className="av-close-ticks" role="group" aria-label={w("copies.heading")}>
+          {files.map((f) => (
+            <CopyKind
+              key={f.kind}
+              label={w(`copies.${f.kind}`)}
+              count={f.count}
+              checked={isOn(f)}
+              disabled={making.state === "making" || making.state === "ready"}
+              onChange={(on) => setChanged({ ...changed, [f.kind]: on })}
+            />
+          ))}
+        </div>
+      )}
       {error && (
         <Notice tone="error">
           <p>{error}</p>
@@ -203,12 +239,23 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
         {making.state === "ready" ? (
           <Button onClick={() => void download(making.job)}>{w("copies.download")}</Button>
         ) : (
-          <Button variant="secondary" disabled={making.state === "making"} onClick={() => void make()}>
-            {w("copies.make")}
+          <Button variant="secondary" disabled={making.state === "making" || chosen.length === 0} onClick={() => void make()}>
+            {w("copies.download_n" as CloseKey, { count: chosen.length })}
           </Button>
         )}
       </div>
     </Section>
+  );
+}
+
+function CopyKind(props: { label: string; count: number; checked: boolean; disabled: boolean; onChange: (on: boolean) => void }) {
+  const id = useId();
+  return (
+    <label className="av-close-copy">
+      <input type="checkbox" checked={props.checked} disabled={props.disabled} aria-labelledby={`${id}-l`} aria-describedby={`${id}-n`} onChange={(e) => props.onChange(e.target.checked)} />
+      <span id={`${id}-l`}>{props.label}</span>
+      <span id={`${id}-n`} className="av-muted av-close-copy__n">{w("copies.count" as CloseKey, { count: props.count })}</span>
+    </label>
   );
 }
 
@@ -269,7 +316,7 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
   };
 
   return (
-    <Section title={w("keep.heading")}>
+    <Section title={w("keep.heading")} step={2}>
       <p>{w("keep.lead")}</p>
       <fieldset className="av-choices">
         <legend className="av-visually-hidden">{w("keep.legend")}</legend>
@@ -318,17 +365,38 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
   );
 }
 
-function Proof(props: { caseId: string; summary: Summary; locale: string; canHold: boolean; canRelease: boolean; onChanged: () => void }) {
+function Proof(props: { caseLabel: string; party: string | null; summary: Summary; locale: string }) {
+  const { summary, locale } = props;
+  const date = summary.delete_after ? formatDate(summary.delete_after, locale) : null;
+  let status = w("proof.not_scheduled");
+  if (summary.held) status = w("proof.paused");
+  else if (date) status = w("proof.scheduled", { date });
+  const name = w("proof.certificate");
+  return (
+    <Section title={w("proof.heading")} step={3}>
+      <p>{props.party ? w("proof.lead_party", { party: props.party }) : w("proof.lead")}</p>
+      <div role="group" aria-label={name} className="av-close-cert">
+        <p className="av-close-cert__title" aria-hidden="true">{name}</p>
+        <p>{w("proof.case", { case: props.caseLabel })}</p>
+        <p>{w("proof.records")}</p>
+        <p>{date && !summary.held ? w("proof.deleted_on", { date }) : w("proof.date_pending")}</p>
+        <p>{w("proof.kept")}</p>
+      </div>
+      <p className="av-close-scheduled">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="2" /><path d="M8 3v4M16 3v4M4 10h16" /></svg>
+        {status}
+      </p>
+    </Section>
+  );
+}
+
+function Hold(props: { caseId: string; summary: Summary; locale: string; canHold: boolean; canRelease: boolean; onChanged: () => void }) {
   const { summary, locale } = props;
   const stepUp = useStepUp();
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const id = useId();
   const active = summary.holds.filter((h) => h.released_at === null);
-
-  let status = w("proof.not_scheduled");
-  if (summary.held) status = w("proof.paused");
-  else if (summary.delete_after) status = w("proof.scheduled", { date: formatDate(summary.delete_after, locale) });
-
   const until = active.map((h) => h.until).filter((u): u is string => u !== null).sort().at(-1);
   const pausedText = active.some((h) => h.until === null) || !until ? w("hold.paused") : w("hold.paused_until", { date: formatDate(until, locale) });
 
@@ -346,41 +414,33 @@ function Proof(props: { caseId: string; summary: Summary; locale: string; canHol
     }
   };
 
+  if (!props.canHold || summary.deletion_started) return null;
   return (
-    <Section title={w("proof.heading")}>
-      <p>{w("proof.lead")}</p>
-      <p>
-        <strong>{w("proof.certificate")}</strong>: {status}
-      </p>
-      {error && (
-        <Notice tone="error">
-          <p>{error}</p>
-        </Notice>
-      )}
-      {props.canHold && !summary.deletion_started && (
-        <>
-          <p className="av-muted">{w("hold.lead")}</p>
-          {summary.held ? (
-            <>
-              <Notice tone="warning">
-                <p>{pausedText}</p>
-              </Notice>
-              {props.canRelease && (
-                <div className="av-close-actions">
-                  <Button variant="secondary" onClick={() => void resume()}>
-                    {w("hold.resume")}
-                  </Button>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="av-close-actions">
-              <Button variant="secondary" onClick={() => setAsking(true)}>
-                {w("hold.pause")}
-              </Button>
-            </div>
-          )}
-        </>
+    <section className="av-card av-close-hold" aria-labelledby={id}>
+      <div className="av-close-hold__text">
+        <h2 id={id}>{w("hold.question")}</h2>
+        <p className="av-muted">{w("hold.lead")}</p>
+        {summary.held && (
+          <Notice tone="warning">
+            <p>{pausedText}</p>
+          </Notice>
+        )}
+        {error && (
+          <Notice tone="error">
+            <p>{error}</p>
+          </Notice>
+        )}
+      </div>
+      {summary.held ? (
+        props.canRelease && (
+          <Button variant="secondary" onClick={() => void resume()}>
+            {w("hold.resume")}
+          </Button>
+        )
+      ) : (
+        <Button variant="secondary" onClick={() => setAsking(true)}>
+          {w("hold.pause")}
+        </Button>
       )}
       {asking && (
         <PauseDialog
@@ -392,7 +452,7 @@ function Proof(props: { caseId: string; summary: Summary; locale: string; canHol
           }}
         />
       )}
-    </Section>
+    </section>
   );
 }
 
@@ -438,7 +498,7 @@ function PauseDialog({ caseId, onClose, onDone }: { caseId: string; onClose: () 
   );
 }
 
-function Closing(props: { caseId: string; status: string; can: (a: string) => boolean; onDone: () => void; setMessage: (m: Message) => void }) {
+function Closing(props: { party: string | null; caseId: string; status: string; can: (a: string) => boolean; onDone: () => void; setMessage: (m: Message) => void }) {
   const { can, status } = props;
   const path = { case_id: props.caseId };
   const run = async (call: () => Promise<unknown>) => {
@@ -453,7 +513,7 @@ function Closing(props: { caseId: string; status: string; can: (a: string) => bo
   };
   let button: ReactNode = null;
   if ((status === "active" || status === "served") && can("case.settle")) {
-    button = <Button onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/settle", { params: { path } })))}>{w("close.settle")}</Button>;
+    button = <Button onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/settle", { params: { path } })))}>{w("close.settle")}<Arrow /></Button>;
   } else if ((status === "settled" || status === "withdrawn") && can("case.archive")) {
     button = <Button onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/archive", { params: { path } })))}>{w("close.archive")}</Button>;
   } else if (status === "archived" && can("case.reopen")) {
@@ -461,10 +521,16 @@ function Closing(props: { caseId: string; status: string; can: (a: string) => bo
   }
   if (!button) return null;
   return (
-    <div className="av-stack">
-      <p className="av-muted">{w("close.note")}</p>
+    <div className="av-close-foot">
+      <p className="av-muted">{props.party ? w("close.note_party", { party: props.party }) : w("close.note")}</p>
       <div className="av-close-actions">{button}</div>
     </div>
+  );
+}
+
+function Arrow() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginLeft: 10 }}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
   );
 }
 

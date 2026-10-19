@@ -4913,6 +4913,81 @@
         "title": "Expert",
         "type": "object"
       },
+      "ExportFile": {
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "reports",
+              "method",
+              "reads",
+              "invoice"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "count",
+          "selected"
+        ],
+        "title": "ExportFile",
+        "type": "object"
+      },
+      "ExportFiles": {
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/ExportFile"
+            },
+            "title": "Files",
+            "type": "array"
+          }
+        },
+        "required": [
+          "files"
+        ],
+        "title": "ExportFiles",
+        "type": "object"
+      },
+      "ExportRequest": {
+        "additionalProperties": false,
+        "description": "Which kinds of file to build; leave out `files` for all of them.",
+        "properties": {
+          "files": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "reports",
+                    "method",
+                    "reads",
+                    "invoice"
+                  ],
+                  "type": "string"
+                },
+                "maxItems": 4,
+                "minItems": 1,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Files"
+          }
+        },
+        "title": "ExportRequest",
+        "type": "object"
+      },
       "FactList": {
         "properties": {
           "facts": {
@@ -20253,6 +20328,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ExportRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "content": {
@@ -20286,6 +20378,59 @@
           }
         },
         "summary": "Request Export",
+        "tags": [
+          "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/export/files": {
+      "get": {
+        "operationId": "export_files_v1_cases__case_id__export_files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportFiles"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Export Files",
         "tags": [
           "close"
         ]

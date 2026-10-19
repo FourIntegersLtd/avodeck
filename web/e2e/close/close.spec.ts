@@ -33,6 +33,16 @@ test("the close screen passes axe, with 52px buttons and 17px body text", async 
   await page.route(`**/v1/cases/${CASE_A}/close`, (route) =>
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(SUMMARY) }),
   );
+  await page.route(`**/v1/cases/${CASE_A}/export/files`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ files: [
+        { kind: "reports", count: 2, selected: true }, { kind: "method", count: 5, selected: true },
+        { kind: "reads", count: 40, selected: true }, { kind: "invoice", count: 1, selected: false },
+      ] }),
+    }),
+  );
   await page.goto(`/cases/${CASE_A}/close`);
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   await expect(page.getByRole("button").first()).toBeVisible();

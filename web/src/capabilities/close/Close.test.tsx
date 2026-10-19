@@ -49,6 +49,11 @@ function serve(opts: { item?: Schemas["Case"]; close?: Schemas["CloseSummary"]; 
   server.use(
     http.get(`/v1/cases/${CASE_A}`, () => json(opts.item ?? theCase())),
     http.get(`/v1/cases/${CASE_A}/close`, () => json(close)),
+    http.get(`/v1/cases/${CASE_A}/export/files`, () =>
+      json({ files: [
+        { kind: "reports", count: 2, selected: true }, { kind: "method", count: 5, selected: true },
+        { kind: "reads", count: 40, selected: true }, { kind: "invoice", count: 1, selected: false },
+      ] })),
     http.put(`/v1/cases/${CASE_A}/retention`, async ({ request }) => {
       await record(request);
       close = { ...close, retention_policy: (sent.at(-1)!.body as { policy: string }).policy };
@@ -66,7 +71,7 @@ function serve(opts: { item?: Schemas["Case"]; close?: Schemas["CloseSummary"]; 
       return json(hold, 201);
     }),
   );
-  return { sent };
+  return { sent, record };
 }
 
 function renderClose() {
@@ -88,7 +93,7 @@ test("a settled case shows the three decisions with the pack's years, and passes
   expect(screen.getByRole("heading", { name: CLOSE_MESSAGES["close.proof.heading"] })).toBeInTheDocument();
   const keep = screen.getByRole("radio", { name: new RegExp(`${launchPack.retention_years}`) });
   expect(keep).toBeChecked();
-  expect(screen.getByText(/2033/)).toBeInTheDocument();
+  expect(screen.getAllByText(/2033/).length).toBeGreaterThan(0); // the certificate preview and the scheduled line both show it
   expect(await axeViolations(container)).toEqual([]);
 });
 
@@ -134,11 +139,11 @@ test("pausing deletion asks why and until when, then shows it is paused", async 
 });
 
 test("files are got ready, then downloaded once", async () => {
-  serve();
+  const { sent, record } = serve();
   const job = "77777777-7777-4777-8777-777777777777";
   let polls = 0;
   server.use(
-    http.post(`/v1/cases/${CASE_A}/export`, () => json({ job_id: job }, 202)),
+    http.post(`/v1/cases/${CASE_A}/export`, async ({ request }) => { await record(request); return json({ job_id: job }, 202); }),
     http.get(`/v1/jobs/${job}`, () => {
       polls += 1;
       return json({ id: job, case_id: CASE_A, kind: "export_case", status: polls > 1 ? "done" : "running", pct: null, step: null, eta_seconds: null, error_code: null, created_at: "2027-07-20T10:00:00Z", started_at: null, finished_at: null });
@@ -146,7 +151,8 @@ test("files are got ready, then downloaded once", async () => {
     http.get(`/v1/cases/${CASE_A}/export/${job}/download`, () => new Response(new Blob(["PK"]), { headers: { "content-type": "application/zip" } })),
   );
   const { user } = renderClose();
-  await user.click(await screen.findByRole("button", { name: CLOSE_MESSAGES["close.copies.make"] }));
+  await user.click(await screen.findByRole("button", { name: "Download 3 files" }));
+  expect(sent.find((s) => s.path.endsWith("/export"))?.body).toEqual({ files: ["reports", "method", "reads"] });
   const download = await screen.findByRole("button", { name: CLOSE_MESSAGES["close.copies.download"] }, { timeout: 5000 });
   await user.click(download);
   expect(await screen.findByText(CLOSE_MESSAGES["close.copies.downloaded"]!)).toBeInTheDocument();
@@ -210,4 +216,79 @@ test("after deletion only the certificate answers, and the screen still shows it
 
 test("the screen is registered at the case's close path", () => {
   expect(closeRoutes.map((r) => r.path)).toEqual(["cases/:caseId/close"]);
+});
+
+// --- design match (docs/design/screens/S26-Close.dc.html) ---------------------------------------------
+
+test("the bar names the case and the page title sits in the page, with the party and date underneath", async () => {
+  const party = fixturePack.instructing_party_types[0]!;
+  serve({ pack: fixturePack, item: theCase({ instructing_party_type: party.key }) });
+  renderClose();
+  const title = await screen.findByRole("heading", { level: 1, name: CLOSE_MESSAGES["close.heading.settled"] });
+  expect(within(screen.getByRole("banner")).queryByRole("heading", { level: 1 })).not.toBeInTheDocument();
+  expect(within(screen.getByRole("banner")).getByText("Mrs A")).toBeInTheDocument();
+  expect(screen.getByRole("main")).toContainElement(title);
+  expect(screen.getByText(new RegExp(`${party.label}.*2027`))).toBeInTheDocument();
+});
+
+test("each of the three decisions carries its step number", async () => {
+  serve();
+  renderClose();
+  for (const [n, key] of [["1", "close.copies.heading"], ["2", "close.keep.heading"], ["3", "close.proof.heading"]] as const) {
+    const section = (await screen.findByRole("heading", { name: CLOSE_MESSAGES[key] })).closest("section")!;
+    expect(within(section).getByText(n)).toBeInTheDocument();
+  }
+});
+
+test("the copies are listed with ticks and the proof section previews the certificate", async () => {
+  serve();
+  renderClose();
+  const copies = (await screen.findByRole("heading", { name: CLOSE_MESSAGES["close.copies.heading"] })).closest("section")!;
+  const boxes = await within(copies).findAllByRole("checkbox");
+  expect(boxes.map((b) => (b as HTMLInputElement).checked)).toEqual([true, true, true, false]);
+  expect(boxes[0]).toHaveAccessibleName(/Every version of your report/);
+  const proof = screen.getByRole("heading", { name: CLOSE_MESSAGES["close.proof.heading"] }).closest("section")!;
+  const preview = within(proof).getByRole("group", { name: CLOSE_MESSAGES["close.proof.certificate"] });
+  expect(within(preview).getByText(/Mrs A/)).toBeInTheDocument();
+  expect(within(preview).getByText(/2033/)).toBeInTheDocument();
+  expect(within(preview).getByText(CLOSE_MESSAGES["close.proof.kept"]!)).toBeInTheDocument();
+  expect(within(proof).getByText(/Scheduled for/)).toBeInTheDocument();
+});
+
+test("pausing deletion has its own card under the three, with its question and a plain button", async () => {
+  serve();
+  renderClose();
+  const heading = await screen.findByRole("heading", { level: 2, name: CLOSE_MESSAGES["close.hold.question"] });
+  const card = heading.closest("section")!;
+  expect(within(card).getByRole("button", { name: CLOSE_MESSAGES["close.hold.pause"] })).toBeInTheDocument();
+  expect(within(card).getByText(/remind you before it ends/)).toBeInTheDocument();
+  const proof = screen.getByRole("heading", { name: CLOSE_MESSAGES["close.proof.heading"] }).closest("section")!;
+  expect(proof).not.toContainElement(card);
+});
+
+test("ticking and unticking files changes the button and what is asked for", async () => {
+  const { sent } = serve();
+  const { user } = renderClose();
+  const copies = (await screen.findByRole("heading", { name: CLOSE_MESSAGES["close.copies.heading"] })).closest("section")!;
+  await within(copies).findAllByRole("checkbox");
+  await user.click(within(copies).getByRole("checkbox", { name: /Your invoice and hours/ }));
+  expect(within(copies).getByRole("button", { name: "Download 4 files" })).toBeInTheDocument();
+  await user.click(within(copies).getByRole("checkbox", { name: /Pages you read/ }));
+  await user.click(within(copies).getByRole("checkbox", { name: /How you worked/ }));
+  await user.click(within(copies).getByRole("checkbox", { name: /Every version/ }));
+  expect(within(copies).getByRole("button", { name: "Download 1 file" })).toBeInTheDocument();
+  await user.click(within(copies).getByRole("checkbox", { name: /Every version/ }));
+  await user.click(within(copies).getByRole("checkbox", { name: /Your invoice and hours/ }));
+  expect(within(copies).getByRole("button", { name: "Download 1 file" })).toBeInTheDocument();
+  await user.click(within(copies).getByRole("checkbox", { name: /Every version/ }));
+  expect(within(copies).getByRole("button", { name: /^Download/ })).toBeDisabled();
+  expect(sent).toEqual([]);
+});
+
+test("each file shows how many it holds", async () => {
+  serve();
+  renderClose();
+  const copies = (await screen.findByRole("heading", { name: CLOSE_MESSAGES["close.copies.heading"] })).closest("section")!;
+  const reads = await within(copies).findByRole("checkbox", { name: /Pages you read/ });
+  expect(reads).toHaveAccessibleDescription("40 items");
 });
