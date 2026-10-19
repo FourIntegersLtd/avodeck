@@ -3,9 +3,11 @@
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { t } from "../../foundation/i18n";
+import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { ChoicePills, LoadError, Loading, QChip, Segmented, StatusBadge } from "../../foundation/ui";
+import { ChoicePills, LinkButton, LoadError, Loading, QChip, Segmented, StatusBadge } from "../../foundation/ui";
+import { LaneIcon } from "./laneIcons";
 import { casePath, GuidanceChanged, kindWord, longDate, pageLabel, statusOf } from "./shared";
 import { w } from "./words";
 
@@ -43,7 +45,7 @@ function EventRow({ caseId, event, left, colour, numbers }: { caseId: string; ev
   return (
     <li className={`av-understand-event${left === undefined ? "" : " av-understand-event--dot"}`} style={style}>
       <Link to={`/cases/${caseId}/consultation/${event.fact_id}`}>
-        {kindWord(event.kind)} · {longDate(event.event_date)}
+        <span className={left === undefined ? undefined : "av-visually-hidden"}>{kindWord(event.kind)} · {longDate(event.event_date)}</span>
       </Link>
       <span className="av-understand-tip">
         {event.summary && <span>{event.summary}</span>}
@@ -111,7 +113,7 @@ export function TimelineView({ caseId, data, numbers, zoom = "whole" }: { caseId
             <section key={lane.key} aria-labelledby={`lane-${lane.key}`} className="av-card av-understand-lane">
               <div className="av-understand-lane__head">
                 <span className="av-understand-lane__icon" data-testid="lane-icon" aria-hidden="true" style={{ background: lane.colour ?? "var(--ink-muted)" }}>
-                  {lane.label.slice(0, 1).toUpperCase()}
+                  <LaneIcon laneKey={lane.key} label={lane.label} />
                 </span>
                 <h3 id={`lane-${lane.key}`}>{lane.label}</h3>
                 <span className="av-muted">{w("timeline.lane_count", { count: lane.events.length })}</span>
@@ -225,6 +227,11 @@ export function Timeline() {
         </div>
       </form>
       {found.error ? <LoadError onRetry={found.reload} /> : found.data ? <TimelineView caseId={caseId} data={found.data} numbers={numbers} zoom={zoom} /> : <Loading />}
+      {c && c.things_to_look > 0 && (
+        <LinkButton to={screenPath("things_to_look_at", { caseId }) ?? `/cases/${caseId}/things-to-look-at`} arrow>
+          {w("timeline.look_at_found", { count: c.things_to_look })}
+        </LinkButton>
+      )}
     </div>
   );
 }

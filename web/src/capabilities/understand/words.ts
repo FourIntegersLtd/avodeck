@@ -17,6 +17,7 @@ const WORDS = {
   "common.saved_error": "That did not save. Your work is safe. Please try again.",
   "common.stale": "Someone changed this while you were looking. It has been refreshed.",
 
+  "timeline.look_at_found": "Look at the {{count}} things we found",
   "timeline.title": "The timeline",
   "timeline.intro": "Everything in the record, on one line. Open any entry to see how it looked on the day.",
   "timeline.filters": "Show only",
@@ -74,7 +75,7 @@ const WORDS = {
   "consultation.note_hint": "Only you see this note. It never goes into your report.",
   "consultation.on_label": "Show the record as it stood on",
   "consultation.note_save": "Save note",
-  "consultation.note_continue": "Save note and go back",
+  "consultation.note_continue": "Save note and continue",
   "consultation.linked_to": "Linked to",
   "consultation.back_bottom": "Back to the timeline",
   "consultation.note_saved": "Your note is saved.",
