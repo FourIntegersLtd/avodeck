@@ -25,7 +25,8 @@ test("each thing to fix is an amber outlined card with an icon and a solid Fix i
   serve("launch", { check: failedCheck() });
   renderAt(url);
   const card = await screen.findByRole("listitem", { name: "Question 4 hasn't been answered yet." });
-  expect(card).toHaveClass("rp-fix");
+  expect(card.querySelector(".av-callout")).not.toBeNull();
+  expect(card.querySelector(".rp-fix")).toBeNull();
   expect(card.querySelector(".av-icon-tile--amber")).not.toBeNull();
   const fix = within(card).getByRole("link", { name: M["report.check.fix"]! });
   expect(fix).toHaveClass("av-button");
