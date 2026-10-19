@@ -63,3 +63,16 @@ test("with no flagged sentence there is no marked copy", async () => {
   await screen.findByRole("heading", { level: 2, name: M["write.opinion.title"] });
   expect(screen.queryByRole("region", { name: M["write.opinion.flagged_copy"] })).not.toBeInTheDocument();
 });
+
+test("'Add the page' on an uncited warning focuses the flagged sentence in the copy", async () => {
+  const body = "It began well. Review was due in 3 weeks. Then it ended.";
+  const issue = lintIssue({ sentence_start: 15, sentence_end: 41, words: "3", type: "uncited_fact" });
+  const other = lintIssue({ id: "22222222-aaaa-4aaa-8aaa-222222222222", sentence_start: 42, sentence_end: 56, type: "loaded_language", words: "ended" });
+  serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ body, lint: [issue, other] }) }) });
+  const { user } = renderAt(`/cases/${CASE_A}/opinion?q=${Q1}`);
+  const links = await screen.findAllByRole("button", { name: M["write.opinion.add_page"]! });
+  expect(links).toHaveLength(1);
+  await user.click(links[0]!);
+  const copy = screen.getByRole("region", { name: M["write.opinion.flagged_copy"] });
+  expect(within(copy).getByText("Review was due in 3 weeks.")).toHaveFocus();
+});
