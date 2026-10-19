@@ -29,3 +29,18 @@
 .av-write-tab svg { margin-right: var(--space-2); }
 .av-write-copy { margin: 0; white-space: pre-wrap; }
 .av-write-flagged { background: #fdf1e3; color: inherit; border-radius: 6px; padding: 2px 6px; margin-left: -6px; }
+.av-write-question { font-size: 30px; line-height: 1.2; margin: var(--space-2) 0 0; }
+.av-write-paper { padding: 0; overflow: hidden; }
+.av-write-paper .av-dictation { gap: 0; }
+.av-write-paper .av-field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.av-write-paper .av-dictation__frame { border: 0; border-radius: 0; }
+.av-write-paper .av-dictation__text { font-family: Georgia, serif; line-height: 1.9; padding: var(--space-5); min-height: 280px; }
+.av-write-paper > p { margin: 0; padding: var(--space-2) var(--space-5) var(--space-4); }
+.av-write-test { margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--line-strong); border-radius: var(--radius); }
+.av-write-linkbutton { background: none; border: 0; padding: 0; color: var(--green-dark); font: inherit; font-weight: 700; text-decoration: underline; cursor: pointer; }
+.av-write-linkbutton { min-height: var(--button-min-height); }
+.av-write-title { font-size: 34px; line-height: 1.2; }
+.av-write-footer--between > :last-child { margin-left: auto; }
+.av-write-note .av-field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.av-write-grey { margin: 0; padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius); }
+.av-write-addrow { align-items: center; }
