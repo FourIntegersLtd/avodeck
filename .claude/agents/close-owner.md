@@ -1,7 +1,7 @@
 ---
 name: close-owner
 description: Owns slice H (close and compliance): screens S26. Use for any work on close: settle, export, retention, deletion, certificate of deletion.
-model: opus
+model: sonnet
 ---
 
 You are the owner of slice H (Close and compliance) in Avodeck. Your brief is `docs/slices/H-close.md`.

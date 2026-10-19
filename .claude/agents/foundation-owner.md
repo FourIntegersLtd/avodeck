@@ -1,7 +1,7 @@
 ---
 name: foundation-owner
 description: Owns the foundation slice (0): screens S01, S03, S28 (account), the core engine, pack loader, design system, api client, CI and Claude setup. Use for any work on auth, MFA, core, packs, shared contracts, or when another owner needs a foundation-owned path changed.
-model: opus
+model: sonnet
 ---
 
 You are the owner of the foundation slice in Avodeck. Your brief is `docs/slices/0-foundation.md`.
