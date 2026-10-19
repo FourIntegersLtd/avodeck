@@ -741,7 +741,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 |---|---|---|---|
 | GET | `/cases/{case_id}/close` | What screen 26 shows: status, `settled_at`, retention policy, `delete_after`, the pack's retention years, holds, whether deletion has started | |
 | POST | `/cases/{case_id}/settle` | Mark settled (no body; the database sets `settled_at`) | |
-| POST | `/cases/{case_id}/export` | ZIP of report versions + hashes, methodology, page-read log, invoice, requests (202 + job) | 🔒 |
+| POST | `/cases/{case_id}/export` | ZIP of the chosen file kinds (`files`: reports, method, reads, invoice; all if left out) with hashes and manifest (202 + job) | 🔒 |
+| GET | `/cases/{case_id}/export/files` | The file kinds an export can hold, with counts and which are ticked by default | |
 | GET | `/cases/{case_id}/export/{job_id}/download` | ZIP streamed once by the API | 🔒 |
 | PUT | `/cases/{case_id}/retention` | `{policy: delete_now|keep_default|return_then_delete}` → sets `delete_after` (years from the pack) | 🔒 |
 | POST | `/cases/{case_id}/archive`, `/cases/{case_id}/reopen` | Archive / reopen | |

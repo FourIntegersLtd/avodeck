@@ -150,6 +150,12 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   const stepUp = useStepUp();
   const [making, setMaking] = useState<Making>({ state: "idle" });
   const [error, setError] = useState<string | null>(null);
+  const kinds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/export/files", { params: { path: { case_id: caseId } } })), [caseId]);
+  // Ticks the user has changed; anything else follows the server's defaults.
+  const [changed, setChanged] = useState<Record<string, boolean>>({});
+  const files = kinds.data?.files ?? [];
+  const isOn = (f: { kind: string; selected: boolean }) => changed[f.kind] ?? f.selected;
+  const chosen = files.filter(isOn).map((f) => f.kind);
 
   useEffect(() => {
     if (making.state !== "making") return;
@@ -173,7 +179,7 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   const make = async () => {
     setError(null);
     try {
-      const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/export", { params: { path: { case_id: caseId } } })));
+      const started = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/export", { params: { path: { case_id: caseId } }, body: { files: chosen } })));
       if (started) setMaking({ state: "making", job: started.job_id });
     } catch (err) {
       setError(errorMessage(err, OWN_ERRORS));
@@ -204,14 +210,22 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   return (
     <Section title={w("copies.heading")} step={1}>
       <p>{adminCopy ? w("copies.admin_lead") : w("copies.lead")}</p>
-      <ul className="av-close-ticks">
-        {(["reports", "method", "reads", "invoice"] as const).map((k) => (
-          <li key={k}>
-            <svg className="av-close-ticks__mark" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
-            {w(`copies.${k}`)}
-          </li>
-        ))}
-      </ul>
+      {kinds.error ? (
+        <LoadError onRetry={kinds.reload} />
+      ) : (
+        <div className="av-close-ticks" role="group" aria-label={w("copies.heading")}>
+          {files.map((f) => (
+            <CopyKind
+              key={f.kind}
+              label={w(`copies.${f.kind}`)}
+              count={f.count}
+              checked={isOn(f)}
+              disabled={making.state === "making" || making.state === "ready"}
+              onChange={(on) => setChanged({ ...changed, [f.kind]: on })}
+            />
+          ))}
+        </div>
+      )}
       {error && (
         <Notice tone="error">
           <p>{error}</p>
@@ -225,12 +239,23 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
         {making.state === "ready" ? (
           <Button onClick={() => void download(making.job)}>{w("copies.download")}</Button>
         ) : (
-          <Button variant="secondary" disabled={making.state === "making"} onClick={() => void make()}>
-            {w("copies.make")}
+          <Button variant="secondary" disabled={making.state === "making" || chosen.length === 0} onClick={() => void make()}>
+            {w("copies.download_n" as CloseKey, { count: chosen.length })}
           </Button>
         )}
       </div>
     </Section>
+  );
+}
+
+function CopyKind(props: { label: string; count: number; checked: boolean; disabled: boolean; onChange: (on: boolean) => void }) {
+  const id = useId();
+  return (
+    <label className="av-close-copy">
+      <input type="checkbox" checked={props.checked} disabled={props.disabled} aria-labelledby={`${id}-l`} aria-describedby={`${id}-n`} onChange={(e) => props.onChange(e.target.checked)} />
+      <span id={`${id}-l`}>{props.label}</span>
+      <span id={`${id}-n`} className="av-muted av-close-copy__n">{w("copies.count" as CloseKey, { count: props.count })}</span>
+    </label>
   );
 }
 

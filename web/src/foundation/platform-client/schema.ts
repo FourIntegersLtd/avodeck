@@ -942,6 +942,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/export/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Export Files */
+        get: operations["export_files_v1_cases__case_id__export_files_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/export/{job_id}/download": {
         parameters: {
             query?: never;
@@ -5736,6 +5753,31 @@ export interface components {
             registration_body: string | null;
             /** Specialties */
             specialties: string[];
+        };
+        /** ExportFile */
+        ExportFile: {
+            /** Count */
+            count: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "reports" | "method" | "reads" | "invoice";
+            /** Selected */
+            selected: boolean;
+        };
+        /** ExportFiles */
+        ExportFiles: {
+            /** Files */
+            files: components["schemas"]["ExportFile"][];
+        };
+        /**
+         * ExportRequest
+         * @description Which kinds of file to build; leave out `files` for all of them.
+         */
+        ExportRequest: {
+            /** Files */
+            files?: ("reports" | "method" | "reads" | "invoice")[] | null;
         };
         /** FactList */
         FactList: {
@@ -11970,7 +12012,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExportRequest"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             202: {
@@ -11979,6 +12025,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobQueued"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    export_files_v1_cases__case_id__export_files_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportFiles"];
                 };
             };
             /** @description Validation Error */

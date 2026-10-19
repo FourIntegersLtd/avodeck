@@ -10,7 +10,7 @@ When a case ends, the expert downloads their record of work, chooses how long re
 
 ## Endpoints (architecture 5.2)
 - `POST /v1/cases/{id}/settle`
-- `POST /v1/cases/{id}/export` 🔒 → 202; `GET /v1/cases/{id}/export/{job_id}/download` 🔒
+- `POST /v1/cases/{id}/export` 🔒 `{files?: [reports|method|reads|invoice]}` → 202; `GET /v1/cases/{id}/export/files` (kinds, counts, default ticks); `GET /v1/cases/{id}/export/{job_id}/download` 🔒
 - `PUT /v1/cases/{id}/retention` 🔒 `{policy: delete_now | keep_default | return_then_delete}`
 - `POST /v1/cases/{id}/archive`; `POST /v1/cases/{id}/reopen`
 - `GET /v1/cases/{id}/deletion-certificate`
@@ -76,6 +76,8 @@ Producing the content being exported (other slices), invoice generation (F).
 - The download streams in 1 MB pieces; `CaseCrypto` opens a file whole, so the decrypted ZIP is held in memory once. The worker builds each ZIP in a temporary file.
 - `GET /close` shows `deletion_started` to every case member (`app.close_deletion_started`); the certificate itself stays `case.view_certificate`.
 - S26 is mounted by `app/capabilityRoutes.ts` from `closeRoutes`; its words are registered by the capability (`words.ts`). Its Playwright check (axe, 52px buttons, 17px text) runs against a stubbed settled case.
+
+- Export file choice (S26 checkboxes, "Download N files"): jobs carry no payload and the jobs table is foundation-owned, so the chosen kinds are written as an encrypted note at `<case prefix>/exports/<job>/selection.json` when the export is requested; `export_case` reads and removes it (a deletion run sweeps it if the job never runs). No selection means every kind. `reports` = report versions (and the bundle for the named expert); `method` = requests.csv and logs/methodology.csv; `reads` = logs/page-reads.csv; `invoice` = invoices.csv. `hashes.csv` and `manifest.json` are always included. The invoice is unticked by default (as on the board). Foundation need, if wanted later: a payload column on `jobs`.
 
 ## Definition of done
 Root checklist, plus: a synthetic case can be exported and fully deleted on staging with a certificate produced.
