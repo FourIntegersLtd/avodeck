@@ -9,7 +9,7 @@ async function dataUrl(blob: Blob): Promise<string> {
 }
 
 /** A page's small picture, fetched from FastAPI and shown as a data: URL (the CSP allows no other image origin). */
-export function Thumbnail({ caseId, pageNo, alt }: { caseId: string; pageNo: number; alt: string }) {
+export function Thumbnail({ caseId, pageNo, alt, className = "pl-thumb" }: { caseId: string; pageNo: number; alt: string; className?: string }) {
   const [src, setSrc] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
@@ -22,5 +22,5 @@ export function Thumbnail({ caseId, pageNo, alt }: { caseId: string; pageNo: num
       live = false;
     };
   }, [caseId, pageNo]);
-  return src ? <img className="pl-thumb" src={src} alt={alt} /> : <span className="pl-thumb pl-thumb--empty" role="img" aria-label={alt} />;
+  return src ? <img className={className} src={src} alt={alt} /> : <span className={`${className} pl-thumb--empty`} role="img" aria-label={alt} />;
 }
