@@ -111,7 +111,7 @@ test("the return choice names the instructing party in the pack's words and is s
   const { user } = renderClose();
   const back = await screen.findByRole("radio", { name: new RegExp(party.label!) });
   await user.click(back);
-  await user.click(screen.getByRole("button", { name: CLOSE_MESSAGES["close.keep.save"] }));
+  expect(screen.queryByRole("button", { name: CLOSE_MESSAGES["close.keep.save"] })).not.toBeInTheDocument();
   await waitFor(() => expect(sent).toContainEqual({ method: "PUT", path: `/v1/cases/${CASE_A}/retention`, body: { policy: "return_then_delete" } }));
   expect(await screen.findByText(CLOSE_MESSAGES["close.keep.saved"]!)).toBeInTheDocument();
 });
@@ -120,7 +120,6 @@ test("deleting now asks first", async () => {
   const { sent } = serve({ item: theCase({ status: "active" }), close: summary({ status: "active", settled_at: null, ever_served: false, retention_policy: null, delete_after: null }) });
   const { user } = renderClose();
   await user.click(await screen.findByRole("radio", { name: new RegExp(CLOSE_MESSAGES["close.keep.delete_now"]!) }));
-  await user.click(screen.getByRole("button", { name: CLOSE_MESSAGES["close.keep.save"] }));
   const dialog = await screen.findByRole("dialog", { name: CLOSE_MESSAGES["close.keep.confirm_title"] });
   await user.click(within(dialog).getByRole("button", { name: CLOSE_MESSAGES["close.keep.confirm_yes"] }));
   await waitFor(() => expect(sent).toContainEqual({ method: "PUT", path: `/v1/cases/${CASE_A}/retention`, body: { policy: "delete_now" } }));
@@ -291,4 +290,28 @@ test("each file shows how many it holds", async () => {
   const copies = (await screen.findByRole("heading", { name: CLOSE_MESSAGES["close.copies.heading"] })).closest("section")!;
   const reads = await within(copies).findByRole("checkbox", { name: /Pages you read/ });
   expect(reads).toHaveAccessibleDescription("40 items");
+});
+
+test("the case bar has no stray dot when the case has no type or date", async () => {
+  serve({ item: theCase({ case_type: undefined }) });
+  renderClose();
+  await screen.findByRole("heading", { level: 1, name: CLOSE_MESSAGES["close.heading.settled"] });
+  expect(screen.queryByText(/^\s*·/)).not.toBeInTheDocument();
+});
+
+test("the usual setting is shown chosen when none was saved, and cancelling a delete keeps the choice", async () => {
+  serve({ item: theCase({ status: "active" }), close: summary({ status: "active", settled_at: null, ever_served: false, retention_policy: null, delete_after: null }) });
+  const { user } = renderClose();
+  const keep = await screen.findByRole("radio", { name: new RegExp(`${launchPack.retention_years}`) });
+  expect(keep).toBeChecked();
+  await user.click(screen.getByRole("radio", { name: new RegExp(CLOSE_MESSAGES["close.keep.delete_now"]!) }));
+  const dialog = await screen.findByRole("dialog", { name: CLOSE_MESSAGES["close.keep.confirm_title"] });
+  await user.click(within(dialog).getByRole("button", { name: CLOSE_MESSAGES["close.keep.confirm_no"] }));
+  expect(keep).toBeChecked();
+});
+
+test("a settled case is closed with a button named Close case", async () => {
+  serve();
+  renderClose();
+  expect(await screen.findByRole("button", { name: "Close case" })).toBeInTheDocument();
 });

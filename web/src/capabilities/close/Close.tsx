@@ -80,7 +80,7 @@ export function Close() {
       steps={steps}
       current={stepFor(pack.data, "close")}
       title={<span className="av-case-bar__title">{item.data.label}</span>}
-      subtitle={`${caseSubtitle(item.data, pack.data)} · ${w(`status.${status}` as CloseKey)}`}
+      subtitle={[caseSubtitle(item.data, pack.data), w(`status.${status}` as CloseKey)].filter(Boolean).join(" · ")}
       person={person}
     />
     <main className="av-page av-stack av-close">
@@ -254,7 +254,7 @@ function CopyKind(props: { label: string; count: number; checked: boolean; disab
     <label className="av-close-copy">
       <input type="checkbox" checked={props.checked} disabled={props.disabled} aria-labelledby={`${id}-l`} aria-describedby={`${id}-n`} onChange={(e) => props.onChange(e.target.checked)} />
       <span id={`${id}-l`}>{props.label}</span>
-      <span id={`${id}-n`} className="av-muted av-close-copy__n">{w("copies.count" as CloseKey, { count: props.count })}</span>
+      <span id={`${id}-n`} className="av-visually-hidden">{w("copies.count" as CloseKey, { count: props.count })}</span>
     </label>
   );
 }
@@ -262,7 +262,7 @@ function CopyKind(props: { label: string; count: number; checked: boolean; disab
 function Option(props: { name: string; value: string; checked: boolean; disabled?: boolean; label: string; hint?: string | null; onChange: (v: string) => void }) {
   const id = useId();
   return (
-    <label className={`av-close-option${props.disabled ? " av-close-option--disabled" : ""}`}>
+    <label className={`av-close-option${props.checked ? " av-close-option--on" : ""}${props.disabled ? " av-close-option--disabled" : ""}`}>
       <input
         type="radio"
         name={props.name}
@@ -288,7 +288,9 @@ function Option(props: { name: string; value: string; checked: boolean; disabled
 function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; party: string | null; onSaved: () => void }) {
   const { summary } = props;
   const stepUp = useStepUp();
-  const [choice, setChoice] = useState<string | null>(summary.retention_policy);
+  // With nothing saved yet the usual setting is the one in force, so it shows chosen.
+  const saved = summary.retention_policy ?? "keep_default";
+  const [choice, setChoice] = useState<string>(saved);
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<Message>(null);
   const deleteNowBlocked = summary.ever_served || summary.held;
@@ -309,10 +311,13 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
     }
   };
 
-  const submit = () => {
-    if (!choice) return;
-    if (choice === "delete_now") setConfirming(true);
-    else void save(choice as Policy);
+  const pick = (value: string) => {
+    if (value === "delete_now") {
+      setConfirming(true);
+      return;
+    }
+    setChoice(value);
+    void save(value as Policy);
   };
 
   return (
@@ -321,15 +326,15 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
       <fieldset className="av-choices">
         <legend className="av-visually-hidden">{w("keep.legend")}</legend>
         {props.canDeleteNow && (
-          <Option name="policy" value="delete_now" checked={choice === "delete_now"} disabled={deleteNowBlocked} label={w("keep.delete_now")} hint={deleteNowHint} onChange={setChoice} />
+          <Option name="policy" value="delete_now" checked={choice === "delete_now"} disabled={deleteNowBlocked} label={w("keep.delete_now")} hint={deleteNowHint} onChange={pick} />
         )}
-        <Option name="policy" value="keep_default" checked={choice === "keep_default"} label={w("keep.keep_default", { years: summary.retention_years })} hint={w("keep.usual")} onChange={setChoice} />
+        <Option name="policy" value="keep_default" checked={choice === "keep_default"} label={w("keep.keep_default", { years: summary.retention_years })} hint={w("keep.usual")} onChange={pick} />
         <Option
           name="policy"
           value="return_then_delete"
           checked={choice === "return_then_delete"}
           label={props.party ? w("keep.return_then_delete", { party: props.party }) : w("keep.return_then_delete_plain")}
-          onChange={setChoice}
+          onChange={pick}
         />
       </fieldset>
       {message && (
@@ -337,11 +342,6 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
           <p>{message.text}</p>
         </Notice>
       )}
-      <div className="av-close-actions">
-        <Button variant="secondary" disabled={!choice} onClick={submit}>
-          {w("keep.save")}
-        </Button>
-      </div>
       {confirming && (
         <Dialog title={w("keep.confirm_title")} onClose={() => setConfirming(false)}>
           <p>{w("keep.confirm_body")}</p>
@@ -353,6 +353,7 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
               variant="danger"
               onClick={() => {
                 setConfirming(false);
+                setChoice("delete_now");
                 void save("delete_now");
               }}
             >
@@ -513,9 +514,9 @@ function Closing(props: { party: string | null; caseId: string; status: string; 
   };
   let button: ReactNode = null;
   if ((status === "active" || status === "served") && can("case.settle")) {
-    button = <Button onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/settle", { params: { path } })))}>{w("close.settle")}<Arrow /></Button>;
+    button = <Button arrow onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/settle", { params: { path } })))}>{w("close.settle")}</Button>;
   } else if ((status === "settled" || status === "withdrawn") && can("case.archive")) {
-    button = <Button onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/archive", { params: { path } })))}>{w("close.archive")}</Button>;
+    button = <Button arrow onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/archive", { params: { path } })))}>{w("close.archive")}</Button>;
   } else if (status === "archived" && can("case.reopen")) {
     button = <Button variant="secondary" onClick={() => void run(() => unwrap(api.POST("/v1/cases/{case_id}/reopen", { params: { path } })))}>{w("close.reopen")}</Button>;
   }
@@ -525,12 +526,6 @@ function Closing(props: { party: string | null; caseId: string; status: string; 
       <p className="av-muted">{props.party ? w("close.note_party", { party: props.party }) : w("close.note")}</p>
       <div className="av-close-actions">{button}</div>
     </div>
-  );
-}
-
-function Arrow() {
-  return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginLeft: 10 }}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
   );
 }
 
