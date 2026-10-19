@@ -33,11 +33,28 @@ export function BundleReady() {
   const num = (n: number) => formatNumber(n, locale);
   const base = `/cases/${caseId}/bundle`;
 
+  const unopened = s.documents.filter((d) => d.unreadable_reason);
+  const unopenedCard = unopened.length > 0 && (
+    <Card
+      tone="amber"
+      title={wn("bundle.unopened", unopened.length, locale)}
+      action={requestLabel(pack) && can(item, "request.draft") ? <LinkButton to={`${base}/ask`} variant="secondary">{requestLabel(pack)}</LinkButton> : undefined}
+    >
+      <ul className="pl-missing">
+        {unopened.map((d) => (
+          <li key={d.id}>{w(d.unreadable_reason === "locked" ? "bundle.unopened_locked" : "bundle.unopened_damaged", { name: d.filename })}</li>
+        ))}
+      </ul>
+      <p>{w("bundle.unopened_note")}</p>
+    </Card>
+  );
+
   if (s.pages === 0) {
     return (
       <div className="av-page av-stack">
         <h1>{w("bundle.title")}</h1>
         <Notice><p>{w("bundle.empty")}</p></Notice>
+        {unopenedCard}
         <LinkButton to={`/cases/${caseId}/preparing`} variant="secondary">{w("bundle.to_preparing")}</LinkButton>
       </div>
     );
@@ -89,6 +106,7 @@ export function BundleReady() {
               )}
             </Card>
           )}
+          {unopenedCard}
           {s.unreadable > 0 && (
             <Card tone="amber" title={wn("bundle.unreadable", s.unreadable, locale)}>
               <p>{w("bundle.unreadable_note")}</p>

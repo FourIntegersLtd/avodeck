@@ -79,7 +79,7 @@ export async function stubPipeline(page: Page, pack: Pack) {
     if (path === `${c}/instructing-party-requests/draft` && method === "POST") {
       return json(route, {
         label: askLabel(pack), subject: "Records needed - Mrs A", body: "Please supply:\n- Colonoscopy report from September", missing_item_ids: ["m1"],
-        clearer_copy_page_ids: [], clearer_copy_page_nos: [], translation_page_ids: [], translation_page_nos: [],
+        clearer_copy_page_ids: [], clearer_copy_page_nos: [], translation_page_ids: [], translation_page_nos: [], unreadable_document_ids: [], unreadable_document_names: [],
       });
     }
     return json(route, { error: { code: "not_found", message: "" } }, 404);

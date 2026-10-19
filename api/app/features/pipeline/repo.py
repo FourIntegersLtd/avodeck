@@ -75,6 +75,22 @@ async def add_pages(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid
     return True
 
 
+async def mark_unopened(conn: AsyncConnection, case_id: uuid.UUID, document_id: uuid.UUID, reason: str) -> None:
+    """F2: the file could not be opened (`locked` or `damaged`). It gets no pages and is not tried again."""
+    await conn.execute("update app.documents set unreadable_reason = %s where id = %s", (reason, document_id))
+    await add_pages(conn, case_id, document_id, 0)
+
+
+async def unopened_documents(conn: AsyncConnection, case_id: uuid.UUID) -> list[tuple[uuid.UUID, str]]:
+    """Files that could not be opened, as (id, filename), oldest first."""
+    cur = await conn.execute(
+        "select id, filename from app.documents where case_id = %s and unreadable_reason is not null"
+        " order by created_at, id",
+        (case_id,),
+    )
+    return [(r[0], r[1]) for r in await cur.fetchall()]
+
+
 @dataclass(frozen=True)
 class PageRow:
     id: uuid.UUID
@@ -924,11 +940,13 @@ class DocumentRow:
     created_at: Any
     media_type: str | None = None
     part_of: uuid.UUID | None = None
+    unreadable_reason: str | None = None
 
 
 _DOCUMENT = (
     "select d.id, d.kind, d.filename, d.pages, min(p.bundle_page_no), max(p.bundle_page_no), d.received_on,"
-    " d.obtained_how, d.bundle_version, d.created_at, s.media_type, dp.parent_document_id"
+    " d.obtained_how, d.bundle_version, d.created_at, s.media_type, dp.parent_document_id,"
+    " d.unreadable_reason"
     " from app.documents d left join app.pages p on p.document_id = d.id"
     " left join app.document_scans s on s.document_id = d.id"
     " left join app.document_parts dp on dp.document_id = d.id"
