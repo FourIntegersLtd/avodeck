@@ -246,3 +246,5 @@ active (named expert grants, step-up, 24 hours) → expired / revoked. Terminal;
 ## Trial pack and offline package freshness
 
 current → stale when new material (records, report version, hearing change, court bundle version) arrives after `built_at`. Rebuilding creates a new row; stale packs show a warning and can still be opened.
+
+Each pack and copy stores what it was built from (`built_hearing_version`, `built_last_page_no`, `built_served_version_id`, and the court bundle). It reads as stale when it carries a stored mark (`stale`, set when the court bundle is re-issued) or when that snapshot no longer matches the case (`core/contracts/trial_freshness.py`), with `stale_reason` one of `court_bundle_superseded`, `hearing_adjourned`, `hearing_changed`, `new_served_version`, `new_pages`. Only active copies (built or downloaded) are judged. stale → current never happens: a stale copy is deleted and a new one made.
