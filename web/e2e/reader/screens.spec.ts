@@ -42,5 +42,19 @@ for (const { name, pack } of PACKS) {
       await expect(page.getByRole("button", { name: "Save and next page" })).toBeVisible();
       await checkScreen(page);
     });
+
+    test("09 and 10 keep a margin at both sides of the window", async ({ page }) => {
+      await stubReader(page, pack);
+      for (const path of ["read/118", "read/couldnt-read"]) {
+        await page.goto(`/cases/${CASE_A}/${path}`);
+        await expect(page.getByRole("heading", { level: 2, name: "What we found on this page" }).or(page.getByRole("heading", { level: 1 }))).toBeVisible();
+        const edges = await page.locator("main").evaluate((main) => {
+          const boxes = [...main.querySelectorAll("section, aside, footer, h1")].map((e) => e.getBoundingClientRect());
+          return { left: Math.min(...boxes.map((r) => r.left)), right: Math.max(...boxes.map((r) => r.right)), width: window.innerWidth };
+        });
+        expect(edges.left).toBeGreaterThanOrEqual(16);
+        expect(edges.width - edges.right).toBeGreaterThanOrEqual(16);
+      }
+    });
   });
 }
