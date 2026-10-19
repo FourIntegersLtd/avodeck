@@ -6796,6 +6796,17 @@
             "title": "Served Paragraphs",
             "type": "array"
           },
+          "served_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served Text"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -7752,6 +7763,17 @@
             "title": "Send By",
             "type": "string"
           },
+          "send_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Send Rule Phrase"
+          },
           "send_rule_ref": {
             "title": "Send Rule Ref",
             "type": "string"
@@ -7760,6 +7782,17 @@
             "format": "date",
             "title": "Sign By",
             "type": "string"
+          },
+          "sign_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sign Rule Phrase"
           },
           "sign_rule_ref": {
             "title": "Sign Rule Ref",
@@ -7933,6 +7966,17 @@
             "title": "Send By",
             "type": "string"
           },
+          "send_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Send Rule Phrase"
+          },
           "send_rule_ref": {
             "title": "Send Rule Ref",
             "type": "string"
@@ -7941,6 +7985,17 @@
             "format": "date",
             "title": "Sign By",
             "type": "string"
+          },
+          "sign_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sign Rule Phrase"
           },
           "sign_rule_ref": {
             "title": "Sign Rule Ref",
@@ -11498,6 +11553,17 @@
       },
       "PreviewOut": {
         "properties": {
+          "case_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Label"
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/SectionPages"
@@ -14498,6 +14564,17 @@
           "number": {
             "title": "Number",
             "type": "integer"
+          },
+          "pack_page_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Page No"
           },
           "pages": {
             "items": {

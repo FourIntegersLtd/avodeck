@@ -63,6 +63,7 @@
           "days": 5,
           "from": "discussion",
           "key": "zz_conference_signed",
+          "phrase": "Zz <days> working days after the conference",
           "rule_ref": "Rule Z.9"
         },
         {
@@ -70,6 +71,7 @@
           "days": 10,
           "from": "signing",
           "key": "zz_conference_sent",
+          "phrase": "Zz within <days> working days",
           "rule_ref": "Rule Z.9.2"
         }
       ],
@@ -436,6 +438,7 @@
           "days": 5,
           "from": "discussion",
           "key": "zz_conference_signed",
+          "phrase": "Zz <days> working days after the conference",
           "rule_ref": "Rule Z.9"
         },
         {
@@ -443,6 +446,7 @@
           "days": 10,
           "from": "signing",
           "key": "zz_conference_sent",
+          "phrase": "Zz within <days> working days",
           "rule_ref": "Rule Z.9.2"
         }
       ],
@@ -691,6 +695,7 @@
           "from": "discussion",
           "if_closed": "next_working_day",
           "key": "expert_meeting_signed",
+          "phrase": "<days> days after the discussion",
           "rule_ref": "PD35 para 9"
         },
         {
@@ -699,6 +704,7 @@
           "from": "signing",
           "if_closed": "next_working_day",
           "key": "expert_meeting_sent",
+          "phrase": "within <days> days",
           "rule_ref": "PD35 para 9"
         },
         {
@@ -1378,6 +1384,7 @@
           "from": "discussion",
           "if_closed": "next_working_day",
           "key": "expert_meeting_signed",
+          "phrase": "<days> days after the discussion",
           "rule_ref": "PD35 para 9"
         },
         {
@@ -1386,6 +1393,7 @@
           "from": "signing",
           "if_closed": "next_working_day",
           "key": "expert_meeting_sent",
+          "phrase": "within <days> days",
           "rule_ref": "PD35 para 9"
         },
         {
