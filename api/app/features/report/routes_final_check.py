@@ -22,7 +22,7 @@ from app.core.http import DbConn
 from app.core.jobs import registry
 from app.features.report.assemble import PARAGRAPH_PURPOSE
 from app.features.report.checks import declaration_version
-from app.features.report.common import Build, Crypto, Pack, Queued, View, Write, not_found, refuse_if_served
+from app.features.report.common import Build, Crypto, Pack, Queued, View, Write, not_found
 from app.features.report.jobs import latest_draft
 from app.features.report.router import router
 
@@ -71,7 +71,6 @@ class Acknowledged(BaseModel):
 
 @router.post("/cases/{case_id}/report/final-check", status_code=202, response_model=Queued)
 async def run_final_check(case_id: uuid.UUID, access: Build, conn: DbConn) -> Queued:
-    await refuse_if_served(conn, case_id)
     if await latest_draft(conn, case_id) is None:
         raise ApiError("not_built", "Build the report first.", 409)
     return Queued(job_id=await registry.enqueue(conn, case_id, "final_check"))
