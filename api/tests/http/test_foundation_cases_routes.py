@@ -104,7 +104,13 @@ async def test_patch_cannot_change_status(client_for: ClientFor, team: dict[str,
 
 @pytest.mark.parametrize(
     ("status", "stage"),
-    [("draft", "gather"), ("processing", "gather"), ("active", "review"), ("served", "conclude"), ("archived", "conclude")],
+    [
+        ("draft", "gather"),
+        ("processing", "gather"),
+        ("active", "review"),
+        ("served", "conclude"),
+        ("archived", "conclude"),
+    ],
 )
 async def test_get_names_the_pack_step_the_case_is_at(
     client_for: ClientFor, seed: Seed, status: str, stage: str
