@@ -6,6 +6,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { screenPath } from "../../foundation/lib/screens";
 import { Button, ChoicePills, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
@@ -295,7 +296,7 @@ export function ThingsToLook() {
         </div>
       </div>
       <div className="av-understand-foot av-understand-foot--end">
-        <LinkButton to={`/cases/${caseId}/opinion`} arrow>{w("things.start_writing")}</LinkButton>
+        <LinkButton to={screenPath("points_against", { caseId }) ?? screenPath("S14", { caseId }) ?? `/cases/${caseId}/points`} arrow>{w("things.start_writing")}</LinkButton>
       </div>
     </div>
   );

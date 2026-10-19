@@ -53,6 +53,20 @@ describe.each([
     expect(await axeViolations(container)).toEqual([]);
   });
 
+  test("lists the files we couldn't open, which the email asks a readable copy of", async () => {
+    mock(pack);
+    server.use(
+      http.post(`/v1/cases/${CASE_ID}/instructing-party-requests/draft`, () =>
+        json(draft({ unreadable_document_ids: ["d1000000-0000-4000-8000-000000000002"], unreadable_document_names: ["hospital-notes.pdf"] })),
+      ),
+    );
+    renderAt(PATH);
+    const heading = await screen.findByRole("heading", { name: "Files we couldn't open" });
+    const section = heading.closest("section") as HTMLElement;
+    expect(section).toHaveTextContent("hospital-notes.pdf");
+    expect(section).toHaveTextContent("The email asks for a readable copy of each.");
+  });
+
   test("sending notes the request with what it asks for, then opens the expert's own email", async () => {
     mock(pack);
     let sent: Record<string, unknown> | null = null;

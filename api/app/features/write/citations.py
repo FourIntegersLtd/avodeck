@@ -8,7 +8,7 @@ A refusal names the citation or marker by position and a fixed reason; it never 
 A citation saved before is kept as it was even if its fact has changed since (moved to a clearer copy,
 re-read, no longer citable): architecture 10.4 keeps what was cited. `changed_citations` names those, so
 the screen shows "changed since cited" and the expert re-cites. `fact_version` is the fact's version when
-cited, if the screen sent it.
+cited; the server stamps it when the screen does not send it.
 
 The citation shape and the comparing helpers live in `app.core.contracts.citations`, shared with slice F,
 which re-checks every saved citation (kept ones included) with `citation_problems()` before signing.
@@ -22,7 +22,7 @@ from app.core.contracts.citations import Citation, differs, markers, quote_withi
 from app.core.contracts.facts import Fact
 from app.core.errors import ApiError
 
-__all__ = ["Citation", "changed_citations", "check_citations", "markers"]
+__all__ = ["Citation", "changed_citations", "check_citations", "markers", "same_citation", "stamp_versions"]
 
 
 def _refuse(reason: str, **where: int) -> ApiError:
@@ -40,6 +40,27 @@ def _unused(position: int) -> ApiError:
     )
 
 
+def same_citation(sent: Citation, stored: Citation) -> bool:
+    """A resent citation is the stored one; a missing `fact_version` on the sent copy matches the stamped one."""
+    if sent.fact_version is None:
+        return sent == stored.model_copy(update={"fact_version": None})
+    return sent == stored
+
+
+def stamp_versions(citations: Sequence[Citation], citable: Sequence[Fact], kept: Sequence[Citation]) -> list[Citation]:
+    """Each citation without a `fact_version` gets the one it was stamped with before, else its fact's current one."""
+    facts = {f.id: f for f in citable}
+    stamped: list[Citation] = []
+    for citation in citations:
+        if citation.fact_version is None:
+            old = next((k for k in kept if same_citation(citation, k)), None)
+            fact = facts.get(citation.fact_id)
+            version = old.fact_version if old is not None else (fact.version if fact is not None else None)
+            citation = citation.model_copy(update={"fact_version": version})
+        stamped.append(citation)
+    return stamped
+
+
 def changed_citations(citations: Sequence[Citation], citable: Sequence[Fact]) -> list[int]:
     """The positions (from 1) of the citations whose fact has changed since it was cited."""
     facts = {f.id: f for f in citable}
@@ -53,7 +74,7 @@ def check_citations(
     A citation in `kept` (saved before, exactly) is not checked against the fact again."""
     facts = {f.id: f for f in citable}
     for position, citation in enumerate(citations, start=1):
-        if citation in kept:
+        if any(same_citation(citation, k) for k in kept):
             continue
         fact = facts.get(citation.fact_id)
         if fact is None:

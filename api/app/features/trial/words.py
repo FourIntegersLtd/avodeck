@@ -19,6 +19,7 @@ _WORDS: dict[str, dict[str, str]] = {
         "my_reply": "My reply",
         "joint_statement": "{meeting}",
         "written_answers": "Answers to written questions",
+        "answers_round": "Round {number}",
         "legal_tests": "Legal tests (reference)",
         "guidance": "Guidance",
         "none_yet": "None yet.",

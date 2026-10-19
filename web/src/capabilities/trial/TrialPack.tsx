@@ -328,11 +328,7 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
           title={w("pack.stale")}
           actions={canBuild ? rebuild : undefined}
         >
-          <p>
-            {pack.stale_reason === "court_bundle_superseded"
-              ? w("pack.stale_reason.court_bundle_superseded", { court_bundle: vocab(frame.pack, "court_bundle") })
-              : w("pack.stale_reason.other")}
-          </p>
+          <p>{staleReason(pack.stale_reason, frame)}</p>
         </Callout>
       )}
       {job && <Notice><p>{w("pack.building")}</p></Notice>}
@@ -459,6 +455,15 @@ function Check({ frame }: { frame: Frame }) {
   );
 }
 
+const STALE_REASONS = ["hearing_adjourned", "hearing_changed", "new_pages", "new_served_version"] as const;
+
+/** Why a pack or copy needs making again, in the trial words; the court bundle's name comes from the pack. */
+function staleReason(reason: string | null | undefined, frame: Frame): string {
+  if (reason === "court_bundle_superseded") return w("pack.stale_reason.court_bundle_superseded", { court_bundle: vocab(frame.pack, "court_bundle") });
+  const known = STALE_REASONS.find((r) => r === reason);
+  return known ? w(`pack.stale_reason.${known}`) : w("pack.stale_reason.other");
+}
+
 function OfflineCopy({ frame }: { frame: Frame }) {
   const id = useId();
   const path = { case_id: frame.caseId };
@@ -547,6 +552,12 @@ function OfflineCopy({ frame }: { frame: Frame }) {
         return (
           <div key={copy.id} className="av-stack">
             <p className="av-trial-strong">{w("pack.offline.copy_line", { device: copy.device_label, date: until })}</p>
+            {copy.stale && (
+              <Notice tone="warning">
+                <p className="av-trial-strong">{w("pack.offline.stale")}</p>
+                <p>{staleReason(copy.stale_reason, frame)}</p>
+              </Notice>
+            )}
             {copy.status === "downloaded" && onDevice && <p>{w("pack.offline.on_device", { date: until })}</p>}
             {copy.status === "downloaded" && !onDevice && <p>{w("pack.offline.gone")}</p>}
             {copy.status === "built" && (

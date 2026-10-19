@@ -1,5 +1,5 @@
 // What slice B's screens read from the API and the pack, beyond the generated types.
-import { api, type Schemas } from "../../foundation/platform-client";
+import { type Schemas } from "../../foundation/platform-client";
 import { w } from "./words";
 
 export const casePath = (caseId: string) => ({ params: { path: { case_id: caseId } } });
@@ -30,19 +30,6 @@ export function boxOf(fact: Schemas["FactOut"]): Box | null {
   const b = fact.bbox as Partial<Box> | null;
   if (!b || [b.x0, b.y0, b.x1, b.y1].some((v) => typeof v !== "number")) return null;
   return b as Box;
-}
-
-async function dataUrl(blob: Blob): Promise<string> {
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return `data:${blob.type || "image/jpeg"};base64,${btoa(binary)}`;
-}
-
-/** A page's picture, streamed through FastAPI and shown as a data: URL (the CSP allows no other image origin). */
-export async function pageImage(caseId: string, pageNo: number): Promise<string | null> {
-  const { data } = await api.GET("/v1/cases/{case_id}/pages/{page_no}/image", { params: { path: { case_id: caseId, page_no: pageNo } }, parseAs: "blob" });
-  return data ? dataUrl(data as Blob) : null;
 }
 
 /** The person's locale if the browser knows it, else en-GB. */

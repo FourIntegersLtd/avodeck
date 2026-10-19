@@ -45,6 +45,7 @@ import {
   withEtag,
   type Option,
 } from "./shared";
+import { sw } from "./words";
 
 const trackLabel = (key: string) =>
   t(`setup.court_track.${key}`, {}, humanise(key));
@@ -621,7 +622,7 @@ function NewCaseForm({
             <p className="av-setup-q-label" aria-hidden="true">
               {oralLabel}
             </p>
-            <p className="av-setup-q-hint">{t("setup.oral.intro")}</p>
+            <p className="av-setup-q-hint" id="setup-oral-hint">{sw("new_case.oral_hint")}</p>
             {made ? (
               <DictationBox
                 bar
@@ -635,6 +636,7 @@ function NewCaseForm({
             ) : (
               <TextArea
                 label={oralLabel}
+                aria-describedby="setup-oral-hint"
                 rows={4}
                 value={oral}
                 onChange={(e) => setOral(e.target.value)}
@@ -650,12 +652,12 @@ function NewCaseForm({
         <div className="av-row av-row--spread av-setup-footer">
           <Button
             variant="quiet"
-            disabled={busy || !label.trim()}
+            disabled={busy}
             onClick={later}
           >
             {t("setup.new_case.later")}
           </Button>
-          <Button arrow disabled={busy || !label.trim()} onClick={prepare}>
+          <Button arrow disabled={busy} onClick={prepare}>
             {t("setup.new_case.prepare")}
           </Button>
         </div>

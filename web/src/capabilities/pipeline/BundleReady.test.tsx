@@ -89,6 +89,25 @@ describe.each([
     expect(within(missing).getByRole("link", { name: words.askLabel })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/ask`);
   });
 
+  test("a file we couldn't open gets its own card, with the reason, and the way to ask for a readable copy", async () => {
+    const [first, second] = summary(pack).documents as [Schemas["BundleSummary"]["documents"][number], Schemas["BundleSummary"]["documents"][number]];
+    mock(pack, {
+      summary: {
+        documents: [
+          first,
+          { ...second, pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: "locked" },
+          { ...second, id: "d1000000-0000-4000-8000-000000000009", filename: "scan.pdf", pages: 0, first_page_no: null, last_page_no: null, unreadable_reason: "damaged" },
+        ],
+      },
+    });
+    renderAt(PATH);
+    const files = card(await screen.findByText("2 files we couldn't open."));
+    expect(files).toHaveTextContent("hospital-notes.pdf is password-protected.");
+    expect(files).toHaveTextContent("scan.pdf looks damaged.");
+    expect(files).toHaveTextContent("The other files are not affected.");
+    expect(within(files).getByRole("link", { name: words.askLabel })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/ask`);
+  });
+
   test("the files table shows each file, its pages, how it was obtained and when it arrived", async () => {
     mock(pack);
     renderAt(PATH);
@@ -132,6 +151,7 @@ describe.each([
     expect(screen.queryByText(/may belong to someone else/)).toBeNull();
     expect(screen.queryByText(/look missing/)).toBeNull();
     expect(screen.queryByText(/couldn't read/)).toBeNull();
+    expect(screen.queryByText(/couldn't open/)).toBeNull();
   });
 
   test("someone who cannot write to the instructing party is not offered it", async () => {

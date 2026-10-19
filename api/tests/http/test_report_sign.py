@@ -495,6 +495,27 @@ async def test_a_served_version_is_withdrawn_with_a_reason_and_stays_locked_and_
     assert audit is not None and audit[0] == 1
 
 
+@pytest.mark.parametrize("withdrawn", [False, True], ids=["served", "withdrawn"])
+async def test_once_served_or_withdrawn_a_new_build_check_or_sign_goes_through_the_supplementary_report(
+    client_for: ClientFor, ready: World, withdrawn: bool
+) -> None:
+    """Rule 8: corrections and changes of opinion after serving are a supplementary report (screen 21b)."""
+    version = await signed(client_for, ready)
+    client = await client_for(ready.expert)
+    assert (await client.post(ready.url(f"report/versions/{version}/serve"), json=served_body())).status_code == 200
+    if withdrawn:
+        resp = await client.post(ready.url(f"report/versions/{version}/withdraw"), json={"reason": "factual_error"})
+        assert resp.status_code == 200, resp.text
+    build = await client.post(ready.url("report/build"))
+    assert build.status_code == 409 and code(build) == "served_use_supplementary", build.text
+    # With no new main draft, final check and sign keep the not_built answer slice G relies on.
+    for path, body in (("report/final-check", None), ("report/sign", SIGN)):
+        resp = await client.post(ready.url(path), json=body) if body else await client.post(ready.url(path))
+        assert resp.status_code == 409 and code(resp) == "not_built", (path, resp.text)
+    shown = (await client.get(ready.url("report"))).json()
+    assert shown["version"]["status"] == ("withdrawn" if withdrawn else "served")
+
+
 # Two signs at once, signed downloads (review findings 1 and 9), serving after commit (finding 8) ----------
 
 

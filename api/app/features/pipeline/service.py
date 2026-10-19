@@ -26,19 +26,22 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from datetime import date, timedelta
 from typing import Any
 
+import pikepdf
 from psycopg import AsyncConnection
 
 from app.core import audit, notifications
 from app.core.ai import pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
+from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
-from app.core.ai.ocr import OcrPage
+from app.core.ai.ocr import OcrFailed, OcrPage
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
@@ -56,6 +59,8 @@ PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantin
 CONCURRENCY = 3  # pages read or sent to a model at once
 LIMITS = convert.Limits()
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
+log = logging.getLogger(__name__)
+
 STEPS = ("split", "ocr", "sort", "duplicates", "missing")  # the steps the Preparing screen shows
 READY = "bundle_ready"  # the notification kind sent when new pages are ready
 
@@ -150,7 +155,13 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
             break
         for doc in documents:
             async with ctx.transaction() as conn:
-                pages = await _unpack(conn, services, ctx.case_id, doc)
+                try:
+                    pages = await _unpack(conn, services, ctx.case_id, doc)
+                except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops, the rest go on
+                    log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
+                    reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
+                    await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
+                    continue
                 if await repo.add_pages(conn, ctx.case_id, doc.id, len(pages)):
                     cache[doc.id] = pages
                 await repo.link_replacements(conn, ctx.case_id)
@@ -315,7 +326,12 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
             if found is None:
                 if services.ocr is None:
                     raise ProcessingPaused("model_unavailable")
-                found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+                try:
+                    found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+                except OcrFailed:  # F4: this page alone is marked unreadable; the rest carry on
+                    found = OcrPage(number=1, width=1.0, height=1.0, words=())
+                except ServiceBusy:  # F5: back-off spent; the job waits and is retried later
+                    raise ProcessingPaused("service_busy") from None
                 source = "ocr"
             page = turned(found, state.rotation)
         reading = assess(page, source)
@@ -442,7 +458,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         ordered = [(w.word_id, texts[w.word_id]) for w in stored]
         struck = {w.word_id for w in stored if w.struck}
         stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
-        text = extract.page_text(ordered, stripped.text)
+        text = extract.page_text(ordered, stripped.text) if ordered else ""
         if header:
             cap = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
             text = extract.with_header(text, cap.text)
@@ -450,7 +466,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         output: dict[str, Any] | None = None
         kept: list[Any] = []
         reason: str | None = None
-        for _ in range(2):
+        if not stored:  # a page OCR could not read (F4) has nothing to ask the model about
+            kept, reason = [], "no_words"
+        for _ in range(0 if not stored else 2):
             output = await _ask(ctx, services, task, pack, who, text, subject)
             if output is None:
                 kept, reason = [], "invalid_output"

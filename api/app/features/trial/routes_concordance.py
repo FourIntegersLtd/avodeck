@@ -215,8 +215,15 @@ async def supersede_court_bundle(
         "update app.court_bundles set superseded_by = %s where id = %s", (queued.court_bundle_id, bundle_id)
     )
     await conn.execute(
-        "update app.trial_packs set stale = true, stale_reason = 'court_bundle_superseded'"
+        "update app.trial_packs set stale = true, stale_reason = 'court_bundle_superseded', stale_at = now()"
         " where case_id = %s and not stale",
+        (case_id,),
+    )
+    # Copies are marked by whoever may change them (the expert who signs); for anyone else row-level
+    # security leaves them, and the copy reads as stale anyway from the bundle it was built on.
+    await conn.execute(
+        "update app.offline_packages set stale = true, stale_reason = 'court_bundle_superseded', stale_at = now()"
+        " where case_id = %s and not stale and status <> 'revoked'",
         (case_id,),
     )
     return queued

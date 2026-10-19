@@ -10,6 +10,9 @@
 - `DELETE .../{id}` (step-up): revokes, deletes the file and the key.
 - `GET .../{id}/status`: the status alone (no case content), which screen 25 asks when online and wipes the
   copy on revoked, expired or 404. Case access but no step-up: the expert may be in court hours later.
+
+A copy is made for a hearing (or none) and records what it was built from; while it is built or downloaded
+it reads as stale, with a short reason, once new material arrives after it was made (`freshness.py`).
 """
 
 from __future__ import annotations
@@ -30,7 +33,7 @@ from app.core.contracts.facts import citable_facts
 from app.core.contracts.served import latest_served
 from app.core.errors import ApiError
 from app.core.http import DbConn
-from app.features.trial import repo
+from app.features.trial import freshness, repo
 from app.features.trial.common import (
     NO_STORE,
     Crypto,
@@ -45,7 +48,6 @@ from app.features.trial.common import (
     sha256,
     trial_path,
 )
-from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
 
@@ -73,6 +75,8 @@ class PackageOut(BaseModel):
     downloaded_at: datetime | None
     revoked_at: datetime | None
     created_at: datetime
+    stale: bool = False
+    stale_reason: str | None = None
 
 
 class PackagesOut(BaseModel):
@@ -104,7 +108,12 @@ def status_of(row: dict[str, Any]) -> Status:
     return row["status"]  # type: ignore[no-any-return]
 
 
-def _out(row: dict[str, Any]) -> PackageOut:
+async def _out(conn: Any, row: dict[str, Any]) -> PackageOut:
+    status = status_of(row)
+    if status in ("built", "downloaded"):
+        is_stale, reason = await freshness.judged(conn, row["case_id"], row)
+    else:
+        is_stale, reason = row["stale"], row["stale_reason"]
     return PackageOut(
         id=row["id"],
         device_label=row["device_label"],
@@ -112,11 +121,13 @@ def _out(row: dict[str, Any]) -> PackageOut:
         format_version=row["format_version"],
         include_images=row["include_images"],
         sha256=row["sha256"],
-        status=status_of(row),
+        status=status,
         expires_at=row["expires_at"],
         downloaded_at=row["downloaded_at"],
         revoked_at=row["revoked_at"],
         created_at=row["created_at"],
+        stale=is_stale,
+        stale_reason=reason,
     )
 
 
@@ -136,7 +147,7 @@ async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: 
 
     meeting = await repo.latest_meeting(conn, case_id)
     items = await repo.current_items(conn, crypto, case_id, meeting["id"]) if meeting else []
-    answers = answers_of(await current().answers.served(conn, crypto, case_id))
+    rounds = await current().answers.served(conn, crypto, case_id)
     return {
         "format_version": FORMAT_VERSION,
         "case_id": str(case_id),
@@ -185,7 +196,9 @@ async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: 
         }
         if meeting
         else None,
-        "answers": [{"question_no": a.question_no, "text": a.text} for a in answers],
+        "answers": [
+            {"round_no": r.round_no, "question_no": a.question_no, "text": a.text} for r in rounds for a in r.answers
+        ],
     }
 
 
@@ -210,11 +223,15 @@ async def create_package(
     path = trial_path(case_id, "offline", f"{package_id}.bin")
     await storage.put(path, blob)
     served = await latest_served(conn, crypto, case_id)
+    bundle = await repo.current_bundle(conn, case_id)
+    bundle_id = bundle["id"] if bundle else None
+    built_from = await freshness.stamp(conn, case_id, body.hearing_id, bundle_id)
     row = await repo.one(
         conn,
         "insert into app.offline_packages (id, case_id, hearing_id, report_version_id, device_label, include_images,"
-        " format_version, storage_path, sha256, key_sealed, expires_at)"
-        " values (%s, %s, %s, %s, %s, false, %s, %s, %s, %s, %s) returning *",
+        " format_version, storage_path, sha256, key_sealed, expires_at, court_bundle_id, built_hearing_version,"
+        " built_last_page_no, built_served_version_id)"
+        " values (%s, %s, %s, %s, %s, false, %s, %s, %s, %s, %s, %s, %s, %s, %s) returning *",
         (
             package_id,
             case_id,
@@ -226,11 +243,13 @@ async def create_package(
             sha256(blob),
             await crypto.encrypt(conn, case_id, key, purpose=offline_key_purpose(package_id)),
             datetime.now(UTC) + timedelta(days=body.days),
+            bundle_id,
+            *built_from.values(),
         ),
     )
     assert row is not None
     await audit.record(conn, action="trial.offline_created", target=str(package_id), case_id=case_id)
-    return _out(row)
+    return await _out(conn, row)
 
 
 @router.get("/cases/{case_id}/offline-packages", response_model=PackagesOut)
@@ -238,7 +257,7 @@ async def list_packages(case_id: uuid.UUID, conn: DbConn, access: View) -> Packa
     rows = await repo.many(
         conn, "select * from app.offline_packages where case_id = %s order by created_at desc", (case_id,)
     )
-    return PackagesOut(packages=[_out(r) for r in rows])
+    return PackagesOut(packages=[await _out(conn, r) for r in rows])
 
 
 async def _package(conn: Any, case_id: uuid.UUID, package_id: uuid.UUID, lock: bool = False) -> dict[str, Any]:
@@ -254,7 +273,7 @@ async def _package(conn: Any, case_id: uuid.UUID, package_id: uuid.UUID, lock: b
 
 @router.get("/cases/{case_id}/offline-packages/{package_id}", response_model=PackageOut)
 async def get_package(case_id: uuid.UUID, package_id: uuid.UUID, conn: DbConn, access: View) -> PackageOut:
-    return _out(await _package(conn, case_id, package_id))
+    return await _out(conn, await _package(conn, case_id, package_id))
 
 
 @router.get("/cases/{case_id}/offline-packages/{package_id}/status", response_model=PackageStatus)

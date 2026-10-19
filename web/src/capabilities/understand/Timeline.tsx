@@ -3,9 +3,11 @@
 import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { t } from "../../foundation/i18n";
+import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { ChoicePills, LinkButton, LoadError, Loading, QChip, Segmented, StatusBadge, ToggleSwitch } from "../../foundation/ui";
+import { LaneIcon } from "./laneIcons";
 import { casePath, GuidanceChanged, kindWord, longDate, pageLabel, statusOf } from "./shared";
 import { w } from "./words";
 
@@ -57,7 +59,7 @@ function EventRow({ caseId, event, left, labelled, numbers }: { caseId: string; 
     <li className={`av-understand-event${left === undefined ? "" : " av-understand-event--dot"}`} style={style} data-state={left === undefined ? undefined : state}>
       {left !== undefined && chipsNode}
       <Link to={`/cases/${caseId}/consultation/${event.fact_id}`}>
-        {kindWord(event.kind)} · {longDate(event.event_date)}
+        <span className={left === undefined ? undefined : "av-visually-hidden"}>{kindWord(event.kind)} · {longDate(event.event_date)}</span>
       </Link>
       {left !== undefined && labelled && event.event_date && (
         <span className="av-understand-dotlabel" aria-hidden="true">
@@ -119,7 +121,7 @@ export function TimelineView({ caseId, data, numbers, zoom = "whole" }: { caseId
             <section key={lane.key} aria-labelledby={`lane-${lane.key}`} className="av-understand-row av-understand-lane">
               <div className="av-understand-row__head av-understand-lane__head">
                 <span className="av-understand-lane__icon" data-testid="lane-icon" aria-hidden="true" style={{ background: lane.colour ?? "var(--ink-soft)" }}>
-                  {lane.label.slice(0, 1).toUpperCase()}
+                  <LaneIcon laneKey={lane.key} label={lane.label} />
                 </span>
                 <span>
                   <h3 id={`lane-${lane.key}`}>{lane.label}</h3>
@@ -169,9 +171,11 @@ export function TimelineView({ caseId, data, numbers, zoom = "whole" }: { caseId
             </ul>
           )}
         </div>
-        <LinkButton to={`/cases/${caseId}/things-to-look-at`} arrow>
-          {found > 0 ? w("timeline.look", { count: found }) : w("timeline.look_none")}
-        </LinkButton>
+        {found > 0 && (
+          <LinkButton to={screenPath("things_to_look_at", { caseId }) ?? `/cases/${caseId}/things-to-look-at`} arrow>
+            {w("timeline.look", { count: found })}
+          </LinkButton>
+        )}
       </div>
     </div>
   );

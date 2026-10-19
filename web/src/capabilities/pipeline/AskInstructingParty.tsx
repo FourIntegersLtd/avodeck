@@ -202,6 +202,17 @@ export function AskInstructingParty() {
           </div>
         </section>
         <aside className="pl-aside">
+          {draft.unreadable_document_names.length > 0 && (
+            <section className="av-card pl-next">
+              <h2>{w("ask.files")}</h2>
+              <ul className="pl-steps-plain">
+                {draft.unreadable_document_names.map((name, i) => (
+                  <li key={draft.unreadable_document_ids[i] ?? name}>{name}</li>
+                ))}
+              </ul>
+              <p>{w("ask.files_note")}</p>
+            </section>
+          )}
           <section className="av-card pl-next">
             <h2>{w("ask.next")}</h2>
             <ul className="pl-ticks">

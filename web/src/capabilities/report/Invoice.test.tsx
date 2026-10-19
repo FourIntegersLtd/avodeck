@@ -98,7 +98,7 @@ test.each([["no_billing_profile"], ["no_hourly_rate"]])("making an invoice refus
   expect(await screen.findByText(M[`report.invoice.error.${code}`]!)).toBeInTheDocument();
 });
 
-test("sending asks for the code, then the invoice shows as sent and cannot be changed", async () => {
+test("sending asks for the code, then moves on to after serving", async () => {
   let sentOut = false;
   let stepped = false;
   serve("launch", { invoices: [invoiceOut()] });
@@ -111,14 +111,18 @@ test("sending asks for the code, then the invoice shows as sent and cannot be ch
     }),
     http.post("/v1/auth/mfa/verify", () => ((stepped = true), json({ status: "signed_in", recovery_codes: null }))),
   );
-  const { user } = renderAt(url);
+  const { user, router } = renderAt(url);
   await user.click(await screen.findByRole("button", { name: M["report.invoice.send"]! }));
   const dialog = await screen.findByRole("dialog", { name: "Please enter your code" });
   await user.type(within(dialog).getByLabelText("6-digit code"), "123456");
   await user.click(within(dialog).getByRole("button", { name: "Carry on" }));
-  const card = await screen.findByRole("article", { name: "Invoice JM-0001" });
-  expect(within(card).getByText(M["report.invoice.payment_unpaid"]!)).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: M["report.invoice.send"]! })).toBeNull();
+  await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_A}/served`));
+});
+
+test("the fee note is always at the foot of an invoice", async () => {
+  serve("launch", { invoices: [invoiceOut({ statements: [] })] });
+  renderAt(url);
+  expect(await screen.findByText(M["report.invoice.fee_note"]!)).toBeInTheDocument();
 });
 
 test("an invoice already sent says so", async () => {
@@ -260,13 +264,6 @@ test("an invoice shows who it is from and to, the case, the date and the pack's 
   expect(within(invoice).getByText("First line.")).toBeInTheDocument();
   expect(within(invoice).getByText("Second line.")).toBeInTheDocument();
   expect(screen.getByText(M["report.invoice.fee_note"]!)).toBeInTheDocument();
-});
-
-test("without statements there is no fee note", async () => {
-  serve("launch", { invoices: [invoiceOut({ number_text: "JM-1" })] });
-  renderAt(url);
-  await screen.findByRole("article", { name: "Invoice JM-1" });
-  expect(screen.queryByText(M["report.invoice.fee_note"]!)).toBeNull();
 });
 
 test("once sent, the intro says who it went to and when, from the serving record", async () => {

@@ -9,7 +9,7 @@ for (const { name, pack } of PACKS) {
       await stubReader(page, pack);
       await page.goto(`/cases/${CASE_A}/read/118`);
       await expect(page.getByRole("button", { name: "Mark as read" })).toBeVisible();
-      await expect(page.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", /^data:image\//);
+      await expect(page.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", /^blob:/);
       await expect(page.getByRole("article")).toHaveCount(0);
       await checkScreen(page);
     });

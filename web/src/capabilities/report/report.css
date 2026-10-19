@@ -133,3 +133,4 @@
 .rp-paper__small { margin: var(--space-3) 0 0; color: var(--ink-soft); font-size: 17px; }
 .rp-payment { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); padding: 4px 16px; background: var(--surface-soft); border-radius: var(--radius); }
 .rp-fold--inner { margin-top: var(--space-3); }
+.av-report-crop { max-width: 100%; height: auto; border: 1px solid var(--line-strong); border-radius: var(--radius); }

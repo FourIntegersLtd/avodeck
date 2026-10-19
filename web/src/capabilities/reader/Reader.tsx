@@ -12,6 +12,7 @@ import { casePath, count, periodRange, sourceLabel } from "./data";
 import { allowed, FactCard } from "./FactCard";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
+import { forgetPage } from "./pageImage";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
 
@@ -187,6 +188,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     try {
       await unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/rotate", { params: { path: { case_id: caseId, page_id: detail.data.page_id } }, body: { degrees: 90 } }));
       setInfo(w("read.turning"));
+      forgetPage(caseId, pageNo);
       setImageKey((k) => k + 1);
     } catch (error) {
       setNotice(errorMessage(error));

@@ -1,7 +1,7 @@
 // S21 New records and the other expert's report (docs/design/screens/S21-NewMaterial.dc.html). May-matter lines show
 // only where the server returned them; a statement is called a difference only after the expert confirms it.
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
@@ -113,7 +113,6 @@ export function NewMaterial() {
       </div>
       {rep && <Claims caseId={caseId} report={rep} />}
       {rep && meeting && <div className="av-after-footer"><LinkButton to={meeting} arrow>{w("new.prepare")}</LinkButton></div>}
-      <Link className="av-sr-only" to={`/cases/${caseId}/served`} tabIndex={-1} aria-hidden="true" />
     </div>
   );
 }

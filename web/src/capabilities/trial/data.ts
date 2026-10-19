@@ -72,7 +72,7 @@ export function printBlob(blob: Blob): void {
   const href = URL.createObjectURL(blob);
   const frame = document.createElement("iframe");
   frame.hidden = true;
-  frame.title = "print";
+  frame.title = w("print_frame");
   frame.onload = () => {
     try {
       frame.contentWindow?.print();
@@ -115,7 +115,7 @@ export function num(n: number, locale?: string | null): string {
   try {
     return new Intl.NumberFormat(locale ?? undefined).format(n);
   } catch {
-    return String(n);
+    return new Intl.NumberFormat(undefined).format(n);
   }
 }
 

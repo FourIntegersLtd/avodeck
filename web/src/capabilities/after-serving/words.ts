@@ -81,7 +81,7 @@ const WORDS = {
   "served.new_body": "See what has arrived since you served.",
   "served.new_action": "Review what's new",
   "served.changes": "Changes since serving",
-  "served.changes_body": "If you spot an error or change your view, record it here and we'll draft a supplementary report.",
+  "served.changes_body": "None. If you spot an error or change your view, record it here and we'll draft a supplementary report.",
   "served.changes_action": "Record a correction or change",
   "served.orders": "Court orders and hearings",
   "served.orders_body": "Court orders and hearing dates move your deadlines.",

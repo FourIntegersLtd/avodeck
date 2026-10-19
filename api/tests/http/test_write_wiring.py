@@ -56,6 +56,8 @@ def combo(request: pytest.FixtureRequest) -> Combo:
 def cell_model(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[Answering]:
     """The cell's env with recorded answers, and the model client standing in for the recordings."""
     answering = Answering()
+    for key in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+        monkeypatch.delenv(key, raising=False)  # live_or_recorded() prefers live Bedrock when these are set
     for key, value in CELL_ENV.items():
         monkeypatch.setenv(key, value)
     monkeypatch.setenv("AI_RECORDINGS_DIR", str(tmp_path))

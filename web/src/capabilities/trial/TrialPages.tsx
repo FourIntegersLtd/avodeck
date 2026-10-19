@@ -8,7 +8,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
 import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { joined, longDate, mediumDate, num, partyWord, pdfBody, saveBlob, sourceLabel, tag, trialRef, vocab } from "./data";
+import { joined, longDate, mediumDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, trialRef, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { w, wn } from "./words";
 
@@ -94,7 +94,10 @@ function Pages({ frame }: { frame: Frame }) {
       const blob = await stepUp(() =>
         unwrap(api.GET("/v1/cases/{case_id}/concordance/export", { params: { path, query: { format } }, parseAs: "blob" })),
       );
-      if (blob) saveBlob(blob as Blob, `trial-pages.${format}`);
+      if (blob) {
+        if (format === "pdf") printBlob(blob as Blob);
+        else saveBlob(blob as Blob, `trial-pages.${format}`);
+      }
     } catch (error) {
       fail(error);
     }

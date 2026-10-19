@@ -25,7 +25,7 @@ from app.core.contracts.served import latest_served
 from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
-from app.features.trial import ai_tasks, repo
+from app.features.trial import ai_tasks, freshness, repo
 from app.features.trial.common import (
     NEW_NOTE,
     NO_STORE,
@@ -220,21 +220,20 @@ async def _latest_pack(conn: Any, case_id: uuid.UUID) -> dict[str, Any] | None:
 @router.get("/cases/{case_id}/trial-pack/latest", response_model=LatestOut)
 async def latest_pack(case_id: uuid.UUID, conn: DbConn, access: View) -> LatestOut:
     row = await _latest_pack(conn, case_id)
-    pack = (
-        PackOut(
+    pack = None
+    if row:
+        is_stale, reason = await freshness.judged(conn, case_id, row)
+        pack = PackOut(
             id=row["id"],
             status="ready",
             sha256=row["sha256"],
             page_count=row["page_count"],
             sections=list(row["sections"]),
-            stale=row["stale"],
-            stale_reason=row["stale_reason"],
+            stale=is_stale,
+            stale_reason=reason,
             created_at=row["created_at"],
             section_pages=[SectionPages(**p) for p in row["section_pages"]],
         )
-        if row
-        else None
-    )
     return LatestOut(settings=_settings(await _row(conn, case_id)), pack=pack)
 
 

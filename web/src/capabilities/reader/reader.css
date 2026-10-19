@@ -43,6 +43,7 @@
 .rd-progress p { margin: 0; }
 .rd-progress progress { width: 100%; height: 12px; accent-color: var(--leaf, #2F9E6E); }
 .rd-hard { display: inline-flex; align-items: center; min-height: 52px; color: #8A3F06; font-weight: 700; }
+.rd-back { display: inline-flex; align-items: center; min-height: var(--button-min-height); color: var(--green); font-weight: 700; }
 .rd-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
 .rd-head h1 { margin: 0; }
 .rd-lead { margin: 0; font-size: 19px; color: var(--ink-soft); }
@@ -73,6 +74,7 @@
 .rd-hints { display: flex; flex-wrap: wrap; gap: var(--space-4); }
 .rd-hints kbd { display: inline-block; min-width: 28px; padding: 0 var(--space-2); text-align: center; border: 1px solid var(--line); border-radius: 6px; font: inherit; font-weight: 600; background: #fff; }
 .rd-actions-row { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.rd-actions-row label:has(+ input:focus-visible) { outline: 3px solid var(--focus); outline-offset: 2px; }
 .rd-copy { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; }
 
 /* Suggestion card, as the canvas draws it: a small label, the details as rows, a quiet "Change a detail". */

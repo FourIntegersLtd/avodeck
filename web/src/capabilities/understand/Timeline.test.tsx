@@ -210,3 +210,38 @@ describe("the board layout", () => {
     expect(await screen.findByText("Change the dates or question")).toBeInTheDocument();
   });
 });
+
+test("the way on to the things we found shows their number, and is not there when there are none", async () => {
+  inCase("launch");
+  serve();
+  const first = renderAt(`/cases/${CASE_A}/timeline`);
+  expect(await screen.findByRole("link", { name: "Look at the 1 thing we found" })).toHaveAttribute("href", `/cases/${CASE_A}/things-to-look-at`);
+  first.unmount();
+  serve(timeline({ counts: { checked: 2, please_check: 1, things_to_look: 0, not_linked: 1, total: 3 } }));
+  renderAt(`/cases/${CASE_A}/timeline`);
+  await screen.findByRole("region", { name: "Lane one words" });
+  expect(screen.queryByRole("link", { name: /we found/ })).not.toBeInTheDocument();
+});
+
+test("a dot's link keeps its name as text a screen reader and magnifier can reach, not size-zero text", async () => {
+  inCase("launch");
+  serve();
+  renderAt(`/cases/${CASE_A}/timeline`);
+  const link = await screen.findAllByRole("link", { name: /Consultation/ });
+  expect(link[0]!.querySelector(".av-visually-hidden")).not.toBeNull();
+});
+
+describe("lane icons", () => {
+  test("a known lane key draws an icon, an unknown one the first letter", async () => {
+    inCase("launch");
+    serve(timeline({ lanes: [
+      { key: "results", label: "Zed words", events: [], colour: "#2a6f97" },
+      { key: "lane_one", label: "Yak words", events: [], colour: "#2a6f97" },
+    ] }));
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const icons = await screen.findAllByTestId("lane-icon");
+    expect(icons[0]!.querySelector("svg")).not.toBeNull();
+    expect(icons[1]!.querySelector("svg")).toBeNull();
+    expect(icons[1]!.textContent).toBe("Y");
+  });
+});

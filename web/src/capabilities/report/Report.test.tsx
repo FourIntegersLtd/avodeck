@@ -1,13 +1,13 @@
 // S16 Your report: sections from the pack, what the court requires (from the pack), citation style, build and
 // rebuild, the expert's own sections, and the methodology note.
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { humanise } from "../../foundation/i18n";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { launchWords } from "../setup/testing";
-import { checklistItems, etagged, reportOut, sectionKeys, sectionLabel, serve, settingsOut, V1, V2, versionOut, type PackRun } from "./testing";
+import { inCase, launchWords } from "../setup/testing";
+import { casePack, checklistItems, etagged, reportOut, sectionKeys, sectionLabel, serve, settingsOut, V1, V2, versionOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/report`;
@@ -107,15 +107,33 @@ test("a section changed in another window asks you to reload instead of overwrit
   expect(await screen.findByText(M["report.stale"]!)).toBeInTheDocument();
 });
 
-test("shows the methodology note and a preview of the pages that moves on", async () => {
-  serve("launch");
-  const { user } = renderAt(url);
-  expect(await screen.findByText("1,231 of 1,231 pages read by you")).toBeInTheDocument();
-  const img = await screen.findByRole("img", { name: "Page 1 of your report" });
-  expect(img).toHaveAttribute("src", expect.stringContaining(`/v1/cases/${CASE_A}/report/preview/1`));
-  await user.click(screen.getByRole("button", { name: M["report.report.preview_next"]! }));
-  expect(screen.getByRole("img", { name: "Page 2 of your report" })).toBeInTheDocument();
-  expect(V1).toBeTruthy();
+describe("the preview", () => {
+  let made = 0;
+  const revoke = vi.fn();
+  beforeEach(() => {
+    made = 0;
+    revoke.mockClear();
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => `blob:preview-${++made}`), revokeObjectURL: revoke }));
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  test("shows the methodology note and a preview of the pages that moves on, loaded through the client as a blob", async () => {
+    serve("launch");
+    const asked: string[] = [];
+    server.use(http.get("/v1/cases/:caseId/report/preview/:page", ({ params }) => (asked.push(String(params.page)), new Response(new Blob(["x"], { type: "image/png" }), { headers: { "content-type": "image/png" } }))));
+    const { user, unmount } = renderAt(url);
+    expect(await screen.findByText("1,231 of 1,231 pages read by you")).toBeInTheDocument();
+    const img = await screen.findByRole("img", { name: "Page 1 of your report" });
+    await waitFor(() => expect(img.getAttribute("src")).toMatch(/^blob:/));
+    expect(asked).toEqual(["1"]);
+    await user.click(screen.getByRole("button", { name: M["report.report.preview_next"]! }));
+    await waitFor(() => expect(asked).toEqual(["1", "2"]));
+    await waitFor(() => expect(revoke).toHaveBeenCalledWith("blob:preview-1"));
+    expect(screen.getByRole("img", { name: "Page 2 of your report" })).toBeInTheDocument();
+    unmount();
+    expect(revoke).toHaveBeenCalledWith("blob:preview-2");
+    expect(V1).toBeTruthy();
+  });
 });
 
 test("lists the sections as numbered contents with a tick for each one that is done", async () => {
@@ -127,6 +145,7 @@ test("lists the sections as numbered contents with a tick for each one that is d
   const items = within(contents).getAllByRole("listitem");
   expect(items).toHaveLength(sections.length);
   expect(within(items[0]!).getByText(M["report.report.section.done"]!)).toBeInTheDocument();
+  items.forEach((item, i) => expect(within(item).getByText(String(i + 1))).toBeInTheDocument());
   expect(within(items.at(-1)!).getByText(M["report.report.section.todo"]!)).toBeInTheDocument();
 });
 
@@ -162,4 +181,41 @@ test("a section can be read as text, read-only, without the Word file", async ()
   await user.click(await screen.findByRole("button", { name: sectionLabel("launch", "opinion") }));
   expect(await screen.findByText("The plan was written down.")).toBeInTheDocument();
   expect(screen.queryByText("Not this one")).toBeNull();
+});
+
+test("the checklist says in words which items are done", async () => {
+  serve("launch");
+  renderAt(url);
+  const checklist = await screen.findByRole("region", { name: M["report.report.checklist"] });
+  expect(within(checklist).getAllByText(M["report.report.done"]!)).toHaveLength(1);
+  expect(within(checklist).getAllByText(M["report.report.checklist_item_todo"]!)).toHaveLength(checklistItems("launch").length - 1);
+});
+
+test("the footer gives the page limit for the case's track", async () => {
+  const limits = (casePack("launch") as unknown as { compliance_checklist: { page_limit: Record<string, number> } }).compliance_checklist.page_limit;
+  const [track, limit] = Object.entries(limits)[0]!;
+  serve("launch");
+  inCase("launch", { court_track: track });
+  renderAt(url);
+  expect(await screen.findByText(`Draft 1 · 31 pages · page limit ${limit}`)).toBeInTheDocument();
+});
+
+describe("after the report is served (rule 8)", () => {
+  test.each(["served", "withdrawn"] as const)("a %s report has no build button and points to the correct-report screen", async (status) => {
+    serve("launch", { report: reportOut("launch", { version: versionOut({ status }), versions: [versionOut({ status })] }) });
+    renderAt(url);
+    const link = await screen.findByRole("link", { name: M["report.report.served_link"]! });
+    expect(link).toHaveAttribute("href", `/cases/${CASE_A}/correct-report`);
+    expect(screen.getByText(M["report.report.served"]!)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: M["report.report.rebuild"]! })).toBeNull();
+    expect(screen.queryByRole("button", { name: M["report.report.build"]! })).toBeNull();
+  });
+
+  test("when the server refuses a build because the report was served, it shows the same notice", async () => {
+    serve("launch");
+    server.use(http.post("/v1/cases/:caseId/report/build", () => apiError(409, "served_use_supplementary")));
+    const { user } = renderAt(url);
+    await user.click(await screen.findByRole("button", { name: M["report.report.rebuild"]! }));
+    expect(await screen.findByRole("link", { name: M["report.report.served_link"]! })).toHaveAttribute("href", `/cases/${CASE_A}/correct-report`);
+  });
 });

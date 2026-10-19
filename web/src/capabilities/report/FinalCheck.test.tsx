@@ -101,7 +101,7 @@ test("a colleague spot-check sends the email, shows the link once and says the c
   await user.type(await screen.findByLabelText(M["report.check.spot_email"]!), "colleague@example.test");
   await user.click(screen.getByRole("button", { name: M["report.check.spot_send"]! }));
   expect(await screen.findByText(M["report.check.spot_sent"]!)).toBeInTheDocument();
-  expect(screen.getByText("Link: /spot-check/tok-123")).toBeInTheDocument();
+  expect(screen.getByText(`Link: ${window.location.origin}/spot-check/tok-123`)).toBeInTheDocument();
   expect(sent).toEqual([{ reviewer_email: "colleague@example.test" }]);
   expect(screen.queryByText(/tok-123/, { selector: "a" })).toBeNull();
 });

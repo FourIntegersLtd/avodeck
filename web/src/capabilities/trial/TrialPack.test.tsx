@@ -74,6 +74,33 @@ test("a pack made before the court bundle changed says it needs rebuilding", asy
   expect(await screen.findByText(k("pack.stale"))).toBeInTheDocument();
 });
 
+test.each(["hearing_adjourned", "hearing_changed", "new_pages", "new_served_version"])("a pack made before %s says why it needs rebuilding", async (reason) => {
+  servePack("launch", { latest: { pack: packOut({ stale: true, stale_reason: reason }), settings: settingsOut() } });
+  renderAt(url);
+  expect(await screen.findByText(k("pack.stale"))).toBeInTheDocument();
+  expect(screen.getByText(k(`pack.stale_reason.${reason}`))).toBeInTheDocument();
+});
+
+test("a copy for the witness box made before something changed says to make it again, and why", async () => {
+  servePack("launch", { copies: [copyOut({ status: "downloaded", downloaded_at: "2027-06-03T10:00:00Z", stale: true, stale_reason: "hearing_adjourned" })] });
+  const { container, user } = renderAt(url);
+  // The board keeps the witness-box copy behind one link.
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
+  const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
+  expect(await within(section).findByText(k("pack.offline.stale"))).toBeInTheDocument();
+  expect(within(section).getByText(k("pack.stale_reason.hearing_adjourned"))).toBeInTheDocument();
+  expect(await axeViolations(container)).toEqual([]);
+});
+
+test("a current copy shows no warning", async () => {
+  servePack("launch", { copies: [copyOut()] });
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
+  const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
+  await within(section).findByText(fill(k("pack.offline.copy_line"), { device: "My tablet", date: "1 July 2099" }));
+  expect(within(section).queryByText(k("pack.offline.stale"))).not.toBeInTheDocument();
+});
+
 test("a case not yet served cannot have a pack", async () => {
   servePack("launch", { latest: { pack: null, settings: settingsOut() } });
   server.use(http.post("/v1/cases/:caseId/trial-pack", () => apiError(409, "not_served")));
@@ -125,6 +152,9 @@ test("the pack says when it was built", async () => {
   renderAt(url);
   const built = fill(k("pack.built"), { date: "3 June 2027" });
   expect(await screen.findByText((_, el) => el?.tagName === "P" && (el.textContent ?? "").includes(built))).toBeInTheDocument();
+  // The date is when the pack was made, not a hearing date.
+  expect(screen.getByText((_, el) => el?.tagName === "P" && (el.textContent ?? "").includes("Made on 3 June 2027."))).toBeInTheDocument();
+  expect(screen.queryByText(/Built for the trial/)).not.toBeInTheDocument();
 });
 
 test("a reply is written under a question's sheet and saved with the question number", async () => {

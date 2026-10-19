@@ -1,13 +1,19 @@
 // Screen 09, Reading: the page, "Mark as read" as the one main action, and (only after the read is
 // recorded) the suggestions with the exact words highlighted. Runs under both pack sets.
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { forgetPages } from "./pageImage";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { CASE_ID, fact, factId } from "./testData";
 import { mockReader } from "./testing";
 import "./index";
+
+beforeEach(() => {
+  forgetPages();
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:page"), revokeObjectURL: vi.fn() }));
+});
 
 const PATH = `/cases/${CASE_ID}/read/118`;
 const card = (name: RegExp | string) => screen.getByRole("article", { name }) as HTMLElement;
@@ -20,7 +26,7 @@ describe.each([
     const api = mockReader(pack);
     const { container } = renderAt(PATH);
     expect(await screen.findByRole("button", { name: "Mark as read" })).toBeVisible();
-    await waitFor(() => expect(screen.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", expect.stringMatching(/^data:image\/jpeg;base64,/)));
+    await waitFor(() => expect(screen.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", expect.stringMatching(/^blob:/)));
     expect(screen.getByText(/You're in the period in question/)).toBeVisible();
     expect(await screen.findByText(/Page 118 of 10\. You've read 3\. 7 to go\./)).toBeVisible();
     expect(screen.getByText(/Mark this page as read to see our suggestions/)).toBeVisible();

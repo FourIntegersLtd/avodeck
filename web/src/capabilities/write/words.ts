@@ -87,7 +87,7 @@ const WORDS = {
   "opinion.saved": "Saved",
   "opinion.unsaved": "Not saved yet",
   "opinion.save_failed": "We couldn't save just now. We'll try again.",
-  "opinion.cite_failed": "One of your facts can't be cited yet. Check that it is verified.",
+  "opinion.cite_failed": "One of your facts can't be cited yet. Check that you have checked this fact on its page.",
   "opinion.cite_refused": "Citation [{{number}}] doesn't match a fact you have checked. Remove it, or click the fact again to cite it as it is now.",
   "opinion.marker_refused": "Citation [{{number}}] isn't in your text. Remove it, or put it back in the text.",
   "opinion.save_stopped": "Not saved. Fix the citation above and we'll save again.",
@@ -108,6 +108,8 @@ const WORDS = {
   "opinion.check_loaded_ok": "No loaded words.",
   "opinion.check_expertise_ok": "Nothing outside your expertise.",
   "opinion.back_to_points": "Back to points against",
+  "opinion.go_report": "Go to your report",
+  "opinion.readable_copy": "Your text with citations shown as pages",
 
   "today.questions_without_opinion_one": "{{case}}: {{count}} question without your opinion",
   "today.questions_without_opinion_other": "{{case}}: {{count}} questions without your opinion",

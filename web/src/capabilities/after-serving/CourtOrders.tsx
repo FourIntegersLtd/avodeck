@@ -30,17 +30,18 @@ export function CourtOrders() {
     async () => (await Promise.all(ids.map((id) => unwrap(api.GET("/v1/cases/{case_id}/deadlines/{deadline_id}/changes", { params: { path: { case_id: caseId, deadline_id: id } } }))))).flatMap((r, i) => r.changes.map((c) => ({ ...c, deadline: ids[i]! }))),
     [caseId, ids.join(",")],
   );
+  const steps = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/after-serving/steps", path)), [caseId]);
   const [moving, setMoving] = useState<Schemas["DeadlineOut"] | null>(null);
   const [adding, setAdding] = useState<"order" | "hearing" | null>(null);
 
-  if (deadlines.error || hearings.error || directions.error) {
-    return <div className="av-page"><LoadError onRetry={() => { deadlines.reload(); hearings.reload(); directions.reload(); }} /></div>;
+  if (deadlines.error || hearings.error || directions.error || steps.error) {
+    return <div className="av-page"><LoadError onRetry={() => { deadlines.reload(); hearings.reload(); directions.reload(); steps.reload(); }} /></div>;
   }
-  if (!deadlines.data || !hearings.data || !directions.data) return <div className="av-page"><Loading /></div>;
+  if (!deadlines.data || !hearings.data || !directions.data || !steps.data) return <div className="av-page"><Loading /></div>;
   const kindOf = (id: string) => deadlines.data!.deadlines.find((d) => d.id === id)?.kind ?? "";
-  const refresh = () => { deadlines.reload(); hearings.reload(); directions.reload(); history.reload(); };
+  const refresh = () => { steps.reload(); deadlines.reload(); hearings.reload(); directions.reload(); history.reload(); };
   const trialPack = screenPath("trial_pack", { caseId });
-  const trialMoved = hearings.data.hearings.some((h) => h.type === HEARING_TYPES[0] && h.replaced_by_hearing_id);
+  const trialMoved = !!steps.data.pack?.stale;
   const live = (h: Schemas["HearingOut"]) => !h.replaced_by_hearing_id && h.status !== "adjourned";
   const ordered = [...hearings.data.hearings].sort((a, b) => Number(live(b)) - Number(live(a)) || b.starts_on.localeCompare(a.starts_on));
   const sourceName = (s: string) => keyName("source", s);
@@ -203,7 +204,6 @@ function HoldOrWithdraw({ caseId, onHold, onDone }: { caseId: string; onHold: bo
       {asking && (
         <Dialog title={w("hold.withdraw")} onClose={() => setAsking(false)}>
           <form className="av-stack" onSubmit={(e: FormEvent) => { e.preventDefault(); void withdraw(); }}>
-            <h3>{w("hold.withdraw")}</h3>
             <p>{w("hold.withdraw_hint")}</p>
             <TextField label={w("hold.reason")} name="reason" value={reason} onChange={(e) => setReason(e.target.value)} />
             <div className="av-row">

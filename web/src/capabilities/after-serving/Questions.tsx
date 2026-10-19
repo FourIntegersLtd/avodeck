@@ -31,7 +31,7 @@ export function QuestionsScreen() {
   const [params] = useSearchParams();
   const document = params.get("document");
   const locale = useLocale();
-  const { pack } = useCaseFrame();
+  const { item, pack } = useCaseFrame();
   const path = { params: { path: { case_id: caseId } } };
   const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId]);
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId]);
@@ -119,7 +119,7 @@ export function QuestionsScreen() {
                 classes={classes}
                 locale={locale}
                 declarations={pack.declarations}
-                party={partyWord(pack)}
+                party={partyWord(pack, item.instructing_party_type)}
                 onImport={() => wait.start()}
                 onChanged={reloadAll}
               />
@@ -136,8 +136,8 @@ function ordinal(number: number): string {
   return hasMessage(key) ? t(key) : w("questions.set_n", { number });
 }
 
-function partyWord(pack: Schemas["CasePack"]): string {
-  return (pack.instructing_party_types as Array<{ key: string; label?: string }>)[0]?.label ?? "";
+function partyWord(pack: Schemas["CasePack"], type: string | null | undefined): string {
+  return (pack.instructing_party_types as Array<{ key: string; label?: string }>).find((p) => p.key === type)?.label ?? "";
 }
 
 function RoundView({ caseId, round, questions, shown, currentId, classes, locale, declarations, party, onImport, onChanged }: {

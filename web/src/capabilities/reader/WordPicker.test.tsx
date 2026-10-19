@@ -2,13 +2,19 @@
 // become toggles over the picture; Save sends the chosen ids. A "Please check" fact must cite words
 // chosen again, so Save waits for a choice. Runs under both pack sets.
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { forgetPages } from "./pageImage";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { CASE_ID, fact } from "./testData";
 import { mockReader } from "./testing";
 import "./index";
+
+beforeEach(() => {
+  forgetPages();
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:page"), revokeObjectURL: vi.fn() }));
+});
 
 const PATH = `/cases/${CASE_ID}/read/118`;
 const word = (name: string) => screen.getByRole("button", { name });

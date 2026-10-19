@@ -18,7 +18,7 @@ const moved = [hearing({ id: "h0", starts_on: "2027-03-03", ends_on: "2027-03-05
 beforeEach(() => registerScreen("trial_pack", ({ caseId }) => `/cases/${caseId}/trial-pack`));
 
 test("when the trial moved there is a banner with the way to rebuild the trial pack", async () => {
-  serve("launch", { hearings: moved });
+  serve("launch", { hearings: moved, steps: { meetings: [], pack: { built_on: "2027-05-30", stale: true } } });
   const { container } = renderAt(url);
   const banner = await screen.findByRole("alert");
   expect(within(banner).getByText("Your trial pack was made for the old trial date.")).toBeInTheDocument();
@@ -27,7 +27,7 @@ test("when the trial moved there is a banner with the way to rebuild the trial p
 });
 
 test("Add a court order sits under the intro, before the banner and the sections", async () => {
-  serve("launch", { hearings: moved });
+  serve("launch", { hearings: moved, steps: { meetings: [], pack: { built_on: "2027-05-30", stale: true } } });
   renderAt(url);
   const add = await screen.findByRole("button", { name: "Add a court order" });
   const banner = screen.getByRole("alert");

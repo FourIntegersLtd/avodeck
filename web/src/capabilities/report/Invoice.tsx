@@ -5,8 +5,9 @@
 // time runs over the estimate by more than the pack's threshold the server sends a gentle notice naming the
 // instructing party (in the pack's word), which never blocks anything.
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
+import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -66,6 +67,7 @@ async function loadProfile(): Promise<{ profile: Schemas["BillingProfile"] | nul
 /** The time card and the paper invoice side by side, then the bottom bar and the forms behind one link. */
 function Workspace({ caseId }: { caseId: string }) {
   const stepUp = useStepUp();
+  const navigate = useNavigate();
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } } })), [caseId]);
   const billing = useResource(loadProfile, []);
   const theCase = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })), [caseId]);
@@ -93,9 +95,19 @@ function Workspace({ caseId }: { caseId: string }) {
   const missing = billing.data.profile === null && !saved;
   const from = billing.data.profile?.legal_name ?? null;
   const caseLabel = theCase.data?.label ?? null;
-  const feeNote = list.some((invoice) => invoice.statements.length > 0);
   const pdf = (invoice: Invoice) => `${apiOrigin()}/v1/cases/${caseId}/invoices/${invoice.id}/pdf`;
-  const send = (invoice: Invoice) => act(() => stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/invoices/{invoice_id}/send", { params: { path: { case_id: caseId, invoice_id: invoice.id } }, body: { to: null } }))));
+  const send = async (invoice: Invoice) => {
+    setError(null);
+    try {
+      const out = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/invoices/{invoice_id}/send", { params: { path: { case_id: caseId, invoice_id: invoice.id } }, body: { to: null } })));
+      if (out === undefined) return;
+      const next = screenPath("S19", { caseId });
+      if (next) navigate(next);
+      else found.reload();
+    } catch (err) {
+      setError(errorMessage(err, ERRORS));
+    }
+  };
   return (
     <>
       {missing && <Notice tone="warning"><p>{w("invoice.billing_missing")}</p></Notice>}
@@ -115,7 +127,7 @@ function Workspace({ caseId }: { caseId: string }) {
         )}
       </div>
       <div className="rp-bar">
-        <span className="av-muted rp-bar__note">{feeNote ? w("invoice.fee_note") : ""}</span>
+        <span className="av-muted rp-bar__note">{w("invoice.fee_note")}</span>
         <div className="rp-bar__actions">
           {latest ? (
             <>

@@ -50,7 +50,6 @@ const WORDS = {
   "timeline.legend_question": "Linked question",
   "timeline.look_one": "Look at the {{count}} thing we found",
   "timeline.look_other": "Look at the {{count}} things we found",
-  "timeline.look_none": "Look at the things we found",
   "timeline.as_seen_toggle": "{{title}} on…",
   "timeline.adjust": "Change the dates or question",
   "timeline.nothing": "Nothing matches. Try clearing a filter.",
