@@ -279,7 +279,7 @@ async def test_a_cited_fact_moved_to_a_clearer_copy_still_saves_and_shows_change
 async def test_a_citation_sent_without_a_fact_version_is_stamped_and_shows_changed_since_cited_when_the_fact_changes(
     client_for: ClientFor, world: World, admin: psycopg.Connection
 ) -> None:
-    """Architecture 10.4: the server snapshots the fact's version, so a later edit that still contains the quote shows."""
+    """Architecture 10.4: the server snapshots the fact version, so a later edit that keeps the quote shows."""
     client = await client_for(world.expert)
     refs = [cite(world.result, world.read_page, "ferritin 9")]
     first = await save(client, world, '"0"', opinion(world, refs=refs))
