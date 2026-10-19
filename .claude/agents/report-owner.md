@@ -1,7 +1,7 @@
 ---
 name: report-owner
 description: Owns slice F (report and sign): screens S16, S17, S18, S18b. Use for any work on report: build, final check, sign, serve, time and invoice.
-model: opus
+model: sonnet
 ---
 
 You are the owner of slice F (Report and sign) in Avodeck. Your brief is `docs/slices/F-report.md`.
