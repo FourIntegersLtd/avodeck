@@ -4,6 +4,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
 import { CASE_A, stubApi } from "../foundation/helpers";
+import packFixtures from "../../src/foundation/platform-client/pack-fixtures.json" with { type: "json" };
 
 const ID = (n: number) => `${n}${n}${n}${n}${n}${n}${n}${n}-${n}${n}${n}${n}-4${n}${n}${n}-8${n}${n}${n}-${String(n).repeat(12)}`;
 const [V1, P1, ROUND, Q1, D1, DOC, CLAIM] = [ID(1), ID(2), ID(3), ID(4), ID(5), ID(6), ID(7)];
@@ -13,12 +14,7 @@ async function stub(page: Page) {
   const reply = (path: string, body: unknown, status = 200) =>
     page.route(`**/v1/cases/${CASE_A}${path}`, (route) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) }));
   await reply("", { id: CASE_A, label: "Mrs A", status: "open", instructing_party_type: "lawyer", allowed_actions: [] });
-  await reply("/pack", {
-    workflow_steps: [{ key: "prepare", screens: [] }, { key: "court", screens: ["after_serving"] }], party_roles: [{ key: "other_side", label: "the other side" }],
-    vocabulary: { written_questions: "questions from the other side" }, locale: "en-GB", timezone: "Europe/London",
-    deadline_rules: [{ key: "written_questions" }, { key: "trial" }], instructing_party_types: [{ key: "lawyer", label: "instructing party" }],
-    declarations: [{ key: "d", text: "I confirm this is my own opinion." }],
-  });
+  await reply("/pack", packFixtures.launch.case_pack);
   const deadline = { id: D1, kind: "written_questions", due_on: "2026-12-26", due_at: "2026-12-26T23:59:59Z", days_left: 18, timezone: "Europe/London", calendar: "calendar_days", created_from: "pack", source: "pack", rule_ref: null, pack_version: "1", hearing_id: null, done_at: null, last_reminded_on: null, version: 1 };
   await reply("/deadlines", { deadlines: [deadline], served_on: "2026-11-28" });
   await reply(`/deadlines/${D1}/changes`, { changes: [] });
