@@ -21,7 +21,7 @@ pytestmark = pytest.mark.anyio
 
 
 def _events(body: dict[str, object]) -> list[dict[str, object]]:
-    return [e for lane in body["lanes"] for e in lane["events"]]  # type: ignore[index, attr-defined]
+    return [e for lane in body["lanes"] for e in lane["events"]]  # type: ignore[attr-defined]
 
 
 async def test_the_timeline_gives_the_date_range_of_the_whole_record(client_for: ClientFor, seed: Seed) -> None:
