@@ -6,6 +6,8 @@ was built, every version newest first, the sections in the order the report uses
 and the jurisdiction pack's required contents with the ones the expert has ticked. Settings carry a
 version: no settings row is version 1 (the defaults). Changing the citation style rebuilds (202 with the
 job); ticking required contents is the named expert's own judgement (`opinion.write`).
+Once the main report is served (or withdrawn) build, final check and sign return 409 `served_use_supplementary`
+(rule 8): corrections go through the supplementary report (screen 21b).
 """
 
 from __future__ import annotations
@@ -29,7 +31,18 @@ from app.features.report.assemble import (
     section_keys,
     template_order,
 )
-from app.features.report.common import Build, Crypto, Pack, Queued, Reads, Storage, View, invalid, not_found, refuse_if_served
+from app.features.report.common import (
+    Build,
+    Crypto,
+    Pack,
+    Queued,
+    Reads,
+    Storage,
+    View,
+    invalid,
+    not_found,
+    refuse_if_served,
+)
 from app.features.report.pdf_out import page_png
 from app.features.report.router import router
 
