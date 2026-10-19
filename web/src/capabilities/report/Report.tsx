@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
-import { useSectionName, useWaiting, versionTag } from "./shared";
+import { downloadPath, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
 type Report = Schemas["ReportOut"];
@@ -64,7 +64,7 @@ export function ReportScreen() {
 
   return (
     <div className="av-page av-stack">
-      <h2>{w("report.title")}</h2>
+      <h1>{w("report.title")}</h1>
       <p>{w("report.intro")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {wait.waiting && <Notice><p>{w("building")}</p></Notice>}
@@ -88,6 +88,11 @@ export function ReportScreen() {
         </div>
         <p className="av-muted">{w("report.style_changed")}</p>
       </fieldset>
+      {version && (
+        <p>
+          <a className="av-button av-button--secondary" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>
+        </p>
+      )}
 
       <div className="av-report-columns">
         <Sections caseId={caseId} data={data} onSaved={found.reload} />
@@ -112,6 +117,7 @@ export function ReportScreen() {
         <Button variant="secondary" onClick={() => void build()} disabled={wait.waiting}>
           {version ? w("report.rebuild") : w("report.build")}
         </Button>
+        {version?.page_count ? <span className="av-muted">{w("report.pages_footer", { pages: version.page_count })}</span> : null}
         {version && <LinkButton to={`/cases/${caseId}/final-check`}>{w("report.final_check")}</LinkButton>}
       </div>
     </div>
@@ -124,13 +130,13 @@ function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onS
   return (
     <section className="av-card av-stack" aria-labelledby="sections-title">
       <h3 id="sections-title">{w("report.sections")}</h3>
-      <ul className="av-report-list">
+      <ol className="av-report-list" aria-label={w("report.contents")}>
         {data.sections.map((section) => {
           const name = nameOf(section.key);
           return (
             <li key={section.key} aria-label={name} className="av-report-item av-report-item--spread">
               <span>
-                <strong>{name}</strong>{" "}
+                <span aria-hidden="true">{section.written || section.generated ? "✓" : "○"}</span> <strong>{name}</strong>{" "}
                 <span className="av-badge">{section.written ? w("report.section.written") : section.generated ? w("report.section.generated") : w("report.section.todo")}</span>
               </span>
               <Button variant="quiet" aria-label={`${section.written ? w("report.section.edit") : w("report.section.write")} ${name}`} onClick={() => setOpen(open === section.key ? null : section.key)}>
@@ -139,7 +145,7 @@ function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onS
             </li>
           );
         })}
-      </ul>
+      </ol>
       {open && <SectionEditor key={open} caseId={caseId} sectionKey={open} onClose={() => setOpen(null)} onSaved={onSaved} />}
     </section>
   );
@@ -194,7 +200,10 @@ function Methodology({ caseId }: { caseId: string }) {
   return (
     <section className="av-card av-stack" aria-labelledby="method-title">
       <h3 id="method-title">{w("report.methodology")}</h3>
-      <p>{w("report.methodology_body")}</p>
+      <details>
+        <summary>{w("report.wording")}</summary>
+        <p>{w("report.methodology_body")}</p>
+      </details>
       {found.data && <p className="av-muted">{w("report.pages_read", { read: found.data.pages_read, total: found.data.pages_total })}</p>}
     </section>
   );
@@ -207,7 +216,7 @@ function Preview({ caseId, pages }: { caseId: string; pages: number }) {
       <img className="av-report-preview" src={`${apiOrigin()}/v1/cases/${caseId}/report/preview/${page}`} alt={w("report.preview_alt", { page })} />
       <div className="av-row">
         <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>{w("report.preview_previous")}</Button>
-        <span className="av-muted">{w("report.preview", { page })}</span>
+        <span className="av-muted">{w("report.preview", { page, pages })}</span>
         <Button variant="secondary" disabled={page >= pages} onClick={() => setPage(page + 1)}>{w("report.preview_next")}</Button>
       </div>
     </section>

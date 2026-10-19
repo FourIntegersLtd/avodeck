@@ -14,6 +14,7 @@ import { w } from "./words";
 type Check = Schemas["FinalCheckOut"];
 type Result = Schemas["CheckResult"];
 const WARNING_TYPES = ["uncited_fact", "loaded_language", "outside_expertise"] as const;
+const SHOWN = 7;
 const ERRORS = { not_built: "report.check.no_build" };
 const nameOf = (r: Result) => r.text ?? humanise(r.key);
 
@@ -31,6 +32,7 @@ export function FinalCheck() {
   const found = useResource(() => latest(caseId), [caseId]);
   const wait = useWaiting(found.reload, found.data?.id ?? null);
   const [error, setError] = useState<string | null>(null);
+  const [all, setAll] = useState(false);
 
   const run = async () => {
     setError(null);
@@ -53,7 +55,7 @@ export function FinalCheck() {
 
   return (
     <div className="av-page av-stack">
-      <h2>{title}</h2>
+      <h1>{title}</h1>
       <p>{w("check.intro")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {wait.waiting && <Notice><p>{w("check.running")}</p></Notice>}
@@ -83,12 +85,14 @@ export function FinalCheck() {
           <h3 id="passed-title">{w("check.passed")}</h3>
           <p>{w("check.passed_count", { passed: passed.length, total: check.results.length })}</p>
           <ul className="av-report-list">
-            {passed.map((r) => (
-              <li key={r.key} className="av-report-item">
-                <span aria-hidden="true">✓</span> {nameOf(r)}
+            {(all ? passed : passed.slice(0, SHOWN)).map((r) => (
+              <li key={r.key} aria-label={nameOf(r)} className="av-report-item av-report-item--spread">
+                <span><span aria-hidden="true">✓</span> {nameOf(r)}</span>
+                {r.count > 0 && <span className="av-report-mono">{r.count}</span>}
               </li>
             ))}
           </ul>
+          {!all && passed.length > SHOWN && <Button variant="quiet" onClick={() => setAll(true)}>{w("check.see_all", { count: passed.length })}</Button>}
         </section>
       )}
       {check && check.warnings.length > 0 && <Warnings warnings={check.warnings} />}
@@ -97,6 +101,7 @@ export function FinalCheck() {
       <SpotCheck caseId={caseId} />
 
       <div className="av-report-footer">
+        <a href="#spot-check">{w("check.spot")}</a>
         <Button variant="secondary" onClick={() => void run()} disabled={wait.waiting}>
           {check ? w("check.run_again") : w("check.run")}
         </Button>
@@ -162,7 +167,7 @@ function SpotCheck({ caseId }: { caseId: string }) {
     }
   };
   return (
-    <section className="av-card av-stack" aria-labelledby="spot-title">
+    <section id="spot-check" className="av-card av-stack" aria-labelledby="spot-title">
       <h3 id="spot-title">{w("check.spot")}</h3>
       <p>{w("check.spot_intro")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}

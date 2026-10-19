@@ -21,9 +21,11 @@ const STATUSES = ["draft", "sent", "part_paid", "paid", "written_off"] as const;
 
 export function InvoiceScreen() {
   const { caseId = "" } = useParams();
+  const report = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
+  const sent = report.data?.version?.status === "served";
   return (
     <div className="av-page av-stack">
-      <h2>{w("invoice.title")}</h2>
+      <h1>{sent ? w("invoice.heading_sent") : w("invoice.title")}</h1>
       <p>{w("invoice.intro")}</p>
       <TimeCard caseId={caseId} />
       <EstimateCard caseId={caseId} />
@@ -54,6 +56,7 @@ function TimeCard({ caseId }: { caseId: string }) {
         {time.stages.map((s) => (
           <li key={s.stage} aria-label={stepLabel(s.stage)} className="av-report-item av-report-item--spread">
             <span>{stepLabel(s.stage)}</span>
+            <meter className="av-report-bar" min={0} max={Math.max(time.total_seconds, 1)} value={s.seconds} aria-label={stepLabel(s.stage)} />
             <span className="av-report-mono">{duration(s.seconds)}</span>
           </li>
         ))}
@@ -62,6 +65,9 @@ function TimeCard({ caseId }: { caseId: string }) {
           <strong className="av-report-mono">{duration(time.total_seconds)}</strong>
         </li>
       </ul>
+      {time.estimate_hours != null && !time.over_estimate && time.instructing_party && (
+        <Notice tone="success"><p>{w("invoice.within_estimate", { party: time.instructing_party, hours: Number(time.estimate_hours) })}</p></Notice>
+      )}
       {time.adjusted && <p className="av-muted">{w("invoice.adjusted")}</p>}
       <p className="av-muted">{w("invoice.time_note")}</p>
       {adjusting && <Adjust caseId={caseId} stages={time.stages} onClose={() => setAdjusting(false)} onSaved={() => { setAdjusting(false); found.reload(); }} />}
@@ -290,6 +296,8 @@ function BankForm({ initial, etag, onSaved }: { initial: Bank | null; etag: stri
 
 function Invoices({ caseId }: { caseId: string }) {
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } } })), [caseId]);
+  const billing = useResource(() => unwrap(api.GET("/v1/me/billing-profile")), []);
+  const theCase = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })), [caseId]);
   const [expenses, setExpenses] = useState("");
   const [error, setError] = useState<string | null>(null);
   const create = async () => {
@@ -311,7 +319,7 @@ function Invoices({ caseId }: { caseId: string }) {
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {list.length === 0 && <p className="av-muted">{w("invoice.none")}</p>}
       {list.map((invoice) => (
-        <InvoiceCard key={invoice.id} caseId={caseId} invoice={invoice} onChanged={found.reload} />
+        <InvoiceCard key={invoice.id} caseId={caseId} invoice={invoice} from={billing.data?.profile?.legal_name ?? null} caseLabel={theCase.data?.label ?? null} onChanged={found.reload} />
       ))}
       <TextField label={w("invoice.expenses")} name="expenses" inputMode="decimal" value={expenses} onChange={(e) => setExpenses(e.target.value)} />
       <div className="av-report-footer">
@@ -321,7 +329,7 @@ function Invoices({ caseId }: { caseId: string }) {
   );
 }
 
-function InvoiceCard({ caseId, invoice, onChanged }: { caseId: string; invoice: Invoice; onChanged: () => void }) {
+function InvoiceCard({ caseId, invoice, from, caseLabel, onChanged }: { caseId: string; invoice: Invoice; from: string | null; caseLabel: string | null; onChanged: () => void }) {
   const locale = useLocale();
   const stepUp = useStepUp();
   const [error, setError] = useState<string | null>(null);
@@ -349,6 +357,12 @@ function InvoiceCard({ caseId, invoice, onChanged }: { caseId: string; invoice: 
         <span className="av-badge">{status}</span>
       </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
+      <div className="av-stack">
+        {from && <p>{w("invoice.from", { name: from })}</p>}
+        {invoice.sent_to && <p>{w("invoice.to", { name: invoice.sent_to })}</p>}
+        {caseLabel && <p>{w("invoice.case", { name: caseLabel })}</p>}
+        <p>{w("invoice.date", { date: longDate(invoice.sent_at ?? invoice.created_at, locale) })}</p>
+      </div>
       <ul className="av-report-list">
         {invoice.lines.map((line, i) => (
           <li key={i} className="av-report-item av-report-item--spread">
@@ -372,6 +386,10 @@ function InvoiceCard({ caseId, invoice, onChanged }: { caseId: string; invoice: 
       {invoice.credit_notes.map((c) => (
         <p key={c.id} className="av-muted">{w("invoice.credit_line", { number: c.number_text ?? "", amount: money_(c.amount) })}</p>
       ))}
+      {invoice.statements.map((line) => (
+        <p key={line} className="av-muted">{line}</p>
+      ))}
+      {invoice.statements.length > 0 && <p className="av-muted">{w("invoice.fee_note")}</p>}
       <p className="av-muted">{w("invoice.locked_note")}</p>
       <div className="av-row">
         <a className="av-button av-button--secondary" href={`${apiOrigin()}/v1/cases/${caseId}/invoices/${invoice.id}/pdf`}>{w("invoice.download")}</a>
