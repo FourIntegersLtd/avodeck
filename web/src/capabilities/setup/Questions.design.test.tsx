@@ -65,5 +65,15 @@ test("the footer says how many are left, links to adding a further letter, and c
   renderAt(`/cases/${CASE_A}/questions`);
   expect(await screen.findByText(/Confirm the last 2 to continue/)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Got a further letter or phone call? Add it" })).toHaveAttribute("href", `/cases/${CASE_A}/details`);
-  expect(screen.getByRole("button", { name: "Confirm questions" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Confirm questions" })).toBeDisabled();
+});
+
+test("a question outside your expertise has an outline, the kind has no dot, and the confirmed count shows beside the title", async () => {
+  asked("launch", { questions: [question({ kind: "causation", outside_expertise: true, outside_expertise_source: "pack", answer_parts: ["timing"] })] });
+  renderAt(`/cases/${CASE_A}/questions`);
+  const card = await screen.findByRole("article", { name: "Question 1" });
+  expect(card).toHaveClass("av-setup-card--outside");
+  expect(within(card).getByTestId("kind-pill").querySelector("svg")).toBeNull();
+  expect(within(card).getByRole("button", { name: "Draft a note to the solicitor" })).toBeInTheDocument();
+  expect(screen.getByText("0 of 2 confirmed")).toBeInTheDocument();
 });
