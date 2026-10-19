@@ -86,3 +86,12 @@ describe("the steps that belong to the experts and the court bundle", () => {
     expect(await screen.findByText("Not built yet")).toBeInTheDocument();
   });
 });
+
+test("the changes card has the board's grey icon tile from the foundation", async () => {
+  serve("launch", { changes: [change()] });
+  renderAt(url);
+  const heading = await screen.findByRole("heading", { name: "Changes since serving" });
+  const card = heading.closest("section")!;
+  expect(card.querySelector(".av-icon-tile--grey")).not.toBeNull();
+  expect(card.querySelector(".av-after-tile__icon-quiet")).toBeNull();
+});
