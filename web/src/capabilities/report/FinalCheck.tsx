@@ -1,5 +1,6 @@
-// S17 Final check (docs/design/screens/S17-FinalCheck.dc.html): what failed, with a way to fix it; what passed;
-// tone and expertise warnings as places in the report (never edits); and the colleague spot-check.
+// S17 Final check (docs/design/screens/S17-FinalCheck.dc.html): the score ring and what failed, with a way to fix
+// it; what passed with its counts; tone and expertise warnings as places in the report (never edits); and the
+// colleague spot-check behind one link.
 import { useId, useState } from "react";
 import { useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
@@ -7,14 +8,14 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, IconTile, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
 import { longDate, useLocale, useSectionName, useWaiting } from "./shared";
 import { w } from "./words";
 
 type Check = Schemas["FinalCheckOut"];
 type Result = Schemas["CheckResult"];
 const WARNING_TYPES = ["uncited_fact", "loaded_language", "outside_expertise"] as const;
-const SHOWN = 7;
+const SHOWN = 8;
 const ERRORS = { not_built: "report.check.no_build" };
 const nameOf = (r: Result) => r.text ?? humanise(r.key);
 
@@ -27,12 +28,24 @@ async function latest(caseId: string): Promise<Check | null> {
   }
 }
 
+function AlertIcon() {
+  return (
+    <IconTile tone="amber">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7.5v5.5M12 16.5v.01" />
+      </svg>
+    </IconTile>
+  );
+}
+
 export function FinalCheck() {
   const { caseId = "" } = useParams();
   const found = useResource(() => latest(caseId), [caseId]);
   const wait = useWaiting(found.reload, found.data?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const [all, setAll] = useState(false);
+  const [spotOpen, setSpotOpen] = useState(false);
 
   const run = async () => {
     setError(null);
@@ -54,62 +67,81 @@ export function FinalCheck() {
   const title = failed.length > 0 ? w("check.title_fix", { count: failed.length }) : ready ? w("check.title_ok") : w("check.title");
 
   return (
-    <div className="av-page av-stack">
-      <h1>{title}</h1>
-      <p>{w("check.intro")}</p>
+    <div className="av-page rp-page rp-page--narrow">
+      <div className="rp-hero">
+        {check && (
+          <ProgressRing size={116} value={passed.length} max={check.results.length} label={w("check.ring", { passed: passed.length, total: check.results.length })}>
+            <span className="rp-score">
+              <strong>{passed.length}</strong>
+              <span>{w("check.ring_of", { total: check.results.length })}</span>
+            </span>
+          </ProgressRing>
+        )}
+        <div>
+          <h1 className="rp-title">{title}</h1>
+          <p className="rp-lead">{w("check.intro")}</p>
+        </div>
+      </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {wait.waiting && <Notice><p>{w("check.running")}</p></Notice>}
       {!check && !wait.waiting && <Notice><p>{w("check.none")}</p></Notice>}
       {check && !check.current && <Notice tone="warning"><p>{w("check.out_of_date")}</p></Notice>}
       {check?.declaration_changed && <Notice tone="warning"><p>{w("check.declaration_changed")}</p></Notice>}
 
-      {failed.length > 0 && (
-        <ul className="av-report-list">
+      {(failed.length > 0 || notRun.length > 0) && (
+        <ul className="rp-fixes">
           {failed.map((r) => (
             <Failed key={r.key} caseId={caseId} result={r} />
           ))}
-        </ul>
-      )}
-      {notRun.length > 0 && (
-        <ul className="av-report-list">
           {notRun.map((r) => (
-            <li key={r.key} className="av-card">
-              <p><strong>{nameOf(r)}</strong></p>
-              <p className="av-muted">{w("check.not_run")}</p>
+            <li key={r.key} className="rp-fix" aria-label={nameOf(r)}>
+              <AlertIcon />
+              <div className="rp-fix__text">
+                <p className="rp-fix__title">{nameOf(r)}</p>
+                <p className="rp-fix__why">{w("check.not_run")}</p>
+              </div>
             </li>
           ))}
         </ul>
       )}
       {check && passed.length > 0 && (
-        <section className="av-card av-stack" aria-labelledby="passed-title">
-          <h3 id="passed-title">{w("check.passed")}</h3>
-          <p>{w("check.passed_count", { passed: passed.length, total: check.results.length })}</p>
-          <ul className="av-report-list">
-            {(all ? passed : passed.slice(0, SHOWN)).map((r) => (
-              <li key={r.key} aria-label={nameOf(r)} className="av-report-item av-report-item--spread">
-                <span><span aria-hidden="true">✓</span> {nameOf(r)}</span>
-                {r.count > 0 && <span className="av-report-mono">{r.count}</span>}
-              </li>
-            ))}
-          </ul>
-          {!all && passed.length > SHOWN && <Button variant="quiet" onClick={() => setAll(true)}>{w("check.see_all", { count: passed.length })}</Button>}
-        </section>
+        <ul className="rp-passed" aria-label={w("check.passed")}>
+          {(all ? passed : passed.slice(0, SHOWN)).map((r, i, shown) => (
+            <li key={r.key} aria-label={nameOf(r)} className="rp-passed__row">
+              <svg className="rp-tick" width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12.5l4.5 4.5L19 7.5" />
+              </svg>
+              <span className="rp-passed__name">{nameOf(r)}</span>
+              {r.count > 0 && <span className="av-mono rp-passed__count">{r.count}</span>}
+              {!all && passed.length > SHOWN && i === shown.length - 1 && (
+                <button type="button" className="av-text-link rp-linkbtn" onClick={() => setAll(true)}>{w("check.see_all", { count: passed.length })}</button>
+              )}
+            </li>
+          ))}
+        </ul>
       )}
       {check && check.warnings.length > 0 && <Warnings warnings={check.warnings} />}
       {check?.warnings_status === "pending" && <p className="av-muted">{w("check.warnings_pending")}</p>}
 
-      <SpotCheck caseId={caseId} />
+      {spotOpen && <SpotCheck caseId={caseId} />}
 
-      <div className="av-report-footer">
-        <a href="#spot-check">{w("check.spot")}</a>
-        <Button variant="secondary" onClick={() => void run()} disabled={wait.waiting}>
-          {check ? w("check.run_again") : w("check.run")}
-        </Button>
-        {ready ? (
-          <LinkButton to={`/cases/${caseId}/sign`}>{w("check.sign")}</LinkButton>
-        ) : (
-          check && failed.length > 0 && <Button disabled>{w("check.fix_first", { count: failed.length })}</Button>
-        )}
+      <div className="rp-bar">
+        <div className="rp-bar__actions">
+          <button type="button" className="av-text-link rp-linkbtn" aria-expanded={spotOpen} onClick={() => setSpotOpen(!spotOpen)}>{w("check.spot")}</button>
+          {check && <button type="button" className="av-text-link rp-linkbtn" onClick={() => void run()} disabled={wait.waiting}>{w("check.run_again")}</button>}
+        </div>
+        <div className="rp-bar__actions">
+          {!check ? (
+            <Button onClick={() => void run()} disabled={wait.waiting}>{w("check.run")}</Button>
+          ) : ready ? (
+            <LinkButton arrow to={`/cases/${caseId}/sign`}>{w("check.sign")}</LinkButton>
+          ) : (
+            <>
+              {failed.length > 0 && <span className="av-muted">{w("check.fix_first", { count: failed.length })}</span>}
+              <Button disabled>{w("check.sign")}</Button>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -120,10 +152,13 @@ function Failed({ caseId, result }: { caseId: string; result: Result }) {
   const fix = result.fixes[0] ?? result.fix;
   const to = fix ? (screenPath(fix.screen, { caseId, params: { item: fix.item } }) ?? `/cases/${caseId}`) : null;
   return (
-    <li className="av-card av-report-failed" aria-labelledby={id}>
-      <p id={id}><strong>{nameOf(result)}</strong></p>
-      {result.count > 0 && <p className="av-muted">{w("check.count", { count: result.count })}</p>}
-      {to && <LinkButton variant="secondary" to={to}>{w("check.fix")}</LinkButton>}
+    <li className="rp-fix" aria-labelledby={id}>
+      <AlertIcon />
+      <div className="rp-fix__text">
+        <p id={id} className="rp-fix__title">{nameOf(result)}</p>
+        {result.count > 0 && <p className="rp-fix__why">{w("check.count", { count: result.count })}</p>}
+      </div>
+      {to && <LinkButton to={to}>{w("check.fix")}</LinkButton>}
     </li>
   );
 }
