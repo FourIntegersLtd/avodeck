@@ -82,3 +82,43 @@ test("a clean run offers Sign and send as the one main action, with an arrow", a
   const sign = await screen.findByRole("link", { name: M["report.check.sign"]! });
   expect(sign.querySelector("svg")).not.toBeNull();
 });
+
+test("each thing to fix has an explanation line: the pack's own words, else the screen's words for that check", async () => {
+  const fix = { screen: "opinion", item: "q4" };
+  serve("launch", {
+    check: finalCheck({
+      passed: false,
+      results: [
+        checkResult({ key: "questions_answered", source: "pack", outcome: "failed", count: 1, text: "Question 4 hasn't been answered yet.", explain: "Add a sentence saying the rest is for a specialist.", fix, fixes: [fix] }),
+        checkResult({ key: "dates_cited", outcome: "failed", count: 1, text: "Every date has a page", fix, fixes: [fix] }),
+        checkResult({ key: "no_such_check_here", outcome: "failed", count: 1, text: "Something new", fix, fixes: [fix] }),
+      ],
+    }),
+  });
+  renderAt(url);
+  const pack = await screen.findByRole("listitem", { name: "Question 4 hasn't been answered yet." });
+  expect(within(pack).getByText("Add a sentence saying the rest is for a specialist.")).toBeInTheDocument();
+  const core = screen.getByRole("listitem", { name: "Every date has a page" });
+  expect(within(core).getByText(M["report.check.explain.dates_cited"]!)).toBeInTheDocument();
+  const unknown = screen.getByRole("listitem", { name: "Something new" });
+  expect(unknown.querySelectorAll("p")).toHaveLength(0);
+});
+
+test("a passed check's count carries its unit word, and a pair reads 'n of total'", async () => {
+  serve("launch", {
+    check: finalCheck({
+      results: [
+        checkResult({ key: "citations_resolve", text: "Every fact traced", checked: 214, unit: "fact" }),
+        checkResult({ key: "quotes_verbatim", text: "Every quotation matches", checked: 1, unit: "quote" }),
+        checkResult({ key: "all_pages_read", text: "Every page read", checked: 1231, total: 1231, unit: "page" }),
+        checkResult({ key: "report_built", text: "Built" }),
+      ],
+    }),
+  });
+  renderAt(url);
+  const rows = within(await screen.findByRole("list", { name: M["report.check.passed"]! })).getAllByRole("listitem");
+  expect(within(rows[0]!).getByText("214 facts")).toHaveClass("av-mono");
+  expect(within(rows[1]!).getByText("1 quote")).toBeInTheDocument();
+  expect(within(rows[2]!).getByText("1,231 of 1,231 pages")).toBeInTheDocument();
+  expect(rows[3]!.querySelector(".av-mono")).toBeNull();
+});
