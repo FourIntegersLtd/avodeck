@@ -8,6 +8,7 @@ instructing-party draft asks for a readable copy of it. Files are made up here; 
 from __future__ import annotations
 
 import io
+import uuid
 
 import pikepdf
 import pytest
@@ -36,7 +37,7 @@ async def test_a_locked_and_a_damaged_file_stop_alone_and_the_rest_is_numbered(h
     finished = await h.drain()
     assert set(finished.values()) == {"done"}, finished
     assert [p["document_id"] for p in h.pages()] == [first] * 3 + [last] * 2
-    reasons = dict(
+    reasons: dict[uuid.UUID, str | None] = dict(
         h.admin.execute("select id, unreadable_reason from app.documents where case_id = %s", (h.case_id,)).fetchall()
     )
     assert reasons == {first: None, lock: "locked", broken: "damaged", last: None}
