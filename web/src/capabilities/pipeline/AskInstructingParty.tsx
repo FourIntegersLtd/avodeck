@@ -6,12 +6,25 @@ import { useSession } from "../../foundation/lib/session";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, ApiError, idempotencyKey, unwrap } from "../../foundation/platform-client";
-import { BackLink, Button, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import {
+  api,
+  ApiError,
+  idempotencyKey,
+  unwrap,
+} from "../../foundation/platform-client";
+import {
+  BackLink,
+  Button,
+  Checkbox,
+  LoadError,
+  Loading,
+  Notice,
+  TextField,
+} from "../../foundation/ui";
 import { casePath } from "./data";
-import { formatNumber } from "./format";
+import { formatDate, formatNumber } from "./format";
 import { mail } from "./mail";
-import { w } from "./words";
+import { w, wn } from "./words";
 
 export function AskInstructingParty() {
   const { item, pack } = useCaseFrame();
@@ -20,7 +33,12 @@ export function AskInstructingParty() {
   const found = useResource(async () => {
     const path = casePath(caseId);
     const [draft, summary] = await Promise.all([
-      unwrap(api.POST("/v1/cases/{case_id}/instructing-party-requests/draft", { ...path, body: {} })),
+      unwrap(
+        api.POST("/v1/cases/{case_id}/instructing-party-requests/draft", {
+          ...path,
+          body: { extension: false },
+        }),
+      ),
       unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", path)),
     ]);
     return { draft, summary };
@@ -30,7 +48,11 @@ export function AskInstructingParty() {
   const [body, setBody] = useState("");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [notice, setNotice] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [more, setMore] = useState(false);
+  const [notice, setNotice] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
 
   useEffect(() => {
     if (found.data) {
@@ -39,11 +61,26 @@ export function AskInstructingParty() {
     }
   }, [found.data]);
 
-  if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
-  if (!found.data) return <div className="av-page"><Loading /></div>;
+  if (found.error)
+    return (
+      <div className="av-page">
+        <LoadError onRetry={found.reload} />
+      </div>
+    );
+  if (!found.data)
+    return (
+      <div className="av-page">
+        <Loading />
+      </div>
+    );
   const { draft, summary } = found.data;
-  const last = Math.max(summary.pages, ...summary.versions.map((v) => v.last_page_no ?? 0));
-  const setAside = (summary.quarantined ?? []).filter((q) => q.status === "confirmed").map((q) => q.page_id);
+  const last = Math.max(
+    summary.pages,
+    ...summary.versions.map((v) => v.last_page_no ?? 0),
+  );
+  const setAside = (summary.quarantined ?? [])
+    .filter((q) => q.status === "confirmed")
+    .map((q) => q.page_id);
 
   async function send() {
     setBusy(true);
@@ -67,10 +104,29 @@ export function AskInstructingParty() {
       mail.open(logged.mailto);
       setNotice({ tone: "success", text: w("ask.sent") });
     } catch (error) {
-      const text = error instanceof ApiError && error.status === 422 ? w("ask.check") : errorMessage(error);
+      const text =
+        error instanceof ApiError && error.status === 422
+          ? w("ask.check")
+          : errorMessage(error);
       setNotice({ tone: "error", text });
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function askMore(on: boolean) {
+    setNotice(null);
+    try {
+      const again = await unwrap(
+        api.POST("/v1/cases/{case_id}/instructing-party-requests/draft", {
+          ...casePath(caseId),
+          body: { extension: on },
+        }),
+      );
+      setBody(again.body);
+      setMore(on);
+    } catch (error) {
+      setNotice({ tone: "error", text: errorMessage(error) });
     }
   }
 
@@ -90,16 +146,39 @@ export function AskInstructingParty() {
       <p className="pl-lead">{w("ask.intro")}</p>
       <div className="pl-ask">
         <section className="av-card pl-letter" aria-label={w("ask.body")}>
-          <TextField name="to" label={w("ask.to")} hint={w("ask.to_hint")} type="email" autoComplete="email" value={to} onChange={(e) => setTo(e.target.value)} />
+          <TextField
+            name="to"
+            label={w("ask.to")}
+            hint={w("ask.to_hint")}
+            type="email"
+            autoComplete="email"
+            value={to}
+            onChange={(e) => setTo(e.target.value)}
+          />
           {editing ? (
             <div className="av-stack">
-              <TextField name="subject" label={w("ask.subject")} value={subject} onChange={(e) => setSubject(e.target.value)} />
+              <TextField
+                name="subject"
+                label={w("ask.subject")}
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+              />
               <div className="av-field">
-                <label className="av-field__label" htmlFor="pl-ask-body">{w("ask.body")}</label>
-                <textarea id="pl-ask-body" className="av-textarea" rows={12} value={body} onChange={(e) => setBody(e.target.value)} />
+                <label className="av-field__label" htmlFor="pl-ask-body">
+                  {w("ask.body")}
+                </label>
+                <textarea
+                  id="pl-ask-body"
+                  className="av-textarea"
+                  rows={12}
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                />
               </div>
               <div className="av-row">
-                <Button variant="secondary" onClick={() => setEditing(false)}>{w("ask.done_editing")}</Button>
+                <Button variant="secondary" onClick={() => setEditing(false)}>
+                  {w("ask.done_editing")}
+                </Button>
               </div>
             </div>
           ) : (
@@ -108,7 +187,9 @@ export function AskInstructingParty() {
                 {me.person.full_name && (
                   <div>
                     <dt>{w("ask.from")}</dt>
-                    <dd>{w("ask.from_usual", { name: me.person.full_name })}</dd>
+                    <dd>
+                      {w("ask.from_usual", { name: me.person.full_name })}
+                    </dd>
                   </div>
                 )}
                 <div>
@@ -118,25 +199,64 @@ export function AskInstructingParty() {
               </dl>
               <p className="pl-letter__body">{body}</p>
               <div className="av-row">
-                <Button variant="secondary" onClick={() => setEditing(true)}>{w("ask.edit")}</Button>
+                <Button variant="secondary" onClick={() => setEditing(true)}>
+                  {w("ask.edit")}
+                </Button>
               </div>
             </>
           )}
           <p className="pl-note">{w("ask.private")}</p>
         </section>
-        <section className="av-card pl-section">
-          <h2>{w("ask.next")}</h2>
-          <ul className="pl-steps-plain">
-            <li>{w("ask.next_noted")}</li>
-            <li>{w("ask.next_arrive", { last: formatNumber(last, pack.locale) })}</li>
-            <li>{w("ask.next_keep")}</li>
-          </ul>
-        </section>
+        <div className="av-stack">
+          <section className="av-card pl-section">
+            <h2>{w("ask.next")}</h2>
+            <ul className="pl-steps-plain">
+              <li>{w("ask.next_noted")}</li>
+              <li>
+                {w("ask.next_arrive", {
+                  last: formatNumber(last, pack.locale),
+                })}
+              </li>
+              <li>{w("ask.next_keep")}</li>
+            </ul>
+          </section>
+          {draft.extension && (
+            <section className="av-card pl-section">
+              <h2>{w("ask.more_time")}</h2>
+              <p>
+                {w("ask.more_time_due", {
+                  due: formatDate(draft.extension.due_date, pack.locale),
+                })}
+              </p>
+              <Checkbox
+                label={wn(
+                  "ask.more_time_add",
+                  draft.extension.days,
+                  pack.locale,
+                  {
+                    after: formatDate(draft.extension.after_date, pack.locale),
+                  },
+                )}
+                checked={more}
+                disabled={editing}
+                onChange={(e) => void askMore(e.target.checked)}
+              />
+            </section>
+          )}
+        </div>
       </div>
-      {notice && <Notice tone={notice.tone}><p>{notice.text}</p></Notice>}
+      {notice && (
+        <Notice tone={notice.tone}>
+          <p>{notice.text}</p>
+        </Notice>
+      )}
       <div className="pl-actions">
-        <Button variant="secondary" onClick={copy}>{w("ask.copy")}</Button>
-        <Button onClick={send} disabled={busy}>{w("ask.send")}</Button>
+        <Button variant="secondary" onClick={copy}>
+          {w("ask.copy")}
+        </Button>
+        <Button onClick={send} disabled={busy}>
+          {w("ask.send")}
+        </Button>
       </div>
     </div>
   );
