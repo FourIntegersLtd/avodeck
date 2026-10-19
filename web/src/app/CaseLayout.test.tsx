@@ -1,10 +1,12 @@
 // The case frame: slices' case routes render inside it, get the case and its pack from it, and the
 // pack step that holds the route's screen key is marked as the current step (rule 11: steps from packs).
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { useCaseFrame } from "../foundation/lib/caseFrame";
+import { registerScreen, resetScreens } from "../foundation/lib/screens";
 import { http, json, server, signedIn } from "../test/api";
+import { renderAt } from "../test/render";
 import { CASE_A, fixturePack, launchPack, PERSONAL_ORG, PERSON_ID, type Schemas } from "../test/fixtures";
 import { AppProviders } from "./AppProviders";
 import { CaseLayout } from "./CaseLayout";
@@ -110,5 +112,38 @@ describe.each([
       await vi.advanceTimersByTimeAsync(30_000);
     });
     expect(bodies).toEqual([]);
+  });
+});
+
+describe("the case bar is one bar", () => {
+  afterEach(() => resetScreens());
+
+  test("logo, divider, case name, case type and due date, step links and the avatar are in one banner", async () => {
+    const steps = launchPack.workflow_steps as Array<{ key: string; screens?: string[] }>;
+    registerScreen(steps[1]!.screens![0]!, ({ caseId }) => `/cases/${caseId}/read-here`);
+    signedIn();
+    server.use(http.get(`/v1/cases/${CASE_A}`, () => json(theCase)));
+    renderAt(`/cases/${CASE_A}`);
+    const bar = await screen.findByRole("banner");
+    expect(await within(bar).findByRole("heading", { level: 1, name: "Mrs A" })).toBeInTheDocument();
+    expect(screen.getAllByRole("banner")).toHaveLength(1);
+    expect(within(bar).getByRole("link", { name: "Avodeck home page" })).toBeInTheDocument();
+    expect(bar.querySelector(".av-case-bar__divider")).not.toBeNull();
+    expect(bar).toHaveTextContent(/due 30 Nov/);
+    const nav = within(bar).getByRole("navigation", { name: "Steps for this case" });
+    expect(within(nav).getAllByRole("listitem")).toHaveLength(steps.length);
+    expect(within(bar).queryByRole("navigation", { name: "Main" })).toBeNull();
+    expect(within(bar).getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
+  });
+
+  test("each step is a link to the first registered screen of that step, and a plain pill when none is", async () => {
+    const steps = launchPack.workflow_steps as Array<{ key: string; screens?: string[] }>;
+    registerScreen(steps[1]!.screens![1]!, ({ caseId }) => `/cases/${caseId}/second`);
+    signedIn();
+    server.use(http.get(`/v1/cases/${CASE_A}`, () => json(theCase)));
+    renderAt(`/cases/${CASE_A}`);
+    const nav = await screen.findByRole("navigation", { name: "Steps for this case" });
+    expect(within(nav).getByRole("link", { name: /Read/ })).toHaveAttribute("href", `/cases/${CASE_A}/second`);
+    expect(within(nav).getAllByRole("link")).toHaveLength(1);
   });
 });

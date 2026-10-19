@@ -1,7 +1,10 @@
 // The signed-in frame (S03 header): the bell with the unread count, the person's initials for their
 // account, and the banner when we couldn't email them (F33).
 import { screen, within } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { afterEach, expect, test } from "vitest";
+import { registerScreen, resetScreens } from "../lib/screens";
 import { signedIn } from "../../test/api";
 import { message, messages } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
@@ -43,4 +46,37 @@ test("the logo goes back to the Avodeck home page", async () => {
   renderAt("/today");
   const header = await screen.findByRole("banner");
   expect(within(header).getByRole("link", { name: "Avodeck home page" })).toHaveAttribute("href", "http://localhost:3000");
+});
+
+afterEach(() => resetScreens());
+
+test("the right of the bar reads bell, Help, then the person's initials", async () => {
+  registerScreen("help", () => "/help");
+  signedIn();
+  renderAt("/today");
+  const header = await screen.findByRole("banner");
+  await within(header).findByRole("link", { name: "Messages" });
+  const names = within(header)
+    .getAllByRole("link")
+    .map((a) => a.getAttribute("aria-label") ?? a.textContent);
+  const tail = names.slice(-3);
+  expect(tail[0]).toBe("Messages");
+  expect(tail[1]).toBe("Help");
+  expect(tail[2]).toMatch(/JM/);
+});
+
+test("the unread badge is amber, inactive places are muted and the avatar has a 52px tap area", () => {
+  const css = readFileSync(join(__dirname, "styles.css"), "utf8");
+  expect(css.match(/\.av-shell__count\s*\{([^}]*)\}/)?.[1]).toMatch(/background:\s*var\(--amber-bright\)/);
+  expect(css.match(/\.av-shell__nav a\s*\{([^}]*)\}/)?.[1]).toMatch(/color:\s*var\(--ink-soft\)/);
+  expect(css.match(/\.av-shell__avatar\s*\{([^}]*)\}/)?.[1]).toMatch(/min-height:\s*var\(--button-min-height\)/);
+});
+
+test("the logo is a 40px mark with the name drawn as SVG text", async () => {
+  signedIn();
+  renderAt("/today");
+  const header = await screen.findByRole("banner");
+  const logo = within(header).getByRole("link", { name: "Avodeck home page" });
+  expect(logo.querySelector("svg")!.getAttribute("height")).toBe("40");
+  expect(logo.querySelector("svg text")).not.toBeNull();
 });

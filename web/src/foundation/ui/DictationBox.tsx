@@ -11,6 +11,8 @@ export interface DictationBoxProps {
   value: string;
   onChange: (value: string) => void;
   rows?: number;
+  /** The framed form of the canvas: the box with a footer holding "Your words only" and Dictate. */
+  bar?: boolean;
 }
 
 type State = "idle" | "starting" | "listening" | "finishing";
@@ -20,7 +22,7 @@ type Problem = "unavailable" | "microphone" | null;
  * A text box the expert can type in or dictate into. Audio goes only to the API's WebSocket
  * (rule 4); the words that come back are added to the end of the box for the expert to edit.
  */
-export function DictationBox({ caseId, context, label, value, onChange, rows = 8 }: DictationBoxProps) {
+export function DictationBox({ caseId, context, label, value, onChange, rows = 8, bar }: DictationBoxProps) {
   const id = useId();
   const [state, setState] = useState<State>("idle");
   const [problem, setProblem] = useState<Problem>(null);
@@ -102,31 +104,55 @@ export function DictationBox({ caseId, context, label, value, onChange, rows = 8
   };
 
   const busy = state !== "idle";
+  const button =
+    state === "listening" ? (
+      <Button variant="secondary" onClick={stop}>
+        {t("ui.dictation.stop")}
+      </Button>
+    ) : (
+      <Button variant="secondary" onClick={() => void start()} disabled={busy}>
+        {t("ui.dictation.start")}
+      </Button>
+    );
+  const live = (
+    <p className="av-dictation__live" role="status">
+      {state === "listening" ? t("ui.dictation.listening") : state === "finishing" ? t("ui.dictation.finishing") : ""}
+    </p>
+  );
+  const problemText = problem && (
+    <p className="av-field__error" role="alert">
+      {t(problem === "microphone" ? "ui.dictation.microphone" : "ui.dictation.unavailable")}
+    </p>
+  );
   return (
     <div className="av-field av-dictation">
       <label className="av-field__label" htmlFor={id}>
         {label}
       </label>
-      <textarea id={id} className="av-textarea" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
-      <div className="av-dictation__bar">
-        {state === "listening" ? (
-          <Button variant="secondary" onClick={stop}>
-            {t("ui.dictation.stop")}
-          </Button>
-        ) : (
-          <Button variant="secondary" onClick={() => void start()} disabled={busy}>
-            {t("ui.dictation.start")}
-          </Button>
-        )}
-        <p className="av-dictation__live" role="status">
-          {state === "listening" ? t("ui.dictation.listening") : state === "finishing" ? t("ui.dictation.finishing") : ""}
-        </p>
-      </div>
-      {problem && (
-        <p className="av-field__error" role="alert">
-          {t(problem === "microphone" ? "ui.dictation.microphone" : "ui.dictation.unavailable")}
-        </p>
+      {bar ? (
+        <div className="av-dictation__frame">
+          <textarea id={id} className="av-textarea av-dictation__text" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+          <div className="av-dictation__footer">
+            <span className="av-dictation__own">{t("ui.dictation.own_words")}</span>
+            {live}
+            {button}
+          </div>
+        </div>
+      ) : (
+        <>
+          <textarea id={id} className="av-textarea" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+          <div className="av-dictation__bar">
+            {button}
+            {live}
+          </div>
+        </>
       )}
+      {problemText}
     </div>
   );
+}
+
+/** The dictation box in the canvas's framed form ("Your words only · Dictate"). */
+export function DictationBar(props: Omit<DictationBoxProps, "bar">) {
+  return <DictationBox {...props} bar />;
 }
