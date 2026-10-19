@@ -28,7 +28,7 @@ const PAGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1
 export async function stubReader(page: Page, pack: Pack) {
   let read = false;
   const facts = [
-    { id: factId(1), kind: "consultation", fields: {}, value: "Dr P consultation 15 May 2024", word_ids: ["p118w1"], bbox: BBOXES[0], event_date: "2024-05-15", status: "suggested", version: 1, flagged: false },
+    { id: factId(1), kind: "consultation", fields: { who: "Dr P", how: "Face to face, at the surgery" }, value: "Dr P consultation 15 May 2024", word_ids: ["p118w1"], bbox: BBOXES[0], event_date: "2024-05-15", status: "suggested", version: 1, flagged: false },
     { id: factId(2), kind: "prescription", fields: {}, value: "Anusol HC suppositories", word_ids: ["p118w2"], bbox: BBOXES[1], event_date: "2024-05-15", status: "suggested", version: 1, flagged: false },
   ];
   const queue = [612, 640].map((n) => ({ page_id: pageId(n), page_no: n, source_type: pack.source_types[0]!.key, handwriting: true, relevance: null, has_transcription: false, needs_clearer_copy: false, done: false }));

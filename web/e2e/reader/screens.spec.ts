@@ -45,11 +45,11 @@ for (const { name, pack } of PACKS) {
 
     test("09 and 10 keep a margin at both sides of the window", async ({ page }) => {
       await stubReader(page, pack);
-      for (const path of ["read/118", "read/couldnt-read"]) {
+      for (const [path, ready] of [["read/118", "Mark as read"], ["read/couldnt-read", "Save and next page"]]) {
         await page.goto(`/cases/${CASE_A}/${path}`);
-        await expect(page.getByRole("heading", { level: 2, name: "What we found on this page" }).or(page.getByRole("heading", { level: 1 }))).toBeVisible();
+        await expect(page.getByRole("button", { name: ready })).toBeVisible();
         const edges = await page.locator("main").evaluate((main) => {
-          const boxes = [...main.querySelectorAll("section, aside, footer, h1")].map((e) => e.getBoundingClientRect());
+          const boxes = [...main.querySelectorAll("section, aside, footer > *, h1")].map((e) => e.getBoundingClientRect());
           return { left: Math.min(...boxes.map((r) => r.left)), right: Math.max(...boxes.map((r) => r.right)), width: window.innerWidth };
         });
         expect(edges.left).toBeGreaterThanOrEqual(16);

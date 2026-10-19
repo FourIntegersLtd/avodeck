@@ -10,7 +10,7 @@
 .rd-banner .rd-why { color: var(--green-dark); white-space: nowrap; font-weight: 700; margin-left: auto; }
 .rd-work { display: flex; flex-wrap: wrap; gap: var(--space-5); align-items: flex-start; }
 .rd-pane { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-3); }
-.rd-side { flex: 1 1 360px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.rd-side { flex: 1 1 400px; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
 .rd-side h2 { margin: 0; }
 .rd-bar { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
 .rd-source { margin: 0; font-size: 18px; flex: 1 1 auto; }
@@ -76,7 +76,7 @@
 .rd-copy { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; }
 
 /* Suggestion card, as the canvas draws it: a small label, the details as rows, a quiet "Change a detail". */
-.rd-state { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.rd-state { margin: 0; font-size: var(--text-small); font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
 .rd-tick { margin: 0; display: flex; align-items: center; gap: var(--space-3); font-weight: 700; color: var(--green-dark); }
 .rd-rows { margin: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 .rd-rows > div { display: grid; grid-template-columns: 7.5em 1fr; gap: var(--space-3); }
@@ -89,3 +89,6 @@
 .rd-pages summary { cursor: pointer; min-height: 52px; display: flex; align-items: center; font-weight: 700; color: var(--green-dark); }
 .rd-choices { display: flex; flex-direction: column; gap: var(--space-3); }
 .rd-choices .av-button { width: 100%; justify-content: flex-start; color: var(--ink); border-color: var(--line); }
+.rd-card .av-button--quiet { align-self: flex-start; padding-left: 0; }
+.rd-side__head h2 { font-size: 22px; }
+.rd-head .rd-progress { flex: 0 1 280px; }
