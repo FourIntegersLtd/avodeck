@@ -17,6 +17,7 @@ from app.core.config import cell_settings
 from app.core.errors import ApiError
 from app.core.http import DbConn, router
 from app.core.packs import MergedPack, Pack, PackLibrary
+from app.core.step_progress import step_counts
 
 packs_router = router(prefix="/v1", tags=["packs"])
 case_pack_router = router(prefix="/v1/cases", tags=["packs"])
@@ -179,3 +180,30 @@ async def get_case_pack(
         row = await cur.fetchone()
     assert row is not None  # require_case_access has already answered 404
     return case_pack(_library(request).combine(*row))
+
+
+class StepProgress(BaseModel):
+    key: str
+    done: int | None
+    total: int | None
+    percent: int | None
+
+
+class CaseStepProgress(BaseModel):
+    steps: list[StepProgress]
+
+
+@case_pack_router.get("/{case_id}/steps/progress", response_model=CaseStepProgress)
+async def get_case_step_progress(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.view_metadata"))],
+    conn: DbConn,
+    request: Request,
+) -> CaseStepProgress:
+    """How far each step of the case's workflow is, counted from the case's own records (read-only)."""
+    async with conn.cursor() as cur:
+        await cur.execute("select jurisdiction, case_type, specialty from app.cases where id = %s", (case_id,))
+        row = await cur.fetchone()
+    assert row is not None
+    steps = _library(request).combine(*row).workflow_steps()
+    return CaseStepProgress.model_validate({"steps": await step_counts(conn, case_id, steps)})

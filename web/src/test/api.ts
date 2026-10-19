@@ -22,6 +22,7 @@ export function signedIn(
     http.get("/v1/me", () => json(opts.me ?? me())),
     http.get("/v1/today", () => json(opts.today ?? today())),
     http.get("/v1/cases/:caseId/pack", () => json(opts.pack ?? launchPack)),
+    http.get("/v1/cases/:caseId/steps/progress", () => json({ steps: [] })),
     http.get("/v1/cases/:caseId/progress", () => json({ read: 0, total: 0, seconds_left: 0 })),
     http.get("/v1/me/stats/balance", () => json({ counts: {}, months: 12 })),
     http.get("/v1/auth/mfa/recovery-codes", () => json({ remaining: 10, total: 10 })),

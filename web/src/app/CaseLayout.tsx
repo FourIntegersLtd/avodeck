@@ -42,6 +42,8 @@ export function CaseLayout() {
     .pop();
   // Pages read so far: shown on the reading step and on the case home. The bar is fine without it.
   const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/progress", { params: { path: { case_id: caseId } } })), [caseId, screenKey]);
+  // Per-step progress for every pill, counted by the server from the case's own records.
+  const stepProgress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/steps/progress", { params: { path: { case_id: caseId } } })), [caseId, screenKey]);
   // Time is kept on every screen a pack step holds; the server decides what counts and which step it is.
   useTimeHeartbeat(caseId, found.data && screenKey && stepFor(found.data.pack, screenKey) ? screenKey : null);
   const me = useContext(SessionContext)?.me;
@@ -58,9 +60,10 @@ export function CaseLayout() {
   const { item, pack } = found.data;
   const home = outlet ? null : caseHome(found.data);
   if (home) return <Navigate to={home} replace />;
-  const readStep = stepFor(pack, "reader");
+  const pills = Object.fromEntries(
+    (stepProgress.data?.steps ?? []).flatMap((s) => (s.percent === null || s.done === null || s.total === null ? [] : [[s.key, { done: s.done, total: s.total, percent: s.percent }]])),
+  );
   const counts = progress.data;
-  const percent = counts && counts.total > 0 ? Math.round((counts.read / counts.total) * 100) : undefined;
   return (
     <>
       <CaseHeader
@@ -70,7 +73,7 @@ export function CaseLayout() {
         current={stepFor(pack, screenKey)}
         title={<h1 className="av-case-bar__title">{item.label}</h1>}
         subtitle={caseSubtitle(item, pack)}
-        progress={readStep && percent !== undefined ? { [readStep]: percent } : undefined}
+        progress={pills}
         person={person}
       />
       {outlet ?? (

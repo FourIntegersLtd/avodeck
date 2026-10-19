@@ -1,4 +1,4 @@
 steps:
-  - {key: gather, screens: [new_case, preparing, bundle_ready]}
-  - {key: review, screens: [reader, timeline]}
-  - {key: conclude, screens: [opinion, report, sign_send, court_orders]}
+  - {key: gather, meters: [questions_confirmed], screens: [new_case, preparing, bundle_ready]}
+  - {key: review, meters: [pages_read, facts_decided], screens: [reader, timeline]}
+  - {key: conclude, meters: [questions_with_opinion, report_stages], screens: [opinion, report, sign_send, court_orders]}
