@@ -7,7 +7,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
-import { Balance, FileButton, fileBytes, Section, Select, TextArea, withEtag } from "./shared";
+import { Balance, FileButton, fileBytes, LinkAction, PartMark, Section, Select, TextArea, withEtag } from "./shared";
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const PARTS = 5;
@@ -56,61 +56,87 @@ interface ViewProps {
   jurisdiction: Schemas["JurisdictionSummary"] | null;
 }
 
+const STEPS = ["about", "roles", "training", "template", "signature"] as const;
+
 function ProfileView(props: ViewProps) {
   const [roles, setRoles] = useState(props.roles);
   const [training, setTraining] = useState(props.training);
   const [template, setTemplate] = useState(props.template);
   const [signed, setSigned] = useState(props.signed);
   const [about, setAbout] = useState(props.profile.data);
+  const [savedSomething, setSavedSomething] = useState(false);
+  const [balanceOpen, setBalanceOpen] = useState(false);
+  const noteSaved = () => setSavedSomething(true);
   const aboutDone = Boolean(about.full_name && about.registration_number && about.specialties.length);
-  const done = [aboutDone, roles.length > 0, training.length > 0, template !== null, signed].filter(Boolean).length;
+  const doneFlags = [aboutDone, roles.length > 0, training.length > 0, template !== null, signed];
+  const done = doneFlags.filter(Boolean).length;
+  const missing = STEPS.filter((_, i) => !doneFlags[i]);
+  const next = missing[0] ? t(`setup.profile.step.${missing[0]}`) : "";
   const specialty = about.specialties[0] ?? props.packs[0]?.specialty.code ?? "";
   const words = (props.jurisdiction?.vocabulary.party_roles ?? {}) as Record<string, string>;
 
   return (
-    <div className="av-page av-stack">
-      <div className="av-row av-setup-banner">
-        <ProgressRing value={done} max={PARTS} label={t("setup.profile.progress", { done, total: PARTS })}>
-          {done}/{PARTS}
-        </ProgressRing>
-        <div>
+    <div className="av-page av-page--wide av-stack">
+      <div className="av-row av-row--spread av-setup-title">
+        <div className="av-setup-title__text">
           <h1>{t("setup.profile.title")}</h1>
           <p className="av-muted">{t("setup.profile.intro")}</p>
-          <p>
-            <strong>{t("setup.profile.progress", { done, total: PARTS })}</strong>
-          </p>
+        </div>
+        <div className="av-card av-row av-setup-progress">
+          <ProgressRing value={done} max={PARTS} size={48} label={t("setup.profile.progress", { done, total: PARTS })} />
+          <div>
+            <strong>{t("setup.profile.done_count", { done, total: PARTS })}</strong>
+            <p className="av-muted">{missing.length === 0 ? t("setup.profile.all_done") : missing.length === 1 ? t("setup.profile.to_finish", { step: capital(next) }) : t("setup.profile.next_up", { step: next })}</p>
+          </div>
         </div>
       </div>
-      <AboutYou initial={props.profile} packs={props.packs} onSaved={setAbout} />
-      <Roles roles={roles} setRoles={setRoles} specialty={specialty} />
+      <AboutYou initial={props.profile} packs={props.packs} done={aboutDone} onSaved={(p) => { setAbout(p); noteSaved(); }} />
+      <Roles roles={roles} setRoles={setRoles} specialty={specialty} onSaved={noteSaved} />
       <div className="av-setup-pair av-setup-pair--top">
-        <Training items={training} setItems={setTraining} />
-        <TemplateSection template={template} setTemplate={setTemplate} />
+        <Training items={training} setItems={setTraining} onSaved={noteSaved} />
+        <TemplateSection template={template} setTemplate={setTemplate} onSaved={noteSaved} />
       </div>
-      <DeclarationSection declaration={props.declaration} signed={signed} onSigned={() => setSigned(true)} />
-      <Balance words={words} />
-      <div className="av-setup-footer av-row av-row--spread">
-        <span className="av-muted">{t("setup.profile.progress", { done, total: PARTS })}</span>
-        <LinkButton to="/today">{t("setup.profile.done")}</LinkButton>
-      </div>
+      <DeclarationSection declaration={props.declaration} signed={signed} onSigned={() => { setSigned(true); noteSaved(); }} onSaved={noteSaved} />
       <section aria-labelledby="setup-goes-with-you" className="av-card av-stack">
-        <h2 id="setup-goes-with-you">{t("setup.profile.goes_with_you")}</h2>
-        <p className="av-muted">{t("setup.profile.goes_with_you_text")}</p>
-        <div>
+        <div className="av-row av-row--spread">
+          <div>
+            <h2 id="setup-goes-with-you">{t("setup.profile.goes_with_you")}</h2>
+            <p className="av-muted">{t("setup.profile.goes_with_you_text")}</p>
+          </div>
           <LinkButton to="/account" variant="secondary">
             {t("setup.profile.account")}
           </LinkButton>
         </div>
+        <div>
+          <LinkAction aria-expanded={balanceOpen} onClick={() => setBalanceOpen(!balanceOpen)}>
+            {t("setup.balance.show", { months: 12 })}
+          </LinkAction>
+        </div>
+        {balanceOpen && <Balance words={words} />}
       </section>
+      <div className="av-row av-setup-actions av-setup-done">
+        {savedSomething && (
+          <span className="av-setup-savedall">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M5 12l5 5 9-10" />
+            </svg>{" "}
+            {t("setup.profile.saved_all")}
+          </span>
+        )}
+        <LinkButton to="/today">{t("setup.profile.done")}</LinkButton>
+      </div>
     </div>
   );
 }
 
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
 type AboutFields = "full_name" | "profession" | "registration_body" | "registration_number";
 
-function AboutYou({ initial, packs, onSaved }: { initial: Tagged<Schemas["Profile"]>; packs: Schemas["PackCombination"][]; onSaved: (p: Schemas["Profile"]) => void }) {
+function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["Profile"]>; packs: Schemas["PackCombination"][]; done: boolean; onSaved: (p: Schemas["Profile"]) => void }) {
   const [saved, setSaved] = useState(initial);
   const [form, setForm] = useState(initial.data);
+  const [editing, setEditing] = useState(!done);
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const specialties = [...new Map(packs.map((p) => [p.specialty.code, p.specialty])).values()];
   const field = (name: AboutFields) => ({
@@ -130,50 +156,79 @@ function AboutYou({ initial, packs, onSaved }: { initial: Tagged<Schemas["Profil
       const next = await withEtag(api.PATCH("/v1/me/profile", { body: changes, headers: ifMatch(saved.etag) }));
       const merged = { ...form, ...next.data };
       setSaved({ data: merged, etag: next.etag });
+      setForm(merged);
       onSaved(merged);
+      setEditing(false);
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale" }) });
     }
   };
+  const shown = saved.data;
+  const registered = [shown.registration_body, shown.registration_number].filter(Boolean).join(" · ");
+  const names = shown.specialties.map((code) => specialties.find((s) => s.code === code)?.name ?? humanise(code)).join(", ");
+  const summary = (label: string, value: string) => (
+    <div className="av-field">
+      <dt className="av-field__label">{label}</dt>
+      <dd className="av-setup-box">{value}</dd>
+    </div>
+  );
   return (
-    <Section id="setup-about" title={t("setup.about.title")}>
-      <form className="av-stack" onSubmit={(e) => void save(e)}>
-        <TextField label={t("setup.about.full_name")} autoComplete="name" {...field("full_name")} />
-        <TextField label={t("setup.about.profession")} {...field("profession")} />
-        <TextField label={t("setup.about.registration_body")} {...field("registration_body")} />
-        <TextField label={t("setup.about.registration_number")} {...field("registration_number")} />
-        {specialties.length > 0 && (
-          <fieldset className="av-setup-choice">
-            <legend className="av-field__label">{t("setup.about.specialties")}</legend>
-            {specialties.map((s) => (
-              <Checkbox
-                key={s.code}
-                label={s.name}
-                checked={form.specialties.includes(s.code)}
-                onChange={(e) =>
-                  setForm({ ...form, specialties: e.target.checked ? [...form.specialties, s.code] : form.specialties.filter((c) => c !== s.code) })
-                }
-              />
-            ))}
-          </fieldset>
-        )}
-        {message && (
-          <Notice tone={message.tone}>
-            <p>{message.text}</p>
-          </Notice>
-        )}
-        <div>
-          <Button type="submit">{t("setup.about.save")}</Button>
-        </div>
-      </form>
+    <Section
+      id="setup-about"
+      title={t("setup.about.title")}
+      mark={<PartMark done={done} number={1} />}
+      action={!editing && <LinkAction onClick={() => { setForm(saved.data); setEditing(true); }}>{t("setup.about.edit")}</LinkAction>}
+    >
+      {editing ? (
+        <form className="av-stack" onSubmit={(e) => void save(e)}>
+          <TextField label={t("setup.about.full_name")} autoComplete="name" {...field("full_name")} />
+          <TextField label={t("setup.about.profession")} {...field("profession")} />
+          <TextField label={t("setup.about.registration_body")} {...field("registration_body")} />
+          <TextField label={t("setup.about.registration_number")} {...field("registration_number")} />
+          {specialties.length > 0 && (
+            <fieldset className="av-setup-choice">
+              <legend className="av-field__label">{t("setup.about.specialties")}</legend>
+              {specialties.map((s) => (
+                <Checkbox
+                  key={s.code}
+                  label={s.name}
+                  checked={form.specialties.includes(s.code)}
+                  onChange={(e) =>
+                    setForm({ ...form, specialties: e.target.checked ? [...form.specialties, s.code] : form.specialties.filter((c) => c !== s.code) })
+                  }
+                />
+              ))}
+            </fieldset>
+          )}
+          <div className="av-row">
+            <Button type="submit">{t("setup.about.save")}</Button>
+            {done && (
+              <Button variant="quiet" onClick={() => { setForm(saved.data); setEditing(false); }}>
+                {t("setup.cancel")}
+              </Button>
+            )}
+          </div>
+        </form>
+      ) : (
+        <dl className="av-setup-summary">
+          {summary(t("setup.about.full_name"), shown.full_name ?? "")}
+          {summary(t("setup.about.registration_body"), registered)}
+          {summary(t("setup.about.specialties"), names || t("setup.about.specialties_none"))}
+        </dl>
+      )}
+      {message && (
+        <Notice tone={message.tone}>
+          <p>{message.text}</p>
+        </Notice>
+      )}
     </Section>
   );
 }
 
 const year = (iso: string | null | undefined) => (iso ? iso.slice(0, 4) : t("setup.roles.now"));
 
-function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRoles: (r: Schemas["Role"][]) => void; specialty: string }) {
+function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"][]; setRoles: (r: Schemas["Role"][]) => void; specialty: string; onSaved: () => void }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ role_title: "", started_on: "", ended_on: "" });
   const [error, setError] = useState<string | null>(null);
@@ -185,6 +240,7 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
         api.POST("/v1/me/roles", { body: { role_title: form.role_title, specialty, started_on: form.started_on, ended_on: form.ended_on || null } }),
       );
       setRoles([role, ...roles]);
+      onSaved();
       setAdding(false);
       setForm({ role_title: "", started_on: "", ended_on: "" });
     } catch (err) {
@@ -210,6 +266,7 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
         }),
       );
       setRoles(roles.map((x) => (x.id === r.id ? role : x)));
+      onSaved();
       setEditing(null);
     } catch (err) {
       setError(errorMessage(err, { invalid: "setup.roles.invalid", stale: "setup.roles.stale" }));
@@ -219,17 +276,18 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
     try {
       await unwrap(api.DELETE("/v1/me/roles/{role_id}", { params: { path: { role_id: id } } }));
       setRoles(roles.filter((r) => r.id !== id));
+      onSaved();
     } catch (err) {
       setError(errorMessage(err));
     }
   };
   return (
-    <Section id="setup-roles" title={t("setup.roles.title")} intro={t("setup.roles.intro")}>
+    <Section id="setup-roles" title={t("setup.roles.title")} intro={t("setup.roles.intro")} mark={<PartMark done={roles.length > 0} number={2} />}>
       {roles.length > 0 && (
-        <ul className="av-rows av-setup-plain">
+        <ul className="av-setup-lines av-setup-plain">
           {roles.map((r) =>
             editing === r.id ? (
-              <li key={r.id} className="av-row-item">
+              <li key={r.id} className="av-setup-line">
                 <form className="av-stack" onSubmit={(e) => void saveEdit(e, r)}>
                   <TextField label={t("setup.roles.edit_role")} name="role_title" required value={edit.role_title} onChange={(e) => setEdit({ ...edit, role_title: e.target.value })} />
                   <TextField label={t("setup.roles.from")} name="started_on" type="date" required value={edit.started_on} onChange={(e) => setEdit({ ...edit, started_on: e.target.value })} />
@@ -239,23 +297,19 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
                     <Button variant="quiet" onClick={() => setEditing(null)}>
                       {t("setup.cancel")}
                     </Button>
+                    <Button variant="quiet" onClick={() => void remove(r.id)}>
+                      {t("setup.remove", { name: r.role_title })}
+                    </Button>
                   </div>
                 </form>
               </li>
             ) : (
-              <li key={r.id} className="av-row-item av-row--spread">
-                <span className="av-row-item__text">
-                  <strong>{r.role_title}</strong>
-                  <span className="av-muted">{t("setup.roles.years", { from: year(r.started_on), to: year(r.ended_on) })}</span>
-                </span>
-                <span className="av-row">
-                  <Button variant="quiet" onClick={() => startEdit(r)}>
-                    {t("setup.roles.edit", { name: r.role_title })}
-                  </Button>
-                  <Button variant="quiet" onClick={() => void remove(r.id)}>
-                    {t("setup.remove", { name: r.role_title })}
-                  </Button>
-                </span>
+              <li key={r.id} className="av-setup-line">
+                <strong className="av-setup-line__title">{r.role_title}</strong>
+                <span className="av-mono av-muted">{t("setup.roles.years", { from: year(r.started_on), to: year(r.ended_on) })}</span>
+                <LinkAction aria-label={t("setup.roles.edit", { name: r.role_title })} onClick={() => startEdit(r)}>
+                  {t("setup.edit")}
+                </LinkAction>
               </li>
             ),
           )}
@@ -287,16 +341,18 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
         </form>
       ) : (
         <div>
-          <Button variant="secondary" onClick={() => setAdding(true)}>
+          <LinkAction onClick={() => setAdding(true)}>
+            <span aria-hidden="true">+ </span>
             {t("setup.roles.add")}
-          </Button>
+          </LinkAction>
         </div>
       )}
     </Section>
   );
 }
 
-function Training({ items, setItems }: { items: Schemas["Training"][]; setItems: (r: Schemas["Training"][]) => void }) {
+function Training({ items, setItems, onSaved }: { items: Schemas["Training"][]; setItems: (r: Schemas["Training"][]) => void; onSaved: () => void }) {
+  const [managing, setManaging] = useState(false);
   const [form, setForm] = useState({ title: "", year: "" });
   const [error, setError] = useState<string | null>(null);
   const add = async (e: FormEvent) => {
@@ -305,6 +361,7 @@ function Training({ items, setItems }: { items: Schemas["Training"][]; setItems:
     try {
       const item = await unwrap(api.POST("/v1/me/training", { body: { title: form.title, year: form.year ? Number(form.year) : null } }));
       setItems([...items, item]);
+      onSaved();
       setForm({ title: "", year: "" });
     } catch (err) {
       setError(errorMessage(err));
@@ -314,23 +371,25 @@ function Training({ items, setItems }: { items: Schemas["Training"][]; setItems:
     try {
       await unwrap(api.DELETE("/v1/me/training/{training_id}", { params: { path: { training_id: id } } }));
       setItems(items.filter((i) => i.id !== id));
+      onSaved();
     } catch (err) {
       setError(errorMessage(err));
     }
   };
+  const open = managing || items.length === 0;
   return (
-    <Section id="setup-training" title={t("setup.training.title")}>
+    <Section id="setup-training" title={t("setup.training.title")} mark={<PartMark done={items.length > 0} number={3} />}>
       {items.length > 0 && (
-        <ul className="av-rows av-setup-plain">
+        <ul className="av-setup-lines av-setup-plain">
           {items.map((i) => (
-            <li key={i.id} className="av-row-item av-row--spread">
-              <span className="av-row-item__text">
-                <strong>{i.title}</strong>
-                {i.year && <span className="av-muted">{i.year}</span>}
-              </span>
-              <Button variant="quiet" onClick={() => void remove(i.id)}>
-                {t("setup.remove", { name: i.title })}
-              </Button>
+            <li key={i.id} className="av-setup-line">
+              <span className="av-setup-line__title">{i.title}</span>
+              {i.year && <span className="av-mono av-muted">{i.year}</span>}
+              {managing && (
+                <Button variant="quiet" onClick={() => void remove(i.id)}>
+                  {t("setup.remove", { name: i.title })}
+                </Button>
+              )}
             </li>
           ))}
         </ul>
@@ -340,22 +399,32 @@ function Training({ items, setItems }: { items: Schemas["Training"][]; setItems:
           <p>{error}</p>
         </Notice>
       )}
-      <form className="av-stack" onSubmit={(e) => void add(e)}>
-        <TextField label={t("setup.training.course")} name="title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-        <TextField label={t("setup.training.year")} name="year" inputMode="numeric" value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} />
+      {open && (
+        <form className="av-stack" onSubmit={(e) => void add(e)}>
+          <TextField label={t("setup.training.course")} name="title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <TextField label={t("setup.training.year")} name="year" inputMode="numeric" value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} />
+          <div>
+            <Button type="submit" variant="secondary">
+              {t("setup.training.add")}
+            </Button>
+          </div>
+        </form>
+      )}
+      {items.length > 0 && (
         <div>
-          <Button type="submit" variant="secondary">
-            {t("setup.training.add")}
-          </Button>
+          <LinkAction aria-expanded={managing} onClick={() => setManaging(!managing)}>
+            {managing ? t("setup.training.done_editing") : t("setup.training.edit")}
+          </LinkAction>
         </div>
-      </form>
+      )}
     </Section>
   );
 }
 
 const sectionLabel = (key: string) => t(`setup.section.${key}`, {}, humanise(key));
 
-function TemplateSection({ template, setTemplate }: { template: Tagged<Template> | null; setTemplate: (t: Tagged<Template>) => void }) {
+function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<Template> | null; setTemplate: (t: Tagged<Template>) => void; onSaved: () => void }) {
+  const [matching, setMatching] = useState(false);
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [suggested, setSuggested] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
@@ -380,6 +449,7 @@ function TemplateSection({ template, setTemplate }: { template: Tagged<Template>
         }),
       );
       setTemplate(next);
+      onSaved();
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, { invalid: "setup.template.not_word" }) });
     }
@@ -406,6 +476,7 @@ function TemplateSection({ template, setTemplate }: { template: Tagged<Template>
     };
     try {
       setTemplate(await withEtag(api.PATCH("/v1/me/template/mapping", { body, headers: ifMatch(template.etag) })));
+      onSaved();
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale" }) });
@@ -414,26 +485,39 @@ function TemplateSection({ template, setTemplate }: { template: Tagged<Template>
   const sections = template?.data.sections ?? [];
   const options = [{ value: "", label: t("setup.template.unmapped") }, ...sections.map((key) => ({ value: key, label: sectionLabel(key) }))];
   return (
-    <Section id="setup-template" title={t("setup.template.title")} intro={t("setup.template.intro")}>
-      {template && (
-        <div className="av-row-item">
-          <span className="av-row-item__text">
+    <Section id="setup-template" title={t("setup.template.title")} intro={template ? undefined : t("setup.template.intro")} mark={<PartMark done={template !== null} number={4} />}>
+      {template ? (
+        <div className="av-setup-filetile">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+            <path d="M7 3h8l4 4v14H7z" />
+            <path d="M10 12h6M10 16h6" />
+          </svg>
+          <span className="av-setup-filetile__text">
             <strong>{template.data.filename}</strong>
             <span className="av-muted">{t("setup.template.kept")}</span>
           </span>
+          <FileButton link label={t("setup.template.replace")} accept=".docx" onChange={(e) => void upload(e)} />
         </div>
+      ) : (
+        <FileButton label={t("setup.template.choose")} accept=".docx" onChange={(e) => void upload(e)} />
       )}
       {template && template.data.styles.length > 0 && (
-        <ul className="av-setup-plain av-setup-chips" aria-label={t("setup.template.styles")}>
+        <ul className="av-setup-plain av-setup-tiles" aria-label={t("setup.template.styles")}>
           {template.data.styles.map((style) => (
-            <li key={style} className="av-setup-chip">
+            <li key={style} className="av-setup-tile">
               {style}
             </li>
           ))}
         </ul>
       )}
-      <FileButton label={template ? t("setup.template.replace") : t("setup.template.choose")} accept=".docx" onChange={(e) => void upload(e)} />
       {template && template.data.headings.length > 0 && (
+        <div>
+          <LinkAction aria-expanded={matching} onClick={() => setMatching(!matching)}>
+            {t("setup.template.match")}
+          </LinkAction>
+        </div>
+      )}
+      {template && matching && template.data.headings.length > 0 && (
         <div className="av-stack">
           <h3>{t("setup.template.headings")}</h3>
           {template.data.headings.map((h) => (
@@ -459,7 +543,8 @@ function TemplateSection({ template, setTemplate }: { template: Tagged<Template>
   );
 }
 
-function DeclarationSection({ declaration, signed, onSigned }: { declaration: Tagged<Schemas["Declaration"]> | null; signed: boolean; onSigned: () => void }) {
+function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declaration: Tagged<Schemas["Declaration"]> | null; signed: boolean; onSigned: () => void; onSaved: () => void }) {
+  const [reviewing, setReviewing] = useState(false);
   const [current, setCurrent] = useState(declaration);
   const [additions, setAdditions] = useState<Record<string, string>>(
     Object.fromEntries((declaration?.data.additions ?? []).map((a) => [a.kind, a.text])),
@@ -476,60 +561,68 @@ function DeclarationSection({ declaration, signed, onSigned }: { declaration: Ta
     };
     try {
       setCurrent(await withEtag(api.PUT("/v1/me/declaration", { body, headers: ifMatch(current.etag) })));
+      onSaved();
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale", locked: "setup.declaration.locked" }) });
     }
   };
   return (
-    <Section id="setup-declaration" title={t("setup.declaration.title")}>
+    <Section id="setup-declaration" title={t("setup.declaration.title")} mark={<PartMark done={signed} number={5} />}>
       {current && current.data.wording.length > 0 && (
-        <ul className="av-rows av-setup-plain">
-          <li className="av-row-item">
-            <span className="av-row-item__text">
-              <strong>{humanise(current.data.wording[0]!.key)}</strong>
-              <span className="av-muted">{t("setup.declaration.tile_fixed")}</span>
-            </span>
-          </li>
-          <li className="av-row-item av-row--spread">
-            <span className="av-row-item__text">
-              <strong>{t("setup.declaration.tile_yours")}</strong>
-              <span className="av-muted">
-                {current.data.wording[0]!.points ? t("setup.declaration.tile_points", { count: current.data.wording[0]!.points }) : t("setup.declaration.tile_plain")}
-              </span>
-            </span>
-            <a href="#declaration-wording">{t("setup.declaration.review")}</a>
-          </li>
-        </ul>
-      )}
-      {current?.data.wording.map((w, i) => (
-        <div key={w.key} id={i === 0 ? "declaration-wording" : undefined} className="av-stack av-setup-wording">
-          <h3>{humanise(w.key)}</h3>
-          <p className="av-muted">{t("setup.declaration.fixed")}</p>
-          <div className="av-setup-quote">
-            {w.text.split("\n\n").map((para, i) => (
-              <p key={i}>{para}</p>
-            ))}
+        <div className="av-setup-pair av-setup-pair--top av-setup-halves">
+          <div className="av-setup-half av-stack">
+            <strong className="av-setup-half__title">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                <rect x="5" y="11" width="14" height="9" rx="2" />
+                <path d="M8 11V8a4 4 0 018 0v3" />
+              </svg>{" "}
+              {humanise(current.data.wording[0]!.key)}
+            </strong>
+            <p className="av-muted">{t("setup.declaration.tile_fixed")}</p>
           </div>
-          {current.data.locked ? (
-            additions[w.key] && <p>{additions[w.key]}</p>
-          ) : (
-            <TextArea
-              label={t("setup.declaration.addition")}
-              hint={t("setup.declaration.addition_hint")}
-              rows={3}
-              value={additions[w.key] ?? ""}
-              onChange={(e) => setAdditions({ ...additions, [w.key]: e.target.value })}
-            />
-          )}
+          <div className="av-setup-half av-stack">
+            <strong className="av-setup-half__title">{t("setup.declaration.tile_yours")}</strong>
+            <p className="av-muted">
+              {current.data.wording[0]!.points ? t("setup.declaration.tile_points", { count: current.data.wording[0]!.points }) : t("setup.declaration.tile_plain")}
+            </p>
+            <div>
+              <LinkAction aria-expanded={reviewing} aria-controls="declaration-wording" onClick={() => setReviewing(!reviewing)}>
+                {t("setup.declaration.review")}
+              </LinkAction>
+            </div>
+          </div>
         </div>
-      ))}
+      )}
+      {reviewing &&
+        current?.data.wording.map((w, i) => (
+          <div key={w.key} id={i === 0 ? "declaration-wording" : undefined} className="av-stack av-setup-wording">
+            <h3>{humanise(w.key)}</h3>
+            <p className="av-muted">{t("setup.declaration.fixed")}</p>
+            <div className="av-setup-quote">
+              {w.text.split("\n\n").map((para, i) => (
+                <p key={i}>{para}</p>
+              ))}
+            </div>
+            {current.data.locked ? (
+              additions[w.key] && <p>{additions[w.key]}</p>
+            ) : (
+              <TextArea
+                label={t("setup.declaration.addition")}
+                hint={t("setup.declaration.addition_hint")}
+                rows={3}
+                value={additions[w.key] ?? ""}
+                onChange={(e) => setAdditions({ ...additions, [w.key]: e.target.value })}
+              />
+            )}
+          </div>
+        ))}
       {current && current.data.locked && (
         <Notice>
           <p>{t("setup.declaration.locked")}</p>
         </Notice>
       )}
-      {current && !current.data.locked && (
+      {reviewing && current && !current.data.locked && (
         <div>
           <Button variant="secondary" onClick={() => void save()}>
             {t("setup.declaration.save")}
@@ -550,6 +643,7 @@ function SignaturePad({ signed, onSigned }: { signed: boolean; onSigned: () => v
   const canvas = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
   const [drawn, setDrawn] = useState(false);
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const context = () => canvas.current?.getContext?.("2d") ?? null;
 
@@ -601,42 +695,60 @@ function SignaturePad({ signed, onSigned }: { signed: boolean; onSigned: () => v
 
   return (
     <div className="av-stack">
-      <h3>{t("setup.signature.title")}</h3>
-      {signed ? (
-        <Notice tone="success">
-          <p>{t("setup.signature.saved")}</p>
-        </Notice>
-      ) : (
-        <p className="av-muted">{t("setup.signature.intro")}</p>
+      <button type="button" className="av-setup-sigbar" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+          <path d="M4 20h16M14 5l5 5L9 20H4v-5z" />
+        </svg>
+        {signed ? (
+          <span>
+            <strong>{t("setup.signature.bar_saved")}</strong> {t("setup.template.replace")}
+          </span>
+        ) : (
+          <span>
+            <strong>{t("setup.signature.bar_title")}</strong> {t("setup.signature.bar_text")}
+          </span>
+        )}
+      </button>
+      {open && (
+        <div className="av-stack">
+          <h3>{t("setup.signature.title")}</h3>
+          {signed ? (
+            <Notice tone="success">
+              <p>{t("setup.signature.saved")}</p>
+            </Notice>
+          ) : (
+            <p className="av-muted">{t("setup.signature.intro")}</p>
+          )}
+          <canvas
+            ref={canvas}
+            className="av-setup-signature"
+            width={600}
+            height={200}
+            role="img"
+            aria-label={t("setup.signature.pad")}
+            onPointerDown={down}
+            onPointerMove={move}
+            onPointerUp={() => (drawing.current = false)}
+            onPointerLeave={() => (drawing.current = false)}
+          />
+          <div className="av-row">
+            <Button variant="secondary" disabled={!drawn} onClick={saveDrawn}>
+              {t("setup.signature.save")}
+            </Button>
+            <Button variant="quiet" onClick={clear}>
+              {t("setup.signature.clear")}
+            </Button>
+          </div>
+          <FileButton
+            label={t("setup.signature.photo")}
+            accept="image/png,image/jpeg"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) void send(file, "photo");
+            }}
+          />
+        </div>
       )}
-      <canvas
-        ref={canvas}
-        className="av-setup-signature"
-        width={600}
-        height={200}
-        role="img"
-        aria-label={t("setup.signature.pad")}
-        onPointerDown={down}
-        onPointerMove={move}
-        onPointerUp={() => (drawing.current = false)}
-        onPointerLeave={() => (drawing.current = false)}
-      />
-      <div className="av-row">
-        <Button variant="secondary" disabled={!drawn} onClick={saveDrawn}>
-          {t("setup.signature.save")}
-        </Button>
-        <Button variant="quiet" onClick={clear}>
-          {t("setup.signature.clear")}
-        </Button>
-      </div>
-      <FileButton
-        label={t("setup.signature.photo")}
-        accept="image/png,image/jpeg"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void send(file, "photo");
-        }}
-      />
       {error && (
         <Notice tone="error">
           <p>{error}</p>

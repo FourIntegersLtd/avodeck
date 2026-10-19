@@ -1,6 +1,6 @@
 // Parts shared by slice C's screens: choices, a labelled box, the balance of sides, a drafted note and
 // file uploads. Words come from keys or from the pack (rule 11); files go only to FastAPI (rule 4).
-import { useId, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, type ButtonHTMLAttributes, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -103,17 +103,46 @@ export function Select({ label, options, ...select }: { label: string; options: 
   );
 }
 
-/** A section with a level-2 heading that names it (a landmark the tests and screen readers can find). */
-export function Section({ id, title, intro, children }: { id: string; title: string; intro?: string; children: ReactNode }) {
+/**
+ * A section with a level-2 heading that names it (a landmark the tests and screen readers can find).
+ * `mark` sits before the heading (a tick when the part is done) and `action` at the right of it.
+ */
+export function Section({ id, title, intro, mark, action, children }: { id: string; title: string; intro?: string; mark?: ReactNode; action?: ReactNode; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className="av-card av-stack">
-      <div>
-        <h2 id={id}>{title}</h2>
+      <div className="av-stack av-setup-sechead">
+        <div className="av-row av-row--spread">
+          <div className="av-row">
+            {mark}
+            <h2 id={id}>{title}</h2>
+          </div>
+          {action}
+        </div>
         {intro && <p className="av-muted">{intro}</p>}
       </div>
       {children}
     </section>
   );
+}
+
+/** The round mark before a section's title: a tick once the part is done, else its number. */
+export function PartMark({ done, number }: { done: boolean; number: number }) {
+  return (
+    <span className={`av-setup-mark${done ? " av-setup-mark--done" : ""}`} aria-hidden="true">
+      {done ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+          <path d="M5 12l5 5 9-10" />
+        </svg>
+      ) : (
+        number
+      )}
+    </span>
+  );
+}
+
+/** A button that reads as a link ("Edit", "Replace"): it does something here instead of opening a page. */
+export function LinkAction({ className, ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" className={["av-text-link", "av-setup-linkbtn", className].filter(Boolean).join(" ")} {...rest} />;
 }
 
 /** How often the expert has acted for each side lately (judges notice one-sided experts). */
@@ -220,11 +249,11 @@ export async function uploadFile(caseId: string, file: File, kind: string): Prom
 export const fileBytes = bytesOf;
 
 /** A file input that looks like a button; the input itself stays the labelled control. */
-export function FileButton({ label, accept, onChange }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void }) {
+export function FileButton({ label, accept, onChange, link }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; link?: boolean }) {
   const id = useId();
   return (
     <div className="av-setup-file">
-      <label htmlFor={id} className="av-button av-button--secondary av-setup-file__label">
+      <label htmlFor={id} className={link ? "av-text-link av-setup-file__label" : "av-button av-button--secondary av-setup-file__label"}>
         {label}
       </label>
       <input id={id} type="file" accept={accept} className="av-visually-hidden" onChange={onChange} />
