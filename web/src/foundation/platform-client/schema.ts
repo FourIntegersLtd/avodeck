@@ -239,6 +239,23 @@ export interface paths {
         patch: operations["update_case_v1_cases__case_id__patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/after-serving/steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Steps */
+        get: operations["steps_v1_cases__case_id__after_serving_steps_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/agenda-items/{item_id}": {
         parameters: {
             query?: never;
@@ -4043,6 +4060,12 @@ export interface components {
             /** Stage */
             stage: string;
         };
+        /** AfterServingSteps */
+        AfterServingSteps: {
+            /** Meetings */
+            meetings: components["schemas"]["MeetingStepOut"][];
+            pack: components["schemas"]["PackStepOut"] | null;
+        };
         /** AgendaQueued */
         AgendaQueued: {
             /**
@@ -6616,6 +6639,31 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** MeetingStepOut */
+        MeetingStepOut: {
+            /**
+             * Discussion On
+             * Format: date
+             */
+            discussion_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Sign By
+             * Format: date
+             */
+            sign_by: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "out_for_signature" | "signed" | "signed_external";
+            /** Type */
+            type: string;
+        };
         /** MeetingSummary */
         MeetingSummary: {
             /** Certificate Sha256 */
@@ -7421,6 +7469,16 @@ export interface components {
             name: string;
             /** Version */
             version: string;
+        };
+        /** PackStepOut */
+        PackStepOut: {
+            /**
+             * Built On
+             * Format: date
+             */
+            built_on: string;
+            /** Stale */
+            stale: boolean;
         };
         /** PackageIn */
         PackageIn: {
@@ -8930,6 +8988,10 @@ export interface components {
             prev_version_id: string | null;
             /** Sha256 */
             sha256: string | null;
+            /** Signed By */
+            signed_by?: string | null;
+            /** Signed On */
+            signed_on?: string | null;
             /** Status */
             status: string;
             /** Version No */
@@ -9959,6 +10021,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Case"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    steps_v1_cases__case_id__after_serving_steps_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AfterServingSteps"];
                 };
             };
             /** @description Validation Error */

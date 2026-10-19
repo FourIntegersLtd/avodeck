@@ -120,6 +120,7 @@ export function AddendumScreen() {
           <h3 id="summary-h">{w("change.supplementary")}</h3>
           <p>{w("change.summary_changes", { paragraphs: changedNos.join(", ") })}</p>
           {servedOn && <p>{w("change.summary_refers", { date: longDate(servedOn, locale) })}</p>}
+          {sup?.signed_by && sup.signed_on && <p>{w("change.summary_signed", { name: sup.signed_by, date: longDate(sup.signed_on, locale) })}</p>}
         </section>
       )}
       {full && (

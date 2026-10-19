@@ -655,6 +655,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | locked_at | When it was signed and frozen; after this nothing in the row can change except serving or withdrawing it |
 | withdrawn_at / withdrawn_reason | If the expert later withdrew it, when and why (it's never deleted) |
 | prev_version_id | The version it follows on from |
+| (shown on a signed supplementary report) | Who signed it is the case's named expert and the day is `locked_at` in the court's time zone; neither is stored separately |
 
 ### report_snapshots
 | Field | In plain words |

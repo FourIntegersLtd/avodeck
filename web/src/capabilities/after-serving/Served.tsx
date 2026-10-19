@@ -1,9 +1,10 @@
 // S19 After serving (docs/design/screens/S19-Served.dc.html): what was served, locked and read-only, the dates, and the
 // ways on to the questions, the new material, a correction and the court orders.
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap } from "../../foundation/platform-client";
+import { screenPath } from "../../foundation/lib/screens";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { Button, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
 import { keyName, longDate, dayMonth, shortDate, useLocale } from "./shared";
@@ -21,14 +22,15 @@ export function ServedScreen() {
   const changes = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report-changes", path)), [caseId]);
   const hearings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/hearings", path)), [caseId]);
   const directions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/court-directions", path)), [caseId]);
+  const steps = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/after-serving/steps", path)), [caseId]);
   const { pack } = useCaseFrame();
   const [open, setOpen] = useState(false);
 
-  const all = [served, deadlines, rounds, questions, fresh, changes, hearings, directions];
+  const all = [served, deadlines, rounds, questions, fresh, changes, hearings, directions, steps];
   if (all.some((r) => r.error)) {
     return <div className="av-page"><LoadError onRetry={() => all.forEach((r) => r.reload())} /></div>;
   }
-  if (!served.data || !deadlines.data || !rounds.data || !questions.data || !fresh.data || !changes.data || !hearings.data || !directions.data) {
+  if (!served.data || !deadlines.data || !rounds.data || !questions.data || !fresh.data || !changes.data || !hearings.data || !directions.data || !steps.data) {
     return <div className="av-page"><Loading /></div>;
   }
   const version = served.data.version;
@@ -104,6 +106,28 @@ export function ServedScreen() {
               <span className="av-after-mono">{w("served.hearing_span", { date: longDate(h.starts_on, locale), count: days(h) })}</span>
             </li>
           ))}
+          {steps.data.meetings.map((m) => {
+            const to = screenPath("expert_meeting", { caseId });
+            const name = w("served.step_meeting");
+            return (
+              <li key={m.id} className="av-after-timeline__item">
+                {to ? <Link to={to}><strong>{name}</strong></Link> : <strong>{name}</strong>}
+                <span className="av-after-mono">{w("served.step_meeting_on", { date: longDate(m.discussion_on, locale), status: w(`served.meeting_${m.status}`) })}</span>
+              </li>
+            );
+          })}
+          {nextHearing && (
+            <li className="av-after-timeline__item">
+              {(() => {
+                const to = screenPath("trial_pack", { caseId });
+                const name = w("served.step_bundle");
+                return to ? <Link to={to}><strong>{name}</strong></Link> : <strong>{name}</strong>;
+              })()}
+              <span className="av-after-mono">
+                {steps.data.pack ? (steps.data.pack.stale ? w("served.bundle_stale") : w("served.bundle_built", { date: longDate(steps.data.pack.built_on, locale) })) : w("served.bundle_none")}
+              </span>
+            </li>
+          )}
         </ol>
       </section>
 
