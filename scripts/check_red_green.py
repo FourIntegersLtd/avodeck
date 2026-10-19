@@ -34,6 +34,9 @@ DB_ROLES = {
 WEB_TEST_RE = re.compile(r"\.(test|spec)\.tsx?$")
 # Feat commits already on main whose check fails for a reason fixed later; pushed history is not rewritten.
 EXCUSED = {
+    "eb0607eb043e2752791913f0c64df5f2a9550973": "design/d-understand: migration 0402 lacked `reset role` until 90e38b0, so the database at this commit cannot be built; the branch head was tested as a whole (3470 passed), history kept (no force push)",
+    "fc6c91f0bcc31bd15e37aaa4988d4a53ff656398": "design/d-understand: migration 0402 lacked `reset role` until 90e38b0, so the database at this commit cannot be built; the branch head was tested as a whole (3470 passed), history kept (no force push)",
+    "d5d03f6aac9221d13537591e79dfa0172b17549a": "design/d-understand: migration 0402 lacked `reset role` until 90e38b0, so the database at this commit cannot be built; the branch head was tested as a whole (3470 passed), history kept (no force push)",
     "5800e7e21f51336670e20f711294c4cc3f34b57f": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
     "4e7f45f7e1c5d396ee5e9ca04e69346be179250e": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
     "bdfae2c0fb7a37804edbe60f91f074b3838f71f8": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",

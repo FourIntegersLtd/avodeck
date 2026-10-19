@@ -715,3 +715,20 @@ async def test_a_rerun_takes_the_pack_s_current_guidance_as_shown(launch: Bundle
         "select entry_hash from app.case_guideline_versions where case_id = %s and code = %s", (b.case, row["code"])
     ).fetchall()
     assert got == [(entry_hash(row),)]
+
+
+async def test_an_expert_s_own_check_runs_with_the_pack_s_checks_and_only_for_them(bundle: Bundle) -> None:
+    b = bundle
+    other = next(k["key"] for k in b.pack.fact_kinds() if k["key"] != b.own)
+    page = await b.page(b.other_source)
+    subject = b.fact(page, b.own, "w1", "2024-03-01", status="verified")
+    mine = {"rule": "not_followed_up", "applies_to": b.own, "followup_kinds": [other], "window_days": 14}
+    for person in (b.expert, b.seed.person()):
+        b.seed.admin.execute(
+            "insert into app.check_config (person_id, check_key, label, custom) values (%s, 'own_abc', 'Mine', %s)",
+            (person, Jsonb(mine)),
+        )
+    await b.run()
+    [found] = findings(b, "own_abc")
+    assert found["evidence_fact_ids"] == [subject] and found["rule"] == "not_followed_up"
+    assert "own_abc" in runs(b)[0][2]

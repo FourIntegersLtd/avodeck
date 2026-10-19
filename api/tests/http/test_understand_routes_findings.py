@@ -5,7 +5,7 @@
   reason (422); every decision is audited; nothing closes a finding on its own.
 - `POST /findings/rerun`: the named expert, 202 and a `rerun_checks` job.
 - `GET/PATCH /v1/me/checks`: each expert's own settings (on/off, window); with `case_id`, the case's
-  pack checks with those settings applied. `POST /v1/me/checks/custom` is not built yet (501).
+  pack checks with those settings applied. `POST /v1/me/checks/custom`: see test_understand_design_routes.
 - Comments: any reader comments on a page, fact or paragraph; only the author changes the words;
   any reader resolves; strangers get 404.
 """
@@ -141,11 +141,6 @@ async def test_check_settings_are_the_expert_s_own_and_shape_the_case_s_checks(
 async def test_a_case_s_checks_are_hidden_from_strangers(client_for: ClientFor, case: Case) -> None:
     resp = await (await client_for(case.stranger)).get("/v1/me/checks", params={"case_id": str(case.id)})
     assert resp.status_code == 404
-
-
-async def test_custom_rules_are_not_built_yet(client_for: ClientFor, case: Case) -> None:
-    resp = await (await client_for(case.expert)).post("/v1/me/checks/custom", json={"rule": "zz"})
-    assert resp.status_code == 501
 
 
 # --- comments -------------------------------------------------------------------------------------

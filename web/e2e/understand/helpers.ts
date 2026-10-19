@@ -39,7 +39,7 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     specialty: run.specialty, expert_role: "single", label: "Mrs A", party_role: "other_side", instructing_party_type: null, court_track: null, due_date: "2026-11-30",
     status: "open", on_hold: false, created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:00:00Z", allowed_actions: ["case.view_content", "finding.decide", "consultation.note", "comment.write"],
   };
-  const entry = (kind: string, pageNo: number, available: string | null) => ({ fact_id: uuid(900 + pageNo), kind, page_no: pageNo, event_date: "2024-05-10", available_at: available, status: "verified" });
+  const entry = (kind: string, pageNo: number, available: string | null) => ({ fact_id: uuid(900 + pageNo), kind, page_no: pageNo, event_date: "2024-05-10", available_at: available, status: "verified", summary: null, source: null, has_finding: false });
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
     const c = `/v1/cases/${CASE_A}`;
@@ -58,13 +58,14 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     if (path === `${c}/questions`) return json(route, { questions: [{ id: "a1111111-1111-4111-8111-111111111111", number: 1, text_verbatim: "Q", confirmed_text: null, kind: "x", outside_expertise: false, para_ref: null, status: "confirmed", version: 1, source_word_ids: [], instruction_version_id: "b1111111-1111-4111-8111-111111111111" }], assumptions: [], locked: false, reading: false, reopened: false, rejected: 0, warnings: [], version_no: 1, instruction_version_id: "b1111111-1111-4111-8111-111111111111" });
     if (path === `${c}/timeline`) {
       sentAt = Date.now();
-      return json(route, { lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
+      return json(route, { range: null, as_seen_on: null, as_seen_title: null, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
     }
     if (path === `${c}/consultations/${FACT_1}`) {
       return json(route, {
         title: String((run.pack.vocabulary as Record<string, unknown>).as_seen_title ?? "Seen on the day").replace(/\{[a-z_]+\}/g, "reader"),
         entry: { ...entry("consultation", 118, "2024-05-15"), fact_id: FACT_1, event_date: "2024-05-15" },
         visible: [entry("result", 117, "2024-05-14")],
+        question_numbers: [],
         later_count: 1,
         later: [entry("letter", 301, "2024-05-22")],
         unknown: [entry("referral", 150, null)],
@@ -72,11 +73,15 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
         note: null,
       });
     }
+    if (path === `${c}/consultations/${FACT_1}/later-notes`) return json(route, { notes: [] });
+    if (path.startsWith(`${c}/pages/`) && path.endsWith("/image")) {
+      return route.fulfill({ status: 200, contentType: "image/png", body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64") });
+    }
     if (path === `${c}/comments`) return json(route, { comments: [] });
     if (path === `${c}/findings`) {
       return json(route, { findings: [
-        { id: "c1111111-1111-4111-8111-111111111111", check_key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, evidence_fact_ids: [], evidence_pages: [214], decision: null, reason: null, version: 1 },
-        { id: "c2222222-2222-4222-8222-222222222222", check_key: "zz_session_length_recorded", rule: "field_missing", gentle: true, evidence_fact_ids: [], evidence_pages: [1071], decision: "not_relevant", reason: "Seen on the ward", version: 2 },
+        { id: "c1111111-1111-4111-8111-111111111111", check_key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, evidence_fact_ids: [], evidence: [], evidence_pages: [214], decision: null, reason: null, version: 1 },
+        { id: "c2222222-2222-4222-8222-222222222222", check_key: "zz_session_length_recorded", rule: "field_missing", gentle: true, evidence_fact_ids: [], evidence: [], evidence_pages: [1071], decision: "not_relevant", reason: "Seen on the ward", version: 2 },
       ] });
     }
     if (path === "/v1/me/checks") return json(route, { checks: [{ key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, default_on: true, enabled: true, window_days: 14 }] });

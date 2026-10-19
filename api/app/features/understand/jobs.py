@@ -108,12 +108,17 @@ async def _checked_facts(conn: AsyncConnection, case_id: uuid.UUID) -> list[Chec
 
 async def _expert_settings(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, dict[str, Any]]:
     cur = await conn.execute(
-        "select c.check_key, c.enabled, c.window_days from app.check_config c"
+        "select c.check_key, c.enabled, c.window_days, c.custom from app.check_config c"
         " join app.cases k on k.named_expert_id = c.person_id where k.id = %s",
         (case_id,),
     )
     return {
-        r[0]: {"enabled": r[1], **({"window_days": r[2]} if r[2] is not None else {})} for r in await cur.fetchall()
+        r[0]: {
+            "enabled": r[1],
+            **({"window_days": r[2]} if r[2] is not None else {}),
+            **({"custom": r[3]} if r[3] is not None else {}),
+        }
+        for r in await cur.fetchall()
     }
 
 
@@ -254,7 +259,9 @@ async def rerun_checks(ctx: JobContext) -> None:
         pack = await _case_pack(conn, ctx.case_id)
         await write_availability(conn, ctx.case_id, pack)
         facts = await _checked_facts(conn, ctx.case_id)
-        ran = configured_checks(pack.checks(), await _expert_settings(conn, ctx.case_id))
+        settings = await _expert_settings(conn, ctx.case_id)
+        own = [{"key": k, **v["custom"]} for k, v in settings.items() if "custom" in v]
+        ran = configured_checks([*pack.checks(), *own], settings)
     await ctx.progress(30, step="checks")
     tables = _tables(pack, ran)
     hits: list[tuple[Mapping[str, Any], Hit]] = []

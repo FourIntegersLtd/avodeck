@@ -1497,6 +1497,11 @@
       },
       "CaseCheck": {
         "properties": {
+          "custom": {
+            "default": false,
+            "title": "Custom",
+            "type": "boolean"
+          },
           "default_on": {
             "title": "Default On",
             "type": "boolean"
@@ -1512,6 +1517,17 @@
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
           },
           "rule": {
             "title": "Rule",
@@ -3438,6 +3454,14 @@
             "title": "On",
             "type": "string"
           },
+          "question_numbers": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Question Numbers",
+            "type": "array"
+          },
           "title": {
             "title": "Title",
             "type": "string"
@@ -4658,6 +4682,11 @@
             "title": "Fact Id",
             "type": "string"
           },
+          "has_finding": {
+            "default": false,
+            "title": "Has Finding",
+            "type": "boolean"
+          },
           "kind": {
             "title": "Kind",
             "type": "string"
@@ -4666,9 +4695,31 @@
             "title": "Page No",
             "type": "integer"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           }
         },
         "required": [
@@ -4812,9 +4863,31 @@
             "title": "Question Ids",
             "type": "array"
           },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source"
+          },
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
           }
         },
         "required": [
@@ -4828,6 +4901,55 @@
           "has_finding"
         ],
         "title": "Event",
+        "type": "object"
+      },
+      "Evidence": {
+        "properties": {
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "required": [
+          "fact_id",
+          "kind",
+          "page_no",
+          "event_date",
+          "summary"
+        ],
+        "title": "Evidence",
         "type": "object"
       },
       "Exhibit": {
@@ -5276,6 +5398,14 @@
               }
             ],
             "title": "Decision"
+          },
+          "evidence": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "title": "Evidence",
+            "type": "array"
           },
           "evidence_fact_ids": {
             "items": {
@@ -7011,6 +7141,17 @@
       },
       "Lane": {
         "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
           "events": {
             "items": {
               "$ref": "#/components/schemas/Event"
@@ -7033,6 +7174,77 @@
           "events"
         ],
         "title": "Lane",
+        "type": "object"
+      },
+      "LaterNote": {
+        "properties": {
+          "available_at": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Available At"
+          },
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "has_note": {
+            "title": "Has Note",
+            "type": "boolean"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fact_id",
+          "kind",
+          "page_no",
+          "event_date",
+          "available_at",
+          "has_note"
+        ],
+        "title": "LaterNote",
+        "type": "object"
+      },
+      "LaterNotes": {
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/LaterNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "LaterNotes",
         "type": "object"
       },
       "LatestOut": {
@@ -9683,6 +9895,50 @@
         "title": "OverEstimate",
         "type": "object"
       },
+      "OwnCheck": {
+        "properties": {
+          "applies_to": {
+            "pattern": "^[a-z0-9_]{1,60}$",
+            "title": "Applies To",
+            "type": "string"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "followup_kinds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Followup Kinds",
+            "type": "array"
+          },
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "window_days": {
+            "maximum": 3650.0,
+            "minimum": 1.0,
+            "title": "Window Days",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "case_id",
+          "label",
+          "applies_to",
+          "followup_kinds",
+          "window_days"
+        ],
+        "title": "OwnCheck",
+        "type": "object"
+      },
       "OwnParagraph": {
         "properties": {
           "para_no": {
@@ -12156,6 +12412,26 @@
           "job_id"
         ],
         "title": "Queued",
+        "type": "object"
+      },
+      "Range": {
+        "properties": {
+          "first": {
+            "format": "date",
+            "title": "First",
+            "type": "string"
+          },
+          "last": {
+            "format": "date",
+            "title": "Last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ],
+        "title": "Range",
         "type": "object"
       },
       "RangeNote": {
@@ -15286,6 +15562,39 @@
       },
       "Timeline": {
         "properties": {
+          "as_seen_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Seen On"
+          },
+          "as_seen_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Seen Title"
+          },
+          "counts": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TimelineCounts"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "guidance_changed": {
             "default": [],
             "items": {
@@ -15301,6 +15610,24 @@
             "title": "Lanes",
             "type": "array"
           },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Range"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sources": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TimelineSource"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
           "unplaced": {
             "items": {
               "$ref": "#/components/schemas/Event"
@@ -15314,6 +15641,70 @@
           "unplaced"
         ],
         "title": "Timeline",
+        "type": "object"
+      },
+      "TimelineCounts": {
+        "description": "The numbers on the filter chips, counted over everything the person may see (before any filter).",
+        "properties": {
+          "checked": {
+            "title": "Checked",
+            "type": "integer"
+          },
+          "not_linked": {
+            "title": "Not Linked",
+            "type": "integer"
+          },
+          "please_check": {
+            "title": "Please Check",
+            "type": "integer"
+          },
+          "things_to_look": {
+            "title": "Things To Look",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "checked",
+          "please_check",
+          "things_to_look",
+          "not_linked",
+          "total"
+        ],
+        "title": "TimelineCounts",
+        "type": "object"
+      },
+      "TimelineSource": {
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "colour"
+        ],
+        "title": "TimelineSource",
         "type": "object"
       },
       "Today": {
@@ -18751,6 +19142,89 @@
           }
         },
         "summary": "Consultation",
+        "tags": [
+          "understand"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/consultations/{fact_id}/later-notes": {
+      "get": {
+        "description": "Later entries of the same kind that arrived after the day: listed so the expert knows they exist.\n\nTheir words are not sent (they were not in front of the clinician). Rule 3 still applies: only entries\nthe person may see.",
+        "operationId": "later_notes_v1_cases__case_id__consultations__fact_id__later_notes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Fact Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "The day shown (default: the visit).",
+            "in": "query",
+            "name": "on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The day shown (default: the visit).",
+              "title": "On"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LaterNotes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Later Notes",
         "tags": [
           "understand"
         ]
@@ -29817,6 +30291,47 @@
               ],
               "title": "Question Id"
             }
+          },
+          {
+            "description": "Only entries not linked to a question, or with a thing to look at.",
+            "in": "query",
+            "name": "only",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "not_linked",
+                    "things_to_look"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only entries not linked to a question, or with a thing to look at.",
+              "title": "Only"
+            }
+          },
+          {
+            "description": "Only what had arrived by this day.",
+            "in": "query",
+            "name": "as_seen_on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only what had arrived by this day.",
+              "title": "As Seen On"
+            }
           }
         ],
         "responses": {
@@ -31885,15 +32400,38 @@
     },
     "/v1/me/checks/custom": {
       "post": {
+        "description": "Add a check of your own for cases of this kind: one rule type (`not_followed_up`), kinds from the pack.",
         "operationId": "custom_check_v1_me_checks_custom_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnCheck"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
-          "501": {
+          "201": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/CaseCheck"
+                }
               }
             },
             "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
           },
           "default": {
             "content": {

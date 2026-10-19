@@ -39,6 +39,9 @@ class Entry(BaseModel):
     event_date: date | None
     available_at: date | None
     status: str
+    summary: str | None = None
+    source: str | None = None
+    has_finding: bool = False
 
 
 class Guidance(BaseModel):
@@ -59,9 +62,10 @@ class Consultation(BaseModel):
     guidance_changed: list[str] = []
     on: date
     note: str | None
+    question_numbers: list[int] = []
 
 
-def _entry(fact: repo.SeenFact) -> Entry:
+def _entry(fact: repo.SeenFact, flagged: set[uuid.UUID] = frozenset()) -> Entry:  # type: ignore[assignment]
     return Entry(
         fact_id=fact.fact_id,
         kind=fact.kind,
@@ -69,6 +73,9 @@ def _entry(fact: repo.SeenFact) -> Entry:
         event_date=fact.event_date,
         available_at=fact.available_at,
         status=fact.status,
+        summary=repo.summary_of(fact),
+        source=fact.source,
+        has_finding=fact.fact_id in flagged,
     )
 
 
@@ -93,10 +100,17 @@ async def consultation(
     on = on or visit.event_date or visit.available_at
     if on is None:
         raise invalid("fact_id", message="This entry has no date.")
+    flagged = await repo.flagged_facts(conn, case_id)
+    cur = await conn.execute(
+        "select distinct q.number from app.fact_question_links l join app.questions q on q.id = l.question_id"
+        " where l.case_id = %s and l.fact_id = %s and l.status = 'confirmed' order by q.number",
+        (case_id, fact_id),
+    )
+    numbers = [int(r[0]) for r in await cur.fetchall()]
     view = seen_on(on, (SeenItem(f.fact_id, f.available_at, f.status) for f in facts), exclude=fact_id)
 
     def pick(items: list[SeenItem]) -> list[Entry]:
-        return [_entry(by_id[i.fact_id]) for i in items]
+        return [_entry(by_id[i.fact_id], flagged) for i in items]
 
     table = pack.guidelines()
     shown = [r for r in table if in_force([r], str(r["code"]), on)]
@@ -113,7 +127,7 @@ async def consultation(
     note = await cur.fetchone()
     return Consultation(
         title=pack.term("as_seen_title"),
-        entry=_entry(visit),
+        entry=_entry(visit, flagged),
         visible=pick(view.visible),
         later_count=len(view.later),
         later=pick(view.later),
@@ -122,6 +136,67 @@ async def consultation(
         guidance_changed=await guidelines.changed(conn, case_id, table),
         on=on,
         note=note[0] if note else None,
+        question_numbers=numbers,
+    )
+
+
+class LaterNote(BaseModel):
+    fact_id: uuid.UUID
+    kind: str
+    page_no: int
+    event_date: date | None
+    available_at: date | None
+    has_note: bool
+
+
+class LaterNotes(BaseModel):
+    notes: list[LaterNote]
+
+
+@router.get("/cases/{case_id}/consultations/{fact_id}/later-notes", response_model=LaterNotes)
+async def later_notes(
+    case_id: uuid.UUID,
+    fact_id: uuid.UUID,
+    access: View,
+    request: Request,
+    conn: DbConn,
+    on: Annotated[date | None, Query(description="The day shown (default: the visit).")] = None,
+) -> LaterNotes:
+    """Later entries of the same kind that arrived after the day: listed so the expert knows they exist.
+
+    Their words are not sent (they were not in front of the clinician). Rule 3 still applies: only entries
+    the person may see.
+    """
+    facts = await repo.visible_facts(request, conn, case_id)
+    visit = next((f for f in facts if f.fact_id == fact_id), None)
+    if visit is None:
+        raise not_found()
+    day = on or visit.event_date or visit.available_at
+    if day is None:
+        raise invalid("fact_id", message="This entry has no date.")
+    later = [
+        f
+        for f in facts
+        if f.fact_id != fact_id and f.kind == visit.kind and f.available_at is not None and f.available_at > day
+    ]
+    cur = await conn.execute(
+        "select fact_id from app.consultation_notes where case_id = %s and person_id = app.current_person_id()",
+        (case_id,),
+    )
+    mine = {r[0] for r in await cur.fetchall()}
+    later.sort(key=lambda f: (f.available_at, f.page_no))
+    return LaterNotes(
+        notes=[
+            LaterNote(
+                fact_id=f.fact_id,
+                kind=f.kind,
+                page_no=f.page_no,
+                event_date=f.event_date,
+                available_at=f.available_at,
+                has_note=f.fact_id in mine,
+            )
+            for f in later
+        ]
     )
 
 

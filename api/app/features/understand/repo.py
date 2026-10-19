@@ -32,6 +32,7 @@ class SeenFact:
     available_at: date | None
     status: str
     version: int
+    source: str | None = None
 
 
 async def person_id(conn: AsyncConnection) -> uuid.UUID:
@@ -49,7 +50,8 @@ async def read_pages(request: Request, conn: AsyncConnection, case_id: uuid.UUID
 
 _FACTS = (
     "select f.id as fact_id, f.page_id, p.bundle_page_no as page_no, f.kind, f.fields, f.value, f.event_date,"
-    " coalesce(o.at, (f.available_at at time zone 'UTC')::date) as available_at, o.unknown, f.status, f.version"
+    " coalesce(o.at, (f.available_at at time zone 'UTC')::date) as available_at, o.unknown, f.status, f.version,"
+    " p.source_type as source"
     " from app.facts f join app.pages p on p.id = f.page_id"
     " left join lateral (select ao.available_at::date as at, ao.unknown from app.availability_overrides ao"
     "   where ao.fact_id = f.id order by ao.created_at desc, ao.id desc limit 1) o on true"
@@ -83,3 +85,23 @@ async def linked_questions(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uu
     for fact_id, question_id in await cur.fetchall():
         out.setdefault(fact_id, []).append(question_id)
     return out
+
+
+SUMMARY_LENGTH = 80
+
+
+def summary_of(fact: SeenFact) -> str | None:
+    """A short label for an entry: the words copied from the page, cut to one line."""
+    text = " ".join((fact.value or "").split())
+    if not text:
+        return None
+    return text if len(text) <= SUMMARY_LENGTH else text[: SUMMARY_LENGTH - 1].rstrip() + "…"
+
+
+async def flagged_facts(conn: AsyncConnection, case_id: uuid.UUID) -> set[uuid.UUID]:
+    """Facts an open finding rests on."""
+    cur = await conn.execute(
+        "select distinct unnest(evidence_fact_ids) from app.findings where case_id = %s and status = 'open'",
+        (case_id,),
+    )
+    return {r[0] for r in await cur.fetchall()}

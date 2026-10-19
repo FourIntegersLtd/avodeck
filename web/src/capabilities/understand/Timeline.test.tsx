@@ -61,7 +61,7 @@ test("the filters are sent to the server", async () => {
   const seen = serve();
   const { user } = renderAt(`/cases/${CASE_A}/timeline`);
   await screen.findByRole("region", { name: "Lane one words" });
-  await user.selectOptions(screen.getByLabelText("Show"), "suggested");
+  await user.click(screen.getByRole("radio", { name: "Please check · 1" }));
   await waitFor(() => expect(seen.at(-1)!.searchParams.get("status")).toBe("suggested"));
   await user.selectOptions(screen.getByLabelText("Linked to"), Q_2);
   await waitFor(() => expect(seen.at(-1)!.searchParams.get("question_id")).toBe(Q_2));
@@ -83,4 +83,77 @@ test("1,500 events draw in under one second", () => {
   const took = performance.now() - started;
   expect(screen.getAllByRole("listitem").length).toBeGreaterThanOrEqual(1500);
   expect(took).toBeLessThan(1000);
+});
+
+describe("the picture of the record", () => {
+  test("the filter pills carry how much is checked, to check, to look at and not linked, and send the choice", async () => {
+    inCase("launch");
+    const seen = serve();
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    const pills = await screen.findByRole("radiogroup", { name: "Show" });
+    expect(within(pills).getByRole("radio", { name: "Everything" })).toBeChecked();
+    expect(within(pills).getByRole("radio", { name: "Checked by you · 2" })).toBeInTheDocument();
+    await user.click(within(pills).getByRole("radio", { name: "Thing to look at · 1" }));
+    await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("things_to_look"));
+    await user.click(within(pills).getByRole("radio", { name: "Not linked to a question · 1" }));
+    await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("not_linked"));
+    expect(seen.at(-1)!.searchParams.get("status")).toBeNull();
+  });
+
+  test("names the stretch of the record it covers", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    expect(await screen.findByText("Feb to May 2024")).toBeInTheDocument();
+  });
+
+  test.each<PackRun>(["launch", "fixture"])("can show the record as it stood on a day, in the %s pack's words", async (run) => {
+    inCase(run);
+    const seen = serve();
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await user.type(await screen.findByLabelText("Seen on the day on"), "2024-03-01");
+    await waitFor(() => expect(seen.at(-1)!.searchParams.get("as_seen_on")).toBe("2024-03-01"));
+  });
+
+  test("each line has an icon in its colour", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const first = await screen.findByRole("region", { name: "Lane one words" });
+    expect(within(first).getByTestId("lane-icon")).toHaveStyle({ background: "#2a6f97" });
+    expect(within(first).getByTestId("lane-icon")).toHaveTextContent("L");
+  });
+
+  test("the legend uses the pack's names for the kinds of record", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const legend = await screen.findByRole("list", { name: "Kinds of record" });
+    expect(within(legend).getByText("Source one words")).toBeInTheDocument();
+    expect(within(legend).getByText("Source two words")).toBeInTheDocument();
+  });
+
+  test("each line says how many entries it holds, and each entry shows its words and question chips", async () => {
+    inCase("launch");
+    serve(timeline());
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const second = (await screen.findByRole("region", { name: "Lane two words" })) as HTMLElement;
+    expect(within(second).getByText("1 entry")).toBeInTheDocument();
+    expect(await within(second).findByText("Q1")).toBeInTheDocument();
+    expect(within(second).getByText("Q2")).toBeInTheDocument();
+    expect(within(second).getAllByText("Seen in surgery").length).toBeGreaterThan(0);
+  });
+
+  test("shows the months across the record and can zoom to one month", async () => {
+    inCase("launch");
+    serve();
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    const axis = await screen.findByRole("list", { name: "Months" });
+    expect(within(axis).getByText("Feb 2024")).toBeInTheDocument();
+    expect(within(axis).getByText("May")).toBeInTheDocument();
+    const board = screen.getByTestId("timeline-board");
+    expect(board).toHaveAttribute("data-zoom", "whole");
+    await user.click(screen.getByRole("radio", { name: "One month" }));
+    expect(board).toHaveAttribute("data-zoom", "month");
+  });
 });

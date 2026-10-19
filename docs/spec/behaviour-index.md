@@ -59,7 +59,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |
-| `check_config` | D | The expert | One per check per expert | Edit freely | With the person |
+| `check_config` | D | The expert | One per check per expert, including checks they add | Edit freely | With the person |
 | `findings` | D | Worker; named expert decides | Many | Decisions kept across re-runs; gone, never deleted; decided gone stays listed | Case deletion |
 | `check_runs` | D | Worker | One per run | Append only | Case deletion |
 | `case_guideline_versions` | D | API when first shown; worker on re-run | One per guideline version per case | Fingerprint kept; a change shows a notice until checks run again | Case deletion |
