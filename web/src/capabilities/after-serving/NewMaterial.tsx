@@ -217,13 +217,15 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
         <section className="av-after-panel av-stack" aria-labelledby="differ-title">
           <h3 id="differ-title">{w("new.positions")}</h3>
           {report.positions.map((p) => (
-            <div key={p.question_id} className="av-after-differ">
+            <div key={p.question_id} className="av-stack">
               {p.question_no != null && <strong className="av-after-mono">{w("new.question_short", { n: p.question_no })}</strong>}
-              <div className="av-after-differ__you">
-                <strong>{w("new.you")}:</strong> {p.own.map((o) => <span key={o.paragraph_id}>{o.text}</span>)}
-              </div>
-              <div className="av-after-differ__them">
-                <strong>{w("new.them")}:</strong> {p.theirs.map((o) => <span key={o.paragraph_ref}>{o.text_verbatim}</span>)}
+              <div className="av-after-differ">
+                <div className="av-after-differ__you">
+                  <strong>{w("new.you")}:</strong> {p.own.map((o) => <span key={o.paragraph_id}>{o.text}</span>)}
+                </div>
+                <div className="av-after-differ__them">
+                  <strong>{w("new.them")}:</strong> {p.theirs.map((o) => <span key={o.paragraph_ref}>{o.text_verbatim}</span>)}
+                </div>
               </div>
             </div>
           ))}
