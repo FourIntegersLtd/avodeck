@@ -331,8 +331,8 @@ async def export_case(ctx: JobContext) -> None:
             if "method" in kinds:
                 add("requests.csv", None, _csv(
                     REQUEST_HEADER,
-                    [[q.seq, q.sent_at.isoformat(), q.sent_via, q.follow_up_on or "", q.missing_item_count, q.page_count,
-                      q.subject, q.body] for q in await logged_requests(conn, ctx.case_id, crypto)],
+                    [[q.seq, q.sent_at.isoformat(), q.sent_via, q.follow_up_on or "", q.missing_item_count,
+                      q.page_count, q.subject, q.body] for q in await logged_requests(conn, ctx.case_id, crypto)],
                 ))  # fmt: skip
                 counts = await verification_counts(conn, ctx.case_id)
                 add("logs/methodology.csv", None, _csv(["action", "count"], [[k, counts[k]] for k in sorted(counts)]))
