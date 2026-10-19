@@ -1267,6 +1267,17 @@
             "title": "Specialty",
             "type": "string"
           },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
           "status": {
             "title": "Status",
             "type": "string"

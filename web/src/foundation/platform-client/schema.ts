@@ -4490,6 +4490,8 @@ export interface components {
             period_start?: string | null;
             /** Specialty */
             specialty: string;
+            /** Stage */
+            stage?: string | null;
             /** Status */
             status: string;
             /** Subject Status */
