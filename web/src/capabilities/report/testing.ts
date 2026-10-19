@@ -109,6 +109,7 @@ export function serve(run: PackRun, opts: {
     http.get("/v1/cases/:caseId/spot-checks", () => json({ spot_checks: opts.spots ?? [] })),
     http.get("/v1/cases/:caseId/report/versions/:v/servings", () => json({ servings: opts.servings ?? [] })),
     http.get("/v1/cases/:caseId/time", () => json(opts.time ?? { adjusted: false, total_seconds: 72900, stages: steps.map((stage, i) => ({ stage, seconds: (i + 1) * 600 })) })),
+    http.get("/v1/me/profile", () => json({ full_name: "Jane Morgan", profession: "Doctor", registration_body: "Body", registration_number: "123", specialties: [], currency: null, default_jurisdiction: null, default_retention: null, hourly_rate: null } as never)),
     http.get("/v1/me/billing-profile", () => etagged({ profile: opts.profile === undefined ? profile() : opts.profile }, opts.profile === null ? 0 : 2)),
     http.get("/v1/cases/:caseId/invoices", () => json({ invoices: opts.invoices ?? [] })),
   );

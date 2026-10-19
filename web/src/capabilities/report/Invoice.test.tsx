@@ -7,7 +7,7 @@ import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { casePack, etagged, INV, invoiceOut, profile, serve, stepKeys, type PackRun } from "./testing";
+import { casePack, etagged, INV, invoiceOut, profile, reportOut, serve, stepKeys, versionOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/invoice`;
@@ -16,7 +16,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("shows your time for each step of the pack, the total, and passes axe", async () => {
     serve(run);
     const { container } = renderAt(url);
-    expect(await screen.findByRole("heading", { level: 2, name: M["report.invoice.title"] })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: M["report.invoice.title"] })).toBeInTheDocument();
     const time = await screen.findByRole("region", { name: M["report.invoice.time"]! });
     for (const [i, key] of stepKeys(run).entries()) {
       const row = within(time).getByRole("listitem", { name: stepLabel(key) });
@@ -232,4 +232,39 @@ test("bank details are saved behind the code with the version you saw", async ()
     }),
   );
   expect(await within(bank).findByText(M["report.invoice.billing_saved"]!)).toBeInTheDocument();
+});
+
+test("once the report is sent, the title says so and shows the bars and the within-estimate note", async () => {
+  const stages = stepKeys("launch").map((stage, i) => ({ stage, seconds: (i + 1) * 3600, estimate_hours: null }));
+  serve("launch", {
+    report: reportOut("launch", { version: versionOut({ status: "served" }) }),
+    time: { adjusted: false, total_seconds: 72900, stages, estimate_hours: "22.00", over_estimate: null, instructing_party: "Party" } as never,
+  });
+  renderAt(url);
+  expect(await screen.findByRole("heading", { level: 1, name: M["report.invoice.heading_sent"]! })).toBeInTheDocument();
+  const bars = await screen.findAllByRole("meter");
+  expect(bars).toHaveLength(stages.length);
+  expect(bars[0]).toHaveAttribute("aria-label", stepLabel(stages[0]!.stage));
+  expect(bars[0]).toHaveAttribute("value", "3600");
+  expect(screen.getByText("Within your estimate. You told the Party 22 hours when you accepted the case.")).toBeInTheDocument();
+});
+
+test("an invoice shows who it is from and to, the case, the date and the pack's statements, with the fee note", async () => {
+  serve("launch", { invoices: [invoiceOut({ number_text: "JM-1", sent_to: "who@example.test", statements: ["First line.", "Second line."] })] });
+  renderAt(url);
+  const invoice = await screen.findByRole("article", { name: "Invoice JM-1" });
+  expect(within(invoice).getByText("From: Dr Jane Morgan")).toBeInTheDocument();
+  expect(within(invoice).getByText("To: who@example.test")).toBeInTheDocument();
+  expect(within(invoice).getByText("Case: Mrs A")).toBeInTheDocument();
+  expect(within(invoice).getByText("Date: 18 October 2026")).toBeInTheDocument();
+  expect(within(invoice).getByText("First line.")).toBeInTheDocument();
+  expect(within(invoice).getByText("Second line.")).toBeInTheDocument();
+  expect(screen.getByText(M["report.invoice.fee_note"]!)).toBeInTheDocument();
+});
+
+test("without statements there is no fee note", async () => {
+  serve("launch", { invoices: [invoiceOut({ number_text: "JM-1" })] });
+  renderAt(url);
+  await screen.findByRole("article", { name: "Invoice JM-1" });
+  expect(screen.queryByText(M["report.invoice.fee_note"]!)).toBeNull();
 });
