@@ -251,7 +251,7 @@ One instruction: who it's for, who's involved, what was asked.
 | `conflict_answer_history` | Every conflict answer as it was given or changed, written only by a database trigger; append-only. The answers behind a declaration are the latest rows before it; a newer row means the declaration is out of date. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted), answered_by, created_at, recorded_at |
 | `conflict_declarations` | Each time the expert declares conflicts (at the start, or mid-case). Append-only; the latest is current. Slice C. | case_id, outcome (none/disclosed), declared_by, created_at |
 | `case_withdrawals` | Why the expert withdrew from the case (one per case; the case moves to `withdrawn` in the same transaction). Slice C. | case_id, reason (encrypted), withdrawn_by, created_at |
-| `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, kind, outside_expertise, answer_parts[], outside_expertise_source, status, confirmed_text |
+| `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, short_title, source_word_ids[], para_ref, kind, outside_expertise, answer_parts[], outside_expertise_source, status, confirmed_text |
 | `assumptions` | Things the instructions tell the expert to assume. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, status, confirmed_text |
 | `instruction_extractions` | One record per letter read by `extract_questions`: counts kept and refused, whether it reopened the set. Counts only. Slice C. | instruction_version_id, case_id, job_id, questions, assumptions, rejected, reopened, model_task, prompt_version |
 | `prefill_suggestions` | Case details T-04 suggested from the letter, each citing its words, waiting for the expert to accept or dismiss. Never applied to the case by the server. Slice C. | case_id, instruction_version_id, field, value (encrypted), word_ids[], status (suggested/accepted/dismissed), decided_by, decided_at, model_task, prompt_version |
@@ -490,7 +490,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown); `changed_since_declared` when an answer changed after the latest declaration |
+| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text, the pack's `coverage_question` and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown); `changed_since_declared` when an answer changed after the latest declaration |
 | POST | `/cases/{case_id}/conflicts/declare` | Record the declaration (all questions answered, else 409); drafts the note to every current instructing party |
 | POST | `/cases/{case_id}/withdraw` | 🔒 `{reason}` → case `withdrawn`; drafts the note | |
 
@@ -498,7 +498,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/questions` | Questions + assumptions with LOI highlights | Filled by T-06 during processing |
+| GET | `/cases/{case_id}/questions` | Questions (each with a `short_title`) + assumptions with LOI highlights | Filled by T-06 during processing |
+| GET | `/cases/{case_id}/files` | The case's uploaded files with `page_count` read from the PDF page tree (no OCR; null when unknown) | `case.view_content` |
 | PATCH | `/cases/{case_id}/questions/{q_id}` | Confirm / edit wording / change kind | |
 | PATCH | `/cases/{case_id}/assumptions/{a_id}` | Confirm / edit | |
 | POST | `/cases/{case_id}/questions/confirm-all` | Lock the question set | Required before writing |

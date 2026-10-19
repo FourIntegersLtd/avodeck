@@ -275,3 +275,8 @@ async def test_a_served_case_can_be_withdrawn(client_for: ClientFor, seed: Seed,
     done = await client.post(f"/v1/cases/{served}/withdraw", json={"reason": "Ill health."})
     assert done.status_code == 200, done.status_code
     assert done.json()["status"] == "withdrawn"
+
+
+async def test_the_coverage_question_comes_from_the_pack(client_for: ClientFor, world: dict[str, uuid.UUID]) -> None:
+    body = (await (await client_for(world["expert"])).get(url(world, "conflicts"))).json()
+    assert body["coverage_question"].endswith("?") and "{" not in body["coverage_question"]
