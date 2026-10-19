@@ -49,9 +49,12 @@ test("finds a page by either number once the PIN is given, read-only", async () 
   await unlock(user);
   await user.type(await screen.findByLabelText(k("lookup.search")), "2407");
   expect(await screen.findByText(fill(M["trial.lookup.results_other"]!, { count: 2 }))).toBeInTheDocument();
-  expect(screen.getAllByText(fill(k("lookup.trial_page"), { court_bundle: "Zz binder", page: 2407 })).length).toBe(2);
+  // The bundle's short name is the first letters of the pack's word for it ("Zz binder" is ZB).
+  expect(screen.getAllByText(fill(k("lookup.trial_page"), { abbr: "ZB", number: "2,407" })).length).toBe(2);
   expect(screen.getAllByText(fill(k("lookup.your_page"), { page: 118 })).length).toBe(2);
   expect(screen.getByText("Zz visit")).toBeInTheDocument();
+  // The count sits inside the search box, as on the board.
+  expect(screen.getByText(fill(M["trial.lookup.results_other"]!, { count: 2 })).closest(".av-trial-lookup__box")).toContainElement(screen.getByLabelText(k("lookup.search")));
   expect(screen.queryByRole("textbox", { name: /note/i })).not.toBeInTheDocument();
   expect(await axeViolations(container)).toEqual([]);
   expect(asked()).toEqual([`/v1/cases/${CASE}/offline-packages/a9666666-6666-4666-8666-666666666666/status`]);
@@ -143,4 +146,24 @@ test("a copy that has been tampered with does not open", async () => {
   const { user } = renderAt(url);
   await unlock(user);
   expect(await screen.findByText(k("lookup.broken"))).toBeInTheDocument();
+}, SLOW);
+
+test("the bar has the mark, the title and the read-only chip with its lock, and Exit, with no sign-in or case call", async () => {
+  await saveCopy(await sealed(), META, PIN);
+  const { container } = renderAt(url);
+  expect(await screen.findByText(k("lookup.bar_title"))).toBeInTheDocument();
+  const chip = screen.getByText(k("lookup.read_only")).closest(".av-trial-lookup__chip");
+  expect(chip?.querySelector("svg")).not.toBeNull();
+  expect(screen.getByRole("link", { name: k("lookup.exit") })).toHaveAttribute("href", `/cases/${CASE}/trial-pack`);
+  expect(container.querySelector(".av-case-bar")).toBeNull();
+  expect(asked()).not.toContain(`/v1/cases/${CASE}`);
+});
+
+test("the words searched for are highlighted in what the record says", async () => {
+  await saveCopy(await sealed(), META, PIN);
+  const { user, container } = renderAt(url);
+  await unlock(user);
+  await user.type(await screen.findByLabelText(k("lookup.search")), "iron started");
+  await screen.findByText(fill(k("lookup.not_in_bundle"), { court_bundle: "Zz binder" }));
+  expect([...container.querySelectorAll("mark")].map((m) => m.textContent?.toLowerCase())).toEqual(["iron", "started"]);
 }, SLOW);
