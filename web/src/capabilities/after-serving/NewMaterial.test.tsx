@@ -15,7 +15,8 @@ const url = `/cases/${CASE_A}/new-material`;
 const page = (no: number, read: boolean, may: Schemas["NewPage"]["may_matter"] = []): Schemas["NewPage"] => ({ page_id: `p${no}`, page_no: no, read, may_matter: may });
 const report = (claims: Schemas["OpposingClaimOut"][] = [claim()]): Schemas["OpposingReport"] => ({
   id: "r1", document_id: DOC, received_on: "2026-12-09", checked_at: "2026-12-09T10:00:00Z", claims_found: claims.length, claims,
-  positions: [{ question_id: Q1, own: [{ paragraph_id: P1, para_no: 614, text: "Our paragraph words." }], theirs: [{ paragraph_ref: "5.1", text_verbatim: "Their paragraph words." }] }],
+  expert_name: null, expert_role: null, pages: null,
+  positions: [{ question_id: Q1, question_no: 2, own: [{ paragraph_id: P1, para_no: 614, text: "Our paragraph words." }], theirs: [{ paragraph_ref: "5.1", text_verbatim: "Their paragraph words." }] }],
 });
 
 describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
@@ -57,9 +58,25 @@ test("their report is registered from the file just added, with the day it arriv
   server.use(http.post("/v1/cases/:caseId/opposing-reports", async ({ request }) => (await record(request), json({ id: "r1", job_id: "j" }, 202))));
   const { user } = renderAt(`${url}?document=${DOC}`);
   await user.type(await screen.findByLabelText(M["after_serving.new.received_on"]!), "2026-12-09");
+  await user.type(screen.getByLabelText(M["after_serving.new.expert_name"]!), "Dr R");
+  await user.type(screen.getByLabelText(M["after_serving.new.expert_role"]!), "Expert");
   await user.click(screen.getByRole("button", { name: M["after_serving.new.register"]! }));
-  await waitFor(() => expect(sent[0]).toMatchObject({ method: "POST", body: { document_id: DOC, received_on: "2026-12-09" } }));
+  await waitFor(() => expect(sent[0]).toMatchObject({ method: "POST", body: { document_id: DOC, received_on: "2026-12-09", expert_name: "Dr R", expert_role: "Expert" } }));
   expect(await screen.findByText(M["after_serving.new.registering"]!)).toBeInTheDocument();
+});
+
+test("the other expert is named with their role, page count and the day it arrived; the differ row names its question", async () => {
+  serve("launch", { opposing: { ...report(), expert_name: "Dr R", expert_role: "Expert", pages: 34 } });
+  renderAt(`${url}?document=${DOC}`);
+  expect(await screen.findByRole("heading", { level: 3, name: "Dr R's report" })).toBeInTheDocument();
+  expect(screen.getByText("Expert · 34 pages · received 9 December")).toBeInTheDocument();
+  expect(screen.getByText("Q2")).toBeInTheDocument();
+});
+
+test("a report with no name keeps the plain heading", async () => {
+  serve("launch", { opposing: report() });
+  renderAt(`${url}?document=${DOC}`);
+  expect(await screen.findByRole("heading", { level: 3, name: M["after_serving.new.opposing"]! })).toBeInTheDocument();
 });
 
 test("without a file there is nothing to register", async () => {
