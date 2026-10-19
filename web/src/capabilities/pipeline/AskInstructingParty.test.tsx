@@ -6,6 +6,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
+import { formatDate } from "./format";
 import { mail } from "./mail";
 import { CASE_ID, draft, packWords, pageId, summary, theCase } from "./testData";
 
@@ -117,5 +118,27 @@ describe.each([
     expect(await screen.findByText("Dr Jane Morgan \u00b7 your usual email")).toBeVisible();
     expect(screen.getByLabelText("To")).toBeVisible();
     expect(screen.queryByText("Need more time?")).toBeNull();
+  });
+
+  test("offers more time with the due date and the pack's day count, and asks the draft to add the line when ticked", async () => {
+    signedIn({ pack });
+    const asked: Array<Record<string, unknown>> = [];
+    const extension = { days: 14, due_date: "2026-11-30", after_date: "2026-11-16" };
+    server.use(
+      http.get(`/v1/cases/${CASE_ID}`, () => json(theCase())),
+      http.post(`/v1/cases/${CASE_ID}/instructing-party-requests/draft`, async ({ request }) => {
+        const sent = (await request.json()) as Record<string, unknown>;
+        asked.push(sent);
+        return json(draft({ extension, body: sent.extension ? "Body with the extra line" : "Body without it" }));
+      }),
+      http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack))),
+    );
+    const { user } = renderAt(PATH);
+    expect(await screen.findByText("Need more time?")).toBeVisible();
+    expect(screen.getByText(`Your report is due ${formatDate("2026-11-30", pack.locale)}. If the records arrive late, you may need more time.`)).toBeVisible();
+    expect(screen.getByText("Body without it")).toBeVisible();
+    await user.click(screen.getByRole("checkbox", { name: `Add a line asking for 14 more days if they arrive after ${formatDate("2026-11-16", pack.locale)}` }));
+    expect(await screen.findByText("Body with the extra line")).toBeVisible();
+    expect(asked.at(-1)).toEqual({ extension: true });
   });
 });
