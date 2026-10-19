@@ -7903,6 +7903,13 @@ export interface components {
             /** Sha256 */
             sha256: string | null;
             /**
+             * Stale
+             * @default false
+             */
+            stale: boolean;
+            /** Stale Reason */
+            stale_reason?: string | null;
+            /**
              * Status
              * @enum {string}
              */
