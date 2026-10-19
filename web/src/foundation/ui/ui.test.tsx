@@ -46,7 +46,8 @@ test("the case header marks done steps with a tick and the current step for scre
     />,
   );
   const [prepare, read, write] = screen.getAllByRole("listitem");
-  expect(prepare).toHaveTextContent("✓Prepare");
+  expect(prepare).toHaveTextContent(/^Prepare$/);
+  expect(prepare!.querySelector("svg")).not.toBeNull();
   expect(read).toHaveAttribute("aria-current", "step");
   expect(read).toHaveTextContent("2Read");
   expect(write).not.toHaveAttribute("aria-current");
