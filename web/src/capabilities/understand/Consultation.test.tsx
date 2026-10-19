@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 import { http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { comment, consultation, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
+import { comment, consultation, timeline, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
 
 function serve(body = consultation()) {
   const calls: Array<{ method: string; url: URL; body: unknown }> = [];
@@ -127,4 +127,39 @@ test("comments carry a warning that they may have to be shared, and you can add 
   await user.type(within(region).getByLabelText("Add a comment"), "Check the letter");
   await user.click(within(region).getByRole("button", { name: "Add comment" }));
   await waitFor(() => expect(calls.find((c) => c.method === "POST")?.body).toEqual({ target_kind: "fact", target_id: FACT_1, body: "Check the letter" }));
+});
+
+describe("as the design shows it", () => {
+  test("links back to the timeline, shows the questions it bears on and what each entry says", async () => {
+    inCase("launch");
+    serve();
+    open();
+    const back = await screen.findAllByRole("link", { name: "The timeline" });
+    expect(back[0]).toHaveAttribute("href", `/cases/${CASE_A}/timeline`);
+    const bears = screen.getByLabelText("Linked to");
+    expect(within(bears).getByText("Q2")).toBeInTheDocument();
+    expect(within(bears).getByText("Q3")).toBeInTheDocument();
+    const seen = screen.getByRole("region", { name: "In the record that day" });
+    expect(within(seen).getByText("Hb 98, ferritin 9")).toBeInTheDocument();
+  });
+
+  test("an entry with a thing to look at says so", async () => {
+    inCase("launch");
+    serve(consultation({ visible: [{ ...consultation().visible[0]!, has_finding: true }] }));
+    open();
+    const seen = await screen.findByRole("region", { name: "In the record that day" });
+    expect(within(seen).getByText("Thing to look at")).toBeInTheDocument();
+  });
+
+  test("the note can be dictated, and 'Save note and go back' saves then returns to the timeline", async () => {
+    inCase("launch");
+    const calls = serve(consultation({ note: null }));
+    server.use(http.get("/v1/cases/:caseId/timeline", () => json(timeline())));
+    const { user } = open();
+    expect(await screen.findByRole("button", { name: "Dictate" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Your note"), "Seen late");
+    await user.click(screen.getByRole("button", { name: "Save note and go back" }));
+    await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ body: "Seen late" }));
+    expect(await screen.findByRole("heading", { level: 2, name: "The timeline" })).toBeInTheDocument();
+  });
 });

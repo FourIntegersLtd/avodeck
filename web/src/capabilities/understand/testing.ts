@@ -91,6 +91,8 @@ export function event(over: Partial<Schemas["Event"]> = {}): Schemas["Event"] {
     status: "verified",
     question_ids: [],
     has_finding: false,
+    summary: "Seen in surgery",
+    source: "source_one",
     ...over,
   };
 }
@@ -103,12 +105,17 @@ export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Time
     ],
     unplaced: [],
     guidance_changed: [],
+    sources: [
+      { key: "source_one", label: "Source one words", colour: "#2a6f97" },
+      { key: "source_two", label: "Source two words", colour: "#b5651d" },
+    ],
+    counts: { checked: 2, please_check: 1, things_to_look: 1, not_linked: 1, total: 3 },
     ...over,
   };
 }
 
 export function entry(over: Partial<Schemas["Entry"]> = {}): Schemas["Entry"] {
-  return { fact_id: FACT_2, kind: "result", page_no: 117, event_date: "2024-05-14", available_at: "2024-05-14", status: "verified", ...over };
+  return { fact_id: FACT_2, kind: "result", page_no: 117, event_date: "2024-05-14", available_at: "2024-05-14", status: "verified", summary: "Hb 98, ferritin 9", source: "source_one", has_finding: false, ...over };
 }
 
 export function consultation(over: Partial<Schemas["Consultation"]> = {}): Schemas["Consultation"] {
@@ -122,6 +129,7 @@ export function consultation(over: Partial<Schemas["Consultation"]> = {}): Schem
     guidance: [{ code: "G1", title: "Guidance title", version_label: "2023 edition", url: "https://example.test/g1" }],
     guidance_changed: [],
     on: "2024-05-15",
+    question_numbers: [2, 3],
     note: null,
     ...over,
   };
@@ -135,6 +143,7 @@ export function finding(over: Partial<Schemas["FindingOut"]> = {}): Schemas["Fin
     gentle: false,
     evidence_fact_ids: [FACT_2],
     evidence_pages: [214],
+    evidence: [{ fact_id: FACT_2, kind: "result", page_no: 214, event_date: "2024-02-19", summary: "Hb 98, ferritin 9" }],
     decision: null,
     reason: null,
     version: 1,

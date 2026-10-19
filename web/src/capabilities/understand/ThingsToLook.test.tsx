@@ -27,6 +27,11 @@ function serve(list = [finding(), second]) {
     http.get("/v1/me/checks", () =>
       json({ checks: [{ key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, default_on: true, enabled: true, window_days: 14 }] }),
     ),
+    http.post("/v1/me/checks/custom", async ({ request }) => {
+      const sent = await request.json();
+      calls.push({ method: "POST", url: new URL(request.url), body: sent });
+      return json({ key: "own_ab12cd34", rule: "not_followed_up", gentle: false, default_on: true, enabled: true, window_days: 30, label: "Letters answered", custom: true }, 201);
+    }),
     http.patch("/v1/me/checks", async ({ request }) => {
       const sent = (await request.json()) as { check_key: string; enabled: boolean };
       calls.push({ method: "PATCH", url: new URL(request.url), body: sent });
@@ -61,13 +66,13 @@ test("a gentle check uses the softer wording", async () => {
   expect(await screen.findByRole("article", { name: "You may want to check what followed this entry" })).toBeInTheDocument();
 });
 
-test("'relevant' is saved without a reason", async () => {
+test("'relevant' is saved at once, without a reason", async () => {
   inCase("launch");
   const calls = serve();
   const { user } = open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
   await user.click(within(card).getByRole("radio", { name: "Relevant" }));
-  await user.click(within(card).getByRole("button", { name: "Save my decision" }));
+  expect(within(card).queryByRole("button", { name: "Save my decision" })).not.toBeInTheDocument();
   await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ decision: "relevant", reason: null }));
   expect(await screen.findByText("2 of 2 decided")).toBeInTheDocument();
 });
@@ -100,6 +105,56 @@ test("you can switch one of your checks off for the next time", async () => {
   const { user } = open();
   const checks = await screen.findByRole("region", { name: "Your checks" });
   expect(within(checks).getByText("Changes apply the next time we check.")).toBeInTheDocument();
-  await user.click(await within(checks).findByRole("checkbox", { name: "Abnormal result no action" }));
+  await user.click(await within(checks).findByRole("switch", { name: "Abnormal result no action" }));
   await waitFor(() => expect(calls.find((c) => c.url.pathname === "/v1/me/checks")?.body).toEqual({ check_key: "abnormal_result_no_action", enabled: false }));
+});
+
+test("each finding names what the code found, with its date, words and a link to the page", async () => {
+  inCase("launch");
+  serve();
+  open();
+  const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
+  expect(within(card).getByText("19 February 2024 · Hb 98, ferritin 9")).toBeInTheDocument();
+  expect(within(card).getByRole("link", { name: "p.214" })).toHaveAttribute("href", `/cases/${CASE_A}/read/214`);
+});
+
+test("the reason can be dictated", async () => {
+  inCase("launch");
+  serve();
+  const { user } = open();
+  const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
+  await user.click(within(card).getByRole("radio", { name: "Not relevant" }));
+  expect(within(card).getByRole("button", { name: "Dictate" })).toBeInTheDocument();
+});
+
+test("already decided findings show a one-line summary of the decision", async () => {
+  inCase("launch");
+  serve();
+  open();
+  const other = await screen.findByRole("article", { name: "Nothing in the record shows this was acknowledged" });
+  expect(within(other).getByRole("radio", { name: "Relevant" })).toBeChecked();
+});
+
+test("you can add your own check: it needs a name, a kind of entry to follow, and a number of days", async () => {
+  inCase("launch");
+  const calls = serve();
+  const { user } = open();
+  await user.click(await screen.findByRole("button", { name: "Add your own check" }));
+  const dialog = await screen.findByRole("dialog", { name: "Add your own check" });
+  const add = within(dialog).getByRole("button", { name: "Add check" });
+  expect(add).toBeDisabled();
+  await user.type(within(dialog).getByLabelText("What should we look for?"), "Letters answered");
+  await user.selectOptions(within(dialog).getByLabelText("Starting from"), "result");
+  await user.selectOptions(within(dialog).getByLabelText("A follow-up of"), "letter");
+  await user.clear(within(dialog).getByLabelText("Within how many days?"));
+  await user.type(within(dialog).getByLabelText("Within how many days?"), "30");
+  await user.click(add);
+  await waitFor(() => expect(calls.find((c) => c.url.pathname === "/v1/me/checks/custom")?.body).toEqual({ case_id: CASE_A, label: "Letters answered", applies_to: "result", followup_kinds: ["letter"], window_days: 30 }));
+});
+
+test("the way on is 'Start writing'", async () => {
+  inCase("launch");
+  serve();
+  open();
+  expect(await screen.findByRole("link", { name: "Start writing" })).toHaveAttribute("href", `/cases/${CASE_A}/opinion`);
 });
