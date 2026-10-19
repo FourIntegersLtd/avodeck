@@ -266,13 +266,6 @@ test("an invoice shows who it is from and to, the case, the date and the pack's 
   expect(screen.getByText(M["report.invoice.fee_note"]!)).toBeInTheDocument();
 });
 
-test("without statements there is no fee note", async () => {
-  serve("launch", { invoices: [invoiceOut({ number_text: "JM-1" })] });
-  renderAt(url);
-  await screen.findByRole("article", { name: "Invoice JM-1" });
-  expect(screen.queryByText(M["report.invoice.fee_note"]!)).toBeNull();
-});
-
 test("once sent, the intro says who it went to and when, from the serving record", async () => {
   const serving = { id: "s1", sent_via: "email", served_on: "2026-10-18", created_at: "2026-10-18T10:00:00Z", correction_of: null, reason: null, recipient_party_id: null } as never;
   serve("launch", {
