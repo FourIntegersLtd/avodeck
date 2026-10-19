@@ -65,6 +65,8 @@ test("the case ring is a 9px arc over a grey track, drawn by the design system's
   signedIn({ today: withItems });
   renderAt("/today");
   const card = (await screen.findAllByRole("link", { name: /Mrs A/ })).find((l) => l.classList.contains("av-case-card"))!;
+  // The ring appears once the case's pack has loaded.
+  await within(card).findByRole("img", { name: /step/ });
   const circles = card.querySelectorAll(".av-ring svg circle");
   expect(circles).toHaveLength(2);
   expect(circles[0]).toHaveClass("av-ring__track");
