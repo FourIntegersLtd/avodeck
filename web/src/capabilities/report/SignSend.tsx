@@ -101,6 +101,13 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
   );
 }
 
+/** "Name, profession · body number", leaving out whatever the profile does not have. */
+function signatureLine(p: Schemas["Profile"]): string {
+  const registration = [p.registration_body, p.registration_number].filter(Boolean).join(" ");
+  const named = [p.full_name, p.profession].filter(Boolean).join(", ");
+  return [named, registration].filter(Boolean).join(" · ");
+}
+
 function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; declarations: Schemas["CasePack"]["declarations"]; downloads: React.ReactNode; onDone: () => void }) {
   const stepUp = useStepUp();
   const [confirmed, setConfirmed] = useState(false);
@@ -142,14 +149,7 @@ function Draft({ caseId, declarations, downloads, onDone }: { caseId: string; de
         <h3 id="sig-title">{w("sign.signature")}</h3>
         {me.data?.full_name && (
           <p>
-            <strong>
-              {w("sign.signature_line", {
-                name: me.data.full_name,
-                profession: me.data.profession ?? "",
-                body: me.data.registration_body ?? "",
-                number: me.data.registration_number ?? "",
-              })}
-            </strong>
+            <strong>{signatureLine(me.data)}</strong>
           </p>
         )}
         <p>{w("sign.signature_body")}</p>

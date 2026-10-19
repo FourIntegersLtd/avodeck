@@ -22,11 +22,20 @@ const STATUSES = ["draft", "sent", "part_paid", "paid", "written_off"] as const;
 export function InvoiceScreen() {
   const { caseId = "" } = useParams();
   const report = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
-  const sent = report.data?.version?.status === "served";
+  const version = report.data?.version ?? null;
+  const sent = version?.status === "served";
+  const locale = useLocale();
+  const servings = useResource(
+    () => (sent && version ? unwrap(api.GET("/v1/cases/{case_id}/report/versions/{version_id}/servings", { params: { path: { case_id: caseId, version_id: version.id } } })) : Promise.resolve(null)),
+    [caseId, version?.id, sent],
+  );
+  const time = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId]);
+  const served = servings.data?.servings.at(-1);
+  const sentTo = sent && served && time.data?.instructing_party ? w("invoice.sent_to_on", { party: time.data.instructing_party, date: longDate(served.served_on, locale) }) : null;
   return (
     <div className="av-page av-stack">
       <h1>{sent ? w("invoice.heading_sent") : w("invoice.title")}</h1>
-      <p>{w("invoice.intro")}</p>
+      <p>{sentTo ? `${sentTo} ${w("invoice.intro")}` : w("invoice.intro")}</p>
       <TimeCard caseId={caseId} />
       <EstimateCard caseId={caseId} />
       <BillingCard />

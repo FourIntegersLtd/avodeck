@@ -617,6 +617,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/cases/{case_id}/report/build` | Assemble draft in the expert's template | 202 + job → new `report_versions` row |
 | GET | `/cases/{case_id}/report` | Latest draft: sections, compliance checklist (from the jurisdiction pack), page count | |
 | GET | `/cases/{case_id}/report/preview/{page}` | Rendered report page image, streamed by the API | |
+| GET | `/cases/{case_id}/report/paragraphs` | The latest built report's paragraphs as plain text, optionally for one `section`; read-only, no AI | |
 | PATCH | `/cases/{case_id}/report/settings` | Citation style: page / paragraph | Triggers rebuild |
 | POST | `/cases/{case_id}/report/word-import` | Upload the edited Word file through the API; returns differences and flags | Phase 2 |
 | GET | `/cases/{case_id}/report/methodology` | Generated "how you used Avodeck" appendix | |

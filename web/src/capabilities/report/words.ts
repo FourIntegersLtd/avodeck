@@ -9,6 +9,9 @@ const WORDS = {
   "not_built": "Build your report first.",
 
   "report.title": "Your report",
+  "report.read_text": "Read",
+  "report.close_text": "Hide",
+  "report.progress": "{{done}} of {{total}}",
   "report.contents": "Contents",
   "report.open_word": "Open in Word",
   "report.wording": "Read the wording",
@@ -144,6 +147,7 @@ const WORDS = {
   "sign.error.hash_mismatch": "This file does not match the signed version. Please contact us.",
 
   "invoice.title": "Time and invoice",
+  "invoice.sent_to_on": "Sent to the {{party}} on {{date}}.",
   "invoice.heading_sent": "Report sent. Here's your invoice.",
   "invoice.within_estimate": "Within your estimate. You told the {{party}} {{hours}} hours when you accepted the case.",
   "invoice.from": "From: {{name}}",

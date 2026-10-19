@@ -8797,6 +8797,63 @@
         "title": "PageWords",
         "type": "object"
       },
+      "ParagraphOut": {
+        "properties": {
+          "para_no": {
+            "title": "Para No",
+            "type": "integer"
+          },
+          "question_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question Id"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "para_no",
+          "section",
+          "text"
+        ],
+        "title": "ParagraphOut",
+        "type": "object"
+      },
+      "ParagraphsOut": {
+        "properties": {
+          "paragraphs": {
+            "items": {
+              "$ref": "#/components/schemas/ParagraphOut"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "version_id": {
+            "format": "uuid",
+            "title": "Version Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version_id",
+          "paragraphs"
+        ],
+        "title": "ParagraphsOut",
+        "type": "object"
+      },
       "Party": {
         "properties": {
           "id": {
@@ -11067,6 +11124,17 @@
       },
       "SectionOut": {
         "properties": {
+          "done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
           "generated": {
             "title": "Generated",
             "type": "boolean"
@@ -11074,6 +11142,17 @@
           "key": {
             "title": "Key",
             "type": "string"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
           },
           "written": {
             "title": "Written",
@@ -23055,6 +23134,77 @@
           }
         },
         "summary": "Methodology Appendix",
+        "tags": [
+          "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/paragraphs": {
+      "get": {
+        "description": "The latest built report's words as plain text, read-only (screen 16). Nothing is generated here.",
+        "operationId": "paragraphs_v1_cases__case_id__report_paragraphs_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "section",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Section"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParagraphsOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Paragraphs",
         "tags": [
           "report"
         ]

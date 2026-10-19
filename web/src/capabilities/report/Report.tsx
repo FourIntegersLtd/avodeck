@@ -126,6 +126,7 @@ export function ReportScreen() {
 
 function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onSaved: () => void }) {
   const [open, setOpen] = useState<string | null>(null);
+  const [reading, setReading] = useState<string | null>(null);
   const nameOf = useSectionName();
   return (
     <section className="av-card av-stack" aria-labelledby="sections-title">
@@ -138,7 +139,11 @@ function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onS
               <span>
                 <span aria-hidden="true">{section.written || section.generated ? "✓" : "○"}</span> <strong>{name}</strong>{" "}
                 <span className="av-badge">{section.written ? w("report.section.written") : section.generated ? w("report.section.generated") : w("report.section.todo")}</span>
+                {section.total != null && <span className="av-muted"> {w("report.progress", { done: section.done ?? 0, total: section.total })}</span>}
               </span>
+              <Button variant="quiet" aria-label={`${w("report.read_text")} ${name}`} onClick={() => setReading(reading === section.key ? null : section.key)}>
+                {reading === section.key ? w("report.close_text") : w("report.read_text")}
+              </Button>
               <Button variant="quiet" aria-label={`${section.written ? w("report.section.edit") : w("report.section.write")} ${name}`} onClick={() => setOpen(open === section.key ? null : section.key)}>
                 {section.written ? w("report.section.edit") : w("report.section.write")}
               </Button>
@@ -146,8 +151,22 @@ function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onS
           );
         })}
       </ol>
+      {reading && <SectionText key={reading} caseId={caseId} sectionKey={reading} />}
       {open && <SectionEditor key={open} caseId={caseId} sectionKey={open} onClose={() => setOpen(null)} onSaved={onSaved} />}
     </section>
+  );
+}
+
+function SectionText({ caseId, sectionKey }: { caseId: string; sectionKey: string }) {
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: sectionKey } } })), [caseId, sectionKey]);
+  if (found.error) return <LoadError onRetry={found.reload} />;
+  if (!found.data) return <Loading />;
+  return (
+    <div className="av-stack" aria-live="polite">
+      {found.data.paragraphs.map((p) => (
+        <p key={p.para_no} className="av-report-words">{p.text}</p>
+      ))}
+    </div>
   );
 }
 

@@ -12,17 +12,19 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from fastapi import Response
+from fastapi import Query, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.contracts import profile
+from app.core.contracts import opinions, profile, questions
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.report.assemble import (
     GENERATED,
+    OPINION,
+    PARAGRAPH_PURPOSE,
     methodology,
     section_keys,
     template_order,
@@ -50,6 +52,8 @@ class SectionOut(BaseModel):
     key: str
     generated: bool
     written: bool
+    done: int | None = None
+    total: int | None = None
 
 
 class ChecklistItem(BaseModel):
@@ -126,7 +130,7 @@ async def build_report(case_id: uuid.UUID, access: Build, conn: DbConn) -> Queue
 
 
 @router.get("/cases/{case_id}/report", response_model=ReportOut)
-async def report(case_id: uuid.UUID, access: View, conn: DbConn, pack: Pack) -> ReportOut:
+async def report(case_id: uuid.UUID, access: View, conn: DbConn, pack: Pack, crypto: Crypto) -> ReportOut:
     cur = await conn.execute(_VERSIONS, (case_id,))
     versions = [
         VersionOut(
@@ -147,11 +151,22 @@ async def report(case_id: uuid.UUID, access: View, conn: DbConn, pack: Pack) -> 
     template = await profile.report_template(conn, case_id)
     order = template_order(section_keys(pack), template)
     _, addressed, _, _ = await _settings(conn, case_id)
+    asked = {q.id for q in await questions.confirmed_questions(conn, case_id)}
+    answered = len(asked & {o.question_id for o in await opinions.latest_opinions(conn, case_id, crypto)})
     checklist = pack.compliance_checklist()
     return ReportOut(
         version=versions[0] if versions else None,
         versions=versions,
-        sections=[SectionOut(key=k, generated=k in GENERATED, written=k in written) for k in order],
+        sections=[
+            SectionOut(
+                key=k,
+                generated=k in GENERATED,
+                written=k in written,
+                done=answered if k == OPINION else None,
+                total=len(asked) if k == OPINION else None,
+            )
+            for k in order
+        ],
         checklist=Checklist(
             rule_ref=str(checklist["rule_ref"]),
             items=[
@@ -234,6 +249,53 @@ async def preview(
     if image is None:
         raise not_found()
     return Response(image, media_type="image/png", headers={"Cache-Control": "private, no-store"})
+
+
+class ParagraphOut(BaseModel):
+    para_no: int
+    section: str
+    text: str
+    question_id: uuid.UUID | None = None
+
+
+class ParagraphsOut(BaseModel):
+    version_id: uuid.UUID
+    paragraphs: list[ParagraphOut]
+
+
+@router.get("/cases/{case_id}/report/paragraphs", response_model=ParagraphsOut)
+async def paragraphs(
+    case_id: uuid.UUID,
+    access: View,
+    conn: DbConn,
+    crypto: Crypto,
+    section: Annotated[str | None, Query(pattern=r"^[a-z][a-z0-9_]{0,39}$")] = None,
+) -> ParagraphsOut:
+    """The latest built report's words as plain text, read-only (screen 16). Nothing is generated here."""
+    cur = await conn.execute(
+        "select id from app.report_versions where case_id = %s"
+        " and exists (select 1 from app.report_paragraphs p where p.report_version_id = report_versions.id)"
+        " order by version_no desc limit 1",
+        (case_id,),
+    )
+    found = await cur.fetchone()
+    if found is None:
+        raise not_found()
+    cur = await conn.execute(
+        "select para_no, section, text, question_id from app.report_paragraphs where report_version_id = %s"
+        " and (%s::text is null or section = %s) order by para_no",
+        (found[0], section, section),
+    )
+    out = [
+        ParagraphOut(
+            para_no=n,
+            section=sec,
+            text=(await crypto.decrypt(conn, case_id, bytes(t), purpose=PARAGRAPH_PURPOSE)).decode(),
+            question_id=q,
+        )
+        for n, sec, t, q in await cur.fetchall()
+    ]
+    return ParagraphsOut(version_id=found[0], paragraphs=out)
 
 
 @router.get("/cases/{case_id}/report/methodology", response_model=MethodologyOut)
