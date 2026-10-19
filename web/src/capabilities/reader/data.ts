@@ -1,5 +1,6 @@
 // What slice B's screens read from the API and the pack, beyond the generated types.
 import { api, type Schemas } from "../../foundation/platform-client";
+import { w } from "./words";
 
 export const casePath = (caseId: string) => ({ params: { path: { case_id: caseId } } });
 
@@ -42,6 +43,23 @@ async function dataUrl(blob: Blob): Promise<string> {
 export async function pageImage(caseId: string, pageNo: number): Promise<string | null> {
   const { data } = await api.GET("/v1/cases/{case_id}/pages/{page_no}/image", { params: { path: { case_id: caseId, page_no: pageNo } }, parseAs: "blob" });
   return data ? dataUrl(data as Blob) : null;
+}
+
+/** "Feb 2024 to Aug 2024" in the pack's language and date order; empty when the case has no period. */
+export function periodRange(start: string | null | undefined, end: string | null | undefined, locale: string | null | undefined): string {
+  if (!start || !end) return "";
+  let tag = "en-GB";
+  try {
+    new Intl.DateTimeFormat(locale ?? undefined);
+    tag = locale || tag;
+  } catch {
+    /* an unknown locale keeps en-GB */
+  }
+  const fmt = (iso: string) => {
+    const [y, m, d] = iso.split("-").map(Number);
+    return new Intl.DateTimeFormat(tag, { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
+  };
+  return w("read.period_range", { from: fmt(start), to: fmt(end) });
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

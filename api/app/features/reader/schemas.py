@@ -27,6 +27,8 @@ class PageList(BaseModel):
 class PageDetail(PageSummary):
     """One page. Never carries facts: they come from `/facts`, behind the blind-read gate (rule 3)."""
 
+    period_start: date | None
+    period_end: date | None
     rotation: int
     relevance: str | None
     needs_clearer_copy: bool

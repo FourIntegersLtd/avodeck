@@ -8566,6 +8566,30 @@
             "title": "Page No",
             "type": "integer"
           },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
           "read": {
             "title": "Read",
             "type": "boolean"
@@ -8620,6 +8644,8 @@
           "in_period",
           "unreadable",
           "duplicate_of_page_no",
+          "period_start",
+          "period_end",
           "rotation",
           "relevance",
           "needs_clearer_copy",

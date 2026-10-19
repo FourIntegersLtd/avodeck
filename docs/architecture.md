@@ -540,7 +540,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does | Notes |
 |---|---|---|---|
 | GET | `/cases/{case_id}/pages?cursor=&filter=unread|period|source` | Page list for navigation + progress | |
-| GET | `/cases/{case_id}/pages/{page_no}` | Source, period-in-question flag, read state | Facts **not** included |
+| GET | `/cases/{case_id}/pages/{page_no}` | Source, period-in-question flag and the period itself (start, end), read state | Facts **not** included |
 | GET | `/cases/{case_id}/pages/{page_no}/image?zoom=` | Page image streamed by the API | `no-store` |
 | GET | `/cases/{case_id}/pages/{page_no}/thumbnail` | Small image streamed by the API | |
 | POST | `/cases/{case_id}/pages/{page_no}/read` | Record read `{dwell_seconds}` → appends to hash-chained log | Unlocks suggestions |

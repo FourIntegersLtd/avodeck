@@ -120,6 +120,8 @@ def _detail(r: dict) -> PageDetail:  # type: ignore[type-arg]
         page_no=r["bundle_page_no"],
         page_id=r["id"],
         **_summary(r),
+        period_start=r["period_start"],
+        period_end=r["period_end"],
         rotation=r["rotation"],
         relevance=r["relevance"],
         needs_clearer_copy=r["needs_clearer_copy"],

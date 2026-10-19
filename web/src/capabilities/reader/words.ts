@@ -7,6 +7,7 @@ const WORDS = {
   "read.page_alt": "Page {{page}}",
   "read.page_ref": "p.{{page}}",
   "read.in_period": "You're in the period in question.",
+  "read.period_range": "({{from}} to {{to}})",
   "read.in_period_after": "You read this page first; our suggestions are now shown.",
   "read.zoom_in": "Zoom in",
   "read.zoom_out": "Zoom out",

@@ -6629,6 +6629,10 @@ export interface components {
             page_id: string;
             /** Page No */
             page_no: number;
+            /** Period End */
+            period_end: string | null;
+            /** Period Start */
+            period_start: string | null;
             /** Read */
             read: boolean;
             /** Relevance */

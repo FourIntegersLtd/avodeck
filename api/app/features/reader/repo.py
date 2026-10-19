@@ -61,7 +61,7 @@ _PAGE_COLUMNS = """
 """
 
 _DETAIL_COLUMNS = """,
-    p.rotation, p.relevance, p.needs_clearer_copy,
+    p.rotation, p.relevance, p.needs_clearer_copy, c.period_start, c.period_end,
     (select s.bundle_page_no from app.pages s where s.id = p.superseded_by_page_id) as superseded_by_page_no,
     p.handwriting, p.transcribed_by_expert_text is not null as has_transcription,
     (select min(r.at) from app.page_reads r where r.page_id = p.id and r.person_id = %(person)s) as first_read_at

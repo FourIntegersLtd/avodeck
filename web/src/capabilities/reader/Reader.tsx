@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
-import { casePath, sourceLabel } from "./data";
+import { casePath, periodRange, sourceLabel } from "./data";
 import { allowed, FactCard } from "./FactCard";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
@@ -248,7 +248,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       {page.in_period && (
         <div className="rd-banner">
           <p>
-            <strong>{w("read.in_period")}</strong> {read ? w("read.in_period_after") : ""}{" "}
+            <strong>{w("read.in_period")}</strong>{page.period_start && page.period_end ? ` ${periodRange(page.period_start, page.period_end, pack.locale)} ` : " "}{read ? w("read.in_period_after") : ""}{" "}
             <button type="button" className="av-text-link rd-why" aria-expanded={why} onClick={() => setWhy((v) => !v)}>
               {w("read.why")}
             </button>
