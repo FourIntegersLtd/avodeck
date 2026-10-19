@@ -7336,6 +7336,10 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
+            /** Expert Name */
+            expert_name?: string | null;
+            /** Expert Role */
+            expert_role?: string | null;
             /**
              * Received On
              * Format: date
@@ -7700,11 +7704,17 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
+            /** Expert Name */
+            expert_name?: string | null;
+            /** Expert Role */
+            expert_role?: string | null;
             /**
              * Id
              * Format: uuid
              */
             id: string;
+            /** Pages */
+            pages?: number | null;
             /** Positions */
             positions: components["schemas"]["Position"][];
             /**
@@ -8264,6 +8274,8 @@ export interface components {
              * Format: uuid
              */
             question_id: string;
+            /** Question No */
+            question_no?: number | null;
             /** Theirs */
             theirs: components["schemas"]["TheirParagraph"][];
         };
@@ -10154,6 +10166,11 @@ export interface components {
             id: string;
             /** Number */
             number: number;
+            /**
+             * Page Nos
+             * @description Numbers of the pages the linked paragraphs cite, in order, once each.
+             */
+            page_nos?: number[];
             /** Para Ref */
             para_ref: string | null;
             /** Paragraph Ids */

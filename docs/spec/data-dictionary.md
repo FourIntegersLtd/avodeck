@@ -815,12 +815,14 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | round_id / number / text_verbatim / word_ids[] | Which batch, its number, the exact words and where they are |
 | classification | E.g. asks for clarification or goes beyond the report (from the pack) |
 | paragraph_ids[] | Which report paragraphs it relates to |
+| page_nos (not stored) | The bundle pages those paragraphs cite, worked out on request; shown as page chips beside the question |
 | answer_text / status | The expert's answer and whether it's done |
 
 ### opposing_reports
 | Field | In plain words |
 |---|---|
 | document_id / received_on | The other expert's report (an uploaded document) and when it arrived |
+| expert_name / expert_role | Who wrote it and in what role, as the expert typed them when adding it (both optional). The page count comes from the document. |
 | job_id / checked_at / claims_found | The check that read it, when it finished and how many statements it found |
 | positions | Each question's answer in their report beside ours, for the expert to compare (no new wording) |
 

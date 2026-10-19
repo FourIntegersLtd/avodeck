@@ -6,7 +6,7 @@ import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
 import { AFTER_MESSAGES as M } from "./words";
-import { deadline, served, serve, type PackRun } from "./testing";
+import { deadline, question, questionsName, questionsOne, served, serve, type PackRun } from "./testing";
 
 const url = `/cases/${CASE_A}/served`;
 
@@ -52,4 +52,17 @@ test("a failed load offers to try again", async () => {
   server.use(http.get("/v1/cases/:caseId/report/served", () => apiError(500, "server_error")));
   renderAt(url);
   expect(await screen.findByRole("button", { name: /try again/i })).toBeInTheDocument();
+});
+
+describe.each<PackRun>(["launch", "fixture"])("under the %s packs, the questions tile", (run) => {
+  test("uses the pack's singular for one and its plural for more", async () => {
+    serve(run, { questions: [question()] });
+    renderAt(url);
+    expect(await screen.findByRole("heading", { level: 3, name: `1 ${questionsOne(run)}` })).toBeInTheDocument();
+  });
+  test("uses the pack's plural for two", async () => {
+    serve(run, { questions: [question(), question({ id: "q2", number: 2 })] });
+    renderAt(url);
+    expect(await screen.findByRole("heading", { level: 3, name: `2 ${questionsName(run)}` })).toBeInTheDocument();
+  });
 });

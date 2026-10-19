@@ -360,7 +360,8 @@
           "dependent": "dependent subject",
           "present": "present subject"
         },
-        "written_questions": "interrogatories"
+        "written_questions": "interrogatories",
+        "written_questions_one": "interrogatory"
       },
       "workflow_steps": [
         {
@@ -509,7 +510,8 @@
           "dependent": "dependent subject",
           "present": "present subject"
         },
-        "written_questions": "interrogatories"
+        "written_questions": "interrogatories",
+        "written_questions_one": "interrogatory"
       },
       "working_week": [
         7,
@@ -1233,7 +1235,8 @@
           "minor": "under 18"
         },
         "written_questions": "questions from the other side",
-        "written_questions_formal": "Part 35 questions"
+        "written_questions_formal": "Part 35 questions",
+        "written_questions_one": "question from the other side"
       },
       "workflow_steps": [
         {
@@ -1476,7 +1479,8 @@
           "minor": "under 18"
         },
         "written_questions": "questions from the other side",
-        "written_questions_formal": "Part 35 questions"
+        "written_questions_formal": "Part 35 questions",
+        "written_questions_one": "question from the other side"
       },
       "working_week": [
         1,

@@ -10,6 +10,20 @@ import { AFTER_MESSAGES as M } from "./words";
 import { cap, casePack, declarations, DOC, partyName, question, questionsName, Q1, Q2, round, ROUND, serve, type PackRun } from "./testing";
 
 const url = `/cases/${CASE_A}/written-questions`;
+test("each question shows the pages its paragraphs rest on, as page chips", async () => {
+  serve("launch", { questions: [question({ page_nos: [118, 214] })] });
+  renderAt(url);
+  expect(await screen.findByText("p.118")).toBeInTheDocument();
+  expect(screen.getByText("p.214")).toBeInTheDocument();
+});
+
+test("a question with no linked pages shows no page chip", async () => {
+  serve("launch", { questions: [question({ page_nos: [] })] });
+  renderAt(url);
+  await screen.findByRole("heading", { level: 3, name: /Would your opinion change/ });
+  expect(screen.queryByText(/^p\.\d+$/)).toBeNull();
+});
+
 const suggestion = (run: PackRun) => (run === "launch" ? "clarifies" : "permitted");
 
 describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
