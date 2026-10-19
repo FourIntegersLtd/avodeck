@@ -36,7 +36,8 @@ async def test_the_timeline_lists_the_pack_s_sources_and_the_numbers_for_its_chi
     case.fact(kind, date(2024, 3, 10), status="edited")
     question = case.question()
     case.link(own, question)
-    case.admin.execute("update app.pages set source_type = %s where case_id = %s", (case.pack.source_types()[0]["key"], case.id))
+    source = case.pack.source_types()[0]["key"]
+    case.admin.execute("update app.pages set source_type = %s where case_id = %s", (source, case.id))
     resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
     body = resp.json()
     assert [s["key"] for s in body["sources"]] == [s["key"] for s in case.pack.source_types()]
@@ -71,7 +72,8 @@ async def test_a_consultation_entry_names_its_questions_source_and_things_to_loo
     case.link(visit, q2)
     case.link(visit, q1)
     case.admin.execute(
-        "insert into app.findings (case_id, check_key, rule, gentle, evidence_fact_ids, evidence_page_ids, pack_version)"
+        "insert into app.findings"
+        " (case_id, check_key, rule, gentle, evidence_fact_ids, evidence_page_ids, pack_version)"
         " select %s, 'zz', 'zz', false, %s, array[page_id], 'zz@1' from app.facts where id = %s",
         (case.id, [earlier], earlier),
     )
@@ -95,8 +97,13 @@ async def test_findings_list_their_evidence_entries(client_for: ClientFor, seed:
 
 def _own(case: FindingCase, **more: Any) -> dict[str, Any]:
     kinds = [k["key"] for k in case.pack.fact_kinds()]
-    body = {"case_id": str(case.id), "label": "Nothing followed this", "applies_to": kinds[0], "followup_kinds": kinds[:1],
-            "window_days": 21}  # fmt: skip
+    body = {
+        "case_id": str(case.id),
+        "label": "Nothing followed this",
+        "applies_to": kinds[0],
+        "followup_kinds": kinds[:1],
+        "window_days": 21,
+    }
     return {**body, **more}
 
 
