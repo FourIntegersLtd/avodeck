@@ -7,3 +7,5 @@ alter table app.check_config add column label text check (length(label) <= 80);
 alter table app.check_config add column custom jsonb;
 alter table app.check_config add constraint check_config_custom_has_label
   check (custom is null or (label is not null and length(trim(label)) > 0));
+
+reset role;
