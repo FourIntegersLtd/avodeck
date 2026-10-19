@@ -73,6 +73,12 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]*$"
     },
+    "report_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "The document's title is this name, a colon and the case's patient label."
+    },
     "uses_points_against": {
       "type": "boolean"
     },
