@@ -121,6 +121,78 @@
         "title": "AnswersIn",
         "type": "object"
       },
+      "AnswersSignedVersion": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "prev_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Version Id"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_no",
+          "type",
+          "display_name",
+          "status",
+          "sha256",
+          "prev_version_id",
+          "locked_at"
+        ],
+        "title": "AnswersSignedVersion",
+        "type": "object"
+      },
       "ApiError": {
         "properties": {
           "error": {
@@ -1648,6 +1720,14 @@
             },
             "title": "Workflow Steps",
             "type": "array"
+          },
+          "written_question_classifications": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Written Question Classifications",
+            "type": "array"
           }
         },
         "required": [
@@ -1838,6 +1918,68 @@
           "sent_to"
         ],
         "title": "Certificate",
+        "type": "object"
+      },
+      "ChangeEdit": {
+        "properties": {
+          "citation_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Citation"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Refs"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "correction",
+                  "change_of_opinion"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "new_text": {
+            "anyOf": [
+              {
+                "maxLength": 50000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "New Text"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 5000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "ChangeEdit",
         "type": "object"
       },
       "CheckResult": {
@@ -2983,6 +3125,319 @@
         "title": "CreditNoteOut",
         "type": "object"
       },
+      "DeadlineChange": {
+        "properties": {
+          "direction_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction Id"
+          },
+          "done": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done"
+          },
+          "due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Due On"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_]{0,39}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "title": "DeadlineChange",
+        "type": "object"
+      },
+      "DeadlineChangeOut": {
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "changed_by": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed By"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "new_due_on": {
+            "format": "date",
+            "title": "New Due On",
+            "type": "string"
+          },
+          "old_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Old Due On"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          }
+        },
+        "required": [
+          "id",
+          "old_due_on",
+          "new_due_on",
+          "reason",
+          "source",
+          "source_id",
+          "changed_by",
+          "at"
+        ],
+        "title": "DeadlineChangeOut",
+        "type": "object"
+      },
+      "DeadlineChanges": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/DeadlineChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "changes"
+        ],
+        "title": "DeadlineChanges",
+        "type": "object"
+      },
+      "DeadlineOut": {
+        "properties": {
+          "calendar": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Calendar"
+          },
+          "cancelled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cancelled At"
+          },
+          "created_from": {
+            "title": "Created From",
+            "type": "string"
+          },
+          "done_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Done At"
+          },
+          "due_at": {
+            "description": "The end of the court day in the court's timezone, in UTC.",
+            "format": "date-time",
+            "title": "Due At",
+            "type": "string"
+          },
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "last_reminded_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Reminded On"
+          },
+          "pack_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Version"
+          },
+          "rule_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Ref"
+          },
+          "source": {
+            "description": "Where the current date came from: pack, direction, manual or round.",
+            "title": "Source",
+            "type": "string"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "due_on",
+          "due_at",
+          "rule_ref",
+          "calendar",
+          "timezone",
+          "created_from",
+          "source",
+          "pack_version",
+          "hearing_id",
+          "done_at",
+          "last_reminded_on",
+          "version"
+        ],
+        "title": "DeadlineOut",
+        "type": "object"
+      },
+      "Deadlines": {
+        "properties": {
+          "deadlines": {
+            "items": {
+              "$ref": "#/components/schemas/DeadlineOut"
+            },
+            "title": "Deadlines",
+            "type": "array"
+          },
+          "served_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served On"
+          }
+        },
+        "required": [
+          "served_on",
+          "deadlines"
+        ],
+        "title": "Deadlines",
+        "type": "object"
+      },
       "DecisionIn": {
         "additionalProperties": false,
         "properties": {
@@ -3087,6 +3542,30 @@
         "title": "Declared",
         "type": "object"
       },
+      "Dependent": {
+        "properties": {
+          "depends": {
+            "title": "Depends",
+            "type": "boolean"
+          },
+          "paragraph_id": {
+            "format": "uuid",
+            "title": "Paragraph Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paragraph_id",
+          "depends",
+          "reason"
+        ],
+        "title": "Dependent",
+        "type": "object"
+      },
       "Device": {
         "properties": {
           "created_at": {
@@ -3121,6 +3600,119 @@
           "current"
         ],
         "title": "Device",
+        "type": "object"
+      },
+      "DirectionDeadline": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "kind": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "due_on"
+        ],
+        "title": "DirectionDeadline",
+        "type": "object"
+      },
+      "DirectionOut": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_deadline_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Created Deadline Ids",
+            "type": "array"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "made_on": {
+            "format": "date",
+            "title": "Made On",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "stay": {
+            "title": "Stay",
+            "type": "boolean"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "id",
+          "made_on",
+          "reference",
+          "text",
+          "document_id",
+          "stay",
+          "created_deadline_ids",
+          "created_at"
+        ],
+        "title": "DirectionOut",
+        "type": "object"
+      },
+      "Directions": {
+        "properties": {
+          "directions": {
+            "items": {
+              "$ref": "#/components/schemas/DirectionOut"
+            },
+            "title": "Directions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "directions"
+        ],
+        "title": "Directions",
         "type": "object"
       },
       "Document": {
@@ -4278,6 +4870,173 @@
         "title": "Heading",
         "type": "object"
       },
+      "HearingChange": {
+        "properties": {
+          "ends_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends On"
+          },
+          "starts_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Starts On"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "scheduled",
+                  "heard",
+                  "vacated",
+                  "adjourned"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          }
+        },
+        "title": "HearingChange",
+        "type": "object"
+      },
+      "HearingOut": {
+        "properties": {
+          "changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changed At"
+          },
+          "direction_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction Id"
+          },
+          "ends_on": {
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "replaced_by_hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaced By Hearing Id"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "starts_on",
+          "ends_on",
+          "venue",
+          "status",
+          "replaced_by_hearing_id",
+          "direction_id",
+          "version",
+          "changed_at"
+        ],
+        "title": "HearingOut",
+        "type": "object"
+      },
+      "Hearings": {
+        "properties": {
+          "hearings": {
+            "items": {
+              "$ref": "#/components/schemas/HearingOut"
+            },
+            "title": "Hearings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "hearings"
+        ],
+        "title": "Hearings",
+        "type": "object"
+      },
       "HeartbeatIn": {
         "additionalProperties": false,
         "properties": {
@@ -4354,6 +5113,20 @@
           "reason"
         ],
         "title": "HoldCreate",
+        "type": "object"
+      },
+      "ImportIn": {
+        "properties": {
+          "round_id": {
+            "format": "uuid",
+            "title": "Round Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "round_id"
+        ],
+        "title": "ImportIn",
         "type": "object"
       },
       "InForce": {
@@ -5583,6 +6356,26 @@
         "title": "LintOut",
         "type": "object"
       },
+      "Made": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "job_id"
+        ],
+        "title": "Made",
+        "type": "object"
+      },
       "MappingItem": {
         "additionalProperties": false,
         "properties": {
@@ -5621,6 +6414,31 @@
           "mapping"
         ],
         "title": "MappingUpdate",
+        "type": "object"
+      },
+      "MayMatter": {
+        "properties": {
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "why": {
+            "title": "Why",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "question_id",
+          "why"
+        ],
+        "title": "MayMatter",
         "type": "object"
       },
       "Me": {
@@ -6073,6 +6891,334 @@
           "screen"
         ],
         "title": "NeedsYouItem",
+        "type": "object"
+      },
+      "NewChange": {
+        "properties": {
+          "citation_refs": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "maxItems": 200,
+            "title": "Citation Refs",
+            "type": "array"
+          },
+          "kind": {
+            "enum": [
+              "correction",
+              "change_of_opinion"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_text": {
+            "maxLength": 50000,
+            "minLength": 1,
+            "title": "New Text",
+            "type": "string"
+          },
+          "paragraph_id": {
+            "format": "uuid",
+            "title": "Paragraph Id",
+            "type": "string"
+          },
+          "reason": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paragraph_id",
+          "kind",
+          "new_text",
+          "reason"
+        ],
+        "title": "NewChange",
+        "type": "object"
+      },
+      "NewDeadline": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hearing Id"
+          },
+          "kind": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "due_on"
+        ],
+        "title": "NewDeadline",
+        "type": "object"
+      },
+      "NewDirection": {
+        "properties": {
+          "deadlines": {
+            "items": {
+              "$ref": "#/components/schemas/DirectionDeadline"
+            },
+            "maxItems": 50,
+            "title": "Deadlines",
+            "type": "array"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "made_on": {
+            "format": "date",
+            "title": "Made On",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference"
+          },
+          "stay": {
+            "default": false,
+            "title": "Stay",
+            "type": "boolean"
+          },
+          "text": {
+            "anyOf": [
+              {
+                "maxLength": 20000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Text"
+          }
+        },
+        "required": [
+          "made_on"
+        ],
+        "title": "NewDirection",
+        "type": "object"
+      },
+      "NewHearing": {
+        "properties": {
+          "ends_on": {
+            "format": "date",
+            "title": "Ends On",
+            "type": "string"
+          },
+          "starts_on": {
+            "format": "date",
+            "title": "Starts On",
+            "type": "string"
+          },
+          "type": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Type",
+            "type": "string"
+          },
+          "venue": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Venue"
+          }
+        },
+        "required": [
+          "type",
+          "starts_on",
+          "ends_on"
+        ],
+        "title": "NewHearing",
+        "type": "object"
+      },
+      "NewOpposingReport": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "received_on": {
+            "format": "date",
+            "title": "Received On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "received_on"
+        ],
+        "title": "NewOpposingReport",
+        "type": "object"
+      },
+      "NewPage": {
+        "properties": {
+          "may_matter": {
+            "items": {
+              "$ref": "#/components/schemas/MayMatter"
+            },
+            "title": "May Matter",
+            "type": "array"
+          },
+          "page_id": {
+            "format": "uuid",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "read": {
+            "title": "Read",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "page_id",
+          "page_no",
+          "read",
+          "may_matter"
+        ],
+        "title": "NewPage",
+        "type": "object"
+      },
+      "NewRound": {
+        "properties": {
+          "answers_due_on": {
+            "format": "date",
+            "title": "Answers Due On",
+            "type": "string"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "from_party_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Party Id"
+          },
+          "received_on": {
+            "format": "date",
+            "title": "Received On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "received_on",
+          "document_id",
+          "answers_due_on"
+        ],
+        "title": "NewRound",
+        "type": "object"
+      },
+      "NewSinceServed": {
+        "properties": {
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/NewPage"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "served_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served At"
+          }
+        },
+        "required": [
+          "served_at",
+          "pages"
+        ],
+        "title": "NewSinceServed",
+        "type": "object"
+      },
+      "Note": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "key",
+          "params"
+        ],
+        "title": "Note",
         "type": "object"
       },
       "NoteDraft": {
@@ -6718,6 +7864,269 @@
         "title": "OpinionView",
         "type": "object"
       },
+      "OpposingClaimChange": {
+        "properties": {
+          "confirm": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirm"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "matches",
+                  "wrong_page",
+                  "wrong_value",
+                  "not_on_page",
+                  "contradicted"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "title": "OpposingClaimChange",
+        "type": "object"
+      },
+      "OpposingClaimOut": {
+        "properties": {
+          "checked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked By"
+          },
+          "claim_no": {
+            "title": "Claim No",
+            "type": "integer"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "discrepancy": {
+            "title": "Discrepancy",
+            "type": "boolean"
+          },
+          "expert_confirmed": {
+            "title": "Expert Confirmed",
+            "type": "boolean"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "our_page_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Our Page No"
+          },
+          "our_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Our Quote"
+          },
+          "paragraph_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paragraph Ref"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "their_page_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Their Page Ref"
+          },
+          "their_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Their Quote"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "claim_no",
+          "paragraph_ref",
+          "text_verbatim",
+          "their_quote",
+          "their_page_ref",
+          "our_quote",
+          "our_page_no",
+          "status",
+          "checked_by",
+          "reason",
+          "expert_confirmed",
+          "confirmed_at",
+          "discrepancy",
+          "version"
+        ],
+        "title": "OpposingClaimOut",
+        "type": "object"
+      },
+      "OpposingQueued": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "job_id"
+        ],
+        "title": "OpposingQueued",
+        "type": "object"
+      },
+      "OpposingReport": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/OpposingClaimOut"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "claims_found": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Claims Found"
+          },
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/Position"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "received_on": {
+            "format": "date",
+            "title": "Received On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "document_id",
+          "received_on",
+          "checked_at",
+          "claims_found",
+          "claims",
+          "positions"
+        ],
+        "title": "OpposingReport",
+        "type": "object"
+      },
       "OralInstruction": {
         "properties": {
           "instruction_version_id": {
@@ -6805,6 +8214,30 @@
           "instructing_party"
         ],
         "title": "OverEstimate",
+        "type": "object"
+      },
+      "OwnParagraph": {
+        "properties": {
+          "para_no": {
+            "title": "Para No",
+            "type": "integer"
+          },
+          "paragraph_id": {
+            "format": "uuid",
+            "title": "Paragraph Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paragraph_id",
+          "para_no",
+          "text"
+        ],
+        "title": "OwnParagraph",
         "type": "object"
       },
       "PackChange": {
@@ -7759,6 +9192,36 @@
         "title": "PointsSummary",
         "type": "object"
       },
+      "Position": {
+        "properties": {
+          "own": {
+            "items": {
+              "$ref": "#/components/schemas/OwnParagraph"
+            },
+            "title": "Own",
+            "type": "array"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "theirs": {
+            "items": {
+              "$ref": "#/components/schemas/TheirParagraph"
+            },
+            "title": "Theirs",
+            "type": "array"
+          }
+        },
+        "required": [
+          "question_id",
+          "own",
+          "theirs"
+        ],
+        "title": "Position",
+        "type": "object"
+      },
       "Prefill": {
         "properties": {
           "reading": {
@@ -8257,6 +9720,67 @@
         "title": "QuarantinePage",
         "type": "object"
       },
+      "QuestionChange": {
+        "properties": {
+          "answer_text": {
+            "anyOf": [
+              {
+                "maxLength": 50000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Text"
+          },
+          "citation_refs": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Citation"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Refs"
+          },
+          "classification": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classification"
+          },
+          "paragraph_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "maxItems": 200,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paragraph Ids"
+          }
+        },
+        "title": "QuestionChange",
+        "type": "object"
+      },
       "QuestionOut": {
         "properties": {
           "confirmed_text": {
@@ -8751,6 +10275,116 @@
         "title": "ReplaceAsk",
         "type": "object"
       },
+      "ReportChangeOut": {
+        "properties": {
+          "citation_refs": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citation Refs",
+            "type": "array"
+          },
+          "dependent_paragraph_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Dependent Paragraph Ids",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "new_text": {
+            "title": "New Text",
+            "type": "string"
+          },
+          "old_text": {
+            "title": "Old Text",
+            "type": "string"
+          },
+          "paragraph_id": {
+            "format": "uuid",
+            "title": "Paragraph Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "suggested_dependents": {
+            "items": {
+              "$ref": "#/components/schemas/Dependent"
+            },
+            "title": "Suggested Dependents",
+            "type": "array"
+          },
+          "supplementary_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supplementary Version Id"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "paragraph_id",
+          "kind",
+          "old_text",
+          "new_text",
+          "reason",
+          "citation_refs",
+          "dependent_paragraph_ids",
+          "suggested_dependents",
+          "supplementary_version_id",
+          "version"
+        ],
+        "title": "ReportChangeOut",
+        "type": "object"
+      },
+      "ReportChanges": {
+        "properties": {
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/ReportChangeOut"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "supplementary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Supplementary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "changes",
+          "supplementary"
+        ],
+        "title": "ReportChanges",
+        "type": "object"
+      },
       "ReportOut": {
         "properties": {
           "checklist": {
@@ -9167,6 +10801,122 @@
         "title": "RotateIn",
         "type": "object"
       },
+      "RoundOut": {
+        "properties": {
+          "answers_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answers Version Id"
+          },
+          "deadline_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deadline Id"
+          },
+          "document_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Id"
+          },
+          "extracted_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extracted At"
+          },
+          "from_party_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Party Id"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "received_on": {
+            "format": "date",
+            "title": "Received On",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "number",
+          "from_party_id",
+          "received_on",
+          "document_id",
+          "deadline_id",
+          "answers_version_id",
+          "status",
+          "extracted_at",
+          "version"
+        ],
+        "title": "RoundOut",
+        "type": "object"
+      },
+      "Rounds": {
+        "properties": {
+          "rounds": {
+            "items": {
+              "$ref": "#/components/schemas/RoundOut"
+            },
+            "title": "Rounds",
+            "type": "array"
+          }
+        },
+        "required": [
+          "rounds"
+        ],
+        "title": "Rounds",
+        "type": "object"
+      },
       "SectionIn": {
         "additionalProperties": false,
         "properties": {
@@ -9360,6 +11110,120 @@
           "sent_via"
         ],
         "title": "ServeIn",
+        "type": "object"
+      },
+      "Served": {
+        "properties": {
+          "paragraphs": {
+            "items": {
+              "$ref": "#/components/schemas/ServedParagraph"
+            },
+            "title": "Paragraphs",
+            "type": "array"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ServedVersion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "version",
+          "paragraphs"
+        ],
+        "title": "Served",
+        "type": "object"
+      },
+      "ServedParagraph": {
+        "properties": {
+          "fact_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "para_no": {
+            "title": "Para No",
+            "type": "integer"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "para_no",
+          "text",
+          "fact_ids"
+        ],
+        "title": "ServedParagraph",
+        "type": "object"
+      },
+      "ServedVersion": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "served_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served On"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_no",
+          "display_name",
+          "status",
+          "served_on",
+          "sha256"
+        ],
+        "title": "ServedVersion",
         "type": "object"
       },
       "ServingIn": {
@@ -9759,6 +11623,25 @@
         "title": "SideCount",
         "type": "object"
       },
+      "SignAnswers": {
+        "properties": {
+          "declaration_confirmed": {
+            "title": "Declaration Confirmed",
+            "type": "boolean"
+          },
+          "round_id": {
+            "format": "uuid",
+            "title": "Round Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "round_id",
+          "declaration_confirmed"
+        ],
+        "title": "SignAnswers",
+        "type": "object"
+      },
       "SignInResult": {
         "properties": {
           "mfa_enrolled": {
@@ -9818,6 +11701,18 @@
           "created_at"
         ],
         "title": "Signature",
+        "type": "object"
+      },
+      "Signed": {
+        "properties": {
+          "version": {
+            "$ref": "#/components/schemas/AnswersSignedVersion"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "title": "Signed",
         "type": "object"
       },
       "SignedOut": {
@@ -10345,6 +12240,86 @@
         "title": "Suggestion",
         "type": "object"
       },
+      "Supplementary": {
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "prev_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prev Version Id"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "version_no": {
+            "title": "Version No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "version_no",
+          "display_name",
+          "status",
+          "sha256",
+          "prev_version_id",
+          "locked_at"
+        ],
+        "title": "Supplementary",
+        "type": "object"
+      },
+      "SupplementarySignIn": {
+        "properties": {
+          "declaration_confirmed": {
+            "title": "Declaration Confirmed",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "declaration_confirmed"
+        ],
+        "title": "SupplementarySignIn",
+        "type": "object"
+      },
       "TaskOut": {
         "properties": {
           "calls": {
@@ -10461,6 +12436,24 @@
           "created_at"
         ],
         "title": "Template",
+        "type": "object"
+      },
+      "TheirParagraph": {
+        "properties": {
+          "paragraph_ref": {
+            "title": "Paragraph Ref",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paragraph_ref",
+          "text_verbatim"
+        ],
+        "title": "TheirParagraph",
         "type": "object"
       },
       "TimeOut": {
@@ -11268,7 +13261,7 @@
       "Withdrawn": {
         "properties": {
           "deadlines_cancelled": {
-            "description": "Deadlines stop through the case status; nothing is cancelled here.",
+            "description": "Open deadlines cancelled by the slices that own them (CaseWithdrawn).",
             "title": "Deadlines Cancelled",
             "type": "integer"
           },
@@ -11457,6 +13450,174 @@
           "url"
         ],
         "title": "WorkspaceGuidance",
+        "type": "object"
+      },
+      "WrittenQuestionOut": {
+        "properties": {
+          "answer_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer Text"
+          },
+          "citation_refs": {
+            "items": {
+              "$ref": "#/components/schemas/Citation"
+            },
+            "title": "Citation Refs",
+            "type": "array"
+          },
+          "classification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Classification"
+          },
+          "classification_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A short label from the suggestion, never prose.",
+            "title": "Classification Reason"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "paragraph_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Paragraph Ids",
+            "type": "array"
+          },
+          "round_id": {
+            "format": "uuid",
+            "title": "Round Id",
+            "type": "string"
+          },
+          "rule_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Ref"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "suggested_classification": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Suggested Classification"
+          },
+          "suggested_paragraph_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Suggested Paragraph Ids",
+            "type": "array"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          },
+          "told_instructing_party_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Told Instructing Party At"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "round_id",
+          "number",
+          "para_ref",
+          "rule_ref",
+          "text_verbatim",
+          "status",
+          "suggested_classification",
+          "classification_reason",
+          "classification",
+          "suggested_paragraph_ids",
+          "paragraph_ids",
+          "answer_text",
+          "citation_refs",
+          "told_instructing_party_at",
+          "version"
+        ],
+        "title": "WrittenQuestionOut",
+        "type": "object"
+      },
+      "WrittenQuestions": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/WrittenQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "questions"
+        ],
+        "title": "WrittenQuestions",
         "type": "object"
       },
       "app__core__routes__auth__SignIn": {
@@ -13202,6 +15363,386 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/court-directions": {
+      "get": {
+        "operationId": "list_directions_v1_cases__case_id__court_directions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Directions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Directions",
+        "tags": [
+          "after_serving"
+        ]
+      },
+      "post": {
+        "operationId": "add_direction_v1_cases__case_id__court_directions_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDirection"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DirectionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Direction",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/deadlines": {
+      "get": {
+        "operationId": "list_deadlines_v1_cases__case_id__deadlines_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Deadlines"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Deadlines",
+        "tags": [
+          "after_serving"
+        ]
+      },
+      "post": {
+        "operationId": "create_deadline_v1_cases__case_id__deadlines_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewDeadline"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadlineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Create Deadline",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/deadlines/{deadline_id}": {
+      "patch": {
+        "operationId": "change_deadline_v1_cases__case_id__deadlines__deadline_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deadline_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deadline Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeadlineChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadlineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Deadline",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/deadlines/{deadline_id}/changes": {
+      "get": {
+        "operationId": "deadline_changes_v1_cases__case_id__deadlines__deadline_id__changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "deadline_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Deadline Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadlineChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Deadline Changes",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/deletion-certificate": {
       "get": {
         "description": "The certificate as JSON, or as a PDF (`?format=pdf` or `Accept: application/pdf`).",
@@ -14518,6 +17059,209 @@
         "summary": "Decide",
         "tags": [
           "understand"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/hearings": {
+      "get": {
+        "operationId": "list_hearings_v1_cases__case_id__hearings_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Hearings"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Hearings",
+        "tags": [
+          "after_serving"
+        ]
+      },
+      "post": {
+        "operationId": "add_hearing_v1_cases__case_id__hearings_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewHearing"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HearingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Hearing",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/hearings/{hearing_id}": {
+      "patch": {
+        "operationId": "change_hearing_v1_cases__case_id__hearings__hearing_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "hearing_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Hearing Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HearingChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HearingOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Hearing",
+        "tags": [
+          "after_serving"
         ]
       }
     },
@@ -16246,6 +18990,112 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/new-since-served": {
+      "get": {
+        "operationId": "new_since_served_v1_cases__case_id__new_since_served_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewSinceServed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "New Since Served",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/new-since-served/check": {
+      "post": {
+        "operationId": "check_new_pages_v1_cases__case_id__new_since_served_check_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Check New Pages",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/opinions/{opinion_id}/versions": {
       "get": {
         "description": "Every saved version of the opinion, newest first.",
@@ -16396,6 +19246,221 @@
         "summary": "Restore Version",
         "tags": [
           "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/opposing-claims/{claim_id}": {
+      "patch": {
+        "operationId": "change_claim_v1_cases__case_id__opposing_claims__claim_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Claim Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OpposingClaimChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpposingClaimOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Claim",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/opposing-reports": {
+      "post": {
+        "operationId": "register_opposing_report_v1_cases__case_id__opposing_reports_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewOpposingReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpposingQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Register Opposing Report",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/opposing-reports/{document_id}": {
+      "get": {
+        "operationId": "opposing_report_v1_cases__case_id__opposing_reports__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpposingReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Opposing Report",
+        "tags": [
+          "after_serving"
         ]
       }
     },
@@ -19277,6 +22342,323 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/report-changes": {
+      "get": {
+        "operationId": "list_changes_v1_cases__case_id__report_changes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportChanges"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Changes",
+        "tags": [
+          "after_serving"
+        ]
+      },
+      "post": {
+        "operationId": "add_change_v1_cases__case_id__report_changes_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Made"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Add Change",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report-changes/supplementary": {
+      "post": {
+        "operationId": "build_supplementary_v1_cases__case_id__report_changes_supplementary_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Build Supplementary",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report-changes/{change_id}": {
+      "get": {
+        "operationId": "get_change_v1_cases__case_id__report_changes__change_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Change Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportChangeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Change",
+        "tags": [
+          "after_serving"
+        ]
+      },
+      "patch": {
+        "operationId": "edit_change_v1_cases__case_id__report_changes__change_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "change_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Change Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeEdit"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportChangeOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Edit Change",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/report/build": {
       "post": {
         "operationId": "build_report_v1_cases__case_id__report_build_post",
@@ -19745,6 +23127,59 @@
         "summary": "Save Section",
         "tags": [
           "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/served": {
+      "get": {
+        "operationId": "served_report_v1_cases__case_id__report_served_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Served"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Served Report",
+        "tags": [
+          "after_serving"
         ]
       }
     },
@@ -20218,6 +23653,79 @@
         "summary": "Add Serving",
         "tags": [
           "report"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/report/versions/{version_id}/sign": {
+      "post": {
+        "operationId": "sign_supplementary_v1_cases__case_id__report_versions__version_id__sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupplementarySignIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Signed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Sign Supplementary",
+        "tags": [
+          "after_serving"
         ]
       }
     },
@@ -21563,6 +25071,469 @@
         "summary": "Compare",
         "tags": [
           "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/written-question-rounds": {
+      "get": {
+        "operationId": "list_rounds_v1_cases__case_id__written_question_rounds_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Rounds"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Rounds",
+        "tags": [
+          "after_serving"
+        ]
+      },
+      "post": {
+        "operationId": "open_round_v1_cases__case_id__written_question_rounds_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewRound"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RoundOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Open Round",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/written-questions": {
+      "get": {
+        "operationId": "list_questions_v1_cases__case_id__written_questions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "round_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Round Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WrittenQuestions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Questions",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/written-questions/answers/sign": {
+      "post": {
+        "operationId": "sign_answers_v1_cases__case_id__written_questions_answers_sign_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignAnswers"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Signed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Sign Answers",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/written-questions/import": {
+      "post": {
+        "operationId": "import_questions_v1_cases__case_id__written_questions_import_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Queued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Import Questions",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/written-questions/{question_id}": {
+      "patch": {
+        "operationId": "change_question_v1_cases__case_id__written_questions__question_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "if-match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-Match"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/QuestionChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WrittenQuestionOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Question",
+        "tags": [
+          "after_serving"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/written-questions/{question_id}/tell-instructing-party": {
+      "post": {
+        "description": "A note for the instructing party that a question may go beyond clarifying the report. Keys and\nnumbers only: the screen writes it out, with no words of the question or the records.",
+        "operationId": "tell_instructing_party_v1_cases__case_id__written_questions__question_id__tell_instructing_party_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Tell Instructing Party",
+        "tags": [
+          "after_serving"
         ]
       }
     },

@@ -25,7 +25,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | settled → archived | Expert (`case.archive`) or 30 days after settled (daily close run) | — | Read-only; `settled_at` kept |
 | archived → active | Expert "Reopen" (`case.reopen`) | Before `delete_after`; no legal hold needed | Audit; `settled_at` cleared |
 | settled → active | Expert "Reopen" (`case.reopen`; settlement fell through, new questions) | Before `delete_after` | Retention clock stops (`settled_at` cleared); restarts from the latest settlement |
-| draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties. The reason is kept encrypted in `case_withdrawals`; withdrawing twice returns 409. Slice C moves the status; the slices that own deadlines read `withdrawn` (nothing is cancelled by C), and slice H starts the retention clock (`delete_after` needs `case.retention`) |
+| draft/processing/active/served → withdrawn | `POST …/withdraw` 🔒 `{reason}` (expert withdrew, discharged, evidence not permitted, conflict) | — | Served reports stay locked; deadlines cancelled; retention clock starts; draft note to instructing parties. The reason is kept encrypted in `case_withdrawals`; withdrawing twice returns 409. Slice C moves the status and publishes `CaseWithdrawn`; slice G cancels the case's open deadlines and C reports how many (`deadlines_cancelled`), and slice H starts the retention clock (`delete_after` needs `case.retention`) |
 | withdrawn → archived | Expert or 30 days after | — | Read-only |
 | any → deleted | **Blocked** while an active `legal_holds` row exists | — | Deletion job skips the case and notifies the named expert |
 
@@ -199,7 +199,7 @@ open (received) → answered (every question answered) → served (answers serve
 
 ## Opposing claim (`opposing_claims.status`)
 
-unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited.
+unchecked → matches / wrong_page / wrong_value / not_on_page / contradicted (worker) → confirmed by the expert (`expert_confirmed`). The expert can change any result; each change is audited. `read_first` is not a stored status: the API shows it in place of the result (with no quote of ours or reason) until that viewer has read the evidence page, and confirming then is 409 `read_first` (rule 3).
 
 ## Session (`sessions`)
 `aal1` (password only) → `aal2` (authenticator code entered) → revoked. Revoked is final: signed out, signed out everywhere, idle (30 minutes), too old (12 hours) or password reset. Entering a code again keeps `aal2` and restarts the 10-minute step-up window; the cookie changes each time.
@@ -218,6 +218,10 @@ pending → accepted (by the invited email, before `expires_at`) / cancelled (ow
 ## Hearing (`hearings.status`)
 
 scheduled → heard / vacated / adjourned. adjourned sets `replaced_by_hearing_id` to a new scheduled hearing. heard, vacated and adjourned are terminal. Changing a hearing marks its trial packs and offline packages `stale`.
+
+## Deadline (`deadlines`)
+
+open → done (`done_at`, answers served or marked done) / cancelled (`cancelled_at`, set when the case is withdrawn, through `CaseWithdrawn`). Cancelled is terminal and never cleared: it cannot be moved or marked done or undone (409 `cancelled`; `deadlines_guard` refuses any change), and a court direction never picks it up. Done and cancelled deadlines get no reminders. A settled, withdrawn, archived or deleted case gets no new pack deadlines (route and `app.after_serving_pack_deadline`, migration 0702).
 
 ## Legal hold (`legal_holds`)
 
