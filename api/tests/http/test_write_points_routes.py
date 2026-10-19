@@ -106,7 +106,7 @@ async def test_the_sides_and_their_labels_come_from_the_pack(
     if combo is LAUNCH:
         assert combo.word("clinician") in listed["sides"][1]["label"]
     prompt = default_library().combine(*combo.codes).range_note_prompt()
-    assert listed["range_note"] == {"prompt": prompt, "text": None, "version": 0}
+    assert listed["range_note"] == {"prompt": prompt, "text": None, "version": 0, "dictated_on": None}
 
 
 async def test_flagged_facts_come_first_then_by_side_and_unused_facts_are_listed(

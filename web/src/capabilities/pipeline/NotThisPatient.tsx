@@ -1,7 +1,7 @@
 // Screen 30, not this patient's record: pages whose name or date of birth differ from the case. The
 // named expert decides each one; set-aside pages can be undone until the API deletes them.
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -21,6 +21,8 @@ export function NotThisPatient() {
   const { item, pack } = useCaseFrame();
   const caseId = item.id;
   const navigate = useNavigate();
+  const [search] = useSearchParams();
+  const asked = Number(search.get("page"));
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", casePath(caseId))), [caseId]);
   const [pages, setPages] = useState<Q[] | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
@@ -33,11 +35,19 @@ export function NotThisPatient() {
   const party = partyWord(pack, item);
 
   useEffect(() => {
-    if (found.data) {
-      const s = found.data;
-      setPages([...(s.quarantine_suggestions ?? []).filter((q) => q.status === "suggested"), ...(s.quarantined ?? []).filter((q) => SHOWN.has(q.status))]);
-    }
-  }, [found.data]);
+    if (!found.data) return;
+    const s = found.data;
+    const listed = [...(s.quarantine_suggestions ?? []).filter((q) => q.status === "suggested"), ...(s.quarantined ?? []).filter((q) => SHOWN.has(q.status))];
+    setPages(listed);
+    if (!Number.isInteger(asked) || asked < 1 || listed.some((q) => q.page_no === asked)) return;
+    let current = true;
+    unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: asked } } }))
+      .then((p) => current && setPages([...listed, { page_id: p.page_id, page_no: p.page_no, status: "suggested", reason: "", job_id: null }]))
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [found.data, asked, caseId]);
 
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!pages) return <div className="av-page"><Loading /></div>;

@@ -20,7 +20,15 @@ from pydantic import BaseModel
 from app.core.contracts.facts import Fact
 from app.core.http import DbConn
 from app.features.write import services
-from app.features.write.common import Crypto, View, case_pack, citable, require_question
+from app.features.write.common import (
+    Crypto,
+    QuestionHeader,
+    View,
+    case_pack,
+    citable,
+    question_header,
+    require_question,
+)
 from app.features.write.lint_store import open_issues
 from app.features.write.ports import WorkspaceGuidance
 from app.features.write.router import router
@@ -64,6 +72,7 @@ class Workspace(BaseModel):
     views: list[OpinionView]
     legal_test: str
     opinion: OpinionOut | None
+    question: QuestionHeader
 
 
 @router.get("/cases/{case_id}/questions/{question_id}/workspace", response_model=Workspace)
@@ -112,6 +121,7 @@ async def workspace(
         views=[OpinionView(**v) for v in pack.opinion_views()],
         legal_test=pack.legal_tests(),
         opinion=await _opinion(conn, crypto, case_id, question_id, facts),
+        question=await question_header(conn, pack, case_id, question_id),
     )
 
 

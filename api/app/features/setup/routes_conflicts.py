@@ -60,6 +60,7 @@ class Conflicts(BaseModel):
     complete: bool
     paragraph: str | None = Field(description="The conflicts paragraph of the report, once every question is answered.")
     coverage: Coverage
+    coverage_question: str | None = Field(default=None, description="The specialty's role-coverage question.")
     warnings: list[str] = Field(description="i18n keys.")
     declared_at: datetime | None
     outcome: Literal["none", "disclosed"] | None
@@ -156,6 +157,9 @@ async def _state(request: Request, conn: DbConn, crypto: Any, case_id: uuid.UUID
         complete=all(q.answer is not None for q in questions),
         paragraph=_paragraph(pack, questions),
         coverage=coverage,
+        coverage_question=_fill(pack, str(pack.vocabulary["coverage_question"]))
+        if isinstance(pack.vocabulary.get("coverage_question"), str)
+        else None,
         warnings=warnings,
         declared_at=declared[0] if declared else None,
         outcome=declared[1] if declared else None,

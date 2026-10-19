@@ -49,7 +49,7 @@ describe.each([
   test("Ask for a clearer copy marks the page", async () => {
     const api = mockReader(pack);
     const { user } = renderAt(PATH);
-    await user.click(await screen.findByRole("button", { name: "Ask for a clearer copy" }));
+    await user.click(await screen.findByRole("button", { name: "I can't read it either: ask for a clearer copy" }));
     await waitFor(() => expect(api.patches).toEqual([{ page: 612, body: { needs_clearer_copy: true } }]));
     expect(await screen.findByText(/clearer copy is on your list/)).toBeVisible();
   });

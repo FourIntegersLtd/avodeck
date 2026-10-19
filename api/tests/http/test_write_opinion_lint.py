@@ -74,7 +74,10 @@ async def test_a_save_returns_the_warnings_in_the_saved_text(client_for: ClientF
         (1, "uncited_fact", "3", "regex", "open"),
         (2, "loaded_language", loaded(combo), "regex", "open"),
     ]
-    assert all(set(i) == {"id", "sentence_index", "type", "words", "source", "status"} for i in out["lint"])
+    assert all(
+        set(i) == {"id", "sentence_index", "sentence_start", "sentence_end", "type", "words", "source", "status"}
+        for i in out["lint"]
+    )
 
 
 async def test_every_save_finds_the_warnings_again(

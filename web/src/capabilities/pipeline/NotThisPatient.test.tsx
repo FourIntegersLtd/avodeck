@@ -131,4 +131,31 @@ describe.each([
     await waitFor(() => expect(container.querySelectorAll(".av-page-ref").length).toBeGreaterThan(0));
     expect(screen.getByRole("link", { name: "Your bundle" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle`);
   });
+
+  test("?page= adds exactly that page so the expert can say it is not the patient's", async () => {
+    mock(pack, { suggestions: [] });
+    const posted: string[] = [];
+    server.use(
+      http.get(`/v1/cases/${CASE_ID}/pages/7`, () => json({ page_id: pageId(7), page_no: 7 })),
+      http.post(`/v1/cases/${CASE_ID}/pages/:pageId/quarantine`, ({ params }) => {
+        posted.push(String(params.pageId));
+        return json({ ...suggested(7), status: "confirmed" });
+      }),
+      http.post(`/v1/cases/${CASE_ID}/instructing-party-requests/draft`, () => json(draft({ label: packWords(pack).askLabel }))),
+    );
+    const { user } = renderAt(`${PATH}?page=7`);
+    await user.click(within(await screen.findByRole("heading", { name: "p.7" }).then((h) => h.closest("li")!)).getByRole("button", { name: "Not Mrs A's" }));
+    await user.click(screen.getByRole("button", { name: "Set aside 1 page and draft the note" }));
+    await waitFor(() => expect(posted).toEqual([pageId(7)]));
+  });
+
+  test("?page= for a page already listed does not add it twice and fetches nothing", async () => {
+    mock(pack);
+    let fetched = false;
+    server.use(http.get(`/v1/cases/${CASE_ID}/pages/412`, () => ((fetched = true), json({ page_id: pageId(412), page_no: 412 }))));
+    renderAt(`${PATH}?page=412`);
+    await screen.findByRole("heading", { name: "p.412" });
+    expect(screen.getAllByRole("heading", { name: "p.412" })).toHaveLength(1);
+    expect(fetched).toBe(false);
+  });
 });

@@ -30,6 +30,7 @@
   cell's current model; earlier unverified suggestions are superseded, verified facts never change.
 
 - `GET /v1/cases/{id}/duplicates`: each page set aside as a copy, the page it copies and its review.
+- `PUT /v1/cases/{id}/pages/{page_id}/duplicate` `{copy_of_page_no}`: sets a page aside as a copy of another.
 - `PATCH /v1/cases/{id}/pages/{page_id}/duplicate` (If-Match): `confirm` keeps it set aside; `undo`
   restores the page with everything found on it, and it is never set aside again (F13).
 - `GET /v1/cases/{id}/pages/{page_no}/thumbnail`: the page's small picture, never cached.
@@ -67,6 +68,7 @@ from app.features.pipeline.schemas import (
     DuplicatePage,
     DuplicateReview,
     Duplicates,
+    DuplicateSetAside,
     Exhibit,
     Exhibits,
     ForeignPage,
@@ -149,6 +151,43 @@ async def review_duplicate(
     if moved is None:
         raise stale()
     await audit.record(conn, action=action, target=f"page:{page_id}", case_id=case_id)
+    after = await repo.copy_review(conn, case_id, page_id)
+    assert after is not None
+    response.headers["etag"] = etag(moved)
+    return _page(after)
+
+
+@pipeline_router.put("/{case_id}/pages/{page_id}/duplicate", response_model=DuplicatePage)
+async def set_aside_page(
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("page.review_duplicate"))],
+    body: DuplicateSetAside,
+    conn: DbConn,
+    scope: CurrentScope,
+    response: Response,
+) -> DuplicatePage:
+    """Set a page aside as a copy of another; the named expert confirms, an assistant only suggests."""
+    page = await repo.copy_review(conn, case_id, page_id)
+    original_id = await repo.page_id_of(conn, case_id, body.copy_of_page_no)
+    if page is None or original_id is None:
+        raise _not_found()
+    if original_id == page_id:
+        raise ApiError("invalid", "A page cannot be a copy of itself.", 422)
+    if (await repo.copy_review(conn, case_id, original_id) or page).copy_of_page_id is not None:
+        raise ApiError("conflict", "That page is itself a copy.", 409)
+    decided = _decides(access)
+    moved = await repo.set_aside_as_copy(
+        conn, page_id, original_id, "confirmed" if decided else "suggested", scope.person_id
+    )
+    if moved is None:
+        raise _not_found()
+    await audit.record(
+        conn,
+        action="page.duplicate_set_aside" if decided else "page.duplicate_suggested",
+        target=f"page:{page_id}",
+        case_id=case_id,
+    )
     after = await repo.copy_review(conn, case_id, page_id)
     assert after is not None
     response.headers["etag"] = etag(moved)

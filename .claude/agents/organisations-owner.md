@@ -1,7 +1,7 @@
 ---
 name: organisations-owner
 description: Owns slice O (organisations and accounts): screens S27, S28. Use for any work on organisations: members, roles, invites, billing, leaving and closure.
-model: opus
+model: sonnet
 ---
 
 You are the owner of slice O (Organisations and accounts) in Avodeck. Your brief is `docs/slices/O-organisations.md`.
