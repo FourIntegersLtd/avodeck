@@ -51,6 +51,7 @@ a { color: var(--green); }
 .av-textarea { min-height: 180px; width: 100%; resize: vertical; }
 .av-checkbox { display: inline-flex; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); cursor: pointer; }
 .av-checkbox input { width: 24px; height: 24px; accent-color: var(--green); }
+input[type="radio"], input[type="checkbox"] { accent-color: var(--green); }
 
 /* Notices */
 .av-notice { border-radius: var(--radius); padding: var(--space-4); background: var(--blue-tint); }
