@@ -53,7 +53,9 @@
 @media (max-width: 1100px) { .rp-report { grid-template-columns: 1fr; } }
 .rp-contents { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-large); padding: 10px; display: flex; flex-direction: column; }
 .rp-contents__list { list-style: none; margin: 0; padding: 0; }
-.rp-contents__row { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--button-min-height); padding: 8px 12px; border: 0; border-radius: 10px; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.rp-contents__row { display: flex; align-items: center; gap: var(--space-2); min-height: var(--button-min-height); padding: 0 12px; border-radius: 10px; }
+.rp-contents__no { flex: none; }
+.rp-contents__name { flex: 1; align-self: stretch; min-height: var(--button-min-height); padding: 0; border: 0; background: none; font: inherit; color: inherit; font-weight: inherit; text-align: left; cursor: pointer; }
 .rp-contents__row:hover { background: var(--surface-soft); }
 .rp-contents__row--on { background: var(--green-tint); color: var(--green-dark); font-weight: 700; }
 .rp-contents__progress { color: var(--amber); font-weight: 700; }

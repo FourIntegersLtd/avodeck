@@ -155,20 +155,19 @@ function Contents({ sections, selected, onChoose, appendices }: { sections: Repo
           const isDone = section.written || section.generated;
           const partway = section.total != null && section.done != null && section.done < section.total;
           return (
-            <li key={section.key} aria-label={name}>
-              <button type="button" className={`rp-contents__row${section.key === selected ? " rp-contents__row--on" : ""}`} aria-current={section.key === selected ? "true" : undefined} aria-label={name} onClick={() => onChoose(section.key)}>
-                <span aria-hidden="true"><span>{index + 1}</span> <span>{name}</span></span>
-                {partway ? (
-                  <span className="rp-contents__progress">{w("report.progress", { done: section.done ?? 0, total: section.total ?? 0 })}</span>
-                ) : isDone ? (
-                  <>
-                    <TickIcon />
-                    <span className="av-visually-hidden">{w("report.section.done")}</span>
-                  </>
-                ) : (
-                  <span className="rp-contents__todo">{w("report.section.todo")}</span>
-                )}
-              </button>
+            <li key={section.key} aria-label={name} className={`rp-contents__row${section.key === selected ? " rp-contents__row--on" : ""}`}>
+              <span className="rp-contents__no" aria-hidden="true">{index + 1}</span>{" "}
+              <button type="button" className="rp-contents__name" aria-current={section.key === selected ? "true" : undefined} onClick={() => onChoose(section.key)}>{name}</button>
+              {partway ? (
+                <span className="rp-contents__progress">{w("report.progress", { done: section.done ?? 0, total: section.total ?? 0 })}</span>
+              ) : isDone ? (
+                <>
+                  <TickIcon />
+                  <span className="av-visually-hidden">{w("report.section.done")}</span>
+                </>
+              ) : (
+                <span className="rp-contents__todo">{w("report.section.todo")}</span>
+              )}
             </li>
           );
         })}

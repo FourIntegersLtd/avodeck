@@ -156,7 +156,7 @@ function Failed({ caseId, result }: { caseId: string; result: Result }) {
       <AlertIcon />
       <div className="rp-fix__text">
         <p id={id} className="rp-fix__title">{nameOf(result)}</p>
-        {result.count > 0 && <p className="rp-fix__why">{w("check.count", { count: result.count })}</p>}
+        {result.count > 1 && <p className="rp-fix__why">{w("check.count", { count: result.count })}</p>}
       </div>
       {to && <LinkButton to={to}>{w("check.fix")}</LinkButton>}
     </li>

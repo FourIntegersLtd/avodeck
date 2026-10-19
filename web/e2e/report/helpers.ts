@@ -33,6 +33,7 @@ export async function stubReport(page: Page, pack: Pack, stub: Stub = {}) {
   const checklist = (pack.compliance_checklist as unknown as { items: Array<{ key: string; text?: string; text_key?: string }> }).items;
   const steps = (pack.workflow_steps as Array<{ key: string }>).map((s) => s.key);
   const party = (pack.instructing_party_types as Array<{ key: string }>)[0]!.key;
+  const partyLabel = (pack.instructing_party_types as Array<{ label?: string }>)[0]!.label ?? "";
   const version = { id: VERSION, version_no: 1, type: "report", display_name: "Draft 1", status, created_at: "2026-10-18T09:00:00Z", page_count: 31, citation_style: "page", template_fallback: false };
   const fix = { screen: "opinion", item: "q4" };
   const check = (): Schemas["FinalCheckOut"] => {
@@ -95,7 +96,7 @@ export async function stubReport(page: Page, pack: Pack, stub: Stub = {}) {
     if (path === `${c}/report/versions/${VERSION}/servings`) return json(route, { servings: [{ id: "s1", served_on: "2026-11-28", sent_via: "email", created_at: "2026-11-28T10:00:00Z", recipient_party_id: null, correction_of: null, reason: null }] });
     if (path === `${c}/time`) {
       return json(route, {
-        adjusted: false, total_seconds: 72900, estimate_hours: "22.00", over_estimate: null, instructing_party: "the other party",
+        adjusted: false, total_seconds: 72900, estimate_hours: "22.00", over_estimate: null, instructing_party: partyLabel,
         stages: steps.map((stage, i) => ({ stage, seconds: [34800, 11400, 22800, 3900][i % 4]!, estimate_hours: null, estimate_fee: null })),
       });
     }

@@ -103,11 +103,11 @@ function Workspace({ caseId }: { caseId: string }) {
       <div className="rp-grid">
         <TimeCard caseId={caseId} />
         {list.length === 0 ? (
-          <section className="rp-paper rp-paper--empty" aria-label={w("invoice.paper_title")}>
+          <article className="rp-paper rp-paper--empty" aria-label={w("invoice.paper_title")}>
             <h3 className="rp-paper__title">{w("invoice.paper_title")}</h3>
             <p className="av-muted">{w("invoice.none")}</p>
             <TextField label={w("invoice.expenses")} name="expenses" inputMode="decimal" value={expenses} onChange={(e) => setExpenses(e.target.value)} />
-          </section>
+          </article>
         ) : (
           list.map((invoice) => (
             <InvoicePaper key={invoice.id} caseId={caseId} invoice={invoice} from={from} caseLabel={caseLabel} act={act} download={invoice === latest ? null : pdf(invoice)} />

@@ -193,7 +193,7 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
         </section>
       </div>
       <section className="rp-card" aria-labelledby="decl-title">
-        <h2 id="decl-title" className="rp-card__title">{declarationName ?? w("sign.declaration")}</h2>
+        <h2 id="decl-title" className="rp-card__title">{declarationName ? declarationName.charAt(0).toUpperCase() + declarationName.slice(1) : w("sign.declaration")}</h2>
         <div className="rp-declaration">
           {declarations.map((d) =>
             (d.text ?? "").split("\n\n").map((part) => (
