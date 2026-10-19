@@ -327,7 +327,7 @@ async def test_the_opinion_section_counts_answered_questions(
 async def test_paragraphs_are_the_built_reports_words_as_text(
     client_for: ClientFor, worker_db: Database, world: World
 ) -> None:
-    """Screen 16's text preview: read-only, one section at a time, nothing before a build, and the same people as the report."""
+    """Screen 16's text preview: read-only, one section at a time, nothing before a build, same people as the report."""
     client = await client_for(world.expert)
     assert (await client.get(world.url("report/paragraphs"))).status_code == 404, "nothing built yet"
     await build_now(client_for, worker_db, world)
