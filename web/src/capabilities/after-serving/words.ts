@@ -51,7 +51,7 @@ const WORDS = {
   "served.meeting_out_for_signature": "Out for signature",
   "served.meeting_signed": "Signed",
   "served.meeting_signed_external": "Signed",
-  "served.step_bundle": "Trial bundle",
+  "served.step_bundle": "Bundle",
   "served.bundle_built": "Built {{date}}",
   "served.bundle_stale": "Out of date. Build it again.",
   "served.bundle_none": "Not built yet",

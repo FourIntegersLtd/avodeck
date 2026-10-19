@@ -1,4 +1,4 @@
-"""Screen 19: the experts' discussion and trial bundle steps, read from the trial slice through its contract."""
+"""Screen 19: the experts' discussion and trial pack steps, read from the trial slice through its contract."""
 
 from __future__ import annotations
 

@@ -7,7 +7,7 @@ import { api, unwrap } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { Button, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
-import { keyName, longDate, dayMonth, shortDate, useLocale } from "./shared";
+import { capitalise, keyName, longDate, dayMonth, shortDate, useLocale } from "./shared";
 import { w } from "./words";
 
 export function ServedScreen() {
@@ -120,7 +120,7 @@ export function ServedScreen() {
             <li className="av-after-timeline__item">
               {(() => {
                 const to = screenPath("trial_pack", { caseId });
-                const name = w("served.step_bundle");
+                const name = capitalise(String((pack.vocabulary as Record<string, unknown>).court_bundle ?? "")) || w("served.step_bundle");
                 return to ? <Link to={to}><strong>{name}</strong></Link> : <strong>{name}</strong>;
               })()}
               <span className="av-after-mono">
