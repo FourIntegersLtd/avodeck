@@ -74,12 +74,15 @@ function serve(opts: { item?: Schemas["Case"]; close?: Schemas["CloseSummary"]; 
   return { sent, record };
 }
 
+// The app shell supplies the page's one main landmark; the screen renders inside it.
 function renderClose() {
   return renderUi(
     <MemoryRouter initialEntries={[`/cases/${CASE_A}/close`]}>
-      <Routes>
-        <Route path="cases/:caseId/close" element={<Close />} />
-      </Routes>
+      <main id="main">
+        <Routes>
+          <Route path="cases/:caseId/close" element={<Close />} />
+        </Routes>
+      </main>
     </MemoryRouter>,
   );
 }
@@ -94,6 +97,22 @@ test("a settled case shows the three decisions with the pack's years, and passes
   const keep = screen.getByRole("radio", { name: new RegExp(`${launchPack.retention_years}`) });
   expect(keep).toBeChecked();
   expect(screen.getAllByText(/2033/).length).toBeGreaterThan(0); // the certificate preview and the scheduled line both show it
+  expect(await axeViolations(container)).toEqual([]);
+});
+
+test("inside the app shell's main area it adds no second main landmark", async () => {
+  serve();
+  const { container } = renderUi(
+    <MemoryRouter initialEntries={[`/cases/${CASE_A}/close`]}>
+      <main id="main">
+        <Routes>
+          <Route path="cases/:caseId/close" element={<Close />} />
+        </Routes>
+      </main>
+    </MemoryRouter>,
+  );
+  await screen.findByRole("heading", { level: 1, name: CLOSE_MESSAGES["close.heading.settled"] });
+  expect(screen.getAllByRole("main")).toHaveLength(1);
   expect(await axeViolations(container)).toEqual([]);
 });
 

@@ -4322,6 +4322,10 @@
               }
             ],
             "title": "Received On"
+          },
+          "unreadable_reason": {
+            "title": "Unreadable Reason",
+            "type": "string"
           }
         },
         "required": [
@@ -13049,6 +13053,23 @@
               "type": "integer"
             },
             "title": "Translation Page Nos",
+            "type": "array"
+          },
+          "unreadable_document_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Unreadable Document Ids",
+            "type": "array"
+          },
+          "unreadable_document_names": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Unreadable Document Names",
             "type": "array"
           }
         },

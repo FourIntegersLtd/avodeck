@@ -333,6 +333,8 @@ def _document(d: repo.DocumentRow) -> Document:
     if d.media_type is not None:  # known once the file has been sniffed (when it is cut into pages)
         out["media_type"] = d.media_type
         out["part_of"] = d.part_of
+    if d.unreadable_reason is not None:
+        out["unreadable_reason"] = d.unreadable_reason
     return out
 
 
@@ -488,12 +490,13 @@ async def draft_request(
         )
         lines.append(f"- {clean(words.decode())} ({item.citing_page_no})")
     unreadable = await repo.clearer_copy_pages(conn, case_id)
+    unopened = await repo.unopened_documents(conn, case_id)
     foreign = await repo.foreign_pages(conn, case_id, pack.language)
     label, expert = await repo.request_wording_facts(conn, case_id)
     wording = pack.instructing_party_request(
         case_reference=clean(label),
         missing_items="\n".join(lines) or "-",
-        clearer_copies="\n".join(f"- {n}" for _, n in unreadable) or "-",
+        clearer_copies="\n".join([*(f"- {n}" for _, n in unreadable), *(f"- {clean(f)}" for _, f in unopened)]) or "-",
         expert_name=expert,
     )
     notes = []
@@ -520,6 +523,8 @@ async def draft_request(
         missing_item_ids=[i.id for i in items],
         clearer_copy_page_ids=[p for p, _ in unreadable],
         clearer_copy_page_nos=[n for _, n in unreadable],
+        unreadable_document_ids=[i for i, _ in unopened],
+        unreadable_document_names=[clean(f) for _, f in unopened],
         translation_page_ids=[p for p, _, _ in foreign],
         translation_page_nos=[n for _, n, _ in foreign],
         extension=extension,

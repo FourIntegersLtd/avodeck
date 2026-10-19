@@ -118,6 +118,8 @@ export function draft(over: Partial<Schemas["RequestDraft"]> = {}): Schemas["Req
     clearer_copy_page_nos: [612],
     translation_page_ids: [],
     translation_page_nos: [],
+    unreadable_document_ids: [],
+    unreadable_document_names: [],
     ...over,
   };
 }

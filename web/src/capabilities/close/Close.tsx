@@ -83,7 +83,7 @@ export function Close() {
       subtitle={`${caseSubtitle(item.data, pack.data)} · ${w(`status.${status}` as CloseKey)}`}
       person={person}
     />
-    <main className="av-page av-stack av-close">
+    <div className="av-page av-stack av-close">
       <div className="av-close-title">
         {!deleted && (
           <span className="av-close-title__mark" aria-hidden="true">
@@ -121,7 +121,7 @@ export function Close() {
           {!summary.deletion_started && <Closing party={partyWord(pack.data, item.data.instructing_party_type)} caseId={caseId} status={summary.status} can={can} onDone={refresh} setMessage={setMessage} />}
         </>
       )}
-    </main>
+    </div>
     </>
   );
 }
@@ -530,7 +530,7 @@ function Closing(props: { party: string | null; caseId: string; status: string; 
 
 function Arrow() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginLeft: 10 }}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+    <svg className="av-close-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
   );
 }
 

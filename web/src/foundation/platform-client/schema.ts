@@ -5783,6 +5783,8 @@ export interface components {
             part_of?: string | null;
             /** Received On */
             received_on: string | null;
+            /** Unreadable Reason */
+            unreadable_reason?: string;
         };
         /** Download */
         Download: {
@@ -8817,6 +8819,16 @@ export interface components {
              * @default []
              */
             translation_page_nos: number[];
+            /**
+             * Unreadable Document Ids
+             * @default []
+             */
+            unreadable_document_ids: string[];
+            /**
+             * Unreadable Document Names
+             * @default []
+             */
+            unreadable_document_names: string[];
         };
         /**
          * RequestDraftAsk

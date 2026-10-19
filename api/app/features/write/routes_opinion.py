@@ -27,7 +27,7 @@ from app.core.contracts.opinions import TEST_TEXT_PURPOSE
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag
 from app.core.packs import MergedPack
-from app.features.write.citations import Citation, changed_citations, check_citations
+from app.features.write.citations import Citation, changed_citations, check_citations, stamp_versions
 from app.features.write.common import Crypto, View, Write, case_pack, citable, invalid, not_found, require_question
 from app.features.write.lint_regex import lint, sentences
 from app.features.write.lint_store import BODY, LintIssueOut, dismissed_issues, lint_purpose, open_issues
@@ -233,7 +233,9 @@ async def save_opinion(
     current = await _current(conn, case_id, question_id=question_id)
     if (0 if current is None else current["version"]) != if_match:
         raise await _stale(conn, crypto, current, saving)
-    pack, facts = await _check(request, conn, case_id, saving, _saved_refs(current))
+    kept = _saved_refs(current)
+    pack, facts = await _check(request, conn, case_id, saving, kept)
+    saving = saving.model_copy(update={"citation_refs": stamp_versions(saving.citation_refs, facts, kept)})
     try:
         async with conn.transaction():
             row = await _write(conn, crypto, case_id, question_id, current, saving)

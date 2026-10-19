@@ -72,6 +72,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 **Extra endpoints:** `GET /v1/cases/{id}/bundle/sorted` (source then date, numbers unchanged), `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `GET /v1/cases/{id}/exhibits` (POST deferred: exhibits arrive through uploads), `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/reprocess`.
 
 - [x] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)
+- [x] A locked (password-protected) or damaged PDF stops that document only: no pages, `documents.unreadable_reason` (migration 0116), listed on S08 and asked for in the S08b draft; the rest of the bundle carries on (F2)
 - [x] Quarantined images and text are deleted after the note is sent or 14 days; undo works only before that
 - [x] A clearer copy gets the next number; the old page is superseded and still readable; no fact moves automatically (S6)
 - [x] Images, emails (with attachments), Word and zip files become pages; audio, video and DICOM become exhibits without page numbers (F36)

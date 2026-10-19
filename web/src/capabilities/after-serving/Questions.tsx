@@ -10,7 +10,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, Dialog, DictationBox, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, Dialog, DictationBox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { capitalise, declarationParts, keyName, longDate, Select, useLocale, useWaiting, versionTag, weekdayDate } from "./shared";
 import { w } from "./words";
 
@@ -30,7 +30,7 @@ export function QuestionsScreen() {
   const [params] = useSearchParams();
   const document = params.get("document");
   const locale = useLocale();
-  const { pack } = useCaseFrame();
+  const { item, pack } = useCaseFrame();
   const path = { params: { path: { case_id: caseId } } };
   const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId]);
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId]);
@@ -52,7 +52,7 @@ export function QuestionsScreen() {
 
   return (
     <div className="av-page av-stack">
-      <LinkButton variant="quiet" to={`/cases/${caseId}/served`}>{w("back")}</LinkButton>
+      <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
       <h2>{capitalise(String(vocab ?? ""))}</h2>
       <p>{w("questions.intro")}</p>
       {wait.waiting && <Notice><p>{w("questions.reading")}</p></Notice>}
@@ -93,7 +93,7 @@ export function QuestionsScreen() {
           due={deadlines.data!.deadlines.find((d) => d.id === round.deadline_id)?.due_on}
           locale={locale}
           declarations={pack.declarations}
-          party={partyWord(pack)}
+          party={partyWord(pack, item.instructing_party_type)}
           onImport={() => wait.start()}
           onChanged={reloadAll}
         />
@@ -110,8 +110,8 @@ function ordinal(number: number): string {
   return hasMessage(key) ? t(key) : w("questions.set_n", { number });
 }
 
-function partyWord(pack: Schemas["CasePack"]): string {
-  return (pack.instructing_party_types as Array<{ key: string; label?: string }>)[0]?.label ?? "";
+function partyWord(pack: Schemas["CasePack"], type: string | null | undefined): string {
+  return (pack.instructing_party_types as Array<{ key: string; label?: string }>).find((p) => p.key === type)?.label ?? "";
 }
 
 function RoundView({ caseId, round, questions, classes, due, locale, declarations, party, onImport, onChanged }: {

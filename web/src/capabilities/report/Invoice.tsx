@@ -5,8 +5,9 @@
 // sends a gentle notice naming the instructing party (in the pack's word), which never blocks anything. Bank
 // details for the invoice's "How to pay" box are saved behind the code.
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
+import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -344,12 +345,25 @@ function InvoiceCard({ caseId, invoice, from, caseLabel, onChanged }: { caseId: 
   const [error, setError] = useState<string | null>(null);
   const [part, setPart] = useState("");
   const [crediting, setCrediting] = useState(false);
+  const navigate = useNavigate();
   const base = { params: { path: { case_id: caseId, invoice_id: invoice.id } } };
   const money_ = (amount: string | number) => money(amount, invoice.currency, locale);
   const act = async (work: () => Promise<unknown>) => {
     setError(null);
     try {
       if ((await work()) !== undefined) onChanged();
+    } catch (err) {
+      setError(errorMessage(err, ERRORS));
+    }
+  };
+  const send = async () => {
+    setError(null);
+    try {
+      const out = await stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/invoices/{invoice_id}/send", { ...base, body: { to: null } })));
+      if (out === undefined) return;
+      const next = screenPath("S19", { caseId });
+      if (next) navigate(next);
+      else onChanged();
     } catch (err) {
       setError(errorMessage(err, ERRORS));
     }
@@ -398,12 +412,12 @@ function InvoiceCard({ caseId, invoice, from, caseLabel, onChanged }: { caseId: 
       {invoice.statements.map((line) => (
         <p key={line} className="av-muted">{line}</p>
       ))}
-      {invoice.statements.length > 0 && <p className="av-muted">{w("invoice.fee_note")}</p>}
+      <p className="av-muted">{w("invoice.fee_note")}</p>
       <p className="av-muted">{w("invoice.locked_note")}</p>
       <div className="av-row">
         <a className="av-button av-button--secondary" href={`${apiOrigin()}/v1/cases/${caseId}/invoices/${invoice.id}/pdf`}>{w("invoice.download")}</a>
         {invoice.status === "draft" && (
-          <Button onClick={() => void act(() => stepUp(() => unwrap(api.POST("/v1/cases/{case_id}/invoices/{invoice_id}/send", { ...base, body: { to: null } }))))}>{w("invoice.send")}</Button>
+          <Button onClick={() => void send()}>{w("invoice.send")}</Button>
         )}
         {invoice.status !== "draft" && <Button variant="secondary" onClick={() => setCrediting(true)}>{w("invoice.credit")}</Button>}
       </div>

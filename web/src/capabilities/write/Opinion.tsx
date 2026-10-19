@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
+import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import {
   api,
@@ -669,9 +670,14 @@ function Editor({
                 {w("opinion.next")}
               </LinkButton>
             ) : (
-              <LinkButton to={`/cases/${caseId}/points?q=${questionId}`}>
-                {w("opinion.back_to_points")}
-              </LinkButton>
+              <>
+                <LinkButton arrow to={screenPath("S16", { caseId }) ?? `/cases/${caseId}/report`}>
+                  {w("opinion.go_report")}
+                </LinkButton>
+                <LinkButton variant="secondary" to={`/cases/${caseId}/points?q=${questionId}`}>
+                  {w("opinion.back_to_points")}
+                </LinkButton>
+              </>
             )}
           </div>
 
@@ -740,8 +746,15 @@ function FlaggedCopy({ body, issues, page }: { body: string; issues: Schemas["Li
     .filter((i) => i.sentence_start != null && i.sentence_end != null && i.sentence_end <= body.length)
     .map((i) => [i.sentence_start as number, i.sentence_end as number] as const)
     .sort((a, b) => a[0] - b[0]);
-  if (spans.length === 0) return null;
   const plain = (text: string) => text.replace(MARKER, (_, n: string) => (page(Number(n)) ? w("points.page", { page: page(Number(n))! }) : `[${n}]`));
+  if (spans.length === 0) {
+    if (!body.includes("[[cite:")) return null;
+    return (
+      <section className="av-card" aria-label={w("opinion.readable_copy")}>
+        <p className="av-write-copy">{plain(body)}</p>
+      </section>
+    );
+  }
   const parts: React.ReactNode[] = [];
   let at = 0;
   for (const [start, end] of spans) {

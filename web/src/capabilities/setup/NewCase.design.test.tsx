@@ -86,8 +86,8 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     expect(screen.getByLabelText(String(jurisdiction(run).vocabulary.other_side_prompt))).toBeInTheDocument();
     const subject = screen.getByRole("radiogroup", { name: "The patient is" });
     for (const label of statuses(run)) expect(within(subject).getByRole("radio", { name: cap(label) })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Prepare my bundle" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save and finish later" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Prepare my bundle" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Save and finish later" })).toBeEnabled();
     expect(screen.getByRole("link", { name: "Cancel" })).toHaveAttribute("href", "/");
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
