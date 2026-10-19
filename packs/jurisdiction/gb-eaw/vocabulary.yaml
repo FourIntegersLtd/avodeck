@@ -11,6 +11,7 @@ instructing_party_types:
 subject: claimant
 court_bundle: trial bundle
 written_questions: questions from the other side
+written_questions_one: question from the other side
 written_questions_formal: Part 35 questions
 expert_meeting: experts' discussion
 expert_meeting_document: joint statement

@@ -10,7 +10,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Checkbox, Dialog, DictationBox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, Dialog, DictationBox, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
 import { WarnIcon } from "./icons";
 import { capitalise, declarationParts, keyName, longDate, Select, useLocale, useWaiting, versionTag, weekdayDate } from "./shared";
 import { w } from "./words";
@@ -248,7 +248,7 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
         )}
         <h3 className="av-after-qtext">{question.text_verbatim}</h3>
         {question.para_ref && (
-          <p className="av-after-about"><span className="av-muted">{w("questions.about_label")}</span> <span className="av-after-aboutchip">{w("questions.about_paras", { para: question.para_ref })}</span></p>
+          <p className="av-after-about"><span className="av-muted">{w("questions.about_label")}</span> <span className="av-after-aboutchip">{w("questions.about_paras", { para: question.para_ref })}</span>{(question.page_nos ?? []).map((n) => <PageRef key={n} page={n} />)}</p>
         )}
       </div>
       <DictationBox bar caseId={caseId} context="written_question_answer" label={w("questions.answer")} value={answer} onChange={(v) => { setAnswer(v); setSaved(false); }} rows={6} />
