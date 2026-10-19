@@ -289,7 +289,7 @@ How facts relate to the questions, and what the checks found.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `fact_question_links` | Which facts relate to which question (suggested by the computer, confirmed by the expert). | fact_id, question_id, status, reason |
-| `check_config` | The expert's on/off choices for "Things to look at" checks, and any window they changed. | person_id, check_key, enabled, window_days |
+| `check_config` | The expert's on/off choices for "Things to look at" checks, any window they changed, and the checks they add themselves (a name and a "not followed up" rule). | person_id, check_key, enabled, window_days, label, custom |
 | `findings` | Things a check found for the expert to decide on, with the evidence pages. | case_id, check_key, rule, gentle, evidence_fact_ids[], evidence_page_ids[], status (open, gone), decision, reason, run_id |
 | `check_runs` | Each time the checks ran on a case, with the pack version and which checks ran. | case_id, job_id, pack_version, checks |
 | `case_guideline_versions` | Which guideline version a case was shown, so a later change to the guidance table shows a notice. | case_id, code, version_label, table_reviewed_at, entry_hash |

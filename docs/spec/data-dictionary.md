@@ -516,6 +516,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | check_key | Which "Things to look at" check |
 | enabled | On or off (a check the pack starts off stays off until switched on) |
 | window_days | The expert's own number of days for the check, if they changed it |
+| label | The name the expert gave a check they added themselves |
+| custom | For a check the expert added: which entry it starts from, what should follow, and within how many days |
 
 ### findings
 | Field | In plain words |

@@ -20,7 +20,7 @@ The expert sees the whole story on a timeline, opens any consultation exactly as
 - `GET /v1/guidelines/in-force?code=&date=` (jurisdiction taken from the case or query; global table)
 - `GET /v1/cases/{id}/findings`; `PATCH /v1/cases/{id}/findings/{finding_id}` `{decision, reason}`
 - `GET/PATCH /v1/me/checks`; `POST /v1/cases/{id}/findings/rerun` → 202
-- `POST /v1/me/checks/custom` (later; returns 501 in MVP)
+- `POST /v1/me/checks/custom` (the expert adds a check of their own: a name, the kind of entry it starts from, the kind that should follow, and the days; runs only for them)
 
 ## Tables owned
 `fact_question_links`, `check_config`, `findings`, `consultation_notes`, `availability_overrides` (fact_id, available_at, unknown, reason, at; append-only), `check_runs` (one row per run of the checks), `case_guideline_versions` (the guideline version each case was shown). Guideline versions are read from the overlay pack's `guidelines.yaml` (`pack.guidelines()`) rather than a seeded `guideline_versions` table; a case records the version it was shown in `case_guideline_versions` (ADR 0016).
