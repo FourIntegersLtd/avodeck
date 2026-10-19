@@ -6,7 +6,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
 import { Balance, FileButton, fileBytes, Section, Select, TextArea, withEtag } from "./shared";
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -68,20 +68,31 @@ function ProfileView(props: ViewProps) {
   const words = (props.jurisdiction?.vocabulary.party_roles ?? {}) as Record<string, string>;
 
   return (
-    <div className="av-page av-page--narrow av-stack">
-      <div>
-        <h1>{t("setup.profile.title")}</h1>
-        <p className="av-muted">{t("setup.profile.intro")}</p>
-        <p>
-          <strong>{t("setup.profile.progress", { done, total: PARTS })}</strong>
-        </p>
+    <div className="av-page av-stack">
+      <div className="av-row av-setup-banner">
+        <ProgressRing value={done} max={PARTS} label={t("setup.profile.progress", { done, total: PARTS })}>
+          {done}/{PARTS}
+        </ProgressRing>
+        <div>
+          <h1>{t("setup.profile.title")}</h1>
+          <p className="av-muted">{t("setup.profile.intro")}</p>
+          <p>
+            <strong>{t("setup.profile.progress", { done, total: PARTS })}</strong>
+          </p>
+        </div>
       </div>
       <AboutYou initial={props.profile} packs={props.packs} onSaved={setAbout} />
       <Roles roles={roles} setRoles={setRoles} specialty={specialty} />
-      <Training items={training} setItems={setTraining} />
-      <TemplateSection template={template} setTemplate={setTemplate} />
+      <div className="av-setup-pair av-setup-pair--top">
+        <Training items={training} setItems={setTraining} />
+        <TemplateSection template={template} setTemplate={setTemplate} />
+      </div>
       <DeclarationSection declaration={props.declaration} signed={signed} onSigned={() => setSigned(true)} />
       <Balance words={words} />
+      <div className="av-setup-footer av-row av-row--spread">
+        <span className="av-muted">{t("setup.profile.progress", { done, total: PARTS })}</span>
+        <LinkButton to="/today">{t("setup.profile.done")}</LinkButton>
+      </div>
       <section aria-labelledby="setup-goes-with-you" className="av-card av-stack">
         <h2 id="setup-goes-with-you">{t("setup.profile.goes_with_you")}</h2>
         <p className="av-muted">{t("setup.profile.goes_with_you_text")}</p>
@@ -366,6 +377,15 @@ function TemplateSection({ template, setTemplate }: { template: Tagged<Template>
             <span className="av-muted">{t("setup.template.kept")}</span>
           </span>
         </div>
+      )}
+      {template && template.data.styles.length > 0 && (
+        <ul className="av-setup-plain av-setup-chips" aria-label={t("setup.template.styles")}>
+          {template.data.styles.map((style) => (
+            <li key={style} className="av-setup-chip">
+              {style}
+            </li>
+          ))}
+        </ul>
       )}
       <FileButton label={template ? t("setup.template.replace") : t("setup.template.choose")} accept=".docx" onChange={(e) => void upload(e)} />
       {template && template.data.headings.length > 0 && (
