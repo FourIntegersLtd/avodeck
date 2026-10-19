@@ -2946,6 +2946,18 @@
           "coverage": {
             "$ref": "#/components/schemas/Coverage"
           },
+          "coverage_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The specialty's role-coverage question.",
+            "title": "Coverage Question"
+          },
           "declared_at": {
             "anyOf": [
               {
@@ -9908,6 +9920,21 @@
       },
       "QuestionOut": {
         "properties": {
+          "answer_parts": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Question-part keys still answered when the question is outside expertise.",
+            "title": "Answer Parts"
+          },
           "confirmed_text": {
             "anyOf": [
               {
@@ -9947,6 +9974,22 @@
           "outside_expertise": {
             "title": "Outside Expertise",
             "type": "boolean"
+          },
+          "outside_expertise_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pack",
+                  "expert"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who says the question is outside the expert's expertise.",
+            "title": "Outside Expertise Source"
           },
           "para_ref": {
             "anyOf": [

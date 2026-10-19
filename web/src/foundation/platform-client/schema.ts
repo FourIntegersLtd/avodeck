@@ -4610,6 +4610,11 @@ export interface components {
             /** Complete */
             complete: boolean;
             coverage: components["schemas"]["Coverage"];
+            /**
+             * Coverage Question
+             * @description The specialty's role-coverage question.
+             */
+            coverage_question?: string | null;
             /** Declared At */
             declared_at: string | null;
             /** Outcome */
@@ -7020,6 +7025,11 @@ export interface components {
         };
         /** QuestionOut */
         QuestionOut: {
+            /**
+             * Answer Parts
+             * @description Question-part keys still answered when the question is outside expertise.
+             */
+            answer_parts?: string[] | null;
             /** Confirmed Text */
             confirmed_text: string | null;
             /**
@@ -7035,6 +7045,11 @@ export interface components {
             number: number;
             /** Outside Expertise */
             outside_expertise: boolean;
+            /**
+             * Outside Expertise Source
+             * @description Who says the question is outside the expert's expertise.
+             */
+            outside_expertise_source?: ("pack" | "expert") | null;
             /** Para Ref */
             para_ref: string | null;
             /** Source Word Ids */
