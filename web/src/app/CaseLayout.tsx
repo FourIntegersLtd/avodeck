@@ -2,7 +2,7 @@ import { useContext } from "react";
 import { Navigate, useMatches, useOutlet, useParams } from "react-router-dom";
 import { t } from "../foundation/i18n";
 import { caseSubtitle, stepFor, type CaseFrame, type CaseScreenHandle } from "../foundation/lib/caseFrame";
-import { screenPath } from "../foundation/lib/screens";
+import { firstScreenInCase } from "../foundation/lib/screens";
 import { SessionContext } from "../foundation/lib/session";
 import { useTimeHeartbeat } from "../foundation/lib/timeHeartbeat";
 import { useResource } from "../foundation/lib/useResource";
@@ -16,12 +16,7 @@ import { WhereYouAre } from "./WhereYouAre";
 export function caseHome(frame: Pick<CaseFrame, "item" | "pack">): string | null {
   const stage = (frame.item as { stage?: string | null }).stage;
   const steps = frame.pack.workflow_steps as Array<{ key: string; screens?: string[] }>;
-  const inside = `/cases/${frame.item.id}/`;
-  for (const key of steps.find((s) => s.key === stage)?.screens ?? []) {
-    const path = screenPath(key, { caseId: frame.item.id });
-    if (path?.startsWith(inside)) return path;
-  }
-  return null;
+  return firstScreenInCase(steps.find((s) => s.key === stage)?.screens, frame.item.id);
 }
 
 export function CaseLayout() {

@@ -152,3 +152,20 @@ test("backup codes say how many are left, and the count follows making new ones"
   await user.click(screen.getByRole("button", { name: "Make new codes" }));
   expect(await screen.findByText(/10 of 10 left\./)).toBeInTheDocument();
 });
+
+test("the board has a way back to the profile", async () => {
+  account();
+  renderAt("/account");
+  await screen.findByRole("heading", { level: 1, name: "Account and security" });
+  const back = document.querySelector("a.av-back-link");
+  expect(back).toHaveTextContent("Your profile");
+});
+
+test("the email form can be cancelled", async () => {
+  account();
+  const { user } = renderAt("/account");
+  await user.click(await screen.findByRole("button", { name: "Change email" }));
+  await user.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(screen.queryByLabelText("New email address")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Change email" })).toBeInTheDocument();
+});

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { humanise, t } from "../i18n";
-import { screenPath } from "../lib/screens";
+import { firstScreenInCase } from "../lib/screens";
 import { initials } from "./initials";
 import { Logo } from "./Logo";
 
@@ -30,11 +30,7 @@ export function stepLabel(key: string): string {
 /** Where a step pill goes: the first of the step's screens that a slice has registered. */
 function stepPath(step: { screens?: string[] }, caseId: string | undefined): string | null {
   if (!caseId) return null;
-  for (const screen of step.screens ?? []) {
-    const to = screenPath(screen, { caseId });
-    if (to) return to;
-  }
-  return null;
+  return firstScreenInCase(step.screens, caseId);
 }
 
 /**
