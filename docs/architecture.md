@@ -366,7 +366,7 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | `concordance` | Which of our pages is which page in a court bundle version. | case_id, court_bundle_id, page_id, trial_page_no, score, method, confirmed |
 | `trial_pack_settings` | What the expert chose to put in the trial pack. | case_id, sections[], include_guidance, hearing_id, requested_job_id, version |
 | `trial_packs` | The large-print pack for a hearing; marked stale if new material arrives. | case_id, hearing_id, sections, pdf_path, sha256, built_at, stale |
-| `offline_packages` | The encrypted copy for the witness box, per device. | case_id, hearing_id, device_label, format_version, built_at, expires_at, revoked_at |
+| `offline_packages` | The encrypted copy for the witness box, per device. | case_id, hearing_id, device_label, format_version, built_at, expires_at, revoked_at, stale |
 | `readiness_replies` | The expert's own reply to each readiness question, sealed. | case_id, question_no, reply, replied_at, replied_by, version |
 | `trial_notes` | A sentence of a note found in no served document, sealed, with the expert's choice (tell, leave out). | case_id, text_sha256, text, choice, decided_at, decided_by |
 

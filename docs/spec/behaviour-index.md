@@ -110,7 +110,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `readiness_replies` | I | Named expert writes; case members read | One per question | Rewritten in place, version counted | Case deletion |
 | `trial_notes` | I | Named expert | One per distinct sentence | Choice may change; never sent | Case deletion |
 | `trial_packs` | I | Named expert | Many per hearing | Stale when new material arrives | Case deletion |
-| `offline_packages` | I | Named expert | One per device per hearing | Expire; revocable | Expire; deleted with the case |
+| `offline_packages` | I | Named expert | One per device per hearing | Expire; revocable; stale when new material arrives | Expire; deleted with the case |
 | `legal_holds` | H | Named expert or org owner | Many; any active blocks deletion | State machine | Released before deletion can run |
 | `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
 | `deletion_ledger` | Foundation (H writes, through `app.purge_case`) | System | One per deleted case | Append only; replayed after restore (`app.replay_deletion_ledger`) | Kept |
