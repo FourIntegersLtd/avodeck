@@ -7,7 +7,7 @@ import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { Button, Loading, Notice, TextField } from "../../foundation/ui";
-import { longDate } from "./data";
+import { longDate, num } from "./data";
 import { checkWithServer, findCopy, unlockCopy, type Opened } from "./offline";
 import { search, type Hit } from "./search";
 import "./trial.css";
@@ -127,12 +127,12 @@ function Result({ hit, bundle, locale, kinds }: { hit: Hit; bundle: string; loca
     <li className="av-card av-stack av-trial-hit">
       <div className="av-row">
         {hit.page_no !== null && hit.trial_page_no !== null && (
-          <span className="av-trial-mono av-trial-strong">{w("lookup.trial_page", { court_bundle: bundle, page: hit.trial_page_no })}</span>
+          <span className="av-trial-mono av-trial-strong">{w("lookup.trial_page", { court_bundle: bundle, page: num(hit.trial_page_no, locale) })}</span>
         )}
         {hit.page_no !== null && hit.trial_page_no === null && (
           <span className="av-trial-strong">{w("lookup.not_in_bundle", { court_bundle: bundle })}</span>
         )}
-        {hit.page_no !== null && <span className="av-trial-mono">{w("lookup.your_page", { page: hit.page_no })}</span>}
+        {hit.page_no !== null && <span className="av-trial-mono">{w("lookup.your_page", { page: num(hit.page_no, locale) })}</span>}
         {kind && <span className="av-badge">{kind}</span>}
         {hit.date && <span className="av-trial-mono">{longDate(hit.date, locale)}</span>}
       </div>

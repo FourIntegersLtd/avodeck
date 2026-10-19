@@ -8,7 +8,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
 import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { longDate, partyWord, pdfBody, saveBlob, sourceLabel, tag, vocab } from "./data";
+import { longDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialHeader, type Frame } from "./frame";
 import { w, wn } from "./words";
 
@@ -90,7 +90,10 @@ function Pages({ frame }: { frame: Frame }) {
       const blob = await stepUp(() =>
         unwrap(api.GET("/v1/cases/{case_id}/concordance/export", { params: { path, query: { format } }, parseAs: "blob" })),
       );
-      if (blob) saveBlob(blob as Blob, `trial-pages.${format}`);
+      if (blob) {
+        if (format === "pdf") printBlob(blob as Blob);
+        else saveBlob(blob as Blob, `trial-pages.${format}`);
+      }
     } catch (error) {
       fail(error);
     }
@@ -125,7 +128,7 @@ function Pages({ frame }: { frame: Frame }) {
                 <p className="av-trial-strong av-trial-cap">{bundleName}</p>
                 <p className="av-trial-muted">
                   {[
-                    w("pages.bundle_line", { version: bundle.version, pages: bundle.page_count ?? 0, date: bundle.received_on ? longDate(bundle.received_on, frame.locale) : "" }),
+                    w("pages.bundle_line", { version: bundle.version, pages: num(bundle.page_count ?? 0, frame.locale), date: bundle.received_on ? longDate(bundle.received_on, frame.locale) : "" }),
                     bundle.replaces_received_on && w("pages.replaces", { date: longDate(bundle.replaces_received_on, frame.locale) }),
                   ].filter(Boolean).join(" · ")}
                 </p>
@@ -133,9 +136,9 @@ function Pages({ frame }: { frame: Frame }) {
             </section>
             {!matching && (
               <section className="av-card av-trial-tiles">
-                <Tile id="matched" n={counts.matched} words={wn("pages.tile_matched", counts.matched)} />
-                {counts.to_confirm > 0 && <Tile id="to_confirm" n={counts.to_confirm} words={wn("pages.tile_to_confirm", counts.to_confirm)} amber />}
-                <Tile id="missing" n={counts.missing} words={w("pages.tile_missing", { court_bundle: bundleName })} amber />
+                <Tile id="matched" n={num(counts.matched, frame.locale)} words={wn("pages.tile_matched", counts.matched)} />
+                {counts.to_confirm > 0 && <Tile id="to_confirm" n={num(counts.to_confirm, frame.locale)} words={wn("pages.tile_to_confirm", counts.to_confirm)} amber />}
+                <Tile id="missing" n={num(counts.missing, frame.locale)} words={w("pages.tile_missing", { court_bundle: bundleName })} amber />
                 <p className="av-trial-muted av-trial-how">{w("pages.how")}</p>
               </section>
             )}
@@ -162,7 +165,7 @@ function Pages({ frame }: { frame: Frame }) {
   );
 }
 
-function Tile({ id, n, words, amber }: { id: string; n: number; words: string; amber?: boolean }) {
+function Tile({ id, n, words, amber }: { id: string; n: string; words: string; amber?: boolean }) {
   return (
     <p className={`av-trial-tile${amber ? " av-trial-tile--amber" : ""}`} data-testid={`tile-${id}`}>
       <span className="av-trial-tile__n">{n}</span>
@@ -191,7 +194,7 @@ function Missing({ rows, bundleName, party, canTell, told, onTell, pack, locale 
         {rows.map((r) => {
           const document = documentOf(r, pack, locale);
           const paras = r.paragraphs.join(", ");
-          return <li key={r.id}>{document ? w("pages.missing_row_doc", { page: r.page_no, document, paras }) : w("pages.missing_row", { page: r.page_no, paras })}</li>;
+          return <li key={r.id}>{document ? w("pages.missing_row_doc", { page: num(r.page_no, locale), document, paras }) : w("pages.missing_row", { page: num(r.page_no, locale), paras })}</li>;
         })}
       </ul>
       {told && <Notice tone="success"><p>{w("pages.told")}</p></Notice>}
@@ -226,7 +229,7 @@ function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged }
           </tr>
         </thead>
         <tbody>
-          {shown.map((r) => <TableRow key={r.id} caseId={caseId} row={r} document={documentOf(r, pack, locale)} bundleName={bundleName} canConfirm={canConfirm} onChanged={onChanged} />)}
+          {shown.map((r) => <TableRow key={r.id} caseId={caseId} locale={locale} row={r} document={documentOf(r, pack, locale)} bundleName={bundleName} canConfirm={canConfirm} onChanged={onChanged} />)}
         </tbody>
       </table>
       {hidden > 0 && (
@@ -238,7 +241,7 @@ function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged }
   );
 }
 
-function TableRow({ caseId, row, document, bundleName, canConfirm, onChanged }: { caseId: string; row: Row; document: string; bundleName: string; canConfirm: boolean; onChanged: () => void }) {
+function TableRow({ caseId, locale, row, document, bundleName, canConfirm, onChanged }: { caseId: string; locale: string; row: Row; document: string; bundleName: string; canConfirm: boolean; onChanged: () => void }) {
   const [value, setValue] = useState(row.trial_page_no === null ? "" : String(row.trial_page_no));
   const [state, setState] = useState<Message>(null);
   const confirmable = canConfirm && row.status === "to_confirm" && !row.confirmed;
@@ -264,7 +267,7 @@ function TableRow({ caseId, row, document, bundleName, canConfirm, onChanged }: 
   return (
     <tr>
       <td>{row.paragraphs.join(", ")}</td>
-      <td className="av-trial-mono">{w("pages.page_ref", { page: row.page_no })}</td>
+      <td className="av-trial-mono">{w("pages.page_ref", { page: num(row.page_no, locale) })}</td>
       <td aria-hidden="true">→</td>
       <td className="av-trial-mono">
         {confirmable ? (
@@ -280,7 +283,7 @@ function TableRow({ caseId, row, document, bundleName, canConfirm, onChanged }: 
             <Button variant="secondary" onClick={confirm} disabled={!value}>{w("pages.confirm")}</Button>
           </div>
         ) : (
-          row.trial_page_no ?? ""
+          row.trial_page_no === null ? "" : num(row.trial_page_no, locale)
         )}
         {state && <p className={state.tone === "error" ? "av-field__error" : "av-trial-muted"} role="status">{state.text}</p>}
       </td>

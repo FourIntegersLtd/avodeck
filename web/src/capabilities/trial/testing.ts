@@ -119,7 +119,7 @@ export function previewOut(over: Partial<Schemas["PreviewOut"]> = {}): Schemas["
 export function copyOut(over: Partial<Schemas["PackageOut"]> = {}): Schemas["PackageOut"] {
   return {
     id: COPY, device_label: "My tablet", hearing_id: null, format_version: 1, include_images: false, sha256: "d".repeat(64), status: "built",
-    expires_at: "2099-07-01T09:00:00Z", downloaded_at: null, revoked_at: null, created_at: "2027-06-03T09:00:00Z", ...over,
+    expires_at: "2099-07-01T09:00:00Z", downloaded_at: null, revoked_at: null, created_at: "2027-06-03T09:00:00Z", stale: false, stale_reason: null, ...over,
   };
 }
 

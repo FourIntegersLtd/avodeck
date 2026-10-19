@@ -19,7 +19,7 @@ from app.core.contracts.served import latest_served
 from app.core.jobs import JobContext, registry
 from app.core.pdf import embedded_words, split_pages
 from app.features.trial import agenda as agenda_reading
-from app.features.trial import ai_tasks, repo
+from app.features.trial import ai_tasks, freshness, repo
 from app.features.trial.common import pack_for, sha256, trial_path
 from app.features.trial.matching import OurPage, match_pages
 from app.features.trial.pack_document import pack_document
@@ -149,14 +149,17 @@ async def build_trial_pack(ctx: JobContext) -> None:
         pack_id = uuid.uuid4()
         path = trial_path(ctx.case_id, "packs", f"{pack_id}.pdf")
         await services.files().put(path, pdf)
+        hearing_id = settings["hearing_id"] if settings else None
+        built_from = await freshness.stamp(conn, ctx.case_id, hearing_id)
         await conn.execute(
             "insert into app.trial_packs (id, case_id, hearing_id, job_id, report_version_id, court_bundle_id,"
-            " sections, include_guidance, sha256, storage_path, page_count, pack_versions, section_pages)"
-            " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            " sections, include_guidance, sha256, storage_path, page_count, pack_versions, section_pages,"
+            " built_hearing_version, built_last_page_no, built_served_version_id)"
+            " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
             (
                 pack_id,
                 ctx.case_id,
-                settings["hearing_id"] if settings else None,
+                hearing_id,
                 ctx.job_id,
                 built.report_version_id,
                 built.court_bundle_id,
@@ -167,6 +170,7 @@ async def build_trial_pack(ctx: JobContext) -> None:
                 pages,
                 json.dumps(pack.versions),
                 json.dumps([{"key": k, "pages": n} for k, n in per_section]),
+                *built_from.values(),
             ),
         )
 
