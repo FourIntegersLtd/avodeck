@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
 import { casePath, sourceLabel } from "./data";
 import { allowed, FactCard } from "./FactCard";
 import { Highlights } from "./Highlights";
@@ -64,7 +64,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
+  const [why, setWhy] = useState(false);
+  const [imageKey, setImageKey] = useState(0);
 
   const loadFacts = useCallback(async () => {
     try {
@@ -140,7 +143,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           body: { action, ...extra },
         }),
       );
-      const list = (facts ?? []).map((f) => (f.id === next.id ? next : f));
+      const list = (facts ?? []).map((f) => (f.id === next.id ? { ...next, related: f.related } : f));
       setFacts(list);
       setEditing(null);
       advanceFrom(list, next.id);
@@ -177,6 +180,36 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     }
   }
 
+  async function turnPage() {
+    if (busy || !detail.data) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/rotate", { params: { path: { case_id: caseId, page_id: detail.data.page_id } }, body: { degrees: 90 } }));
+      setInfo(w("read.turning"));
+      setImageKey((k) => k + 1);
+    } catch (error) {
+      setNotice(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function askClearerCopy() {
+    if (busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await unwrap(api.PATCH("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: pageNo } }, body: { needs_clearer_copy: true } }));
+      setInfo(w("read.clearer_asked"));
+      queue.reload();
+    } catch (error) {
+      setNotice(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
   const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage });
@@ -191,8 +224,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       if (key === "j") s.go(s.nextPage ?? 0);
       else if (key === "k") s.go(pageNo - 1);
       else if (key === "r") void s.markRead();
-      else if (key === "1" && target && allowed(target).correct) void s.act(target, "correct");
-      else if (key === "2" && target && allowed(target).notRight) void s.notRight(target);
+      else if (key === "arrowright") s.go(s.nextPage ?? 0);
+      else if (key === "arrowleft") s.go(pageNo - 1);
+      else if ((key === "1" || key === "c") && target && allowed(target).correct) void s.act(target, "correct");
+      else if ((key === "2" || key === "n") && target && allowed(target).notRight) void s.notRight(target);
       else if (key === "3" && target && allowed(target).edit) void s.startEdit(target);
       else return;
       e.preventDefault();
@@ -213,8 +248,12 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       {page.in_period && (
         <div className="rd-banner">
           <p>
-            <strong>{w("read.in_period")}</strong> {read ? w("read.in_period_after") : ""}
+            <strong>{w("read.in_period")}</strong> {read ? w("read.in_period_after") : ""}{" "}
+            <button type="button" className="av-text-link rd-why" aria-expanded={why} onClick={() => setWhy((v) => !v)}>
+              {w("read.why")}
+            </button>
           </p>
+          {why && <p className="rd-why-text">{w("read.why_text")}</p>}
         </div>
       )}
       <div className="rd-work">
@@ -223,6 +262,17 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             <p className="rd-source">
               <strong>{sourceLabel(pack, page.source_type)}</strong> <span className="rd-ref">{w("read.page_ref", { page: pageNo })}</span>
             </p>
+            <div className="rd-tools">
+              <Button variant="secondary" disabled={busy} onClick={() => void turnPage()}>
+                {w("read.turn")}
+              </Button>
+              <Button variant="secondary" disabled={busy} onClick={() => void askClearerCopy()}>
+                {w("read.clearer")}
+              </Button>
+              <LinkButton variant="secondary" to={`/cases/${caseId}/bundle/not-this-patient?page=${pageNo}`}>
+                {w("read.not_patient")}
+              </LinkButton>
+            </div>
             <div className="rd-zoom">
               <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={zoom <= ZOOMS[0]!} onClick={() => setZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(zoom) - 1)]!)}>
                 −
@@ -233,7 +283,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               </Button>
             </div>
           </div>
-          <PageImage caseId={caseId} pageNo={pageNo} zoom={zoom}>
+          <PageImage key={imageKey} caseId={caseId} pageNo={pageNo} zoom={zoom}>
             <Highlights facts={facts ?? []} focus={focus} />
             {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
           </PageImage>
@@ -242,6 +292,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         <aside className="rd-side" aria-label={w("read.found")}>
           <h2>{w("read.found")}</h2>
           {notice && <Notice tone="error">{notice}</Notice>}
+          {info && !notice && <Notice tone="success">{info}</Notice>}
           {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
           {facts?.length === 0 && <p className="rd-note">{w("read.none_found")}</p>}
           {facts?.map((f) => (
@@ -249,6 +300,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               key={f.id}
               fact={f}
               pack={pack}
+              allFacts={facts ?? []}
               focused={focus === f.id}
               busy={busy}
               editing={editing?.id === f.id ? editing.text : null}
@@ -270,7 +322,12 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             <p>
               <strong>{w("read.keys.heading")}</strong>
             </p>
-            <p>{w("read.keys.help")}</p>
+            <p className="rd-hints">
+              <span><kbd>C</kbd> {w("read.keys.correct")}</span>
+              <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
+              <span><kbd>→</kbd> {w("read.keys.next")}</span>
+            </p>
+            <p>{w("read.keys.more")}</p>
           </div>
         </aside>
       </div>
@@ -287,7 +344,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                   ? w("read.progress_done", { read: progress.data.read, total: progress.data.total })
                   : w("read.progress", { read: progress.data.read, total: progress.data.total, n: minutes, count: minutes })}
               </p>
-              <progress max={progress.data.total || 1} value={progress.data.read} aria-label={w("read.progress_done", { read: progress.data.read, total: progress.data.total })} />
+              <ProgressBar max={progress.data.total || 1} value={progress.data.read} label={w("read.progress_done", { read: progress.data.read, total: progress.data.total })} />
             </>
           )}
         </div>

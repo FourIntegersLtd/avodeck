@@ -555,10 +555,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out or clearer copy asked for) | |
+| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out, marked nothing relevant, set aside as a copy, or clearer copy asked for or added); each page says `is_copy` and `has_clearer_copy` | |
 | PUT | `/cases/{case_id}/pages/{page_no}/transcription` | `{text, relevance?}`: save expert's text; counts as read; re-runs T-07b on it through `extract_page_text` (core/contracts/pipeline.py) | 202 + job; 503 while A's entry point is missing |
 | GET | `/cases/{case_id}/pages/{page_no}/second-reading` | T-10 comparison | Only after a transcription exists, or on request |
-| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
+| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}`; `relevance` is `relevant`, `background` or `nothing` (nothing relevant on this page) | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
 
 **11 Timeline**
 

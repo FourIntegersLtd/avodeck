@@ -4075,6 +4075,20 @@
         "title": "DuplicateReview",
         "type": "object"
       },
+      "DuplicateSetAside": {
+        "properties": {
+          "copy_of_page_no": {
+            "minimum": 1.0,
+            "title": "Copy Of Page No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "copy_of_page_no"
+        ],
+        "title": "DuplicateSetAside",
+        "type": "object"
+      },
       "Duplicates": {
         "properties": {
           "duplicates": {
@@ -4536,6 +4550,14 @@
             "description": "Flagged 'Please check': its page was read again and its words were not found.",
             "title": "Needs Recheck",
             "type": "boolean"
+          },
+          "related": {
+            "description": "Other suggestions or checked facts on this page for the same day, of another kind.",
+            "items": {
+              "$ref": "#/components/schemas/RelatedFact"
+            },
+            "title": "Related",
+            "type": "array"
           },
           "status": {
             "title": "Status",
@@ -8464,7 +8486,8 @@
               {
                 "enum": [
                   "relevant",
-                  "background"
+                  "background",
+                  "nothing"
                 ],
                 "type": "string"
               },
@@ -10336,6 +10359,56 @@
           "recovery_codes"
         ],
         "title": "RecoveryCodes",
+        "type": "object"
+      },
+      "RelatedFact": {
+        "description": "Another record found on the same page for the same day (a visit and its prescription).",
+        "properties": {
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "fact_id",
+          "kind",
+          "value",
+          "event_date",
+          "status"
+        ],
+        "title": "RelatedFact",
         "type": "object"
       },
       "RelevantChange": {
@@ -12835,7 +12908,8 @@
               {
                 "enum": [
                   "relevant",
-                  "background"
+                  "background",
+                  "nothing"
                 ],
                 "type": "string"
               },
@@ -12875,8 +12949,18 @@
             ],
             "title": "Handwriting"
           },
+          "has_clearer_copy": {
+            "description": "A clearer copy has been added for it.",
+            "title": "Has Clearer Copy",
+            "type": "boolean"
+          },
           "has_transcription": {
             "title": "Has Transcription",
+            "type": "boolean"
+          },
+          "is_copy": {
+            "description": "Set aside as a copy of another page.",
+            "title": "Is Copy",
             "type": "boolean"
           },
           "needs_clearer_copy": {
@@ -12923,6 +13007,8 @@
           "relevance",
           "has_transcription",
           "needs_clearer_copy",
+          "is_copy",
+          "has_clearer_copy",
           "done"
         ],
         "title": "UnreadablePage",
@@ -19956,6 +20042,78 @@
           }
         },
         "summary": "Review Duplicate",
+        "tags": [
+          "pipeline"
+        ]
+      },
+      "put": {
+        "description": "Set a page aside as a copy of another; the named expert confirms, an assistant only suggests.",
+        "operationId": "set_aside_page_v1_cases__case_id__pages__page_id__duplicate_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateSetAside"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicatePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Set Aside Page",
         "tags": [
           "pipeline"
         ]

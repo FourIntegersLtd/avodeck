@@ -20,10 +20,10 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, word_ids?, reason?, fields?, event_date?}` (If-Match; `fields` checked against the pack kind: 422 `invalid_fields`)
 - `POST` / `DELETE /v1/cases/{id}/facts/{fact_id}/flag-point`: marks a checked fact for screen 14, or takes it back (E reads the flags through `core/contracts/fact_flags.py`)
 - `GET /v1/cases/{id}/progress`
-- `GET /v1/cases/{id}/pages/unreadable`
+- `GET /v1/cases/{id}/pages/unreadable` (each page also says `is_copy` and `has_clearer_copy`; `pages/{n}/facts` rows carry `related`: other suggestions on the same page and day, shown as "the record found with it")
 - `PUT /v1/cases/{id}/pages/{page_no}/transcription` `{text, relevance?}` → 202 job (re-extraction through `core/contracts/pipeline.py` `extract_page_text`, which A implements)
 - `GET /v1/cases/{id}/pages/{page_no}/second-reading`
-- `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance?, needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
+- `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance? (relevant | background | nothing), needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned
 `page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at).

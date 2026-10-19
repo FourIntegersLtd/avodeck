@@ -46,6 +46,16 @@ class ReadOut(BaseModel):
     first_read_at: datetime
 
 
+class RelatedFact(BaseModel):
+    """Another record found on the same page for the same day (a visit and its prescription)."""
+
+    fact_id: uuid.UUID
+    kind: str
+    value: str | None
+    event_date: date | None
+    status: str
+
+
 class FactOut(BaseModel):
     id: uuid.UUID
     kind: str
@@ -59,6 +69,10 @@ class FactOut(BaseModel):
     flagged: bool = Field(description="Sent to Points against (a 'points' flag) only.")
     needs_recheck: bool = Field(
         default=False, description="Flagged 'Please check': its page was read again and its words were not found."
+    )
+    related: list[RelatedFact] = Field(
+        default_factory=list,
+        description="Other suggestions or checked facts on this page for the same day, of another kind.",
     )
 
 
@@ -105,7 +119,7 @@ class FlagOut(BaseModel):
     flagged: bool
 
 
-Relevance = Literal["relevant", "background"]
+Relevance = Literal["relevant", "background", "nothing"]
 
 
 class UnreadablePage(BaseModel):
@@ -116,6 +130,8 @@ class UnreadablePage(BaseModel):
     relevance: str | None
     has_transcription: bool
     needs_clearer_copy: bool
+    is_copy: bool = Field(description="Set aside as a copy of another page.")
+    has_clearer_copy: bool = Field(description="A clearer copy has been added for it.")
     done: bool
 
 

@@ -275,7 +275,10 @@ async def test_a_page_set_aside_as_a_copy_or_given_a_clearer_copy_is_done(
     seed: Seed, admin: psycopg.Connection, world: dict[str, Any], calls: list[Any]
 ) -> None:
     client, copy_no, replaced_no = world["client"], UNREADABLE[0], UNREADABLE[1]
-    admin.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (world["pages"][1], world["pages"][copy_no]))
+    admin.execute(
+        "update app.pages set duplicate_of_page_id = %s where id = %s",
+        (world["pages"][1], world["pages"][copy_no]),
+    )
     later = seed.document(world["case"])
     admin.execute(
         "insert into app.page_replacements (case_id, page_id, document_id, requested_by) values (%s, %s, %s, %s)",

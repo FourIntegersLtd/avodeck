@@ -558,7 +558,8 @@ async def test_a_suggestion_names_the_other_records_of_the_same_day_on_its_page(
     assert exam["value"] == "64.2 kg"
 
     prescription = by_kind["prescription"]
-    assert (await act(client, world, next(f for f in listed if f["kind"] == "examination"), action="correct")).status_code == 200
+    exam = next(f for f in listed if f["kind"] == "examination")
+    assert (await act(client, world, exam, action="correct")).status_code == 200
     again = {f["kind"]: f for f in await facts(client, world)}
     assert next(r for r in again["prescription"]["related"] if r["kind"] == "examination")["status"] == "verified"
     assert prescription["id"] == again["prescription"]["id"]

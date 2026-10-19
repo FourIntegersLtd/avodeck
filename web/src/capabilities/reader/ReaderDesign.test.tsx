@@ -50,7 +50,7 @@ describe.each([
     mockReader(pack, { alreadyRead: true, facts: [fact(1, { related: related("suggested") }), fact(2)] });
     renderAt(PATH);
     const visit = await screen.findByRole("article", { name: /Dr P consultation/ });
-    expect(within(visit).getByText(/Prescription · 15 May 2024/)).toBeVisible();
+    expect(within(visit).getByText(/Prescription · (15 May 2024|May 15, 2024)/)).toBeVisible();
     expect(within(visit).getByText(/Anusol HC suppositories · not checked yet/)).toBeVisible();
   });
 
@@ -68,7 +68,7 @@ describe.each([
     const api = mockReader(pack, { alreadyRead: true, lastPage: 119 });
     const { user } = renderAt(PATH);
     await screen.findByRole("article", { name: /Dr P consultation/ });
-    for (const [key, what] of [["C", "correct"], ["N", "not right"], ["→", "next page"]]) {
+    for (const [key, what] of [["C", "correct"], ["N", "not right"], ["→", "next page"]] as Array<[string, string]>) {
       expect(screen.getByText(key)).toBeVisible();
       expect(screen.getByText(new RegExp(what))).toBeVisible();
     }

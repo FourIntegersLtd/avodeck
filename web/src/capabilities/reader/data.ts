@@ -43,3 +43,11 @@ export async function pageImage(caseId: string, pageNo: number): Promise<string 
   const { data } = await api.GET("/v1/cases/{case_id}/pages/{page_no}/image", { params: { path: { case_id: caseId, page_no: pageNo } }, parseAs: "blob" });
   return data ? dataUrl(data as Blob) : null;
 }
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+/** "2024-05-15" as "15 May 2024"; fixed, so it does not depend on the pack's locale. */
+export function longDate(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}` : "";
+}
