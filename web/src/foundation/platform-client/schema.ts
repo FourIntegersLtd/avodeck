@@ -1845,7 +1845,11 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Set Aside Page
+         * @description Set a page aside as a copy of another; the named expert confirms, an assistant only suggests.
+         */
+        put: operations["set_aside_page_v1_cases__case_id__pages__page_id__duplicate_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -5638,6 +5642,11 @@ export interface components {
              */
             action: "confirm" | "undo";
         };
+        /** DuplicateSetAside */
+        DuplicateSetAside: {
+            /** Copy Of Page No */
+            copy_of_page_no: number;
+        };
         /** Duplicates */
         Duplicates: {
             /** Duplicates */
@@ -5812,6 +5821,11 @@ export interface components {
              * @default false
              */
             needs_recheck: boolean;
+            /**
+             * Related
+             * @description Other suggestions or checked facts on this page for the same day, of another kind.
+             */
+            related?: components["schemas"]["RelatedFact"][];
             /** Status */
             status: string;
             /** Value */
@@ -7534,7 +7548,7 @@ export interface components {
             /** Needs Clearer Copy */
             needs_clearer_copy?: boolean | null;
             /** Relevance */
-            relevance?: ("relevant" | "background") | null;
+            relevance?: ("relevant" | "background" | "nothing") | null;
         };
         /**
          * PageDetail
@@ -7560,6 +7574,10 @@ export interface components {
             page_id: string;
             /** Page No */
             page_no: number;
+            /** Period End */
+            period_end: string | null;
+            /** Period Start */
+            period_start: string | null;
             /** Read */
             read: boolean;
             /** Relevance */
@@ -8179,6 +8197,25 @@ export interface components {
         RecoveryCodes: {
             /** Recovery Codes */
             recovery_codes: string[];
+        };
+        /**
+         * RelatedFact
+         * @description Another record found on the same page for the same day (a visit and its prescription).
+         */
+        RelatedFact: {
+            /** Event Date */
+            event_date: string | null;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Kind */
+            kind: string;
+            /** Status */
+            status: string;
+            /** Value */
+            value: string | null;
         };
         /** RelevantChange */
         RelevantChange: {
@@ -9155,7 +9192,7 @@ export interface components {
         /** TranscriptionIn */
         TranscriptionIn: {
             /** Relevance */
-            relevance?: ("relevant" | "background") | null;
+            relevance?: ("relevant" | "background" | "nothing") | null;
             /** Text */
             text: string;
         };
@@ -9193,8 +9230,18 @@ export interface components {
             done: boolean;
             /** Handwriting */
             handwriting: boolean | null;
+            /**
+             * Has Clearer Copy
+             * @description A clearer copy has been added for it.
+             */
+            has_clearer_copy: boolean;
             /** Has Transcription */
             has_transcription: boolean;
+            /**
+             * Is Copy
+             * @description Set aside as a copy of another page.
+             */
+            is_copy: boolean;
             /** Needs Clearer Copy */
             needs_clearer_copy: boolean;
             /**
@@ -14612,6 +14659,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UnreadableQueue"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    set_aside_page_v1_cases__case_id__pages__page_id__duplicate_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DuplicateSetAside"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DuplicatePage"];
                 };
             };
             /** @description Validation Error */

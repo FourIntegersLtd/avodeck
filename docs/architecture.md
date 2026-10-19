@@ -522,6 +522,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/bundle/sorted` | Pages grouped by the pack's sources, then by the date printed on each page (never from facts); every page keeps its own number; quarantined pages left out |
 | GET | `/cases/{case_id}/duplicates` | Pairs to review; thumbnails via `/pages/{page_no}/thumbnail` |
 | PATCH | `/cases/{case_id}/pages/{page_id}/duplicate` | Confirm or undo "copy of page X" |
+| PUT | `/cases/{case_id}/pages/{page_id}/duplicate` | `{copy_of_page_no}`: set a page aside as a copy of another (named expert confirms; an assistant suggests); 422 if it is its own copy, 409 if the original is itself a copy |
 | PATCH | `/cases/{case_id}/documents/{doc_id}` | Edit provenance (how obtained, received date) |
 | GET | `/cases/{case_id}/missing-items` | Documents pages mention that the bundle does not hold, with the page that mentions each |
 | PATCH | `/cases/{case_id}/missing-items/{item_id}` | Not available (reason), open again, or mark received (a page added later); If-Match |
@@ -541,7 +542,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does | Notes |
 |---|---|---|---|
 | GET | `/cases/{case_id}/pages?cursor=&filter=unread|period|source` | Page list for navigation + progress | |
-| GET | `/cases/{case_id}/pages/{page_no}` | Source, period-in-question flag, read state | Facts **not** included |
+| GET | `/cases/{case_id}/pages/{page_no}` | Source, period-in-question flag and the period itself (start, end), read state | Facts **not** included |
 | GET | `/cases/{case_id}/pages/{page_no}/image?zoom=` | Page image streamed by the API | `no-store` |
 | GET | `/cases/{case_id}/pages/{page_no}/thumbnail` | Small image streamed by the API | |
 | POST | `/cases/{case_id}/pages/{page_no}/read` | Record read `{dwell_seconds}` → appends to hash-chained log | Unlocks suggestions |
@@ -556,10 +557,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out or clearer copy asked for) | |
+| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out, marked nothing relevant, set aside as a copy, or clearer copy asked for or added); each page says `is_copy` and `has_clearer_copy` | |
 | PUT | `/cases/{case_id}/pages/{page_no}/transcription` | `{text, relevance?}`: save expert's text; counts as read; re-runs T-07b on it through `extract_page_text` (core/contracts/pipeline.py) | 202 + job; 503 while A's entry point is missing |
 | GET | `/cases/{case_id}/pages/{page_no}/second-reading` | T-10 comparison | Only after a transcription exists, or on request |
-| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
+| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}`; `relevance` is `relevant`, `background` or `nothing` (nothing relevant on this page) | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
 
 **11 Timeline**
 
