@@ -17,5 +17,6 @@ const opinion = ({ caseId }: { caseId: string }) => `/cases/${caseId}/opinion`;
 
 registerScreen("S14", points);
 registerScreen("points", points);
+registerScreen("points_against", points);
 registerScreen("S15", opinion);
 registerScreen("opinion", opinion);
