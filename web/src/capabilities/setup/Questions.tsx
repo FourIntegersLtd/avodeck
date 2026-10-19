@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, TextLink } from "../../foundation/ui";
-import { NoteView, Select, TextArea, versionTag, type Option } from "./shared";
+import { ArrowIcon, NoteView, Select, TextArea, versionTag, type Option } from "./shared";
 
 type QuestionItem = Schemas["QuestionOut"];
 type AssumptionItem = Schemas["AssumptionOut"];
@@ -41,6 +41,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
     setQuestions(asked.questions);
     setAssumptions(asked.assumptions);
   }, [asked]);
+  const party = pack.instructing_party_types[0]?.label ?? "";
   const kinds: Option[] = pack.question_types.map((q) => ({ value: String(q.key), label: t(String(q.label_key ?? ""), {}, humanise(String(q.key))) }));
   const total = questions.length + assumptions.length;
   const done = [...questions, ...assumptions].filter((i) => i.status === "confirmed").length;
@@ -74,10 +75,10 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
   };
 
   return (
-    <div className="av-page av-stack">
-      <div className="av-row av-row--spread">
+    <div className="av-page av-page--wide av-stack">
+      <div className="av-row av-row--spread av-setup-title">
         <div>
-          <h2>{t("setup.questions.title")}</h2>
+          <h1>{t("setup.questions.title")}</h1>
           <p className="av-muted">{t("setup.questions.intro")}</p>
         </div>
         {total > 0 && <strong className="av-setup-count">{t("setup.questions.progress", { done, total })}</strong>}
@@ -120,6 +121,8 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           locked={asked.locked}
           onChange={(next) => setQuestions(questions.map((x, j) => (j === i ? (next as QuestionItem) : x)))}
           pack={pack}
+          party={party}
+          onDraft={() => void draft(q.id)}
           extra={(save) => (
             <>
               <Select label={t("setup.questions.kind")} options={kinds} value={q.kind ?? ""} disabled={asked.locked} onChange={(e) => void save({ kind: e.target.value })} />
@@ -129,13 +132,6 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
                 disabled={asked.locked}
                 onChange={(e) => void save({ outside_expertise: e.target.checked })}
               />
-              {q.outside_expertise && (
-                <div>
-                  <Button variant="secondary" onClick={() => void draft(q.id)}>
-                    {t("setup.questions.draft_note")}
-                  </Button>
-                </div>
-              )}
             </>
           )}
         />
@@ -157,13 +153,16 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
       {total > 0 && (
         <div className="av-row av-row--spread av-setup-footer">
           {asked.locked ? (
-            <LinkButton to={`/cases/${caseId}/preparing`}>{t("setup.questions.continue")}</LinkButton>
+            <LinkButton arrow to={`/cases/${caseId}/preparing`}>{t("setup.questions.continue")}</LinkButton>
           ) : (
             <>
               <span className="av-setup-footer__hint">
-                {t("setup.questions.last", { count: total - done })} · <TextLink to={`/cases/${caseId}/details`}>{t("setup.questions.further")}</TextLink>
+                {total > done ? t("setup.questions.last", { count: total - done }) : t("setup.questions.ready")} · <TextLink to={`/cases/${caseId}/details`}>{t("setup.questions.further")}</TextLink>
               </span>
-              <Button onClick={() => void confirmAll()}>{t("setup.questions.confirm_all")}</Button>
+              <Button disabled={done < total} onClick={() => void confirmAll()}>
+                {t("setup.questions.confirm_all")}
+                <ArrowIcon />
+              </Button>
             </>
           )}
         </div>
@@ -182,8 +181,12 @@ function ItemCard({
   onChange,
   extra,
   pack,
+  party,
+  onDraft,
 }: {
   pack?: Schemas["CasePack"];
+  party?: string;
+  onDraft?: () => void;
   kind: "question" | "assumption";
   caseId: string;
   item: QuestionItem | AssumptionItem;
@@ -217,9 +220,10 @@ function ItemCard({
     }
   };
   const reworded = item.confirmed_text && item.confirmed_text !== item.text_verbatim;
+  const outside = kind === "question" && (item as QuestionItem).outside_expertise;
 
   return (
-    <article aria-labelledby={headingId} className="av-card av-stack">
+    <article aria-labelledby={headingId} className={`av-card av-stack${outside ? " av-setup-card--outside" : ""}`}>
       <div className="av-row av-row--spread">
         <div className="av-row">
           <h4 id={headingId} className="av-visually-hidden">
@@ -236,22 +240,26 @@ function ItemCard({
             <strong>{t("setup.questions.assumption_label")}</strong>
           )}
         </div>
-        {item.status === "confirmed" && <strong className="av-setup-confirmed">{t("setup.questions.confirmed")}</strong>}
+        {item.status === "confirmed" && (
+          <strong className="av-setup-confirmed">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+              <path d="M5 12l5 5 9-10" />
+            </svg>
+            {t("setup.questions.confirmed")}
+          </strong>
+        )}
       </div>
       {reworded ? (
         <>
-          <p className="av-setup-quote">{item.confirmed_text}</p>
+          <p className="av-setup-text">{item.confirmed_text}</p>
           <p className="av-small av-muted">{t("setup.questions.letter_says")}</p>
           <p className="av-setup-quote av-muted">{item.text_verbatim}</p>
         </>
       ) : (
-        <p className="av-setup-quote">{item.text_verbatim}</p>
+        <p className="av-setup-text">{item.text_verbatim}</p>
       )}
-      {item.para_ref && <p className="av-small av-muted">{t("setup.questions.from_paragraph", { ref: item.para_ref })}</p>}
-      {kind === "question" && (item as QuestionItem).outside_expertise && (
-        <OutsideExpertise question={item as QuestionItem} pack={pack} locked={locked} onAnswer={() => void save({ confirm: true })} />
-      )}
-      {extra?.(save)}
+      {item.para_ref && <p className="av-mono av-muted av-setup-ref">{t("setup.questions.from_paragraph", { ref: item.para_ref })}</p>}
+      {outside && <OutsideExpertise question={item as QuestionItem} pack={pack} locked={locked} party={party} onAnswer={() => void save({ confirm: true })} onDraft={onDraft} />}
       {editing && (
         <form
           className="av-stack"
@@ -261,6 +269,7 @@ function ItemCard({
           }}
         >
           <TextArea label={t("setup.questions.your_wording")} rows={3} value={wording} onChange={(e) => setWording(e.target.value)} />
+          {extra?.(save)}
           <div className="av-row">
             <Button type="submit" variant="secondary" disabled={!wording.trim()}>
               {t("setup.questions.save_wording")}
@@ -288,22 +297,33 @@ function ItemCard({
   );
 }
 
-/** The kind of question as a pill; its dot takes the pack's colour (drawn in SVG: no inline styles). */
+/** The kind of question as a quiet pill, in the pack's word. */
 function KindPill({ kind, pack }: { kind: string | null | undefined; pack?: Schemas["CasePack"] }) {
   const type = pack?.question_types.find((q) => q.key === kind);
   if (!kind) return null;
   return (
     <span className="av-setup-kind" data-testid="kind-pill">
-      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
-        <circle cx="6" cy="6" r="6" fill={String(type?.colour ?? "currentColor")} />
-      </svg>
       {t(String(type?.label_key ?? ""), {}, humanise(kind))}
     </span>
   );
 }
 
 /** Why a question may be outside the expert's field, and the parts the pack says the expert still answers. */
-function OutsideExpertise({ question, pack, locked, onAnswer }: { question: QuestionItem; pack?: Schemas["CasePack"]; locked: boolean; onAnswer: () => void }) {
+function OutsideExpertise({
+  question,
+  pack,
+  locked,
+  party,
+  onAnswer,
+  onDraft,
+}: {
+  question: QuestionItem;
+  pack?: Schemas["CasePack"];
+  locked: boolean;
+  party?: string | undefined;
+  onAnswer: () => void;
+  onDraft?: (() => void) | undefined;
+}) {
   const type = (pack?.question_types as { key: string; parts?: { key: string; label_key?: string }[] }[] | undefined)?.find((q) => q.key === question.kind);
   const parts = (question.answer_parts ?? [])
     .map((key) => {
@@ -312,17 +332,32 @@ function OutsideExpertise({ question, pack, locked, onAnswer }: { question: Ques
     })
     .join(` ${t("setup.questions.and")} `);
   return (
-    <div className="av-setup-expertise">
-      <p>
-        <strong>{question.outside_expertise_source === "expert" ? t("setup.questions.expertise_expert") : t("setup.questions.expertise_pack")}</strong>
-        {parts && <> {t("setup.questions.expertise_parts", { parts })}</>}
-      </p>
-      {parts && !locked && question.status !== "confirmed" && (
-        <Button variant="secondary" onClick={onAnswer}>
-          {t("setup.questions.answer_only", { parts })}
-        </Button>
+    <>
+      <div className="av-setup-expertise">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true" focusable="false">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v6M12 16.5v.5" />
+        </svg>
+        <p>
+          <strong>{question.outside_expertise_source === "expert" ? t("setup.questions.expertise_expert") : t("setup.questions.expertise_pack")}</strong>
+          {parts && <> {t("setup.questions.expertise_parts", { parts })}</>}
+        </p>
+      </div>
+      {!locked && (
+        <div className="av-row">
+          {parts && question.status !== "confirmed" && (
+            <Button variant="secondary" onClick={onAnswer}>
+              {t("setup.questions.answer_only", { parts })}
+            </Button>
+          )}
+          {onDraft && (
+            <Button variant="secondary" onClick={onDraft}>
+              {party ? t("setup.questions.draft_note_to", { party }) : t("setup.questions.draft_note")}
+            </Button>
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -333,11 +368,12 @@ function LetterPane({ questions, assumptions }: { questions: QuestionItem[]; ass
     .sort((a, b) => a.para_ref!.localeCompare(b.para_ref!, "en", { numeric: true }));
   if (cited.length === 0) return null;
   return (
-    <section aria-label={t("setup.questions.letter_title")} className="av-card av-stack av-setup-letter">
-      <span className="av-muted">{t("setup.questions.letter_title")}</span>
+    <section aria-label={t("setup.questions.letter_title")} className="av-setup-letter av-stack">
+      <span className="av-mono av-setup-letter__head">{t("setup.questions.letter_title")}</span>
       {cited.map((i) => (
         <p key={i.id}>
-          <span className="av-mono av-setup-letter__ref">{i.para_ref}</span> <mark>{i.text_verbatim}</mark>
+          <span className="av-mono av-setup-letter__ref">{i.para_ref}</span>{" "}
+          <mark className={"outside_expertise" in i && i.outside_expertise ? "av-setup-mark--outside" : undefined}>{i.text_verbatim}</mark>
         </p>
       ))}
     </section>
