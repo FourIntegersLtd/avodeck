@@ -4,6 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "../../foundation/i18n";
 import { DevSkipCode, rememberDevEmail } from "../../foundation/lib/DevSkipCode";
+import { useResource } from "../../foundation/lib/useResource";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, CodeField, Loading, Notice, SupportLine, TextField } from "../../foundation/ui";
@@ -123,12 +124,19 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
           <Button variant="quiet" onClick={() => go("recover")}>
             {t("sign_in.use_backup")}
           </Button>
-          {t("sign_in.note.link_end")} {t("sign_in.note.private")}
+          {t("sign_in.note.link_end")} <PrivateNote />
         </p>
       </div>
       <SupportLine />
     </>
   );
+}
+
+/** "Your records are stored in {place} and never used to train AI": the place comes from the cell (GET /v1/cell); without one, the plain promise. */
+function PrivateNote() {
+  const cell = useResource(() => unwrap(api.GET("/v1/cell")), []);
+  const place = cell.data?.storage_place;
+  return <>{place ? t("sign_in.note.private_in", { place }) : t("sign_in.note.private")}</>;
 }
 
 function CodeForm({ onDone, submitLabel, secret }: { onDone: (r: Schemas["Verified"]) => void; submitLabel: string; secret?: string }) {

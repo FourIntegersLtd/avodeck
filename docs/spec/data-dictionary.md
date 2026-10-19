@@ -892,7 +892,8 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | hearing_id | Which hearing it's for |
 | sections / pdf_path / sha256 / built_at | What's in it, the file, fingerprint and build date |
-| stale | New material has arrived since it was built |
+| stale / stale_reason / stale_at | New material has arrived since it was built, why (a short key such as `hearing_adjourned`), and when it was marked |
+| built_hearing_version / built_last_page_no / built_served_version_id | What it was built from: the hearing's version, the last numbered page and the newest served version; it reads as stale when any of them has moved on |
 
 ### offline_packages
 | Field | In plain words |
@@ -900,6 +901,8 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | hearing_id / device_label | Which hearing and which device |
 | format_version | The package format, so older apps can refuse newer ones |
 | built_at / expires_at / revoked_at | When made, when it stops opening, and if it was cancelled |
+| stale / stale_reason / stale_at | New material has arrived since it was made, why (a short key), and when it was marked; a stale copy never becomes current again |
+| court_bundle_id / built_hearing_version / built_last_page_no / built_served_version_id | What it was made from: the court bundle whose page numbers it carries, the hearing's version, the last numbered page and the newest served version |
 
 ### readiness_replies
 | Field | In plain words |

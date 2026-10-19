@@ -23,6 +23,16 @@ export function screenPath(key: string, target: ScreenTarget = {}): string | nul
   return build ? build({ caseId: target.caseId ?? "", params: target.params ?? {} }) : null;
 }
 
+/** The first of these screens that a slice has registered inside this case (its address starts with `/cases/<id>/`). */
+export function firstScreenInCase(keys: string[] | undefined, caseId: string): string | null {
+  const inside = `/cases/${caseId}/`;
+  for (const key of keys ?? []) {
+    const path = screenPath(key, { caseId });
+    if (path?.startsWith(inside)) return path;
+  }
+  return null;
+}
+
 /** Forget every registered screen. Tests of the shell use it to prove the shell with no slice registered. */
 export function resetScreens(): void {
   screens.clear();
