@@ -263,3 +263,12 @@ a.av-page-ref { color: var(--green); }
 .av-dictation__own { color: var(--ink-soft); font-weight: 700; }
 .av-dictation__footer .av-button { border-radius: 999px; border-color: var(--line); color: var(--ink); }
 .av-dictation__footer .av-dictation__live { margin: 0 auto 0 0; }
+
+/* Today footer; the case home's "Where you are" */
+.av-today__balance { margin-top: var(--space-5); }
+.av-step__pct { font-weight: 700; color: inherit; }
+.av-where { display: flex; flex-direction: column; gap: var(--space-4); }
+.av-where__line { display: flex; justify-content: space-between; gap: var(--space-3); font-size: var(--text-body); }
+.av-where__banner { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; padding: var(--space-4) 18px; border-radius: var(--radius); background: var(--amber-tint, #FDF1E3); }
+.av-where__banner p { margin: 0; flex: 1; min-width: 200px; }
+.av-where__banner a { font-weight: 700; display: inline-flex; align-items: center; min-height: var(--button-min-height); }

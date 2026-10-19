@@ -52,7 +52,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Count Recovery Codes
+         * @description How many backup codes are still unused (S28 "7 of 10 left"); never the codes.
+         */
+        get: operations["count_recovery_codes_v1_auth_mfa_recovery_codes_get"];
         put?: never;
         /**
          * Regenerate Recovery Codes
@@ -2886,6 +2890,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/steps/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Case Step Progress
+         * @description How far each step of the case's workflow is, counted from the case's own records (read-only).
+         */
+        get: operations["get_case_step_progress_v1_cases__case_id__steps_progress_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/subject": {
         parameters: {
             query?: never;
@@ -4813,6 +4837,11 @@ export interface components {
              * @default []
              */
             written_question_classifications: string[];
+        };
+        /** CaseStepProgress */
+        CaseStepProgress: {
+            /** Steps */
+            steps: components["schemas"]["StepProgress"][];
         };
         /**
          * CaseUpdate
@@ -8254,6 +8283,13 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** RecoveryCodeCount */
+        RecoveryCodeCount: {
+            /** Remaining */
+            remaining: number;
+            /** Total */
+            total: number;
+        };
         /** RecoveryCodes */
         RecoveryCodes: {
             /** Recovery Codes */
@@ -9031,6 +9067,17 @@ export interface components {
             /** Stage */
             stage: string;
         };
+        /** StepProgress */
+        StepProgress: {
+            /** Done */
+            done: number | null;
+            /** Key */
+            key: string;
+            /** Percent */
+            percent: number | null;
+            /** Total */
+            total: number | null;
+        };
         /** Subject */
         Subject: {
             /** Label */
@@ -9732,6 +9779,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    count_recovery_codes_v1_auth_mfa_recovery_codes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodeCount"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
@@ -17740,6 +17816,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SpotCheckStarted"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    get_case_step_progress_v1_cases__case_id__steps_progress_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseStepProgress"];
                 };
             };
             /** @description Validation Error */

@@ -176,6 +176,11 @@ class RecoveryCodes(BaseModel):
     recovery_codes: list[str]
 
 
+class RecoveryCodeCount(BaseModel):
+    remaining: int
+    total: int
+
+
 class Recover(SignIn):
     code: str = Field(min_length=6, max_length=32, pattern=PLAIN)
 
@@ -287,6 +292,18 @@ async def verify(body: Code, request: Request, response: Response, session: Curr
     await audit.record(conn, action="auth.mfa_verified", target=f"session:{session.id}")
     sessions.set_cookies(response, new)
     return Verified(status="signed_in", recovery_codes=codes)
+
+
+@auth_signed_in.get("/mfa/recovery-codes", response_model=RecoveryCodeCount)
+async def count_recovery_codes(response: Response, session: CurrentSession, conn: DbConn) -> RecoveryCodeCount:
+    """How many backup codes are still unused (S28 "7 of 10 left"); never the codes."""
+    response.headers["Cache-Control"] = "no-store"
+    async with conn.cursor() as cur:
+        await cur.execute(
+            "select count(*) from app.mfa_recovery_codes where person_id = app.current_person_id() and used_at is null"
+        )
+        row = await cur.fetchone()
+    return RecoveryCodeCount(remaining=int(row[0]) if row else 0, total=RECOVERY_CODE_COUNT)
 
 
 @auth_signed_in.post("/mfa/recovery-codes", response_model=RecoveryCodes, dependencies=[Depends(require_step_up)])

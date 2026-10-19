@@ -110,7 +110,7 @@ Every case carries three codes (jurisdiction, case type, specialty). The loader 
 packs/
   jurisdiction/gb-eaw/      pack.yaml, vocabulary.yaml, declarations.md, deadlines.yaml, holidays.yaml, meetings.yaml,
                             legal_tests.md, report.yaml (court compliance items), final_checks.yaml, identifiers.py
-  case-type/clin-neg-breach/ workflow.yaml (steps + screens), questions.yaml, report_sections.yaml (section and appendix keys with their headings), final_checks.yaml, opinion.yaml (point-side, opinion-view, loaded-word and range-note wording)
+  case-type/clin-neg-breach/ workflow.yaml (steps, screens, and the `meters` each step counts), questions.yaml, report_sections.yaml (section and appendix keys with their headings), final_checks.yaml, opinion.yaml (point-side, opinion-view, loaded-word and range-note wording)
   specialty/general-practice/ pack.yaml (profession), facts.yaml, sources.yaml, lanes.yaml, checks.yaml, final_checks.yaml, vocabulary.yaml
   overlay/gb-eaw/general-practice/ records.yaml, guidelines.yaml, vocabulary.yaml, speech_phrases.yaml, drug_monitoring.yaml
   _fixtures/                 deliberately strange test packs (see 3.6); never allowed in a real cell
@@ -471,6 +471,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/packs` | Pack combinations available in this cell (launch: gb-eaw · clin-neg-breach · general-practice) | |
 | POST | `/cases` | Create draft case (jurisdiction, case type, specialty, label, party role, instructing party type and name, due date, optional court track) | Pack versions stamped on the case |
 | GET | `/cases/{case_id}/pack` | Merged pack for this case: vocabulary, workflow steps and screens, lanes, question types, deadlines, declarations | Drives the case header and wording |
+| GET | `/cases/{case_id}/steps/progress` | One entry per pack workflow step: `done`, `total`, `percent` (null when the step has nothing to count). A step names its counts in `meters` in `workflow.yaml` (`pages_read`, `questions_confirmed`, `facts_decided`, `questions_with_opinion`, `report_stages`); read-only | Shows on each step pill in the case header |
 | PATCH | `/cases/{case_id}` | Update case details | |
 | POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256, append?}` → `upload_id`; `append` marks later records | |
 | PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk; FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent |
@@ -771,6 +772,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 |---|---|---|---|
 | GET | `/me/sessions` | Devices the person is signed in on | |
 | DELETE | `/me/sessions/{session_id}` | Sign out one device | |
+| GET | `/auth/mfa/recovery-codes` | How many backup codes are unused (`remaining` of `total`), never the codes | signed in |
 | POST | `/auth/mfa/recovery-codes` | Make 10 new one-time recovery codes (old ones stop working) | 🔒 shown once |
 | POST | `/auth/mfa/recover` | `{email, password, code}` signs in with a recovery code, removes the old authenticator and asks to re-enrol MFA | Rate-limited |
 | POST | `/me/email-change` | Start an email change; confirmation sent to old and new address | 🔒 |
