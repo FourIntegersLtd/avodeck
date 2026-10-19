@@ -37,13 +37,20 @@ describe.each([
     const api = mockReader(pack);
     const { user } = renderAt(PATH);
     await user.type(await screen.findByLabelText("What does this page show?"), "Nursing note, bowel prep tolerated");
-    await user.click(screen.getByRole("radio", { name: "Background only" }));
+    await user.click(screen.getByRole("radio", { name: "No, background only" }));
     await user.click(screen.getByRole("button", { name: "Save and next page" }));
     await waitFor(() => expect(api.puts).toHaveLength(1));
     expect(api.puts[0]).toEqual({ page: 612, body: { text: "Nursing note, bowel prep tolerated", relevance: "background" } });
     expect(await screen.findByRole("img", { name: "Page 640" })).toBeVisible();
     expect(await screen.findByText("1 of 3 done")).toBeVisible();
     expect(screen.getByLabelText("What does this page show?")).toHaveValue("");
+  });
+
+  test("the relevance question offers Yes and No, background only", async () => {
+    mockReader(pack);
+    renderAt(PATH);
+    expect(await screen.findByRole("radio", { name: "Yes" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "No, background only" })).toBeVisible();
   });
 
   test("Save is not offered with nothing typed", async () => {
