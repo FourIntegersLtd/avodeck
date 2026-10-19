@@ -82,7 +82,7 @@ export function BundleReady() {
           )}
           {setAside.length > 0 && <Card icon={<OtherPersonIcon />} title={wn("bundle.set_aside", setAside.length, locale)} />}
           {(exhibits.length > 0 || foreign.length > 0) && (
-            <Card icon={<MicIcon />} title={keptTitle}>
+            <Card icon={<MicIcon />} tone="grey" title={keptTitle}>
               <p>
                 {exhibits.length > 0 && wn(`bundle.kept_note_${kind}`, exhibits.length, locale)}
                 {exhibits.length > 0 && foreign.length > 0 && " "}
@@ -169,7 +169,7 @@ export function BundleReady() {
 interface CardProps {
   icon: ReactNode;
   title: string;
-  tone?: "amber";
+  tone?: "amber" | "grey";
   /** Centre the title against the action (a card whose list sits below). */
   centred?: boolean;
   /** A link or button at the right of the card. */
@@ -181,7 +181,7 @@ interface CardProps {
 
 function Card({ icon, title, tone, centred, action, children, below }: CardProps) {
   return (
-    <section className={["av-card", "pl-card", tone && `pl-card--${tone}`, centred && "pl-card--centred"].filter(Boolean).join(" ")}>
+    <section className={["av-card", "pl-card", tone === "amber" && "pl-card--amber", centred && "pl-card--centred"].filter(Boolean).join(" ")}>
       <div className="pl-card__row">
         <IconTile tone={tone ?? "mint"}>{icon}</IconTile>
         <div className="pl-card__text">
