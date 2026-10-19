@@ -4,6 +4,7 @@ import { FinalCheck } from "./FinalCheck";
 import { InvoiceScreen } from "./Invoice";
 import { ReportScreen } from "./Report";
 import { SignSend } from "./SignSend";
+import { SpotCheckScreen } from "./SpotCheck";
 import "./report.css";
 import "./words";
 
@@ -15,6 +16,9 @@ export const reportCaseRoutes: RouteObject[] = [
   { path: "sign", element: <SignSend />, handle: { screen: "sign_send" } },
   { path: "invoice", element: <InvoiceScreen />, handle: { screen: "invoice" } },
 ];
+
+/** The colleague's spot-check page: opened from an emailed link, with no sign-in (threat model T9). */
+export const reportOfflineRoutes: RouteObject[] = [{ path: "spot-check/:token", element: <SpotCheckScreen /> }];
 
 const at = (segment: string) => ({ caseId }: { caseId: string }) => `/cases/${caseId}/${segment}`;
 

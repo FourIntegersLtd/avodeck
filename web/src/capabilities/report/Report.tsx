@@ -1,12 +1,14 @@
 // S16 Your report (docs/design/screens/S16-Report.dc.html): the sections (headings from the pack's labels), what the
 // court requires (from the pack), the citation style, building and rebuilding, the expert's own sections and the
 // methodology note. The server decides every change; edits send the version this screen saw.
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
+import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { screenPath } from "../../foundation/lib/screens";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
 import { downloadPath, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
@@ -14,19 +16,22 @@ import { w } from "./words";
 type Report = Schemas["ReportOut"];
 const STYLES = ["page", "paragraph"] as const;
 const ERRORS = { stale: "report.stale", not_built: "report.not_built" };
+const AFTER_SERVING_TYPES = ["answers", "supplementary"];
 
 export function ReportScreen() {
   const { caseId = "" } = useParams();
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
   const settings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/settings", { params: { path: { case_id: caseId } } })), [caseId]);
+  const { item, pack } = useCaseFrame();
   const wait = useWaiting(found.reload, found.data?.version?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
   const [styleVersion, setStyleVersion] = useState<number | null>(null);
+  const [refused, setRefused] = useState(false);
 
   if (found.error || settings.error) return <div className="av-page"><LoadError onRetry={() => { found.reload(); settings.reload(); }} /></div>;
   if (found.data === undefined || !settings.data) return <div className="av-page"><Loading /></div>;
-  const data = (found.data ?? { version: null, sections: [], checklist: { items: [] } }) as unknown as Report;
+  const data = (found.data ?? { version: null, versions: [], sections: [], checklist: { items: [] } }) as unknown as Report;
   const version = data.version;
   const currentStyle = style ?? settings.data.citation_style;
   const currentVersion = styleVersion ?? settings.data.version;
@@ -36,7 +41,8 @@ export function ReportScreen() {
     try {
       await work();
     } catch (err) {
-      setError(errorMessage(err, ERRORS));
+      if (err instanceof ApiError && err.code === "served_use_supplementary") setRefused(true);
+      else setError(errorMessage(err, ERRORS));
     }
   };
 
@@ -60,13 +66,23 @@ export function ReportScreen() {
       if (saved.job_id) wait.start();
     });
 
+  // Rule 8: once the main report is served (or withdrawn) it is locked; changes go in a supplementary report.
+  const served = refused || data.versions.some((v) => !AFTER_SERVING_TYPES.includes(v.type) && (v.status === "served" || v.status === "withdrawn"));
   const done = data.checklist.items.filter((item) => item.done).length;
+  const limits = (pack.compliance_checklist as { page_limit?: Record<string, number> }).page_limit ?? {};
+  const limit = item.court_track ? limits[item.court_track] : undefined;
 
   return (
     <div className="av-page av-stack">
       <h1>{w("report.title")}</h1>
       <p>{w("report.intro")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {served && (
+        <Notice tone="warning">
+          <p>{w("report.served")}</p>
+          <LinkButton to={screenPath("S21b", { caseId }) ?? `/cases/${caseId}`}>{w("report.served_link")}</LinkButton>
+        </Notice>
+      )}
       {wait.waiting && <Notice><p>{w("building")}</p></Notice>}
       {!version && <Notice><p>{w("report.empty")}</p></Notice>}
       {version && (
@@ -102,7 +118,7 @@ export function ReportScreen() {
             <ul className="av-report-list">
               {data.checklist.items.map((item) => (
                 <li key={item.key} className="av-report-item">
-                  <span aria-hidden="true">{item.done ? "✓" : "○"}</span> <span>{item.text ?? humanise(item.key)}</span>
+                  <span aria-hidden="true">{item.done ? "✓" : "○"}</span> <span className="av-visually-hidden">{item.done ? w("report.done") : w("report.not_done")}</span> <span>{item.text ?? humanise(item.key)}</span>
                 </li>
               ))}
             </ul>
@@ -114,10 +130,12 @@ export function ReportScreen() {
       </div>
 
       <div className="av-report-footer">
-        <Button variant="secondary" onClick={() => void build()} disabled={wait.waiting}>
-          {version ? w("report.rebuild") : w("report.build")}
-        </Button>
-        {version?.page_count ? <span className="av-muted">{w("report.pages_footer", { pages: version.page_count })}</span> : null}
+        {!served && (
+          <Button variant="secondary" onClick={() => void build()} disabled={wait.waiting}>
+            {version ? w("report.rebuild") : w("report.build")}
+          </Button>
+        )}
+        {version?.page_count ? <span className="av-muted">{limit != null ? w("report.pages_footer_limit", { pages: version.page_count, limit }) : w("report.pages_footer_nolimit", { pages: version.page_count })}</span> : null}
         {version && <LinkButton to={`/cases/${caseId}/final-check`}>{w("report.final_check")}</LinkButton>}
       </div>
     </div>
@@ -132,12 +150,12 @@ function Sections({ caseId, data, onSaved }: { caseId: string; data: Report; onS
     <section className="av-card av-stack" aria-labelledby="sections-title">
       <h3 id="sections-title">{w("report.sections")}</h3>
       <ol className="av-report-list" aria-label={w("report.contents")}>
-        {data.sections.map((section) => {
+        {data.sections.map((section, index) => {
           const name = nameOf(section.key);
           return (
             <li key={section.key} aria-label={name} className="av-report-item av-report-item--spread">
               <span>
-                <span aria-hidden="true">{section.written || section.generated ? "✓" : "○"}</span> <strong>{name}</strong>{" "}
+                <span className="av-muted">{index + 1}.</span> <span aria-hidden="true">{section.written || section.generated ? "✓" : "○"}</span> <strong>{name}</strong>{" "}
                 <span className="av-badge">{section.written ? w("report.section.written") : section.generated ? w("report.section.generated") : w("report.section.todo")}</span>
                 {section.total != null && <span className="av-muted"> {w("report.progress", { done: section.done ?? 0, total: section.total })}</span>}
               </span>
@@ -230,9 +248,25 @@ function Methodology({ caseId }: { caseId: string }) {
 
 function Preview({ caseId, pages }: { caseId: string; pages: number }) {
   const [page, setPage] = useState(1);
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let made: string | null = null;
+    let live = true;
+    void unwrap(api.GET("/v1/cases/{case_id}/report/preview/{page}", { params: { path: { case_id: caseId, page } }, parseAs: "blob" }))
+      .then((blob) => {
+        if (!live) return;
+        made = URL.createObjectURL(blob as Blob);
+        setSrc(made);
+      })
+      .catch(() => undefined);
+    return () => {
+      live = false;
+      if (made) URL.revokeObjectURL(made);
+    };
+  }, [caseId, page]);
   return (
     <section className="av-card av-stack">
-      <img className="av-report-preview" src={`${apiOrigin()}/v1/cases/${caseId}/report/preview/${page}`} alt={w("report.preview_alt", { page })} />
+      <img className="av-report-preview" src={src ?? undefined} alt={w("report.preview_alt", { page })} />
       <div className="av-row">
         <Button variant="secondary" disabled={page <= 1} onClick={() => setPage(page - 1)}>{w("report.preview_previous")}</Button>
         <span className="av-muted">{w("report.preview", { page, pages })}</span>

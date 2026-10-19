@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts.reading import PageReadLog
+from app.core.contracts.reports import AFTER_SERVING_TYPES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import DbConn
@@ -30,6 +31,22 @@ def not_found() -> ApiError:
 
 def invalid(*fields: str) -> ApiError:
     return ApiError("invalid", "Check the highlighted fields.", 422, fields=list(fields))
+
+
+async def refuse_if_served(conn: Any, case_id: uuid.UUID) -> None:
+    """Rule 8: once the main report is served (or withdrawn after serving) it is locked for good, so a new
+    build, final check or sign is refused; corrections go through the supplementary report (screen 21b)."""
+    cur = await conn.execute(
+        "select 1 from app.report_versions where case_id = %s and status in ('served', 'withdrawn')"
+        " and type <> all(%s) limit 1",
+        (case_id, list(AFTER_SERVING_TYPES)),
+    )
+    if await cur.fetchone() is not None:
+        raise ApiError(
+            "served_use_supplementary",
+            "This report has been served. Use the supplementary report to correct it.",
+            409,
+        )
 
 
 class Queued(BaseModel):
