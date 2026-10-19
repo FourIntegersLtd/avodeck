@@ -97,6 +97,22 @@ test("a settled case shows the three decisions with the pack's years, and passes
   expect(await axeViolations(container)).toEqual([]);
 });
 
+test("inside the app shell's main area it adds no second main landmark", async () => {
+  serve();
+  const { container } = renderUi(
+    <MemoryRouter initialEntries={[`/cases/${CASE_A}/close`]}>
+      <main id="main">
+        <Routes>
+          <Route path="cases/:caseId/close" element={<Close />} />
+        </Routes>
+      </main>
+    </MemoryRouter>,
+  );
+  await screen.findByRole("heading", { level: 1, name: CLOSE_MESSAGES["close.heading.settled"] });
+  expect(screen.getAllByRole("main")).toHaveLength(1);
+  expect(await axeViolations(container)).toEqual([]);
+});
+
 test("delete now is not offered once a report was sent", async () => {
   serve();
   renderClose();
