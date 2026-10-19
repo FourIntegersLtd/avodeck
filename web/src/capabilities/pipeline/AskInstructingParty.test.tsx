@@ -136,7 +136,7 @@ describe.each([
     const { user } = renderAt(PATH);
     expect(await screen.findByText("Need more time?")).toBeVisible();
     expect(screen.getByText(`Your report is due ${formatDate("2026-11-30", pack.locale)}. If the records arrive late, you may need more time.`)).toBeVisible();
-    expect(screen.getByText("Body without it")).toBeVisible();
+    expect(await screen.findByText("Body without it")).toBeVisible();
     await user.click(screen.getByRole("checkbox", { name: `Add a line asking for 14 more days if they arrive after ${formatDate("2026-11-16", pack.locale)}` }));
     expect(await screen.findByText("Body with the extra line")).toBeVisible();
     expect(asked.at(-1)).toEqual({ extension: true });
