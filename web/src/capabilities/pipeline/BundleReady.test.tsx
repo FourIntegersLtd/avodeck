@@ -113,7 +113,7 @@ describe.each([
     renderAt(PATH);
     const start = await screen.findByRole("link", { name: "Start reading" });
     expect(start).toHaveClass("av-button");
-    expect(screen.getAllByRole("link").filter((l) => l.classList.contains("av-button") && !/--/.test(l.className))).toHaveLength(1);
+    expect(screen.getAllByRole("link").filter((l) => l.classList.contains("av-button") && !/--(secondary|quiet|danger)/.test(l.className))).toHaveLength(1);
   });
 
   test("with nothing to flag there are no cards for copies, other people's pages or missing items", async () => {
