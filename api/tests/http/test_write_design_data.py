@@ -117,7 +117,7 @@ async def test_a_range_note_remembers_the_day_it_was_first_written(
 
 
 async def save(client: Any, w: World, etag: str, body: str) -> Any:
-    payload = {"body": body, "citation_refs": [], "view": None, "provisional": False}
+    payload: dict[str, Any] = {"body": body, "citation_refs": [], "view": None, "provisional": False}
     saved = await client.put(w.url(f"questions/{w.question}/opinion"), json=payload, headers={"If-Match": etag})
     assert saved.status_code == 200, saved.text
     return saved.json()
