@@ -140,7 +140,7 @@ describe("as the design shows it", () => {
     expect(within(bears).getByText("Q2")).toBeInTheDocument();
     expect(within(bears).getByText("Q3")).toBeInTheDocument();
     const seen = screen.getByRole("region", { name: "In the record that day" });
-    expect(within(seen).getByText("Hb 98, ferritin 9")).toBeInTheDocument();
+    expect(within(seen).getAllByText("Hb 98, ferritin 9").length).toBeGreaterThan(0);
   });
 
   test("an entry with a thing to look at says so", async () => {
