@@ -6,6 +6,8 @@ import { registerMessages, t } from "../../foundation/i18n";
 const WORDS = {
   "tab.question": "Question {{number}}",
   "tab.question_short": "Q{{number}}",
+  "tab.question_titled": "Q{{number}} · {{title}}",
+  "tab.question_kind": "Q{{number}} · {{kind}}",
   "nothing_to_answer": "There are no questions to answer yet. Check the questions you've been asked first.",
   "open_questions": "Check the questions",
 
@@ -29,6 +31,7 @@ const WORDS = {
   "points.relevant_title_one": "You haven't used {{count}} relevant fact yet.",
   "points.relevant_title_other": "You haven't used {{count}} relevant facts yet.",
   "points.relevant_dismiss": "Not needed",
+  "points.dictated": "Dictated {{date}}",
   "points.differ": "Where the accounts differ",
   "points.differ_none": "No accounts differ from the record.",
   "points.statement": "The statement:",
@@ -66,6 +69,7 @@ const WORDS = {
   "opinion.provisional": "My view is provisional",
   "opinion.test": "The test you're applying",
   "opinion.test_reference": "The test the case type uses, for reference:",
+  "opinion.flagged_copy": "Your text with the sentences to check marked",
   "opinion.checks": "Checks on what you've written",
   "opinion.checks_clear": "Nothing to check.",
   "opinion.issue.uncited_fact": "A sentence states a fact without a page number: {{words}}",

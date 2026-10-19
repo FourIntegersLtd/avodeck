@@ -28,6 +28,7 @@ from app.features.write import services
 from app.features.write.common import (
     Crypto,
     PointFact,
+    QuestionHeader,
     Queued,
     View,
     Write,
@@ -35,6 +36,7 @@ from app.features.write.common import (
     citable,
     invalid,
     not_found,
+    question_header,
     refused,
     require_question,
 )
@@ -80,6 +82,7 @@ class Points(BaseModel):
     relevant: list[RelevantOut]
     claims: list[ClaimOut]
     range_note: RangeNote
+    question: QuestionHeader
 
 
 class PointChange(BaseModel):
@@ -164,6 +167,7 @@ async def list_points(
         relevant=relevant,
         claims=claims,
         range_note=note,
+        question=await question_header(conn, pack, case_id, question_id),
     )
 
 

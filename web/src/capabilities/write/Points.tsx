@@ -4,11 +4,12 @@
 // The server decides every change; this screen sends the version it saw.
 import { useState } from "react";
 import { useParams } from "react-router-dom";
+import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, PageRef } from "../../foundation/ui";
-import { QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
+import { KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
 type Data = Schemas["Points"];
@@ -38,6 +39,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   const [note, setNote] = useState(initial.range_note.text ?? "");
   const [noteVersion, setNoteVersion] = useState(initial.range_note.version);
   const [noteSaved, setNoteSaved] = useState(false);
+  const [dictatedOn, setDictatedOn] = useState(initial.range_note.dictated_on);
 
   const attempt = async (work: () => Promise<void>) => {
     setError(null);
@@ -77,6 +79,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
     attempt(async () => {
       const saved = await unwrap(api.PUT("/v1/cases/{case_id}/questions/{question_id}/range-note", { params: { path: { case_id: caseId, question_id: questionId } }, body: { text: note }, headers: ifMatch(versionTag(noteVersion)) }));
       setNoteVersion(saved.version);
+      setDictatedOn(saved.dictated_on);
       setNoteSaved(true);
     });
 
@@ -89,6 +92,9 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
         <p className="av-muted">{w("points.intro")}</p>
       </div>
       <QuestionTabs caseId={caseId} chosen={chosen} screen="points" />
+      <p className="av-muted">
+        <KindBadge header={data.question} /> {chosen.current.confirmed_text ?? chosen.current.text_verbatim}
+      </p>
       {error && (
         <Notice tone="error">
           <p>{error}</p>
@@ -201,6 +207,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
           <div className="av-write-actions">
             <Button onClick={() => void saveNote()}>{w("points.range_save")}</Button>
             {noteSaved && <span role="status">{w("points.range_saved")}</span>}
+            {dictatedOn && <span className="av-muted">{w("points.dictated", { date: formatDue(dictatedOn, undefined) })}</span>}
           </div>
         </section>
 

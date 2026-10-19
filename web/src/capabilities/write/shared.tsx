@@ -2,6 +2,7 @@
 // chosen with ?q=, and small helpers for versions.
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { humanise, t } from "../../foundation/i18n";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
@@ -57,11 +58,28 @@ export function QuestionTabs({ caseId, chosen, screen }: { caseId: string; chose
               <span className="av-visually-hidden">{w("points.tab_done")} </span>
             </>
           )}
-          {w("tab.question", { number: q.number })}
+          <TabName number={q.number} title={chosen.progress?.questions.find((p) => p.question_id === q.id)?.short_title} />
         </Link>
       ))}
     </nav>
   );
+}
+
+/** "Q1 · February bloods" to look at, "Question 1" first for a screen reader and when there is no title yet. */
+function TabName({ number, title }: { number: number; title: string | undefined }) {
+  if (!title) return <>{w("tab.question", { number })}</>;
+  return (
+    <>
+      <span aria-hidden="true">{w("tab.question_titled", { number, title })}</span>
+      <span className="av-visually-hidden">{w("tab.question", { number })}: {title}</span>
+    </>
+  );
+}
+
+/** "Q2 · Breach": the question's number and its kind, in the case type's own word for it. */
+export function KindBadge({ header }: { header: Schemas["QuestionHeader"] }) {
+  const kind = header.kind_label_key ? t(header.kind_label_key, {}, humanise(header.kind)) : humanise(header.kind);
+  return <span className="av-write-badge av-write-badge--dark">{w("tab.question_kind", { number: header.number, kind })}</span>;
 }
 
 export function pageLabel(page: number): string {

@@ -5850,8 +5850,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Sentence End */
+            sentence_end?: number | null;
             /** Sentence Index */
             sentence_index: number;
+            /** Sentence Start */
+            sentence_start?: number | null;
             /** Source */
             source: string;
             /** Status */
@@ -6856,6 +6860,7 @@ export interface components {
             claims: components["schemas"]["ClaimOut"][];
             /** Points */
             points: components["schemas"]["PointOut"][];
+            question: components["schemas"]["QuestionHeader"];
             range_note: components["schemas"]["RangeNote"];
             /** Relevant */
             relevant: components["schemas"]["RelevantOut"][];
@@ -7038,6 +7043,22 @@ export interface components {
             /** Paragraph Ids */
             paragraph_ids?: string[] | null;
         };
+        /**
+         * QuestionHeader
+         * @description What the boards print about a question: its number, a short title, the kind (with the pack's label key).
+         */
+        QuestionHeader: {
+            /** Kind */
+            kind: string;
+            /** Kind Label Key */
+            kind_label_key: string | null;
+            /** Number */
+            number: number;
+            /** Para Ref */
+            para_ref: string | null;
+            /** Short Title */
+            short_title: string;
+        };
         /** QuestionOut */
         QuestionOut: {
             /** Confirmed Text */
@@ -7079,6 +7100,8 @@ export interface components {
              * Format: uuid
              */
             question_id: string;
+            /** Short Title */
+            short_title: string;
         };
         /**
          * QuestionUpdate
@@ -7143,6 +7166,8 @@ export interface components {
         };
         /** RangeNote */
         RangeNote: {
+            /** Dictated On */
+            dictated_on?: string | null;
             /** Prompt */
             prompt: string;
             /** Text */
@@ -8349,6 +8374,7 @@ export interface components {
             legal_test: string;
             opinion: components["schemas"]["OpinionOut"] | null;
             points: components["schemas"]["PointsSummary"];
+            question: components["schemas"]["QuestionHeader"];
             /**
              * Question Id
              * Format: uuid

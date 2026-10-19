@@ -11,13 +11,14 @@ import uuid
 from pydantic import BaseModel
 
 from app.core.http import DbConn
-from app.features.write.common import ANSWERABLE, View
+from app.features.write.common import ANSWERABLE, View, short_title
 from app.features.write.router import router
 
 
 class QuestionProgress(BaseModel):
     question_id: uuid.UUID
     number: int
+    short_title: str
     points_done: bool
     has_opinion: bool
 
@@ -29,7 +30,7 @@ class WriteProgress(BaseModel):
 
 
 _SQL = """
-select q.id, q.number,
+select q.id, q.number, coalesce(q.confirmed_text, q.text_verbatim),
   exists (select 1 from app.points p where p.question_id = q.id and p.status in ('accepted'))
     and not exists (select 1 from app.points p where p.question_id = q.id and p.status in ('suggested', 'stale')),
   exists (select 1 from app.opinions o where o.question_id = q.id)
@@ -44,5 +45,10 @@ async def write_progress(case_id: uuid.UUID, access: View, conn: DbConn) -> Writ
     """Per answerable question: are its points settled, and is there an opinion; plus the answered count."""
     cur = await conn.execute(_SQL, (case_id, list(ANSWERABLE)))
     found = await cur.fetchall()
-    rows = [QuestionProgress(question_id=r[0], number=r[1], points_done=r[2], has_opinion=r[3]) for r in found]
+    rows = [
+        QuestionProgress(
+            question_id=r[0], number=r[1], short_title=short_title(r[2]), points_done=r[3], has_opinion=r[4]
+        )
+        for r in found
+    ]
     return WriteProgress(answered=sum(r.has_opinion for r in rows), total=len(rows), questions=rows)
