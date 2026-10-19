@@ -181,7 +181,9 @@ async def test_the_built_pack_records_the_pages_each_section_took_and_the_previe
     latest = await built(client_for, worker_db, world)
     pack = latest["pack"]
     counted = {s["key"]: s["pages"] for s in pack["section_pages"]}
-    assert set(counted) == set(sections) and all(n >= 1 for n in counted.values())
+    # the legal tests section is left out when the pack has none
+    assert {"report", "chronology", "readiness", "joint_statement", "written_answers"} <= set(counted) <= set(sections)
+    assert all(n >= 1 for n in counted.values())
     assert sum(counted.values()) == pack["page_count"]
     preview = (await (await client_for(world.expert)).get(world.url("trial-pack/preview"))).json()
     assert {s["key"]: s["pages"] for s in preview["sections"] if s["key"] in counted} == counted
