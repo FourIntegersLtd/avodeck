@@ -71,6 +71,13 @@ describe.each([
     expect(kept).toHaveTextContent("The page (p.903, Welsh) may need a certified translation.");
   });
 
+  test("the card for kept recordings has the board's grey icon tile", async () => {
+    mock(pack);
+    renderAt(PATH);
+    const kept = card(await screen.findByText("1 voice recording and 1 page not in English."));
+    expect(kept.querySelector(".av-icon-tile--grey")).not.toBeNull();
+  });
+
   test("what looks missing is listed, with the pack's words for asking", async () => {
     mock(pack);
     renderAt(PATH);
