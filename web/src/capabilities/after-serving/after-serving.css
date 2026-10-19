@@ -65,3 +65,29 @@
 .av-after-tile__icon-quiet { display: inline-flex; align-items: center; justify-content: center; background: var(--surface-soft); color: var(--ink-soft); }
 .av-after-tile .av-text-link { gap: var(--space-2); text-decoration: none; margin-top: auto; }
 .av-after-tile .av-text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
+
+/* S20 board */
+.av-after-head .av-back-link { text-decoration: none; }
+.av-after-daycard { display: flex; align-items: center; gap: var(--space-4); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 20px; }
+.av-after-daycard > strong { font-size: 40px; line-height: 1; color: var(--green-dark); }
+.av-after-daycard small { font-size: 15px; }
+.av-after-qsplit { display: flex; gap: 28px; flex-wrap: wrap; align-items: flex-start; }
+.av-after-qside { flex: 1 1 320px; display: flex; flex-direction: column; gap: var(--space-3); }
+.av-after-qmain { flex: 999 1 640px; min-width: 0; }
+.av-after-qlist, .av-after-qcards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-3); }
+.av-after-qnav { background: var(--surface); border: 2px solid var(--line); border-radius: 16px; padding: 18px 20px; text-decoration: none; color: var(--ink); display: flex; flex-direction: column; gap: 6px; font-size: 16px; }
+.av-after-qnav--on { border-color: var(--green); }
+.av-after-qnav--flag { border-color: var(--amber-border); }
+.av-after-qnav__top { display: flex; justify-content: space-between; gap: var(--space-2); font-size: 17px; }
+.av-after-qnav__state { font-size: 14px; color: var(--ink-soft); }
+.av-after-qnav__state--flag { color: var(--amber); font-weight: 700; }
+.av-after-qcard { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-large); padding: 24px 26px; gap: var(--space-3); }
+.av-after-qcard__tags { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.av-after-pillchip { padding: 4px 12px; border-radius: 999px; background: var(--green-tint); color: var(--green-dark); font-size: 14px; font-weight: 700; }
+.av-after-pillchip--flag { background: var(--amber-tint); color: var(--amber); }
+.av-after-qtext { font-size: 22px; line-height: 1.35; margin: 0; }
+.av-after-about { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; font-size: 15px; margin: 0; }
+.av-after-aboutchip { padding: 3px 10px; border-radius: 8px; background: #F1F2F1; font-weight: 700; }
+.av-after-qmain .av-dictation__text { font-family: Georgia, "Times New Roman", serif; font-size: 18px; line-height: 1.75; min-height: 180px; padding: 24px 28px; }
+.av-after-note { background: var(--amber-tint); border: 1px solid var(--amber-border); border-radius: 16px; padding: 16px 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; color: var(--amber-bright); }
+.av-after-note__text { flex: 1 1 420px; color: var(--ink); }

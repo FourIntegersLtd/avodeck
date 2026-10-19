@@ -10,7 +10,8 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, Dialog, DictationBox, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, Dialog, DictationBox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { WarnIcon } from "./icons";
 import { capitalise, declarationParts, keyName, longDate, Select, useLocale, useWaiting, versionTag, weekdayDate } from "./shared";
 import { w } from "./words";
 
@@ -35,6 +36,7 @@ export function QuestionsScreen() {
   const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId]);
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId]);
   const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId]);
+  const [selected, setSelected] = useState<string | null>(null);
   const wait = useWaiting(() => { rounds.reload(); questions.reload(); }, questions.data?.questions.length);
 
   if (rounds.error || questions.error || deadlines.error) {
@@ -50,56 +52,80 @@ export function QuestionsScreen() {
     : null;
   const reloadAll = () => { rounds.reload(); questions.reload(); deadlines.reload(); };
 
+  const all = questions.data.questions;
+  const current = all.find((q) => q.id === selected) ?? all[0];
+  const effective = (q: Question) => q.classification ?? q.suggested_classification ?? "";
+
   return (
-    <div className="av-page av-stack">
-      <LinkButton variant="quiet" to={`/cases/${caseId}/served`}>{w("back")}</LinkButton>
-      <h2>{capitalise(String(vocab ?? ""))}</h2>
-      <p>{w("questions.intro")}</p>
+    <div className="av-page av-after-page av-stack">
+      <div className="av-after-head">
+        <div>
+          <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
+          <h2>{capitalise(String(vocab ?? ""))}</h2>
+          <p className="av-muted av-after-lede">{w("questions.intro")}</p>
+        </div>
+        {chip && (
+          <div className="av-after-daycard">
+            <strong>{Math.abs(chip.left)}</strong>
+            <span>
+              <strong>{w(chip.left >= 0 ? "questions.days_left" : "questions.days_over", { count: Math.abs(chip.left) })}</strong>
+              <br />
+              <small className="av-muted">{w("questions.set_due", { ordinal: ordinal(chip.number), date: weekdayDate(chip.due, locale) })}</small>
+            </span>
+          </div>
+        )}
+      </div>
       {wait.waiting && <Notice><p>{w("questions.reading")}</p></Notice>}
       {rounds.data.rounds.length === 0 && <Notice><p>{w("questions.none")}</p></Notice>}
-      {chip && (
-        <div className="av-after-chip-row av-row">
-          <div className="av-after-chip">
-            <strong>{Math.abs(chip.left)}</strong>
-            <span>{w(chip.left >= 0 ? "questions.days_left" : "questions.days_over", { count: Math.abs(chip.left) })}</span>
-          </div>
-          <p className="av-after-mono">{w("questions.set_due", { ordinal: ordinal(chip.number), date: weekdayDate(chip.due, locale) })}</p>
+      <div className="av-after-qsplit">
+        <div className="av-after-qside">
+          {all.length > 0 && (
+            <nav aria-label={w("questions.list")}>
+              <ul className="av-after-qlist">
+                {all.map((q) => (
+                  <li key={q.id}>
+                    <a
+                      href={`#question-${q.number}`}
+                      className={`av-after-qnav${q.id === current?.id ? " av-after-qnav--on" : ""}${effective(q) === "goes_beyond" ? " av-after-qnav--flag" : ""}`}
+                      aria-current={q.id === current?.id ? "true" : undefined}
+                      onClick={() => setSelected(q.id)}
+                    >
+                      <span className="av-after-qnav__top">
+                        <strong>{w("questions.number", { number: q.number })}</strong>
+                        <span className={effective(q) === "goes_beyond" ? "av-after-qnav__state av-after-qnav__state--flag" : "av-after-qnav__state"}>
+                          {effective(q) === "goes_beyond" ? keyName("classification", "goes_beyond") : keyName("status", q.status)}
+                        </span>
+                      </span>
+                      <span>{q.text_verbatim.length > 80 ? `${q.text_verbatim.slice(0, 80)}…` : q.text_verbatim}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          )}
+          <AddRound caseId={caseId} document={document} onDone={reloadAll} />
         </div>
-      )}
-      <div className="av-after-split">
-      {questions.data.questions.length > 0 && (
-        <nav className="av-after-nav" aria-label={w("questions.list")}>
-          <ul className="av-after-list">
-            {questions.data.questions.map((q) => (
-              <li key={q.id}>
-                <a href={`#question-${q.number}`} className="av-after-nav__link">
-                  <strong>{w("questions.number", { number: q.number })}</strong>
-                  <span className="av-badge">{keyName("status", q.status)}</span>
-                  <span className="av-muted">{q.text_verbatim.length > 60 ? `${q.text_verbatim.slice(0, 60)}…` : q.text_verbatim}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      )}
-      <div className="av-stack">
-      {rounds.data.rounds.map((round) => (
-        <RoundView
-          key={round.id}
-          caseId={caseId}
-          round={round}
-          questions={questions.data!.questions.filter((q) => q.round_id === round.id)}
-          classes={classes}
-          due={deadlines.data!.deadlines.find((d) => d.id === round.deadline_id)?.due_on}
-          locale={locale}
-          declarations={pack.declarations}
-          party={partyWord(pack)}
-          onImport={() => wait.start()}
-          onChanged={reloadAll}
-        />
-      ))}
-      <AddRound caseId={caseId} document={document} onDone={reloadAll} />
-      </div>
+        <div className="av-after-qmain av-stack">
+          {rounds.data.rounds.map((round) => {
+            const mine = all.filter((q) => q.round_id === round.id);
+            return (
+              <RoundView
+                key={round.id}
+                caseId={caseId}
+                round={round}
+                questions={mine}
+                shown={mine.length === 0 || mine.some((q) => q.id === current?.id)}
+                currentId={current?.id}
+                classes={classes}
+                locale={locale}
+                declarations={pack.declarations}
+                party={partyWord(pack)}
+                onImport={() => wait.start()}
+                onChanged={reloadAll}
+              />
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -114,12 +140,13 @@ function partyWord(pack: Schemas["CasePack"]): string {
   return (pack.instructing_party_types as Array<{ key: string; label?: string }>)[0]?.label ?? "";
 }
 
-function RoundView({ caseId, round, questions, classes, due, locale, declarations, party, onImport, onChanged }: {
-  caseId: string; round: Round; questions: Question[]; classes: string[]; due?: string; locale: string;
+function RoundView({ caseId, round, questions, shown, currentId, classes, locale, declarations, party, onImport, onChanged }: {
+  caseId: string; round: Round; questions: Question[]; shown: boolean; currentId?: string; classes: string[]; locale: string;
   declarations: Schemas["CasePack"]["declarations"]; party: string; onImport: () => void; onChanged: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [bump, setBump] = useState(0);
+  const [signing, setSigning] = useState(false);
   const importSet = async () => {
     setError(null);
     try {
@@ -130,26 +157,30 @@ function RoundView({ caseId, round, questions, classes, due, locale, declaration
     }
   };
   return (
-    <section className="av-card av-stack" aria-labelledby={`round-${round.id}`}>
-      <h3 id={`round-${round.id}`}>{w("questions.round", { number: round.number, date: longDate(round.received_on, locale) })}</h3>
-      {due && <p className="av-after-mono">{w("questions.due", { date: longDate(due, locale) })}</p>}
+    <section className="av-stack" hidden={!shown} aria-label={w("questions.round", { number: round.number, date: longDate(round.received_on, locale) })}>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {round.status === "open" && !round.extracted_at && <Button variant="secondary" onClick={() => void importSet()}>{w("questions.read")}</Button>}
-      <ul className="av-after-list">
+      {round.status === "open" && !round.extracted_at && <div><Button variant="secondary" onClick={() => void importSet()}>{w("questions.read")}</Button></div>}
+      <ul className="av-after-qcards">
         {questions.map((q) => (
-          <QuestionCard key={`${q.id}-${bump}`} caseId={caseId} question={q} classes={classes} party={party} onReload={() => { setBump(bump + 1); onChanged(); }} />
+          <QuestionCard key={`${q.id}-${bump}`} caseId={caseId} question={q} shown={q.id === currentId} classes={classes} party={party} onReload={() => { setBump(bump + 1); onChanged(); }} />
         ))}
       </ul>
       {round.status === "answered" ? (
         <Notice tone="success"><p>{w("questions.signed")}</p></Notice>
       ) : (
-        questions.length > 0 && <SignAnswers caseId={caseId} roundId={round.id} declarations={declarations} onDone={onChanged} />
+        questions.length > 0 && (
+          <div className="av-stack">
+            <div><button type="button" className="av-after-linkbtn" aria-expanded={signing} onClick={() => setSigning(!signing)}>{w("questions.sign_open")}</button></div>
+            {signing && <section className="av-card"><SignAnswers caseId={caseId} roundId={round.id} declarations={declarations} onDone={onChanged} /></section>}
+          </div>
+        )
       )}
     </section>
   );
 }
 
-function QuestionCard({ caseId, question, classes, party, onReload }: { caseId: string; question: Question; classes: string[]; party: string; onReload: () => void }) {
+function QuestionCard({ caseId, question, shown, classes, party, onReload }: { caseId: string; question: Question; shown: boolean; classes: string[]; party: string; onReload: () => void }) {
+  const [changing, setChanging] = useState(false);
   const [version, setVersion] = useState(question.version);
   const [answer, setAnswer] = useState(question.answer_text ?? "");
   const [classification, setClassification] = useState(question.classification ?? question.suggested_classification ?? "");
@@ -193,37 +224,46 @@ function QuestionCard({ caseId, question, classes, party, onReload }: { caseId: 
     }
   };
   const noteKey = classification && hasMessage(`after_serving.classification_note.${classification}`) ? `after_serving.classification_note.${classification}` : null;
-  const tellButton = <Button variant="secondary" onClick={() => void tell()}>{w("questions.tell", { party: party || w("questions.tell_party") })}</Button>;
+  const tellButton = <button type="button" className="av-after-linkbtn" onClick={() => void tell()}>{w("questions.tell", { party: party || w("questions.tell_party") })}</button>;
   const options = classes.includes(classification) || !classification ? classes : [...classes, classification];
 
   return (
-    <li className="av-after-item av-stack" id={`question-${question.number}`}>
-      <h4>{w("questions.number", { number: question.number })}</h4>
-      <p className="av-after-words">{question.text_verbatim}</p>
-      {question.para_ref && (
-        <p className="av-muted"><strong>{w("questions.about_label")}</strong> <span>{w("questions.about_paras", { para: question.para_ref })}</span></p>
-      )}
+    <li className="av-stack" id={`question-${question.number}`} hidden={!shown}>
+      <div className="av-after-qcard av-stack">
+        <div className="av-after-qcard__tags">
+          <strong className="av-muted">{w("questions.number", { number: question.number })}</strong>
+          {classification && <span className={`av-after-pillchip${noteKey ? " av-after-pillchip--flag" : ""}`}>{keyName("classification", classification)}</span>}
+          {!question.classification && question.suggested_classification && <small className="av-muted">{w("questions.suggested")}</small>}
+          <button type="button" className="av-after-linkbtn" aria-expanded={changing} onClick={() => setChanging(!changing)}>{w("questions.change")}</button>
+        </div>
+        {changing && (
+          <Select
+            label={w("questions.classification")}
+            value={classification}
+            onChange={(e) => { setClassification(e.target.value); void patch({ classification: e.target.value }); }}
+          >
+            {!classification && <option value="" />}
+            {options.map((c) => <option key={c} value={c}>{keyName("classification", c)}</option>)}
+          </Select>
+        )}
+        <h3 className="av-after-qtext">{question.text_verbatim}</h3>
+        {question.para_ref && (
+          <p className="av-after-about"><span className="av-muted">{w("questions.about_label")}</span> <span className="av-after-aboutchip">{w("questions.about_paras", { para: question.para_ref })}</span></p>
+        )}
+      </div>
+      <DictationBox bar caseId={caseId} context="written_question_answer" label={w("questions.answer")} value={answer} onChange={(v) => { setAnswer(v); setSaved(false); }} rows={6} />
+      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {saved && <p role="status">{w("questions.saved")}</p>}
       {noteKey && (
-        <div role="note" aria-label={w("questions.beyond_title", { number: question.number })} className="av-after-flag av-stack">
-          <p>{t(noteKey)}</p>
+        <div role="note" aria-label={w("questions.beyond_title", { number: question.number })} className="av-after-note">
+          <WarnIcon />
+          <span className="av-after-note__text"><strong>{w("questions.beyond_title", { number: question.number })}:</strong> {t(noteKey)}</span>
           {tellButton}
         </div>
       )}
-      <Select
-        label={w("questions.classification")}
-        value={classification}
-        onChange={(e) => { setClassification(e.target.value); void patch({ classification: e.target.value }); }}
-      >
-        {!classification && <option value="" />}
-        {options.map((c) => <option key={c} value={c}>{keyName("classification", c)}</option>)}
-      </Select>
-      {!question.classification && question.suggested_classification && <span className="av-badge">{w("questions.suggested")}</span>}
-      <DictationBox caseId={caseId} context="written_question_answer" label={w("questions.answer")} value={answer} onChange={(v) => { setAnswer(v); setSaved(false); }} rows={6} />
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {saved && <p role="status">{w("questions.saved")}</p>}
       {note && <Notice><h5>{w("questions.tell_title")}</h5><p>{t(note.key, note.params as Record<string, string | number>)}</p></Notice>}
       {told && !note && <p className="av-muted">{w("questions.told", { date: longDate(told, locale) })}</p>}
-      <div className="av-row">
+      <div className="av-after-footer">
         {!noteKey && tellButton}
         <Button onClick={() => void patch({ answer_text: answer })}>{w("questions.answer_save")}</Button>
       </div>
@@ -283,9 +323,10 @@ function AddRound({ caseId, document, onDone }: { caseId: string; document: stri
       setError(errorMessage(err, ERRORS));
     }
   };
+  const [open, setOpen] = useState(false);
+  if (!open) return <div><button type="button" className="av-after-linkbtn" onClick={() => setOpen(true)}>{w("questions.add")}</button></div>;
   return (
-    <section className="av-card av-stack" aria-labelledby="add-round">
-      <h3 id="add-round">{w("questions.add")}</h3>
+    <section className="av-card av-stack" aria-label={w("questions.add")}>
       {!document && <p>{w("questions.document_needed")}</p>}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <TextField label={w("questions.received_on")} name="received_on" type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} />

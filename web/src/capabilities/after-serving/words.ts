@@ -115,6 +115,8 @@ const WORDS = {
   "classification_note.goes_beyond": "The rules let you raise this rather than answer. You can tell the person who instructed you, and they will decide what to do.",
   "questions.classification": "How does this question sit with your report?",
   "questions.suggested": "Suggested",
+  "questions.change": "Change",
+  "questions.sign_open": "Ready to sign your answers",
   "questions.answer": "Your answer",
   "questions.answer_save": "Save answer",
   "questions.saved": "Saved.",
