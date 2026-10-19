@@ -100,3 +100,19 @@ async def test_patch_cannot_change_status(client_for: ClientFor, team: dict[str,
         f"/v1/cases/{team['case']}", json={"status": "served"}, headers={"if-match": '"1"'}
     )
     assert resp.status_code == 422
+
+
+@pytest.mark.parametrize(
+    ("status", "stage"),
+    [("draft", "gather"), ("processing", "gather"), ("active", "review"), ("served", "conclude"), ("archived", "conclude")],
+)
+async def test_get_names_the_pack_step_the_case_is_at(
+    client_for: ClientFor, seed: Seed, status: str, stage: str
+) -> None:
+    """Opening a case lands on its step, so the frame never shows "not ready" for a case that is (F26)."""
+    expert = seed.person()
+    org = seed.org(kind="personal", members={expert: "owner"})
+    case = seed.case(org, expert, status=status)
+    resp = await (await client_for(expert)).get(f"/v1/cases/{case}")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["stage"] == stage
