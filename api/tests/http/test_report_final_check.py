@@ -458,3 +458,38 @@ async def test_tone_and_expertise_warnings_never_block_and_name_only_words_in_th
     model(kit=False)
     run = await check_now(client_for, worker_db, world)
     assert run["passed"] is True and run["warnings_status"] == "not_run" and run["warnings"] == []
+
+
+@pytest.mark.usefixtures("model")
+async def test_passed_checks_say_how_much_they_looked_at_and_pack_checks_explain_themselves(
+    client_for: ClientFor,
+    worker_db: Database,
+    seed: Seed,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    world: World,
+    reads: Reads,
+) -> None:
+    await make_ready(seed, admin, aconn, world, reads)
+    await build_now(client_for, worker_db, world)
+    run = await check_now(client_for, worker_db, world)
+    by_key = {r["key"]: r for r in run["results"]}
+
+    cited = admin.execute(
+        "select count(*), count(distinct fact_id) from app.citations c join app.report_versions v"
+        " on v.id = c.report_version_id where v.case_id = %s",
+        (world.case,),
+    ).fetchone()
+    assert cited is not None and cited[0] > 0
+    assert (by_key["citations_resolve"]["checked"], by_key["citations_resolve"]["unit"]) == (cited[1], "fact")
+    assert (by_key["quotes_verbatim"]["checked"], by_key["quotes_verbatim"]["unit"]) == (cited[0], "quote")
+    unchanged = by_key["facts_unchanged_since_cited"]
+    assert (unchanged["checked"], unchanged["total"], unchanged["unit"]) == (cited[0], cited[0], "fact")
+    pages = admin.execute("select count(*) from app.pages where case_id = %s", (world.case,)).fetchone()
+    assert pages is not None
+    read = by_key["all_pages_read"]
+    assert (read["checked"], read["total"], read["unit"]) == (pages[0], pages[0], "page")
+    assert by_key["report_built"]["checked"] is None and by_key["report_built"]["unit"] is None
+    for result in run["results"]:
+        if result["source"] == "pack" and world.combo.codes[0] == "gb-eaw":
+            assert result["explain"], "the launch pack words each check's explanation"

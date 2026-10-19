@@ -339,3 +339,24 @@ async def test_paragraphs_are_the_built_reports_words_as_text(
     assert (await client.get(world.url("report/paragraphs"), params={"section": "Bad Key"})).status_code == 422
     assert (await (await client_for(world.outsider)).get(world.url("report/paragraphs"))).status_code == 404
     assert (await (await client_for(world.viewer)).get(world.url("report/paragraphs"))).status_code == 200
+
+
+@pytest.mark.usefixtures("services")
+async def test_the_report_names_its_document_and_the_court_track_from_the_pack_and_case(
+    client_for: ClientFor, worker_db: Database, admin: psycopg.Connection, world: World
+) -> None:
+    await build_now(client_for, worker_db, world)
+    client = await client_for(world.expert)
+    plain = (await client.get(world.url("report"))).json()
+    assert plain["court_track_label"] is None, "a case with no track names none"
+
+    admin.execute("update app.cases set court_track = 'multi' where id = %s", (world.case,))
+    body = (await client.get(world.url("report"))).json()
+    sections = world.combo.raw("case-type", "report_sections.yaml") or {}
+    vocabulary = world.combo.raw("jurisdiction", "vocabulary.yaml") or {}
+    name = sections.get("report_name")
+    version = body["version"]
+    assert version["title"] == (f"{name}: Case Z" if name else version["display_name"])
+    assert body["versions"][0]["title"] == version["title"]
+    tracks = vocabulary.get("court_tracks") or {}
+    assert body["court_track_label"] == tracks.get("multi", "multi")
