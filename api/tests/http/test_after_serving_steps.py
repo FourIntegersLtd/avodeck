@@ -83,15 +83,17 @@ async def test_a_signed_supplementary_report_names_who_signed_and_the_day(
 ) -> None:
     expert = await client_for(served.expert)
     await make_change(client_for, worker_db, model, served)
-    await run_job(worker_db, served, await expert.post(served.url("report-changes/supplementary")), "build_supplementary")
+    await run_job(
+        worker_db, served, await expert.post(served.url("report-changes/supplementary")), "build_supplementary"
+    )
     draft = (await expert.get(served.url("report-changes"))).json()["supplementary"]
     assert draft["signed_by"] is None and draft["signed_on"] is None
-    signed = await expert.post(
-        served.url(f"report/versions/{draft['id']}/sign"), json={"declaration_confirmed": True}
-    )
+    signed = await expert.post(served.url(f"report/versions/{draft['id']}/sign"), json={"declaration_confirmed": True})
     assert signed.status_code == 200, signed.text
     sup = (await (await client_for(served.viewer)).get(served.url("report-changes"))).json()["supplementary"]
-    name = admin.execute("select p.full_name from app.people p join app.cases c on c.named_expert_id = p.id where c.id = %s",
-        (served.case,),).fetchone()
+    name = admin.execute(
+        "select p.full_name from app.people p join app.cases c on c.named_expert_id = p.id where c.id = %s",
+        (served.case,),
+    ).fetchone()
     assert name is not None and sup["signed_by"] == name[0] and sup["signed_by"]
     assert abs((date.fromisoformat(sup["signed_on"]) - date.today()).days) <= 1
