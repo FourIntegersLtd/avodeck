@@ -8,6 +8,7 @@ import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
 import { casePath, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
+import { forgetPage } from "./pageImage";
 import { uploadLaterRecords } from "./upload";
 import { w } from "./words";
 
@@ -139,6 +140,7 @@ export function CouldntRead() {
       const document_id = await uploadLaterRecords(caseId, file);
       await unwrap(api.POST("/v1/cases/{case_id}/documents/append", { params: { path: { case_id: caseId } }, body: { document_ids: [document_id] } }));
       await unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/replace", { params: { path: { case_id: caseId, page_id: current!.page_id } }, body: { document_id } }));
+      forgetPage(caseId, current!.page_no);
     }, w("unreadable.add_error"));
 
   return (

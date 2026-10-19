@@ -1,12 +1,18 @@
 // Screen 10, Pages we couldn't read: type out each page, say if it matters, move on. Both pack sets.
 import { screen, waitFor } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { forgetPages } from "./pageImage";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { CASE_ID, queuePage } from "./testData";
 import { mockReader } from "./testing";
 import "./index";
+
+beforeEach(() => {
+  forgetPages();
+  vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:page"), revokeObjectURL: vi.fn() }));
+});
 
 const PATH = `/cases/${CASE_ID}/read/couldnt-read`;
 
@@ -21,7 +27,7 @@ describe.each([
     expect(await screen.findByText("1 of 3 done")).toBeVisible();
     expect(screen.getByRole("button", { name: /p\.612/ })).toBeVisible();
     expect(screen.getByRole("button", { name: /p\.640/ })).toHaveAttribute("aria-current", "true");
-    await waitFor(() => expect(screen.getByRole("img", { name: "Page 640" })).toHaveAttribute("src", expect.stringMatching(/^data:image\/jpeg/)));
+    await waitFor(() => expect(screen.getByRole("img", { name: "Page 640" })).toHaveAttribute("src", expect.stringMatching(/^blob:/)));
     expect(screen.getByLabelText("What does this page show?")).toBeVisible();
     expect(screen.getByRole("link", { name: "Back to reading" })).toHaveAttribute("href", `/cases/${CASE_ID}/read`);
     expect(await axeViolations(container)).toEqual([]);
@@ -31,13 +37,20 @@ describe.each([
     const api = mockReader(pack);
     const { user } = renderAt(PATH);
     await user.type(await screen.findByLabelText("What does this page show?"), "Nursing note, bowel prep tolerated");
-    await user.click(screen.getByRole("radio", { name: "Background only" }));
+    await user.click(screen.getByRole("radio", { name: "No, background only" }));
     await user.click(screen.getByRole("button", { name: "Save and next page" }));
     await waitFor(() => expect(api.puts).toHaveLength(1));
     expect(api.puts[0]).toEqual({ page: 612, body: { text: "Nursing note, bowel prep tolerated", relevance: "background" } });
     expect(await screen.findByRole("img", { name: "Page 640" })).toBeVisible();
     expect(await screen.findByText("1 of 3 done")).toBeVisible();
     expect(screen.getByLabelText("What does this page show?")).toHaveValue("");
+  });
+
+  test("the relevance question offers Yes and No, background only", async () => {
+    mockReader(pack);
+    renderAt(PATH);
+    expect(await screen.findByRole("radio", { name: "Yes" })).toBeVisible();
+    expect(screen.getByRole("radio", { name: "No, background only" })).toBeVisible();
   });
 
   test("Save is not offered with nothing typed", async () => {
