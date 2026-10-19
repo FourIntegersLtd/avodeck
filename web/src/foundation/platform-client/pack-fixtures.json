@@ -347,6 +347,9 @@
       "workflow_steps": [
         {
           "key": "gather",
+          "meters": [
+            "questions_confirmed"
+          ],
           "screens": [
             "new_case",
             "preparing",
@@ -355,6 +358,10 @@
         },
         {
           "key": "review",
+          "meters": [
+            "pages_read",
+            "facts_decided"
+          ],
           "screens": [
             "reader",
             "timeline"
@@ -362,6 +369,10 @@
         },
         {
           "key": "conclude",
+          "meters": [
+            "questions_with_opinion",
+            "report_stages"
+          ],
           "screens": [
             "opinion",
             "report",
@@ -1187,6 +1198,9 @@
       "workflow_steps": [
         {
           "key": "prepare",
+          "meters": [
+            "questions_confirmed"
+          ],
           "screens": [
             "new_case",
             "conflicts",
@@ -1198,6 +1212,9 @@
         },
         {
           "key": "read",
+          "meters": [
+            "pages_read"
+          ],
           "screens": [
             "reader",
             "couldnt_read"
@@ -1205,6 +1222,9 @@
         },
         {
           "key": "understand",
+          "meters": [
+            "facts_decided"
+          ],
           "screens": [
             "timeline",
             "as_clinician_saw_it",
@@ -1213,6 +1233,10 @@
         },
         {
           "key": "write",
+          "meters": [
+            "questions_with_opinion",
+            "report_stages"
+          ],
           "screens": [
             "points_against",
             "opinion",

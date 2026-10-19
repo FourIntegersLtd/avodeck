@@ -23,6 +23,11 @@ function serve(progress: { read: number; total: number }) {
   server.use(
     http.get(`/v1/cases/${CASE_A}`, () => json(theCase)),
     http.get(`/v1/cases/${CASE_A}/progress`, () => json({ ...progress, seconds_left: 2400 })),
+    http.get(`/v1/cases/${CASE_A}/steps/progress`, () =>
+      json({ steps: steps.map((s) => (s.key === readStep.key && progress.total > 0
+        ? { key: s.key, done: progress.read, total: progress.total, percent: Math.round((progress.read / progress.total) * 100) }
+        : { key: s.key, done: null, total: null, percent: null })) }),
+    ),
   );
 }
 
