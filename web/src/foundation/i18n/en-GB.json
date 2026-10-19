@@ -306,6 +306,8 @@
   "setup.new_case.subject_is": "The patient is",
   "setup.new_case.their_firm": "Their firm or organisation",
   "setup.new_case.untitled": "New case",
+  "setup.new_case.add_another": "Add another",
+  "setup.new_case.row_n": "{{label}} ({{n}})",
   "setup.new_case.later": "Save and finish later",
   "setup.new_case.prepare": "Prepare my bundle",
   "setup.new_case.who_for": "Who is this case for?",

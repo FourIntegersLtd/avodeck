@@ -55,8 +55,11 @@ export function Choice({
   const Group = segmented ? Segmented : ChoicePills;
   return (
     <div className="av-setup-choice av-stack">
-      <Group label={legend} name={name} options={options} value={value} onChange={onChange} />
-      {hint && <p className="av-field__hint">{hint}</p>}
+      <p className="av-setup-q-label" aria-hidden="true">
+        {legend}
+      </p>
+      {hint && <p className="av-setup-q-hint">{hint}</p>}
+      <Group label={legend} hideLabel name={name} options={options} value={value} onChange={onChange} />
       {children}
     </div>
   );

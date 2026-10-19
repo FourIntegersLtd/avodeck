@@ -342,7 +342,7 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
       ) : (
         <div>
           <LinkAction onClick={() => setAdding(true)}>
-            <span aria-hidden="true">+ </span>
+            <span aria-hidden="true" className="av-setup-plus">+</span>
             {t("setup.roles.add")}
           </LinkAction>
         </div>

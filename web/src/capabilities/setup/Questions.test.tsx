@@ -95,7 +95,7 @@ test("a question outside your field can be flagged, and a note drafted about it"
   await user.click(within(card).getByRole("button", { name: "Edit wording" }));
   await user.click(within(card).getByLabelText("This may be outside my expertise"));
   await waitFor(() => expect(flagged).toEqual({ outside_expertise: true }));
-  await user.click(await within(card).findByRole("button", { name: "Draft a note to the solicitor" }));
+  await user.click(await within(card).findByRole("button", { name: `Draft a note to the ${casePack("launch").instructing_party_types[0]!.label}` }));
   await waitFor(() => expect(drafted).toEqual({ topic: "outside_expertise", question_ids: [question().id] }));
   const draft = await screen.findByRole("region", { name: "A note to send" });
   expect(within(draft).getByText("A question outside my expertise")).toBeInTheDocument();

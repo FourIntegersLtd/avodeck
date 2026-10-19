@@ -74,6 +74,6 @@ test("a question outside your expertise has an outline, the kind has no dot, and
   const card = await screen.findByRole("article", { name: "Question 1" });
   expect(card).toHaveClass("av-setup-card--outside");
   expect(within(card).getByTestId("kind-pill").querySelector("svg")).toBeNull();
-  expect(within(card).getByRole("button", { name: "Draft a note to the solicitor" })).toBeInTheDocument();
+  expect(within(card).getByRole("button", { name: `Draft a note to the ${casePack("launch").instructing_party_types[0]!.label}` })).toBeInTheDocument();
   expect(screen.getByText("0 of 2 confirmed")).toBeInTheDocument();
 });
