@@ -107,7 +107,9 @@ function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: C
             // do, or the row opens something outside the case (your profile).
             const namesCase = !known || t(item.label_key, { ...params, case: "\u0001" }).includes("\u0001");
             const aboutCase = !path || path.startsWith(`/cases/${item.case_id}`);
-            const [before = "", after = ""] = t("today.needs_you.title", { case: "\u0001", words: "\u0002" }).split(/\u0001|\u0002/).slice(1);
+            const shape = t("today.needs_you.title", { case: "\u0001", words: "\u0002" });
+            const before = shape.slice(shape.indexOf("\u0001") + 1, shape.indexOf("\u0002"));
+            const after = shape.slice(shape.indexOf("\u0002") + 1);
             const title =
               caseLabel && aboutCase && !namesCase ? (
                 <>
