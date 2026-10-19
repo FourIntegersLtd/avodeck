@@ -530,7 +530,7 @@ function Closing(props: { party: string | null; caseId: string; status: string; 
 
 function Arrow() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ marginLeft: 10 }}><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+    <svg className="av-close-arrow" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
   );
 }
 
