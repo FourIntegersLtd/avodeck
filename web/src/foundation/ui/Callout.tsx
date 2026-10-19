@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-/** A rounded square that holds an icon: mint for good news, amber for "please look". */
-export function IconTile({ tone = "mint", children }: { tone?: "mint" | "amber"; children: ReactNode }) {
+/** A rounded square that holds an icon: mint for good news, amber for "please look", grey for neutral. */
+export function IconTile({ tone = "mint", children }: { tone?: "mint" | "amber" | "grey"; children: ReactNode }) {
   return (
     <span className={`av-icon-tile av-icon-tile--${tone}`} aria-hidden="true">
       {children}

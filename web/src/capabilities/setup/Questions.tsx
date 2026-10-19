@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, TextLink } from "../../foundation/ui";
-import { ArrowIcon, NoteView, Select, TextArea, versionTag, type Option } from "./shared";
+import { NoteView, Select, TextArea, versionTag, type Option } from "./shared";
 
 type QuestionItem = Schemas["QuestionOut"];
 type AssumptionItem = Schemas["AssumptionOut"];
@@ -159,9 +159,8 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
               <span className="av-setup-footer__hint">
                 {total > done ? t("setup.questions.last", { count: total - done }) : t("setup.questions.ready")} · <TextLink to={`/cases/${caseId}/details`}>{t("setup.questions.further")}</TextLink>
               </span>
-              <Button disabled={done < total} onClick={() => void confirmAll()}>
+              <Button arrow disabled={done < total} onClick={() => void confirmAll()}>
                 {t("setup.questions.confirm_all")}
-                <ArrowIcon />
               </Button>
             </>
           )}

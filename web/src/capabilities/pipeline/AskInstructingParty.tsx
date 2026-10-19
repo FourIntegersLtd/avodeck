@@ -22,7 +22,7 @@ import {
 } from "../../foundation/ui";
 import { casePath } from "./data";
 import { formatDate, formatNumber } from "./format";
-import { ArrowIcon, TickIcon } from "./icons";
+import { TickIcon } from "./icons";
 import { mail } from "./mail";
 import { w, wn } from "./words";
 
@@ -247,9 +247,8 @@ export function AskInstructingParty() {
         <Button variant="secondary" onClick={copy}>
           {w("ask.copy")}
         </Button>
-        <Button className="av-button--arrow" onClick={send} disabled={busy}>
+        <Button arrow onClick={send} disabled={busy}>
           {w("ask.send")}
-          <ArrowIcon />
         </Button>
       </div>
     </div>

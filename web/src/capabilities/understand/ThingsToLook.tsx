@@ -206,7 +206,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {checks.map((c) => (
         <div key={c.key} className="av-understand-check">
-          <ToggleSwitch label={c.label ?? t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
+          <ToggleSwitch labelFirst label={c.label ?? t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
           {c.gentle && <span className="av-muted">{w("things.gentle")}</span>}
         </div>
       ))}

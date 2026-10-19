@@ -34,8 +34,8 @@ test("buttons and link buttons can point back", () => {
   expect(link.firstElementChild?.tagName).toBe("svg");
   expect(on).not.toHaveClass("av-button--arrow-back");
   expect(on.lastElementChild?.tagName).toBe("svg");
-  renderUi(<BackLink to="/y" />);
-  expect(screen.getByRole("link", { name: /back/i }).firstElementChild?.tagName).toBe("svg");
+  renderUi(<BackLink to="/y">{"Return"}</BackLink>);
+  expect(screen.getByRole("link", { name: "Return" }).firstElementChild?.tagName).toBe("svg");
 });
 
 test("a switch can put its label on the left, switch at the right", () => {

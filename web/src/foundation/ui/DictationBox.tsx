@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { t } from "../i18n";
 import { websocketUrl } from "../platform-client";
 import { Button } from "./Button";
@@ -13,6 +13,8 @@ export interface DictationBoxProps {
   rows?: number;
   /** The framed form of the canvas: the box with a footer holding "Your words only" and Dictate. */
   bar?: boolean;
+  /** Small words beside the bar, such as "Saved as you go". */
+  note?: ReactNode;
 }
 
 type State = "idle" | "starting" | "listening" | "finishing";
@@ -22,7 +24,7 @@ type Problem = "unavailable" | "microphone" | null;
  * A text box the expert can type in or dictate into. Audio goes only to the API's WebSocket
  * (rule 4); the words that come back are added to the end of the box for the expert to edit.
  */
-export function DictationBox({ caseId, context, label, value, onChange, rows = 8, bar }: DictationBoxProps) {
+export function DictationBox({ caseId, context, label, value, onChange, rows = 8, bar, note }: DictationBoxProps) {
   const id = useId();
   const [state, setState] = useState<State>("idle");
   const [problem, setProblem] = useState<Problem>(null);
@@ -135,6 +137,7 @@ export function DictationBox({ caseId, context, label, value, onChange, rows = 8
           <div className="av-dictation__footer">
             <span className="av-dictation__own">{t("ui.dictation.own_words")}</span>
             {live}
+            {note && <span className="av-dictation__note">{note}</span>}
             {button}
           </div>
         </div>
@@ -144,6 +147,7 @@ export function DictationBox({ caseId, context, label, value, onChange, rows = 8
           <div className="av-dictation__bar">
             {button}
             {live}
+            {note && <span className="av-dictation__note">{note}</span>}
           </div>
         </>
       )}

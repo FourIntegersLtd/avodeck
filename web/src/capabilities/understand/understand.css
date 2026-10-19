@@ -101,5 +101,4 @@
 .av-understand-finding__evidence { padding-left: calc(var(--space-3) + 44px); }
 .av-understand-finding__evidence .av-understand-event { border-top: 0; justify-content: space-between; padding: 0; min-height: 0; }
 .av-understand-checks .av-understand-check { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-top: 1px solid var(--surface-muted); }
-.av-understand-checks .av-switch { flex-direction: row-reverse; justify-content: space-between; flex: 1; }
 .av-understand-days > summary, .av-understand-links > summary { cursor: pointer; display: flex; align-items: center; min-height: var(--button-min-height); font-weight: 700; color: var(--green); }
