@@ -26,9 +26,10 @@ for (const run of PACKS) {
     test("12 One consultation folds away what came later", async ({ page }) => {
       await stubUnderstand(page, run);
       await page.goto(`/cases/${CASE_A}/consultation/${FACT_1}`);
-      await expect(page.getByRole("heading", { level: 2, name: /on 15 May 2024$/ })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 2, name: "Consultation · 15 May 2024" })).toBeVisible();
       await expect(page.getByText("Show what came later (1)")).toBeVisible();
       await expect(page.getByRole("region", { name: "Not known when this arrived" })).toBeVisible();
+      await page.getByText("Comments", { exact: true }).first().click();
       await expect(page.getByRole("region", { name: "Comments" })).toBeVisible();
       await checkScreen(page);
     });
