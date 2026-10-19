@@ -21,6 +21,15 @@ export function longDate(iso: string, locale?: string | null): string {
   }
 }
 
+/** A whole number with the locale's thousands separators ("3,914"). */
+export function num(n: number, locale?: string | null): string {
+  try {
+    return new Intl.NumberFormat(locale ?? undefined).format(n);
+  } catch {
+    return new Intl.NumberFormat(undefined).format(n);
+  }
+}
+
 /** Saves a file the API sent (never a direct storage link, rule 4). */
 export function saveBlob(blob: Blob, name: string): void {
   const href = URL.createObjectURL(blob);
@@ -72,7 +81,7 @@ export function printBlob(blob: Blob): void {
   const href = URL.createObjectURL(blob);
   const frame = document.createElement("iframe");
   frame.hidden = true;
-  frame.title = "print";
+  frame.title = w("print_frame");
   frame.onload = () => {
     try {
       frame.contentWindow?.print();
