@@ -44,6 +44,7 @@ async def test_the_timeline_can_show_only_what_had_arrived_by_a_day(client_for: 
     body = (await expert.get(f"/v1/cases/{case.id}/timeline", params={"as_seen_on": "2024-02-01"})).json()
     assert [e["fact_id"] for e in _events(body)] == [str(early)]
     assert body["as_seen_on"] == "2024-02-01"
+    assert body["as_seen_title"] == case.pack.term("as_seen_title"), "the label for the date comes from the pack"
     assert body["counts"]["total"] == 3, "the chip numbers ignore the filters"
     assert (await expert.get(f"/v1/cases/{case.id}/timeline")).json()["as_seen_on"] is None
 
@@ -57,7 +58,8 @@ async def test_the_timeline_can_show_only_what_is_not_linked_or_has_a_thing_to_l
     loose = case.fact(kind, date(2024, 2, 10))
     case.link(linked, case.question())
     case.admin.execute(
-        "insert into app.findings (case_id, check_key, rule, gentle, evidence_fact_ids, evidence_page_ids, pack_version)"
+        "insert into app.findings (case_id, check_key, rule, gentle, evidence_fact_ids, evidence_page_ids,"
+        " pack_version)"
         " select %s, 'zz', 'zz', false, %s, array[page_id], 'zz@1' from app.facts where id = %s",
         (case.id, [loose], loose),
     )
@@ -98,4 +100,6 @@ async def test_later_notes_list_later_entries_of_the_same_kind_without_their_wor
     await expert.put(f"/v1/cases/{case.id}/consultations/{later}/note", json={"body": "mine"})
     got = (await expert.get(f"/v1/cases/{case.id}/consultations/{visit}/later-notes")).json()
     assert got["notes"][0]["has_note"] is True
-    assert (await (await client_for(case.stranger)).get(f"/v1/cases/{case.id}/consultations/{visit}/later-notes")).status_code == 404
+    assert (
+        await (await client_for(case.stranger)).get(f"/v1/cases/{case.id}/consultations/{visit}/later-notes")
+    ).status_code == 404

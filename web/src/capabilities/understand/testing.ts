@@ -100,7 +100,7 @@ export function event(over: Partial<Schemas["Event"]> = {}): Schemas["Event"] {
 export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Timeline"] {
   return {
     lanes: [
-      { key: "lane_one", label: "Lane one words", events: [event()] },
+      { key: "lane_one", label: "Lane one words", events: [event()], colour: "#2a6f97" },
       { key: "lane_two", label: "Lane two words", events: [event({ fact_id: FACT_2, kind: "result", page_no: 214, event_date: "2024-02-19", status: "suggested", question_ids: [Q_1, Q_2], has_finding: true })] },
     ],
     unplaced: [],
@@ -109,6 +109,9 @@ export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Time
       { key: "source_one", label: "Source one words", colour: "#2a6f97" },
       { key: "source_two", label: "Source two words", colour: "#b5651d" },
     ],
+    range: { first: "2024-02-19", last: "2024-05-15" },
+    as_seen_on: null,
+    as_seen_title: "Seen on the day",
     counts: { checked: 2, please_check: 1, things_to_look: 1, not_linked: 1, total: 3 },
     ...over,
   };

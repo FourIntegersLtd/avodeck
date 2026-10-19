@@ -3,7 +3,7 @@
 // link only), the expert keeps a note, and changes when something arrived with a reason.
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import { http, json, server } from "../../test/api";
+import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { comment, consultation, timeline, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
@@ -25,6 +25,10 @@ function serve(body = consultation()) {
       calls.push({ method: "PATCH", url: new URL(request.url), body: sent });
       return json({ fact_id: String(params.factId), available_at: sent.available_at, unknown: sent.unknown });
     }),
+    http.get("/v1/cases/:caseId/consultations/:factId/later-notes", () =>
+      json({ notes: [{ fact_id: FACT_3, kind: "consultation", page_no: 131, event_date: "2024-08-08", available_at: "2024-08-09", has_note: true }] }),
+    ),
+    http.get("/v1/cases/:caseId/pages/:pageNo/image", () => new HttpResponse(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } })),
     http.get("/v1/cases/:caseId/comments", () => json({ comments: [comment()] })),
     http.post("/v1/cases/:caseId/comments", async ({ request }) => {
       const sent = (await request.json()) as { body: string };
@@ -161,5 +165,26 @@ describe("as the design shows it", () => {
     await user.click(screen.getByRole("button", { name: "Save note and go back" }));
     await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ body: "Seen late" }));
     expect(await screen.findByRole("heading", { level: 2, name: "The timeline" })).toBeInTheDocument();
+  });
+});
+
+describe("the page and the later notes", () => {
+  test("shows the page the entry is on, beside the entry", async () => {
+    inCase("launch");
+    serve();
+    open();
+    const panel = await screen.findByRole("region", { name: "The page" });
+    await waitFor(() => expect(within(panel).getByRole("img", { name: "Page 118 of the record" })).toHaveAttribute("src", expect.stringMatching(/^data:/)));
+  });
+
+  test("lists later entries of the same kind without their words, and says if you have a note on one", async () => {
+    inCase("launch");
+    serve();
+    open();
+    const region = await screen.findByRole("region", { name: "Later entries of this kind" });
+    expect(await within(region).findByText("8 August 2024 · Consultation")).toBeInTheDocument();
+    expect(within(region).getByText("p.131")).toBeInTheDocument();
+    expect(within(region).getByText("Hidden so you can judge this visit as it stood. Shown so you know it exists.")).toBeInTheDocument();
+    expect(within(region).getByText("You have a note on it")).toBeInTheDocument();
   });
 });
