@@ -90,11 +90,11 @@ test("Confirm and continue saves the answers, declares them and opens the questi
   expect(calls).toEqual(["put", "declare"]);
 });
 
-test("the title is a level-1 heading and the intro counts the questions", async () => {
+test("the title is a level-1 heading and the intro counts the questions, the role-coverage one included", async () => {
   open("launch");
   renderAt(`/cases/${CASE_A}/conflicts`);
   expect(await screen.findByRole("heading", { level: 1, name: "A quick check before you start" })).toBeInTheDocument();
-  expect(screen.getByText(/2 questions\. Anything you declare here goes into your report's conflicts section automatically\./)).toBeInTheDocument();
+  expect(screen.getByText(/3 questions\. Anything you declare here goes into your report's conflicts section automatically\./)).toBeInTheDocument();
 });
 
 test("the role-coverage answer is drawn as Yes and No with the answer marked", async () => {

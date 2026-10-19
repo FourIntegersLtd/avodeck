@@ -4,7 +4,7 @@ import { useId, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, typ
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { ChoicePills, Segmented } from "../../foundation/ui";
+import { ChoicePills, Segmented, StackedBar } from "../../foundation/ui";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
 export async function withEtag<D>(call: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<{ data: D; etag: string }> {
@@ -118,26 +118,29 @@ export function Section({ id, title, intro, children }: { id: string; title: str
 
 /** How often the expert has acted for each side lately (judges notice one-sided experts). */
 const BALANCE_MONTHS = 12;
+const BALANCE_COLOURS = ["var(--green)", "var(--green-bright)", "var(--line-strong)"];
 
 /** The heading shows at once; the counts fill in when they arrive. */
 export function Balance({ words }: { words: Record<string, string> }) {
   const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: BALANCE_MONTHS } } })), []);
   if (found.error) return null;
   const counts = Object.entries(found.data?.counts ?? {});
+  const title = t("setup.balance.title", { months: found.data?.months ?? BALANCE_MONTHS });
   return (
-    <section aria-labelledby="setup-balance" className="av-card av-stack">
-      <div>
-        <h2 id="setup-balance">{t("setup.balance.title", { months: found.data?.months ?? BALANCE_MONTHS })}</h2>
+    <section aria-labelledby="setup-balance" className="av-card av-stack av-setup-balance">
+      <div className="av-row av-row--spread">
+        <h2 id="setup-balance">{title}</h2>
         <p className="av-muted">{t("setup.balance.intro")}</p>
       </div>
-      <ul className="av-setup-balance">
-        {counts.map(([role, count]) => (
-          <li key={role}>
-            <strong className="av-setup-balance__count">{count}</strong>
-            <span>{t("setup.balance.side", { party: words[role] ?? humanise(role) })}</span>
-          </li>
-        ))}
-      </ul>
+      <StackedBar
+        label={title}
+        segments={counts.map(([role, count], i) => ({
+          key: role,
+          value: count,
+          color: BALANCE_COLOURS[i % BALANCE_COLOURS.length]!,
+          label: t("setup.balance.side", { party: words[role] ?? humanise(role) }),
+        }))}
+      />
     </section>
   );
 }
