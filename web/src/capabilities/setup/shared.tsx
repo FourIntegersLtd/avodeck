@@ -4,6 +4,7 @@ import { useId, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, typ
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { ChoicePills, Segmented } from "../../foundation/ui";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
 export async function withEtag<D>(call: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<{ data: D; etag: string }> {
@@ -31,6 +32,7 @@ export interface Option {
   label: string;
 }
 
+/** A question with pill answers (one choice). `segmented` gives the small switch for a pair such as the side. */
 export function Choice({
   legend,
   hint,
@@ -38,6 +40,7 @@ export function Choice({
   options,
   value,
   onChange,
+  segmented,
   children,
 }: {
   legend: string;
@@ -46,27 +49,16 @@ export function Choice({
   options: Option[];
   value: string | null;
   onChange: (value: string) => void;
+  segmented?: boolean;
   children?: ReactNode;
 }) {
-  const hintId = useId();
+  const Group = segmented ? Segmented : ChoicePills;
   return (
-    <fieldset className="av-setup-choice" aria-describedby={hint ? hintId : undefined}>
-      <legend className="av-field__label">{legend}</legend>
-      {hint && (
-        <p className="av-field__hint" id={hintId}>
-          {hint}
-        </p>
-      )}
-      <div className="av-setup-choice__options">
-        {options.map((o) => (
-          <label key={o.value} className="av-checkbox av-setup-option">
-            <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} />
-            <span>{o.label}</span>
-          </label>
-        ))}
-      </div>
+    <div className="av-setup-choice av-stack">
+      <Group label={legend} name={name} options={options} value={value} onChange={onChange} />
+      {hint && <p className="av-field__hint">{hint}</p>}
       {children}
-    </fieldset>
+    </div>
   );
 }
 

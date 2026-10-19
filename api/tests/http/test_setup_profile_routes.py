@@ -425,3 +425,43 @@ async def test_balance_counts_cases_for_each_side_over_the_last_months(
     assert resp.status_code == 200, resp.text
     assert resp.json() == {"months": 12, "counts": wanted}
     assert (await (await client_for(expert)).get("/v1/me/stats/balance", params={"months": 0})).status_code == 422
+
+
+# --- design match: edit in place and the declaration's points (screen 02) --------------------------------
+
+
+async def test_profile_and_roles_carry_the_version_a_change_must_send(client_for: ClientFor, expert: uuid.UUID) -> None:
+    client = await client_for(expert)
+    profile = await client.get("/v1/me/profile")
+    assert f'"{profile.json()["version"]}"' == profile.headers["etag"]
+    created = await client.post(
+        "/v1/me/roles", json={"specialty": "zz-specialty", "role_title": "Practitioner", "started_on": "2005-04-01"}
+    )
+    assert f'"{created.json()["version"]}"' == created.headers["etag"]
+    listed = (await client.get("/v1/me/roles")).json()
+    assert listed[0]["version"] == created.json()["version"]
+    changed = await client.patch(
+        f"/v1/me/roles/{listed[0]['id']}",
+        json={"role_title": "Senior practitioner"},
+        headers={"if-match": f'"{listed[0]["version"]}"'},
+    )
+    assert changed.status_code == 200, changed.text
+    assert changed.json()["role_title"] == "Senior practitioner"
+    assert changed.json()["version"] > listed[0]["version"]
+    again = await client.patch(
+        f"/v1/me/roles/{listed[0]['id']}",
+        json={"role_title": "Other"},
+        headers={"if-match": f'"{listed[0]["version"]}"'},
+    )
+    assert again.status_code == 412
+
+
+async def test_declaration_wording_says_how_many_numbered_points_it_has(
+    client_for: ClientFor, expert: uuid.UUID
+) -> None:
+    client = await client_for(expert)
+    wording = (await client.get("/v1/me/declaration", params={"jurisdiction": FIXTURE.jurisdiction})).json()["wording"]
+    assert wording and all("points" in w for w in wording)
+    for w in wording:
+        numbered = [line for line in w["text"].splitlines() if line.lstrip()[:1].isdigit() and "." in line[:5]]
+        assert w["points"] == (len(numbered) or None)

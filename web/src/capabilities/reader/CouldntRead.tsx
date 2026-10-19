@@ -1,13 +1,14 @@
 // Screen 10, Pages we couldn't read. The expert types out each page the machine could not read, says
 // whether it matters, and moves on. The server stores the typing and decides what follows.
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice } from "../../foundation/ui";
+import { Button, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
 import { casePath, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
+import { uploadLaterRecords } from "./upload";
 import { w } from "./words";
 
 type Queue = Schemas["UnreadableQueue"];
@@ -22,6 +23,9 @@ export function CouldntRead() {
   const [text, setText] = useState("");
   const [relevance, setRelevance] = useState<Relevance | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copying, setCopying] = useState(false);
+  const [copyOf, setCopyOf] = useState("");
+  const fileId = useId();
   const [notice, setNotice] = useState<{ tone: "error" | "success"; text: string } | null>(null);
 
   const fetchQueue = () => unwrap(api.GET("/v1/cases/{case_id}/pages/unreadable", casePath(caseId)));
@@ -31,6 +35,8 @@ export function CouldntRead() {
     setText("");
     setRelevance((page?.relevance as Relevance | null) ?? null);
     setNotice(null);
+    setCopying(false);
+    setCopyOf("");
   }
 
   useEffect(() => {
@@ -95,6 +101,46 @@ export function CouldntRead() {
     }
   }
 
+  // Runs one action on this page, then moves to the next page still to do.
+  async function settle(run: () => Promise<void>, failure: string) {
+    if (!current || busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await run();
+      const fresh = await fetchQueue();
+      setQueue(fresh);
+      const at = fresh.pages.findIndex((p) => p.page_no === current.page_no);
+      choose(fresh.pages.slice(at + 1).find((p) => !p.done) ?? fresh.pages.find((p) => !p.done));
+    } catch (error) {
+      setNotice({ tone: "error", text: failure || errorMessage(error) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const nothingRelevant = () =>
+    settle(async () => {
+      await unwrap(api.PATCH("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: current!.page_no } }, body: { relevance: "nothing" } }));
+    }, "");
+
+  const setAsideAsCopy = () =>
+    settle(async () => {
+      await unwrap(
+        api.PUT("/v1/cases/{case_id}/pages/{page_id}/duplicate", {
+          params: { path: { case_id: caseId, page_id: current!.page_id } },
+          body: { copy_of_page_no: Number(copyOf) },
+        }),
+      );
+    }, w("unreadable.copy_error"));
+
+  const addClearerCopy = (file: File) =>
+    settle(async () => {
+      const document_id = await uploadLaterRecords(caseId, file);
+      await unwrap(api.POST("/v1/cases/{case_id}/documents/append", { params: { path: { case_id: caseId } }, body: { document_ids: [document_id] } }));
+      await unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/replace", { params: { path: { case_id: caseId, page_id: current!.page_id } }, body: { document_id } }));
+    }, w("unreadable.add_error"));
+
   return (
     <div className="rd rd--narrow">
       <Link className="rd-back" to={`/cases/${caseId}/read`}>
@@ -109,7 +155,7 @@ export function CouldntRead() {
           <p>
             <strong>{w("unreadable.done", { done: queue.done, total: queue.total })}</strong>
           </p>
-          <progress max={queue.total || 1} value={queue.done} aria-label={w("unreadable.done", { done: queue.done, total: queue.total })} />
+          <ProgressBar max={queue.total || 1} value={queue.done} label={w("unreadable.done", { done: queue.done, total: queue.total })} />
         </div>
       </div>
 
@@ -129,10 +175,7 @@ export function CouldntRead() {
 
           <section className="rd-side">
             <div className="av-card rd-form">
-              <label className="rd-label rd-label--big" htmlFor="rd-what">
-                {w("unreadable.text_label")}
-              </label>
-              <textarea id="rd-what" className="av-textarea" value={text} onChange={(e) => setText(e.target.value)} />
+              <DictationBar caseId={caseId} context="page_transcription" label={w("unreadable.text_label")} value={text} onChange={setText} />
               <fieldset className="rd-choice">
                 <legend>{w("unreadable.relevance")}</legend>
                 {(["relevant", "background"] as const).map((r) => (
@@ -145,9 +188,44 @@ export function CouldntRead() {
             </div>
             {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
             {current.needs_clearer_copy && !notice && <p className="rd-note">{w("unreadable.clearer_asked")}</p>}
-            <Button variant="secondary" disabled={busy || current.needs_clearer_copy} onClick={() => void askForClearerCopy()}>
-              {w("unreadable.clearer")}
-            </Button>
+            <p className="rd-label">{w("unreadable.choose")}</p>
+            <div className="rd-actions-row">
+              <Button variant="secondary" disabled={busy} onClick={() => void nothingRelevant()}>
+                {w("unreadable.nothing")}
+              </Button>
+              <Button variant="secondary" disabled={busy} aria-expanded={copying} onClick={() => setCopying((v) => !v)}>
+                {w("unreadable.is_copy")}
+              </Button>
+              <Button variant="secondary" disabled={busy || current.needs_clearer_copy} onClick={() => void askForClearerCopy()}>
+                {w("unreadable.clearer")}
+              </Button>
+              <label htmlFor={fileId} className="av-button av-button--secondary">
+                {w("unreadable.add_clearer")}
+              </label>
+              <input
+                id={fileId}
+                type="file"
+                accept="application/pdf,image/*"
+                className="av-visually-hidden"
+                disabled={busy}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (file) void addClearerCopy(file);
+                }}
+              />
+            </div>
+            {copying && (
+              <div className="rd-copy">
+                <label className="rd-label" htmlFor={`${fileId}-n`}>
+                  {w("unreadable.copy_of")}
+                </label>
+                <input id={`${fileId}-n`} className="av-input" inputMode="numeric" value={copyOf} onChange={(e) => setCopyOf(e.target.value.replace(/\D/g, ""))} />
+                <Button disabled={busy || !copyOf} onClick={() => void setAsideAsCopy()}>
+                  {w("unreadable.copy_set")}
+                </Button>
+              </div>
+            )}
             <Button wide disabled={busy || !text.trim()} onClick={() => void saveAndNext()}>
               {w("unreadable.save_next")}
             </Button>

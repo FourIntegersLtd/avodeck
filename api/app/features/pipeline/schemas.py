@@ -26,6 +26,10 @@ class DuplicateReview(BaseModel):
     action: Literal["confirm", "undo"]
 
 
+class DuplicateSetAside(BaseModel):
+    copy_of_page_no: int = Field(ge=1)
+
+
 class MissingItem(BaseModel):
     id: uuid.UUID
     citing_page_id: uuid.UUID

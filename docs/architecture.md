@@ -251,7 +251,7 @@ One instruction: who it's for, who's involved, what was asked.
 | `conflict_answer_history` | Every conflict answer as it was given or changed, written only by a database trigger; append-only. The answers behind a declaration are the latest rows before it; a newer row means the declaration is out of date. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted), answered_by, created_at, recorded_at |
 | `conflict_declarations` | Each time the expert declares conflicts (at the start, or mid-case). Append-only; the latest is current. Slice C. | case_id, outcome (none/disclosed), declared_by, created_at |
 | `case_withdrawals` | Why the expert withdrew from the case (one per case; the case moves to `withdrawn` in the same transaction). Slice C. | case_id, reason (encrypted), withdrawn_by, created_at |
-| `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, kind, outside_expertise, answer_parts[], outside_expertise_source, status, confirmed_text |
+| `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, short_title, source_word_ids[], para_ref, kind, outside_expertise, answer_parts[], outside_expertise_source, status, confirmed_text |
 | `assumptions` | Things the instructions tell the expert to assume. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, status, confirmed_text |
 | `instruction_extractions` | One record per letter read by `extract_questions`: counts kept and refused, whether it reopened the set. Counts only. Slice C. | instruction_version_id, case_id, job_id, questions, assumptions, rejected, reopened, model_task, prompt_version |
 | `prefill_suggestions` | Case details T-04 suggested from the letter, each citing its words, waiting for the expert to accept or dismiss. Never applied to the case by the server. Slice C. | case_id, instruction_version_id, field, value (encrypted), word_ids[], status (suggested/accepted/dismissed), decided_by, decided_at, model_task, prompt_version |
@@ -492,7 +492,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does |
 |---|---|---|
-| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown); `changed_since_declared` when an answer changed after the latest declaration |
+| GET / PUT | `/cases/{case_id}/conflicts` | Read / save answers; returns generated declaration text, the pack's `coverage_question` and any practice-period warning (coverage of the case period by the expert's roles in the specialty's counted settings: covered/partial/none/unknown); `changed_since_declared` when an answer changed after the latest declaration |
 | POST | `/cases/{case_id}/conflicts/declare` | Record the declaration (all questions answered, else 409); drafts the note to every current instructing party |
 | POST | `/cases/{case_id}/withdraw` | 🔒 `{reason}` → case `withdrawn`; drafts the note | |
 
@@ -500,7 +500,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/questions` | Questions + assumptions with LOI highlights | Filled by T-06 during processing |
+| GET | `/cases/{case_id}/questions` | Questions (each with a `short_title`) + assumptions with LOI highlights | Filled by T-06 during processing |
+| GET | `/cases/{case_id}/files` | The case's uploaded files with `page_count` read from the PDF page tree (no OCR; null when unknown) | `case.view_content` |
 | PATCH | `/cases/{case_id}/questions/{q_id}` | Confirm / edit wording / change kind | |
 | PATCH | `/cases/{case_id}/assumptions/{a_id}` | Confirm / edit | |
 | POST | `/cases/{case_id}/questions/confirm-all` | Lock the question set | Required before writing |
@@ -523,6 +524,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/bundle/sorted` | Pages grouped by the pack's sources, then by the date printed on each page (never from facts); every page keeps its own number; quarantined pages left out |
 | GET | `/cases/{case_id}/duplicates` | Pairs to review; thumbnails via `/pages/{page_no}/thumbnail` |
 | PATCH | `/cases/{case_id}/pages/{page_id}/duplicate` | Confirm or undo "copy of page X" |
+| PUT | `/cases/{case_id}/pages/{page_id}/duplicate` | `{copy_of_page_no}`: set a page aside as a copy of another (named expert confirms; an assistant suggests); 422 if it is its own copy, 409 if the original is itself a copy |
 | PATCH | `/cases/{case_id}/documents/{doc_id}` | Edit provenance (how obtained, received date) |
 | GET | `/cases/{case_id}/missing-items` | Documents pages mention that the bundle does not hold, with the page that mentions each |
 | PATCH | `/cases/{case_id}/missing-items/{item_id}` | Not available (reason), open again, or mark received (a page added later); If-Match |
@@ -542,7 +544,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | Method | Path | Does | Notes |
 |---|---|---|---|
 | GET | `/cases/{case_id}/pages?cursor=&filter=unread|period|source` | Page list for navigation + progress | |
-| GET | `/cases/{case_id}/pages/{page_no}` | Source, period-in-question flag, read state | Facts **not** included |
+| GET | `/cases/{case_id}/pages/{page_no}` | Source, period-in-question flag and the period itself (start, end), read state | Facts **not** included |
 | GET | `/cases/{case_id}/pages/{page_no}/image?zoom=` | Page image streamed by the API | `no-store` |
 | GET | `/cases/{case_id}/pages/{page_no}/thumbnail` | Small image streamed by the API | |
 | POST | `/cases/{case_id}/pages/{page_no}/read` | Record read `{dwell_seconds}` → appends to hash-chained log | Unlocks suggestions |
@@ -557,10 +559,10 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out or clearer copy asked for) | |
+| GET | `/cases/{case_id}/pages/unreadable` | Queue with done count (done: typed out, marked nothing relevant, set aside as a copy, or clearer copy asked for or added); each page says `is_copy` and `has_clearer_copy` | |
 | PUT | `/cases/{case_id}/pages/{page_no}/transcription` | `{text, relevance?}`: save expert's text; counts as read; re-runs T-07b on it through `extract_page_text` (core/contracts/pipeline.py) | 202 + job; 503 while A's entry point is missing |
 | GET | `/cases/{case_id}/pages/{page_no}/second-reading` | T-10 comparison | Only after a transcription exists, or on request |
-| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}` | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
+| PATCH | `/cases/{case_id}/pages/{page_no}` | `{relevance?, needs_clearer_copy?}`; `relevance` is `relevant`, `background` or `nothing` (nothing relevant on this page) | Clearer-copy pages feed 08b; copies are set aside with A's `PATCH …/pages/{page_id}/duplicate` |
 
 **11 Timeline**
 

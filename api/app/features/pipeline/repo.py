@@ -604,6 +604,23 @@ async def review_copy(
     return int(row[0])
 
 
+async def set_aside_as_copy(
+    conn: AsyncConnection, page_id: uuid.UUID, original: uuid.UUID, status: str, person_id: uuid.UUID
+) -> int | None:
+    """Point the page at the page it copies and record who decided; the new version, None if it has no notes row."""
+    cur = await conn.execute(
+        "update app.page_analysis set duplicate_status = %s, duplicate_by = %s, duplicate_at = now(),"
+        " duplicate_version = coalesce(duplicate_version, 0) + 1, updated_at = now()"
+        " where page_id = %s returning duplicate_version",
+        (status, person_id, page_id),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return None
+    await conn.execute("update app.pages set duplicate_of_page_id = %s where id = %s", (original, page_id))
+    return int(row[0])
+
+
 async def page_id_of(conn: AsyncConnection, case_id: uuid.UUID, page_no: int) -> uuid.UUID | None:
     cur = await conn.execute(
         "select id from app.pages where case_id = %s and bundle_page_no = %s and image_path is not null"

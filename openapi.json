@@ -1291,6 +1291,17 @@
             "title": "Specialty",
             "type": "string"
           },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -1666,6 +1677,56 @@
           "label"
         ],
         "title": "CaseCreate",
+        "type": "object"
+      },
+      "CaseFile": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "page_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pages in the PDF; null when unknown.",
+            "title": "Page Count"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Bytes, as uploaded.",
+            "title": "Size"
+          }
+        },
+        "required": [
+          "document_id",
+          "filename",
+          "kind",
+          "size",
+          "page_count"
+        ],
+        "title": "CaseFile",
         "type": "object"
       },
       "CaseLink": {
@@ -3208,6 +3269,18 @@
           "coverage": {
             "$ref": "#/components/schemas/Coverage"
           },
+          "coverage_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The specialty's role-coverage question.",
+            "title": "Coverage Question"
+          },
           "declared_at": {
             "anyOf": [
               {
@@ -4398,6 +4471,20 @@
         "title": "DuplicateReview",
         "type": "object"
       },
+      "DuplicateSetAside": {
+        "properties": {
+          "copy_of_page_no": {
+            "minimum": 1.0,
+            "title": "Copy Of Page No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "copy_of_page_no"
+        ],
+        "title": "DuplicateSetAside",
+        "type": "object"
+      },
       "Duplicates": {
         "properties": {
           "duplicates": {
@@ -4876,6 +4963,14 @@
             "description": "Flagged 'Please check': its page was read again and its words were not found.",
             "title": "Needs Recheck",
             "type": "boolean"
+          },
+          "related": {
+            "description": "Other suggestions or checked facts on this page for the same day, of another kind.",
+            "items": {
+              "$ref": "#/components/schemas/RelatedFact"
+            },
+            "title": "Related",
+            "type": "array"
           },
           "status": {
             "title": "Status",
@@ -6992,9 +7087,31 @@
             "title": "Id",
             "type": "string"
           },
+          "sentence_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentence End"
+          },
           "sentence_index": {
             "title": "Sentence Index",
             "type": "integer"
+          },
+          "sentence_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sentence Start"
           },
           "source": {
             "title": "Source",
@@ -9787,7 +9904,8 @@
               {
                 "enum": [
                   "relevant",
-                  "background"
+                  "background",
+                  "nothing"
                 ],
                 "type": "string"
               },
@@ -9866,6 +9984,30 @@
             "title": "Page No",
             "type": "integer"
           },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
           "read": {
             "title": "Read",
             "type": "boolean"
@@ -9920,6 +10062,8 @@
           "in_period",
           "unreadable",
           "duplicate_of_page_no",
+          "period_start",
+          "period_end",
           "rotation",
           "relevance",
           "needs_clearer_copy",
@@ -10677,6 +10821,9 @@
             "title": "Points",
             "type": "array"
           },
+          "question": {
+            "$ref": "#/components/schemas/QuestionHeader"
+          },
           "range_note": {
             "$ref": "#/components/schemas/RangeNote"
           },
@@ -10708,7 +10855,8 @@
           "unused",
           "relevant",
           "claims",
-          "range_note"
+          "range_note",
+          "question"
         ],
         "title": "Points",
         "type": "object"
@@ -11076,9 +11224,15 @@
             },
             "title": "Specialties",
             "type": "array"
+          },
+          "version": {
+            "description": "The same number as the ETag; send it back as If-Match.",
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
+          "version",
           "full_name",
           "profession",
           "specialties",
@@ -11392,8 +11546,71 @@
         "title": "QuestionChange",
         "type": "object"
       },
+      "QuestionHeader": {
+        "description": "What the boards print about a question: its number, a short title, the kind (with the pack's label key).",
+        "properties": {
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "kind_label_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind Label Key"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "para_ref": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Para Ref"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "short_title",
+          "kind",
+          "kind_label_key",
+          "para_ref"
+        ],
+        "title": "QuestionHeader",
+        "type": "object"
+      },
       "QuestionOut": {
         "properties": {
+          "answer_parts": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Question-part keys still answered when the question is outside expertise.",
+            "title": "Answer Parts"
+          },
           "confirmed_text": {
             "anyOf": [
               {
@@ -11434,6 +11651,22 @@
             "title": "Outside Expertise",
             "type": "boolean"
           },
+          "outside_expertise_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pack",
+                  "expert"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who says the question is outside the expert's expertise.",
+            "title": "Outside Expertise Source"
+          },
           "para_ref": {
             "anyOf": [
               {
@@ -11444,6 +11677,11 @@
               }
             ],
             "title": "Para Ref"
+          },
+          "short_title": {
+            "description": "A label of at most 40 characters for tabs and lists (the model's, else its first clause).",
+            "title": "Short Title",
+            "type": "string"
           },
           "source_word_ids": {
             "items": {
@@ -11471,6 +11709,7 @@
           "number",
           "text_verbatim",
           "confirmed_text",
+          "short_title",
           "source_word_ids",
           "para_ref",
           "kind",
@@ -11479,6 +11718,40 @@
           "version"
         ],
         "title": "QuestionOut",
+        "type": "object"
+      },
+      "QuestionProgress": {
+        "properties": {
+          "has_opinion": {
+            "title": "Has Opinion",
+            "type": "boolean"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "points_done": {
+            "title": "Points Done",
+            "type": "boolean"
+          },
+          "question_id": {
+            "format": "uuid",
+            "title": "Question Id",
+            "type": "string"
+          },
+          "short_title": {
+            "title": "Short Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_id",
+          "number",
+          "short_title",
+          "points_done",
+          "has_opinion"
+        ],
+        "title": "QuestionProgress",
         "type": "object"
       },
       "QuestionUpdate": {
@@ -11639,6 +11912,18 @@
       },
       "RangeNote": {
         "properties": {
+          "dictated_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dictated On"
+          },
           "prompt": {
             "title": "Prompt",
             "type": "string"
@@ -11822,6 +12107,56 @@
           "recovery_codes"
         ],
         "title": "RecoveryCodes",
+        "type": "object"
+      },
+      "RelatedFact": {
+        "description": "Another record found on the same page for the same day (a visit and its prescription).",
+        "properties": {
+          "event_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Date"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "fact_id",
+          "kind",
+          "value",
+          "event_date",
+          "status"
+        ],
+        "title": "RelatedFact",
         "type": "object"
       },
       "RelevantChange": {
@@ -12344,10 +12679,16 @@
             "format": "date",
             "title": "Started On",
             "type": "string"
+          },
+          "version": {
+            "description": "The same number as the ETag; send it back as If-Match to change the role.",
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "id",
+          "version",
           "specialty",
           "role_title",
           "setting",
@@ -14737,7 +15078,8 @@
               {
                 "enum": [
                   "relevant",
-                  "background"
+                  "background",
+                  "nothing"
                 ],
                 "type": "string"
               },
@@ -14886,8 +15228,18 @@
             ],
             "title": "Handwriting"
           },
+          "has_clearer_copy": {
+            "description": "A clearer copy has been added for it.",
+            "title": "Has Clearer Copy",
+            "type": "boolean"
+          },
           "has_transcription": {
             "title": "Has Transcription",
+            "type": "boolean"
+          },
+          "is_copy": {
+            "description": "Set aside as a copy of another page.",
+            "title": "Is Copy",
             "type": "boolean"
           },
           "needs_clearer_copy": {
@@ -14934,6 +15286,8 @@
           "relevance",
           "has_transcription",
           "needs_clearer_copy",
+          "is_copy",
+          "has_clearer_copy",
           "done"
         ],
         "title": "UnreadablePage",
@@ -15424,6 +15778,18 @@
             "title": "Key",
             "type": "string"
           },
+          "points": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "How many numbered points the wording has; null if it has none.",
+            "title": "Points"
+          },
           "rule_ref": {
             "anyOf": [
               {
@@ -15503,6 +15869,9 @@
           "points": {
             "$ref": "#/components/schemas/PointsSummary"
           },
+          "question": {
+            "$ref": "#/components/schemas/QuestionHeader"
+          },
           "question_id": {
             "format": "uuid",
             "title": "Question Id",
@@ -15524,7 +15893,8 @@
           "points",
           "views",
           "legal_test",
-          "opinion"
+          "opinion",
+          "question"
         ],
         "title": "Workspace",
         "type": "object"
@@ -15586,6 +15956,32 @@
           "url"
         ],
         "title": "WorkspaceGuidance",
+        "type": "object"
+      },
+      "WriteProgress": {
+        "properties": {
+          "answered": {
+            "title": "Answered",
+            "type": "integer"
+          },
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/QuestionProgress"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "answered",
+          "total",
+          "questions"
+        ],
+        "title": "WriteProgress",
         "type": "object"
       },
       "WrittenQuestionOut": {
@@ -20364,6 +20760,63 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/files": {
+      "get": {
+        "operationId": "list_files_v1_cases__case_id__files_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CaseFile"
+                  },
+                  "title": "Response List Files V1 Cases  Case Id  Files Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Files",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/findings": {
       "get": {
         "operationId": "list_findings_v1_cases__case_id__findings_get",
@@ -23669,6 +24122,78 @@
           }
         },
         "summary": "Review Duplicate",
+        "tags": [
+          "pipeline"
+        ]
+      },
+      "put": {
+        "description": "Set a page aside as a copy of another; the named expert confirms, an assistant only suggests.",
+        "operationId": "set_aside_page_v1_cases__case_id__pages__page_id__duplicate_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DuplicateSetAside"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DuplicatePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Set Aside Page",
         "tags": [
           "pipeline"
         ]
@@ -29510,6 +30035,60 @@
           }
         },
         "summary": "Compare",
+        "tags": [
+          "write"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/write-progress": {
+      "get": {
+        "description": "Per answerable question: are its points settled, and is there an opinion; plus the answered count.",
+        "operationId": "write_progress_v1_cases__case_id__write_progress_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WriteProgress"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Write Progress",
         "tags": [
           "write"
         ]

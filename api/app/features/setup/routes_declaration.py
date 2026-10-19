@@ -3,6 +3,7 @@ may add words to each declaration until their first served report (then 409)."""
 
 from __future__ import annotations
 
+import re
 from typing import Annotated, Any
 
 from fastapi import Query, Request, Response
@@ -21,6 +22,9 @@ class Wording(BaseModel):
     rule_ref: str | None = None
     version: str | None = None
     text: str
+    points: int | None = Field(
+        default=None, description="How many numbered points the wording has; null if it has none."
+    )
 
 
 class Addition(BaseModel):
@@ -56,6 +60,13 @@ async def _jurisdiction(request: Request, conn: DbConn, code: str | None) -> str
     return code
 
 
+_POINT = re.compile(r"^\s*\d{1,3}[.)]\s")
+
+
+def _points(text: str) -> int | None:
+    return sum(1 for line in text.splitlines() if _POINT.match(line)) or None
+
+
 def _wording(request: Request, code: str) -> list[dict[str, Any]]:
     wording: list[dict[str, Any]] = library(request).jurisdiction_summary(code)["declarations"]
     return wording
@@ -76,7 +87,7 @@ async def _declaration(request: Request, conn: DbConn, code: str, response: Resp
     row = await cur.fetchone()
     assert row is not None
     response.headers["etag"] = etag(int(row[0]))
-    wording = [Wording(**w) for w in _wording(request, code)]
+    wording = [Wording(**w, points=_points(w["text"])) for w in _wording(request, code)]
     return Declaration(jurisdiction=code, wording=wording, additions=additions, locked=bool(row[1]))
 
 

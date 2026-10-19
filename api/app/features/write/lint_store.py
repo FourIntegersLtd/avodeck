@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.core.contracts.opinions import BODY_PURPOSE
 from app.core.http import DbConn
 from app.features.write.common import Crypto
+from app.features.write.lint_regex import sentence_spans
 
 BODY = BODY_PURPOSE
 
@@ -22,6 +23,8 @@ def lint_purpose(opinion_id: uuid.UUID) -> str:
 class LintIssueOut(BaseModel):
     id: uuid.UUID
     sentence_index: int
+    sentence_start: int | None = None
+    sentence_end: int | None = None
     type: str
     words: str
     source: str
@@ -53,10 +56,18 @@ async def open_issues(
             (arg,),
         )
         rows = await cur.fetchall()
+    body_row = await (await conn.execute("select body from app.opinions where id = %s", (opinion_id,))).fetchone()
+    spans = (
+        sentence_spans((await crypto.decrypt(conn, case_id, bytes(body_row[0]), purpose=BODY)).decode())
+        if body_row
+        else []
+    )
     return [
         LintIssueOut(
             **{
                 **r,
+                "sentence_start": spans[r["sentence_index"]][0] if r["sentence_index"] < len(spans) else None,
+                "sentence_end": spans[r["sentence_index"]][1] if r["sentence_index"] < len(spans) else None,
                 "words": (
                     await crypto.decrypt(conn, case_id, bytes(r["words"]), purpose=lint_purpose(opinion_id))
                 ).decode(),
