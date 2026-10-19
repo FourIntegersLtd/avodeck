@@ -144,3 +144,29 @@
 .av-after-paper h3 { margin: 0; font-size: 18px; }
 .av-after-paper p { margin: 0; font-size: 15px; line-height: 1.6; color: var(--ink-soft); }
 .av-after-tellnote { margin: 0; background: var(--green-tint); border-radius: 16px; padding: 16px 20px; }
+
+/* S29 board */
+.av-after-panel--roomy { padding: 12px 32px 28px; gap: 16px; }
+.av-after-panel--roomy h3 { font-size: 22px; padding: 16px 0 0; }
+.av-after-hearings, .av-after-orders { list-style: none; margin: 0; padding: 0; }
+.av-after-hearing { display: flex; align-items: center; gap: 20px; padding: 16px 0; border-top: 1px solid var(--surface-muted); flex-wrap: wrap; }
+.av-after-hearing__date { flex: 0 0 170px; font-size: 16px; }
+.av-after-hearing__what { flex: 1 1 320px; display: flex; flex-direction: column; }
+.av-after-hearing--past .av-after-hearing__date, .av-after-hearing--past strong { color: var(--ink-soft); }
+.av-after-state { padding: 4px 12px; border-radius: 999px; background: #F1F3F2; color: var(--ink-soft); font-weight: 700; font-size: 14px; }
+.av-after-state--on { background: var(--green-tint); color: var(--green-dark); }
+.av-after-order { background: var(--surface-soft); border-radius: 14px; padding: 18px 20px; gap: 10px; }
+.av-after-order__top { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.av-after-order .av-muted { font-size: 15px; }
+.av-after-quote { font-size: 17px; line-height: 1.6; }
+.av-after-quote::before { content: "\201C"; }
+.av-after-quote::after { content: "\201D"; }
+.av-after-dates { width: 100%; border-collapse: collapse; }
+.av-after-dates th { text-align: left; padding: 10px 16px 10px 0; font-size: 14px; color: var(--ink-soft); }
+.av-after-dates td { padding: 14px 16px 14px 0; border-top: 1px solid var(--surface-muted); }
+.av-after-dates del { color: var(--ink-soft); }
+.av-after-hold { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-large); padding: 22px 26px; display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.av-after-hold__text { flex: 1 1 420px; }
+.av-after-hold h3 { margin: 0; font-size: 19px; }
+.av-after-hold p { margin: 0; }
+.av-button.av-after-amberbtn { color: var(--amber); border-color: var(--amber-border); }
