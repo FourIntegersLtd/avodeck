@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, DictationBox, LoadError, Loading, Notice } from "../../foundation/ui";
 import { declarationParts, longDate, Select, useLocale, useWaiting } from "./shared";
 import { w } from "./words";
 
@@ -56,7 +56,7 @@ export function AddendumScreen() {
 
   return (
     <div className="av-page av-stack">
-      <LinkButton variant="quiet" to={`/cases/${caseId}/served`}>{w("back")}</LinkButton>
+      <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
       <h2>{w("change.title")}</h2>
       <p>{w("change.intro")}</p>
       {served.data.version && (

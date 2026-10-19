@@ -1,12 +1,12 @@
 // S21 New records and the other expert's report (docs/design/screens/S21-NewMaterial.dc.html). May-matter lines show
 // only where the server returned them; a statement is called a difference only after the expert confirms it.
 import { useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { keyName, useLocale, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -58,7 +58,7 @@ export function NewMaterial() {
 
   return (
     <div className="av-page av-stack">
-      <LinkButton variant="quiet" to={`/cases/${caseId}/served`}>{w("back")}</LinkButton>
+      <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
       <h2>{w("new.title")}</h2>
       <p>{w("new.intro")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
@@ -87,7 +87,6 @@ export function NewMaterial() {
         {document && !report.data && !registering.waiting && <Register caseId={caseId} document={document} onStart={() => registering.start()} />}
         {report.data && <Claims caseId={caseId} report={report.data} meeting={screenPath("expert_meeting", { caseId })} />}
       </section>
-      <Link className="av-sr-only" to={`/cases/${caseId}/served`} tabIndex={-1} aria-hidden="true" />
     </div>
   );
 }
@@ -183,9 +182,9 @@ function Claims({ caseId, report, meeting }: { caseId: string; report: Schemas["
               <div><h5>{w("new.them")}</h5>{p.theirs.map((o) => <p key={o.paragraph_ref} className="av-after-words">{o.text_verbatim}</p>)}</div>
             </div>
           ))}
-          {meeting && <div className="av-after-footer"><LinkButton to={meeting} arrow>{w("new.prepare")}</LinkButton></div>}
         </section>
       )}
+      {meeting && <div className="av-after-footer"><LinkButton to={meeting} arrow>{w("new.prepare")}</LinkButton></div>}
     </div>
   );
 }
