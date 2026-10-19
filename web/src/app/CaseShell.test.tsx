@@ -70,7 +70,9 @@ test("the close screen has the case's one bar (logo, case, step links, avatar) a
   );
   renderAt(`/cases/${CASE_A}/close`);
   const bar = await screen.findByRole("banner");
-  expect(within(bar).getByRole("heading", { level: 1, name: "The case has settled" })).toBeInTheDocument();
+  // The mock-up (S26) puts the case name in the bar and "The case has settled" in the page.
+  expect(within(bar).getByText(theCase.label)).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: "The case has settled" })).toBeInTheDocument();
   expect(within(bar).getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
   expect(screen.getAllByRole("navigation", { name: "Steps for this case" })).toHaveLength(1);
   expect(within(bar).getByRole("navigation", { name: "Steps for this case" })).toBeInTheDocument();

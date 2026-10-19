@@ -88,7 +88,7 @@ test("a settled case shows the three decisions with the pack's years, and passes
   expect(screen.getByRole("heading", { name: CLOSE_MESSAGES["close.proof.heading"] })).toBeInTheDocument();
   const keep = screen.getByRole("radio", { name: new RegExp(`${launchPack.retention_years}`) });
   expect(keep).toBeChecked();
-  expect(screen.getByText(/2033/)).toBeInTheDocument();
+  expect(screen.getAllByText(/2033/).length).toBeGreaterThan(0); // the certificate preview and the scheduled line both show it
   expect(await axeViolations(container)).toEqual([]);
 });
 
