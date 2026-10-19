@@ -38,7 +38,8 @@ class Failing:
     async def analyse(self, document: bytes, model: OcrModel = "layout") -> OcrResult:
         if self.bad is None or hashlib.sha256(document).hexdigest() in self.bad:
             raise self.error
-        return await self.inner.analyse(document, model)
+        result: OcrResult = await self.inner.analyse(document, model)
+        return result
 
 
 def scanned_hashes() -> list[tuple[int, str]]:
@@ -77,7 +78,8 @@ async def opened(
 
 def _break(h: Harness, error: Exception, bad: set[str] | None) -> None:
     assert h.ocr is not None
-    h.ocr.inner = Failing(h.ocr.inner, error, bad)
+    counting: Any = h.ocr
+    counting.inner = Failing(counting.inner, error, bad)
 
 
 def _count(h: Harness, page_id: Any) -> int:
