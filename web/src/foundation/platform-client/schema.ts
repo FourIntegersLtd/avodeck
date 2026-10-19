@@ -2374,6 +2374,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/readiness-replies/{question_no}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Reply */
+        put: operations["put_reply_v1_cases__case_id__readiness_replies__question_no__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/relevant-facts/{relevant_id}": {
         parameters: {
             query?: never;
@@ -3065,6 +3082,40 @@ export interface paths {
         /** Download Pack */
         get: operations["download_pack_v1_cases__case_id__trial_pack_latest_download_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/trial-pack/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Notes */
+        get: operations["list_notes_v1_cases__case_id__trial_pack_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/trial-pack/notes/{note_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Choose For Note */
+        put: operations["choose_for_note_v1_cases__case_id__trial_pack_notes__note_id__put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -4354,6 +4405,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Missing Told At */
+            missing_told_at?: string | null;
             /** Page Count */
             page_count: number | null;
             /** Received On */
@@ -7017,6 +7070,14 @@ export interface components {
             /** Sentences */
             sentences: components["schemas"]["SentenceOut"][];
         };
+        /** NoteChoiceIn */
+        NoteChoiceIn: {
+            /**
+             * Choice
+             * @enum {string}
+             */
+            choice: "tell" | "leave_out";
+        };
         /** NoteDraft */
         NoteDraft: {
             /** Body Key */
@@ -7064,16 +7125,6 @@ export interface components {
              */
             text?: string | null;
         };
-        /** NoteOut */
-        NoteOut: {
-            /** Body */
-            body: string;
-            /**
-             * Fact Id
-             * Format: uuid
-             */
-            fact_id: string;
-        };
         /** NoteRequest */
         NoteRequest: {
             /** Question Ids */
@@ -7083,6 +7134,11 @@ export interface components {
              * @enum {string}
              */
             topic: "outside_expertise" | "questions_reopened" | "conflict_declared" | "withdrawal";
+        };
+        /** NotesOut */
+        NotesOut: {
+            /** Notes */
+            notes: components["schemas"]["app__features__trial__routes_prepared__NoteOut"][];
         };
         /** Notification */
         Notification: {
@@ -7418,6 +7474,11 @@ export interface components {
             id: string;
             /** Page Count */
             page_count: number;
+            /**
+             * Section Pages
+             * @default []
+             */
+            section_pages: components["schemas"]["SectionPages"][];
             /** Sections */
             sections: string[];
             /** Sha256 */
@@ -8180,6 +8241,23 @@ export interface components {
              */
             document_id: string;
         };
+        /** ReplyIn */
+        ReplyIn: {
+            /** Reply */
+            reply: string;
+        };
+        /** ReplyOut */
+        ReplyOut: {
+            /** Question No */
+            question_no: number;
+            /**
+             * Replied At
+             * Format: date-time
+             */
+            replied_at: string;
+            /** Reply */
+            reply: string;
+        };
         /** ReportChangeOut */
         ReportChangeOut: {
             /** Citation Refs */
@@ -8516,8 +8594,12 @@ export interface components {
         };
         /** SentenceOut */
         SentenceOut: {
+            /** Choice */
+            choice?: ("tell" | "leave_out") | null;
             /** Index */
             index: number;
+            /** Note Id */
+            note_id?: string | null;
             /** Reason */
             reason: string | null;
             /** Source */
@@ -8704,6 +8786,10 @@ export interface components {
             pages: components["schemas"]["SheetPage"][];
             /** Reason */
             reason: string | null;
+            /** Replied At */
+            replied_at?: string | null;
+            /** Reply */
+            reply?: string | null;
             /** Text */
             text: string;
         };
@@ -9548,6 +9634,30 @@ export interface components {
         app__features__setup__routes_conflicts__WithdrawIn: {
             /** Reason */
             reason: string;
+        };
+        /** NoteOut */
+        app__features__trial__routes_prepared__NoteOut: {
+            /** Choice */
+            choice: ("tell" | "leave_out") | null;
+            /** Decided At */
+            decided_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Text */
+            text: string;
+        };
+        /** NoteOut */
+        app__features__understand__routes_consultation__NoteOut: {
+            /** Body */
+            body: string;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
         };
     };
     responses: never;
@@ -10885,7 +10995,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["NoteOut"];
+                    "application/json": components["schemas"]["app__features__understand__routes_consultation__NoteOut"];
                 };
             };
             /** @description Validation Error */
@@ -16129,6 +16239,51 @@ export interface operations {
             };
         };
     };
+    put_reply_v1_cases__case_id__readiness_replies__question_no__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplyIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplyOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     dismiss_relevant_v1_cases__case_id__relevant_facts__relevant_id__patch: {
         parameters: {
             query?: never;
@@ -18047,6 +18202,91 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                     "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_notes_v1_cases__case_id__trial_pack_notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotesOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    choose_for_note_v1_cases__case_id__trial_pack_notes__note_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                note_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NoteChoiceIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["app__features__trial__routes_prepared__NoteOut"];
                 };
             };
             /** @description Validation Error */

@@ -1,6 +1,8 @@
 // Small helpers shared by the trial screens: pack words, dates in the case's locale, saving a file the
 // API sent, and sending a PDF as the request body.
 import type { Schemas } from "../../foundation/platform-client";
+import type { Frame } from "./frame";
+import { w } from "./words";
 
 /** A word from the case pack's vocabulary (for example `court_bundle`); empty if the pack has none. */
 export function vocab(pack: Schemas["CasePack"] | undefined, key: string): string {
@@ -84,4 +86,11 @@ export function printBlob(blob: Blob): void {
     frame.remove();
     URL.revokeObjectURL(href);
   }, 120_000);
+}
+
+/** The instructing party's word from the pack, by the case's instructing party type. */
+export function partyWord(frame: Frame): string {
+  const type = (frame.item as { instructing_party_type?: string | null }).instructing_party_type;
+  const found = frame.pack.instructing_party_types.find((p) => p.key === type);
+  return found?.label ?? w("pages.tell_fallback");
 }

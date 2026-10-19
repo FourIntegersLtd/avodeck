@@ -15,11 +15,11 @@ The expert prepares the joint statement with the other expert, with deviations f
 ## Endpoints (architecture 5.2)
 - `POST /v1/cases/{id}/expert-meetings`; `POST …/{meeting_id}/agenda` → 202; `GET …/{meeting_id}`; `PATCH /v1/cases/{id}/agenda-items/{item_id}`; `POST …/{meeting_id}/prepare`; `POST …/{meeting_id}/send-for-signature` 🔒 (MVP of this slice: download for signing); `POST /webhooks/esign` (signature-verified)
 - `POST /v1/cases/{id}/court-bundles` → 202; `GET /v1/cases/{id}/concordance?status=`; `PATCH /v1/cases/{id}/concordance/{row_id}`; `GET …/concordance/export?format=pdf|csv`; `POST …/concordance/tell-instructing-party`
-- `POST /v1/cases/{id}/trial-pack/check-new`; `PUT /v1/cases/{id}/trial-pack/settings`; `POST /v1/cases/{id}/trial-pack` → 202; `GET …/trial-pack/latest`; `GET …/trial-pack/latest/download`; `GET …/trial-pack/preview` (per-section page counts and readiness sheets built from the agenda items and the served report)
+- `POST /v1/cases/{id}/trial-pack/check-new`; `PUT /v1/cases/{id}/trial-pack/settings`; `POST /v1/cases/{id}/trial-pack` → 202; `GET …/trial-pack/latest`; `GET …/trial-pack/latest/download`; `GET …/trial-pack/notes`; `PUT …/trial-pack/notes/{note_id}` (tell / leave out); `PUT /v1/cases/{id}/readiness-replies/{question_no}`; `GET …/trial-pack/preview` (exact per-section page counts and readiness sheets built from the agenda items and the served report)
 - `POST /v1/cases/{id}/offline-packages` 🔒; `GET …/offline-packages/{pkg_id}/download` 🔒; `GET …/offline-packages/{pkg_id}/status`; `DELETE …/offline-packages/{pkg_id}`
 
 ## Tables owned
-`expert_meetings`, `agenda_items`, `court_bundles`, `concordance`, `trial_pack_settings`, `trial_packs`, `offline_packages` (plus `expert_meeting_participants` and `agenda_versions`).
+`expert_meetings`, `agenda_items`, `court_bundles`, `concordance`, `trial_pack_settings`, `trial_packs`, `offline_packages`, `readiness_replies`, `trial_notes` (plus `expert_meeting_participants` and `agenda_versions`).
 
 ## Worker jobs
 - **`match_trial_bundle`:**
@@ -104,4 +104,4 @@ Root checklist, plus: on staging the synthetic case produces a signed joint stat
 
 ## Design pass (S22-S24)
 
-S22-S24 now follow their boards. New server parts: `pages` on each agenda item, `source_type`/`document_date` on each concordance row and `replaces_received_on` on the bundle, a `readiness` pack section (one page per question) and the preview endpoint above. Not built: a "reply" column on readiness sheets (no data holds it; slice D owns points against), "Tell the solicitor / Leave it out" on the nothing-new callout (the check works on pasted notes), and the "Built for the trial from" date.
+S22-S24 now follow their boards. New server parts: `pages` on each agenda item, `source_type`/`document_date` on each concordance row and `replaces_received_on` on the bundle, a `readiness` pack section (one page per question) and the preview endpoint above. Also built (migration 0901): the expert's reply on each readiness sheet (`readiness_replies`, printed in the pack), the Tell / Leave out choice on a sentence found in nothing served (`trial_notes`, the choice is only recorded, nothing is sent), "told" remembered on the court bundle (`missing_told_at`), exact per-section page counts (`trial_packs.section_pages`, the preview counts by the same render) and the "Built for the trial from" line (from the pack's `created_at`).

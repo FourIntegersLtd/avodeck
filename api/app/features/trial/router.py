@@ -43,6 +43,7 @@ from app.features.trial import (  # noqa: E402, F401
     routes_meetings,
     routes_offline,
     routes_pack,
+    routes_prepared,
     today,
 )
 

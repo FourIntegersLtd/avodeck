@@ -9,7 +9,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, LinkButton, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
-import { longDate, printBlob, saveBlob, tag, vocab } from "./data";
+import { longDate, partyWord, printBlob, saveBlob, tag, vocab } from "./data";
 import { TrialFrame, TrialHeader, type Frame } from "./frame";
 import { forgetCopy, hasCopy, PIN_PATTERN, saveCopy } from "./offline";
 import { w, wn, type TrialKey } from "./words";
@@ -46,14 +46,14 @@ function Pack({ frame }: { frame: Frame }) {
           <Contents frame={frame} pages={preview.data?.sections ?? []} onChanged={preview.reload} />
           <Check frame={frame} />
         </div>
-        {sheets.length > 0 && <Preview sheets={sheets} bundleName={vocab(frame.pack, "court_bundle")} />}
+        {sheets.length > 0 && <Preview frame={frame} sheets={sheets} bundleName={vocab(frame.pack, "court_bundle")} />}
       </div>
       {frame.can("report.sign") && <OfflineCopy frame={frame} />}
     </div>
   );
 }
 
-function Preview({ sheets, bundleName }: { sheets: Schemas["SheetOut"][]; bundleName: string }) {
+function Preview({ frame, sheets, bundleName }: { frame: Frame; sheets: Schemas["SheetOut"][]; bundleName: string }) {
   const id = useId();
   const [at, setAt] = useState(0);
   const sheet = sheets[Math.min(at, sheets.length - 1)]!;
@@ -93,8 +93,43 @@ function Preview({ sheets, bundleName }: { sheets: Schemas["SheetOut"][]; bundle
             {sheet.agreed === false && sheet.reason && <p className="av-trial-prose">{w("pack.sheet.reason", { reason: sheet.reason })}</p>}
           </div>
         )}
+        <Reply key={sheet.number} frame={frame} sheet={sheet} />
       </article>
     </section>
+  );
+}
+
+function Reply({ frame, sheet }: { frame: Frame; sheet: Schemas["SheetOut"] }) {
+  const id = useId();
+  const [text, setText] = useState(sheet.reply ?? "");
+  const [at, setAt] = useState<string | null>(sheet.replied_at ?? null);
+  const [message, setMessage] = useState<Message>(null);
+  const save = async () => {
+    setMessage(null);
+    try {
+      const done = await unwrap(
+        api.PUT("/v1/cases/{case_id}/readiness-replies/{question_no}", { params: { path: { case_id: frame.caseId, question_no: sheet.number } }, body: { reply: text.trim() } }),
+      );
+      setAt(done.replied_at);
+      setMessage({ tone: "success", text: w("pack.saved") });
+    } catch (error) {
+      setMessage({ tone: "error", text: errorMessage(error, ERRORS) });
+    }
+  };
+  const canWrite = frame.can("opinion.write");
+  if (!canWrite && !sheet.reply) return null;
+  return (
+    <div className="av-field">
+      <label className="av-field__label" htmlFor={id}>{w("pack.sheet.my_reply")}</label>
+      <textarea id={id} className="av-textarea av-trial-short" value={text} onChange={(e) => setText(e.target.value)} readOnly={!canWrite} />
+      {at && <p className="av-trial-muted">{w("pack.sheet.replied", { date: longDate(at, frame.locale) })}</p>}
+      {message && <Notice tone={message.tone}><p>{message.text}</p></Notice>}
+      {canWrite && (
+        <div className="av-trial-actions">
+          <Button variant="secondary" onClick={save} disabled={!text.trim()}>{w("pack.sheet.reply_save")}</Button>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -244,6 +279,7 @@ function Contents({ frame, pages, onChanged }: { frame: Frame; pages: Schemas["S
         {pack && !job && (
           <>
             <p>{w("pack.ready", { pages: pack.page_count ?? 0 })}</p>
+            <p className="av-trial-muted">{w("pack.built", { date: longDate(pack.created_at, frame.locale) })}</p>
             <p className="av-trial-muted">{w("pack.large_print")}</p>
           </>
         )}
@@ -278,6 +314,15 @@ function Check({ frame }: { frame: Frame }) {
   const [text, setText] = useState("");
   const [result, setResult] = useState<Schemas["NoteChecked"] | null>(null);
   const [message, setMessage] = useState<Message>(null);
+  const choose = async (noteId: string, choice: "tell" | "leave_out") => {
+    setMessage(null);
+    try {
+      const done = await unwrap(api.PUT("/v1/cases/{case_id}/trial-pack/notes/{note_id}", { params: { path: { case_id: frame.caseId, note_id: noteId } }, body: { choice } }));
+      setResult((current) => current && { sentences: current.sentences.map((s) => (s.note_id === noteId ? { ...s, choice: done.choice } : s)) });
+    } catch (error) {
+      setMessage({ tone: "error", text: errorMessage(error, ERRORS) });
+    }
+  };
   const run = async () => {
     setMessage(null);
     try {
@@ -310,6 +355,14 @@ function Check({ frame }: { frame: Frame }) {
                     ? w("pack.check.from_answer", { question: s.source.question_no })
                     : w("pack.check.not_served")}
               </p>
+              {!s.sourced && s.note_id && s.choice === "tell" && <p className="av-trial-strong">{w("pack.check.told")}</p>}
+              {!s.sourced && s.note_id && s.choice === "leave_out" && <p className="av-trial-strong">{w("pack.check.left_out")}</p>}
+              {!s.sourced && s.note_id && !s.choice && frame.can("report.build") && (
+                <div className="av-trial-actions">
+                  <Button variant="secondary" onClick={() => choose(s.note_id!, "tell")}>{w("pack.check.tell", { party: partyWord(frame) })}</Button>
+                  <Button variant="secondary" onClick={() => choose(s.note_id!, "leave_out")}>{w("pack.check.leave_out")}</Button>
+                </div>
+              )}
             </li>
           ))}
         </ol>

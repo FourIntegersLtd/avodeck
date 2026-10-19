@@ -918,6 +918,18 @@
             "title": "Id",
             "type": "string"
           },
+          "missing_told_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Told At"
+          },
           "page_count": {
             "anyOf": [
               {
@@ -8372,6 +8384,24 @@
         "title": "NoteChecked",
         "type": "object"
       },
+      "NoteChoiceIn": {
+        "additionalProperties": false,
+        "properties": {
+          "choice": {
+            "enum": [
+              "tell",
+              "leave_out"
+            ],
+            "title": "Choice",
+            "type": "string"
+          }
+        },
+        "required": [
+          "choice"
+        ],
+        "title": "NoteChoiceIn",
+        "type": "object"
+      },
       "NoteDraft": {
         "properties": {
           "body_key": {
@@ -8512,25 +8542,6 @@
         "title": "NoteItem",
         "type": "object"
       },
-      "NoteOut": {
-        "properties": {
-          "body": {
-            "title": "Body",
-            "type": "string"
-          },
-          "fact_id": {
-            "format": "uuid",
-            "title": "Fact Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "fact_id",
-          "body"
-        ],
-        "title": "NoteOut",
-        "type": "object"
-      },
       "NoteRequest": {
         "additionalProperties": false,
         "properties": {
@@ -8558,6 +8569,22 @@
           "topic"
         ],
         "title": "NoteRequest",
+        "type": "object"
+      },
+      "NotesOut": {
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/app__features__trial__routes_prepared__NoteOut"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "NotesOut",
         "type": "object"
       },
       "Notification": {
@@ -9486,6 +9513,14 @@
           "page_count": {
             "title": "Page Count",
             "type": "integer"
+          },
+          "section_pages": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SectionPages"
+            },
+            "title": "Section Pages",
+            "type": "array"
           },
           "sections": {
             "items": {
@@ -11851,6 +11886,46 @@
         "title": "ReplaceAsk",
         "type": "object"
       },
+      "ReplyIn": {
+        "additionalProperties": false,
+        "properties": {
+          "reply": {
+            "maxLength": 8000,
+            "minLength": 1,
+            "title": "Reply",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reply"
+        ],
+        "title": "ReplyIn",
+        "type": "object"
+      },
+      "ReplyOut": {
+        "properties": {
+          "question_no": {
+            "title": "Question No",
+            "type": "integer"
+          },
+          "replied_at": {
+            "format": "date-time",
+            "title": "Replied At",
+            "type": "string"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "string"
+          }
+        },
+        "required": [
+          "question_no",
+          "reply",
+          "replied_at"
+        ],
+        "title": "ReplyOut",
+        "type": "object"
+      },
       "ReportChangeOut": {
         "properties": {
           "citation_refs": {
@@ -12817,9 +12892,36 @@
       },
       "SentenceOut": {
         "properties": {
+          "choice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "tell",
+                  "leave_out"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice"
+          },
           "index": {
             "title": "Index",
             "type": "integer"
+          },
+          "note_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note Id"
           },
           "reason": {
             "anyOf": [
@@ -13430,6 +13532,29 @@
               }
             ],
             "title": "Reason"
+          },
+          "replied_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replied At"
+          },
+          "reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reply"
           },
           "text": {
             "title": "Text",
@@ -15770,6 +15895,73 @@
         ],
         "title": "WithdrawIn",
         "type": "object"
+      },
+      "app__features__trial__routes_prepared__NoteOut": {
+        "properties": {
+          "choice": {
+            "anyOf": [
+              {
+                "enum": [
+                  "tell",
+                  "leave_out"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Choice"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decided At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "text",
+          "choice",
+          "decided_at"
+        ],
+        "title": "NoteOut",
+        "type": "object"
+      },
+      "app__features__understand__routes_consultation__NoteOut": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "body"
+        ],
+        "title": "NoteOut",
+        "type": "object"
       }
     }
   },
@@ -17713,7 +17905,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/NoteOut"
+                  "$ref": "#/components/schemas/app__features__understand__routes_consultation__NoteOut"
                 }
               }
             },
@@ -25792,6 +25984,78 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/readiness-replies/{question_no}": {
+      "put": {
+        "operationId": "put_reply_v1_cases__case_id__readiness_replies__question_no__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_no",
+            "required": true,
+            "schema": {
+              "title": "Question No",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplyIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplyOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Put Reply",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/relevant-facts/{relevant_id}": {
       "patch": {
         "description": "Dismiss a suggested relevant fact; the expert uses one by citing it in the draft.",
@@ -28656,6 +28920,132 @@
           }
         },
         "summary": "Download Pack",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/trial-pack/notes": {
+      "get": {
+        "operationId": "list_notes_v1_cases__case_id__trial_pack_notes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotesOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Notes",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/trial-pack/notes/{note_id}": {
+      "put": {
+        "operationId": "choose_for_note_v1_cases__case_id__trial_pack_notes__note_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteChoiceIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__features__trial__routes_prepared__NoteOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Choose For Note",
         "tags": [
           "trial"
         ]

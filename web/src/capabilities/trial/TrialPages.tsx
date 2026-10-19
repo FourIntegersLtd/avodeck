@@ -8,7 +8,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
 import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { longDate, pdfBody, saveBlob, sourceLabel, tag, vocab } from "./data";
+import { longDate, partyWord, pdfBody, saveBlob, sourceLabel, tag, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialHeader, type Frame } from "./frame";
 import { w, wn } from "./words";
 
@@ -26,20 +26,14 @@ export function TrialPages() {
   return <TrialFrame>{(frame) => <Pages frame={frame} />}</TrialFrame>;
 }
 
-/** The instructing party's word from the pack, by the case's instructing party type. */
-function partyWord(frame: Frame): string {
-  const type = (frame.item as { instructing_party_type?: string | null }).instructing_party_type;
-  const found = frame.pack.instructing_party_types.find((p) => p.key === type);
-  return found?.label ?? w("pages.tell_fallback");
-}
-
 function Pages({ frame }: { frame: Frame }) {
   const path = { case_id: frame.caseId };
   const stepUp = useStepUp();
   const data = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/concordance", { params: { path } })), [frame.caseId]);
   const [received, setReceived] = useState("");
   const [message, setMessage] = useState<Message>(null);
-  const [told, setTold] = useState(false);
+  const [toldNow, setTold] = useState(false);
+  const told = toldNow || Boolean(data.data?.bundle?.missing_told_at);
   const bundleName = vocab(frame.pack, "court_bundle");
   const status = data.data?.bundle?.status;
   const matching = status === "received" || status === "matching";

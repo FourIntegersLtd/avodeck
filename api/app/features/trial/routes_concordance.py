@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import io
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Literal
 
 from fastapi import Depends, Query, Request, Response
@@ -62,6 +62,7 @@ class BundleOut(BaseModel):
     page_count: int | None
     version: int
     replaces_received_on: date | None = None
+    missing_told_at: datetime | None = None
 
 
 class RowOut(BaseModel):
@@ -114,6 +115,7 @@ def _bundle(row: dict[str, Any]) -> BundleOut:
         received_on=row["received_on"],
         page_count=row["page_count"],
         version=row["version"],
+        missing_told_at=row.get("missing_told_at"),
     )
 
 
@@ -333,6 +335,8 @@ async def export_concordance(
 @router.post("/cases/{case_id}/concordance/tell-instructing-party", response_model=MissingPages)
 async def tell_instructing_party(case_id: uuid.UUID, conn: DbConn, access: Draft, crypto: Crypto) -> MissingPages:
     bundle, rows = await _current(conn, crypto, case_id)
+    if bundle is not None:
+        await conn.execute("update app.court_bundles set missing_told_at = now() where id = %s", (bundle["id"],))
     return MissingPages(
         missing=[MissingPage(page_no=r.page_no, paragraphs=r.paragraphs) for r in rows if r.status == "missing"],
         received_on=bundle["received_on"] if bundle else None,

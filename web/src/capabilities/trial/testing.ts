@@ -94,7 +94,7 @@ export function settingsOut(over: Partial<Schemas["TrialPackSettingsOut"]> = {})
 }
 
 export function packOut(over: Partial<Schemas["PackOut"]> = {}): Schemas["PackOut"] {
-  return { id: PACK, status: "ready", sha256: "c".repeat(64), page_count: 54, sections: ["report", "chronology"], stale: false, stale_reason: null, created_at: "2027-06-03T09:00:00Z", ...over };
+  return { id: PACK, status: "ready", sha256: "c".repeat(64), page_count: 54, sections: ["report", "chronology"], section_pages: [{ key: "report", pages: 31 }, { key: "chronology", pages: 9 }], stale: false, stale_reason: null, created_at: "2027-06-03T09:00:00Z", ...over };
 }
 
 export function previewOut(over: Partial<Schemas["PreviewOut"]> = {}): Schemas["PreviewOut"] {

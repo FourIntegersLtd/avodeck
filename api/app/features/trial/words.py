@@ -16,6 +16,7 @@ _WORDS: dict[str, dict[str, str]] = {
         "sheet": "Question {number}: {text}",
         "my_answer": "My answer",
         "may_be_asked": "What I may be asked",
+        "my_reply": "My reply",
         "joint_statement": "{meeting}",
         "written_answers": "Answers to written questions",
         "legal_tests": "Legal tests (reference)",

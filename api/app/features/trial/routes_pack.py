@@ -26,9 +26,22 @@ from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.trial import ai_tasks, repo
-from app.features.trial.common import NO_STORE, Build, Crypto, Pack, Storage, View, conflict, invalid, not_found
+from app.features.trial.common import (
+    NEW_NOTE,
+    NO_STORE,
+    Build,
+    Crypto,
+    Pack,
+    Storage,
+    View,
+    conflict,
+    invalid,
+    not_found,
+    seal,
+    sha256,
+)
 from app.features.trial.pack_document import DEFAULT_SECTIONS, SECTIONS, pack_document, sheets
-from app.features.trial.pdfs import render
+from app.features.trial.pdfs import render_counted
 from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
@@ -52,6 +65,11 @@ class TrialPackSettingsOut(BaseModel):
     version: int
 
 
+class SectionPages(BaseModel):
+    key: Section
+    pages: int
+
+
 class PackOut(BaseModel):
     id: uuid.UUID
     status: Literal["ready"]
@@ -61,6 +79,7 @@ class PackOut(BaseModel):
     stale: bool
     stale_reason: str | None
     created_at: datetime
+    section_pages: list[SectionPages] = []
 
 
 class LatestOut(BaseModel):
@@ -70,11 +89,6 @@ class LatestOut(BaseModel):
 
 class BuildQueued(BaseModel):
     job_id: uuid.UUID
-
-
-class SectionPages(BaseModel):
-    key: Section
-    pages: int
 
 
 class SheetPage(BaseModel):
@@ -91,6 +105,8 @@ class SheetOut(BaseModel):
     agreed: bool | None
     reason: str | None
     pages: list[SheetPage]
+    reply: str | None = None
+    replied_at: datetime | None = None
 
 
 class PreviewOut(BaseModel):
@@ -123,6 +139,8 @@ class SentenceOut(BaseModel):
     sourced: bool
     source: Source | None
     reason: str | None
+    note_id: uuid.UUID | None = None
+    choice: Literal["tell", "leave_out"] | None = None
 
 
 class NoteChecked(BaseModel):
@@ -212,6 +230,7 @@ async def latest_pack(case_id: uuid.UUID, conn: DbConn, access: View) -> LatestO
             stale=row["stale"],
             stale_reason=row["stale_reason"],
             created_at=row["created_at"],
+            section_pages=[SectionPages(**p) for p in row["section_pages"]],
         )
         if row
         else None
@@ -227,11 +246,9 @@ async def preview_pack(case_id: uuid.UUID, conn: DbConn, access: View, pack: Pac
         return PreviewOut(sections=[], total_pages=0, sheets=[])
     services = current()
     refs = await repo.page_refs(conn, case_id)
-    counts: list[SectionPages] = []
-    for key in SECTIONS:
-        built = await pack_document(conn, services, pack, case_id, {"sections": [key], "include_guidance": False})
-        if built is not None and built.document.blocks:
-            counts.append(SectionPages(key=key, pages=render(built.document)[1]))  # type: ignore[arg-type]
+    built = await pack_document(conn, services, pack, case_id, {"sections": list(SECTIONS), "include_guidance": False})
+    counted = render_counted(built.document)[2] if built is not None else []
+    counts = [SectionPages(key=key, pages=n) for key, n in counted]  # type: ignore[arg-type]
     out = []
     for sheet in await sheets(conn, services, case_id, served):
         pages = [
@@ -304,5 +321,16 @@ async def check_new_note(
     for i, text in enumerate(sentences):
         ref, reason = found.get(i, (None, None))  # type: ignore[assignment]
         source = sources.get(ref) if ref else None
-        out.append(SentenceOut(index=i, text=text, sourced=source is not None, source=source, reason=reason))
+        sentence = SentenceOut(index=i, text=text, sourced=source is not None, source=source, reason=reason)
+        if source is None and reason != "check_unavailable":
+            kept = await repo.one(
+                conn,
+                "insert into app.trial_notes (case_id, text_sha256, text) values (%s, %s, %s)"
+                " on conflict (case_id, text_sha256) do update set text_sha256 = excluded.text_sha256"
+                " returning id, choice",
+                (case_id, sha256(text.encode()), await seal(conn, crypto, case_id, text, NEW_NOTE)),
+            )
+            assert kept is not None
+            sentence.note_id, sentence.choice = kept["id"], kept["choice"]
+        out.append(sentence)
     return NoteChecked(sentences=out)

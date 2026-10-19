@@ -100,6 +100,8 @@ CASE_TABLES: frozenset[str] = frozenset(
         "trial_pack_settings",
         "trial_packs",
         "offline_packages",
+        "readiness_replies",
+        "trial_notes",
     }
 )
 
@@ -159,6 +161,8 @@ PURGE_ORDER: tuple[str, ...] = (
     "time_estimates",
     "time_entries",
     "report_settings",
+    "readiness_replies",
+    "trial_notes",
     "concordance",
     "trial_packs",
     "offline_packages",
