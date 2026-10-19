@@ -62,6 +62,7 @@ test("drawing then saving sends a PNG to the API", async () => {
     }),
   );
   const region = await screen.findByRole("region", { name: "Declaration and signature" });
+  await user.click(within(region).getByRole("button", { name: /Add your signature/ }));
   await draw(region);
   expect(ctx.lineTo).toHaveBeenCalled();
   await user.click(within(region).getByRole("button", { name: "Save this signature" }));
@@ -75,6 +76,7 @@ test("drawing then saving sends a PNG to the API", async () => {
 test("clearing wipes the pad and switches saving off until you draw again", async () => {
   const { user } = open();
   const region = await screen.findByRole("region", { name: "Declaration and signature" });
+  await user.click(within(region).getByRole("button", { name: /Add your signature/ }));
   const save = within(region).getByRole("button", { name: "Save this signature" });
   expect(save).toBeDisabled();
   await draw(region);

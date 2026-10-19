@@ -10,7 +10,7 @@ import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBox, DropZone, LinkButton, LoadError, Loading, Notice, Spinner, TextField, TextLink } from "../../foundation/ui";
-import { Choice, FileButton, packWord, partyWords, Section, Select, TextArea, uploadFile, withEtag, type Option } from "./shared";
+import { ArrowIcon, Choice, FileButton, LinkAction, packWord, partyWords, Section, Select, TextArea, uploadFile, withEtag, type Option } from "./shared";
 
 const trackLabel = (key: string) => t(`setup.court_track.${key}`, {}, humanise(key));
 
@@ -72,9 +72,8 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
   const [track, setTrack] = useState<string | null>(null);
   const [due, setDue] = useState("");
   const [subject, setSubject] = useState<string | null>(null);
-  const [instructedBy, setInstructedBy] = useState("");
-  const [firm, setFirm] = useState("");
-  const [against, setAgainst] = useState("");
+  const [instructing, setInstructing] = useState([{ name: "", firm: "" }]);
+  const [against, setAgainst] = useState([""]);
   const [oral, setOral] = useState("");
   const [added, setAdded] = useState<Added>({ letters: [], records: [], other: [] });
   const [pages, setPages] = useState<Pages>({});
@@ -82,7 +81,7 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const etag = useRef("");
-  const sent = useRef({ instructing: false, party: false });
+  const sent = useRef({ instructing: new Set<number>(), party: new Set<number>() });
   const pack = packs[combo];
   const place = jurisdictions.find((j) => j.code === pack?.jurisdiction.code);
   const vocabulary = place?.vocabulary ?? {};
@@ -132,13 +131,15 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
       etag.current = next.etag;
     }
     const path = { params: { path: { case_id: id } } };
-    if (instructedBy.trim() && firm.trim() && !sent.current.instructing) {
-      await unwrap(api.POST("/v1/cases/{case_id}/instructing-parties", { ...path, body: { type_key: typeKey, name: instructedBy.trim(), firm: firm.trim() } }));
-      sent.current.instructing = true;
+    for (const [i, row] of instructing.entries()) {
+      if (!row.name.trim() || !row.firm.trim() || sent.current.instructing.has(i)) continue;
+      await unwrap(api.POST("/v1/cases/{case_id}/instructing-parties", { ...path, body: { type_key: typeKey, name: row.name.trim(), firm: row.firm.trim() } }));
+      sent.current.instructing.add(i);
     }
-    if (against.trim() && !sent.current.party) {
-      await unwrap(api.POST("/v1/cases/{case_id}/parties", { ...path, body: { role_key: "other_side", name: against.trim() } }));
-      sent.current.party = true;
+    for (const [i, name] of against.entries()) {
+      if (!name.trim() || sent.current.party.has(i)) continue;
+      await unwrap(api.POST("/v1/cases/{case_id}/parties", { ...path, body: { role_key: "other_side", name: name.trim() } }));
+      sent.current.party.add(i);
     }
     if (oral.trim()) {
       await unwrap(api.PUT("/v1/cases/{case_id}/oral-instructions", { ...path, body: { received_on: new Date().toISOString().slice(0, 10), text: oral.trim() } }));
@@ -173,7 +174,7 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
     }
   };
   const apply = (s: Schemas["Suggestion"]) => {
-    if (s.field === "instructing_party_name") setInstructedBy(s.value);
+    if (s.field === "instructing_party_name") setInstructing((rows) => rows.map((r, i) => (i === 0 ? { ...r, name: s.value } : r)));
     else if (s.field === "party_role") setSide(s.value);
     else if (s.field === "court_track") setTrack(s.value);
     else if (s.field === "due_date") setDue(s.value);
@@ -190,28 +191,36 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
       navigate("/");
     });
 
+  const rowLabel = (label: string, i: number) => (i === 0 ? label : t("setup.new_case.row_n", { label, n: i + 1 }));
+  const oralLabel = t("setup.oral.title");
   return (
-    <div className="av-page av-stack">
-      <div className="av-row av-row--spread">
+    <div className="av-page av-setup-page av-stack">
+      <div className="av-row av-row--spread av-setup-title">
         <div>
           <h1>{t("setup.new_case.title")}</h1>
-          <p className="av-muted">{t("setup.new_case.intro", { sender })}</p>
+          <p className="av-muted av-setup-lead">{t("setup.new_case.intro", { sender })}</p>
         </div>
         <TextLink to="/">{t("setup.cancel")}</TextLink>
       </div>
       <section aria-label={t("setup.new_case.files")} className="av-setup-drops">
-        <DropZone title={t("setup.new_case.letter")} icon={ICONS.letter} accept="application/pdf,.pdf,.docx" disabled={busy} onFiles={drop("letter")}>
-          {added.letters.length > 0 && <AddedFiles lines={added.letters.map((l) => ({ text: l.name, detail: pageDetail(pages[l.id]) }))} />}
-        </DropZone>
-        <DropZone title={t("setup.new_case.records")} hint={t("setup.new_case.records_hint")} icon={ICONS.records} multiple disabled={busy} onFiles={drop("records")}>
-          {added.records.length > 0 && <AddedFiles lines={[{ text: filesLine(added.records, pages) }]} />}
-        </DropZone>
-        <DropZone title={t("setup.new_case.other")} hint={t("setup.new_case.other_hint")} icon={ICONS.other} multiple disabled={busy} onFiles={drop("other")}>
-          {added.other.length > 0 && <AddedFiles lines={[{ text: filesLine(added.other, pages) }]} />}
-        </DropZone>
+        <div className={`av-setup-drop${added.letters.length > 0 ? " av-setup-drop--added" : ""}`}>
+          <DropZone title={t("setup.new_case.letter")} icon={ICONS.letter} accept="application/pdf,.pdf,.docx" disabled={busy} onFiles={drop("letter")}>
+            {added.letters.length > 0 && <AddedFiles lines={added.letters.map((l) => ({ text: l.name, detail: pageDetail(pages[l.id]) }))} />}
+          </DropZone>
+        </div>
+        <div className={`av-setup-drop${added.records.length > 0 ? " av-setup-drop--added" : ""}`}>
+          <DropZone title={t("setup.new_case.records")} hint={t("setup.new_case.records_hint")} icon={ICONS.records} multiple disabled={busy} onFiles={drop("records")}>
+            {added.records.length > 0 && <AddedFiles lines={[{ text: filesLine(added.records, pages) }]} />}
+          </DropZone>
+        </div>
+        <div className={`av-setup-drop${added.other.length > 0 ? " av-setup-drop--added" : ""}`}>
+          <DropZone title={t("setup.new_case.other")} hint={t("setup.new_case.other_hint")} icon={ICONS.other} multiple disabled={busy} onFiles={drop("other")}>
+            {added.other.length > 0 && <AddedFiles lines={[{ text: filesLine(added.other, pages) }]} />}
+          </DropZone>
+        </div>
       </section>
       {made && <FoundInLetter caseId={made} words={words} types={partyTypes} onUse={apply} />}
-      <section aria-labelledby="setup-few-questions" className="av-card av-stack">
+      <section aria-labelledby="setup-few-questions" className="av-card av-stack av-setup-form">
         <h2 id="setup-few-questions">{t("setup.new_case.few_questions")}</h2>
         {memberships.length > 1 && (
           <Choice
@@ -233,13 +242,40 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
           />
         )}
         <TextField label={t("setup.case.label")} hint={t("setup.case.label_hint")} name="label" required value={label} onChange={(e) => setLabel(e.target.value)} />
-        <div className="av-setup-pair">
-          <TextField label={t("setup.instructed.title")} name="instructed_by" value={instructedBy} onChange={(e) => setInstructedBy(e.target.value)} />
-          <TextField label={t("setup.new_case.their_firm")} name="firm" value={firm} onChange={(e) => setFirm(e.target.value)} />
+        <div className="av-stack">
+          {instructing.map((row, i) => (
+            <div key={i} className="av-setup-pair">
+              <TextField label={rowLabel(t("setup.instructed.title"), i)} name={`instructed_by_${i}`} value={row.name} onChange={(e) => setInstructing(instructing.map((r, j) => (j === i ? { ...r, name: e.target.value } : r)))} />
+              <TextField label={rowLabel(t("setup.new_case.their_firm"), i)} name={`firm_${i}`} value={row.firm} onChange={(e) => setInstructing(instructing.map((r, j) => (j === i ? { ...r, firm: e.target.value } : r)))} />
+            </div>
+          ))}
+          <div>
+            <LinkAction onClick={() => setInstructing([...instructing, { name: "", firm: "" }])}>
+              <span aria-hidden="true" className="av-setup-plus">+</span>
+              {t("setup.instructed.add_another")}
+            </LinkAction>
+          </div>
         </div>
         {Object.keys(words).length > 0 && <Choice legend={t("setup.case.side")} name="side" value={side} onChange={setSide} options={sideOptions(words)} />}
         <div className="av-setup-pair">
-          <TextField label={String(vocabulary.other_side_prompt ?? "")} hint={String(vocabulary.other_side_example ?? "")} name="against" value={against} onChange={(e) => setAgainst(e.target.value)} />
+          <div className="av-stack">
+            {against.map((name, i) => (
+              <TextField
+                key={i}
+                label={rowLabel(String(vocabulary.other_side_prompt ?? ""), i)}
+                hint={i === 0 ? String(vocabulary.other_side_example ?? "") : undefined}
+                name={`against_${i}`}
+                value={name}
+                onChange={(e) => setAgainst(against.map((v, j) => (j === i ? e.target.value : v)))}
+              />
+            ))}
+            <div>
+              <LinkAction onClick={() => setAgainst([...against, ""])}>
+                <span aria-hidden="true" className="av-setup-plus">+</span>
+                {t("setup.new_case.add_another")}
+              </LinkAction>
+            </div>
+          </div>
           {statuses.length > 0 && (
             <Choice
               legend={t("setup.new_case.subject_is")}
@@ -247,6 +283,7 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
               name="subject_status"
               value={subject}
               onChange={setSubject}
+              segmented
               options={statuses.map(([value, word]) => ({ value, label: humanise(word) }))}
             />
           )}
@@ -254,10 +291,16 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
         <div className="av-setup-pair">
           <TextField label={t("setup.case.due")} name="due_date" type="date" value={due} onChange={(e) => setDue(e.target.value)} />
           {place && place.court_tracks.length > 0 && (
-            <Choice legend={t("setup.case.track")} name="track" value={track} onChange={setTrack} options={place.court_tracks.map((k) => ({ value: k, label: trackLabel(k) }))} />
+            <Choice legend={t("setup.case.track")} name="track" value={track} onChange={setTrack} segmented options={place.court_tracks.map((k) => ({ value: k, label: trackLabel(k) }))} />
           )}
         </div>
-        <TextArea label={t("setup.oral.title")} hint={t("setup.oral.intro")} rows={3} value={oral} onChange={(e) => setOral(e.target.value)} />
+        <div className="av-setup-q av-stack av-setup-oral">
+          <p className="av-setup-q-label" aria-hidden="true">
+            {oralLabel}
+          </p>
+          <p className="av-setup-q-hint">{t("setup.oral.intro")}</p>
+          {made ? <DictationBox bar caseId={made} context="oral_instructions" label={oralLabel} value={oral} onChange={setOral} rows={4} /> : <TextArea label={oralLabel} rows={4} value={oral} onChange={(e) => setOral(e.target.value)} />}
+        </div>
       </section>
       {error && (
         <Notice tone="error">
@@ -270,6 +313,7 @@ function NewCaseForm({ packs, jurisdictions }: { packs: Schemas["PackCombination
         </Button>
         <Button disabled={busy || !label.trim()} onClick={prepare}>
           {t("setup.new_case.prepare")}
+          <ArrowIcon />
         </Button>
       </div>
     </div>
@@ -288,14 +332,22 @@ function filesLine(ids: string[], pages: Pages): string {
 
 function AddedFiles({ lines }: { lines: { text: string; detail?: string | undefined }[] }) {
   return (
-    <ul className="av-setup-plain av-setup-added">
-      {lines.map((line) => (
-        <li key={line.text}>
-          <strong className="av-setup-confirmed">{t("setup.new_case.added")}</strong> <span>{line.text}</span>
-          {line.detail && <span className="av-muted"> {line.detail}</span>}
-        </li>
-      ))}
-    </ul>
+    <>
+      <strong className="av-setup-added__tick">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+          <path d="M5 12l5 5 9-10" />
+        </svg>
+        {t("setup.new_case.added")}
+      </strong>
+      <ul className="av-setup-plain av-setup-added">
+        {lines.map((line) => (
+          <li key={line.text}>
+            <span>{line.text}</span>
+            {line.detail && <span className="av-muted">{line.detail}</span>}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -356,15 +408,15 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
   };
 
   return (
-    <div className="av-page av-stack">
-      <div>
-        <h2>{t("setup.details.title")}</h2>
-        <p className="av-muted">{t("setup.details.intro")}</p>
+    <div className="av-page av-setup-page av-stack">
+      <div className="av-setup-title">
+        <h1>{t("setup.details.title")}</h1>
+        <p className="av-muted av-setup-lead">{t("setup.details.intro")}</p>
       </div>
       <Letter caseId={caseId} />
       <FoundInLetter caseId={caseId} words={words} types={types} onUse={apply} />
       <Section id="setup-case-details" title={t("setup.details.case")}>
-        <form className="av-stack" onSubmit={(e) => void save(e)}>
+        <form className="av-stack av-setup-form" onSubmit={(e) => void save(e)}>
           <TextField label={t("setup.case.label")} name="label" required value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} />
           <Choice
             legend={t("setup.case.side")}
@@ -377,6 +429,7 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
             <Choice
               legend={t("setup.case.track")}
               name="court_track"
+              segmented
               value={form.court_track}
               onChange={(v) => setForm({ ...form, court_track: v })}
               options={place.court_tracks.map((k) => ({ value: k, label: trackLabel(k) }))}
@@ -399,7 +452,9 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
       <SamePerson caseId={caseId} jurisdiction={saved.data.jurisdiction} />
       <OralInstructions caseId={caseId} />
       <div className="av-row av-setup-actions">
-        <LinkButton to={`/cases/${caseId}/conflicts`}>{t("setup.details.next")}</LinkButton>
+        <LinkButton arrow to={`/cases/${caseId}/conflicts`}>
+          {t("setup.details.next")}
+        </LinkButton>
       </div>
     </div>
   );

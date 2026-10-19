@@ -1,10 +1,10 @@
 // Parts shared by slice C's screens: choices, a labelled box, the balance of sides, a drafted note and
 // file uploads. Words come from keys or from the pack (rule 11); files go only to FastAPI (rule 4).
-import { useId, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useId, type ButtonHTMLAttributes, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { ChoicePills, Segmented } from "../../foundation/ui";
+import { ChoicePills, Segmented, StackedBar } from "../../foundation/ui";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
 export async function withEtag<D>(call: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<{ data: D; etag: string }> {
@@ -55,8 +55,11 @@ export function Choice({
   const Group = segmented ? Segmented : ChoicePills;
   return (
     <div className="av-setup-choice av-stack">
-      <Group label={legend} name={name} options={options} value={value} onChange={onChange} />
-      {hint && <p className="av-field__hint">{hint}</p>}
+      <p className="av-setup-q-label" aria-hidden="true">
+        {legend}
+      </p>
+      {hint && <p className="av-setup-q-hint">{hint}</p>}
+      <Group label={legend} hideLabel name={name} options={options} value={value} onChange={onChange} />
       {children}
     </div>
   );
@@ -103,12 +106,21 @@ export function Select({ label, options, ...select }: { label: string; options: 
   );
 }
 
-/** A section with a level-2 heading that names it (a landmark the tests and screen readers can find). */
-export function Section({ id, title, intro, children }: { id: string; title: string; intro?: string; children: ReactNode }) {
+/**
+ * A section with a level-2 heading that names it (a landmark the tests and screen readers can find).
+ * `mark` sits before the heading (a tick when the part is done) and `action` at the right of it.
+ */
+export function Section({ id, title, intro, mark, action, children }: { id: string; title: string; intro?: string; mark?: ReactNode; action?: ReactNode; children: ReactNode }) {
   return (
     <section aria-labelledby={id} className="av-card av-stack">
-      <div>
-        <h2 id={id}>{title}</h2>
+      <div className="av-stack av-setup-sechead">
+        <div className="av-row av-row--spread">
+          <div className="av-row">
+            {mark}
+            <h2 id={id}>{title}</h2>
+          </div>
+          {action}
+        </div>
         {intro && <p className="av-muted">{intro}</p>}
       </div>
       {children}
@@ -116,28 +128,51 @@ export function Section({ id, title, intro, children }: { id: string; title: str
   );
 }
 
+/** The round mark before a section's title: a tick once the part is done, else its number. */
+export function PartMark({ done, number }: { done: boolean; number: number }) {
+  return (
+    <span className={`av-setup-mark${done ? " av-setup-mark--done" : ""}`} aria-hidden="true">
+      {done ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+          <path d="M5 12l5 5 9-10" />
+        </svg>
+      ) : (
+        number
+      )}
+    </span>
+  );
+}
+
+/** A button that reads as a link ("Edit", "Replace"): it does something here instead of opening a page. */
+export function LinkAction({ className, ...rest }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  return <button type="button" className={["av-text-link", "av-setup-linkbtn", className].filter(Boolean).join(" ")} {...rest} />;
+}
+
 /** How often the expert has acted for each side lately (judges notice one-sided experts). */
 const BALANCE_MONTHS = 12;
+const BALANCE_COLOURS = ["var(--green)", "var(--green-bright)", "var(--line-strong)"];
 
 /** The heading shows at once; the counts fill in when they arrive. */
 export function Balance({ words }: { words: Record<string, string> }) {
   const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: BALANCE_MONTHS } } })), []);
   if (found.error) return null;
   const counts = Object.entries(found.data?.counts ?? {});
+  const title = t("setup.balance.title", { months: found.data?.months ?? BALANCE_MONTHS });
   return (
-    <section aria-labelledby="setup-balance" className="av-card av-stack">
-      <div>
-        <h2 id="setup-balance">{t("setup.balance.title", { months: found.data?.months ?? BALANCE_MONTHS })}</h2>
+    <section aria-labelledby="setup-balance" className="av-card av-stack av-setup-balance">
+      <div className="av-row av-row--spread">
+        <h2 id="setup-balance">{title}</h2>
         <p className="av-muted">{t("setup.balance.intro")}</p>
       </div>
-      <ul className="av-setup-balance">
-        {counts.map(([role, count]) => (
-          <li key={role}>
-            <strong className="av-setup-balance__count">{count}</strong>
-            <span>{t("setup.balance.side", { party: words[role] ?? humanise(role) })}</span>
-          </li>
-        ))}
-      </ul>
+      <StackedBar
+        label={title}
+        segments={counts.map(([role, count], i) => ({
+          key: role,
+          value: count,
+          color: BALANCE_COLOURS[i % BALANCE_COLOURS.length]!,
+          label: t("setup.balance.side", { party: words[role] ?? humanise(role) }),
+        }))}
+      />
     </section>
   );
 }
@@ -217,14 +252,23 @@ export async function uploadFile(caseId: string, file: File, kind: string): Prom
 export const fileBytes = bytesOf;
 
 /** A file input that looks like a button; the input itself stays the labelled control. */
-export function FileButton({ label, accept, onChange }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void }) {
+export function FileButton({ label, accept, onChange, link }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; link?: boolean }) {
   const id = useId();
   return (
     <div className="av-setup-file">
-      <label htmlFor={id} className="av-button av-button--secondary av-setup-file__label">
+      <label htmlFor={id} className={link ? "av-text-link av-setup-file__label" : "av-button av-button--secondary av-setup-file__label"}>
         {label}
       </label>
       <input id={id} type="file" accept={accept} className="av-visually-hidden" onChange={onChange} />
     </div>
+  );
+}
+
+/** The arrow of a call to action that moves on, for a button that does something first. */
+export function ArrowIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 12h14M13 6l6 6-6 6" />
+    </svg>
   );
 }
