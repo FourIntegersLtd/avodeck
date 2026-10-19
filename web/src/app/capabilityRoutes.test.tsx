@@ -1,6 +1,6 @@
 import type { RouteObject } from "react-router-dom";
 import { describe, expect, it } from "vitest";
-import { capabilityCaseRoutes, capabilityRoutes, caseRoutesFrom, routesFrom } from "./capabilityRoutes";
+import { capabilityCaseRoutes, capabilityOfflineRoutes, capabilityRoutes, caseRoutesFrom, offlineRoutesFrom, routesFrom } from "./capabilityRoutes";
 import { routes } from "./routes";
 
 const paths = (list: RouteObject[]) => list.map((r) => r.path);
@@ -44,5 +44,14 @@ describe("capability routes", () => {
   it("puts every capability route behind the signed-in guard, before the case layout", () => {
     const children = signedInChildren();
     expect(paths(children)).toEqual([...paths(capabilityRoutes), "cases/:caseId"]);
+  });
+
+  it("mounts <name>OfflineRoutes outside the signed-in guard and nowhere else", () => {
+    const modules = { "../capabilities/trial/index.tsx": { trialRoutes: [{ path: "a" }], trialOfflineRoutes: [{ path: "b" }] } };
+    expect(paths(routesFrom(modules))).toEqual(["a"]);
+    expect(paths(offlineRoutesFrom(modules))).toEqual(["b"]);
+    const root = routes[0]?.children ?? [];
+    expect(paths(root)).toEqual(expect.arrayContaining(paths(capabilityOfflineRoutes)));
+    for (const path of paths(capabilityOfflineRoutes)) expect(paths(signedInChildren())).not.toContain(path);
   });
 });

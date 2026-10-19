@@ -1,5 +1,7 @@
 // web/AGENTS.md: auth is a cookie set by FastAPI. The web app never writes tokens to
-// localStorage or sessionStorage, and never writes cookies itself.
+// localStorage or sessionStorage, and never writes cookies itself. The one exception (web/AGENTS.md,
+// screen 25): the sealed witness-box copy may be kept in IndexedDB, by its own module only, and that
+// module may touch no other storage and no token.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { screen, waitFor } from "@testing-library/react";
@@ -9,13 +11,35 @@ import { renderAt } from "../../test/render";
 import { files, isTest, WEB } from "./walk";
 
 const STORAGE = /\b(localStorage|sessionStorage|indexedDB)\b|document\.cookie\s*=(?!=)/;
+const NOT_INDEXED_DB = /\b(localStorage|sessionStorage)\b|document\.cookie\s*=(?!=)|token/i;
+/** The only module allowed IndexedDB: it keeps the S25 copy, still sealed, on the device. */
+const WITNESS_BOX_STORE = "src/capabilities/trial/witnessBoxStore.ts";
+
+/** The sources (paths relative to web/) that break the storage rule. */
+function storageHits(sources: { rel: string; text: string }[]): string[] {
+  return sources.filter(({ rel, text }) => (rel === WITNESS_BOX_STORE ? NOT_INDEXED_DB : STORAGE).test(text)).map((s) => s.rel);
+}
 
 afterEach(() => vi.restoreAllMocks());
 
 test("no source file touches browser storage or writes a cookie", () => {
   const src = files(join(WEB, "src"), (rel) => /\.(ts|tsx)$/.test(rel) && !isTest(rel) && !rel.startsWith("src/foundation/guards/"));
-  const hits = src.filter((p) => STORAGE.test(readFileSync(p, "utf8"))).map((p) => p.slice(WEB.length + 1));
-  expect(hits).toEqual([]);
+  expect(storageHits(src.map((p) => ({ rel: p.slice(WEB.length + 1), text: readFileSync(p, "utf8") })))).toEqual([]);
+});
+
+test("only the witness-box copy's own module may use IndexedDB, and for nothing else", () => {
+  const refused = [
+    { rel: "src/capabilities/trial/offline.ts", text: "indexedDB.open('avodeck-witness-box')" },
+    { rel: "src/foundation/lib/session.ts", text: "indexedDB.open('session')" },
+    { rel: "src/capabilities/trial/witnessBoxStore.ts.bak", text: "indexedDB.open('x')" },
+    { rel: WITNESS_BOX_STORE, text: "indexedDB.open('x'); localStorage.setItem('a', 'b')" },
+    { rel: WITNESS_BOX_STORE, text: "indexedDB.open('x'); sessionStorage.getItem('a')" },
+    { rel: WITNESS_BOX_STORE, text: "indexedDB.open('x'); document.cookie = 'a=b'" },
+    { rel: WITNESS_BOX_STORE, text: "const accessToken = 'x'; indexedDB.open('x')" },
+    { rel: "src/app/routes.tsx", text: "localStorage.setItem('token', 'x')" },
+  ];
+  expect(storageHits(refused)).toEqual(refused.map((s) => s.rel));
+  expect(storageHits([{ rel: WITNESS_BOX_STORE, text: "indexedDB.open('avodeck-witness-box', 1)" }])).toEqual([]);
 });
 
 test("signing in with a password and a code stores nothing in the browser", async () => {

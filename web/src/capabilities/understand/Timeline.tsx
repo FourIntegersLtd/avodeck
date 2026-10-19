@@ -10,7 +10,7 @@ import { casePath, GuidanceChanged, kindWord, longDate, pageLabel, statusOf } fr
 import { w } from "./words";
 
 type Event = Schemas["Event"];
-type Source = Schemas["Source"];
+type Source = Schemas["TimelineSource"];
 type Zoom = "whole" | "month";
 
 const DAY = 86_400_000;
@@ -63,9 +63,9 @@ function EventRow({ caseId, event, left, colour, numbers }: { caseId: string; ev
   );
 }
 
-type TimelineData = Omit<Schemas["Timeline"], "guidance_changed" | "sources" | "counts"> & { guidance_changed?: string[]; sources?: Source[]; counts?: Schemas["Counts"] | null };
+type TimelineData = Omit<Schemas["Timeline"], "guidance_changed" | "sources" | "counts"> & { guidance_changed?: string[]; sources?: Source[]; counts?: Schemas["TimelineCounts"] | null };
 
-function Counts({ counts }: { counts: Schemas["Counts"] }) {
+function Counts({ counts }: { counts: Schemas["TimelineCounts"] }) {
   const chip = (label: string, n: number) => <span className="av-understand-count">{w("timeline.count", { label, n })}</span>;
   return (
     <div role="group" aria-label={w("timeline.counts")} className="av-understand-counts">

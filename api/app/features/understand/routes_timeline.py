@@ -44,13 +44,13 @@ class Lane(BaseModel):
     events: list[Event]
 
 
-class Source(BaseModel):
+class TimelineSource(BaseModel):
     key: str
     label: str
     colour: str | None
 
 
-class Counts(BaseModel):
+class TimelineCounts(BaseModel):
     """The numbers on the filter chips, counted over everything the person may see (before any filter)."""
 
     checked: int
@@ -63,8 +63,8 @@ class Counts(BaseModel):
 class Timeline(BaseModel):
     lanes: list[Lane]
     unplaced: list[Event]
-    sources: list[Source] = []
-    counts: Counts | None = None
+    sources: list[TimelineSource] = []
+    counts: TimelineCounts | None = None
     guidance_changed: list[str] = []
 
 
@@ -113,7 +113,7 @@ async def timeline(
     placed, unplaced = arrange([f for f in facts if keep(f)], lanes, kind=lambda f: f.kind, fields=lambda f: f.fields)
     labels = pack.vocabulary.get("lanes", {})
     source_words = pack.vocabulary.get("source_types", {})
-    counts = Counts(
+    counts = TimelineCounts(
         checked=sum(1 for f in facts if f.status in repo.CHECKED),
         please_check=sum(1 for f in facts if f.status not in repo.CHECKED),
         things_to_look=sum(1 for f in facts if f.fact_id in flagged),
@@ -122,7 +122,7 @@ async def timeline(
     )
     return Timeline(
         sources=[
-            Source(key=str(s["key"]), label=str(source_words.get(s["key"], s["key"])), colour=s.get("colour"))
+            TimelineSource(key=str(s["key"]), label=str(source_words.get(s["key"], s["key"])), colour=s.get("colour"))
             for s in pack.source_types()
         ],
         counts=counts,

@@ -7,3 +7,13 @@ deadlines:
   - key: hearing
     rule_ref: "Rule Z.7"
     set_by: direction
+  - key: zz_conference_signed
+    rule_ref: "Rule Z.9"
+    days: 5
+    calendar: business_days
+    from: discussion
+  - key: zz_conference_sent
+    rule_ref: "Rule Z.9.2"
+    days: 10
+    calendar: business_days
+    from: signing
