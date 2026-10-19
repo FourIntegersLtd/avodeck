@@ -1,7 +1,8 @@
 import { useContext } from "react";
-import { useMatches, useOutlet, useParams } from "react-router-dom";
+import { Navigate, useMatches, useOutlet, useParams } from "react-router-dom";
 import { t } from "../foundation/i18n";
 import { caseSubtitle, stepFor, type CaseFrame, type CaseScreenHandle } from "../foundation/lib/caseFrame";
+import { screenPath } from "../foundation/lib/screens";
 import { SessionContext } from "../foundation/lib/session";
 import { useTimeHeartbeat } from "../foundation/lib/timeHeartbeat";
 import { useResource } from "../foundation/lib/useResource";
@@ -11,6 +12,18 @@ import { WhereYouAre } from "./WhereYouAre";
 
 /** A case's frame: its name and the pack's steps. Slices' case routes render inside it (the outlet),
  * get the case and pack from `useCaseFrame()`, and name their screen key in the route's handle. */
+/** Where a bare case address opens: the first registered screen inside the case of the step the case is at. */
+export function caseHome(frame: Pick<CaseFrame, "item" | "pack">): string | null {
+  const stage = (frame.item as { stage?: string | null }).stage;
+  const steps = frame.pack.workflow_steps as Array<{ key: string; screens?: string[] }>;
+  const inside = `/cases/${frame.item.id}/`;
+  for (const key of steps.find((s) => s.key === stage)?.screens ?? []) {
+    const path = screenPath(key, { caseId: frame.item.id });
+    if (path?.startsWith(inside)) return path;
+  }
+  return null;
+}
+
 export function CaseLayout() {
   const { caseId = "" } = useParams();
   const found = useResource(
@@ -45,6 +58,8 @@ export function CaseLayout() {
     );
   }
   const { item, pack } = found.data;
+  const home = outlet ? null : caseHome(found.data);
+  if (home) return <Navigate to={home} replace />;
   const pills = Object.fromEntries(
     (stepProgress.data?.steps ?? []).flatMap((s) => (s.percent === null || s.done === null || s.total === null ? [] : [[s.key, { done: s.done, total: s.total, percent: s.percent }]])),
   );

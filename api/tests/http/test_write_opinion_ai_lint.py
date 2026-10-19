@@ -37,7 +37,7 @@ pytestmark = pytest.mark.anyio
 
 CAUSED = "caused the anaemia"
 BODY = f"{NAME} was seen and the plan [[cite:1]] was safe. The delay {CAUSED} to worsen. Review was in 3 weeks."
-KEYS = {"id", "sentence_index", "type", "words", "source", "status"}
+KEYS = {"id", "sentence_index", "sentence_start", "sentence_end", "type", "words", "source", "status"}
 
 
 class Answering:

@@ -6,7 +6,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
 import { Balance, FileButton, fileBytes, Section, Select, TextArea, withEtag } from "./shared";
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -68,20 +68,31 @@ function ProfileView(props: ViewProps) {
   const words = (props.jurisdiction?.vocabulary.party_roles ?? {}) as Record<string, string>;
 
   return (
-    <div className="av-page av-page--narrow av-stack">
-      <div>
-        <h1>{t("setup.profile.title")}</h1>
-        <p className="av-muted">{t("setup.profile.intro")}</p>
-        <p>
-          <strong>{t("setup.profile.progress", { done, total: PARTS })}</strong>
-        </p>
+    <div className="av-page av-stack">
+      <div className="av-row av-setup-banner">
+        <ProgressRing value={done} max={PARTS} label={t("setup.profile.progress", { done, total: PARTS })}>
+          {done}/{PARTS}
+        </ProgressRing>
+        <div>
+          <h1>{t("setup.profile.title")}</h1>
+          <p className="av-muted">{t("setup.profile.intro")}</p>
+          <p>
+            <strong>{t("setup.profile.progress", { done, total: PARTS })}</strong>
+          </p>
+        </div>
       </div>
       <AboutYou initial={props.profile} packs={props.packs} onSaved={setAbout} />
       <Roles roles={roles} setRoles={setRoles} specialty={specialty} />
-      <Training items={training} setItems={setTraining} />
-      <TemplateSection template={template} setTemplate={setTemplate} />
+      <div className="av-setup-pair av-setup-pair--top">
+        <Training items={training} setItems={setTraining} />
+        <TemplateSection template={template} setTemplate={setTemplate} />
+      </div>
       <DeclarationSection declaration={props.declaration} signed={signed} onSigned={() => setSigned(true)} />
       <Balance words={words} />
+      <div className="av-setup-footer av-row av-row--spread">
+        <span className="av-muted">{t("setup.profile.progress", { done, total: PARTS })}</span>
+        <LinkButton to="/today">{t("setup.profile.done")}</LinkButton>
+      </div>
       <section aria-labelledby="setup-goes-with-you" className="av-card av-stack">
         <h2 id="setup-goes-with-you">{t("setup.profile.goes_with_you")}</h2>
         <p className="av-muted">{t("setup.profile.goes_with_you_text")}</p>
@@ -180,6 +191,30 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
       setError(errorMessage(err, { invalid: "setup.roles.invalid" }));
     }
   };
+  const [editing, setEditing] = useState<string | null>(null);
+  const [edit, setEdit] = useState({ role_title: "", started_on: "", ended_on: "" });
+  const startEdit = (r: Schemas["Role"]) => {
+    setError(null);
+    setEditing(r.id);
+    setEdit({ role_title: r.role_title, started_on: r.started_on ?? "", ended_on: r.ended_on ?? "" });
+  };
+  const saveEdit = async (e: FormEvent, r: Schemas["Role"]) => {
+    e.preventDefault();
+    setError(null);
+    try {
+      const role = await unwrap(
+        api.PATCH("/v1/me/roles/{role_id}", {
+          params: { path: { role_id: r.id } },
+          headers: ifMatch(`"${r.version}"`),
+          body: { role_title: edit.role_title, started_on: edit.started_on, ended_on: edit.ended_on || null, setting: r.setting ?? null },
+        }),
+      );
+      setRoles(roles.map((x) => (x.id === r.id ? role : x)));
+      setEditing(null);
+    } catch (err) {
+      setError(errorMessage(err, { invalid: "setup.roles.invalid", stale: "setup.roles.stale" }));
+    }
+  };
   const remove = async (id: string) => {
     try {
       await unwrap(api.DELETE("/v1/me/roles/{role_id}", { params: { path: { role_id: id } } }));
@@ -192,17 +227,38 @@ function Roles({ roles, setRoles, specialty }: { roles: Schemas["Role"][]; setRo
     <Section id="setup-roles" title={t("setup.roles.title")} intro={t("setup.roles.intro")}>
       {roles.length > 0 && (
         <ul className="av-rows av-setup-plain">
-          {roles.map((r) => (
-            <li key={r.id} className="av-row-item av-row--spread">
-              <span className="av-row-item__text">
-                <strong>{r.role_title}</strong>
-                <span className="av-muted">{t("setup.roles.years", { from: year(r.started_on), to: year(r.ended_on) })}</span>
-              </span>
-              <Button variant="quiet" onClick={() => void remove(r.id)}>
-                {t("setup.remove", { name: r.role_title })}
-              </Button>
-            </li>
-          ))}
+          {roles.map((r) =>
+            editing === r.id ? (
+              <li key={r.id} className="av-row-item">
+                <form className="av-stack" onSubmit={(e) => void saveEdit(e, r)}>
+                  <TextField label={t("setup.roles.edit_role")} name="role_title" required value={edit.role_title} onChange={(e) => setEdit({ ...edit, role_title: e.target.value })} />
+                  <TextField label={t("setup.roles.from")} name="started_on" type="date" required value={edit.started_on} onChange={(e) => setEdit({ ...edit, started_on: e.target.value })} />
+                  <TextField label={t("setup.roles.edit_until")} hint={t("setup.roles.to_hint")} name="ended_on" type="date" value={edit.ended_on} onChange={(e) => setEdit({ ...edit, ended_on: e.target.value })} />
+                  <div className="av-row">
+                    <Button type="submit">{t("setup.roles.save")}</Button>
+                    <Button variant="quiet" onClick={() => setEditing(null)}>
+                      {t("setup.cancel")}
+                    </Button>
+                  </div>
+                </form>
+              </li>
+            ) : (
+              <li key={r.id} className="av-row-item av-row--spread">
+                <span className="av-row-item__text">
+                  <strong>{r.role_title}</strong>
+                  <span className="av-muted">{t("setup.roles.years", { from: year(r.started_on), to: year(r.ended_on) })}</span>
+                </span>
+                <span className="av-row">
+                  <Button variant="quiet" onClick={() => startEdit(r)}>
+                    {t("setup.roles.edit", { name: r.role_title })}
+                  </Button>
+                  <Button variant="quiet" onClick={() => void remove(r.id)}>
+                    {t("setup.remove", { name: r.role_title })}
+                  </Button>
+                </span>
+              </li>
+            ),
+          )}
         </ul>
       )}
       {error && (
@@ -367,6 +423,15 @@ function TemplateSection({ template, setTemplate }: { template: Tagged<Template>
           </span>
         </div>
       )}
+      {template && template.data.styles.length > 0 && (
+        <ul className="av-setup-plain av-setup-chips" aria-label={t("setup.template.styles")}>
+          {template.data.styles.map((style) => (
+            <li key={style} className="av-setup-chip">
+              {style}
+            </li>
+          ))}
+        </ul>
+      )}
       <FileButton label={template ? t("setup.template.replace") : t("setup.template.choose")} accept=".docx" onChange={(e) => void upload(e)} />
       {template && template.data.headings.length > 0 && (
         <div className="av-stack">
@@ -418,8 +483,27 @@ function DeclarationSection({ declaration, signed, onSigned }: { declaration: Ta
   };
   return (
     <Section id="setup-declaration" title={t("setup.declaration.title")}>
-      {current?.data.wording.map((w) => (
-        <div key={w.key} className="av-stack av-setup-wording">
+      {current && current.data.wording.length > 0 && (
+        <ul className="av-rows av-setup-plain">
+          <li className="av-row-item">
+            <span className="av-row-item__text">
+              <strong>{humanise(current.data.wording[0]!.key)}</strong>
+              <span className="av-muted">{t("setup.declaration.tile_fixed")}</span>
+            </span>
+          </li>
+          <li className="av-row-item av-row--spread">
+            <span className="av-row-item__text">
+              <strong>{t("setup.declaration.tile_yours")}</strong>
+              <span className="av-muted">
+                {current.data.wording[0]!.points ? t("setup.declaration.tile_points", { count: current.data.wording[0]!.points }) : t("setup.declaration.tile_plain")}
+              </span>
+            </span>
+            <a href="#declaration-wording">{t("setup.declaration.review")}</a>
+          </li>
+        </ul>
+      )}
+      {current?.data.wording.map((w, i) => (
+        <div key={w.key} id={i === 0 ? "declaration-wording" : undefined} className="av-stack av-setup-wording">
           <h3>{humanise(w.key)}</h3>
           <p className="av-muted">{t("setup.declaration.fixed")}</p>
           <div className="av-setup-quote">

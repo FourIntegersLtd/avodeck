@@ -25,8 +25,28 @@ cases_router = router(prefix="/v1/cases", tags=["cases"])
 _COLUMNS = (
     "id, organisation_id, named_expert_id, jurisdiction, case_type, specialty, expert_role, label,"
     " party_role, instructing_party_type, court_track, due_date, subject_status, period_start, period_end, status,"
-    " on_hold, version, created_at, updated_at"
+    " on_hold, stage, version, created_at, updated_at"
 )
+
+# Where a case is in the pack's workflow when nothing has recorded a step yet: before the bundle is ready it
+# is at the first step, once served at the last, and in between at the step after the first (positions, not
+# step names, so any pack's steps work; rule 11).
+_EARLY = ("draft", "processing")
+_LATE = ("served", "settled", "archived", "withdrawn", "deleted")
+
+
+def _stage(request: Request, row: dict[str, object]) -> str | None:
+    if row.get("stage"):
+        return str(row["stage"])
+    pack = request.app.state.packs.combine(row["jurisdiction"], row["case_type"], row["specialty"])
+    keys = [str(s["key"]) for s in pack.workflow_steps()]
+    if not keys:
+        return None
+    if row["status"] in _EARLY:
+        return keys[0]
+    if row["status"] in _LATE:
+        return keys[-1]
+    return keys[min(1, len(keys) - 1)]
 
 
 class Case(BaseModel):
@@ -47,6 +67,7 @@ class Case(BaseModel):
     period_end: date | None = None
     status: str
     on_hold: bool
+    stage: str | None = None
     created_at: datetime
     updated_at: datetime
     allowed_actions: list[str]
@@ -171,7 +192,7 @@ async def create_case(body: CaseCreate, request: Request, conn: DbConn, response
         await cur2.execute(sql.SQL("select {} from app.cases where id = %s").format(sql.SQL(_COLUMNS)), (case_id,))
         created = await cur2.fetchone()
     assert created is not None
-    return _case(created, access, response)
+    return _case(request, created, access, response)
 
 
 async def _is_nameable(conn: DbConn, organisation_id: uuid.UUID, person_id: uuid.UUID) -> bool:
@@ -181,13 +202,15 @@ async def _is_nameable(conn: DbConn, organisation_id: uuid.UUID, person_id: uuid
     return bool(found and found[0])
 
 
-def _case(row: dict[str, object], access: CaseAccess, response: Response) -> Case:
+def _case(request: Request, row: dict[str, object], access: CaseAccess, response: Response) -> Case:
     response.headers["etag"] = etag(int(row.pop("version")))  # type: ignore[call-overload]
+    row["stage"] = _stage(request, row)
     return Case(**row, allowed_actions=list(access.allowed_actions))  # type: ignore[arg-type]
 
 
 @cases_router.get("/{case_id}", response_model=Case)
 async def get_case(
+    request: Request,
     case_id: uuid.UUID,
     access: Annotated[CaseAccess, Depends(require_case_access("case.view_metadata"))],
     conn: DbConn,
@@ -197,7 +220,7 @@ async def get_case(
         await cur.execute(sql.SQL("select {} from app.cases where id = %s").format(sql.SQL(_COLUMNS)), (case_id,))
         row = await cur.fetchone()
     assert row is not None  # require_case_access has already answered 404
-    return _case(row, access, response)
+    return _case(request, row, access, response)
 
 
 @cases_router.patch("/{case_id}", response_model=Case)
@@ -239,4 +262,4 @@ async def update_case(
     await audit.record(
         conn, action="case.updated", target=f"case:{case_id}", case_id=case_id, organisation_id=row["organisation_id"]
     )
-    return _case(row, access, response)
+    return _case(request, row, access, response)

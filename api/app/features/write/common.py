@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date
 from typing import Annotated
@@ -46,6 +47,43 @@ class PointFact(BaseModel):
     kind: str
     value: str | None
     event_date: date | None
+
+
+class QuestionHeader(BaseModel):
+    """What the boards print about a question: its number, a short title, the kind (with the pack's label key)."""
+
+    number: int
+    short_title: str
+    kind: str
+    kind_label_key: str | None
+    para_ref: str | None
+
+
+_CLAUSE_END = re.compile(r"[,;:.?!](?:\s|$)|\s[-\u2013\u2014]\s")
+SHORT_TITLE_MAX = 40
+
+
+def short_title(text: str) -> str:
+    """The first clause of a question, in at most 40 characters (cut at a word, ending "…"). Slice C may replace it."""
+    first = _CLAUSE_END.split(" ".join(text.split()), maxsplit=1)[0].strip()
+    if len(first) <= SHORT_TITLE_MAX:
+        return first
+    return first[: SHORT_TITLE_MAX - 1].rsplit(" ", 1)[0].rstrip() + "\u2026"
+
+
+async def question_header(conn: DbConn, pack: MergedPack, case_id: uuid.UUID, question_id: uuid.UUID) -> QuestionHeader:
+    cur = await conn.execute(
+        "select number, kind, coalesce(confirmed_text, text_verbatim), para_ref from app.questions"
+        " where id = %s and case_id = %s",
+        (question_id, case_id),
+    )
+    row = await cur.fetchone()
+    if row is None:
+        raise not_found()
+    labels = {str(q["key"]): q.get("label_key") for q in pack.question_types()}
+    return QuestionHeader(
+        number=row[0], short_title=short_title(row[2]), kind=row[1], kind_label_key=labels.get(row[1]), para_ref=row[3]
+    )
 
 
 class Queued(BaseModel):

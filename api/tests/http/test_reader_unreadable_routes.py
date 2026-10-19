@@ -256,3 +256,35 @@ async def test_the_experts_text_reaches_no_log_or_job_row(
     for word in ("Zebedee", "Quillfeather", "chest clear"):
         assert word not in caplog.text
         assert not any(word in row[0] for row in jobs)
+
+
+async def test_a_page_with_nothing_relevant_is_done_and_leaves_the_pages_to_type(
+    client_for: Any, world: dict[str, Any], admin: psycopg.Connection, calls: list[Any]
+) -> None:
+    client, n = world["client"], UNREADABLE[0]
+    response = await client.patch(url(world, f"pages/{n}"), json={"relevance": "nothing"})
+    assert response.status_code == 200 and response.json()["relevance"] == "nothing"
+    shown = {p["page_no"]: p for p in (await queue(client, world))["pages"]}
+    assert shown[n]["done"] and not shown[n]["has_transcription"]
+    assert [i["count"] for i in await today(client, "reader_pages_to_type")] == [len(UNREADABLE) - 1]
+    assistant = await client_for(world["assistant"])
+    assert (await assistant.patch(url(world, f"pages/{n}"), json={"relevance": "relevant"})).status_code == 200
+
+
+async def test_a_page_set_aside_as_a_copy_or_given_a_clearer_copy_is_done(
+    seed: Seed, admin: psycopg.Connection, world: dict[str, Any], calls: list[Any]
+) -> None:
+    client, copy_no, replaced_no = world["client"], UNREADABLE[0], UNREADABLE[1]
+    admin.execute(
+        "update app.pages set duplicate_of_page_id = %s where id = %s",
+        (world["pages"][1], world["pages"][copy_no]),
+    )
+    later = seed.document(world["case"])
+    admin.execute(
+        "insert into app.page_replacements (case_id, page_id, document_id, requested_by) values (%s, %s, %s, %s)",
+        (world["case"], world["pages"][replaced_no], later, world["expert"]),
+    )
+    shown = {p["page_no"]: p for p in (await queue(client, world))["pages"]}
+    assert shown[copy_no]["done"] and shown[copy_no]["is_copy"]
+    assert shown[replaced_no]["done"] and shown[replaced_no]["has_clearer_copy"]
+    assert not shown[UNREADABLE[2]]["done"]

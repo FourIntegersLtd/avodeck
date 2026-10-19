@@ -47,7 +47,11 @@ def t06(pack: MergedPack) -> AiTask:
         "type": "object",
         "additionalProperties": False,
         "required": ["text_verbatim", "word_ids", "para_ref", "kind", "reason"],
-        "properties": {**copied, "kind": {"type": "string", "enum": kinds}},
+        "properties": {
+            **copied,
+            "kind": {"type": "string", "enum": kinds},
+            "short_title": {"type": "string", "minLength": 1, "maxLength": 40},
+        },
     }
     assumption = {
         "type": "object",
