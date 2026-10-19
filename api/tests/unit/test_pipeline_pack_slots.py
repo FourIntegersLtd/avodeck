@@ -96,9 +96,9 @@ def test_the_case_pack_carries_the_quarantine_delay(library: packs.PackLibrary, 
 def test_the_extension_request_is_the_packs_wording_and_day_count(library: packs.PackLibrary, combo: Combo) -> None:
     pack = library.combine(*combo.codes)
     raw = combo.raw("jurisdiction", "vocabulary.yaml")["request_extension"]
-    assert pack.request_extension_days() == raw["days"]
-    text = pack.extension_request(days=str(raw["days"]))
-    assert str(raw["days"]) in text and "{" not in text
-    assert text == raw["text"].replace("{days}", str(raw["days"])).replace(
+    assert pack.request_extension_days() == int(raw["days"])
+    text = pack.extension_request(days=raw["days"])
+    assert raw["days"] in text and "{" not in text
+    assert text == raw["text"].replace("{days}", raw["days"]).replace(
         "{instructing_party}", pack.instructing_party_types()[0]["label"]
     )
