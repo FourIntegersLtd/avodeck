@@ -25,6 +25,8 @@ const WORDS = {
   "points.reason_needed": "Please say why, in a few words.",
   "points.remove_confirm": "Remove it",
   "points.cancel": "Cancel",
+  "points.add_row": "Add another fact…",
+  "points.add_row_button": "+ Add",
   "points.unused": "Facts not on a side yet",
   "points.unused_empty": "Every fact for this question is on a side.",
   "points.add_to": "Add to {{side}}",

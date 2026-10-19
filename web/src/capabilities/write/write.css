@@ -41,3 +41,6 @@
 .av-write-linkbutton { min-height: var(--button-min-height); }
 .av-write-title { font-size: 34px; line-height: 1.2; }
 .av-write-footer--between > :last-child { margin-left: auto; }
+.av-write-note .av-field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.av-write-grey { margin: 0; padding: var(--space-3) var(--space-4); background: var(--surface); border-radius: var(--radius); }
+.av-write-addrow { align-items: center; }

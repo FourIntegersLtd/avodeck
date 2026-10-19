@@ -8,7 +8,7 @@ import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBar, LinkButton, LoadError, Loading, Notice, PageRef } from "../../foundation/ui";
+import { Button, Callout, DictationBar, LinkButton, LoadError, Loading, Notice, PageRef, TextLink } from "../../foundation/ui";
 import { KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
@@ -39,6 +39,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   const [note, setNote] = useState(initial.range_note.text ?? "");
   const [noteVersion, setNoteVersion] = useState(initial.range_note.version);
   const [noteSaved, setNoteSaved] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
   const [dictatedOn, setDictatedOn] = useState(initial.range_note.dictated_on);
 
   const attempt = async (work: () => Promise<void>) => {
@@ -92,7 +93,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
         <p className="av-muted">{w("points.intro")}</p>
       </div>
       <QuestionTabs caseId={caseId} chosen={chosen} screen="points" />
-      <p className="av-muted">
+      <p className="av-muted av-visually-hidden">
         <KindBadge header={data.question} /> {chosen.current.confirmed_text ?? chosen.current.text_verbatim}
       </p>
       {error && (
@@ -137,62 +138,58 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                   </li>
                 ))}
               </ul>
+              {data.unused.length > 0 && (
+                <div className="av-write-item av-write-item__head av-write-addrow">
+                  <span className="av-muted">{w("points.add_row")}</span>
+                  <button type="button" className="av-text-link av-write-linkbutton" aria-expanded={adding === side.code} onClick={() => setAdding(adding === side.code ? null : side.code)}>
+                    {w("points.add_row_button")}
+                  </button>
+                </div>
+              )}
+              {adding === side.code && data.unused.length > 0 && (
+                <section aria-labelledby="unused-title">
+                  <h4 id="unused-title" className="av-visually-hidden">{w("points.unused")}</h4>
+                  <ul className="av-write-list">
+                    {data.unused.map((fact) => (
+                      <li key={fact.id} className="av-write-item av-write-item__head">
+                        <span>{fact.value} <PageRef page={fact.page_no} /></span>
+                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void add(fact, side.code)}>
+                          {w("points.add_to", { side: side.label })}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
             </section>
           );
         })}
       </div>
 
-      <section className="av-card" aria-labelledby="unused-title">
-        <h3 id="unused-title">{w("points.unused")}</h3>
-        {data.unused.length === 0 && <p className="av-muted">{w("points.unused_empty")}</p>}
-        <ul className="av-write-list">
-          {data.unused.map((fact) => (
-            <li key={fact.id} className="av-write-item">
-              <div className="av-write-item__head">
-                <span>{fact.value}</span>
-                <PageRef page={fact.page_no} />
-              </div>
-              <div className="av-write-actions">
-                {data.sides.map((s) => (
-                  <Button key={s.code} variant="secondary" onClick={() => void add(fact, s.code)}>
-                    {w("points.add_to", { side: s.label })}
-                  </Button>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {data.relevant.length > 0 && (
-        <Notice tone="warning">
+      {data.relevant.map((r) => (
+        <Callout
+          key={r.id}
+          title={
+            <strong>{w("points.relevant_title", { count: 1 })}</strong>
+          }
+          actions={
+            <>
+              <TextLink to={`/cases/${caseId}/consultation/${r.fact.id}`}>{w("points.relevant_look")}</TextLink>
+              <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void dismissRelevant(r)}>
+                {w("points.relevant_dismiss")}
+              </button>
+            </>
+          }
+        >
           <p>
-            <strong>{w("points.relevant_title", { count: data.relevant.length })}</strong>
+            <span>{r.fact.value}</span> <PageRef page={r.fact.page_no} /> <span>{r.why_relevant}</span>
           </p>
-          <ul className="av-write-list">
-            {data.relevant.map((r) => (
-              <li key={r.id} className="av-write-item">
-                <div className="av-write-item__head">
-                  <span>{r.fact.value}</span>
-                  <PageRef page={r.fact.page_no} />
-                </div>
-                <p>{r.why_relevant}</p>
-                <div className="av-write-actions">
-                  <LinkButton variant="secondary" to={`/cases/${caseId}/consultation/${r.fact.id}`}>
-                    {w("points.relevant_look")}
-                  </LinkButton>
-                  <Button variant="secondary" onClick={() => void dismissRelevant(r)}>
-                    {w("points.relevant_dismiss")}
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Notice>
-      )}
+        </Callout>
+      ))}
 
       <div className="av-write-columns">
-        <section className="av-card av-stack">
+        <section className="av-card av-stack av-write-note">
+          <h3>{data.range_note.prompt}</h3>
           <DictationBar
             caseId={caseId}
             context="range_note"
@@ -220,32 +217,28 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                 <span className="av-write-badge">{verdictLabel(claim.expert_verdict ?? claim.verdict)}</span>
               </p>
               {claim.status === "stale" && <p className="av-muted">{w("points.claim_stale")}</p>}
-              <div className="av-write-pair">
-                <div>
-                  <strong>{w("points.statement")}</strong>
-                  <p>{claim.text_verbatim}</p>
-                </div>
-                <div>
-                  <strong>{w("points.record")}</strong>
-                  {claim.facts.length === 0 && <p>{w("points.record_none")}</p>}
-                  {claim.facts.map((f) => (
-                    <p key={f.id}>
-                      <span>{f.value}</span> <PageRef page={f.page_no} />
-                    </p>
-                  ))}
-                </div>
-              </div>
+              <p>
+                <strong>{w("points.statement")}</strong> {claim.text_verbatim}
+              </p>
+              <p>
+                <strong>{w("points.record")}</strong> {claim.facts.length === 0 && w("points.record_none")}
+                {claim.facts.map((f) => (
+                  <span key={f.id}>
+                    {f.value} <PageRef page={f.page_no} />{" "}
+                  </span>
+                ))}
+              </p>
               <div className="av-write-actions">
-                <Button variant="secondary" onClick={() => void decide(claim, "confirmed")}>
+                <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void decide(claim, "confirmed")}>
                   {w("points.claim_confirm")}
-                </Button>
-                <Button variant="secondary" onClick={() => void decide(claim, "dismissed")}>
+                </button>
+                <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void decide(claim, "dismissed")}>
                   {w("points.claim_dismiss")}
-                </Button>
+                </button>
               </div>
             </article>
           ))}
-          {data.claims.length > 0 && <p className="av-muted">{w("points.judge")}</p>}
+          {data.claims.length > 0 && <p className="av-write-grey">{w("points.judge")}</p>}
         </section>
       </div>
 
