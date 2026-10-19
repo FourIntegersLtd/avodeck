@@ -126,3 +126,12 @@ Uploading mechanics (foundation), bundle processing (A), report assembly using t
 
 ## Definition of done
 Root checklist, plus: a test expert can complete the profile and reach confirmed questions on the fixture letter on staging.
+
+## Design match (S02, S04, S05, S06)
+- S04 is one screen at `/cases/new`: drop zones for the letter, the records and anything else (the case is made on the first drop or action), then the questions in the pack's words, then "Prepare my bundle" (details, instructing party, other side, what you were told, then processing and the S05 check) or "Save and finish later". `/cases/{id}/details` still edits the same details.
+- S05 shows the pack's `coverage_question` (new field on `GET /conflicts`) with the answer taken from the server's coverage status; it is not stored separately. One "Confirm and continue" button saves, declares and moves on.
+- S06 has the letter pane, kind pill, and outside-expertise card; `QuestionOut` gains `answer_parts` and `outside_expertise_source` (the pack's parts, or "expert" when the expert flagged it).
+- S02 has the progress ring, template style chips and a Done footer. A role is edited in place (`Role.version` / `Profile.version` are the If-Match value; 412 shows "changed somewhere else"). The declaration tile counts the wording's numbered points (`Wording.points`) and "Review wording" jumps to the wording.
+- S04 drop zones show page counts from `GET /cases/{id}/files` (counted from the PDF page tree, no OCR, cached by sha256; null when unknown, then only the file count shows). Foundation could set `documents.pages` at upload instead.
+- `questions.short_title` (migration 0395, 1 to 40 chars) comes from the T-06 `short_title` label or the question's first clause, and is on `QuestionOut` for S14 tabs. Foundation could expose it on `core/contracts/questions.py`.
+

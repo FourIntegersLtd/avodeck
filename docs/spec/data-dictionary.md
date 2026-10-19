@@ -270,6 +270,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | instruction_version_id | Which set of instructions asked it |
 | number | Its number in the letter |
 | text_verbatim | The exact words of the question |
+| short_title | A label of at most 40 characters for tabs and lists: the model's label, or the first clause of the question when it gave none. A label only; never replaces the question |
 | source_word_ids[] | Where those words are in the letter, as proof |
 | para_ref | The paragraph of the letter |
 | kind | Type of question (e.g. breach, causation) from the pack |
@@ -361,7 +362,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | quarantined | Marked as another person's record: hidden, and when, why and by whom |
 | unreadable | The computer couldn't read it; it's in "Pages we couldn't read" |
 | needs_clearer_copy | The expert asked for a clearer copy; the page goes on the next request to the instructing party |
-| relevance | The expert's judgement: relevant or background |
+| relevance | The expert's judgement: relevant, background, or nothing relevant on the page |
 | language | The page's language, if not the pack's |
 | transcribed_by_expert_text | The expert's own typing of a page the computer couldn't read, sealed with the case key (never stored as plain text) |
 

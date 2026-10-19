@@ -19,8 +19,8 @@ test("S02 Your expert profile", async ({ page }) => {
 test("S04 Start a new case", async ({ page }) => {
   await page.goto("/cases/new");
   await expect(page.getByRole("heading", { level: 1, name: "Start a new case" })).toBeVisible();
-  await expect(page.getByRole("group", { name: /Who is this case for\?/ })).toBeVisible();
-  await expect(page.getByRole("group", { name: "Which side are you instructed by?" })).toBeVisible();
+  await expect(page.getByRole("radiogroup", { name: /Who is this case for\?/ })).toBeVisible();
+  await expect(page.getByRole("radiogroup", { name: "Which side are you instructed by?" })).toBeVisible();
   await expectAccessible(page);
 });
 
