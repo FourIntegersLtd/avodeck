@@ -7,7 +7,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LoadError, Loading, Notice } from "../../foundation/ui";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, TextLink } from "../../foundation/ui";
 import { NoteView, Select, TextArea, versionTag, type Option } from "./shared";
 
 type QuestionItem = Schemas["QuestionOut"];
@@ -74,15 +74,13 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
   };
 
   return (
-    <div className="av-page av-page--narrow av-stack">
-      <div>
-        <h2>{t("setup.questions.title")}</h2>
-        <p className="av-muted">{t("setup.questions.intro")}</p>
-        {total > 0 && (
-          <p>
-            <strong>{t("setup.questions.progress", { done, total })}</strong>
-          </p>
-        )}
+    <div className="av-page av-stack">
+      <div className="av-row av-row--spread">
+        <div>
+          <h2>{t("setup.questions.title")}</h2>
+          <p className="av-muted">{t("setup.questions.intro")}</p>
+        </div>
+        {total > 0 && <strong className="av-setup-count">{t("setup.questions.progress", { done, total })}</strong>}
       </div>
       {asked.warnings.map((key) => (
         <Notice key={key} tone="warning">
@@ -109,6 +107,9 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           <p>{error}</p>
         </Notice>
       )}
+      <div className="av-setup-split">
+      <LetterPane questions={questions} assumptions={assumptions} />
+      <div className="av-stack">
       {questions.length > 0 && <h3>{t("setup.questions.questions")}</h3>}
       {questions.map((q, i) => (
         <ItemCard
@@ -118,6 +119,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           item={q}
           locked={asked.locked}
           onChange={(next) => setQuestions(questions.map((x, j) => (j === i ? (next as QuestionItem) : x)))}
+          pack={pack}
           extra={(save) => (
             <>
               <Select label={t("setup.questions.kind")} options={kinds} value={q.kind ?? ""} disabled={asked.locked} onChange={(e) => void save({ kind: e.target.value })} />
@@ -150,9 +152,20 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
         />
       ))}
       {note && <NoteView note={note} />}
-      {!asked.locked && total > 0 && (
-        <div className="av-row av-setup-actions">
-          <Button onClick={() => void confirmAll()}>{t("setup.questions.confirm_all")}</Button>
+      </div>
+      </div>
+      {total > 0 && (
+        <div className="av-row av-row--spread av-setup-footer">
+          {asked.locked ? (
+            <LinkButton to={`/cases/${caseId}/preparing`}>{t("setup.questions.continue")}</LinkButton>
+          ) : (
+            <>
+              <span className="av-setup-footer__hint">
+                {t("setup.questions.last", { count: total - done })} · <TextLink to={`/cases/${caseId}/details`}>{t("setup.questions.further")}</TextLink>
+              </span>
+              <Button onClick={() => void confirmAll()}>{t("setup.questions.confirm_all")}</Button>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -168,7 +181,9 @@ function ItemCard({
   locked,
   onChange,
   extra,
+  pack,
 }: {
+  pack?: Schemas["CasePack"];
   kind: "question" | "assumption";
   caseId: string;
   item: QuestionItem | AssumptionItem;
@@ -206,7 +221,21 @@ function ItemCard({
   return (
     <article aria-labelledby={headingId} className="av-card av-stack">
       <div className="av-row av-row--spread">
-        <h4 id={headingId}>{t(`setup.questions.${kind}_number`, { number: item.number })}</h4>
+        <div className="av-row">
+          <h4 id={headingId} className="av-visually-hidden">
+            {t(`setup.questions.${kind}_number`, { number: item.number })}
+          </h4>
+          {kind === "question" ? (
+            <>
+              <span aria-hidden="true">
+                <QChip n={item.number} />
+              </span>
+              <KindPill kind={(item as QuestionItem).kind} pack={pack} />
+            </>
+          ) : (
+            <strong>{t("setup.questions.assumption_label")}</strong>
+          )}
+        </div>
         {item.status === "confirmed" && <strong className="av-setup-confirmed">{t("setup.questions.confirmed")}</strong>}
       </div>
       {reworded ? (
@@ -219,6 +248,9 @@ function ItemCard({
         <p className="av-setup-quote">{item.text_verbatim}</p>
       )}
       {item.para_ref && <p className="av-small av-muted">{t("setup.questions.from_paragraph", { ref: item.para_ref })}</p>}
+      {kind === "question" && (item as QuestionItem).outside_expertise && (
+        <OutsideExpertise question={item as QuestionItem} pack={pack} locked={locked} onAnswer={() => void save({ confirm: true })} />
+      )}
       {extra?.(save)}
       {editing && (
         <form
@@ -253,5 +285,61 @@ function ItemCard({
         </div>
       )}
     </article>
+  );
+}
+
+/** The kind of question as a pill; its dot takes the pack's colour (drawn in SVG: no inline styles). */
+function KindPill({ kind, pack }: { kind: string | null | undefined; pack?: Schemas["CasePack"] }) {
+  const type = pack?.question_types.find((q) => q.key === kind);
+  if (!kind) return null;
+  return (
+    <span className="av-setup-kind" data-testid="kind-pill">
+      <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" focusable="false">
+        <circle cx="6" cy="6" r="6" fill={String(type?.colour ?? "currentColor")} />
+      </svg>
+      {t(String(type?.label_key ?? ""), {}, humanise(kind))}
+    </span>
+  );
+}
+
+/** Why a question may be outside the expert's field, and the parts the pack says the expert still answers. */
+function OutsideExpertise({ question, pack, locked, onAnswer }: { question: QuestionItem; pack?: Schemas["CasePack"]; locked: boolean; onAnswer: () => void }) {
+  const type = pack?.question_types.find((q) => q.key === question.kind);
+  const parts = (question.answer_parts ?? [])
+    .map((key) => {
+      const part = type?.parts?.find((p) => p.key === key);
+      return t(String(part?.label_key ?? ""), {}, humanise(key)).toLowerCase();
+    })
+    .join(` ${t("setup.questions.and")} `);
+  return (
+    <div className="av-setup-expertise">
+      <p>
+        <strong>{question.outside_expertise_source === "expert" ? t("setup.questions.expertise_expert") : t("setup.questions.expertise_pack")}</strong>
+        {parts && <> {t("setup.questions.expertise_parts", { parts })}</>}
+      </p>
+      {parts && !locked && question.status !== "confirmed" && (
+        <Button variant="secondary" onClick={onAnswer}>
+          {t("setup.questions.answer_only", { parts })}
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/** The letter's cited paragraphs, in paragraph order, each highlighted: the words the questions came from. */
+function LetterPane({ questions, assumptions }: { questions: QuestionItem[]; assumptions: AssumptionItem[] }) {
+  const cited = [...questions, ...assumptions]
+    .filter((i) => i.para_ref)
+    .sort((a, b) => a.para_ref!.localeCompare(b.para_ref!, "en", { numeric: true }));
+  if (cited.length === 0) return null;
+  return (
+    <section aria-label={t("setup.questions.letter_title")} className="av-card av-stack av-setup-letter">
+      <span className="av-muted">{t("setup.questions.letter_title")}</span>
+      {cited.map((i) => (
+        <p key={i.id}>
+          <span className="av-mono av-setup-letter__ref">{i.para_ref}</span> <mark>{i.text_verbatim}</mark>
+        </p>
+      ))}
+    </section>
   );
 }
