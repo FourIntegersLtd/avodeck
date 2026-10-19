@@ -69,6 +69,7 @@ export function fact(n: number, over: Partial<Schemas["FactOut"]> = {}): Schemas
     version: 1,
     flagged: false,
     needs_recheck: false,
+    related: [],
     ...over,
   };
 }
@@ -82,6 +83,8 @@ export function queuePage(n: number, over: Partial<Schemas["UnreadablePage"]> = 
     relevance: null,
     has_transcription: false,
     needs_clearer_copy: false,
+    is_copy: false,
+    has_clearer_copy: false,
     done: false,
     ...over,
   };

@@ -12,6 +12,10 @@ export interface ReaderApi {
   flags: Array<{ id: string; method: string }>;
   puts: Array<{ page: number; body: Record<string, unknown> }>;
   patches: Array<{ page: number; body: Record<string, unknown> }>;
+  rotations: Array<{ pageId: string; body: Record<string, unknown> }>;
+  copies: Array<{ pageId: string; body: Record<string, unknown> }>;
+  replaces: Array<{ pageId: string; body: Record<string, unknown> }>;
+  appends: Array<Record<string, unknown>>;
   facts: Schemas["FactOut"][];
   read: boolean;
   verifyStatus?: number;
@@ -45,6 +49,10 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     flags: [],
     puts: [],
     patches: [],
+    rotations: [],
+    copies: [],
+    replaces: [],
+    appends: [],
     facts: opts.facts ?? [fact(1), fact(2)],
     read: opts.alreadyRead ?? false,
   };
@@ -111,8 +119,32 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     http.patch(`${c}/pages/:n`, async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;
       api.patches.push({ page: Number(params.n), body });
-      queue = queue.map((p) => (p.page_no === Number(params.n) ? { ...p, needs_clearer_copy: Boolean(body.needs_clearer_copy) } : p));
+      queue = queue.map((p) =>
+        p.page_no === Number(params.n)
+          ? { ...p, needs_clearer_copy: Boolean(body.needs_clearer_copy) || p.needs_clearer_copy, done: true }
+          : p,
+      );
       return json(pageDetail(Number(params.n), { needs_clearer_copy: true }));
+    }),
+    http.post(`${c}/pages/:id/rotate`, async ({ params, request }) => {
+      api.rotations.push({ pageId: String(params.id), body: (await request.json()) as Record<string, unknown> });
+      return json({ job_id: "77777777-7777-4777-8777-777777777777" }, 202);
+    }),
+    http.put(`${c}/pages/:id/duplicate`, async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      api.copies.push({ pageId: String(params.id), body });
+      queue = queue.map((p) => (p.page_id === params.id ? { ...p, is_copy: true, done: true } : p));
+      return json({ page_id: params.id, page_no: 0, copy_of_page_id: null, copy_of_page_no: body.copy_of_page_no, status: "confirmed", version: 1 });
+    }),
+    http.post(`${c}/documents/append`, async ({ request }) => {
+      api.appends.push((await request.json()) as Record<string, unknown>);
+      return json({ job_id: "77777777-7777-4777-8777-777777777777", bundle_version: 2 }, 202);
+    }),
+    http.post(`${c}/pages/:id/replace`, async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      api.replaces.push({ pageId: String(params.id), body });
+      queue = queue.map((p) => (p.page_id === params.id ? { ...p, has_clearer_copy: true, done: true } : p));
+      return json({ page_id: params.id, document_id: body.document_id, new_page_id: null, new_page_no: null });
     }),
   );
   return api;
