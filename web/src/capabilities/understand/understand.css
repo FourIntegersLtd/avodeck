@@ -102,3 +102,23 @@
 .av-understand-finding__evidence .av-understand-event { border-top: 0; justify-content: space-between; padding: 0; min-height: 0; }
 .av-understand-checks .av-understand-check { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); border-top: 1px solid var(--surface-muted); }
 .av-understand-days > summary, .av-understand-links > summary { cursor: pointer; display: flex; align-items: center; min-height: var(--button-min-height); font-weight: 700; color: var(--green); }
+
+/* S11: the "Question N only" chip under the filter pills. */
+.av-understand-onlychip { margin: 0; }
+.av-understand-onlychip__pill { display: inline-flex; align-items: center; gap: var(--space-2); padding: 0 0 0 var(--space-4); min-height: var(--button-min-height); border-radius: 999px; background: var(--green-tint); color: var(--green-dark); font-weight: 700; border: 1.5px solid var(--green); }
+.av-understand-onlychip__clear { min-width: var(--button-min-height); min-height: var(--button-min-height); border: 0; background: transparent; color: inherit; font: inherit; font-size: 24px; cursor: pointer; border-radius: 999px; }
+
+/* S12: the page with the entry highlighted and later entries blurred (boxes are shares of the page). */
+.av-understand-page__sheet { position: relative; }
+.av-understand-mark { position: absolute; box-sizing: border-box; pointer-events: none; }
+.av-understand-mark--entry { background: color-mix(in srgb, var(--highlighter, #fff3b0) 70%, transparent); outline: 2px solid var(--amber-bright); mix-blend-mode: multiply; border-radius: 4px; }
+.av-understand-mark--later { background: color-mix(in srgb, var(--surface) 55%, transparent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.av-understand-author { margin: var(--space-1) 0 0; font-weight: 700; color: var(--ink-soft); }
+
+/* S13: decided findings folded into one line each. */
+.av-understand-folded { padding: 0; }
+.av-understand-folded > summary { display: flex; align-items: center; gap: var(--space-3); min-height: var(--button-min-height); padding: 0 var(--space-5); cursor: pointer; list-style: none; }
+.av-understand-folded > summary::-webkit-details-marker { display: none; }
+.av-understand-folded__title { flex: 1; font-weight: 700; }
+.av-understand-folded > article { border: 0; box-shadow: none; }
+.av-understand-finding__icon { display: inline-flex; }

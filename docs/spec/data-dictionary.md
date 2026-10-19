@@ -529,6 +529,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | decision / reason | The expert's decision (relevant, not relevant, explained elsewhere) and why |
 | status | Open, or gone when a later run no longer finds it (never deleted; a decided gone finding stays listed). One finding per check and set of evidence facts |
 | gentle | Whether the screen uses the softer wording |
+| title / icon | Not stored: the check's title and icon word are read from the packs when the finding is shown |
 
 ### check_runs
 | Field | In plain words |

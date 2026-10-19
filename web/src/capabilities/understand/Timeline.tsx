@@ -8,7 +8,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { ChoicePills, LinkButton, LoadError, Loading, QChip, Segmented, StatusBadge, ToggleSwitch } from "../../foundation/ui";
 import { LaneIcon } from "./laneIcons";
-import { casePath, GuidanceChanged, kindWord, longDate, pageLabel, statusOf } from "./shared";
+import { casePath, GuidanceChanged, kindWord, longDate, pageLabel, shortDay, statusOf } from "./shared";
 import { w } from "./words";
 
 type Event = Schemas["Event"];
@@ -38,7 +38,6 @@ function monthsOf(events: Event[]) {
   return { start, span: Math.max(end - start, DAY), marks };
 }
 
-const shortDay = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
 /** Past this many entries on one line the words under the dots would run into each other, so only dots show. */
 const LABELLED_UP_TO = 12;
 
@@ -121,11 +120,11 @@ export function TimelineView({ caseId, data, numbers, zoom = "whole" }: { caseId
             <section key={lane.key} aria-labelledby={`lane-${lane.key}`} className="av-understand-row av-understand-lane">
               <div className="av-understand-row__head av-understand-lane__head">
                 <span className="av-understand-lane__icon" data-testid="lane-icon" aria-hidden="true" style={{ background: lane.colour ?? "var(--ink-soft)" }}>
-                  <LaneIcon laneKey={lane.key} label={lane.label} />
+                  <LaneIcon icon={lane.icon} label={lane.label} />
                 </span>
                 <span>
                   <h3 id={`lane-${lane.key}`}>{lane.label}</h3>
-                  <span className="av-understand-lane__count">{w("timeline.lane_count", { count: lane.events.length })}</span>
+                  <span className="av-understand-lane__count">{lane.subtitle ?? w("timeline.lane_count", { count: lane.events.length })}</span>
                 </span>
               </div>
               {lane.events.length === 0 ? (
@@ -251,6 +250,16 @@ export function Timeline() {
             : []),
         ]}
       />
+      {questionId && numbers && numbers[questionId] !== undefined && (
+        <p className="av-understand-onlychip">
+          <span className="av-understand-onlychip__pill">
+            {w("timeline.question_only", { n: numbers[questionId] })}
+            <button type="button" className="av-understand-onlychip__clear" aria-label={w("timeline.question_clear")} onClick={() => setQuestionId("")}>
+              <span aria-hidden="true">×</span>
+            </button>
+          </span>
+        </p>
+      )}
       <details className="av-understand-adjust" open={adjust} onToggle={(e) => setAdjust(e.currentTarget.open)}>
         <summary>{w("timeline.adjust")}</summary>
         <form className="av-card av-understand-filters" aria-label={w("timeline.filters")} onSubmit={(e) => e.preventDefault()}>

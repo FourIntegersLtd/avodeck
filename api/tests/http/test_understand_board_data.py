@@ -9,7 +9,6 @@ Expected words are read from the pack, never written here (rule 11).
 
 from __future__ import annotations
 
-import uuid
 from datetime import date
 from typing import Any
 
