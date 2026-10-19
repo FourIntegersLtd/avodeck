@@ -1,7 +1,10 @@
 checks:
   - key: questions_answered
     text: Every question in the letter of instruction has an answer or an explained deferral
+    explain: "Answer the question in full, or say in a sentence that the rest is for another expert."
   - key: points_against_considered
     text: Points against considered for every breach question
+    explain: "Points against the care were found for this question. Decide each one so your report is balanced."
   - key: guidance_in_force
     text: Guidance cited was in force on the date of the care in question
+    explain: "Guidance you named was not yet in force on the date of the care. Check the dates."

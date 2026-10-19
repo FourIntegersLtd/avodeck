@@ -92,7 +92,7 @@ def declaration_paragraphs(pack: MergedPack) -> list[str]:
     return [" ".join(c.split()) for d in pack.declarations() for c in re.split(r"\n\s*\n", d["text"]) if c.strip()]
 
 
-def _pack_file(pack: MergedPack, name: str) -> dict[str, Any]:
+def pack_file(pack: MergedPack, name: str) -> dict[str, Any]:
     # Foundation request (slice F brief): accessors for report.yaml page_limit and report_sections.yaml
     # uses_points_against; until then read the merged file.
     files: dict[str, Any] = getattr(pack, "_files", {})
@@ -112,6 +112,14 @@ class Result:
     fixes: list[dict[str, str]] = field(default_factory=list)
     text: str | None = None
     code: str | None = None
+    explain: str | None = None
+    checked: int | None = None
+    total: int | None = None
+    unit: str | None = None
+
+    def counted(self, checked: int, unit: str, total: int | None = None) -> Result:
+        self.checked, self.unit, self.total = checked, unit, total
+        return self
 
     def failing(self, fixes: Sequence[dict[str, str]]) -> Result:
         unique = list({(f["screen"], f["item"]): f for f in fixes}.values())
@@ -132,6 +140,10 @@ class Result:
             data["text"] = self.text
         if self.code is not None:
             data["code"] = self.code
+        if self.explain is not None:
+            data["explain"] = self.explain
+        if self.unit is not None:
+            data.update(checked=self.checked, total=self.total, unit=self.unit)
         return data
 
 
@@ -282,7 +294,7 @@ async def _questions_locked(i: Inputs, r: Result) -> Result:
 async def _citations_resolve(i: Inputs, r: Result) -> Result:
     fixes = [fix("S15", p.question_id) for p in i.problems if p.kind in ("not_citable", "missing")]
     fixes += [i.where(c.paragraph) for c in i.citations if c.fact_id not in i.citable]
-    return r.failing(fixes)
+    return r.counted(len({c.fact_id for c in i.citations}), "fact").failing(fixes)
 
 
 async def _facts_unchanged(i: Inputs, r: Result) -> Result:
@@ -293,11 +305,13 @@ async def _facts_unchanged(i: Inputs, r: Result) -> Result:
             fact.version != c.fact_version or fact.page_id != c.page_id or not quote_within(c.quote, fact.value)
         ):
             fixes.append(i.where(c.paragraph))
-    return r.failing(fixes)
+    return r.counted(max(0, len(i.citations) - len(fixes)), "fact", len(i.citations)).failing(fixes)
 
 
 async def _quotes_verbatim(i: Inputs, r: Result) -> Result:
-    return r.failing([i.where(c.paragraph) for c in i.citations if not quote_within(c.quote, c.value)])
+    return r.counted(len(i.citations), "quote").failing(
+        [i.where(c.paragraph) for c in i.citations if not quote_within(c.quote, c.value)]
+    )
 
 
 async def _all_pages_read(i: Inputs, r: Result) -> Result:
@@ -306,7 +320,8 @@ async def _all_pages_read(i: Inputs, r: Result) -> Result:
     )
     pages = await cur.fetchall()
     read = await i.reads.read_page_ids(i.conn, i.case_id, i.named_expert) if i.reads is not None else set()
-    return r.failing([fix("S09", no) for pid, no in pages if pid not in read])
+    unread = [fix("S09", no) for pid, no in pages if pid not in read]
+    return r.counted(len(pages) - len(unread), "page", len(pages)).failing(unread)
 
 
 async def _findings_decided(i: Inputs, r: Result) -> Result:
@@ -404,7 +419,7 @@ async def _required_contents(i: Inputs, r: Result) -> Result:
 
 
 async def _page_limit(i: Inputs, r: Result) -> Result:
-    limits = _pack_file(i.pack, "report.yaml").get("page_limit") or {}
+    limits = pack_file(i.pack, "report.yaml").get("page_limit") or {}
     limit = limits.get(i.court_track) if i.court_track and isinstance(limits, dict) else None
     over = limit is not None and i.page_count is not None and i.page_count > int(limit)
     return r.failing([fix("S16", "page_limit")] if over else [])
@@ -412,18 +427,20 @@ async def _page_limit(i: Inputs, r: Result) -> Result:
 
 async def _questions_answered(i: Inputs, r: Result) -> Result:
     answered = {o.question_id for o in i.opinions if o.body.strip()}
-    return r.failing([fix("S15", q.id) for q in i.questions if q.id not in answered])
+    return r.counted(len(i.questions), "question").failing(
+        [fix("S15", q.id) for q in i.questions if q.id not in answered]
+    )
 
 
 async def _points_considered(i: Inputs, r: Result) -> Result:
-    if not _pack_file(i.pack, "report_sections.yaml").get("uses_points_against"):
+    if not pack_file(i.pack, "report_sections.yaml").get("uses_points_against"):
         return r
     cur = await i.conn.execute(
         "select distinct p.question_id, q.number from app.points p join app.questions q on q.id = p.question_id"
         " where p.case_id = %s and p.status = 'suggested' and q.status = 'confirmed' order by q.number",
         (i.case_id,),
     )
-    return r.failing([fix("S14", row[0]) for row in await cur.fetchall()])
+    return r.counted(len(i.questions), "question").failing([fix("S14", row[0]) for row in await cur.fetchall()])
 
 
 def _day(value: object) -> date | None:
@@ -443,12 +460,14 @@ async def _guidance_in_force(i: Inputs, r: Result) -> Result:
     for row in i.pack.guidelines():
         by_code.setdefault(str(row["code"]), []).append(row)
     fixes = []
+    applied: set[str] = set()
     for o in i.opinions:
         named = [c for c in by_code if re.search(rf"(?<![\w]){re.escape(c)}(?![\w])", o.body)]
+        applied.update(named)
         dates = [f.event_date for c in o.citations if (f := i.citable.get(c.fact_id)) and f.event_date]
         if any(not _in_force(by_code[c], d) for c in named for d in dates):
             fixes.append(fix("S15", o.question_id))
-    return r.failing(fixes)
+    return r.counted(len(applied), "guideline").failing(fixes)
 
 
 Check = Callable[[Inputs, Result], Awaitable[Result]]
@@ -485,7 +504,9 @@ async def run_checks(i: Inputs) -> list[Result]:
     results = [await CORE_CHECKS[key](i, Result(key, "core")) for key in CORE]
     for entry in i.pack.final_checks():
         key = str(entry["key"])
-        result = Result(key, "pack", text=str(entry.get("text") or "") or None)
+        result = Result(
+            key, "pack", text=str(entry.get("text") or "") or None, explain=str(entry.get("explain") or "") or None
+        )
         check = PACK_CHECKS.get(key)
         if check is None:
             result.outcome, result.code = "failed", "unknown_check"

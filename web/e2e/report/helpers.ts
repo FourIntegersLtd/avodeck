@@ -34,13 +34,13 @@ export async function stubReport(page: Page, pack: Pack, stub: Stub = {}) {
   const steps = (pack.workflow_steps as Array<{ key: string }>).map((s) => s.key);
   const party = (pack.instructing_party_types as Array<{ key: string }>)[0]!.key;
   const partyLabel = (pack.instructing_party_types as Array<{ label?: string }>)[0]!.label ?? "";
-  const version = { id: VERSION, version_no: 1, type: "report", display_name: "Draft 1", status, created_at: "2026-10-18T09:00:00Z", page_count: 31, citation_style: "page", template_fallback: false };
+  const version = { id: VERSION, version_no: 1, type: "report", display_name: "Draft 1", status, created_at: "2026-10-18T09:00:00Z", page_count: 31, citation_style: "page", template_fallback: false, title: "Breach of duty report: Mrs A" };
   const fix = { screen: "opinion", item: "q4" };
   const check = (): Schemas["FinalCheckOut"] => {
     const results: Schemas["CheckResult"][] = Array.from({ length: 8 }, (_, i) => ({
-      key: `check_${i}`, source: "core", outcome: "passed", count: i < 3 ? 214 - i * 40 : 0, fixes: [], text: `Passed check number ${i + 1}`,
+      key: `check_${i}`, source: "core", outcome: "passed", count: 0, fixes: [], text: `Passed check number ${i + 1}`, ...(i < 3 ? { checked: 214 - i * 40, unit: ["fact", "quote", "page"][i]! } : {}),
     }));
-    if (stub.check === "failed") results.push({ key: "questions_answered", source: "core", outcome: "failed", count: 1, fix, fixes: [fix], text: "Question 4 hasn't been answered yet." });
+    if (stub.check === "failed") results.push({ key: "questions_answered", source: "core", outcome: "failed", count: 1, fix, fixes: [fix], text: "Question 4 hasn't been answered yet.", explain: "Add a sentence saying the rest is for a specialist." });
     return {
       id: "f1111111-1111-4111-8111-111111111111", report_version_id: VERSION, at: "2026-10-18T10:00:00Z", passed: stub.check !== "failed", current: true,
       declaration_changed: false, pack_versions: {}, warnings: [], warnings_status: "done", results,
@@ -54,7 +54,7 @@ export async function stubReport(page: Page, pack: Pack, stub: Stub = {}) {
   };
   const theCase = {
     id: CASE_A, organisation_id: ORG, named_expert_id: PERSON, jurisdiction: "gb-eaw", case_type: "clin-neg-breach", specialty: "general-practice", expert_role: "single",
-    label: "Mrs A", party_role: "other_side", instructing_party_type: party, court_track: null, due_date: "2026-11-30", status: "open", on_hold: false,
+    label: "Mrs A", party_role: "other_side", instructing_party_type: party, court_track: "multi", due_date: "2026-11-30", status: "open", on_hold: false,
     created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:00:00Z",
     allowed_actions: ["case.view_metadata", "case.view_content", "report.write", "report.sign", "report.serve"],
   };
@@ -73,6 +73,7 @@ export async function stubReport(page: Page, pack: Pack, stub: Stub = {}) {
     if (path === `${c}/pack`) return json(route, pack);
     if (path === `${c}/report`) {
       return json(route, {
+        court_track_label: "multi-track",
         checklist: { rule_ref: "ref", items: checklist.map((item, i) => ({ key: item.key, text: item.text ?? null, text_key: item.text_key ?? null, done: i !== 1 })) },
         sections: keys.map((key, i) => ({ key, written: i < 2, generated: i >= 2 && i < keys.length - 1, ...(i === 1 ? { done: 2, total: 4 } : {}) })),
         version, versions: [version],

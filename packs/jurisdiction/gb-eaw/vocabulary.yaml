@@ -10,6 +10,11 @@ instructing_party_types:
   coroner: coroner
 subject: claimant
 court_bundle: trial bundle
+court_tracks:
+  small_claims: small claims track
+  fast: fast track
+  intermediate: intermediate track
+  multi: multi-track
 written_questions: questions from the other side
 written_questions_one: question from the other side
 written_questions_formal: Part 35 questions

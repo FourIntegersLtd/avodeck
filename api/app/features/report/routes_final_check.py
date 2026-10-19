@@ -41,6 +41,10 @@ class CheckResult(BaseModel):
     fixes: list[Fix]
     text: str | None = None
     code: str | None = None
+    explain: str | None = None
+    checked: int | None = None
+    total: int | None = None
+    unit: str | None = None
 
 
 class Warning(BaseModel):
