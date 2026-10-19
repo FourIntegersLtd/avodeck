@@ -74,6 +74,12 @@ test("an unused fact is added to the side the expert picks", async () => {
   const { sent, record } = serve("launch");
   server.use(http.post("/v1/cases/:caseId/questions/:q/points", async ({ request }) => (await record(request), json(pointOut({ id: "b2222222-2222-4222-8222-222222222222", status: "accepted", side: "supports_clinician", fact: pointFact({ id: FACT_2, value: "Iron deficiency on file" }) }), 201))));
   const { user } = renderAt(`${url}?q=${Q1}`);
+  // Unused facts sit behind the board's "Add another fact… + Add" row on the side's card.
+  const addRow = M["write.points.add_row_button"];
+  expect(addRow).toBeTruthy();
+  await screen.findByRole("heading", { name: sides("launch")[1]!.label });
+  expect(screen.queryByRole("region", { name: M["write.points.unused"] })).not.toBeInTheDocument();
+  await user.click((await screen.findAllByRole("button", { name: addRow! }))[1]!);
   const unused = await screen.findByRole("region", { name: M["write.points.unused"] });
   await user.click(within(unused).getByRole("button", { name: `Add to ${sides("launch")[1]!.label}` }));
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", body: { fact_id: FACT_2, side: "supports_clinician" } }));
