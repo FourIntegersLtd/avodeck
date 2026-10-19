@@ -149,6 +149,8 @@ const WORDS = {
   "new.checked_other": "We've checked every statement they quote against the bundle. {{count}} need your attention.",
   "new.more_matches_one": "and {{count}} more statement that matches",
   "new.more_matches_other": "and {{count}} more statements that match",
+  "new.title_none": "No new pages",
+  "new.received_short": "Received {{date}}",
   "new.prepare": "Prepare for the experts' discussion",
   "new.none": "Nothing new has arrived since you served.",
   "new.may_matter": "May matter: {{why}} (page {{page}})",

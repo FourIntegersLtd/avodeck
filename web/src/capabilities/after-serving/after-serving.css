@@ -91,3 +91,26 @@
 .av-after-qmain .av-dictation__text { font-family: Georgia, "Times New Roman", serif; font-size: 18px; line-height: 1.75; min-height: 180px; padding: 24px 28px; }
 .av-after-note { background: var(--amber-tint); border: 1px solid var(--amber-border); border-radius: 16px; padding: 16px 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; color: var(--amber-bright); }
 .av-after-note__text { flex: 1 1 420px; color: var(--ink); }
+
+/* S21 board */
+.av-after-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 860px) { .av-after-pair { grid-template-columns: 1fr; } }
+.av-after-tile--plain { gap: 14px; align-items: stretch; }
+.av-after-tile__head { display: flex; gap: 14px; align-items: center; }
+.av-after-tile__head h3 { margin: 0; font-size: 20px; }
+.av-after-maymatter { list-style: none; margin: 0; padding: 12px 14px; background: var(--amber-tint); border-radius: var(--radius); font-size: 16px; }
+.av-after-actions { display: flex; gap: var(--space-4); align-items: center; flex-wrap: wrap; }
+.av-after-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-large); padding: 8px 26px 18px; }
+.av-after-panel h3 { margin: 0; padding: 18px 0 10px; font-size: 21px; }
+.av-after-claims { width: 100%; border-collapse: collapse; }
+.av-after-claims th { text-align: left; padding: 12px 16px 12px 0; font-size: 14px; color: var(--ink-soft); border-top: 1px solid var(--surface-muted); }
+.av-after-claims td { padding: 14px 16px 14px 0; border-top: 1px solid var(--surface-muted); vertical-align: middle; }
+.av-after-claims th:nth-child(1), .av-after-claims td:nth-child(1) { width: 50%; }
+.av-after-claims th:nth-child(2), .av-after-claims td:nth-child(2) { width: 16%; }
+.av-after-found { display: inline-flex; align-items: center; gap: 8px; color: var(--amber); }
+.av-after-found svg { flex: none; color: var(--amber-bright); }
+.av-after-found--good { color: var(--green-dark); }
+.av-after-differ { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 860px) { .av-after-differ { grid-template-columns: 1fr; } }
+.av-after-differ > div { padding: 10px 14px; border-radius: 10px; background: #F1F2F1; }
+.av-after-differ__you { background: var(--green-tint) !important; }
