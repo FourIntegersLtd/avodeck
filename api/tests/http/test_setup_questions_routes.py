@@ -13,6 +13,7 @@ to every current instructing party (S4). Nothing from the letter is printed (rul
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import uuid
 from collections.abc import AsyncIterator, Iterator
@@ -418,3 +419,47 @@ async def test_a_question_outside_expertise_keeps_only_the_packs_answer_parts(
     assert marked.json()["answer_parts"] == flagged[0]["answer_parts"]
     cleared = await client.patch(path, json={"outside_expertise": False}, headers={"if-match": marked.headers["etag"]})
     assert cleared.json()["outside_expertise_source"] is None and cleared.json()["answer_parts"] is None
+
+
+# --- design match: short titles and file page counts (screens 04 and 06) ----------------------------------
+
+
+def make_pdf(pages: int) -> bytes:
+    from reportlab.pdfgen import canvas
+
+    out = io.BytesIO()
+    page = canvas.Canvas(out)
+    for n in range(pages):
+        page.drawString(72, 700, f"page {n}")
+        page.showPage()
+    page.save()
+    return out.getvalue()
+
+
+async def test_each_question_has_a_short_label_from_the_model_or_its_own_first_clause(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    got = await read_letter(await client_for(world["expert"]), world, worker_db)
+    titles = [q["short_title"] for q in got["questions"]]
+    # three come from the model's label; the fourth was left out, so it is the question's first clause
+    assert titles == ["Standard of care", "The May consultation", "Urgent referral", "If Mrs Ashworth had been referred"]
+    assert all(0 < len(t) <= 40 for t in titles)
+
+
+async def test_the_files_of_a_case_say_how_many_pages_each_pdf_has(
+    client_for: ClientFor, world: dict[str, uuid.UUID], model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    records = await upload(client, world["case"], make_pdf(7), "records.pdf")
+    note = await upload(client, world["case"], b"PK\x03\x04 not a pdf", "note.docx")
+    got = await client.get(url(world, "files"))
+    assert got.status_code == 200, got.text
+    by_id = {f["document_id"]: f for f in got.json()}
+    assert by_id[records]["page_count"] == 7 and by_id[records]["filename"] == "records.pdf"
+    assert by_id[note]["page_count"] is None
+
+
+async def test_only_people_on_the_case_see_its_files(
+    client_for: ClientFor, world: dict[str, uuid.UUID], model: RecordedBedrock
+) -> None:
+    assert (await (await client_for(world["outsider"])).get(url(world, "files"))).status_code == 404
