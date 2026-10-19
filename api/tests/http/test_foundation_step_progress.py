@@ -37,7 +37,9 @@ def case_for(seed: Seed, combo: Combo) -> tuple[uuid.UUID, uuid.UUID]:
 
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.case_type)
-async def test_one_entry_per_pack_step_and_nothing_to_count_is_null(client_for: ClientFor, seed: Seed, combo: Combo) -> None:
+async def test_one_entry_per_pack_step_and_nothing_to_count_is_null(
+    client_for: ClientFor, seed: Seed, combo: Combo
+) -> None:
     expert, case = case_for(seed, combo)
     got = await progress(client_for, expert, case)
     steps = combo.raw("case-type", "workflow.yaml")["steps"]
