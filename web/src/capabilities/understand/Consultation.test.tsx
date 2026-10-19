@@ -2,10 +2,11 @@
 // folded away, entries with no known arrival are shown as not known, the guidance in force is named (label and
 // link only), the expert keeps a note, and changes when something arrived with a reason.
 import { screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
+import { forgetPages } from "./pageImage";
 import { comment, consultation, timeline, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
 
 function serve(body = consultation()) {
@@ -169,12 +170,18 @@ describe("as the design shows it", () => {
 });
 
 describe("the page and the later notes", () => {
-  test("shows the page the entry is on, beside the entry", async () => {
-    inCase("launch");
-    serve();
-    open();
-    const panel = await screen.findByRole("region", { name: "The page" });
-    await waitFor(() => expect(within(panel).getByRole("img", { name: "Page 118 of the record" })).toHaveAttribute("src", expect.stringMatching(/^data:/)));
+  test("shows the page the entry is on, beside the entry, from the picture the API streams", async () => {
+    vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:page-118"), revokeObjectURL: vi.fn() }));
+    try {
+      inCase("launch");
+      serve();
+      open();
+      const panel = await screen.findByRole("region", { name: "The page" });
+      await waitFor(() => expect(within(panel).getByRole("img", { name: "Page 118 of the record" })).toHaveAttribute("src", "blob:page-118"));
+    } finally {
+      forgetPages();
+      vi.unstubAllGlobals();
+    }
   });
 
   test("lists later entries of the same kind without their words, and says if you have a note on one", async () => {
