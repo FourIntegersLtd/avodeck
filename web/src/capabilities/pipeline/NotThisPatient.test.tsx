@@ -46,7 +46,7 @@ describe.each([
     expect(await screen.findByRole("heading", { level: 1, name: "These pages may belong to someone else" })).toBeVisible();
     expect(screen.getByText("The name or date of birth on them doesn't match Mrs A. Check each one. Nothing is hidden until you say so.")).toBeVisible();
     const first = pageCard(412);
-    expect(within(first).getByText("Different name or date of birth")).toBeVisible();
+    expect(within(first).getByText("Different name")).toBeVisible();
     expect(within(first).getByRole("img", { name: "Page 412" })).toBeInTheDocument();
     expect(within(first).getByRole("button", { name: "Not Mrs A's" })).toHaveAttribute("aria-pressed", "false");
     expect(within(first).getByRole("button", { name: "It is Mrs A's" })).toBeVisible();
@@ -157,5 +157,18 @@ describe.each([
     await screen.findByRole("heading", { name: "p.412" });
     expect(screen.getAllByRole("heading", { name: "p.412" })).toHaveLength(1);
     expect(fetched).toBe(false);
+  });
+
+  test("the pages sit in a grid, a chosen 'not' is amber and the explanation is one card under the grid", async () => {
+    mock(pack);
+    const { container, user } = renderAt(PATH);
+    await screen.findByRole("heading", { level: 1, name: "These pages may belong to someone else" });
+    expect(container.querySelector(".pl-grid")).not.toBeNull();
+    expect(container.querySelector(".pl-grid ~ .pl-explain-card")).not.toBeNull();
+    const first = pageCard(412);
+    await user.click(within(first).getByRole("button", { name: "Not Mrs A's" }));
+    expect(within(first).getByRole("button", { name: "Not Mrs A's" })).toHaveClass("pl-choice--not");
+    await user.click(within(first).getByRole("button", { name: "It is Mrs A's" }));
+    expect(within(first).getByRole("button", { name: "It is Mrs A's" })).toHaveClass("pl-choice--is");
   });
 });

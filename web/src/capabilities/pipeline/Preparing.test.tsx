@@ -193,7 +193,7 @@ describe.each([
     registerScreen("questions", ({ caseId }) => `/cases/${caseId}/questions`);
     mockCase(pack);
     renderAt(PATH);
-    expect(await screen.findByText("1 recording or image was kept as it is. Avodeck can't read these, so it's listed for you.")).toBeVisible();
+    expect(await screen.findByText("1 voice recording was kept as it is. Avodeck can't read recordings, so it's listed for you.")).toBeVisible();
     expect(screen.getByRole("link", { name: "Meanwhile, check what you've been asked" })).toHaveAttribute("href", `/cases/${CASE_ID}/questions`);
   });
 
@@ -213,6 +213,17 @@ describe.each([
     renderAt(PATH);
     expect(await screen.findByText("840 of 1,268")).toBeVisible();
     const stop = screen.getByRole("button", { name: "Stop preparing" });
-    expect(stop.closest("p")).toHaveTextContent("1 recording or image was kept as it is.");
+    expect(stop.closest("p")).toHaveTextContent("1 voice recording was kept as it is.");
+  });
+
+  test("shows the picture, a count beside each finished step, and a lock on the note about original files", async () => {
+    mockCase(pack, { job: processingJob({ step_done: 840, step_total: 1268 }) });
+    const { container } = renderAt(PATH);
+    expect(await screen.findByRole("img", { name: "Pages being sorted" })).toBeVisible();
+    expect(within(stepRow("Splitting into pages")).getByText("120")).toHaveClass("av-mono");
+    expect(within(stepRow("Reading every page")).getByText("120")).toHaveClass("av-mono");
+    expect(within(stepRow("Setting aside copies of the same page")).queryByText("120")).toBeNull();
+    expect(screen.getByText("Your original files are kept exactly as you sent them.").querySelector("svg")).not.toBeNull();
+    expect(container.querySelector(".pl-preparing")).not.toBeNull();
   });
 });

@@ -10,10 +10,13 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LoadError, Loading, Notice, ProgressBar, Spinner, TextLink } from "../../foundation/ui";
 import { can, casePath } from "./data";
+import { LockIcon, PagesPicture } from "./icons";
 import { w, wn } from "./words";
 
 const STEPS = ["split", "ocr", "sort", "duplicates", "missing"] as const;
 const SCAN = "scan_document";
+// The steps that handle every page, so a finished one shows the bundle's page count.
+const COUNTED = new Set(["split", "ocr"]);
 const POLL_MS = 3000;
 
 type Job = Schemas["ProcessingJob"];
@@ -119,7 +122,11 @@ export function Preparing() {
   if (job === undefined) return <div className="av-page"><Loading /></div>;
 
   const files = info.data?.documents.length ?? 0;
-  const exhibits = info.data?.exhibits?.length ?? 0;
+  const kept = info.data?.exhibits ?? [];
+  const exhibits = kept.length;
+  const audioOnly = exhibits > 0 && kept.every((e) => e.media_type.startsWith("audio/"));
+  const pages = info.data?.pages ?? 0;
+  const num = (n: number) => new Intl.NumberFormat(pack.locale).format(n);
   const running = job && !finished(job.status);
   const size = files ? wn("preparing.size", files, pack.locale, { pages: new Intl.NumberFormat(pack.locale).format(info.data?.pages ?? 0) }) : "";
   const left = running && job.eta_seconds != null ? wn("preparing.left", Math.max(1, Math.ceil(job.eta_seconds / 60)), pack.locale) : "";
@@ -135,8 +142,11 @@ export function Preparing() {
 
   return (
     <div className="av-page pl-preparing">
-      <h1>{w("preparing.title")}</h1>
-      {(size || left) && <p className="pl-lead">{[size, left].filter(Boolean).join(" ")}</p>}
+      <header className="pl-preparing__head">
+        <PagesPicture label={w("preparing.picture")} />
+        <h1>{w("preparing.title")}</h1>
+        {(size || left) && <p className="pl-lead">{[size, left].filter(Boolean).join(" ")}</p>}
+      </header>
       {actionError && <Notice tone="error"><p>{actionError}</p></Notice>}
       {stopped && <Notice><p>{w("preparing.stopped")}</p></Notice>}
       {job === null && !stopped && <Notice><p>{w("preparing.nothing")}</p></Notice>}
@@ -159,12 +169,13 @@ export function Preparing() {
               <li key={step} className={`pl-step pl-step--${state}`}>
                 {state === "current" ? <Spinner /> : <StepMark state={state} />}
                 <div className="pl-step__body">
-                  <span className="pl-step__name">{w(`preparing.step.${step}`)}</span>
-                  {state === "current" && job.step_total != null && job.step_total > 0 && (
-                    <span className="av-mono pl-step__count">
-                      {w("preparing.count", { done: new Intl.NumberFormat(pack.locale).format(job.step_done ?? 0), total: new Intl.NumberFormat(pack.locale).format(job.step_total) })}
-                    </span>
-                  )}
+                  <div className="pl-step__line">
+                    <span className="pl-step__name">{w(`preparing.step.${step}`)}</span>
+                    {state === "current" && job.step_total != null && job.step_total > 0 && (
+                      <span className="av-mono pl-step__count">{w("preparing.count", { done: num(job.step_done ?? 0), total: num(job.step_total) })}</span>
+                    )}
+                    {state === "done" && pages > 0 && COUNTED.has(step) && <span className="av-mono pl-step__count">{num(pages)}</span>}
+                  </div>
                   <span className="av-visually-hidden">{w(`preparing.state.${state}`)}</span>
                   {state === "current" && job.pct != null && <ProgressBar value={Math.max(0, Math.min(100, job.pct))} max={100} label={w("preparing.progress", { pct: Math.max(0, Math.min(100, job.pct)) })} />}
                 </div>
@@ -174,11 +185,16 @@ export function Preparing() {
         </ol>
       )}
       <div className="pl-notes">
-        <p>{w("preparing.kept")}</p>
+        <p>
+          <span className="pl-kept">
+            <LockIcon />
+            {w("preparing.kept")}
+          </span>
+        </p>
         <p>{w("preparing.close")}</p>
         {(exhibits > 0 || stopButton) && (
           <p>
-            {exhibits > 0 && wn("preparing.exhibits", exhibits, pack.locale)} {stopButton}
+            {exhibits > 0 && wn(audioOnly ? "preparing.exhibits_audio" : "preparing.exhibits", exhibits, pack.locale)} {stopButton}
           </p>
         )}
         {questions && (
