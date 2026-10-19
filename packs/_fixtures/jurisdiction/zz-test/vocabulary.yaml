@@ -27,6 +27,10 @@ request_notes:
     Withheld as another subject's records: {pages}. {instructing_party} to confirm.
   translation: >-
     Translate for the file, pages {pages}.
+request_extension:
+  days: "9"
+  text: >-
+    Zz: {days} more days may be needed. {instructing_party} to confirm.
 other_side_prompt: Who is the respondent zz?
 other_side_example: zz example of the other party
 party_roles_plural: {instructing_side: petitioners, other_side: respondents}

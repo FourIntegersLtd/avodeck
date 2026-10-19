@@ -42,6 +42,7 @@
 
 from __future__ import annotations
 
+import datetime as dt
 import uuid
 from typing import Annotated
 from urllib.parse import quote
@@ -85,6 +86,7 @@ from app.features.pipeline.schemas import (
     ReplaceAsk,
     RequestDraft,
     RequestDraftAsk,
+    RequestExtension,
     RequestLogged,
     RequestSent,
     SortedPage,
@@ -500,6 +502,13 @@ async def draft_request(
         notes.append(pack.quarantine_note(pages=", ".join(str(n) for n in set_aside)))
     if foreign:
         notes.append(pack.translation_request(pages=", ".join(str(n) for _, n, _ in foreign)))
+    days = pack.request_extension_days()
+    due = await repo.case_due_date(conn, case_id)
+    extension = None
+    if days is not None and due is not None:
+        extension = RequestExtension(days=days, due_date=due, after_date=due - dt.timedelta(days=days))
+        if body.extension:
+            notes.append(pack.extension_request(days=str(days)))
     # The notes sit just before the template's last paragraph (its sign-off).
     head, _, sign_off = wording["body"].rpartition("\n\n")
     text = "\n\n".join([head, *notes, sign_off]) if notes and head else wording["body"]
@@ -513,6 +522,7 @@ async def draft_request(
         clearer_copy_page_nos=[n for _, n in unreadable],
         translation_page_ids=[p for p, _, _ in foreign],
         translation_page_nos=[n for _, n, _ in foreign],
+        extension=extension,
     )
 
 

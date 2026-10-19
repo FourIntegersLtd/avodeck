@@ -34,6 +34,10 @@ DB_ROLES = {
 WEB_TEST_RE = re.compile(r"\.(test|spec)\.tsx?$")
 # Feat commits already on main whose check fails for a reason fixed later; pushed history is not rewritten.
 EXCUSED = {
+    "5800e7e21f51336670e20f711294c4cc3f34b57f": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
+    "4e7f45f7e1c5d396ee5e9ca04e69346be179250e": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
+    "bdfae2c0fb7a37804edbe60f91f074b3838f71f8": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
+    "2697618939377f51f7efed553baa18c17d544231": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
     "d6784a1789899552f84afb7a2078e9b2bfdeba7e": "test-order bug in its test commit, fixed in cac27bd",
 }
 

@@ -17,7 +17,7 @@ After upload, the expert gets a numbered, sorted bundle: every page read by OCR,
 - `GET /v1/cases/{id}/duplicates`; `PUT` and `PATCH /v1/cases/{id}/pages/{page_id}/duplicate`
 - `PATCH /v1/cases/{id}/documents/{doc_id}` (provenance)
 - `PATCH /v1/cases/{id}/missing-items/{item_id}`
-- `POST /v1/cases/{id}/instructing-party-requests/draft`; `POST /v1/cases/{id}/instructing-party-requests` (returns `mailto:` link in MVP)
+- `POST /v1/cases/{id}/instructing-party-requests/draft`; `POST /v1/cases/{id}/instructing-party-requests` (returns `mailto:` link in MVP) The draft body takes `{extension: bool}` and returns `extension {days, due_date, after_date}` (pack `request_extension`), used by the S08b "Need more time?" aside.
 - `POST /v1/cases/{id}/documents/append` → pipeline on new pages only
 - `GET /v1/cases/{id}/pages/{page_no}/thumbnail` (for duplicate review)
 

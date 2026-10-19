@@ -65,6 +65,7 @@ REGISTRIES = frozenset(
 _SCREEN_ONLY_VOCABULARY = frozenset(
     {
         "request_notes",
+        "request_extension",
         "lanes",
         "as_seen_title",
         "other_side_prompt",
@@ -468,6 +469,25 @@ class MergedPack:
     def translation_request(self, **slots: str) -> str:
         """The paragraph asking for a certified translation of foreign-language pages (slot: pages)."""
         return self._paragraph("translation", slots)
+
+    def _extension(self) -> dict[str, Any] | None:
+        data = self.vocabulary.get("request_extension")
+        return data if isinstance(data, dict) else None
+
+    def request_extension_days(self) -> int | None:
+        """How many more days the draft may ask for when records arrive late; None when the pack sets none."""
+        data = self._extension()
+        return int(data["days"]) if data and "days" in data else None
+
+    def extension_request(self, **slots: str) -> str:
+        """The paragraph asking for more time (slot: days), in the pack's words."""
+        data = self._extension()
+        if not data or not isinstance(data.get("text"), str):
+            raise PackError(f"{'+'.join(self.codes)}: no request_extension wording")
+        values = {k: v for k, v in self.vocabulary.items() if isinstance(v, str)}
+        values.setdefault("instructing_party", self.instructing_party_types()[0]["label"])
+        values.update(slots)
+        return str(_fill(data["text"], values, "request_extension"))
 
     def instructing_party_request(self, **slots: str) -> dict[str, str]:
         """The email draft asking the instructing party for missing records (screen 08b): label, subject, body.

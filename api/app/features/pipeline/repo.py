@@ -1058,6 +1058,12 @@ async def request_wording_facts(conn: AsyncConnection, case_id: uuid.UUID) -> tu
     return row[0], row[1]
 
 
+async def case_due_date(conn: AsyncConnection, case_id: uuid.UUID) -> dt.date | None:
+    cur = await conn.execute("select due_date from app.cases where id = %s", (case_id,))
+    row = await cur.fetchone()
+    return row[0] if row else None
+
+
 async def count_known(conn: AsyncConnection, table: str, case_id: uuid.UUID, ids: list[uuid.UUID]) -> int:
     assert table in {"missing_items", "pages"}
     cur = await conn.execute(f"select count(*) from app.{table} where case_id = %s and id = any(%s)", (case_id, ids))

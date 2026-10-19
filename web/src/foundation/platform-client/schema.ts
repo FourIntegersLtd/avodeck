@@ -8410,6 +8410,7 @@ export interface components {
             clearer_copy_page_ids: string[];
             /** Clearer Copy Page Nos */
             clearer_copy_page_nos: number[];
+            extension?: components["schemas"]["RequestExtension"] | null;
             /** Label */
             label: string;
             /** Missing Item Ids */
@@ -8429,9 +8430,34 @@ export interface components {
         };
         /**
          * RequestDraftAsk
-         * @description Nothing to choose yet: the draft lists every open missing item and every unreadable page.
+         * @description The draft lists every open missing item and every unreadable page. `extension` adds the pack's
+         *     line asking for more time if the records arrive late.
          */
-        RequestDraftAsk: Record<string, never>;
+        RequestDraftAsk: {
+            /**
+             * Extension
+             * @default false
+             */
+            extension: boolean;
+        };
+        /**
+         * RequestExtension
+         * @description What the screen offers: ask for `days` more days if records arrive after `after_date`.
+         */
+        RequestExtension: {
+            /**
+             * After Date
+             * Format: date
+             */
+            after_date: string;
+            /** Days */
+            days: number;
+            /**
+             * Due Date
+             * Format: date
+             */
+            due_date: string;
+        };
         /** RequestLogged */
         RequestLogged: {
             /**

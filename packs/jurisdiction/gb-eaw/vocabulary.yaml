@@ -52,6 +52,13 @@ request_notes:
     These pages are not in English and need a certified translation before I can rely on them: {pages}.
     Please arrange this and send me the translated copies.
 # Screens 03 and 04: the words the parties form uses.
+# Screen 08b: the line the draft adds when the expert asks for more time if the records arrive late.
+# Slots: {days} and pack words such as {instructing_party}. Patient-free.
+request_extension:
+  days: "14"
+  text: >-
+    If these records arrive late I may need up to {days} more days to finish my report. Please let me know
+    whether the {instructing_party} can agree to this.
 other_side_prompt: Who is the defendant?
 other_side_example: For example, the practice or the doctor the claim is against
 party_roles_plural:
