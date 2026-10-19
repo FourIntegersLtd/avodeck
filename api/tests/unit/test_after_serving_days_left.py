@@ -28,4 +28,5 @@ def test_a_deadline_carries_its_days_left() -> None:
         "timezone": "Europe/London", "created_from": "pack", "source": "pack", "pack_version": None, "hearing_id": None,
         "done_at": None, "cancelled_at": None, "last_reminded_on": None, "version": 1,
     }
-    assert deadline_out(row).days_left is not None and deadline_out(row).days_left > 0
+    days_left = deadline_out(row).days_left
+    assert days_left is not None and days_left > 0

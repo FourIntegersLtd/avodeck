@@ -45,7 +45,7 @@ def add_meeting(admin: psycopg.Connection, w: World, discussion_on: date, status
         (w.case, discussion_on, discussion_on, discussion_on, status),
     ).fetchone()
     assert row is not None
-    return row[0]
+    return uuid.UUID(str(row[0]))
 
 
 async def test_the_steps_list_the_meetings_and_no_pack_yet(
