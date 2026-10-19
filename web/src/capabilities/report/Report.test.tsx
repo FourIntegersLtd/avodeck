@@ -148,3 +148,21 @@ test("keeps the how-you-used-Avodeck wording behind a Read the wording disclosur
   expect(details).not.toBeNull();
   expect(within(details as HTMLElement).getByText(M["report.report.methodology_body"]!)).toBeInTheDocument();
 });
+
+test("shows how far through the opinion section you are, and only there", async () => {
+  const sections = sectionKeys("launch").map((key) => ({ key, written: false, generated: true, ...(key === "opinion" ? { done: 1, total: 2 } : {}) }));
+  serve("launch", { report: reportOut("launch", { sections: sections as never }) });
+  renderAt(url);
+  const row = await screen.findByRole("listitem", { name: sectionLabel("launch", "opinion") });
+  expect(within(row).getByText("1 of 2")).toBeInTheDocument();
+  const others = screen.getAllByRole("listitem").filter((li) => li !== row && li.closest("ol"));
+  for (const li of others) expect(within(li).queryByText(/^\d+ of \d+$/)).toBeNull();
+});
+
+test("a section can be read as text, read-only, without the Word file", async () => {
+  serve("launch", { paragraphs: [{ para_no: 1, section: "opinion", text: "The plan was written down.", question_id: null }, { para_no: 2, section: "other", text: "Not this one", question_id: null }] });
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: `${M["report.report.read_text"]} ${sectionLabel("launch", "opinion")}` }));
+  expect(await screen.findByText("The plan was written down.")).toBeInTheDocument();
+  expect(screen.queryByText("Not this one")).toBeNull();
+});

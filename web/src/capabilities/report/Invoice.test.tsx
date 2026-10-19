@@ -268,3 +268,14 @@ test("without statements there is no fee note", async () => {
   await screen.findByRole("article", { name: "Invoice JM-1" });
   expect(screen.queryByText(M["report.invoice.fee_note"]!)).toBeNull();
 });
+
+test("once sent, the intro says who it went to and when, from the serving record", async () => {
+  const serving = { id: "s1", sent_via: "email", served_on: "2026-10-18", created_at: "2026-10-18T10:00:00Z", correction_of: null, reason: null, recipient_party_id: null } as never;
+  serve("launch", {
+    report: reportOut("launch", { version: versionOut({ status: "served" }) }),
+    servings: [serving],
+    time: { adjusted: false, total_seconds: 0, stages: [], instructing_party: "Party" } as never,
+  });
+  renderAt(url);
+  expect(await screen.findByText("Sent to the Party on 18 October 2026. We kept count of your time as you worked.")).toBeInTheDocument();
+});

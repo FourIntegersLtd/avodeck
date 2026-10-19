@@ -154,3 +154,11 @@ test("the lock note says the version is locked once sent", async () => {
   renderAt(url);
   expect(await screen.findByText(/^Once sent, this version is locked, along with the CV, declaration and signature in it/)).toBeInTheDocument();
 });
+
+test("the signature line leaves out what the profile does not have", async () => {
+  serve("launch", { check: finalCheck() });
+  server.use(http.get("/v1/me/profile", () => json({ full_name: "Jane Morgan", profession: null, registration_body: null, registration_number: null, specialties: [] } as never)));
+  renderAt(url);
+  const signature = await screen.findByRole("region", { name: M["report.sign.signature"]! });
+  expect(await within(signature).findByText("Jane Morgan")).toBeInTheDocument();
+});
