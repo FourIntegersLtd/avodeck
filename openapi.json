@@ -12598,6 +12598,17 @@
             ],
             "title": "Estimate Hours"
           },
+          "instructing_party": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Instructing Party"
+          },
           "over_estimate": {
             "anyOf": [
               {

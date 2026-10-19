@@ -1,5 +1,6 @@
 # Invoice wording (slice F, screen 18b). Each statement prints on every invoice, frozen when it is drafted.
 statements:
   - My fees are not dependent on the outcome of this case.
+  - Payment is due within 30 days of the invoice date.
 # The time screen suggests telling the instructing party once the time runs this far over the estimate.
 estimate_overrun_percent: 20

@@ -8004,6 +8004,8 @@ export interface components {
             adjusted: boolean;
             /** Estimate Hours */
             estimate_hours?: string | null;
+            /** Instructing Party */
+            instructing_party?: string | null;
             over_estimate?: components["schemas"]["OverEstimate"] | null;
             /** Stages */
             stages: components["schemas"]["StageTime"][];
