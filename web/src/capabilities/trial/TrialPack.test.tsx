@@ -118,6 +118,9 @@ test("the pack says when it was built", async () => {
   servePack("launch");
   renderAt(url);
   expect(await screen.findByText(fill(k("pack.built"), { date: "3 June 2027" }))).toBeInTheDocument();
+  // The date is when the pack was made, not a hearing date.
+  expect(screen.getByText(/^Made on 3 June 2027\./)).toBeInTheDocument();
+  expect(screen.queryByText(/Built for the trial/)).not.toBeInTheDocument();
 });
 
 test("a reply is written under a question's sheet and saved with the question number", async () => {

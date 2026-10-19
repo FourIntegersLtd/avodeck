@@ -49,7 +49,7 @@ test("finds a page by either number once the PIN is given, read-only", async () 
   await unlock(user);
   await user.type(await screen.findByLabelText(k("lookup.search")), "2407");
   expect(await screen.findByText(fill(M["trial.lookup.results_other"]!, { count: 2 }))).toBeInTheDocument();
-  expect(screen.getAllByText(fill(k("lookup.trial_page"), { court_bundle: "Zz binder", page: 2407 })).length).toBe(2);
+  expect(screen.getAllByText(fill(k("lookup.trial_page"), { court_bundle: "Zz binder", page: "2,407" })).length).toBe(2);
   expect(screen.getAllByText(fill(k("lookup.your_page"), { page: 118 })).length).toBe(2);
   expect(screen.getByText("Zz visit")).toBeInTheDocument();
   expect(screen.queryByRole("textbox", { name: /note/i })).not.toBeInTheDocument();

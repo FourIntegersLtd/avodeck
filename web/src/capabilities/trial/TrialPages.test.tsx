@@ -43,7 +43,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const table = screen.getByRole("table");
     expect(within(table).getByRole("columnheader", { name: fill(k("pages.col.trial"), { court_bundle: bundle }) })).toBeInTheDocument();
     const matched = within(table).getByRole("row", { name: /p\.118/ });
-    expect(within(matched).getByText("2407")).toBeInTheDocument();
+    expect(within(matched).getByText("2,407")).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
   });
@@ -90,6 +90,20 @@ test("the table downloads as a spreadsheet behind the code", async () => {
   await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
 });
 
+test("printing the table opens the print frame (it does not download the file)", async () => {
+  const { sent, record } = serveConcordance("launch");
+  server.use(http.get("/v1/cases/:caseId/concordance/export", async ({ request }) => (await record(request), blobReply("application/pdf"))));
+  const click = vi.spyOn(HTMLAnchorElement.prototype, "click");
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pages.export_pdf") }));
+  await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "GET", path: `/v1/cases/${CASE}/concordance/export`, search: "?format=pdf" }));
+  await waitFor(() => expect(document.querySelector("iframe")).not.toBeNull());
+  expect(document.querySelector("iframe")).toHaveAttribute("title", k("print_frame"));
+  expect(click).not.toHaveBeenCalled();
+  click.mockRestore();
+  document.querySelector("iframe")?.remove();
+});
+
 test("while matching it says so", async () => {
   serveConcordance("launch", concordanceOut({ bundle: { ...concordanceOut().bundle!, status: "matching" }, rows: [], counts: { matched: 0, to_confirm: 0, missing: 0 } }));
   renderAt(url);
@@ -105,7 +119,7 @@ describe("the screen as designed", () => {
     renderAt(url);
     const card = await screen.findByTestId("bundle-card");
     expect(card).toHaveTextContent(fill(k("pages.replaces"), { date: "20 May 2027" }));
-    expect(card).toHaveTextContent("3914");
+    expect(card).toHaveTextContent("3,914");
   });
 
   test("the matched and missing counts are tiles with the number and what it counts", async () => {
