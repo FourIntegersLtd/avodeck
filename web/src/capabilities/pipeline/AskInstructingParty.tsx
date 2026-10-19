@@ -2,12 +2,12 @@
 // wording (patient details left out); the expert may edit it, the API notes the request in the case
 // record, and the expert's own email opens with it.
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useSession } from "../../foundation/lib/session";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, idempotencyKey, unwrap } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { casePath } from "./data";
 import { formatNumber } from "./format";
 import { mail } from "./mail";
@@ -15,6 +15,7 @@ import { w } from "./words";
 
 export function AskInstructingParty() {
   const { item, pack } = useCaseFrame();
+  const { me } = useSession();
   const caseId = item.id;
   const found = useResource(async () => {
     const path = casePath(caseId);
@@ -84,14 +85,14 @@ export function AskInstructingParty() {
 
   return (
     <div className="av-page av-stack">
-      <Link className="pl-back" to={`/cases/${caseId}/bundle`}>{w("back")}</Link>
+      <BackLink to={`/cases/${caseId}/bundle`}>{w("back")}</BackLink>
       <h1>{w("ask.title", { label: draft.label })}</h1>
       <p className="pl-lead">{w("ask.intro")}</p>
       <div className="pl-ask">
         <section className="av-card pl-letter" aria-label={w("ask.body")}>
+          <TextField name="to" label={w("ask.to")} hint={w("ask.to_hint")} type="email" autoComplete="email" value={to} onChange={(e) => setTo(e.target.value)} />
           {editing ? (
             <div className="av-stack">
-              <TextField name="to" label={w("ask.to")} hint={w("ask.to_hint")} type="email" autoComplete="email" value={to} onChange={(e) => setTo(e.target.value)} />
               <TextField name="subject" label={w("ask.subject")} value={subject} onChange={(e) => setSubject(e.target.value)} />
               <div className="av-field">
                 <label className="av-field__label" htmlFor="pl-ask-body">{w("ask.body")}</label>
@@ -104,10 +105,10 @@ export function AskInstructingParty() {
           ) : (
             <>
               <dl className="pl-letter__head">
-                {to.trim() && (
+                {me.person.full_name && (
                   <div>
-                    <dt>{w("ask.to")}</dt>
-                    <dd>{to.trim()}</dd>
+                    <dt>{w("ask.from")}</dt>
+                    <dd>{w("ask.from_usual", { name: me.person.full_name })}</dd>
                   </div>
                 )}
                 <div>

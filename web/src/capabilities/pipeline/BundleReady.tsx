@@ -1,13 +1,12 @@
 // Screen 08, Your bundle is ready: the API's bundle summary, with the pack's source words and colours,
 // a card for each thing the expert should know, the files table and one main action.
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
+import { LinkButton, LoadError, Loading, Notice, StackedBar, TextLink } from "../../foundation/ui";
 import { can, casePath, documentsOf, requestLabel, sourceWord } from "./data";
 import { formatDate, formatNumber, languageName, pageList } from "./format";
 import { w, wn } from "./words";
@@ -64,7 +63,7 @@ export function BundleReady() {
             <p>{w("bundle.numbered_note", { last: num(last) })}</p>
           </Card>
           {s.duplicates > 0 && (
-            <Card title={wn("bundle.copies", s.duplicates, locale)} action={<Link to={`${base}/copies`}>{w("bundle.see_copies")}</Link>}>
+            <Card title={wn("bundle.copies", s.duplicates, locale)} action={<TextLink to={`${base}/copies`}>{w("bundle.see_copies")}</TextLink>}>
               <p>{w("bundle.copies_note")}</p>
             </Card>
           )}
@@ -177,27 +176,22 @@ function SourceBar({ pack, bySource }: { pack: Schemas["CasePack"]; bySource: Sc
     return i < 0 ? types.length : i;
   };
   const rows = bySource.filter((r) => r.pages > 0).map((r) => ({ key: r.source_type ?? "", pages: r.pages })).sort((a, b) => order(a.key) - order(b.key));
-  const total = rows.reduce((n, r) => n + r.pages, 0) || 1;
-  const colour = (key: string) => types.find((t) => t.key === key)?.colour ?? UNKNOWN_COLOUR;
-  let y = 0;
+    const colour = (key: string) => types.find((t) => t.key === key)?.colour ?? UNKNOWN_COLOUR;
+  const label = (key: string) => (key ? (sourceWord(pack, key) ?? humanise(key)) : w("bundle.source_unknown"));
+  const locale = pack.locale;
   return (
     <div className="pl-sourcebar">
-      <svg className="pl-sourcebar__bar" viewBox="0 0 100 400" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-        {rows.map((r) => {
-          const h = (r.pages / total) * 400;
-          const rect = <rect key={r.key} x="0" y={y} width="100" height={h} fill={colour(r.key)} />;
-          y += h;
-          return rect;
-        })}
-      </svg>
-      <ul className="pl-sourcebar__list" aria-label={w("bundle.sources")}>
+      <StackedBar
+        label={w("bundle.sources")}
+        segments={rows.map((r) => ({ key: r.key, value: r.pages, color: colour(r.key), label: label(r.key) }))}
+      />
+      <ul className="pl-tiles" aria-label={w("bundle.sources")}>
         {rows.map((r) => (
-          <li key={r.key}>
-            <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
-              <rect width="16" height="16" rx="3" fill={colour(r.key)} />
-            </svg>
-            <span className="pl-strong">{r.key ? (sourceWord(pack, r.key) ?? humanise(r.key)) : w("bundle.source_unknown")}</span>{" "}
-            <span className="av-mono">{wn("bundle.source_pages", r.pages, pack.locale)}</span>
+          <li key={r.key} className="pl-tile">
+            <span className="pl-strong">{label(r.key)}</span>
+            <span>
+              <span className="av-mono">{formatNumber(r.pages, locale)}</span> {wn("bundle.tile_unit", r.pages, locale)}
+            </span>
           </li>
         ))}
       </ul>

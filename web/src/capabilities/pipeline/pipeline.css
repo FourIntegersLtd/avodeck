@@ -68,3 +68,11 @@
 @media (max-width: 760px) {
   .pl-ready, .pl-ask, .pl-quarantine { grid-template-columns: 1fr; }
 }
+
+/* design match */
+.pl-step__count { color: var(--ink-soft); font-size: 17px; }
+.pl-step__body .av-progress { max-width: 420px; }
+.pl-notes .av-text-link { font-size: 17px; }
+.pl-sourcebar { flex-direction: column; }
+.pl-tiles { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--space-3); }
+.pl-tile { display: flex; flex-direction: column; gap: var(--space-1, 4px); padding: var(--space-3); border: 1px solid var(--line); border-radius: 8px; font-size: 17px; }
