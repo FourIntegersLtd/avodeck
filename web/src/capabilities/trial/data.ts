@@ -57,3 +57,10 @@ export async function pdfBody(file: File) {
 
 /** The ETag for a row version (`"3"`). */
 export const tag = (version: number) => `"${version}"`;
+
+/** The pack's word for a source type (a letter, a consultation); the type's own name when the pack has none. */
+export function sourceLabel(pack: Schemas["CasePack"], key: string | null | undefined): string {
+  if (!key) return "";
+  const words = (pack.vocabulary as Record<string, unknown>).source_types as Record<string, string> | undefined;
+  return words?.[key] ?? key.replace(/_/g, " ").replace(/^./, (c) => c.toUpperCase());
+}

@@ -37,7 +37,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const { container } = renderAt(url);
     const bundle = term(run, "court_bundle");
     expect(await screen.findByRole("heading", { level: 1, name: k("pages.title") })).toBeInTheDocument();
-    expect(screen.getByText(fill(M["trial.pages.matched_one"]!, { count: 1 }))).toBeInTheDocument();
+    expect(screen.getByTestId("tile-matched")).toHaveTextContent(`1${k("pages.tile_matched_one")}`);
     const missing = screen.getByRole("region", { name: fill(M["trial.pages.missing_heading_one"]!, { count: 1, court_bundle: bundle }) });
     expect(within(missing).getByText(fill(k("pages.missing_row"), { page: 214, paras: "11, 4" }))).toBeInTheDocument();
     const table = screen.getByRole("table");
