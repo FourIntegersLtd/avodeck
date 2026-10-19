@@ -31,3 +31,37 @@
 .av-after-table { width: 100%; border-collapse: collapse; }
 .av-after-table th { text-align: left; padding: var(--space-2) var(--space-3); border-bottom: 2px solid var(--line-strong); }
 .av-after-table td { padding: var(--space-3); border-top: 1px solid var(--line); vertical-align: top; }
+
+/* S19 board: heading with the locked pill, the five-step track, and the tiles */
+.av-after-page { max-width: 1200px; }
+.av-after-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
+.av-after-head h2 { margin: 0 0 6px; }
+.av-after-lede { margin: 0; font-size: 18px; }
+.av-after-pill { display: inline-flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 0 var(--space-4); min-height: 52px; color: var(--green); }
+.av-after-pill strong { color: var(--ink); }
+.av-after-linkbtn { all: unset; box-sizing: border-box; display: inline-flex; align-items: center; min-height: 52px; font-weight: 700; color: var(--green); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+.av-after-linkbtn:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.av-after-trackcard { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 32px 36px; }
+.av-after-track { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.av-after-track__step { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center; }
+.av-after-track__step::before { content: ""; position: absolute; top: 17px; left: 50%; width: calc(100% + 12px); height: 4px; background: #E9ECEA; border-radius: 2px; }
+.av-after-track__step:last-child::before { display: none; }
+.av-after-track__step--done::before { background: var(--green-bright); }
+.av-after-track__dot { position: relative; z-index: 1; width: 38px; height: 38px; border-radius: 50%; box-sizing: border-box; background: var(--surface); border: 3px solid var(--line); display: inline-flex; align-items: center; justify-content: center; color: #fff; }
+.av-after-track__step--done .av-after-track__dot { background: var(--green); border-color: var(--green); }
+.av-after-track__step--current .av-after-track__dot { border: 4px solid var(--green-bright); }
+.av-after-track__name { font-weight: 700; }
+.av-after-track__name a { color: inherit; text-decoration: none; }
+.av-after-track__name a:hover { text-decoration: underline; text-underline-offset: 4px; }
+.av-after-track__note { font-size: 15px; color: var(--ink-soft); }
+.av-after-track__note--alert { color: var(--amber); font-weight: 700; }
+@media (max-width: 860px) { .av-after-track { grid-template-columns: 1fr; } .av-after-track__step { flex-direction: row; text-align: left; } .av-after-track__step::before { display: none; } }
+.av-after-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
+.av-after-tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-large); padding: 24px; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.av-after-tile--next { border: 2px solid var(--green); }
+.av-after-tile h3 { margin: 0; font-size: 20px; }
+.av-after-tile p { margin: 0; color: var(--ink-soft); }
+.av-after-tile .av-icon-tile, .av-after-tile__icon-quiet { width: 48px; height: 48px; border-radius: 14px; }
+.av-after-tile__icon-quiet { display: inline-flex; align-items: center; justify-content: center; background: var(--surface-soft); color: var(--ink-soft); }
+.av-after-tile .av-text-link { gap: var(--space-2); text-decoration: none; margin-top: auto; }
+.av-after-tile .av-text-link:hover { text-decoration: underline; text-underline-offset: 4px; }
