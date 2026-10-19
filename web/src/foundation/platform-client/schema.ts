@@ -52,7 +52,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Count Recovery Codes
+         * @description How many backup codes are still unused (S28 "7 of 10 left"); never the codes.
+         */
+        get: operations["count_recovery_codes_v1_auth_mfa_recovery_codes_get"];
         put?: never;
         /**
          * Regenerate Recovery Codes
@@ -7171,6 +7175,13 @@ export interface components {
             /** Password */
             password: string;
         };
+        /** RecoveryCodeCount */
+        RecoveryCodeCount: {
+            /** Remaining */
+            remaining: number;
+            /** Total */
+            total: number;
+        };
         /** RecoveryCodes */
         RecoveryCodes: {
             /** Recovery Codes */
@@ -8513,6 +8524,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    count_recovery_codes_v1_auth_mfa_recovery_codes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodeCount"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */

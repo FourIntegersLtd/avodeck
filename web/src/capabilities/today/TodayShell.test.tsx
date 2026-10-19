@@ -30,5 +30,5 @@ test("Cases and Help are in the header, and Help opens a page with the support n
   expect(within(header).getByRole("link", { name: "Cases" })).toHaveAttribute("href", "/today#your-cases");
   await user.click(within(header).getByRole("link", { name: "Help" }));
   expect(await screen.findByRole("heading", { level: 1, name: "Help" })).toBeInTheDocument();
-  expect(await screen.findByText(/Call us on 020 7946 0000/)).toBeInTheDocument();
+  expect(await screen.findByTestId("support-line")).toHaveTextContent("Call us on 020 7946 0000");
 });

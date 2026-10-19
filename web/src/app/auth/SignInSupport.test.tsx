@@ -8,7 +8,7 @@ test("shows the support number and hours from the cell", async () => {
   signedOut();
   server.use(http.get("/v1/cell", () => json({ storage_place: null, support_phone: "020 7946 0000", support_hours: "weekdays 8am to 6pm" })));
   renderAt("/sign-in");
-  expect(await screen.findByText("Need help? Call us on 020 7946 0000, weekdays 8am to 6pm.")).toBeInTheDocument();
+  expect(await screen.findByTestId("support-line")).toHaveTextContent("Need help? Call us on 020 7946 0000, weekdays 8am to 6pm.");
   expect(screen.getByRole("link", { name: "020 7946 0000" })).toHaveAttribute("href", "tel:02079460000");
 });
 
@@ -23,5 +23,5 @@ test("leaves out the hours when the cell gives only a number", async () => {
   signedOut();
   server.use(http.get("/v1/cell", () => json({ storage_place: null, support_phone: "020 7946 0000", support_hours: null })));
   renderAt("/sign-in");
-  expect(await screen.findByText("Need help? Call us on 020 7946 0000.")).toBeInTheDocument();
+  expect(await screen.findByTestId("support-line")).toHaveTextContent(/^Need help\? Call us on 020 7946 0000\.$/);
 });

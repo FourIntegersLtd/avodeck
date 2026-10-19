@@ -34,3 +34,4 @@ export type { RowStatus } from "./StatusRow";
 export { CodeField, TextField } from "./TextField";
 export { ToggleSwitch } from "./ToggleSwitch";
 export { initials } from "./initials";
+export { SupportLine } from "./SupportLine";

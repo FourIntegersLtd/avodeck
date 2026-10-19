@@ -148,7 +148,7 @@ test("backup codes say how many are left, and the count follows making new ones"
     }),
   );
   const { user } = renderAt("/account");
-  expect(await screen.findByText("7 of 10 left.")).toBeInTheDocument();
+  expect(await screen.findByText(/7 of 10 left\./)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Make new codes" }));
-  expect(await screen.findByText("10 of 10 left.")).toBeInTheDocument();
+  expect(await screen.findByText(/10 of 10 left\./)).toBeInTheDocument();
 });

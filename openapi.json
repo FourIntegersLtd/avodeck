@@ -10322,6 +10322,24 @@
         "title": "Recover",
         "type": "object"
       },
+      "RecoveryCodeCount": {
+        "properties": {
+          "remaining": {
+            "title": "Remaining",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "remaining",
+          "total"
+        ],
+        "title": "RecoveryCodeCount",
+        "type": "object"
+      },
       "RecoveryCodes": {
         "properties": {
           "recovery_codes": {
@@ -13978,6 +13996,36 @@
       }
     },
     "/v1/auth/mfa/recovery-codes": {
+      "get": {
+        "description": "How many backup codes are still unused (S28 \"7 of 10 left\"); never the codes.",
+        "operationId": "count_recovery_codes_v1_auth_mfa_recovery_codes_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecoveryCodeCount"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Count Recovery Codes",
+        "tags": [
+          "auth"
+        ]
+      },
       "post": {
         "description": "\ud83d\udd12 Ten new recovery codes for the signed-in person only; the old set stops working.",
         "operationId": "regenerate_recovery_codes_v1_auth_mfa_recovery_codes_post",

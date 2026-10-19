@@ -1,7 +1,7 @@
 // S03 Today: what needs the expert now (NeedsYouItem rows slices produce) and their open cases.
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { formatDay, formatDue, hasMessage, hourIn, t } from "../../foundation/i18n";
+import { formatDay, formatDue, hasMessage, hourIn, humanise, t } from "../../foundation/i18n";
 import { partyLine } from "../../foundation/lib/pack";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
@@ -58,9 +58,27 @@ export function Today() {
         <>
           <NeedsYou items={today.data.needs_you} cases={today.data.cases} />
           <Cases data={today.data} packs={packs.data} locale={locale} org={org} setOrg={setOrg} />
+          <BalanceFooter packs={packs.data} />
         </>
       )}
     </div>
+  );
+}
+
+/** "This year: 14 for the …, 9 for the …": how many cases the expert took for each side, in the packs' words. */
+function BalanceFooter({ packs }: { packs: Map<string, CasePack> | undefined }) {
+  const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: 12 } } })), []);
+  if (found.error || !found.data) return null;
+  const words: Record<string, string> = {};
+  for (const pack of packs?.values() ?? []) for (const r of pack.party_roles) words[r.key!] = r.label!;
+  const parts = Object.entries(found.data.counts)
+    .filter(([, count]) => count > 0)
+    .map(([role, count]) => `${count} ${t("setup.balance.side", { party: words[role] ?? humanise(role) })}`);
+  if (parts.length === 0) return null;
+  return (
+    <p className="av-muted av-today__balance" data-testid="today-balance">
+      {t("today.balance", { list: parts.join(", ") })}
+    </p>
   );
 }
 

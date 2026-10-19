@@ -2,7 +2,10 @@
 // the records, proof of deletion (with pausing), and closing. The server decides every step;
 // this screen shows what `allowed_actions` and the close summary allow.
 import { useEffect, useId, useState, type ReactNode } from "react";
+import { useContext } from "react";
 import { useParams } from "react-router-dom";
+import { caseSubtitle, stepFor } from "../../foundation/lib/caseFrame";
+import { SessionContext } from "../../foundation/lib/session";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
@@ -38,6 +41,8 @@ export function Close() {
   const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", { params: { path } })), [caseId]);
   const close = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/close", { params: { path } })), [caseId]);
   const [message, setMessage] = useState<Message>(null);
+  const me = useContext(SessionContext)?.me;
+  const person = me && (me.person.full_name || me.person.email);
 
   const error = item.error ?? pack.error ?? close.error;
   // A deleted case answers only its certificate (the rest is 404), so show the proof on its own.
@@ -56,7 +61,7 @@ export function Close() {
     item.reload();
     close.reload();
   };
-  const steps = pack.data.workflow_steps.map((s) => ({ key: String(s.key) }));
+  const steps = pack.data.workflow_steps as Array<{ key: string; screens?: string[] }>;
 
   let intro: string | null = w("intro.open");
   if (deleted) intro = null;
@@ -64,8 +69,17 @@ export function Close() {
   else if (summary.settled_at) intro = w("intro.settled", { date: formatDate(summary.settled_at, locale) });
 
   return (
+    <>
+    <CaseHeader
+      bar
+      caseId={caseId}
+      steps={steps}
+      current={stepFor(pack.data, "close")}
+      title={<h1 className="av-case-bar__title">{w(headingKey)}</h1>}
+      subtitle={`${item.data.label} · ${caseSubtitle(item.data, pack.data)}`}
+      person={person}
+    />
     <div className="av-page av-stack">
-      <CaseHeader steps={steps} title={<h1>{w(headingKey)}</h1>} />
       {intro && <p>{intro}</p>}
       {message && (
         <Notice tone={message.tone}>
@@ -91,6 +105,7 @@ export function Close() {
         </>
       )}
     </div>
+    </>
   );
 }
 

@@ -763,6 +763,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 |---|---|---|---|
 | GET | `/me/sessions` | Devices the person is signed in on | |
 | DELETE | `/me/sessions/{session_id}` | Sign out one device | |
+| GET | `/auth/mfa/recovery-codes` | How many backup codes are unused (`remaining` of `total`), never the codes | signed in |
 | POST | `/auth/mfa/recovery-codes` | Make 10 new one-time recovery codes (old ones stop working) | 🔒 shown once |
 | POST | `/auth/mfa/recover` | `{email, password, code}` signs in with a recovery code, removes the old authenticator and asks to re-enrol MFA | Rate-limited |
 | POST | `/me/email-change` | Start an email change; confirmation sent to old and new address | 🔒 |

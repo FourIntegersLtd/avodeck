@@ -5,9 +5,8 @@ from __future__ import annotations
 import psycopg
 import pytest
 
-from tests.support.auth import AuthAdmin, sign_in_with_mfa
 from tests.http.test_foundation_auth_routes import Browser
-
+from tests.support.auth import AuthAdmin, sign_in_with_mfa
 
 pytestmark = pytest.mark.anyio
 

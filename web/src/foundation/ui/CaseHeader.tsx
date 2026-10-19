@@ -16,6 +16,8 @@ export interface CaseHeaderProps {
   caseId?: string;
   /** Under the case name: "case type · due 30 Nov". */
   subtitle?: ReactNode;
+  /** Whole-number percent done for the steps that can say (by step key), shown on the step's pill. */
+  progress?: Record<string, number>;
   /** The signed-in person's name, for the initials. */
   person?: string | null;
 }
@@ -39,7 +41,7 @@ function stepPath(step: { screens?: string[] }, caseId: string | undefined): str
  * The case's steps as pills: done steps show a tick, the current step is marked. With `bar` this is the
  * single bar at the top of every case screen; without it, just the title and the pills.
  */
-export function CaseHeader({ steps, current, title, children, bar, caseId, subtitle, person }: CaseHeaderProps) {
+export function CaseHeader({ steps, current, title, children, bar, caseId, subtitle, person, progress }: CaseHeaderProps) {
   const currentIndex = steps.findIndex((s) => s.key === current);
   const pills = steps.length === 0 ? null : (
     <nav aria-label={t("ui.case_header.steps")} className="av-case-bar__steps">
@@ -53,6 +55,7 @@ export function CaseHeader({ steps, current, title, children, bar, caseId, subti
                 {state === "done" ? "✓" : String(i + 1)}
               </span>
               {stepLabel(step.key)}
+              {progress?.[step.key] !== undefined && <span className="av-step__pct">{t("ui.case_header.progress", { percent: progress[step.key]! })}</span>}
             </span>
           );
           return (
