@@ -227,3 +227,24 @@ async def test_the_readiness_section_is_accepted_and_adds_a_page_per_question(
     preview = (await (await client_for(world.expert)).get(world.url("trial-pack/preview"))).json()
     assert len(preview["sheets"]) == 3 and preview["sheets"][0]["pages"][0]["page_no"] == 118
     assert "readiness" in [s["key"] for s in preview["sections"]]
+
+
+async def test_each_readiness_sheet_knows_its_page_in_the_printed_pack_for_the_footer(
+    client_for: ClientFor, world: World, worker_db: Database, model: Callable[..., Scripted], admin: psycopg.Connection
+) -> None:
+    model()
+    from tests.http.test_trial_meetings import agenda, create
+
+    pdf, _ = trial_bundle()
+    await upload_bundle(await client_for(world.expert), worker_db, world, pdf)
+    created = await create(client_for, world)
+    await agenda(client_for, worker_db, world, created["id"])
+    preview = (await (await client_for(world.expert)).get(world.url("trial-pack/preview"))).json()
+    row = admin.execute("select label from app.cases where id = %s", (world.case,)).fetchone()
+    assert row is not None and preview["case_label"] == row[0]
+    pages = {s["key"]: s["pages"] for s in preview["sections"]}
+    keys = [s["key"] for s in preview["sections"]]
+    start = 1 + sum(pages[k] for k in keys[: keys.index("readiness")])
+    numbers = [s["pack_page_no"] for s in preview["sheets"]]
+    assert numbers[0] == start and numbers == sorted(numbers) and len(set(numbers)) == len(numbers)
+    assert all(n <= preview["total_pages"] for n in numbers)

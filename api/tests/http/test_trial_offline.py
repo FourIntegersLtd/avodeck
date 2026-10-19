@@ -173,3 +173,21 @@ async def test_the_status_check_says_only_whether_the_copy_may_still_be_opened(
     other_url = world.url(f"offline-packages/{other['id']}")
     assert (await (await client_for(world.expert)).delete(other_url)).status_code == 204
     assert (await (await client_for(world.expert)).get(f"{other_url}/status")).json() == {"status": "revoked"}
+
+
+async def test_the_copy_carries_the_case_label_and_each_facts_source_type_with_its_colour(
+    client_for: ClientFor, world: World, worker_db: Database, admin: psycopg.Connection
+) -> None:
+    pdf, _ = trial_bundle()
+    await upload_bundle(await client_for(world.expert), worker_db, world, pdf)
+    admin.execute("update app.pages set source_type = 'primary_care_record' where case_id = %s", (world.case,))
+    made = await create(client_for, world)
+    payload = (await (await client_for(world.expert)).get(world.url(f"offline-packages/{made['id']}/download"))).json()
+    content = opened(payload)
+    row = admin.execute("select label from app.cases where id = %s", (world.case,)).fetchone()
+    assert row is not None and content["case_label"] == row[0]
+    [plan] = [f for f in content["facts"] if f["text"] == PLAN]
+    assert plan["source_type"] == "primary_care_record"
+    kinds = {s["key"]: s for s in content["source_types"]}
+    assert kinds["primary_care_record"]["colour"] == "#1E6B4E" and kinds["primary_care_record"]["label"] == "GP record"
+    assert kinds["hospital"]["colour"].startswith("#")
