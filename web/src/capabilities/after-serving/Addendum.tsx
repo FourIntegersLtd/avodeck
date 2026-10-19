@@ -7,7 +7,8 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, DictationBox, LinkButton, LoadError, Loading, Notice } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, DictationBox, LoadError, Loading, Notice } from "../../foundation/ui";
+import { TickGreenIcon } from "./icons";
 import { declarationParts, longDate, Select, useLocale, useWaiting } from "./shared";
 import { w } from "./words";
 
@@ -55,74 +56,79 @@ export function AddendumScreen() {
   };
 
   return (
-    <div className="av-page av-stack">
-      <LinkButton variant="quiet" to={`/cases/${caseId}/served`}>{w("back")}</LinkButton>
-      <h2>{w("change.title")}</h2>
-      <p>{w("change.intro")}</p>
-      {served.data.version && (
-        <section className="av-card av-stack" aria-labelledby="served-h">
-          <h3 id="served-h">{w("change.served_locked", { name: served.data.version.display_name })}</h3>
-          {paras.map((p) => <p key={p.id} className="av-after-words">{p.text}</p>)}
-        </section>
-      )}
-      {!locked && (list.length === 0 || adding) && <AddChange caseId={caseId} paras={paras} onDone={() => { setAdding(false); changes.reload(); }} />}
-      <section className="av-stack" aria-labelledby="list-h">
-        <h3 id="list-h">{w("change.list")}</h3>
-        {list.length === 0 && <p>{w("change.none")}</p>}
-        {list.map((c) => (
-          <article key={c.id} className="av-card av-stack" aria-labelledby={`change-${c.id}`}>
-            <div className="av-after-item--spread av-row">
-              <h4 id={`change-${c.id}`}>{w("served.paragraph", { n: num(c.paragraph_id) })}</h4>
-              <span className="av-badge">{w(`change.kind.${c.kind as (typeof KINDS)[number]}`)}</span>
-            </div>
-            <div className="av-after-columns">
-              <div className="av-stack">
-                <h5>{w("change.said")}</h5>
-                <p className="av-after-words"><del>{c.old_text}</del></p>
+    <div className="av-page av-after-page av-stack">
+      <div>
+        <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
+        <h2>{w("change.title")}</h2>
+        <p className="av-muted av-after-lede">{w("change.intro")}</p>
+      </div>
+      <div className="av-after-twocol">
+        <section className="av-after-main av-stack">
+          {served.data.version && (
+            <details className="av-after-disclosure">
+              <summary>{w("change.served_locked", { name: served.data.version.display_name })}</summary>
+              <div className="av-card av-stack" aria-label={w("change.served")} role="region">
+                {paras.map((p) => <p key={p.id} className="av-after-words">{p.text}</p>)}
               </div>
-              <div className="av-stack">
-                <h5>{w("change.now")}</h5>
-                <p className="av-after-words">{c.new_text}</p>
-              </div>
-            </div>
-            <div className="av-stack">
-              <h5>{w("change.why")}</h5>
-              <p className="av-after-words">{c.reason}</p>
-            </div>
-            {c.suggested_dependents.filter((d) => d.depends).map((d) => (
-              <div key={d.paragraph_id}>
-                <p>{w("change.depends", { n: num(d.paragraph_id) })}</p>
-                <p className="av-muted">{w("change.depends_reason", { reason: d.reason })}</p>
-              </div>
+            </details>
+          )}
+          {!locked && (list.length === 0 || adding) && <AddChange caseId={caseId} paras={paras} onDone={() => { setAdding(false); changes.reload(); }} />}
+          <section className="av-stack" aria-labelledby="list-h">
+            <h3 id="list-h" className="av-visually-hidden">{w("change.list")}</h3>
+            {list.length === 0 && <p>{w("change.none")}</p>}
+            {list.map((c) => (
+              <article key={c.id} className="av-after-pcard av-stack" aria-labelledby={`change-${c.id}`}>
+                <div className="av-after-qcard__tags">
+                  <h4 id={`change-${c.id}`}>{w("served.paragraph", { n: num(c.paragraph_id) })}</h4>
+                  <span className="av-after-aboutchip">{w(`change.kind.${c.kind as (typeof KINDS)[number]}`)}</span>
+                </div>
+                <div className="av-stack">
+                  <h5 className="av-after-label">{w("change.said")}</h5>
+                  <p className="av-after-words av-after-struck"><del>{c.old_text}</del></p>
+                </div>
+                <div className="av-stack">
+                  <h5 className="av-after-label av-after-label--green">{w("change.now")}</h5>
+                  <p className="av-after-words av-after-now">{c.new_text}</p>
+                </div>
+                <div className="av-stack">
+                  <h5 className="av-after-label">{w("change.why")}</h5>
+                  <p className="av-after-words">{c.reason}</p>
+                </div>
+                {c.suggested_dependents.filter((d) => d.depends).map((d) => (
+                  <div key={d.paragraph_id}>
+                    <p>{w("change.depends", { n: num(d.paragraph_id) })}</p>
+                    <p className="av-muted">{w("change.depends_reason", { reason: d.reason })}</p>
+                  </div>
+                ))}
+              </article>
             ))}
-          </article>
-        ))}
-        {!locked && list.length > 0 && !adding && (
-          <div><Button variant="secondary" onClick={() => setAdding(true)}>{w("change.another")}</Button></div>
-        )}
-      </section>
-      {list.length > 0 && (
-        <aside className="av-card av-stack" aria-label={w("change.checked")}>
-          <h3>{w("change.checked")}</h3>
-          <ul className="av-after-list">
-            <li className="av-after-item">
-              {dependentNos.length > 0
-                ? w("change.checked_dependents", { changed: changedNos.join(", "), dependents: dependentNos.join(", ") })
-                : w("change.checked_none", { changed: changedNos.join(", ") })}
-            </li>
-            <li className="av-after-item">{w("change.checked_reason")}</li>
-            <li className="av-after-item">{w("change.declaration_note")}</li>
-          </ul>
-        </aside>
-      )}
-      {list.length > 0 && (
-        <section className="av-card av-stack" aria-labelledby="summary-h">
-          <h3 id="summary-h">{w("change.supplementary")}</h3>
-          <p>{w("change.summary_changes", { paragraphs: changedNos.join(", ") })}</p>
-          {servedOn && <p>{w("change.summary_refers", { date: longDate(servedOn, locale) })}</p>}
-          {sup?.signed_by && sup.signed_on && <p>{w("change.summary_signed", { name: sup.signed_by, date: longDate(sup.signed_on, locale) })}</p>}
+            {!locked && list.length > 0 && !adding && (
+              <div><button type="button" className="av-after-linkbtn" onClick={() => setAdding(true)}>{w("change.another")}</button></div>
+            )}
+          </section>
         </section>
-      )}
+        {list.length > 0 && (
+          <div className="av-after-side av-stack">
+            <aside className="av-after-panel av-after-panel--side av-stack" aria-label={w("change.checked")}>
+              <h3>{w("change.checked")}</h3>
+              <ul className="av-after-ticks">
+                <li><TickGreenIcon />{dependentNos.length > 0
+                  ? w("change.checked_dependents", { changed: changedNos.join(", "), dependents: dependentNos.join(", ") })
+                  : w("change.checked_none", { changed: changedNos.join(", ") })}</li>
+                <li><TickGreenIcon />{w("change.checked_reason")}</li>
+                <li><TickGreenIcon />{w("change.declaration_note")}</li>
+              </ul>
+            </aside>
+            <section className="av-after-paper av-stack" aria-labelledby="summary-h">
+              <h3 id="summary-h">{w("change.supplementary")}</h3>
+              <p>{w("change.summary_changes", { paragraphs: changedNos.join(", ") })}</p>
+              {servedOn && <p>{w("change.summary_refers", { date: longDate(servedOn, locale) })}</p>}
+              {sup?.signed_by && sup.signed_on && <p>{w("change.summary_signed", { name: sup.signed_by, date: longDate(sup.signed_on, locale) })}</p>}
+            </section>
+            <p className="av-after-tellnote">{w("change.tell_note")}</p>
+          </div>
+        )}
+      </div>
       {full && (
         <section className="av-card av-stack" aria-labelledby="full-h">
           <h3 id="full-h">{w("change.full")}</h3>
@@ -138,10 +144,9 @@ export function AddendumScreen() {
       )}
       {building.waiting && <Notice><p>{w("change.building")}</p></Notice>}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
-      {list.length > 0 && <Notice><p>{w("change.tell_note")}</p></Notice>}
       <div className="av-after-footer">
         {list.length > 0 && <Button variant="secondary" aria-expanded={full} onClick={() => setFull(!full)}>{w("change.read_full")}</Button>}
-        {!locked && <Button variant={sup ? "secondary" : "primary"} onClick={() => void build()}>{w("change.build")}</Button>}
+        {!locked && <Button variant={sup ? "secondary" : "primary"} arrow={!sup} onClick={() => void build()}>{w("change.build")}</Button>}
       </div>
       {sup && <Sign caseId={caseId} sup={sup} declarations={pack.declarations} onDone={() => changes.reload()} />}
     </div>
@@ -167,26 +172,29 @@ function AddChange({ caseId, paras, onDone }: { caseId: string; paras: Schemas["
     }
   };
   return (
-    <section className="av-card av-stack" aria-labelledby="add-h">
-      <h3 id="add-h">{w("change.add")}</h3>
-      <Select label={w("change.paragraph")} value={paragraph} onChange={(e) => setParagraph(e.target.value)}>
-        <option value="" />
-        {paras.map((p) => <option key={p.id} value={p.id}>{w("served.paragraph", { n: p.para_no })}</option>)}
-      </Select>
-      {old && <section aria-label={w("change.said")} className="av-stack"><h4>{w("change.said")}</h4><p className="av-after-words">{old.text}</p></section>}
-      <fieldset className="av-after-fieldset">
-        <legend>{w("change.kind")}</legend>
+    <section className="av-stack av-after-form" aria-label={w("change.add")}>
+      <div role="radiogroup" aria-label={w("change.kind")} className="av-after-kinds">
         {KINDS.map((k) => (
-          <label key={k} className="av-after-radio">
+          <label key={k} className="av-after-kind">
             <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => setKind(k)} />
-            <span><strong>{w(`change.kind.${k}`)}</strong>{" "}<span className="av-muted">{w(`change.kind.${k}_hint`)}</span></span>
+            <span>
+              <strong>{w(`change.kind.${k}`)}</strong>
+              <span className="av-muted">{w(`change.kind.${k}_hint`)}</span>
+            </span>
           </label>
         ))}
-      </fieldset>
-      <DictationBox caseId={caseId} context="report_change" label={w("change.now")} value={text} onChange={setText} rows={5} />
-      <DictationBox caseId={caseId} context="report_change_reason" label={w("change.reason")} value={reason} onChange={setReason} rows={3} />
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      <div className="av-after-footer"><Button variant="secondary" disabled={!ready} onClick={() => void add()}>{w("change.add")}</Button></div>
+      </div>
+      <div className="av-after-pcard av-stack">
+        <Select label={w("change.paragraph")} value={paragraph} onChange={(e) => setParagraph(e.target.value)}>
+          <option value="" />
+          {paras.map((p) => <option key={p.id} value={p.id}>{w("served.paragraph", { n: p.para_no })}</option>)}
+        </Select>
+        {old && <section aria-label={w("change.said")} className="av-stack"><h4 className="av-after-label">{w("change.said")}</h4><p className="av-after-words av-after-struck"><del>{old.text}</del></p></section>}
+        <DictationBox bar caseId={caseId} context="report_change" label={w("change.now")} value={text} onChange={setText} rows={5} />
+        <DictationBox bar caseId={caseId} context="report_change_reason" label={w("change.reason")} value={reason} onChange={setReason} rows={3} />
+        {error && <Notice tone="error"><p>{error}</p></Notice>}
+        <div className="av-after-footer"><Button variant="secondary" disabled={!ready} onClick={() => void add()}>{w("change.add")}</Button></div>
+      </div>
     </section>
   );
 }
