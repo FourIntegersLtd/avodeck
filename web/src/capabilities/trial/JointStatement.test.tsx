@@ -171,7 +171,7 @@ describe("the screen as designed", () => {
     renderAt(url);
     const third = await q3();
     const link = within(third).getByRole("link", { name: k("meeting.item.add_note") });
-    const target = third.querySelector(link.getAttribute("href")!);
+    const target = document.getElementById(link.getAttribute("href")!.slice(1));
     expect(target).toBe(within(third).getByLabelText(k("meeting.item.change_note")));
   });
 

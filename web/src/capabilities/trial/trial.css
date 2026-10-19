@@ -40,4 +40,11 @@
 .av-trial-lookup__footer p { margin: 0; }
 .av-trial-hits { list-style: none; margin: 0; padding: 0; }
 .av-trial-hits > li + li { margin-top: 12px; }
+.av-trial-linkbutton { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+.av-trial-chips { display: flex; flex-wrap: wrap; gap: 12px; list-style: none; margin: 0; padding: 0; }
+.av-trial-chip { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-large); padding: 10px 16px; }
+.av-trial-chip__rule { display: block; font-size: 15px; color: var(--ink-soft); }
+.av-trial-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 0; }
+.av-trial-question--changed { border-left: 6px solid var(--amber); background: var(--amber-tint); }
+.av-trial-list--plain { list-style: none; padding-left: 0; }
 @media (max-width: 600px) { .av-trial-facts { grid-template-columns: 1fr; } .av-trial-hint { margin-left: 0; } }

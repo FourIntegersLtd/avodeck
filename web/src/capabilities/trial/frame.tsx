@@ -38,9 +38,9 @@ export function TrialHeader({ pack, title, screen }: { pack: Schemas["CasePack"]
 }
 
 /** Choosing a PDF: the label looks like a button and is the input's name. */
-export function PdfPicker({ label, onFile, disabled }: { label: string; onFile: (file: File) => void; disabled?: boolean }) {
+export function PdfPicker({ label, onFile, disabled, link }: { label: string; onFile: (file: File) => void; disabled?: boolean; link?: boolean }) {
   return (
-    <label className={`av-button av-button--secondary av-trial-picker${disabled ? " av-trial-picker--disabled" : ""}`}>
+    <label className={`${link ? "av-text-link" : "av-button av-button--secondary"} av-trial-picker${disabled ? " av-trial-picker--disabled" : ""}`}>
       {label}
       <input
         type="file"
