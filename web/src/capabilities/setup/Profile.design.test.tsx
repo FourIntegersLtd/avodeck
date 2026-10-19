@@ -53,7 +53,52 @@ test("the template shows its styles as chips and a Replace link, and a Done butt
   const template = await screen.findByRole("region", { name: "Your report template" });
   expect(within(template).getByText("Heading 1")).toBeInTheDocument();
   expect(within(template).getByText("Normal")).toBeInTheDocument();
-  expect(within(template).getByText("Choose a different Word template")).toBeInTheDocument();
+  expect(within(template).getByText("Replace")).toBeInTheDocument();
+  expect(within(template).getByText("Your headings, numbering and fonts will be kept")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Done" })).toHaveAttribute("href", "/today");
   expect(await axeViolations(container)).toEqual([]);
+});
+
+test("about you is a summary of name, registration and specialties, and Edit your details opens the whole form", async () => {
+  open();
+  const pack = casePack("launch");
+  const { user } = renderAt("/profile");
+  const about = await screen.findByRole("region", { name: "About you" });
+  expect(within(about).getByText("Dr Jane Morgan")).toBeInTheDocument();
+  expect(within(about).getByText(`${pack.registration_bodies[0]} · 1234567`)).toBeInTheDocument();
+  expect(within(about).getByText("Specialty A")).toBeInTheDocument();
+  expect(within(about).queryByLabelText("Profession")).toBeNull();
+  await user.click(within(about).getByRole("button", { name: "Edit your details" }));
+  for (const label of ["Full name", "Profession", "Registered with", "Registration number"]) expect(within(about).getByLabelText(label)).toBeInTheDocument();
+  expect(within(about).getByRole("checkbox", { name: "Specialty A" })).toBeChecked();
+});
+
+test("the banner says how many parts are done and what is next, and the footer says Done only after something is saved", async () => {
+  open();
+  renderAt("/profile");
+  expect(await screen.findByText("3 of 5 done.")).toBeInTheDocument();
+  expect(screen.getByText("Next: add your expert training.")).toBeInTheDocument();
+  expect(screen.queryByText("All changes saved")).toBeNull();
+});
+
+test("the last card names Account and security and carries the balance behind a link", async () => {
+  open();
+  renderAt("/profile");
+  expect(await screen.findByRole("heading", { name: "This profile goes with you" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Account and security" })).toHaveAttribute("href", "/account");
+  expect(screen.queryByRole("region", { name: "Your balance over the last 12 months" })).toBeNull();
+});
+
+test("the signature is a one-line bar until you open it, and the role rows read Edit", async () => {
+  open();
+  const { user } = renderAt("/profile");
+  const declaration = await screen.findByRole("region", { name: "Declaration and signature" });
+  expect(within(declaration).queryByRole("img", { name: "Box to draw your signature in" })).toBeNull();
+  const bar = within(declaration).getByRole("button", { name: /Add your signature/ });
+  expect(bar).toHaveTextContent("Sign with your mouse, or upload a photo of it.");
+  await user.click(bar);
+  expect(within(declaration).getByRole("img", { name: "Box to draw your signature in" })).toBeInTheDocument();
+  const roles = screen.getByRole("region", { name: "Where you've practised" });
+  expect(within(roles).getByRole("button", { name: "Edit Partner" })).toHaveTextContent(/^Edit$/);
+  expect(within(roles).getByRole("button", { name: "Add another role" })).toBeInTheDocument();
 });
