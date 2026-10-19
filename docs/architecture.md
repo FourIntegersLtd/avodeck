@@ -175,7 +175,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 ### 3.5 How code uses packs
 
 - **One entry point:** `pack = packs.for_case(case)` (in `api/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
-- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.own_record_sources()`, `pack.arriving_kinds()`, `pack.guidelines()`, `pack.guideline_sources()`, `pack.report_sections()`, `pack.compliance_checklist()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
+- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.own_record_sources()`, `pack.arriving_kinds()`, `pack.guidelines()`, `pack.guideline_sources()`, `pack.report_sections()`, `pack.compliance_checklist()` (with `page_limit` per court track), `pack.page_limits()`, `pack.document_kinds()`, `pack.outside_expertise_parts()`, `pack.subject_statuses()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
 - **Never hard-code** in slice code, prompts, schemas, enums or tests outside fixtures: court or rule names (CPR, PD35, Part 35), guidance bodies (NICE), "statement of truth", party or instructing-party words (claimant, defendant, solicitor), clinician titles (GP), record systems (EMIS, SystmOne), identifier types (NHS number), currencies, date orders, timezones, holiday rules, retention periods or fixed lists of anything in a registry.
 - **Recorded on the report:** `cases.pack_versions` and each served report store the pack versions used, so later wording changes never alter old reports.
 - **Tested per combination:** `evals/<jurisdiction>/<case-type>/<specialty>/` holds synthetic bundles and expected facts.
@@ -251,7 +251,7 @@ One instruction: who it's for, who's involved, what was asked.
 | `conflict_answer_history` | Every conflict answer as it was given or changed, written only by a database trigger; append-only. The answers behind a declaration are the latest rows before it; a newer row means the declaration is out of date. Slice C. | case_id, question_key, answer (yes/no), detail (encrypted), answered_by, created_at, recorded_at |
 | `conflict_declarations` | Each time the expert declares conflicts (at the start, or mid-case). Append-only; the latest is current. Slice C. | case_id, outcome (none/disclosed), declared_by, created_at |
 | `case_withdrawals` | Why the expert withdrew from the case (one per case; the case moves to `withdrawn` in the same transaction). Slice C. | case_id, reason (encrypted), withdrawn_by, created_at |
-| `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, kind, outside_expertise, status, confirmed_text |
+| `questions` | The questions the expert has been asked to answer, word for word from the instructions. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, kind, outside_expertise, answer_parts[], outside_expertise_source, status, confirmed_text |
 | `assumptions` | Things the instructions tell the expert to assume. | case_id, instruction_version_id, number, text_verbatim, source_word_ids[], para_ref, status, confirmed_text |
 | `instruction_extractions` | One record per letter read by `extract_questions`: counts kept and refused, whether it reopened the set. Counts only. Slice C. | instruction_version_id, case_id, job_id, questions, assumptions, rejected, reopened, model_task, prompt_version |
 | `prefill_suggestions` | Case details T-04 suggested from the letter, each citing its words, waiting for the expert to accept or dismiss. Never applied to the case by the server. Slice C. | case_id, instruction_version_id, field, value (encrypted), word_ids[], status (suggested/accepted/dismissed), decided_by, decided_at, model_task, prompt_version |
@@ -385,7 +385,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | Table | In plain words | Key fields |
 |---|---|---|
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
-| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, code_version, error_code, requested_by |
+| `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, step_done, step_total, code_version, error_code, requested_by |
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
@@ -416,10 +416,10 @@ The machinery behind everything: keys, jobs, notifications, logs.
 - **Access:** every `/cases/{case_id}/…` route calls `require_case_access(action)` (section 10.1, `docs/spec/permissions.md`): the named expert, a case member whose case role allows the action, or an organisation owner/admin for administrative actions. Anyone else gets 404. Supabase row-level security mirrors the check in the database. `GET /cases/{case_id}` returns `allowed_actions` for the signed-in person so screens can hide what they can't do; the server still decides.
 - **Concurrency:** every editable resource returns an `ETag`; updates must send `If-Match` and get 412 `stale` if someone else changed it first.
 - **Idempotency:** create, send, serve, sign and pay-style requests accept an `Idempotency-Key` header; a repeat within 24 hours returns the first result.
-- **Long work:** returns `202 Accepted` + `{job_id}`. Progress comes from `GET /jobs/{job_id}` or a server-sent events stream `GET /jobs/{job_id}/events` (status, pct, eta_seconds). No patient text in job rows.
+- **Long work:** returns `202 Accepted` + `{job_id}`. Progress comes from `GET /jobs/{job_id}` or a server-sent events stream `GET /jobs/{job_id}/events` (status, step, pct, eta_seconds, step_done and step_total as whole numbers: "page 40 of 900"). No patient text in job rows.
 - **Files:** all go through FastAPI. Uploads are sent in 8 MB chunks (`PUT /uploads/{upload_id}/chunks/{n}`) and streamed to Supabase Storage, so large bundles never sit in memory. Page images, thumbnails and downloads are streamed back by FastAPI after the ownership check, with `Cache-Control: private, no-store`.
 - **AI task IDs** (T-xx) refer to section 6.
-- **Errors:** `{error: {code, message}}`. 409 for state conflicts (e.g. editing a locked report), 423 for blind-read gating.
+- **Errors:** `{error: {code, message}}`. 409 for state conflicts (e.g. editing a locked report; `already_confirmed` and `questions_locked` for questions), 423 for blind-read gating.
 
 ### 5.2 Endpoints in journey order
 
@@ -435,6 +435,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/auth/sign-out` | Revokes Supabase session, clears cookie | |
 | POST | `/auth/password/forgot` | `{email}` → Supabase sends reset email via Resend (custom SMTP) | Same response whether or not the email exists |
 | POST | `/auth/password/reset` | `{token, new_password}` → leaked-password check → all sessions revoked | |
+| GET | `/cell` | Public: `{support_phone, support_hours, storage_place}` from the cell's environment, null when unset (sign-in screen) | |
 | GET | `/auth/session` | Is the session valid, MFA level, minutes until timeout | |
 | GET | `/me` | Person record, expert profile (if any), memberships and whether MFA is enrolled | Creates the `people` row and the personal organisation on first call |
 | POST | `/me/sessions/revoke-all` | Signs out all devices | 🔒 |

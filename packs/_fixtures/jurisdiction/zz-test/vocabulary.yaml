@@ -27,3 +27,8 @@ request_notes:
     Withheld as another subject's records: {pages}. {instructing_party} to confirm.
   translation: >-
     Translate for the file, pages {pages}.
+other_side_prompt: Who is the respondent zz?
+other_side_example: zz example of the other party
+party_roles_plural: {instructing_side: petitioners, other_side: respondents}
+subject_status_hint: zz hint about the present or absent subject
+party_name_ignore_words: [zzthe, zzand, zzco]

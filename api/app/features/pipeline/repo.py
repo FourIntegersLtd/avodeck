@@ -1099,12 +1099,12 @@ async def latest_processing(
 ) -> dict[str, object] | None:
     """The case's newest job of these kinds: its progress only, never page text."""
     cur = await conn.execute(
-        "select id, kind, status, step, pct, eta_seconds, error_code from app.jobs"
+        "select id, kind, status, step, pct, eta_seconds, step_done, step_total, error_code from app.jobs"
         " where case_id = %s and kind = any(%s) order by created_at desc, id desc limit 1",
         (case_id, list(kinds)),
     )
     row = await cur.fetchone()
-    names = ("id", "kind", "status", "step", "pct", "eta_seconds", "error_code")
+    names = ("id", "kind", "status", "step", "pct", "eta_seconds", "step_done", "step_total", "error_code")
     return None if row is None else dict(zip(names, row, strict=True))
 
 

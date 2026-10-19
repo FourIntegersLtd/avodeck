@@ -1,3 +1,3 @@
 question_types:
-  - {key: capacity, label_key: zz.question_type.capacity}
-  - {key: liability, label_key: zz.question_type.liability}
+  - {key: capacity, label_key: zz.question_type.capacity, colour: red, parts: [{key: zz_a, label_key: zz.part.a}, {key: zz_b, label_key: zz.part.b}]}
+  - {key: liability, label_key: zz.question_type.liability, colour: green, parts: [{key: zz_b, label_key: zz.part.b}, {key: zz_c, label_key: zz.part.c}]}

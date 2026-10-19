@@ -1755,6 +1755,17 @@
             "title": "Declarations",
             "type": "array"
           },
+          "document_kinds": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Document Kinds",
+            "type": "array"
+          },
           "expert_roles": {
             "items": {
               "type": "string"
@@ -1824,6 +1835,14 @@
               "type": "object"
             },
             "title": "Opinion Views",
+            "type": "array"
+          },
+          "outside_expertise_parts": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Outside Expertise Parts",
             "type": "array"
           },
           "party_roles": {
@@ -1902,6 +1921,24 @@
               "type": "object"
             },
             "title": "Source Types",
+            "type": "array"
+          },
+          "subject_statuses": {
+            "default": [],
+            "items": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Subject Statuses",
             "type": "array"
           },
           "timezone": {
@@ -2065,6 +2102,50 @@
           }
         },
         "title": "CaseUpdate",
+        "type": "object"
+      },
+      "Cell": {
+        "properties": {
+          "storage_place": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Storage Place"
+          },
+          "support_hours": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Hours"
+          },
+          "support_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Support Phone"
+          }
+        },
+        "required": [
+          "support_phone",
+          "support_hours",
+          "storage_place"
+        ],
+        "title": "Cell",
         "type": "object"
       },
       "Certificate": {
@@ -6444,6 +6525,28 @@
               }
             ],
             "title": "Step"
+          },
+          "step_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Done"
+          },
+          "step_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Total"
           }
         },
         "required": [
@@ -10757,6 +10860,28 @@
               }
             ],
             "title": "Step"
+          },
+          "step_done": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Done"
+          },
+          "step_total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step Total"
           }
         },
         "required": [
@@ -29195,6 +29320,37 @@
         "summary": "Tell Instructing Party",
         "tags": [
           "after_serving"
+        ]
+      }
+    },
+    "/v1/cell": {
+      "get": {
+        "operationId": "get_cell_v1_cell_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Cell"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Get Cell",
+        "tags": [
+          "cell"
         ]
       }
     },

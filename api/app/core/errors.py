@@ -51,6 +51,14 @@ def conflict() -> ApiError:
     return ApiError("conflict", "That change is not allowed in the current state.", 409)
 
 
+def already_confirmed() -> ApiError:
+    return ApiError("already_confirmed", "That question is already confirmed.", 409)
+
+
+def questions_locked() -> ApiError:
+    return ApiError("questions_locked", "The questions are locked.", 409)
+
+
 def locked() -> ApiError:
     return ApiError("locked", "This report version is locked. Changes go in a supplementary report.", 409)
 

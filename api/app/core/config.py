@@ -188,3 +188,21 @@ def ai_settings(env: Mapping[str, str] | None = None) -> AiSettings:
         min_expected_pages=number("AI_MIN_EXPECTED_PAGES", 100),
         cost_guard_multiple=number("AI_COST_GUARD_MULTIPLE", 3),
     )
+
+
+@dataclass(frozen=True)
+class CellPublic:
+    """What the sign-in screen may show about this cell before anyone signs in. A blank setting is null."""
+
+    support_phone: str | None
+    support_hours: str | None
+    storage_place: str | None
+
+
+def cell_public(env: Mapping[str, str] | None = None) -> CellPublic:
+    source = os.environ if env is None else env
+
+    def read(name: str) -> str | None:
+        return source.get(name, "").strip() or None
+
+    return CellPublic(read("SUPPORT_PHONE"), read("SUPPORT_HOURS"), read("STORAGE_PLACE"))

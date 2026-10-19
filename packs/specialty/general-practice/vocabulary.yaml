@@ -12,3 +12,6 @@ lanes:
   prescriptions: Prescriptions
   hospital_and_letters: Hospital and letters
   appointments: Appointments
+# Screen 06: the line shown on a question outside the expert's usual expertise, and the coverage question.
+outside_expertise_hint: This looks outside what a general practitioner usually covers. You decide whether to answer it, or only part of it.
+coverage_question: Were you working in general practice throughout the period of the claim?
