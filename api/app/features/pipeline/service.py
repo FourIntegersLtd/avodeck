@@ -38,7 +38,8 @@ from app.core.ai import pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
-from app.core.ai.ocr import OcrPage
+from app.core.ai.bedrock import ServiceBusy
+from app.core.ai.ocr import OcrFailed, OcrPage
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
@@ -315,7 +316,12 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
             if found is None:
                 if services.ocr is None:
                     raise ProcessingPaused("model_unavailable")
-                found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+                try:
+                    found = (await services.ocr.analyse(page_pdf, "layout")).pages[0]
+                except OcrFailed:  # F4: this page alone is marked unreadable; the rest carry on
+                    found = OcrPage(number=1, width=1.0, height=1.0, words=())
+                except ServiceBusy:  # F5: back-off spent; the job waits and is retried later
+                    raise ProcessingPaused("service_busy") from None
                 source = "ocr"
             page = turned(found, state.rotation)
         reading = assess(page, source)
@@ -442,7 +448,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         ordered = [(w.word_id, texts[w.word_id]) for w in stored]
         struck = {w.word_id for w in stored if w.struck}
         stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
-        text = extract.page_text(ordered, stripped.text)
+        text = extract.page_text(ordered, stripped.text) if ordered else ""
         if header:
             cap = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
             text = extract.with_header(text, cap.text)
@@ -450,7 +456,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         output: dict[str, Any] | None = None
         kept: list[Any] = []
         reason: str | None = None
-        for _ in range(2):
+        if not stored:  # a page OCR could not read (F4) has nothing to ask the model about
+            kept, reason = [], "no_words"
+        for _ in range(0 if not stored else 2):
             output = await _ask(ctx, services, task, pack, who, text, subject)
             if output is None:
                 kept, reason = [], "invalid_output"
