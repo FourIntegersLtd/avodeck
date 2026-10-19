@@ -263,7 +263,7 @@ The records received, every page and word, and the facts found on them.
 
 | Table | In plain words | Key fields |
 |---|---|---|
-| `documents` | Each file received (records, instructions, witness statements, court bundles…), with who sent it and when. Split into pages. | case_id, kind, filename, storage_path, sha256, pages, received_on, obtained_how, bundle_version |
+| `documents` | Each file received (records, instructions, witness statements, court bundles…), with who sent it and when. Split into pages. | case_id, kind, filename, storage_path, sha256, pages, received_on, obtained_how, bundle_version, unreadable_reason |
 | `document_scans` | The safety scan of each received file, what kind of file it turned out to be, and when it was split into pages. | document_id, case_id, clean, signature, media_type, scanned_at, split_at |
 | `document_parts` | Which files came inside another file (an email's attachments, a zip's files), in order. Each part is a document of its own. | case_id, parent_document_id, document_id, part_no, media_type |
 | `exhibits` | Files that can't be paged, such as audio, video or X-ray images; listed but not read by Avodeck. | case_id, document_id, media_type, size, storage_path, sha256, note |

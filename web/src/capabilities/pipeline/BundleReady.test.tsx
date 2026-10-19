@@ -83,7 +83,7 @@ describe.each([
   });
 
   test("a file we couldn't open gets its own card, with the reason, and the way to ask for a readable copy", async () => {
-    const [first, second] = summary(pack).documents;
+    const [first, second] = summary(pack).documents as [Schemas["BundleSummary"]["documents"][number], Schemas["BundleSummary"]["documents"][number]];
     mock(pack, {
       summary: {
         documents: [

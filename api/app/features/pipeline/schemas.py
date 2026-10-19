@@ -73,6 +73,7 @@ class Document(TypedDict):
     bundle_version: int
     media_type: NotRequired[str]
     part_of: NotRequired[uuid.UUID | None]
+    unreadable_reason: NotRequired[str]  # `locked` or `damaged`: the file could not be opened (F2)
 
 
 class Exhibit(BaseModel):
@@ -189,6 +190,8 @@ class RequestDraft(BaseModel):
     clearer_copy_page_nos: list[int]
     translation_page_ids: list[uuid.UUID] = []  # pages to ask a certified translation of (F37)
     translation_page_nos: list[int] = []
+    unreadable_document_ids: list[uuid.UUID] = []  # files that could not be opened; a readable copy is asked (F2)
+    unreadable_document_names: list[str] = []
     extension: RequestExtension | None = None  # None when the pack sets no day count or the case has no due date
 
 

@@ -26,11 +26,13 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from datetime import date, timedelta
 from typing import Any
 
+import pikepdf
 from psycopg import AsyncConnection
 
 from app.core import audit, notifications
@@ -57,6 +59,8 @@ PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantin
 CONCURRENCY = 3  # pages read or sent to a model at once
 LIMITS = convert.Limits()
 PART_OBJECT = "file"  # the one sealed object under a part's prefix
+log = logging.getLogger(__name__)
+
 STEPS = ("split", "ocr", "sort", "duplicates", "missing")  # the steps the Preparing screen shows
 READY = "bundle_ready"  # the notification kind sent when new pages are ready
 
@@ -151,7 +155,13 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
             break
         for doc in documents:
             async with ctx.transaction() as conn:
-                pages = await _unpack(conn, services, ctx.case_id, doc)
+                try:
+                    pages = await _unpack(conn, services, ctx.case_id, doc)
+                except (pikepdf.PasswordError, pikepdf.PdfError) as error:  # F2: this file stops, the rest go on
+                    log.warning("document could not be opened: %s", type(error).__name__)  # class only, no text
+                    reason = "locked" if isinstance(error, pikepdf.PasswordError) else "damaged"
+                    await repo.mark_unopened(conn, ctx.case_id, doc.id, reason)
+                    continue
                 if await repo.add_pages(conn, ctx.case_id, doc.id, len(pages)):
                     cache[doc.id] = pages
                 await repo.link_replacements(conn, ctx.case_id)
