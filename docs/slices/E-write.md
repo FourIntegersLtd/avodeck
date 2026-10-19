@@ -83,6 +83,8 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] `opinion_versions` is append-only in the database (AV409), except the case purge
 - [x] Stale points can be kept; claims show the expert's verdict (else the suggested one) and a stale label
 
+- [x] Board details that need server data (S14 and S15): `short_title` on `write-progress` (first clause of the question, 40 characters; derived in slice E, slice C can replace it); `question {number, short_title, kind, kind_label_key, para_ref}` on the points and workspace responses (the label key comes from the case type's question types; the screen falls back to the humanised kind); `range_note.dictated_on` (the day the note was first written, from `range_notes.created_at`, no new column); `sentence_start` / `sentence_end` on each lint warning, with the saved text shown read-only and the flagged sentence marked
+
 ## Rules that apply
 1, 2, 4, 6, 7, 9, 11 from the root `AGENTS.md`.
 
