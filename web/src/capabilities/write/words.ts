@@ -70,6 +70,7 @@ const WORDS = {
   "opinion.test": "The test you're applying",
   "opinion.test_reference": "The test the case type uses, for reference:",
   "opinion.flagged_copy": "Your text with the sentences to check marked",
+  "opinion.add_page": "Add the page",
   "opinion.checks": "Checks on what you've written",
   "opinion.checks_clear": "Nothing to check.",
   "opinion.issue.uncited_fact": "A sentence states a fact without a page number: {{words}}",

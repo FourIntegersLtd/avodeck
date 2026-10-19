@@ -596,6 +596,18 @@ function Editor({
                     { words: issue.words },
                   )}
                 </p>
+                {issue.type === "uncited_fact" && issue.sentence_start != null && (
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      const mark = document.getElementById(`flagged-${issue.sentence_start}`);
+                      mark?.focus();
+                      mark?.scrollIntoView?.({ block: "center" });
+                    }}
+                  >
+                    {w("opinion.add_page")}
+                  </Button>
+                )}
                 <Button
                   variant="secondary"
                   onClick={() => setDismissing(issue)}
@@ -735,7 +747,7 @@ function FlaggedCopy({ body, issues, page }: { body: string; issues: Schemas["Li
   for (const [start, end] of spans) {
     if (start < at) continue;
     if (start > at) parts.push(<span key={`t${at}`}>{plain(body.slice(at, start))}</span>);
-    parts.push(<mark key={`m${start}`} className="av-write-flagged">{plain(body.slice(start, end))}</mark>);
+    parts.push(<mark key={`m${start}`} id={`flagged-${start}`} tabIndex={-1} className="av-write-flagged">{plain(body.slice(start, end))}</mark>);
     at = end;
   }
   if (at < body.length) parts.push(<span key={`t${at}`}>{plain(body.slice(at))}</span>);
