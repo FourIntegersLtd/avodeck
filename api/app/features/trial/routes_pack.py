@@ -26,9 +26,9 @@ from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
 from app.features.trial import ai_tasks, repo
-from app.features.trial.pdfs import render
 from app.features.trial.common import NO_STORE, Build, Crypto, Pack, Storage, View, conflict, invalid, not_found
 from app.features.trial.pack_document import DEFAULT_SECTIONS, SECTIONS, pack_document, sheets
+from app.features.trial.pdfs import render
 from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current

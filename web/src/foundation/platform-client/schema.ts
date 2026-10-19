@@ -3072,6 +3072,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/trial-pack/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview Pack
+         * @description What each section would add (pages when printed on their own) and the readiness sheets, for the screen.
+         */
+        get: operations["preview_pack_v1_cases__case_id__trial_pack_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/trial-pack/settings": {
         parameters: {
             query?: never;
@@ -4338,6 +4358,8 @@ export interface components {
             page_count: number | null;
             /** Received On */
             received_on: string | null;
+            /** Replaces Received On */
+            replaces_received_on?: string | null;
             /**
              * Status
              * @enum {string}
@@ -6272,6 +6294,8 @@ export interface components {
             other_positions: string | null;
             /** Own Position */
             own_position: string | null;
+            /** Pages */
+            pages: number[];
             /** Reason */
             reason: string | null;
             /** Served Paragraphs */
@@ -7826,6 +7850,15 @@ export interface components {
             /** Sha256 */
             sha256: string;
         };
+        /** PreviewOut */
+        PreviewOut: {
+            /** Sections */
+            sections: components["schemas"]["SectionPages"][];
+            /** Sheets */
+            sheets: components["schemas"]["SheetOut"][];
+            /** Total Pages */
+            total_pages: number;
+        };
         /** Processing */
         Processing: {
             job: components["schemas"]["ProcessingJob"] | null;
@@ -8382,6 +8415,8 @@ export interface components {
         RowOut: {
             /** Confirmed */
             confirmed: boolean;
+            /** Document Date */
+            document_date?: string | null;
             /**
              * Id
              * Format: uuid
@@ -8398,6 +8433,8 @@ export interface components {
             paragraphs: number[];
             /** Score */
             score: number;
+            /** Source Type */
+            source_type?: string | null;
             /**
              * Status
              * @enum {string}
@@ -8423,6 +8460,16 @@ export interface components {
             key: string;
             /** Written */
             written: boolean;
+        };
+        /** SectionPages */
+        SectionPages: {
+            /**
+             * Key
+             * @enum {string}
+             */
+            key: "report" | "chronology" | "readiness" | "joint_statement" | "written_answers" | "legal_tests" | "guidance";
+            /** Pages */
+            pages: number;
         };
         /** SectionSuggestion */
         SectionSuggestion: {
@@ -8642,6 +8689,35 @@ export interface components {
             job_id?: string | null;
             /** Version */
             version: number;
+        };
+        /** SheetOut */
+        SheetOut: {
+            /** Agreed */
+            agreed: boolean | null;
+            /** Answer */
+            answer: string | null;
+            /** Asked */
+            asked: string | null;
+            /** Number */
+            number: number;
+            /** Pages */
+            pages: components["schemas"]["SheetPage"][];
+            /** Reason */
+            reason: string | null;
+            /** Text */
+            text: string;
+        };
+        /** SheetPage */
+        SheetPage: {
+            /** Page No */
+            page_no: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "matched" | "to_confirm" | "missing" | "unmatched";
+            /** Trial Page No */
+            trial_page_no: number | null;
         };
         /** Side */
         Side: {
@@ -9105,7 +9181,7 @@ export interface components {
              */
             include_guidance: boolean;
             /** Sections */
-            sections: ("report" | "chronology" | "joint_statement" | "written_answers" | "legal_tests" | "guidance")[];
+            sections: ("report" | "chronology" | "readiness" | "joint_statement" | "written_answers" | "legal_tests" | "guidance")[];
         };
         /** TrialPackSettingsOut */
         TrialPackSettingsOut: {
@@ -9114,7 +9190,7 @@ export interface components {
             /** Include Guidance */
             include_guidance: boolean;
             /** Sections */
-            sections: ("report" | "chronology" | "joint_statement" | "written_answers" | "legal_tests" | "guidance")[];
+            sections: ("report" | "chronology" | "readiness" | "joint_statement" | "written_answers" | "legal_tests" | "guidance")[];
             /** Version */
             version: number;
         };
@@ -17971,6 +18047,46 @@ export interface operations {
                 content: {
                     "application/json": unknown;
                     "application/pdf": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    preview_pack_v1_cases__case_id__trial_pack_preview_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PreviewOut"];
                 };
             };
             /** @description Validation Error */

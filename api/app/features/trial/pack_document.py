@@ -190,8 +190,15 @@ async def sheets(
     for item in await repo.current_items(conn, services.case_crypto(), case_id, meeting["id"]):
         cited = sorted({no for pid in item["served_paragraph_ids"] if pid in by_id for _, no in by_id[pid].cited})
         out.append(
-            Sheet(item["number"], item["text"], item["own_position"], item["other_positions"], item["agreed"],
-                  item["reason"], cited)
+            Sheet(
+                item["number"],
+                item["text"],
+                item["own_position"],
+                item["other_positions"],
+                item["agreed"],
+                item["reason"],
+                cited,
+            )
         )
     return out
 

@@ -941,6 +941,18 @@
             ],
             "title": "Received On"
           },
+          "replaces_received_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Received On"
+          },
           "status": {
             "enum": [
               "received",
@@ -6388,6 +6400,13 @@
             ],
             "title": "Own Position"
           },
+          "pages": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
           "reason": {
             "anyOf": [
               {
@@ -6427,6 +6446,7 @@
           "deviation",
           "deviation_reason",
           "served_paragraphs",
+          "pages",
           "changed_from_previous",
           "version"
         ],
@@ -10769,6 +10789,35 @@
         "title": "Prepared",
         "type": "object"
       },
+      "PreviewOut": {
+        "properties": {
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/SectionPages"
+            },
+            "title": "Sections",
+            "type": "array"
+          },
+          "sheets": {
+            "items": {
+              "$ref": "#/components/schemas/SheetOut"
+            },
+            "title": "Sheets",
+            "type": "array"
+          },
+          "total_pages": {
+            "title": "Total Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sections",
+          "total_pages",
+          "sheets"
+        ],
+        "title": "PreviewOut",
+        "type": "object"
+      },
       "Processing": {
         "properties": {
           "job": {
@@ -12491,6 +12540,18 @@
             "title": "Confirmed",
             "type": "boolean"
           },
+          "document_date": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Date"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -12520,6 +12581,17 @@
           "score": {
             "title": "Score",
             "type": "number"
+          },
+          "source_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Type"
           },
           "status": {
             "enum": [
@@ -12604,6 +12676,33 @@
           "written"
         ],
         "title": "SectionOut",
+        "type": "object"
+      },
+      "SectionPages": {
+        "properties": {
+          "key": {
+            "enum": [
+              "report",
+              "chronology",
+              "readiness",
+              "joint_statement",
+              "written_answers",
+              "legal_tests",
+              "guidance"
+            ],
+            "title": "Key",
+            "type": "string"
+          },
+          "pages": {
+            "title": "Pages",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "key",
+          "pages"
+        ],
+        "title": "SectionPages",
         "type": "object"
       },
       "SectionSuggestion": {
@@ -13273,6 +13372,116 @@
           "version"
         ],
         "title": "SettingsOut",
+        "type": "object"
+      },
+      "SheetOut": {
+        "properties": {
+          "agreed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agreed"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "asked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asked"
+          },
+          "number": {
+            "title": "Number",
+            "type": "integer"
+          },
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/SheetPage"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "text",
+          "answer",
+          "asked",
+          "agreed",
+          "reason",
+          "pages"
+        ],
+        "title": "SheetOut",
+        "type": "object"
+      },
+      "SheetPage": {
+        "properties": {
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "matched",
+              "to_confirm",
+              "missing",
+              "unmatched"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "trial_page_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trial Page No"
+          }
+        },
+        "required": [
+          "page_no",
+          "trial_page_no",
+          "status"
+        ],
+        "title": "SheetPage",
         "type": "object"
       },
       "Side": {
@@ -14467,6 +14676,7 @@
               "enum": [
                 "report",
                 "chronology",
+                "readiness",
                 "joint_statement",
                 "written_answers",
                 "legal_tests",
@@ -14474,7 +14684,7 @@
               ],
               "type": "string"
             },
-            "maxItems": 6,
+            "maxItems": 7,
             "minItems": 1,
             "title": "Sections",
             "type": "array"
@@ -14509,6 +14719,7 @@
               "enum": [
                 "report",
                 "chronology",
+                "readiness",
                 "joint_statement",
                 "written_answers",
                 "legal_tests",
@@ -28445,6 +28656,60 @@
           }
         },
         "summary": "Download Pack",
+        "tags": [
+          "trial"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/trial-pack/preview": {
+      "get": {
+        "description": "What each section would add (pages when printed on their own) and the readiness sheets, for the screen.",
+        "operationId": "preview_pack_v1_cases__case_id__trial_pack_preview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Preview Pack",
         "tags": [
           "trial"
         ]
