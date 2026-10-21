@@ -9,10 +9,10 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from app.core.crypto import CaseCrypto
-from app.core.packs import PackLibrary
 from app.core.contracts.document_words import word_purpose
 from app.core.contracts.fact_dates import resolve_fact_event_date
+from app.core.crypto import CaseCrypto
+from app.core.packs import PackLibrary
 from app.features.reader import repo
 
 

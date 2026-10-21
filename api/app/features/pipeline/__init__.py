@@ -18,8 +18,7 @@ from app.core.contracts.pipeline import (
     register_extract_page_text,
     register_process_pages,
 )
-from app.features.pipeline import date_repair
-from app.features.pipeline import repo, wiring
+from app.features.pipeline import date_repair, repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
     PURGE_QUARANTINED,
