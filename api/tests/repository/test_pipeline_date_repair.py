@@ -5,12 +5,14 @@ from __future__ import annotations
 import datetime as dt
 from collections.abc import AsyncIterator
 
+import psycopg
 import pytest
 
+from app.core.db import Database
 from app.core.packs import default_library
 from app.core.storage import SupabaseStorage
 from app.features.pipeline import dates
-from tests.repository.test_pipeline_support import Harness, harness
+from tests.repository.test_pipeline_support import harness
 from tests.support.facts_seed import insert_fact
 from tests.support.files import local_storage
 from tests.support.packs import LAUNCH
@@ -29,10 +31,10 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 async def test_repair_job_sets_event_date_from_printed_words(
-    admin,
-    api_db,
-    worker_dsn,
-    auth_env,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
     seed: Seed,
     storage: SupabaseStorage,
 ) -> None:
@@ -61,7 +63,7 @@ async def test_repair_job_sets_event_date_from_printed_words(
         event_date=None,
         status="verified",
     )
-    gen = harness(
+    async with harness(
         admin=admin,
         api_db=api_db,
         worker_dsn=worker_dsn,
@@ -71,13 +73,9 @@ async def test_repair_job_sets_event_date_from_printed_words(
         expert=expert,
         case_id=case_id,
         ocr_store=None,
-    )
-    h: Harness = await gen.__anext__()
-    try:
+    ) as h:
         resp = await h.client.post(f"/v1/cases/{case_id}/repair-fact-dates")
         assert resp.status_code == 202
         await h.drain()
         row = admin.execute("select event_date, date_basis from app.facts where id = %s", (fact_id,)).fetchone()
         assert row == (dt.date(2024, 4, 3), "printed")
-    finally:
-        await gen.aclose()

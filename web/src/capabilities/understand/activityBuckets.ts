@@ -175,12 +175,15 @@ export function activityBuckets(
   return { buckets, granularity, undatedCount, windowFrom, windowTo };
 }
 
+const entryIso = (e: { event_date?: string | null; available_at?: string | null }): string | null =>
+  e.event_date ?? e.available_at ?? null;
+
 export function entriesInBucket<T extends { event_date?: string | null; available_at?: string | null }>(
   entries: T[],
   bucket: Pick<ActivityBucket, "from" | "to">,
 ): T[] {
   return entries.filter((e) => {
-    const iso = axisIso(e);
+    const iso = entryIso(e);
     return iso !== null && inRange(iso, bucket.from, bucket.to);
   });
 }

@@ -39,7 +39,7 @@ export interface FactCardProps {
 
 /** What the server's state machine lets the expert do with this fact (docs/spec/state-machines.md "Fact").
  * A checked fact flagged "Please check" may be confirmed again, or changed to cite words chosen again. */
-export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight: boolean; edit: boolean } {
+export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight: boolean; edit: boolean; timelineDate: boolean } {
   const checked = fact.status === "verified" || fact.status === "edited";
   return {
     correct: fact.status === "suggested" || fact.status === "rejected" || (checked && fact.needs_recheck === true),
@@ -158,7 +158,7 @@ export function FactCard(p: FactCardProps) {
               <input
                 id={`${id}-f-${key}`}
                 className="av-input"
-                value={p.editingFields[key] ?? ""}
+                value={p.editingFields?.[key] ?? ""}
                 onChange={(e) => p.onEditField(key, e.target.value)}
               />
             </div>

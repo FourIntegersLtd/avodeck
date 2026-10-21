@@ -6,7 +6,7 @@ import datetime as dt
 
 import pytest
 
-from app.core.packs import default_library
+from app.core.packs import MergedPack, default_library
 from app.features.pipeline import date_repair, dates
 from tests.support.packs import BOTH, LAUNCH, Combo
 
@@ -15,7 +15,7 @@ MARCH_4 = dt.date(2024, 3, 4)
 READ_AS = {"DMY": APRIL_3, "MDY": MARCH_4}
 
 
-def pack_of(combo: Combo):
+def pack_of(combo: Combo) -> MergedPack:
     return default_library().combine(*combo.codes)
 
 
@@ -42,6 +42,7 @@ def test_ambiguous_two_digit_year_stays_undated(combo: Combo) -> None:
     ordered = words(("w1", "03/04/24"))
     kind = pack.fact_kinds()[0]["key"]
     field = dates.date_field(pack, kind)
+    assert field is not None
     when, basis = date_repair.resolve_fact_event_date(kind, {field: "2024-04-03"}, ["w1"], ordered, set(), pack)
     assert when is None
     assert basis is None
