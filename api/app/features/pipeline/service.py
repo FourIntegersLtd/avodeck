@@ -48,7 +48,19 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcrip
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import convert, date_repair, dates, duplicates, extract, gaps, language, missing, paths, quarantine, repo
+from app.features.pipeline import (
+    convert,
+    date_repair,
+    dates,
+    duplicates,
+    extract,
+    gaps,
+    language,
+    missing,
+    paths,
+    quarantine,
+    repo,
+)
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, turned, typed, usable_text_layer

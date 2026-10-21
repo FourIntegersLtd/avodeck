@@ -10,19 +10,9 @@ export function clampSplit(pct: number): number {
 }
 
 export function loadSplitPct(): number {
-  try {
-    const raw = sessionStorage.getItem(SPLIT_STORAGE_KEY);
-    if (raw !== null) return clampSplit(Number(raw));
-  } catch {
-    /* private mode */
-  }
   return DEFAULT_SPLIT_PCT;
 }
 
-export function saveSplitPct(pct: number): void {
-  try {
-    sessionStorage.setItem(SPLIT_STORAGE_KEY, String(clampSplit(pct)));
-  } catch {
-    /* private mode */
-  }
+export function saveSplitPct(_pct: number): void {
+  /* Split width is per session in React state only (web/AGENTS.md: no sessionStorage). */
 }

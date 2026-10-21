@@ -361,7 +361,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {info && !notice && <Notice tone="success">{info}</Notice>}
           {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
           {facts?.length === 0 && <p className="rd-note">{w("read.none_found")}</p>}
-          {facts && facts.length > 0 && <FactSwitcher facts={facts} focus={focus} pack={pack} onFocus={setFocus} />}
+          {facts && facts.length > 0 && <FactSwitcher facts={facts} focus={focus} onFocus={setFocus} />}
           {focusedFact && (
             <FactCard
               key={focusedFact.id}

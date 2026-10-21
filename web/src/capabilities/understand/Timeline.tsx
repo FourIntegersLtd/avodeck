@@ -20,19 +20,6 @@ type Source = Schemas["TimelineSource"];
 type Zoom = "whole" | "month";
 type TimelineViewMode = "chronology" | "activity" | "map";
 
-const viewStorageKey = (caseId: string) => `av-timeline-view-${caseId}`;
-
-function readViewMode(caseId: string): TimelineViewMode {
-  try {
-    const stored = sessionStorage.getItem(viewStorageKey(caseId));
-    if (stored === "map") return "map";
-    if (stored === "activity") return "activity";
-    return "chronology";
-  } catch {
-    return "chronology";
-  }
-}
-
 const DAY = 86_400_000;
 const at = (iso: string | null | undefined): number | null => {
   if (!iso) return null;
@@ -278,7 +265,7 @@ export function Timeline() {
   const [adjust, setAdjust] = useState(false);
   const lastCounts = useRef<Schemas["TimelineCounts"] | null>(null);
   const [zoom, setZoom] = useState<Zoom>("whole");
-  const [viewMode, setViewMode] = useState<TimelineViewMode>(() => readViewMode(caseId));
+  const [viewMode, setViewMode] = useState<TimelineViewMode>("chronology");
   const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId]);
   const caseRow = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId]);
   const found = useResource(async () => {
@@ -291,18 +278,6 @@ export function Timeline() {
     if (to) query.to = to;
     return unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: query as never } }));
   }, [caseId, status, questionId, from, to, seenOn]);
-
-  useEffect(() => {
-    setViewMode(readViewMode(caseId));
-  }, [caseId]);
-
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(viewStorageKey(caseId), viewMode);
-    } catch {
-      /* private mode */
-    }
-  }, [caseId, viewMode]);
 
   useEffect(() => {
     if (windowPreset !== "period" || periodSeeded) return;

@@ -154,9 +154,11 @@ def _replaying(endpoint: Callable[..., Any]) -> Callable[..., Any]:
 def _local_dev_origin_alias(origin: str, allowed: str) -> bool:
     """localhost and 127.0.0.1 are the same dev machine; APP_ORIGIN is usually only one of them."""
     for scheme in ("http://", "https://"):
-        if allowed.startswith(f"{scheme}localhost:") and origin == allowed.replace(f"{scheme}localhost:", f"{scheme}127.0.0.1:"):
+        localhost = f"{scheme}localhost:"
+        loopback = f"{scheme}127.0.0.1:"
+        if allowed.startswith(localhost) and origin == allowed.replace(localhost, loopback, 1):
             return True
-        if allowed.startswith(f"{scheme}127.0.0.1:") and origin == allowed.replace(f"{scheme}127.0.0.1:", f"{scheme}localhost:"):
+        if allowed.startswith(loopback) and origin == allowed.replace(loopback, localhost, 1):
             return True
     return False
 

@@ -16,7 +16,6 @@ beforeEach(() => {
 });
 
 const PATH = `/cases/${CASE_ID}/read/118`;
-const card = (name: RegExp | string) => screen.getByRole("article", { name }) as HTMLElement;
 
 test("Set date on timeline prefills from the Date row (DMY, e.g. 31.12.93)", async () => {
   mockReader(launchPack, {

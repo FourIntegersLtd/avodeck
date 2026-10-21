@@ -8,7 +8,7 @@ import pytest
 
 from app.core.packs import default_library
 from app.features.pipeline import date_repair, dates
-from tests.support.packs import BOTH, FIXTURE, LAUNCH, Combo
+from tests.support.packs import BOTH, LAUNCH, Combo
 
 APRIL_3 = dt.date(2024, 4, 3)
 MARCH_4 = dt.date(2024, 3, 4)

@@ -3,7 +3,7 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { beforeEach, describe, expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 import { http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
@@ -18,10 +18,6 @@ async function openOverviewMap(user: UserEvent) {
 async function openActivityTab(user: UserEvent) {
   await user.click(await screen.findByRole("radio", { name: "Activity" }));
 }
-
-beforeEach(() => {
-  sessionStorage.clear();
-});
 
 function serve(body = timeline()) {
   const seen: URL[] = [];
