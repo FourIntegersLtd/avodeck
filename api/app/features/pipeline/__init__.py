@@ -11,12 +11,14 @@ from psycopg import AsyncConnection
 
 from app.core import jobs
 from app.core.contracts.events import DocumentUploaded, events
+from app.core.contracts.fact_dates import register_resolve_fact_event_date
 from app.core.contracts.pipeline import (
     PROCESS_BUNDLE,
     PROCESS_PAGES,
     register_extract_page_text,
     register_process_pages,
 )
+from app.features.pipeline import date_repair
 from app.features.pipeline import repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
@@ -64,3 +66,4 @@ if SCAN_DOCUMENT not in jobs.registry.kinds:
     register(jobs.registry)
 register_process_pages(queue_pages)
 register_extract_page_text(queue_page_text)
+register_resolve_fact_event_date(date_repair.resolve_fact_event_date)

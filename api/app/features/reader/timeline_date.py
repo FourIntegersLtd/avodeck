@@ -11,8 +11,8 @@ from psycopg import AsyncConnection
 
 from app.core.crypto import CaseCrypto
 from app.core.packs import PackLibrary
-from app.features.pipeline import date_repair
-from app.features.pipeline.paths import word_purpose
+from app.core.contracts.document_words import word_purpose
+from app.core.contracts.fact_dates import resolve_fact_event_date
 from app.features.reader import repo
 
 
@@ -41,7 +41,7 @@ async def resolve_for_verify(
         ordered.append((word_id, text))
         if is_struck:
             struck.add(word_id)
-    return date_repair.resolve_fact_event_date(
+    return resolve_fact_event_date(
         kind,
         fields,
         word_ids,

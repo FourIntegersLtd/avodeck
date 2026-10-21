@@ -369,9 +369,9 @@ async def verify_fact(
             event_date = resolved
             date_basis = basis
     elif before["event_date"] is None and event_date is not None and "event_date" in body.model_fields_set:
-        from app.features.pipeline import dates
+        from app.core.contracts.fact_dates import DATE_BASIS_PRINTED
 
-        date_basis = dates.PRINTED
+        date_basis = DATE_BASIS_PRINTED
     after = await repo.change_fact(
         conn,
         fact_id,

@@ -14,5 +14,5 @@ export function loadSplitPct(): number {
 }
 
 export function saveSplitPct(_pct: number): void {
-  /* Split width is per session in React state only (web/AGENTS.md: no sessionStorage). */
+  /* Split width is held in React state only (web/AGENTS.md: no browser storage). */
 }
