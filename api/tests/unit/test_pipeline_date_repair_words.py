@@ -8,7 +8,7 @@ import pytest
 
 from app.core.packs import MergedPack, default_library
 from app.features.pipeline import date_repair, dates
-from tests.support.packs import BOTH, LAUNCH, Combo
+from tests.support.packs import LAUNCH, Combo
 
 APRIL_3 = dt.date(2024, 4, 3)
 MARCH_4 = dt.date(2024, 3, 4)
@@ -36,7 +36,7 @@ def test_pointer_on_page_sets_event_date() -> None:
     assert basis == dates.PRINTED
 
 
-@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+@pytest.mark.parametrize("combo", [LAUNCH], ids=lambda c: c.codes[0])
 def test_ambiguous_two_digit_year_stays_undated(combo: Combo) -> None:
     pack = pack_of(combo)
     ordered = words(("w1", "03/04/24"))

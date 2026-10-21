@@ -42,12 +42,6 @@ async def test_repair_job_sets_event_date_from_printed_words(
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
     doc = seed.document(case_id)
     page_id = seed.page(case_id, doc, 1)
-    admin.execute(
-        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
-        " values (%s, %s, 1, 'w1', '03/04/2024', '{0,0,1,0,1,1,0,1}', 1, 'ocr'),"
-        " (%s, %s, 2, 'w2', 'review', '{0,0,1,0,1,1,0,1}', 1, 'ocr')",
-        (page_id, case_id, page_id, case_id),
-    )
     pack = default_library().combine(*LAUNCH.codes)
     kind = pack.fact_kinds()[0]["key"]
     field = dates.date_field(pack, kind)
@@ -74,6 +68,18 @@ async def test_repair_job_sets_event_date_from_printed_words(
         case_id=case_id,
         ocr_store=None,
     ) as h:
+        from app.features.pipeline.paths import word_purpose
+
+        async with api_db.job(case_id) as conn:
+            for n, word_id, text in ((1, "w1", "03/04/2024"), (2, "w2", "review")):
+                sealed = await h.crypto.encrypt(
+                    conn, case_id, text.encode(), purpose=word_purpose(page_id, word_id)
+                )
+                await conn.execute(
+                    "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+                    " values (%s, %s, %s, %s, %s, %s, 0.9, 'ocr')",
+                    (page_id, case_id, n, word_id, sealed, [0, 0, 1, 0, 1, 1, 0, 1]),
+                )
         resp = await h.client.post(f"/v1/cases/{case_id}/repair-fact-dates")
         assert resp.status_code == 202
         await h.drain()
