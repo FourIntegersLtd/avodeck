@@ -9,6 +9,7 @@
 .env
 .env.*
 !/.env.example
+!api/.env.example
 api/.env
 web/node_modules
 web/dist

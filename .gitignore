@@ -6,6 +6,9 @@ web/dist/
 .env
 .env.*
 !.env.example
+api/.env
+api/.env.*
+!api/.env.example
 .coverage
 coverage/
 playwright-report/

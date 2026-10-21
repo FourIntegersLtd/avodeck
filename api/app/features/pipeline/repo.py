@@ -1428,3 +1428,43 @@ async def link_replacements(conn: AsyncConnection, case_id: uuid.UUID) -> dict[u
             (new, old),
         )
     return linked
+
+
+@dataclass(frozen=True)
+class UndatedFact:
+    fact_id: uuid.UUID
+    page_id: uuid.UUID
+    kind: str
+    fields: dict[str, Any]
+    word_ids: list[str]
+    status: str
+
+
+async def undated_facts(conn: AsyncConnection, case_id: uuid.UUID) -> list[UndatedFact]:
+    cur = await conn.execute(
+        "select id, page_id, kind, fields, word_ids, status from app.facts"
+        " where case_id = %s and event_date is null and status <> 'rejected' order by page_id, id",
+        (case_id,),
+    )
+    return [
+        UndatedFact(
+            fact_id=uuid.UUID(str(r[0])),
+            page_id=uuid.UUID(str(r[1])),
+            kind=str(r[2]),
+            fields=dict(r[3] or {}),
+            word_ids=list(r[4] or []),
+            status=str(r[5]),
+        )
+        for r in await cur.fetchall()
+    ]
+
+
+async def set_fact_event_date(
+    conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID, when: dt.date, basis: str
+) -> bool:
+    cur = await conn.execute(
+        "update app.facts set event_date = %s, date_basis = %s"
+        " where case_id = %s and id = %s and event_date is null returning id",
+        (when, basis, case_id, fact_id),
+    )
+    return (await cur.fetchone()) is not None

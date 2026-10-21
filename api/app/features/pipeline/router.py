@@ -93,7 +93,7 @@ from app.features.pipeline.schemas import (
     SortedPages,
     SourceCount,
 )
-from app.features.pipeline.service import REPROCESS_CASE, SCAN_DOCUMENT
+from app.features.pipeline.service import REPAIR_FACT_DATES, REPROCESS_CASE, SCAN_DOCUMENT
 
 pipeline_router = router(prefix="/v1/cases", tags=["pipeline"])
 
@@ -631,6 +631,18 @@ async def reprocess(
     await repo.opt_in_reprocess(conn, case_id, scope.person_id)
     job_id = await wiring.registry().enqueue(conn, case_id, REPROCESS_CASE)
     await audit.record(conn, action="bundle.reprocess_requested", target=f"case:{case_id}", case_id=case_id)
+    return JobQueued(job_id=job_id)
+
+
+@pipeline_router.post("/{case_id}/repair-fact-dates", status_code=202, response_model=JobQueued)
+async def repair_fact_dates_route(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    conn: DbConn,
+) -> JobQueued:
+    """Fills missing fact dates from printed words on each page, without guessing from free text."""
+    job_id = await wiring.registry().enqueue(conn, case_id, REPAIR_FACT_DATES)
+    await audit.record(conn, action="bundle.repair_fact_dates_requested", target=f"case:{case_id}", case_id=case_id)
     return JobQueued(job_id=job_id)
 
 

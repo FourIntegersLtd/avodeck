@@ -21,12 +21,14 @@ from app.features.pipeline import repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
     PURGE_QUARANTINED,
+    REPAIR_FACT_DATES,
     REPROCESS_CASE,
     SCAN_DOCUMENT,
     process_bundle,
     purge_quarantined,
     queue_page_text,
     queue_pages,
+    repair_fact_dates,
     reprocess_case,
     scan_document,
 )
@@ -39,6 +41,7 @@ def register(registry: jobs.JobRegistry) -> None:
     registry.kind(PROCESS_BUNDLE)(process_bundle)
     registry.kind(PROCESS_PAGES)(process_bundle)
     registry.kind(REPROCESS_CASE)(reprocess_case)
+    registry.kind(REPAIR_FACT_DATES)(repair_fact_dates)
     registry.schedule(PURGE_QUARANTINED)(purge_quarantined)
 
 

@@ -23,7 +23,7 @@ from app.core.http import router as make_router
 from app.core.packs import PackLibrary
 from app.core.storage import SupabaseStorage
 from app.features.reader import fields as fact_fields
-from app.features.reader import repo, today  # noqa: F401 (registers the Today providers)
+from app.features.reader import repo, timeline_date, today  # noqa: F401 (registers the Today providers)
 from app.features.reader.schemas import (
     FactList,
     FactOut,
@@ -330,19 +330,48 @@ async def verify_fact(
     if rechecking and body.action == "edit" and not body.word_ids:
         raise ApiError("words_needed", "Choose the words on the page that show this.", 422)
     if body.action == "edit":
-        if not body.new_value:
+        if body.new_value is None and body.fields is None and "event_date" not in body.model_fields_set:
             raise _invalid()
-        value, word_ids = body.new_value, body.word_ids or before["word_ids"]
-        words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
-        if not provenance.supported(value, word_ids, words):
-            raise _invalid()
-        if body.word_ids:
+        if body.new_value is not None:
+            if not body.new_value.strip():
+                raise _invalid()
+            value, word_ids = body.new_value, body.word_ids or before["word_ids"]
+            words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
+            if not provenance.supported(value, word_ids, words):
+                raise _invalid()
+            if body.word_ids or value != before["value"] or word_ids != before["word_ids"]:
+                bbox = await repo.word_box(conn, before["page_id"], word_ids)
+        elif body.word_ids is not None:
+            word_ids = body.word_ids
+            words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
+            if not provenance.supported(value, word_ids, words):
+                raise _invalid()
             bbox = await repo.word_box(conn, before["page_id"], word_ids)
         if body.fields is not None:
             await _check_fields(request, conn, case_id, before["kind"], body.fields)
             fields = body.fields
         if "event_date" in body.model_fields_set:
             event_date = body.event_date
+    date_basis = None
+    if before["event_date"] is None and event_date is None and body.action in ("correct", "edit"):
+        library: PackLibrary = request.app.state.packs
+        resolved, basis = await timeline_date.resolve_for_verify(
+            conn,
+            _crypto(request),
+            library,
+            case_id,
+            before["page_id"],
+            before["kind"],
+            fields,
+            word_ids,
+        )
+        if resolved is not None:
+            event_date = resolved
+            date_basis = basis
+    elif before["event_date"] is None and event_date is not None and "event_date" in body.model_fields_set:
+        from app.features.pipeline import dates
+
+        date_basis = dates.PRINTED
     after = await repo.change_fact(
         conn,
         fact_id,
@@ -354,6 +383,7 @@ async def verify_fact(
         bbox=bbox,
         fields=fields,
         event_date=event_date,
+        date_basis=date_basis,
     )
     out = _changed(response, after)
     assert after is not None

@@ -44,7 +44,14 @@ async def test_the_timeline_lists_the_pack_s_sources_and_the_numbers_for_its_chi
     assert [s["colour"] for s in body["sources"]] == [s["colour"] for s in case.pack.source_types()]
     vocab = case.pack.vocabulary.get("source_types", {})
     assert [s["label"] for s in body["sources"]] == [vocab.get(s["key"], s["key"]) for s in case.pack.source_types()]
-    assert body["counts"] == {"checked": 2, "please_check": 0, "things_to_look": 0, "not_linked": 1, "total": 2}
+    assert body["counts"] == {
+        "checked": 2,
+        "please_check": 0,
+        "things_to_look": 0,
+        "not_linked": 1,
+        "undated": 0,
+        "total": 2,
+    }
     first = next(e for lane in body["lanes"] for e in lane["events"] if e["fact_id"] == str(own))
     assert first["summary"] == "zz"
     assert first["source"] == case.pack.source_types()[0]["key"]

@@ -7,18 +7,16 @@ import { useNavigate, useParams } from "react-router-dom";
 import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, StatusBadge, ToggleSwitch } from "../../foundation/ui";
 import { Comments } from "./Comments";
 import { GuidanceChanged, kindWord, longDate, statusOf, TextArea, useCan } from "./shared";
 import { w } from "./words";
+import { groupByPage, splitByVisitPage } from "./consultationEntries";
 import { pageImage } from "./pageImage";
 
 type Entry = Schemas["Entry"];
-
-function Arrival({ entry }: { entry: Entry }) {
-  return <span className="av-muted">{entry.available_at ? w("consultation.arrived", { date: longDate(entry.available_at) }) : w("consultation.arrival_unknown")}</span>;
-}
+type EntryVariant = "known" | "unknown";
 
 /** A dot for a fact's state: filled when you checked it, dashed when it still needs checking, amber for a thing to look at. */
 function StateDot({ entry }: { entry: Entry }) {
@@ -26,33 +24,92 @@ function StateDot({ entry }: { entry: Entry }) {
   return <span className="av-understand-key" data-state={state} aria-hidden="true" />;
 }
 
-function Entries({ items, onChange }: { items: Entry[]; onChange?: (e: Entry) => void }) {
+function EntryRow({ entry, variant, onChange }: { entry: Entry; variant: EntryVariant; onChange?: (e: Entry) => void }) {
+  return (
+    <li className="av-understand-entry av-understand-entry--compact">
+      <StateDot entry={entry} />
+      <div className="av-understand-entry__line">
+        <span>
+          <strong>
+            {kindWord(entry.kind)}, {longDate(entry.event_date)}.
+          </strong>{" "}
+          <span className="av-understand-entry__summary">{entry.summary}</span>
+        </span>
+        <div className="av-understand-entry__meta">
+          {variant === "known" && entry.available_at && <span className="av-muted">{w("consultation.arrived", { date: longDate(entry.available_at) })}</span>}
+          <span className="av-visually-hidden">{statusOf(entry.status) === "checked" ? t("ui.status.checked") : t("ui.status.please_check")}</span>
+          {entry.has_finding && <StatusBadge status="look" />}
+          {onChange && (variant === "unknown" || !entry.available_at) && (
+            <button type="button" className="av-understand-entry__set-arrival" onClick={() => onChange(entry)}>
+              {w("consultation.set_arrival")}
+            </button>
+          )}
+        </div>
+      </div>
+      <PageRef page={entry.page_no} />
+    </li>
+  );
+}
+
+function EntriesList({ items, variant, onChange }: { items: Entry[]; variant: EntryVariant; onChange?: (e: Entry) => void }) {
   return (
     <ul className="av-understand-list av-understand-entries">
       {items.map((e) => (
-        <li key={e.fact_id} className="av-understand-entry">
-          <StateDot entry={e} />
-          <span className="av-understand-entry__words">
-            <span>
-              <strong>
-                {kindWord(e.kind)}, {longDate(e.event_date)}.
-              </strong>{" "}
-              {e.summary}
-            </span>
-            <Arrival entry={e} />
-            <span className="av-visually-hidden">{statusOf(e.status) === "checked" ? t("ui.status.checked") : t("ui.status.please_check")}</span>
-            {e.has_finding && <StatusBadge status="look" />}
-          </span>
-          <PageRef page={e.page_no} />
-          {onChange && (
-            <Button variant="secondary" onClick={() => onChange(e)}>
-              {w("consultation.change_arrival")}
-            </Button>
-          )}
-        </li>
+        <EntryRow key={e.fact_id} entry={e} variant={variant} onChange={onChange} />
       ))}
     </ul>
   );
+}
+
+function PageGroups({ items, variant, onChange }: { items: Entry[]; variant: EntryVariant; onChange?: (e: Entry) => void }) {
+  const groups = groupByPage(items);
+  return (
+    <>
+      {groups.map((g) => (
+        <div key={g.page} className="av-understand-entries__group">
+          <h3>{w("consultation.page_group", { page: g.page })}</h3>
+          <EntriesList items={g.items} variant={variant} onChange={onChange} />
+        </div>
+      ))}
+    </>
+  );
+}
+
+function GroupedEntries({ items, visitPage, variant, onChange }: { items: Entry[]; visitPage: number | null | undefined; variant: EntryVariant; onChange?: (e: Entry) => void }) {
+  const { onPage, otherPages } = splitByVisitPage(items, visitPage);
+  const foldOther = otherPages.length > 2;
+  return (
+    <div className="av-stack">
+      {onPage.length > 0 && (
+        <div className="av-understand-entries__group">
+          <h3>{w("consultation.on_this_page")}</h3>
+          <EntriesList items={onPage} variant={variant} onChange={onChange} />
+        </div>
+      )}
+      {otherPages.length > 0 &&
+        (foldOther ? (
+          <details className="av-understand-later">
+            <summary>{w("consultation.from_other_pages", { count: otherPages.length })}</summary>
+            <PageGroups items={otherPages} variant={variant} onChange={onChange} />
+          </details>
+        ) : (
+          <PageGroups items={otherPages} variant={variant} onChange={onChange} />
+        ))}
+    </div>
+  );
+}
+
+function SeenEntries({ items, visitPage, onChange }: { items: Entry[]; visitPage: number | null | undefined; onChange?: (e: Entry) => void }) {
+  const body = <GroupedEntries items={items} visitPage={visitPage} variant="known" onChange={onChange} />;
+  if (items.length > 8) {
+    return (
+      <details>
+        <summary>{w("consultation.seen_fold", { count: items.length })}</summary>
+        {body}
+      </details>
+    );
+  }
+  return body;
 }
 
 function ArrivalDialog({ caseId, entry, onClose, onSaved }: { caseId: string; entry: Entry; onClose: () => void; onSaved: () => void }) {
@@ -154,6 +211,7 @@ function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
         <h2 id="consult-page">{w("consultation.page_title")}</h2>
         <PageRef page={pageNo} />
       </div>
+      <p className="av-muted av-understand-page__context">{w("consultation.page_context", { page: pageNo })}</p>
       {shown.error ? (
         <p className="av-muted">{w("consultation.page_none")}</p>
       ) : shown.data ? (
@@ -212,7 +270,23 @@ export function Consultation() {
       ),
     [caseId, factId, on],
   );
-  if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
+  if (found.error) {
+    const err = found.error;
+    if (err instanceof ApiError && err.code === "undated_entry") {
+      const page = typeof err.extra.page_no === "number" ? err.extra.page_no : null;
+      const readTo = page ? `/cases/${caseId}/read/${page}?fact=${factId}` : `/cases/${caseId}/read`;
+      return (
+        <div className="av-page av-stack">
+          <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
+          <Notice>
+            <p>{w("consultation.undated_entry")}</p>
+            <LinkButton to={readTo}>{w("consultation.undated_entry_read")}</LinkButton>
+          </Notice>
+        </div>
+      );
+    }
+    return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
+  }
   if (!found.data) return <div className="av-page"><Loading /></div>;
   const c = found.data;
   const day = c.entry.event_date ?? c.entry.available_at;
@@ -256,17 +330,28 @@ export function Consultation() {
         <div className="av-stack av-understand-area-aside">
           <section aria-labelledby="consult-seen" className="av-card av-stack av-understand-card">
             <h2 id="consult-seen">{w("consultation.seen")}</h2>
-            {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <Entries items={c.visible} onChange={change} />}
+            {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <SeenEntries items={c.visible} visitPage={c.entry.page_no} onChange={change} />}
             <details className="av-understand-later" open={!asSeen || undefined}>
               <summary>{w("consultation.later", { count: c.later_count })}</summary>
-              {c.later.length === 0 ? <p className="av-muted">{w("consultation.later_none")}</p> : <Entries items={c.later} onChange={change} />}
+              {c.later.length === 0 ? (
+                <p className="av-muted">{w("consultation.later_none")}</p>
+              ) : (
+                <GroupedEntries items={c.later} visitPage={c.entry.page_no} variant="known" onChange={change} />
+              )}
             </details>
           </section>
           {c.unknown.length > 0 && (
             <section aria-labelledby="consult-unknown" className="av-card av-stack av-understand-card av-understand-card--soft">
               <h2 id="consult-unknown">{w("consultation.unknown")}</h2>
               <p className="av-muted">{w("consultation.unknown_hint")}</p>
-              <Entries items={c.unknown} onChange={change} />
+              {c.unknown.length > 3 ? (
+                <details>
+                  <summary>{w("consultation.unknown_fold", { count: c.unknown.length })}</summary>
+                  <GroupedEntries items={c.unknown} visitPage={c.entry.page_no} variant="unknown" onChange={change} />
+                </details>
+              ) : (
+                <GroupedEntries items={c.unknown} visitPage={c.entry.page_no} variant="unknown" onChange={change} />
+              )}
             </section>
           )}
           <section aria-labelledby="consult-guidance" className="av-card av-stack av-understand-card">

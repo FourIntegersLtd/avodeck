@@ -171,6 +171,18 @@ async def test_someone_outside_the_case_gets_404(client_for: ClientFor, seed: Se
     assert (await (await client_for(case.stranger)).get(f"/v1/cases/{case.id}/timeline")).status_code == 404
 
 
+async def test_counts_include_undated_facts(client_for: ClientFor, seed: Seed) -> None:
+    case = Case(seed)
+    kind = _plain_lanes(case.pack)[0]["kinds"][0]
+    case.fact(kind, date(2024, 5, 1))
+    undated = case.fact(kind, None)
+    resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
+    assert resp.status_code == 200
+    assert resp.json()["counts"]["undated"] == 1
+    ids = {e["fact_id"] for lane in resp.json()["lanes"] for e in lane["events"]}
+    assert str(undated) in ids or str(undated) in {e["fact_id"] for e in resp.json()["unplaced"]}
+
+
 # --- links between facts and questions ------------------------------------------------------------
 
 
@@ -266,6 +278,30 @@ async def test_as_seen_shows_what_had_arrived_keeps_later_apart_and_never_guesse
     assert body["title"] == case.pack.term("as_seen_title")
     expected = [row["code"] for row in case.pack.guidelines() if in_force([row], row["code"], date(2024, 5, 15))]
     assert [g["code"] for g in body["guidance"]] == expected
+
+
+async def test_a_future_dated_fact_with_no_arrival_is_not_listed_as_unknown_on_an_earlier_visit(
+    client_for: ClientFor, seed: Seed
+) -> None:
+    case = Case(seed)
+    visit = case.fact(_visit_kind(case.pack), date(2024, 5, 15), page=118, available=date(2024, 5, 15))
+    case.fact(_visit_kind(case.pack), date(2024, 6, 1), page=119)
+    resp = await (await client_for(case.expert)).get(
+        f"/v1/cases/{case.id}/consultations/{visit}", params={"as_seen": "true"}
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["unknown"] == []
+
+
+async def test_undated_consultation_returns_undated_entry_with_page_number(client_for: ClientFor, seed: Seed) -> None:
+    case = Case(seed)
+    visit = case.fact(_visit_kind(case.pack), None, page=8)
+    resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/consultations/{visit}")
+    assert resp.status_code == 422
+    err = resp.json()["error"]
+    assert err["code"] == "undated_entry"
+    assert err["page_no"] == 8
 
 
 async def test_overriding_availability_needs_a_reason_appends_is_audited_and_the_latest_wins(

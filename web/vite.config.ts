@@ -11,6 +11,7 @@ const API_DEV = process.env.API_DEV_ORIGIN ?? "http://127.0.0.1:8000";
 export default defineConfig({
   plugins: [react(), cspPlugin(), devMfaPlugin()],
   server: {
+    host: true,
     port: 5173,
     strictPort: true,
     proxy: { "/v1": { target: API_DEV, ws: true } },

@@ -1,24 +1,35 @@
 // Screen 09, Reading. The expert reads the page and marks it read; only then does the server release
 // the suggestions (blind read, rule 3: the page asks for them after the read and shows none on a 423).
 // Every action sends the version it loaded (If-Match). The server decides; this screen shows.
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
-import { allowed, FactCard } from "./FactCard";
+import { suggestTimelineDate } from "./timelineDate";
+import { allowed, editableFields, FactCard } from "./FactCard";
+import { FactSwitcher } from "./FactSwitcher";
+import { loadSplitPct, saveSplitPct } from "./splitPane";
+import { SplitDivider } from "./SplitDivider";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
-import { forgetPage } from "./pageImage";
+import { forgetPage } from "./pageImageCache";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
+type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string> };
 const ZOOMS = [75, 100, 125, 150, 200, 250];
+
+function fieldDraft(fact: Fact): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of editableFields(fact)) out[row.key] = row.value;
+  return out;
+}
 
 export function Reader() {
   const { pageNo } = useParams();
@@ -48,6 +59,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const { item, pack } = useCaseFrame();
   const caseId = item.id;
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const factFromUrl = searchParams.get("fact");
   const opened = useRef(Date.now());
   const detail = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: pageNo } } })), [caseId, pageNo]);
   const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/progress", casePath(caseId))), [caseId]);
@@ -60,15 +73,18 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const [read, setRead] = useState(false);
   const [facts, setFacts] = useState<Fact[] | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: string; text: string; words: string[] } | null>(null);
+  const [editing, setEditing] = useState<EditDraft | null>(null);
   const [pageWords, setPageWords] = useState<PageWord[] | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const workRef = useRef<HTMLDivElement>(null);
+  const [splitPct, setSplitPct] = useState(loadSplitPct);
   const [info, setInfo] = useState<string | null>(null);
   const [zoom, setZoom] = useState(100);
   const [why, setWhy] = useState(false);
   const [imageKey, setImageKey] = useState(0);
+  const [timelineDraft, setTimelineDraft] = useState<{ id: string; value: string } | null>(null);
 
   const loadFacts = useCallback(async () => {
     try {
@@ -76,12 +92,16 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       // The server answers only once the page was read, so the page counts as read from here.
       setRead(true);
       setFacts(list);
-      setFocus((f) => f ?? list.find((x) => x.status === "suggested")?.id ?? list[0]?.id ?? null);
+      setFocus((f) => {
+        if (f) return f;
+        if (factFromUrl && list.some((x) => x.id === factFromUrl)) return factFromUrl;
+        return list.find((x) => x.status === "suggested")?.id ?? list[0]?.id ?? null;
+      });
     } catch (error) {
       if (error instanceof ApiError && error.status === 423) setFacts(null);
       else setNotice(errorMessage(error));
     }
-  }, [caseId, pageNo]);
+  }, [caseId, pageNo, factFromUrl]);
 
   // The page says whether it was read; suggestions are asked for only when it was.
   useEffect(() => {
@@ -114,7 +134,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // "Change a detail": the cited words start chosen, except on a "Please check" fact, whose words must be
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact) });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -132,7 +152,11 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     setFocus(after?.id ?? id);
   }
 
-  async function act(fact: Fact, action: Action, extra: { new_value?: string; word_ids?: string[]; reason?: string } = {}) {
+  async function act(
+    fact: Fact,
+    action: Action,
+    extra: { new_value?: string; word_ids?: string[]; reason?: string; fields?: Record<string, unknown>; event_date?: string } = {},
+  ) {
     if (busy) return;
     setBusy(true);
     setNotice(null);
@@ -147,6 +171,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       const list = (facts ?? []).map((f) => (f.id === next.id ? { ...next, related: f.related } : f));
       setFacts(list);
       setEditing(null);
+      setTimelineDraft(null);
       advanceFrom(list, next.id);
     } catch (error) {
       if (error instanceof ApiError && error.status === 412) {
@@ -163,8 +188,36 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   }
 
   const notRight = (f: Fact) => act(f, "not_right", reasons[f.id]?.trim() ? { reason: reasons[f.id]!.trim() } : {});
-  const saveEdit = (f: Fact) =>
-    editing && editing.text.trim() && editing.words.length > 0 && act(f, "edit", { new_value: editing.text.trim(), word_ids: inPageOrder(editing.words, pageWords) });
+  const orderedWords = (ids: string[]) => (pageWords ? inPageOrder(ids, pageWords) : ids);
+
+  const saveEdit = (f: Fact) => {
+    if (!editing || editing.id !== f.id) return;
+    const headline = editing.text.trim();
+    const valueChanged = headline !== (f.value ?? "").trim();
+    const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
+    const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
+    if (!valueChanged && !fieldsChanged && !wordsChanged) return;
+    if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return;
+    const body: { new_value?: string; word_ids?: string[]; fields?: Record<string, unknown> } = {};
+    if (valueChanged) {
+      if (!headline) return;
+      body.new_value = headline;
+      body.word_ids = orderedWords(editing.words);
+    } else if (wordsChanged) body.word_ids = orderedWords(editing.words);
+    if (fieldsChanged) body.fields = { ...(f.fields ?? {}), ...editing.fields };
+    void act(f, "edit", body);
+  };
+
+  const editCanSave = (f: Fact) => {
+    if (!editing || editing.id !== f.id) return false;
+    const valueChanged = editing.text.trim() !== (f.value ?? "").trim();
+    const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
+    const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
+    if (!valueChanged && !fieldsChanged && !wordsChanged) return false;
+    if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return false;
+    if (valueChanged && !editing.text.trim()) return false;
+    return true;
+  };
 
   async function toggleFlag(fact: Fact) {
     if (busy) return;
@@ -243,6 +296,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const page = detail.data;
   const left = progress.data ? Math.max(0, progress.data.total - progress.data.read) : 0;
   const hard = queue.data ? queue.data.total - queue.data.done : 0;
+  const focusedFact = facts?.find((f) => f.id === focus) ?? facts?.[0] ?? null;
 
   return (
     <div className="rd">
@@ -263,7 +317,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {why && <p className="rd-why-text">{w("read.why_text")}</p>}
         </div>
       )}
-      <div className="rd-work">
+      <div className="rd-work" ref={workRef} style={{ "--rd-split": `${splitPct}%` } as CSSProperties}>
         <section className="rd-pane" aria-label={w("read.page_alt", { page: pageNo })}>
           <div className="rd-bar">
             <p className="rd-source">
@@ -296,6 +350,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           </PageImage>
         </section>
 
+        <SplitDivider workRef={workRef} value={splitPct} onChange={setSplitPct} onCommit={saveSplitPct} />
+
         <aside className="rd-side" aria-label={w("read.found")}>
           <div className="rd-side__head">
             <h2>{w("read.found")}</h2>
@@ -305,29 +361,44 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {info && !notice && <Notice tone="success">{info}</Notice>}
           {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
           {facts?.length === 0 && <p className="rd-note">{w("read.none_found")}</p>}
-          {facts?.map((f) => (
+          {facts && facts.length > 0 && <FactSwitcher facts={facts} focus={focus} pack={pack} onFocus={setFocus} />}
+          {focusedFact && (
             <FactCard
-              key={f.id}
-              fact={f}
+              key={focusedFact.id}
+              fact={focusedFact}
               pack={pack}
               allFacts={facts ?? []}
-              focused={focus === f.id}
+              focused={true}
               busy={busy}
-              editing={editing?.id === f.id ? editing.text : null}
-              canSave={editing?.id === f.id ? editing.words.length > 0 : undefined}
-              typedWords={editing?.id === f.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
-              reason={reasons[f.id] ?? ""}
-              onFocus={() => setFocus(f.id)}
-              onReason={(text) => setReasons((r) => ({ ...r, [f.id]: text }))}
-              onCorrect={() => act(f, "correct")}
-              onNotRight={() => notRight(f)}
-              onStartEdit={() => void startEdit(f)}
+              editing={editing?.id === focusedFact.id ? editing.text : null}
+              editingFields={editing?.id === focusedFact.id ? editing.fields : null}
+              canSave={editCanSave(focusedFact)}
+              typedWords={editing?.id === focusedFact.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
+              reason={reasons[focusedFact.id] ?? ""}
+              onFocus={() => setFocus(focusedFact.id)}
+              onReason={(text) => setReasons((r) => ({ ...r, [focusedFact.id]: text }))}
+              onCorrect={() => act(focusedFact, "correct")}
+              onNotRight={() => notRight(focusedFact)}
+              onStartEdit={() => void startEdit(focusedFact)}
               onEditText={(text) => setEditing((e) => e && { ...e, text })}
-              onSaveEdit={() => saveEdit(f)}
+              onEditField={(key, value) => setEditing((e) => e && { ...e, fields: { ...e.fields, [key]: value } })}
+              onSaveEdit={() => saveEdit(focusedFact)}
               onCancelEdit={() => setEditing(null)}
-              onFlag={() => toggleFlag(f)}
+              onFlag={() => toggleFlag(focusedFact)}
+              timelineDraft={timelineDraft?.id === focusedFact.id ? timelineDraft.value : null}
+              onStartTimelineDate={() => {
+                setEditing(null);
+                setTimelineDraft({ id: focusedFact.id, value: suggestTimelineDate(focusedFact, pack) });
+              }}
+              onTimelineDateChange={(value) => setTimelineDraft((d) => d && d.id === focusedFact.id ? { ...d, value } : d)}
+              onSaveTimelineDate={() => {
+                if (!timelineDraft || timelineDraft.id !== focusedFact.id || !timelineDraft.value) return;
+                void act(focusedFact, "edit", { event_date: timelineDraft.value });
+                setTimelineDraft(null);
+              }}
+              onCancelTimelineDate={() => setTimelineDraft(null)}
             />
-          ))}
+          )}
           {read && (
             <div className="rd-keys">
               <p>

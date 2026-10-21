@@ -1,6 +1,6 @@
 # API and worker (FastAPI, Python 3.12, Poetry)
 
-Read the root `AGENTS.md` first. This file covers `api/`: the API and the background worker, one Poetry project (`make -C api help` lists the commands).
+Read the root `AGENTS.md` first. This file covers `api/`: the API and the background worker, one Poetry project (`make -C api help` lists the commands). Local secrets live in **`api/.env`** (see `api/.env.example`); `make start` and `make worker` load it.
 
 ## Layout
 

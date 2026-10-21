@@ -11,11 +11,11 @@ help:
 install:        ## Poetry env on Python 3.12
 	poetry env use -q python3.12 && poetry install -q
 
-start:          ## API on :8000 with reload
-	poetry run uvicorn app.main:app --reload --port 8000
+start:          ## API on :8000 with reload (loads api/.env when present)
+	unset DEV_SKIP_MFA; set -a && [ -f .env ] && . ./.env; set +a; poetry run uvicorn app.main:app --reload --port 8000
 
-worker:         ## background worker (Postgres job queue)
-	poetry run python -m app.worker.main
+worker:         ## background worker (Postgres job queue; loads api/.env when present)
+	unset DEV_SKIP_MFA; set -a && [ -f .env ] && . ./.env; set +a; poetry run python -m app.worker.main
 
 test:           ## every API and worker test, with the coverage floor
 	poetry run pytest -q --cov=app --cov-fail-under=85

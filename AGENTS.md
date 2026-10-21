@@ -85,6 +85,8 @@ Foundation 0000–0099 · A 0100–0199 · B 0200–0299 · C 0300–0399 · D 0
 
 ## Commands
 
+Local secrets: **`api/.env` only** (from `api/.env.example`). `make -C api start` and `make -C api worker` load it. CI uses `scripts/local_api_env.sh` for ephemeral local Supabase.
+
 ```
 make dev            # run API, worker, frontend and local Supabase
 make test           # all tests
