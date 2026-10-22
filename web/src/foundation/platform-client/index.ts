@@ -1,14 +1,15 @@
 // The only way the web app talks to anything: FastAPI, through the client generated from OpenAPI
 // (rule 4). The session lives in an httpOnly cookie set by the API; this file never stores tokens.
 import createClient, { type Middleware } from "openapi-fetch";
+import { apiOriginSetting } from "../lib/env";
 import type { components, paths } from "./schema";
 
 export type { components, paths };
 export type Schemas = components["schemas"];
 
-/** The API origin: the build's VITE_API_ORIGIN, else the page's own origin (dev proxy, same-site hosting). */
+/** The API origin: the build's NEXT_PUBLIC_API_ORIGIN, else the page's own origin (dev proxy, same-site hosting). */
 export function apiOrigin(): string {
-  return (import.meta.env.VITE_API_ORIGIN || window.location.origin).replace(/\/+$/, "");
+  return (apiOriginSetting || window.location.origin).replace(/\/+$/, "");
 }
 
 /** The API's error envelope as an exception: `code` is stable and drives the words shown. */

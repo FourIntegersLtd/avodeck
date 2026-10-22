@@ -115,7 +115,7 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
         </Button>
       </form>
       <div className="av-sign-in__note" role="note">
-        <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <rect x="5" y="10" width="14" height="10" rx="2" />
           <path d="M8 10V7a4 4 0 0 1 8 0v3" />
         </svg>

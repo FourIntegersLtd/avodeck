@@ -1,4 +1,5 @@
 import type { RouteObject } from "react-router-dom";
+import { capabilityModules } from "./capabilityModules";
 
 /**
  * Every capability's signed-in routes, found by convention so a slice never edits app/routes.tsx:
@@ -33,7 +34,7 @@ export function caseRoutesFrom(modules: Record<string, CapabilityModule>): Route
   return collect(modules, (name) => /CaseRoutes$/.test(name));
 }
 
-const modules = import.meta.glob<CapabilityModule>("../capabilities/*/index.tsx", { eager: true });
+const modules: Record<string, CapabilityModule> = capabilityModules;
 
 export const capabilityRoutes: RouteObject[] = routesFrom(modules);
 export const capabilityCaseRoutes: RouteObject[] = caseRoutesFrom(modules);

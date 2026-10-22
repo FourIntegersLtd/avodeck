@@ -2,6 +2,7 @@
 import "@fontsource/atkinson-hyperlegible/400.css";
 import "@fontsource/atkinson-hyperlegible/700.css";
 import "@fontsource/ibm-plex-mono/400.css";
+import "@fontsource/outfit/600.css";
 import "./tokens.css";
 import "./styles.css";
 

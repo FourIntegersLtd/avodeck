@@ -1,0 +1,32 @@
+/* Tailwind without its preflight reset for now: the existing screens rely on the browser's default
+   headings and margins. Add `@import "tailwindcss/preflight.css" layer(base);` after the last
+   screen is moved to utilities. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@import "../foundation/ui/tokens.css";
+@import "../foundation/ui/styles.css";
+
+/* Canvas tokens as Tailwind theme values, so a utility such as bg-green or rounded-card means
+   exactly the colour or radius the design canvas uses. Values repeat tokens.css until that file
+   is retired with the last Vite screen. */
+@theme {
+  --color-green: #1E6B4E;
+  --color-forest: #0F3D2C;
+  --color-leaf: #2F9E6E;
+  --color-mint: #E6F2EC;
+  --color-ink: #16201B;
+  --color-slate: #4F5953;
+  --color-line: #DDE3DF;
+  --color-line-strong: #B9C3BD;
+  --color-surface: #F6F7F5;
+  --color-amber: #B45309;
+  --color-amber-text: #8A3F06;
+  --color-amber-tint: #FDF1E3;
+  --color-stop: #B42318;
+  --font-sans: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-logo: "Outfit", "Atkinson Hyperlegible", sans-serif;
+  --radius-control: 12px;
+  --radius-card: 18px;
+}

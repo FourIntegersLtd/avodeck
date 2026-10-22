@@ -23,9 +23,13 @@ export function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="av-sign-in">
       <aside className="av-sign-in__brand">
-        <Logo onDark />
+        <Logo onDark large />
         <div className="av-sign-in__promise">
-          <h2 className="av-sign-in__tagline">{t("sign_in.brand.tagline")}</h2>
+          <h2 className="av-sign-in__tagline">
+            {t("sign_in.brand.tagline")
+              .split(/(?<=\.) /)
+              .flatMap((sentence, index) => (index === 0 ? [sentence] : [" ", <br key={sentence} />, sentence]))}
+          </h2>
           <ul className="av-sign-in__points">
             {POINTS.map(({ key, icon }) => (
               <li key={key}>
