@@ -1,0 +1,6 @@
+.av-series-bar { position: absolute; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; min-height: var(--button-min-height); padding: 4px 6px 6px; border: 1.5px solid transparent; border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; font-size: 15px; font-weight: 700; line-height: 1.2; text-align: left; cursor: pointer; overflow: hidden; }
+.av-series-bar:hover { background: var(--green-tint); }
+.av-series-bar:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+.av-series-bar__label { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-series-bar__band { position: relative; display: block; height: 10px; border-radius: 5px; flex: none; }
+.av-series-bar__tick { position: absolute; top: -3px; width: 2px; height: 16px; margin-left: -1px; background: var(--ink); border-radius: 1px; }

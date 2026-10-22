@@ -3146,6 +3146,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/timeline/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Timeline Overview
+         * @description The whole record for the ribbon: counts per lane per month and the entries worth a pin.
+         */
+        get: operations["timeline_overview_v1_cases__case_id__timeline_overview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/transcripts": {
         parameters: {
             query?: never;
@@ -6037,6 +6057,8 @@ export interface components {
             page_no: number;
             /** Question Ids */
             question_ids: string[];
+            /** Series Key */
+            series_key?: string | null;
             /** Source */
             source?: string | null;
             /** Status */
@@ -6307,6 +6329,30 @@ export interface components {
         Forgot: {
             /** Email */
             email: string;
+        };
+        /**
+         * Gap
+         * @description The wait after an entry an open thing to look at rests on, in the server's own words (`label_key`).
+         */
+        Gap: {
+            /** Days */
+            days: number;
+            /**
+             * Finding Id
+             * Format: uuid
+             */
+            finding_id: string;
+            /**
+             * From Fact Id
+             * Format: uuid
+             */
+            from_fact_id: string;
+            /** Kind */
+            kind: string;
+            /** Label Key */
+            label_key: string;
+            /** To Fact Id */
+            to_fact_id: string | null;
         };
         /** Guidance */
         Guidance: {
@@ -6821,6 +6867,8 @@ export interface components {
             key: string;
             /** Label */
             label: string;
+            /** Series */
+            series?: components["schemas"]["Series"][] | null;
             /** Subtitle */
             subtitle?: string | null;
         };
@@ -7862,6 +7910,39 @@ export interface components {
             /** Percent */
             percent: number;
         };
+        /**
+         * Overview
+         * @description The ribbon: the whole record, counted per lane per month (`months` are "YYYY-MM").
+         */
+        Overview: {
+            /**
+             * Lanes
+             * @default []
+             */
+            lanes: components["schemas"]["OverviewLane"][];
+            /**
+             * Months
+             * @default []
+             */
+            months: string[];
+            /**
+             * Pins
+             * @default []
+             */
+            pins: components["schemas"]["Pin"][];
+            range?: components["schemas"]["Range"] | null;
+        };
+        /** OverviewLane */
+        OverviewLane: {
+            /** Colour */
+            colour?: string | null;
+            /** Counts */
+            counts: number[];
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+        };
         /** OwnCheck */
         OwnCheck: {
             /** Applies To */
@@ -8300,6 +8381,25 @@ export interface components {
             password_changed_at?: string | null;
             /** Timezone */
             timezone: string | null;
+        };
+        /** Pin */
+        Pin: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Has Finding */
+            has_finding: boolean;
+            /** Lane Key */
+            lane_key: string;
+            /** Question Ids */
+            question_ids: string[];
         };
         /** PointAdd */
         PointAdd: {
@@ -9270,6 +9370,30 @@ export interface components {
             /** Text */
             text: string;
         };
+        /**
+         * Series
+         * @description Entries the lane's pack rule groups into one bar (e.g. one medicine issued again and again).
+         */
+        Series: {
+            /** Count */
+            count: number;
+            /** Fact Ids */
+            fact_ids: string[];
+            /**
+             * First
+             * Format: date
+             */
+            first: string;
+            /** Key */
+            key: string;
+            /** Label */
+            label: string;
+            /**
+             * Last
+             * Format: date
+             */
+            last: string;
+        };
         /** ServeIn */
         ServeIn: {
             /** Recipient Party Id */
@@ -9881,6 +10005,8 @@ export interface components {
             /** As Seen Title */
             as_seen_title?: string | null;
             counts?: components["schemas"]["TimelineCounts"] | null;
+            /** Gaps */
+            gaps?: components["schemas"]["Gap"][] | null;
             /**
              * Guidance Changed
              * @default []
@@ -19134,6 +19260,49 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Timeline"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    timeline_overview_v1_cases__case_id__timeline_overview_get: {
+        parameters: {
+            query?: {
+                /** @description Only what had arrived by this day. */
+                as_seen_on?: string | null;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
                 };
             };
             /** @description Validation Error */

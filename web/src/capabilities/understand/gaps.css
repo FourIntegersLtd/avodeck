@@ -1,0 +1,5 @@
+/* Gap wording is longer than a bare count, so let it wrap inside the dashed line instead of being cut off. */
+.av-story-gap > span {
+  white-space: normal;
+  max-width: 100%;
+}

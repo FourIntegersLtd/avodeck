@@ -13,6 +13,8 @@ import { casePath, GuidanceChanged } from "./shared";
 import { splitForTrack, TimelineBoard } from "./TimelineBoard";
 import { TimelineChronology } from "./TimelineChronology";
 import { TimelineInspector } from "./TimelineInspector";
+import { HighlightProvider } from "./highlight";
+import { useRibbonData } from "./ribbonData";
 import { TimelineRibbon } from "./TimelineRibbon";
 import { lastTwoYearsWindow, periodDefaultDates } from "./timelineTimeWindow";
 import { w } from "./words";
@@ -43,7 +45,17 @@ export function Timeline() {
 
   const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId]);
   const caseRow = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId]);
+  // The ribbon always shows the whole record (as it stood on the chosen day), whatever the window and filters.
+  const whole = useRibbonData(caseId, day);
+  const recordRange = whole.data?.range ?? null;
+  // Until the instruction period (or, without one, the last two years) is applied, the board neither asks for
+  // nor draws anything: it would show the record's own span and then jump.
+  const windowReady =
+    windowPreset !== "period" ||
+    periodSeeded ||
+    (!caseRow.loading && !whole.loading && periodDefaultDates(caseRow.data, recordRange) === null);
   const found = useResource(async () => {
+    if (!windowReady) return null;
     const query: Record<string, string> = {};
     if (status === "verified" || status === "suggested") query.status = status;
     if (status === "not_linked" || status === "things_to_look") query.only = status;
@@ -52,13 +64,7 @@ export function Timeline() {
     if (from) query.from = from;
     if (to) query.to = to;
     return unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: query as never } }));
-  }, [caseId, status, questionId, from, to, day]);
-  // The ribbon always shows the whole record (as it stood on the chosen day), whatever the window and filters.
-  const whole = useResource(
-    () => unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: (day ? { as_seen_on: day } : {}) as never } })),
-    [caseId, day],
-  );
-  const recordRange = whole.data?.range ?? found.data?.range ?? null;
+  }, [caseId, status, questionId, from, to, day, windowReady]);
 
   useEffect(() => {
     if (windowPreset !== "period" || periodSeeded) return;
@@ -84,7 +90,7 @@ export function Timeline() {
     }
   };
 
-  const data = found.data;
+  const data = found.data ?? undefined;
   const order = useMemo(() => (data ? chronologyEntries(splitForTrack(data).lanes, splitForTrack(data).unplaced) : []), [data]);
   const entryId = params.get("entry");
   const current = entryId ? order.find((e) => e.fact_id === entryId) ?? null : null;
@@ -119,7 +125,7 @@ export function Timeline() {
   const c = data?.counts ?? lastCounts.current;
   if (data?.counts) lastCounts.current = data.counts;
   const numbers = Object.fromEntries((asked.data?.questions ?? []).map((q) => [q.id, q.number]));
-  const seenTitle = data?.as_seen_title ?? whole.data?.as_seen_title ?? w("consultation.on_label");
+  const seenTitle = data?.as_seen_title ?? w("consultation.on_label");
   const switchDay = (on: boolean) => {
     setDayOn(on);
     if (!on) setSeenOn("");
@@ -129,6 +135,7 @@ export function Timeline() {
   const showUndatedBanner = !!split && undated > 0 && !split.lanes.some((l) => l.events.length > 0) && split.unplaced.length > 0;
 
   return (
+    <HighlightProvider>
     <div className="av-page av-page--wide av-stack">
       <div className="av-understand-top">
         <div>
@@ -176,8 +183,7 @@ export function Timeline() {
         </div>
         {whole.data && (
           <TimelineRibbon
-            lanes={splitForTrack(whole.data).lanes}
-            range={whole.data.range}
+            data={whole.data}
             from={from}
             to={to}
             onChange={(f, t2) => {
@@ -200,6 +206,7 @@ export function Timeline() {
             { value: "list", label: w("timeline.view.list") },
           ]}
         />
+        {c && (
         <ChoicePills
           label={w("timeline.filter.status")}
           hideLabel
@@ -207,16 +214,13 @@ export function Timeline() {
           onChange={setStatus}
           options={[
             { value: "", label: w("timeline.filter.status.all") },
-            ...(c
-              ? [
-                  { value: "verified", label: w("timeline.count", { label: t("ui.status.checked"), n: c.checked }) },
-                  { value: "suggested", label: w("timeline.count", { label: t("ui.status.please_check"), n: c.please_check }) },
-                  { value: "things_to_look", label: w("timeline.count", { label: t("ui.status.look"), n: c.things_to_look }) },
-                  { value: "not_linked", label: w("timeline.count", { label: w("timeline.not_linked"), n: c.not_linked }) },
-                ]
-              : []),
+            { value: "verified", label: w("timeline.count", { label: t("ui.status.checked"), n: c.checked }) },
+            { value: "suggested", label: w("timeline.count", { label: t("ui.status.please_check"), n: c.please_check }) },
+            { value: "things_to_look", label: w("timeline.count", { label: t("ui.status.look"), n: c.things_to_look }) },
+            { value: "not_linked", label: w("timeline.count", { label: w("timeline.not_linked"), n: c.not_linked }) },
           ]}
         />
+        )}
         <ChoicePills
           label={w("timeline.filter.question")}
           hideLabel
@@ -265,5 +269,6 @@ export function Timeline() {
         <Loading />
       )}
     </div>
+    </HighlightProvider>
   );
 }

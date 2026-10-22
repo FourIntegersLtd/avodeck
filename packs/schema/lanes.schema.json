@@ -50,6 +50,45 @@
                 "type": "string",
                 "pattern": "^[a-z][a-z0-9_]*$",
                 "description": "A generic line drawing the screen has for this lane (the screen falls back to the label's first letter)."
+              },
+              "series": {
+                "type": "object",
+                "description": "Entries of these kinds whose `same` fields match (after normalising case and spacing) are drawn as one bar; a pause longer than `max_gap_days` starts a new bar, and fewer than `min_count` entries is no bar.",
+                "properties": {
+                  "kinds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "uniqueItems": true,
+                    "minItems": 1
+                  },
+                  "same": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]*$"
+                    },
+                    "uniqueItems": true,
+                    "minItems": 1
+                  },
+                  "max_gap_days": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "min_count": {
+                    "type": "integer",
+                    "minimum": 2
+                  }
+                },
+                "additionalProperties": false,
+                "required": [
+                  "kinds",
+                  "same",
+                  "max_gap_days",
+                  "min_count"
+                ]
               }
             },
             "additionalProperties": false,

@@ -1,4 +1,4 @@
 lanes:
-  - {key: sessions, icon: visit, kinds: [session]}
+  - {key: sessions, icon: visit, kinds: [session], series: {kinds: [session], same: [duration_minutes], max_gap_days: 30, min_count: 2}}
   - {key: measurements, icon: flask, kinds: [measurement]}
   - {key: letters, icon: mail, kinds: [measurement], when: {via: letter}}

@@ -13,75 +13,26 @@ from datetime import date
 from typing import Annotated, Literal
 
 from fastapi import Depends, Query, Request
-from pydantic import BaseModel
 
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.http import DbConn
-from app.features.understand import guidelines, repo
+from app.features.understand import gaps, guidelines, overview, repo, series
 from app.features.understand.common import case_pack
 from app.features.understand.lanes import arrange, subtitle
 from app.features.understand.router import router
+from app.features.understand.timeline_models import (
+    Event,
+    Lane,
+    Overview,
+    Range,
+    Timeline,
+    TimelineCounts,
+    TimelineSource,
+)
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Status = Literal["suggested", "verified", "edited"]
 Only = Literal["not_linked", "things_to_look"]
-
-
-class Event(BaseModel):
-    fact_id: uuid.UUID
-    kind: str
-    page_no: int
-    event_date: date | None
-    available_at: date | None
-    status: str
-    question_ids: list[uuid.UUID]
-    has_finding: bool
-    summary: str | None = None
-    source: str | None = None
-    date_basis: str | None = None
-    first_word_n: int | None = None
-
-
-class Lane(BaseModel):
-    key: str
-    label: str
-    events: list[Event]
-    colour: str | None = None
-    icon: str | None = None
-    subtitle: str | None = None
-
-
-class TimelineSource(BaseModel):
-    key: str
-    label: str
-    colour: str | None
-
-
-class TimelineCounts(BaseModel):
-    """The numbers on the filter chips, counted over everything the person may see (before any filter)."""
-
-    checked: int
-    please_check: int
-    things_to_look: int
-    not_linked: int
-    undated: int
-    total: int
-
-
-class Range(BaseModel):
-    first: date
-    last: date
-
-
-class Timeline(BaseModel):
-    lanes: list[Lane]
-    unplaced: list[Event]
-    sources: list[TimelineSource] = []
-    counts: TimelineCounts | None = None
-    range: Range | None = None
-    as_seen_on: date | None = None
-    as_seen_title: str | None = None
-    guidance_changed: list[str] = []
 
 
 @router.get("/cases/{case_id}/timeline", response_model=Timeline)
@@ -121,7 +72,7 @@ async def timeline(
             return False
         return question_id is None or question_id in links.get(fact.fact_id, [])
 
-    def event(fact: repo.SeenFact) -> Event:
+    def event(fact: repo.SeenFact, series_key: str | None = None) -> Event:
         return Event(
             fact_id=fact.fact_id,
             kind=fact.kind,
@@ -135,6 +86,7 @@ async def timeline(
             source=fact.source,
             date_basis=fact.date_basis,
             first_word_n=fact.first_word_n,
+            series_key=series_key,
         )
 
     lanes = pack.lanes()
@@ -157,6 +109,8 @@ async def timeline(
         return colour_of[tally.most_common(1)[0][0]] if tally else None
 
     days = [f.event_date for f in facts if f.event_date is not None]
+    kept = [f for got in placed for f in got[1]]
+    lane_series = {key: series.build(pack, key, got) for key, got in placed}
     return Timeline(
         range=Range(first=min(days), last=max(days)) if days else None,
         as_seen_on=as_seen_on,
@@ -170,13 +124,28 @@ async def timeline(
             Lane(
                 key=key,
                 label=str(labels.get(key, key)),
-                events=[event(f) for f in got],
+                events=[event(f, lane_series[key].keys.get(f.fact_id)) for f in got],
                 colour=lane_colour(got),
                 icon=icon_of.get(key),
                 subtitle=subtitle(pack.vocabulary, key, len(got)),
+                series=lane_series[key].bars,
             )
             for key, got in placed
         ],
+        gaps=await gaps.build(conn, case_id, pack, kept, facts),
         unplaced=[event(f) for f in unplaced],
         guidance_changed=await guidelines.changed(conn, case_id, pack.guidelines()),
     )
+
+
+@router.get("/cases/{case_id}/timeline/overview", response_model=Overview)
+async def timeline_overview(
+    case_id: uuid.UUID,
+    access: View,
+    request: Request,
+    conn: DbConn,
+    as_seen_on: Annotated[date | None, Query(description="Only what had arrived by this day.")] = None,
+) -> Overview:
+    """The whole record for the ribbon: counts per lane per month and the entries worth a pin."""
+    pack = await case_pack(request, conn, case_id)
+    return await overview.build(request, conn, case_id, pack, as_seen_on)

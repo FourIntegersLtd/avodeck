@@ -2,12 +2,11 @@
 // The window's ends are sliders (arrow keys move a month, Page Up and Page Down a year); dragging an end or the frame
 // moves it, and a click elsewhere centres it there. The board changes once, when the move ends.
 import { useRef, useState } from "react";
-import type { Schemas } from "../../foundation/platform-client";
 import { longDate } from "./shared";
-import { dayMs, monthlyCounts } from "./storyLayout";
+import { useHighlightAttrs } from "./highlight";
+import type { RibbonData } from "./ribbonData";
+import { dayMs } from "./storyLayout";
 import { w } from "./words";
-
-type Lane = Schemas["Timeline"]["lanes"][number];
 
 const W = 1000;
 const ROW = 12;
@@ -27,14 +26,12 @@ function shiftMonths(day: string, months: number, end: boolean): string {
 type Drag = { kind: "start" | "end" | "move"; x0: number; from0: number; to0: number };
 
 export function TimelineRibbon({
-  lanes,
-  range,
+  data,
   from,
   to,
   onChange,
 }: {
-  lanes: Lane[];
-  range: { first: string; last: string } | null | undefined;
+  data: RibbonData;
   from: string;
   to: string;
   onChange: (from: string, to: string) => void;
@@ -42,6 +39,7 @@ export function TimelineRibbon({
   const track = useRef<HTMLDivElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [preview, setPreview] = useState<{ from: number; to: number } | null>(null);
+  const { range, lanes, months } = data;
   if (!range) return null;
 
   // The strip covers the record and the window, whichever reaches further.
@@ -55,9 +53,14 @@ export function TimelineRibbon({
   const lensFrom = preview?.from ?? clamp(from ? dayMs(from) : start);
   const lensTo = preview?.to ?? clamp(to ? dayMs(to) : end);
   const pct = (ms: number) => ((ms - start) / span) * 100;
-  const counts = monthlyCounts(lanes, iso(start), iso(end));
-  const n = counts.months.length;
   const height = lanes.length * ROW + 8;
+  // Each month's bar sits at its own dates, so the strip lines up with the window whatever its reach.
+  const monthAt = months.map((m) => {
+    const [y, mo] = m.split("-").map(Number);
+    const a = Date.UTC(y!, mo! - 1, 1);
+    const b = Date.UTC(y!, mo!, 1);
+    return { x: ((a - start) / span) * W, w: Math.max(1, ((b - a) / span) * W - 0.6) };
+  });
 
   const commit = (f: number, t: number) => onChange(iso(clamp(Math.min(f, t))), iso(clamp(Math.max(f, t))));
   const atPointer = (clientX: number) => {
@@ -118,19 +121,22 @@ export function TimelineRibbon({
       <div className="av-story-ribbon__track" ref={track} onPointerDown={centre} onPointerMove={move} onPointerUp={up} onPointerCancel={up}>
         <svg viewBox={`0 0 ${W} ${height}`} preserveAspectRatio="none" aria-hidden="true" focusable="false" style={{ height }}>
           {lanes.map((lane, i) => {
-            const row = counts.byLane[lane.key] ?? [];
-            const max = Math.max(1, ...row);
+            const max = Math.max(1, ...lane.counts);
             const y = 4 + i * ROW + ROW - 2;
-            const d = row
+            const d = lane.counts
               .map((c, m) => {
-                if (!c) return "";
+                const at = monthAt[m];
+                if (!c || !at) return "";
                 const h = Math.max(1.5, (c / max) * (ROW - 3));
-                return `M${((m / n) * W).toFixed(1)} ${y}v-${h.toFixed(1)}h${Math.max(1, W / n - 0.6).toFixed(1)}v${h.toFixed(1)}z`;
+                return `M${at.x.toFixed(1)} ${y}v-${h.toFixed(1)}h${at.w.toFixed(1)}v${h.toFixed(1)}z`;
               })
               .join("");
             return <path key={lane.key} d={d} fill={lane.colour ?? "var(--ink-soft)"} />;
           })}
         </svg>
+        {data.pins.map((pin) => (
+          <RibbonPin key={pin.fact_id} pin={pin} left={pct(dayMs(pin.date))} />
+        ))}
         <div className="av-story-lens" style={{ left: `${pct(lensFrom)}%`, width: `${Math.max(0.5, pct(lensTo) - pct(lensFrom))}%` }} onPointerDown={down("move")}>
           <span
             className="av-story-lens__end av-story-lens__end--start"
@@ -167,4 +173,9 @@ export function TimelineRibbon({
       </ul>
     </div>
   );
+}
+
+function RibbonPin({ pin, left }: { pin: RibbonData["pins"][number]; left: number }) {
+  const highlight = useHighlightAttrs(pin.question_ids);
+  return <span className="av-story-pin" data-state={pin.has_finding ? "look" : "linked"} style={{ left: `${left}%` }} aria-hidden="true" {...highlight} />;
 }

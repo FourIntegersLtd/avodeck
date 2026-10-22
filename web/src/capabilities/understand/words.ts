@@ -44,7 +44,7 @@ const WORDS = {
   "timeline.more_short": "+{{count}}",
   "timeline.gap_one": "{{count}} day to the next entry",
   "timeline.gap_other": "{{count}} days to the next entry",
-  "timeline.shown": "Showing {{shown}} of {{total}} entries on cards. Open a counted mark, or switch to List, to read the rest.",
+  "timeline.shown": "Showing {{shown}} of {{total}} entries. Open a counted mark, or switch to List, to read the rest.",
   "timeline.inspector.title": "The entry you opened",
   "timeline.inspector.close": "Close",
   "timeline.inspector.earlier": "Earlier entry",

@@ -2,13 +2,17 @@
 // day as it was seen). The timeline stays where it was; Earlier and Later step through every entry in date order.
 import { useEffect, useRef, useState } from "react";
 import type { Schemas } from "../../foundation/platform-client";
-import { LinkButton, PageRef, QChip, StatusBadge } from "../../foundation/ui";
-import { axisIso, entryHref, statusOf } from "./shared";
+import { LinkButton, PageRef, StatusBadge } from "../../foundation/ui";
+import { useHighlight } from "./highlight";
+import { QuestionToggle } from "./QuestionChip";
+import { axisIso, entryHref, kindWord, statusOf } from "./shared";
 import { pageImage } from "./pageImage";
 import { entryLabel, entryName } from "./TimelineBoard";
 import { w } from "./words";
 
 type Event = Schemas["Event"];
+
+const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 function PagePicture({ caseId, page }: { caseId: string; page: number }) {
   const [src, setSrc] = useState<string | null>(null);
@@ -50,9 +54,13 @@ export function TimelineInspector({
   const at = order.findIndex((e) => e.fact_id === current.fact_id);
   const earlier = at > 0 ? order[at - 1] : undefined;
   const later = at >= 0 && at < order.length - 1 ? order[at + 1] : undefined;
-  const chips = current.question_ids.map((id) => numbers?.[id]).filter((n): n is number => n !== undefined);
+  const chips = current.question_ids.flatMap((id) => (numbers?.[id] === undefined ? [] : [{ id, n: numbers[id]! }]));
+  const { show } = useHighlight();
   const linked = current.question_ids.length;
   const dated = !!axisIso(current);
+
+  // Closing the panel puts the screen back as it was.
+  useEffect(() => () => show(null), [show]);
 
   useEffect(() => {
     const close = (e: KeyboardEvent) => {
@@ -87,8 +95,8 @@ export function TimelineInspector({
         </div>
         <p className="av-story-panel__linked">
           <span>{linked ? w("timeline.linked", { count: linked }) : w("timeline.not_linked")}</span>
-          {chips.map((n) => (
-            <QChip key={n} n={n} />
+          {chips.map((c) => (
+            <QuestionToggle key={c.id} questionId={c.id} n={c.n} />
           ))}
         </p>
         {current.has_finding && <p className="av-story-panel__finding">{w("timeline.inspector.finding")}</p>}
@@ -117,7 +125,7 @@ export function TimelineInspector({
                     onClick={() => onSelect(e)}
                   >
                     <span className="av-story-card__dot" data-state={e.has_finding ? "look" : statusOf(e.status)} aria-hidden="true" />
-                    <span>{e.summary || entryLabel(e)}</span>
+                    <span>{`${axisIso(e) ? SHORT_DAY.format(new Date(`${axisIso(e)}T00:00:00Z`)) : w("common.no_date")} · ${e.summary || kindWord(e.kind)}`}</span>
                   </button>
                 </li>
               ))}

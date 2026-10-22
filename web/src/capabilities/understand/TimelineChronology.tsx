@@ -1,7 +1,8 @@
 // S11 List: every entry in the window in date order, under month headings. Each row opens the same side panel as
 // the board, so the two views differ only in how the entries are laid out.
 import type { Schemas } from "../../foundation/platform-client";
-import { PageRef, QChip, StatusBadge } from "../../foundation/ui";
+import { PageRef, StatusBadge } from "../../foundation/ui";
+import { HighlightRow, QuestionChip } from "./QuestionChip";
 import { LaneIcon } from "./laneIcons";
 import type { ChronologyEntry } from "./chronologyEntries";
 import { axisIso, kindWord, statusOf } from "./shared";
@@ -50,9 +51,9 @@ export function TimelineChronology({
           <ol className="av-understand-chronology__list">
             {month.rows.map((event) => {
               const iso = axisIso(event);
-              const chips = event.question_ids.map((id) => numbers?.[id]).filter((n): n is number => n !== undefined);
+              const chips = event.question_ids.flatMap((id) => (numbers?.[id] === undefined ? [] : [{ id, n: numbers[id]! }]));
               return (
-                <li key={event.fact_id} className={`av-understand-chronology__row${selectedId === event.fact_id ? " av-understand-chronology__row--selected" : ""}`}>
+                <HighlightRow key={event.fact_id} questionIds={event.question_ids} className={`av-understand-chronology__row${selectedId === event.fact_id ? " av-understand-chronology__row--selected" : ""}`}>
                   <div className="av-understand-chronology__when">
                     <time dateTime={iso ?? undefined}>{iso ? SHORT_DAY.format(new Date(`${iso}T00:00:00Z`)) : w("common.no_date")}</time>
                   </div>
@@ -78,14 +79,14 @@ export function TimelineChronology({
                       {event.has_finding && <StatusBadge status="look" />}
                       {chips.length > 0 && (
                         <span className="av-understand-chips">
-                          {chips.map((n) => (
-                            <QChip key={n} n={n} />
+                          {chips.map((c) => (
+                            <QuestionChip key={c.id} questionId={c.id} n={c.n} />
                           ))}
                         </span>
                       )}
                     </div>
                   </div>
-                </li>
+                </HighlightRow>
               );
             })}
           </ol>

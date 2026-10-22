@@ -113,6 +113,23 @@ export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Time
     as_seen_on: null,
     as_seen_title: "Seen on the day",
     counts: { checked: 2, please_check: 1, things_to_look: 1, not_linked: 1, undated: 0, total: 3 },
+    gaps: [{ finding_id: "c1111111-1111-4111-8111-111111111111", from_fact_id: FACT_2, to_fact_id: FACT_1, days: 86, kind: "no_action_within", label_key: "timeline.gap.no_action_within" }],
+    ...over,
+  };
+}
+
+export function overview(over: Partial<Schemas["Overview"]> = {}): Schemas["Overview"] {
+  return {
+    range: { first: "2024-02-19", last: "2024-05-15" },
+    months: ["2024-02", "2024-03", "2024-04", "2024-05"],
+    lanes: [
+      { key: "lane_one", label: "Lane one words", colour: "#2a6f97", counts: [0, 0, 0, 1] },
+      { key: "lane_two", label: "Lane two words", colour: null, counts: [1, 0, 0, 0] },
+    ],
+    pins: [
+      { fact_id: FACT_2, date: "2024-02-19", lane_key: "lane_two", has_finding: true, question_ids: [Q_1, Q_2] },
+      { fact_id: FACT_3, date: "2024-05-15", lane_key: "lane_one", has_finding: false, question_ids: [Q_1] },
+    ],
     ...over,
   };
 }

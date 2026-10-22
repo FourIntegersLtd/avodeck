@@ -10,16 +10,24 @@ import { axeViolations, renderAt } from "../../test/render";
 import { entryHref } from "./shared";
 import { splitForTrack } from "./Timeline";
 import { TimelineBoard } from "./TimelineBoard";
-import { event, FACT_1, FACT_2, inCase, launchWords, Q_2, timeline, type PackRun } from "./testing";
+import { event, FACT_1, FACT_2, inCase, launchWords, overview, Q_2, timeline, type PackRun } from "./testing";
+
+let seenOverviews: URL[] = [];
 
 function serve(body = timeline()) {
   const seen: URL[] = [];
+  const overviews: URL[] = [];
   server.use(
     http.get("/v1/cases/:caseId/timeline", ({ request }) => {
       seen.push(new URL(request.url));
       return json(body);
     }),
+    http.get("/v1/cases/:caseId/timeline/overview", ({ request }) => {
+      overviews.push(new URL(request.url));
+      return json(overview());
+    }),
   );
+  seenOverviews = overviews;
   return seen;
 }
 
@@ -104,7 +112,7 @@ describe("the board", () => {
     inCase("launch");
     serve();
     renderAt(`/cases/${CASE_A}/timeline`);
-    expect(await screen.findByText("86 days to the next entry")).toBeInTheDocument();
+    expect(await screen.findByText("86 days. Nothing in the record shows what followed.")).toBeInTheDocument();
   });
 
   test("names the stretch shown and how detailed the view is", async () => {
@@ -297,7 +305,11 @@ describe("the ribbon and the window", () => {
     const seen = serve();
     renderAt(`/cases/${CASE_A}/timeline`);
     await screen.findByTestId("timeline-ribbon");
-    await waitFor(() => expect(seen.some((u) => !u.searchParams.has("from") && !u.searchParams.has("to"))).toBe(true));
+    await waitFor(() => expect(seenOverviews.length).toBeGreaterThan(0));
+    expect(seenOverviews.every((u) => !u.searchParams.has("from") && !u.searchParams.has("to"))).toBe(true);
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    // With an instruction period, the board waits for its window: it never asks for the whole record itself.
+    expect(seen.every((u) => u.searchParams.get("from") === "2024-02-01" && u.searchParams.get("to") === "2024-08-31")).toBe(true);
   });
 
   test("the window's two ends are sliders that read their dates and move a month with the arrow keys", async () => {

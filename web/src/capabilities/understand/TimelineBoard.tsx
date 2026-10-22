@@ -6,25 +6,24 @@ import { t } from "../../foundation/i18n";
 import { screenPath } from "../../foundation/lib/screens";
 import type { Schemas } from "../../foundation/platform-client";
 import { LinkButton, PageRef, QChip } from "../../foundation/ui";
+import { CARD, CHIP_ROW, GAP, HEAD, ROW } from "./boardGeometry";
+import { GapConnectors } from "./GapConnectors";
+import { useHighlightAttrs } from "./highlight";
+import { QuestionChip } from "./QuestionChip";
+import { SeriesBars, seriesFacts, seriesRows } from "./SeriesBars";
+import { useCardMotion } from "./useCardMotion";
 import { LaneIcon } from "./laneIcons";
 import { axisIso, kindWord, longDate } from "./shared";
-import { dayMs, daysBetween, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, nextEntryAfter, type Level, type StoryGroup } from "./storyLayout";
+import { dayMs, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, type Level, type StoryGroup } from "./storyLayout";
 import { w, type WordKey } from "./words";
 
 type Event = Schemas["Event"];
 type Lane = Schemas["Timeline"]["lanes"][number];
 type Source = Schemas["TimelineSource"];
 
-export type BoardData = { lanes: Lane[]; unplaced: Event[]; sources?: Source[]; counts?: Schemas["TimelineCounts"] | null; range?: { first: string; last: string } | null };
+export type BoardData = { lanes: Lane[]; unplaced: Event[]; sources?: Source[]; counts?: Schemas["TimelineCounts"] | null; range?: { first: string; last: string } | null; gaps?: Schemas["Gap"][] | null };
 
-const HEAD = 200; // lane name column, px (140 on a narrow screen)
-const CARD = 156; // card width, px
-const GAP = 10;
-const ROW = 60; // card row height, px (a card is at least 52px)
-const CHIP_ROW = 60;
 const DEFAULT_WIDTH = 960;
-/** Shorter waits than this are ordinary, so no gap is drawn for them. */
-const GAP_DAYS = 14;
 
 const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 const MONTH = (year: boolean) => new Intl.DateTimeFormat("en-GB", { month: "short", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" });
@@ -99,7 +98,8 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
   const lead = group.events[0]!;
   const many = group.events.length;
   const mark = dateMark(group.events);
-  const chips = group.questionIds.map((id) => numbers?.[id]).filter((n): n is number => n !== undefined);
+  const chips = group.questionIds.flatMap((id) => (numbers?.[id] === undefined ? [] : [{ id, n: numbers[id]! }]));
+  const highlight = useHighlightAttrs(group.questionIds);
   // The name is the words on the card, led by a fuller label for screen readers.
   return (
     <button
@@ -108,6 +108,7 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
       style={{ left: x, top: row * ROW + 4, width: CARD }}
       data-state={group.state}
       data-facts={group.events.map((e) => e.fact_id).join(" ")}
+      {...highlight}
       onClick={() => onOpen(group.events, lead.fact_id)}
     >
       <span className="av-visually-hidden">{`${entryLabel(lead)}: `}</span>
@@ -115,8 +116,8 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
       <span className="av-story-card__words">
         <span className="av-story-card__top">
           <strong>{shortDay(group.date)}</strong>
-          {chips.map((n) => (
-            <QChip key={n} n={n} />
+          {chips.map((c) => (
+            <QuestionChip key={c.id} questionId={c.id} n={c.n} />
           ))}
           {mark && (
             <span className="av-story-card__check" title={w(mark)}>
@@ -148,9 +149,9 @@ function layoutFor(groups: StoryGroup[], level: Level, rows: number, track: numb
 
 function LaneRow({
   lane,
-  groups,
   layout,
   all,
+  gaps,
   track,
   toX,
   numbers,
@@ -158,28 +159,20 @@ function LaneRow({
   onOpen,
 }: {
   lane: Lane;
-  groups: StoryGroup[];
   layout: LaneLayout;
   all: StoryGroup[];
+  gaps: Schemas["Gap"][];
   track: number;
   toX: (iso: string) => number;
   numbers?: Record<string, number>;
   selectedId?: string | null;
   onOpen: (events: Event[], at?: string) => void;
 }) {
-  const count = groups.reduce((n, g) => n + g.events.length, 0);
+  const reserve = seriesRows(lane);
+  const count = lane.events.length;
   const used = layout.cards.length ? Math.max(...layout.cards.map((c) => c.row)) + 1 : 0;
-  const height = Math.max(used * ROW + 8, 52) + (layout.chips.length ? CHIP_ROW : 0);
+  const height = Math.max((reserve + used) * ROW + 8, 52) + (layout.chips.length ? CHIP_ROW : 0);
   const ticks = layout.folded.map((f) => `M${f.x.toFixed(1)} 0v10`).join("");
-  const gaps = layout.cards
-    .filter((c) => c.group.state === "look")
-    .map((c) => {
-      const next = nextEntryAfter(all, c.group);
-      if (!next || daysBetween(c.group.date, next.date) < GAP_DAYS) return null;
-      const from = c.x + CARD;
-      return { key: c.group.key, left: from, width: Math.max(0, toX(next.date) - from), top: c.row * ROW + 2, days: daysBetween(c.group.date, next.date) };
-    })
-    .filter((g): g is NonNullable<typeof g> => g !== null);
   const headingId = `lane-${lane.key}`;
   return (
     <section aria-labelledby={headingId} className="av-story-lane">
@@ -200,13 +193,10 @@ function LaneRow({
                 <path d={ticks} />
               </svg>
             )}
-            {gaps.map((g) => (
-              <span key={g.key} className="av-story-gap" style={{ left: g.left, width: g.width, top: g.top }}>
-                <span>{w("timeline.gap", { count: g.days })}</span>
-              </span>
-            ))}
+            <SeriesBars lane={lane} toX={toX} track={track} onOpen={onOpen} />
+            <GapConnectors cards={layout.cards} all={all} gaps={gaps} toX={toX} rowOffset={reserve} />
             {layout.cards.map((c) => (
-              <GroupCard key={c.group.key} group={c.group} x={c.x} row={c.row} numbers={numbers} selected={!!selectedId && c.group.events.some((e) => e.fact_id === selectedId)} onOpen={onOpen} />
+              <GroupCard key={c.group.key} group={c.group} x={c.x} row={reserve + c.row} numbers={numbers} selected={!!selectedId && c.group.events.some((e) => e.fact_id === selectedId)} onOpen={onOpen} />
             ))}
             {layout.chips.map((chip) => {
               const events = chip.groups.flatMap((g) => g.events);
@@ -216,7 +206,7 @@ function LaneRow({
                   key={chip.groups[0]!.key}
                   type="button"
                   className="av-story-more"
-                  style={{ left: Math.max(0, Math.min(chip.x, track - 64)), top: used * ROW + 8 }}
+                  style={{ left: Math.max(0, Math.min(chip.x, track - 64)), top: (reserve + used) * ROW + 8 }}
                   data-facts={events.map((e) => e.fact_id).join(" ")}
                   onClick={() => onOpen(events)}
                 >
@@ -256,16 +246,28 @@ export function TimelineBoard({
   const domain = domainOf(from, to, lanes, data.range);
   const level: Level = domain ? levelFor(domain.first, domain.last) : "months";
   const toX = useMemo(() => (domain ? (iso: string) => ((dayMs(iso) - domain.start) / domain.span) * track : () => 0), [domain?.start, domain?.span, track]); // eslint-disable-line react-hooks/exhaustive-deps
-  const byDay = useMemo(() => lanes.map((lane) => ({ lane, groups: groupByDay(lane.key, lane.events) })), [lanes]);
+  // Entries drawn on a series bar get no card of their own.
+  const byDay = useMemo(
+    () =>
+      lanes.map((lane) => {
+        const onBar = seriesFacts(lane);
+        return { lane, groups: groupByDay(lane.key, onBar.size ? lane.events.filter((e) => !onBar.has(e.fact_id)) : lane.events) };
+      }),
+    [lanes],
+  );
   const all = useMemo(() => byDay.flatMap((g) => g.groups), [byDay]);
   const busy = byDay.filter((g) => g.groups.length > 0).length;
   const rows = level === "years" ? 1 : level === "days" || busy < 7 ? 3 : 2;
   const laid = useMemo(() => byDay.map((g) => ({ ...g, layout: layoutFor(g.groups, level, rows, track, toX) })), [byDay, level, rows, track, toX]);
-  const total = all.reduce((n, g) => n + g.events.length, 0);
-  const shown = laid.reduce((n, l) => n + l.layout.cards.reduce((s, c) => s + c.group.events.length, 0), 0);
+  // Entries on a series bar are on screen too, so they count as shown and in the total.
+  const onBars = lanes.reduce((n, lane) => n + seriesFacts(lane).size, 0);
+  const total = all.reduce((n, g) => n + g.events.length, 0) + onBars;
+  const shown = laid.reduce((n, l) => n + l.layout.cards.reduce((s, c) => s + c.group.events.length, 0), 0) + onBars;
   const marks = domain ? axisMarks(domain.start, domain.end, level) : [];
   const density = useMemo(() => (domain && level === "years" ? monthlyCounts(lanes, domain.first, domain.last) : null), [domain?.first, domain?.last, level, lanes]); // eslint-disable-line react-hooks/exhaustive-deps
   const found = data.counts?.things_to_look ?? 0;
+
+  useCardMotion(boardRef, `${from}|${to}`);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -303,7 +305,7 @@ export function TimelineBoard({
                 />
               </svg>
             )}
-            <LaneRow lane={lane} groups={groups} layout={layout} all={all} track={track} toX={toX} numbers={numbers} selectedId={selectedId} onOpen={onOpen} />
+            <LaneRow lane={lane} layout={layout} all={all} gaps={data.gaps ?? []} track={track} toX={toX} numbers={numbers} selectedId={selectedId} onOpen={onOpen} />
           </div>
         ))}
       </div>
