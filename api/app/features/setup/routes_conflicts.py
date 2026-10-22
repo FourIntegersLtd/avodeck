@@ -56,7 +56,7 @@ class Coverage(BaseModel):
 
 
 class OtherCases(BaseModel):
-    checked: int = Field(description="Your other cases compared by the patient's identifier; 0 if this case has none yet.")
+    checked: int = Field(description="Your other cases compared by the patient's identifier; 0 if none yet.")
     matches: int = Field(description="How many of them are about the same patient. Never named here.")
     organisations: list[str] = Field(description="Where the checked cases sit, by organisation name.")
 

@@ -55,6 +55,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | storage_path | Where the Word file is kept |
 | sha256 | A fingerprint of the file, proving it hasn't changed |
 | style_map / heading_map | Which styles and headings in the file match which report sections |
+| style_details (not stored) | What each style looks like (bold, italic, point size, numbered, indented), read from the Word file each time the template is shown |
 | version | Goes up each time the template is replaced |
 
 ### declarations

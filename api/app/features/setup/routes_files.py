@@ -203,7 +203,7 @@ async def _template_out(row: dict[str, Any], response: Response, request: Reques
         data = await _get_sealed(
             request, row["storage_path"], purpose="report_template", subject=f"{person}:{row['id']}"
         )
-        details = _style_details(data)
+        details = [StyleDetail(**d) for d in _style_details(data)]
     except Exception:  # the tiles then show names only
         details = []
     return Template(**fields, style_details=details, sections=_section_list(request))
