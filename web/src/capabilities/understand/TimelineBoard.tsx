@@ -9,7 +9,7 @@ import { LinkButton, PageRef, QChip } from "../../foundation/ui";
 import { LaneIcon } from "./laneIcons";
 import { axisIso, kindWord, longDate } from "./shared";
 import { dayMs, daysBetween, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, nextEntryAfter, type Level, type StoryGroup } from "./storyLayout";
-import { w } from "./words";
+import { w, type WordKey } from "./words";
 
 type Event = Schemas["Event"];
 type Lane = Schemas["Timeline"]["lanes"][number];
@@ -33,6 +33,9 @@ const shortDay = (iso: string) => SHORT_DAY.format(new Date(`${iso}T00:00:00Z`))
 
 /** "Result · 19 February 2024": what an entry is called everywhere on this screen. */
 export const entryLabel = (e: Event) => w("timeline.card_label", { kind: kindWord(e.kind), date: longDate(axisIso(e)) });
+const DATE_MARKS: Record<string, WordKey> = { printed_century: "timeline.date_assumed_century", line_above: "timeline.date_from_line_above" };
+const dateMark = (events: Event[]) => events.map((e) => (e.date_basis ? DATE_MARKS[e.date_basis] : undefined)).find((k) => k);
+
 export const entryName = (e: Event) => (e.summary ? w("timeline.card_name", { label: entryLabel(e), words: e.summary }) : entryLabel(e));
 
 /** Splits lane entries without a date for the axis out to the "not on a line yet" list. */
@@ -95,6 +98,7 @@ function useWidth(ref: React.RefObject<HTMLElement>) {
 function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryGroup; x: number; row: number; numbers?: Record<string, number>; selected: boolean; onOpen: (events: Event[], at?: string) => void }) {
   const lead = group.events[0]!;
   const many = group.events.length;
+  const mark = dateMark(group.events);
   const chips = group.questionIds.map((id) => numbers?.[id]).filter((n): n is number => n !== undefined);
   // The name is the words on the card, led by a fuller label for screen readers.
   return (
@@ -114,6 +118,12 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
           {chips.map((n) => (
             <QChip key={n} n={n} />
           ))}
+          {mark && (
+            <span className="av-story-card__check" title={w(mark)}>
+              <span aria-hidden="true">{w("timeline.check_the_date")}</span>
+              <span className="av-visually-hidden">{w(mark)}</span>
+            </span>
+          )}
         </span>
         <small>
           {many > 1 && <span>{w("timeline.lane_count", { count: many })}</span>}
@@ -303,7 +313,7 @@ export function TimelineBoard({
           <p className="av-muted">{w("timeline.unplaced_hint")}</p>
           <ul className="av-understand-list">
             {[...unplaced]
-              .sort((a, b) => a.page_no - b.page_no)
+              .sort((a, b) => a.page_no - b.page_no || (a.first_word_n ?? Infinity) - (b.first_word_n ?? Infinity) || 0)
               .map((e) => (
                 <li key={e.fact_id} className="av-story-unplaced__row">
                   <button type="button" className="av-story-unplaced__open" data-facts={e.fact_id} aria-label={entryName(e)} onClick={() => onOpen([e], e.fact_id)}>
