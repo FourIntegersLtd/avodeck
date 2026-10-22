@@ -3446,6 +3446,9 @@
             ],
             "title": "Declared At"
           },
+          "other_cases": {
+            "$ref": "#/components/schemas/OtherCases"
+          },
           "outcome": {
             "anyOf": [
               {
@@ -3494,6 +3497,7 @@
           "complete",
           "paragraph",
           "coverage",
+          "other_cases",
           "warnings",
           "declared_at",
           "outcome"
@@ -10172,6 +10176,35 @@
         "title": "OralInstructionIn",
         "type": "object"
       },
+      "OtherCases": {
+        "properties": {
+          "checked": {
+            "description": "Your other cases compared by the patient's identifier; 0 if none yet.",
+            "title": "Checked",
+            "type": "integer"
+          },
+          "matches": {
+            "description": "How many of them are about the same patient. Never named here.",
+            "title": "Matches",
+            "type": "integer"
+          },
+          "organisations": {
+            "description": "Where the checked cases sit, by organisation name.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Organisations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "checked",
+          "matches",
+          "organisations"
+        ],
+        "title": "OtherCases",
+        "type": "object"
+      },
       "OverEstimate": {
         "properties": {
           "instructing_party": {
@@ -15541,6 +15574,52 @@
         "title": "StepProgress",
         "type": "object"
       },
+      "StyleDetail": {
+        "properties": {
+          "bold": {
+            "title": "Bold",
+            "type": "boolean"
+          },
+          "indented": {
+            "title": "Indented",
+            "type": "boolean"
+          },
+          "italic": {
+            "title": "Italic",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "numbered": {
+            "title": "Numbered",
+            "type": "boolean"
+          },
+          "size_pt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The style's own point size, if it sets one.",
+            "title": "Size Pt"
+          }
+        },
+        "required": [
+          "name",
+          "bold",
+          "italic",
+          "size_pt",
+          "numbered",
+          "indented"
+        ],
+        "title": "StyleDetail",
+        "type": "object"
+      },
       "Subject": {
         "properties": {
           "label": {
@@ -15856,6 +15935,14 @@
           "size_bytes": {
             "title": "Size Bytes",
             "type": "integer"
+          },
+          "style_details": {
+            "description": "What each style looks like, in the order of `styles`.",
+            "items": {
+              "$ref": "#/components/schemas/StyleDetail"
+            },
+            "title": "Style Details",
+            "type": "array"
           },
           "styles": {
             "items": {
