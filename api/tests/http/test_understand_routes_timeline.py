@@ -183,7 +183,7 @@ async def test_counts_include_undated_facts(client_for: ClientFor, seed: Seed) -
     assert str(undated) in ids or str(undated) in {e["fact_id"] for e in resp.json()["unplaced"]}
 
 
-async def test_an_event_carries_how_its_date_was_got_and_where_its_first_word_sits(client_for: ClientFor, seed: Seed) -> None:
+async def test_an_event_carries_its_date_basis_and_first_word_order(client_for: ClientFor, seed: Seed) -> None:
     case = Case(seed)
     kind = _plain_lanes(case.pack)[0]["kinds"][0]
     marked = case.fact(kind, date(1987, 5, 1))
