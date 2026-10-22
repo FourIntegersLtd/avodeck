@@ -21,7 +21,14 @@ from app.core.email import Mailer, invite_mail
 from app.core.errors import CONFLICT_SQLSTATE, ApiError, conflict
 from app.core.notifications import send_mail
 from app.features.organisations import repo
-from app.features.organisations.schemas import Invite, InviteAccepted, Member, Organisation, Policy
+from app.features.organisations.schemas import (
+    Invite,
+    InviteAccepted,
+    Member,
+    Organisation,
+    Policy,
+    PolicyUpdate,
+)
 
 
 def to_policy(raw: Any) -> Policy:
@@ -174,6 +181,17 @@ async def leave(conn: AsyncConnection, org_id: uuid.UUID) -> None:
     async with refusals():
         await repo.end_membership(conn, mine)
     await audit.record(conn, action="membership.left", target=f"membership:{mine}", organisation_id=org_id)
+
+
+async def set_policy(conn: AsyncConnection, org_id: uuid.UUID, policy: PolicyUpdate) -> Organisation:
+    template = policy.required_template_id
+    if template is not None and not await repo.organisation_template_exists(conn, org_id, template):
+        raise ApiError("invalid", "Some details are not valid.", 422, fields=["required_template_id"])
+    await repo.set_policy(conn, org_id, policy.model_dump(mode="json"))
+    await audit.record(
+        conn, action="organisation.policy_changed", target=f"organisation:{org_id}", organisation_id=org_id
+    )
+    return await organisation(conn, org_id)
 
 
 async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> Organisation:

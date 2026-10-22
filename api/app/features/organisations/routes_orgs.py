@@ -15,6 +15,7 @@ from app.features.organisations.schemas import (
     OrganisationCreate,
     OrganisationList,
     OrganisationRename,
+    PolicyUpdate,
 )
 
 ViewMembers = org_access("org.view_members")
@@ -35,6 +36,11 @@ async def create_organisation(body: OrganisationCreate, request: Request, conn: 
 @router.get("/organisations/{org_id}", response_model=Organisation)
 async def get_organisation(org_id: uuid.UUID, conn: DbConn, _: ViewMembers) -> Organisation:
     return await service.organisation(conn, org_id)
+
+
+@router.put("/organisations/{org_id}/policy", response_model=Organisation, dependencies=STEP_UP_FIRST)
+async def set_policy(org_id: uuid.UUID, body: PolicyUpdate, conn: DbConn, _: SetPolicy) -> Organisation:
+    return await service.set_policy(conn, org_id, body)
 
 
 @router.patch("/organisations/{org_id}", response_model=Organisation, dependencies=STEP_UP_FIRST)

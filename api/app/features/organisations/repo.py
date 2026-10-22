@@ -8,6 +8,7 @@ from typing import Any
 
 from psycopg import AsyncConnection
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 _ORG = """
 select o.id, o.name, o.kind, o.region, o.policy, o.created_at, m.role
@@ -49,6 +50,14 @@ async def create_team(conn: AsyncConnection, name: str, region: str) -> uuid.UUI
 
 async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> None:
     await conn.execute("update app.organisations set name = %s where id = %s", (name, org_id))
+
+
+async def organisation_template_exists(conn: AsyncConnection, org_id: uuid.UUID, template_id: uuid.UUID) -> bool:
+    return bool(await value(conn, "select app.organisation_template_exists(%s, %s)", (org_id, template_id)))
+
+
+async def set_policy(conn: AsyncConnection, org_id: uuid.UUID, policy: dict[str, Any]) -> None:
+    await conn.execute("update app.organisations set policy = %s where id = %s", (Jsonb(policy), org_id))
 
 
 async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[dict[str, Any]]:

@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 OrgName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 OrgRole = Literal["owner", "admin", "expert", "assistant", "viewer"]
@@ -19,6 +19,13 @@ class Strict(BaseModel):
 class Policy(BaseModel):
     required_template_id: uuid.UUID | None = None
     max_retention_years: int | None = None
+
+
+class PolicyUpdate(Strict):
+    """The whole policy: a key left out is cleared (the person's own default applies)."""
+
+    required_template_id: uuid.UUID | None = None
+    max_retention_years: Annotated[int, Field(strict=True, ge=1, le=100)] | None = None
 
 
 class Organisation(BaseModel):
