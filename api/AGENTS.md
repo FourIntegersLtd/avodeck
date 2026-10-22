@@ -23,7 +23,8 @@ api/app/
                           # latest_opinions (opinions.py), Citation + citation_problems (citations.py) for F,
                           # case_invoice_rows (invoices.py: F's sent invoices, for H's invoices.csv),
                           # hearing_state (hearings.py), served_answers (written_answers.py) and
-                          # add_report_changes (report_changes.py): G's data for I; trial_freshness for I and G
+                          # add_report_changes (report_changes.py): G's data for I; trial_freshness for I and G;
+                          # org_policy (org_policy.py) and request_case_deletion + case_export_done (close.py) for O
     housekeeping.py       # daily schedules owned by foundation (expire_uploads)
     packs.py              # pack loader: merges jurisdiction + case-type + specialty packs for a case
     config.py             # cell config: REGION, endpoints, model IDs, allowed packs

@@ -78,6 +78,9 @@ Row-level security lets a person update a row; triggers then check each change a
 - `app.release_case_hold()`: `case.hold` (or the case's own job), and only once the case is off hold (409 otherwise).
 - `app.case_member_names()`: `case.view_metadata` (or the case's own job); anyone else gets no names.
 - An export (`export_case`) is downloaded only by the person who asked for it (`jobs.requested_by`); anyone else gets 404.
+- `app.case_access(case_id, action)` and `app.can_access_case()` (migration 0030): the `support` role (current `support_staff`, a live grant from the named expert) and closed accounts, as in "Closed accounts" and "Avodeck staff" below; `app.case_role_allowed()` adds `support` to the matrix.
+- `support_access_grants`: given only with `support_access.grant`, in the giver's own name, for at most 24 hours from now; only `revoked_at` changes, with `support_access.grant`, and never back. `support_staff`: the running app only reads its own row.
+- `app.organisation_policy(org_id)`: a current member, someone who can see one of the organisation's cases, or that case's own job; anyone else gets nothing.
 
 ## Organisation actions
 

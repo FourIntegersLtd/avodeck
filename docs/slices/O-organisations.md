@@ -24,10 +24,10 @@ Agencies, chambers and NHS teams can work in Avodeck together. One person, one s
 - `POST /webhooks/stripe`: Avodeck's own subscription (seats per organisation), signature-verified; moved here from the foundation
 
 ## Tables owned
-`invites`, `billing_profiles` (team ones; personal ones created by F), `support_access_grants`. Writes team rows in `organisations` and `memberships` (tables owned by foundation), `organisations.policy`, `people.records_custodian`, `people.closed_at`.
+`invites`, `billing_profiles` (team ones; personal ones created by F), `support_access_grants` (the table and its RLS were created by foundation in migration 0030 so the access check could be built and tested; O writes it through its routes and changes it only with foundation approval; it is kept after case deletion as the record of consent). Writes team rows in `organisations` and `memberships` (tables owned by foundation), `organisations.policy`, `people.records_custodian`, `people.closed_at`.
 
 ## Contracts
-- **In:** foundation `people`, `organisations`, `memberships`, `case_members`, `require_case_access`, notifications.
+- **In:** foundation `people`, `organisations`, `memberships`, `case_members`, `require_case_access`, notifications. Built for O in Phase 0 (foundation, migration 0030): `require_org_access(action)` (`core/auth/org_access.py`, the organisation-action table), the `support` case role and `require_support_staff` (`core/auth/support.py`), `support_staff`, `support_access_grants`, closed-account access (S15), `org_policy()` (`core/contracts/org_policy.py`), `request_case_deletion()` and `case_export_done()` (`core/contracts/close.py`, over H's jobs), and the mails `invite_mail`, `case_reassigned_mail`, `support_access_granted_mail` (`core/email.py`).
 - **Out:** team organisations and roles used by every slice's access checks; billing profiles used by F.
 
 ## Acceptance tests (write first)
