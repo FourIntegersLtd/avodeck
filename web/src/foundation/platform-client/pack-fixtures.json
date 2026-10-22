@@ -137,7 +137,17 @@
           "key": "sessions",
           "kinds": [
             "session"
-          ]
+          ],
+          "series": {
+            "kinds": [
+              "session"
+            ],
+            "max_gap_days": 30,
+            "min_count": 2,
+            "same": [
+              "duration_minutes"
+            ]
+          }
         },
         {
           "icon": "flask",
@@ -967,7 +977,18 @@
           "key": "prescriptions",
           "kinds": [
             "prescription"
-          ]
+          ],
+          "series": {
+            "kinds": [
+              "prescription"
+            ],
+            "max_gap_days": 120,
+            "min_count": 2,
+            "same": [
+              "drug",
+              "dose"
+            ]
+          }
         },
         {
           "icon": "mail",
