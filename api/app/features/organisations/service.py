@@ -16,12 +16,17 @@ from psycopg import AsyncConnection
 from app.core import audit
 from app.core.auth.access import not_found
 from app.core.auth.org_access import OrgAccess
+from app.core.auth.session import Session
+from app.core.auth.step_up import check_step_up
 from app.core.contracts.org_policy import parse
 from app.core.email import Mailer, invite_mail
 from app.core.errors import CONFLICT_SQLSTATE, ApiError, conflict
+from app.core.http import stale
 from app.core.notifications import send_mail
 from app.features.organisations import repo
 from app.features.organisations.schemas import (
+    BillingProfile,
+    BillingProfileIn,
     Invite,
     InviteAccepted,
     Member,
@@ -192,6 +197,40 @@ async def set_policy(conn: AsyncConnection, org_id: uuid.UUID, policy: PolicyUpd
         conn, action="organisation.policy_changed", target=f"organisation:{org_id}", organisation_id=org_id
     )
     return await organisation(conn, org_id)
+
+
+def _team_only(access: OrgAccess) -> None:
+    if access.kind != "team":
+        raise ApiError("personal_organisation", "Your own practice uses your own billing details.", 409)
+
+
+async def billing_profile(conn: AsyncConnection, access: OrgAccess) -> tuple[BillingProfile | None, int]:
+    _team_only(access)
+    found = await repo.org_billing_profile(conn, access.org_id)
+    if found is None:
+        return None, 0
+    version = int(found.pop("version"))
+    return BillingProfile(**found), version
+
+
+async def save_billing_profile(
+    conn: AsyncConnection, access: OrgAccess, body: BillingProfileIn, if_match: int, session: Session
+) -> tuple[BillingProfile | None, int]:
+    current, version = await billing_profile(conn, access)
+    if version != if_match:
+        raise stale()
+    if (current.tax_number if current else None) != body.tax_number:
+        check_step_up(session)
+    values = body.model_dump()
+    if current is None:
+        profile_id = await repo.add_org_billing_profile(conn, access.org_id, values)
+    else:
+        profile_id = current.id
+        await repo.change_billing_profile(conn, profile_id, values)
+    await audit.record(
+        conn, action="billing_profile.changed", target=f"billing_profile:{profile_id}", organisation_id=access.org_id
+    )
+    return await billing_profile(conn, access)
 
 
 async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> Organisation:

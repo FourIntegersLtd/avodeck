@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
@@ -66,6 +67,27 @@ class MemberList(BaseModel):
 
 class RoleChange(Strict):
     role: OrgRole
+
+
+Money = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
+
+
+class BillingProfileIn(Strict):
+    legal_name: str = Field(min_length=1, max_length=200)
+    address: str | None = Field(default=None, max_length=1000)
+    tax_number: str | None = Field(default=None, max_length=60)
+    tax_rate: Annotated[Decimal, Field(ge=0, le=100, max_digits=5, decimal_places=2)] = Decimal(0)
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    hourly_rate: Money | None = None
+    invoice_prefix: str = Field(default="", max_length=20)
+
+
+class BillingProfile(BillingProfileIn):
+    id: uuid.UUID
+
+
+class BillingProfileOut(BaseModel):
+    profile: BillingProfile | None
 
 
 Email = Annotated[

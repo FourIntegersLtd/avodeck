@@ -60,6 +60,38 @@ async def set_policy(conn: AsyncConnection, org_id: uuid.UUID, policy: dict[str,
     await conn.execute("update app.organisations set policy = %s where id = %s", (Jsonb(policy), org_id))
 
 
+_PROFILE = "id, legal_name, address, tax_number, tax_rate, currency, hourly_rate, invoice_prefix, version"
+
+
+async def org_billing_profile(conn: AsyncConnection, org_id: uuid.UUID) -> dict[str, Any] | None:
+    return await row(
+        conn,
+        f"select {_PROFILE} from app.billing_profiles where owner_type = 'organisation' and owner_id = %s",  # noqa: S608
+        (org_id,),
+    )
+
+
+async def add_org_billing_profile(conn: AsyncConnection, org_id: uuid.UUID, values: dict[str, Any]) -> uuid.UUID:
+    profile_id: uuid.UUID = await value(
+        conn,
+        "insert into app.billing_profiles (owner_type, owner_id, legal_name, address, tax_number, tax_rate,"
+        " currency, hourly_rate, invoice_prefix) values ('organisation', %(org)s, %(legal_name)s, %(address)s,"
+        " %(tax_number)s, %(tax_rate)s, %(currency)s, %(hourly_rate)s, %(invoice_prefix)s) returning id",
+        {**values, "org": org_id},
+    )
+    return profile_id
+
+
+async def change_billing_profile(conn: AsyncConnection, profile_id: uuid.UUID, values: dict[str, Any]) -> None:
+    await conn.execute(
+        "update app.billing_profiles set legal_name = %(legal_name)s, address = %(address)s,"
+        " tax_number = %(tax_number)s, tax_rate = %(tax_rate)s, currency = %(currency)s,"
+        " hourly_rate = %(hourly_rate)s, invoice_prefix = %(invoice_prefix)s, version = version + 1,"
+        " updated_at = now() where id = %(id)s",
+        {**values, "id": profile_id},
+    )
+
+
 async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[dict[str, Any]]:
     return await rows(conn, "select * from app.organisation_members(%s)", (org_id,))
 
