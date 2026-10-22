@@ -24,6 +24,7 @@ from app.core.packs import MergedPack
 
 PRINTED = "printed"
 PRINTED_CENTURY = "printed_century"
+LINE_ABOVE = "line_above"
 PLEASE_CHECK = "please_check"
 _SWAPPED = {"DMY": "MDY", "MDY": "DMY"}  # the other reading of a day-and-month date
 _NUMERIC = re.compile(r"^\W*\d{1,2}[/.\-]\d{1,2}[/.\-](\d{2}|\d{4})\W*$")
@@ -136,6 +137,40 @@ def date_field(pack: MergedPack, kind: str) -> str | None:
         if entry["key"] == kind:
             return next((name for name, t in entry.get("fields", {}).items() if t == "date"), None)
     return None
+
+
+def bundle_anchor(found_all: Iterable[Printed], *, today: dt.date | None = None) -> dt.date:
+    """The latest date printed in full across the bundle (never after today), else today.
+
+    A two-digit year is read as the latest calendar day on or before this anchor."""
+    today = today or dt.date.today()
+    readable = [d.value for d in found_all if not d.ambiguous and d.value <= today]
+    return max(readable) if readable else today
+
+
+def line_numbers(boxes: Iterable[tuple[str, Sequence[float]]]) -> dict[str, int]:
+    """Which printed line each word is on, from its box (`x1,y1,x2,y2,...`) in reading order.
+
+    A word starts a new line when its middle sits further from the word before it than 0.6 of the
+    taller word's height. A word with no readable box gets a line of its own, never a shared one."""
+    out: dict[str, int] = {}
+    line = 0
+    previous: tuple[float, float] | None = None  # middle and height of the word before
+    for word_id, box in boxes:
+        ys = list(box[1::2])
+        height = (max(ys) - min(ys)) if len(ys) >= 2 else 0.0
+        if height <= 0:
+            line += 2
+            out[word_id] = line
+            line += 2
+            previous = None
+            continue
+        middle = (max(ys) + min(ys)) / 2
+        if previous is not None and abs(middle - previous[0]) > 0.6 * max(height, previous[1]):
+            line += 1
+        out[word_id] = line
+        previous = (middle, height)
+    return out
 
 
 def pick_past_century(day: int, month: int, yy: int, anchor: dt.date) -> dt.date | None:

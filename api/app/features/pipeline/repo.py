@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -1460,11 +1461,17 @@ async def undated_facts(conn: AsyncConnection, case_id: uuid.UUID) -> list[Undat
 
 
 async def set_fact_event_date(
-    conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID, when: dt.date, basis: str
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    fact_id: uuid.UUID,
+    when: dt.date,
+    basis: str,
+    word_ids: Sequence[str] | None = None,
 ) -> bool:
+    """Dates a fact that has none; `word_ids`, when given, replace what it cites (now with the date's words)."""
     cur = await conn.execute(
-        "update app.facts set event_date = %s, date_basis = %s"
+        "update app.facts set event_date = %s, date_basis = %s, word_ids = coalesce(%s::text[], word_ids)"
         " where case_id = %s and id = %s and event_date is null returning id",
-        (when, basis, case_id, fact_id),
+        (when, basis, list(word_ids) if word_ids is not None else None, case_id, fact_id),
     )
     return (await cur.fetchone()) is not None

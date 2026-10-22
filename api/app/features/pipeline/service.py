@@ -42,6 +42,7 @@ from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
 from app.core.ai.kit import InvalidOutput
 from app.core.ai.ocr import OcrFailed, OcrPage
+from app.core.contracts.fact_dates import case_anchor, latest_printed_date
 from app.core.contracts.fact_flags import flag_for_recheck
 from app.core.contracts.fact_verifications import log_remaps
 from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcription_purpose
@@ -446,6 +447,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         async with ctx.transaction() as conn:
             stored = await repo.words_of(conn, page_id)
             size = await repo.page_size(conn, page_id)
+            latest = await latest_printed_date(conn, ctx.case_id)
             texts = {
                 w.word_id: (
                     await services.crypto.decrypt(
@@ -498,16 +500,21 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
         )
         evidence = extract.sort_evidence(output, ordered, struck, pack)
         facts = []
+        lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
+        anchor = dates.bundle_anchor(
+            [*found, *([dates.Printed((), latest, None, False)] if latest is not None else [])]
+        )
         for f in kept:
             fields = dict(f.get("fields") or {})
-            field = dates.date_field(pack, str(f["kind"]))
-            when, basis = dates.event_date(fields.get(field) if field else None, found, pack)
+            when, basis, extra = date_repair.resolve_dated(
+                str(f["kind"]), fields, f["word_ids"], ordered, struck, lines, pack, anchor=anchor
+            )
             facts.append(
                 repo.NewFact(
                     kind=str(f["kind"]),
                     fields=fields,
                     value=str(f["value"]),
-                    word_ids=list(f["word_ids"]),
+                    word_ids=date_repair.cited_with(f["word_ids"], extra, ordered) if extra else list(f["word_ids"]),
                     bbox=extract.box(f["word_ids"], polygons, width, height),
                     event_date=when,
                     date_basis=basis,
@@ -811,6 +818,7 @@ async def repair_fact_dates(ctx: JobContext) -> None:
     async with ctx.transaction() as conn:
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
         rows = await repo.undated_facts(conn, ctx.case_id)
+        anchor = await case_anchor(conn, ctx.case_id)
     if not rows:
         await ctx.progress(100, step="repair")
         return
@@ -839,19 +847,23 @@ async def repair_fact_dates(ctx: JobContext) -> None:
             }
         ordered = [(w.word_id, texts[w.word_id]) for w in stored]
         struck = {w.word_id for w in stored if w.struck}
+        lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
         async with ctx.transaction() as conn:
             for fact in facts:
-                when, basis = date_repair.resolve_fact_event_date(
+                when, basis, extra = date_repair.resolve_dated(
                     fact.kind,
                     fact.fields,
                     fact.word_ids,
                     ordered,
                     struck,
+                    lines,
                     pack,
-                    allow_century=fact.status in ("verified", "edited"),
+                    anchor=anchor,
+                    line_above=fact.status not in ("verified", "edited"),  # their cited words are the expert's
                 )
-                if when is not None and basis is not None:
-                    if await repo.set_fact_event_date(conn, ctx.case_id, fact.fact_id, when, basis):
+                if when is not None and basis is not None and basis != dates.PLEASE_CHECK:
+                    cited = date_repair.cited_with(fact.word_ids, extra, ordered) if extra else None
+                    if await repo.set_fact_event_date(conn, ctx.case_id, fact.fact_id, when, basis, cited):
                         repaired += 1
         done += len(facts)
         if done == total or done % 50 == 0:

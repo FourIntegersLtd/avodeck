@@ -74,9 +74,7 @@ async def test_repair_job_sets_event_date_from_printed_words(
 
         async with api_db.request(scope_for(expert)) as conn:
             for n, word_id, text in ((1, "w1", "03/04/2024"), (2, "w2", "review")):
-                sealed = await h.crypto.encrypt(
-                    conn, case_id, text.encode(), purpose=word_purpose(page_id, word_id)
-                )
+                sealed = await h.crypto.encrypt(conn, case_id, text.encode(), purpose=word_purpose(page_id, word_id))
                 admin.execute(
                     "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
                     " values (%s, %s, %s, %s, %s, %s, 0.9, 'ocr')",
@@ -267,7 +265,9 @@ async def test_repair_job_reads_century_and_line_above_for_suggested_facts(
     ]
 
     def fact(fields: dict[str, str], value: str, word: str) -> uuid.UUID:
-        return insert_fact(admin, case_id, page_id, kind, fields=fields, value=value, word_ids=[word], status="suggested")
+        return insert_fact(
+            admin, case_id, page_id, kind, fields=fields, value=value, word_ids=[word], status="suggested"
+        )
 
     short = fact({field: "03/04/87"}, "a", "w1")
     full = fact({field: "12/05/1990"}, "b", "w3")

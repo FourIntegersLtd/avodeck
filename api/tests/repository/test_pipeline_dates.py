@@ -143,8 +143,10 @@ async def test_a_dated_fact_is_given_its_date_or_marked_please_check(subset: Har
     want = expected_dates()
     for n, fact in subset_facts(subset):
         basis, when = fact["date_basis"], fact["event_date"]
-        assert basis in (None, "printed", "please_check"), f"page {n}"
-        assert (when is not None) == (basis == "printed"), f"page {n}: a date without a printed basis"
+        assert basis in (None, "printed", "printed_century", "line_above", "please_check"), f"page {n}"
+        assert (when is not None) == (basis in ("printed", "printed_century", "line_above")), (
+            f"page {n}: a date without a basis"
+        )
         if want.get((n, fact["value"])):
             assert basis is not None, f"page {n}: a dated fact has neither a date nor a flag"
 
@@ -366,7 +368,15 @@ async def test_a_result_mid_line_is_dated_from_its_line_at_ingest(
         facts = {f["value"]: f for f in facts_of(h)}
         mid = facts["Hb 112"]
         assert (mid["event_date"], mid["date_basis"]) == (dt.date(1987, 10, 21), "line_above")
-        assert mid["word_ids"][:2] == ["p1w4", "p1w5"]
-        assert "p1w1" in mid["word_ids"]
+        assert mid["word_ids"] == ["p1w1", "p1w2", "p1w3", "p1w4", "p1w5"]  # one unbroken run from the date
         # the line below the date is still within "the line above" of its own line: also dated
         assert facts["later"]["date_basis"] == "line_above"
+
+
+async def test_century_and_line_above_dates_match_the_expected_ones(subset: Harness) -> None:
+    want = expected_dates()
+    for n, fact in subset_facts(subset):
+        expect = want.get((n, fact["value"]))
+        if fact["date_basis"] in ("printed_century", "line_above") and expect is not None:
+            got = fact["event_date"].isoformat()
+            assert got == expect, f"page {n}: a {fact['date_basis']} date differs from the expected one"
