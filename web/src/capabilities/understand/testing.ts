@@ -113,6 +113,7 @@ export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Time
     as_seen_on: null,
     as_seen_title: "Seen on the day",
     counts: { checked: 2, please_check: 1, things_to_look: 1, not_linked: 1, undated: 0, total: 3 },
+    gaps: [{ finding_id: "c1111111-1111-4111-8111-111111111111", from_fact_id: FACT_2, to_fact_id: FACT_1, days: 86, kind: "no_action_within", label_key: "timeline.gap.no_action_within" }],
     ...over,
   };
 }
