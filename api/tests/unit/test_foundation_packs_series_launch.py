@@ -3,13 +3,15 @@ on is a field of the fact kinds it names. Read from the packs, never written her
 
 from __future__ import annotations
 
+from typing import Any
+
 import pytest
 
 from app.core.packs import default_library
 from tests.support.packs import BOTH, LAUNCH, Combo
 
 
-def _series_lanes(combo: Combo) -> list[dict[str, object]]:
+def _series_lanes(combo: Combo) -> list[dict[str, Any]]:
     return [lane for lane in default_library().combine(*combo.codes).lanes() if lane.get("series")]
 
 
@@ -30,11 +32,11 @@ def test_the_series_kinds_are_on_the_lane_and_the_matched_fields_belong_to_them(
     for lane in _series_lanes(combo):
         rule = lane["series"]
         assert isinstance(rule, dict)
-        assert set(rule["kinds"]) <= set(lane["kinds"])  # type: ignore[arg-type]
+        assert set(rule["kinds"]) <= set(lane["kinds"])
         for kind in rule["kinds"]:
             assert set(rule["same"]) <= kinds[kind]
 
 
 def test_the_two_specialties_use_different_kinds() -> None:
-    kinds = [{tuple(lane["series"]["kinds"]) for lane in _series_lanes(c)} for c in BOTH]  # type: ignore[index]
+    kinds = [{tuple(lane["series"]["kinds"]) for lane in _series_lanes(c)} for c in BOTH]
     assert kinds[0].isdisjoint(kinds[1])

@@ -22,10 +22,10 @@ async def test_lanes_carry_their_series_and_entries_their_series_key(
     case = Case(seed, combo)
     lane = next(lane for lane in case.pack.lanes() if lane.get("series"))
     rule: dict[str, Any] = lane["series"]
-    fields = {name: "zz" for name in rule["same"]}
+    fields: dict[str, Any] = {name: "zz" for name in rule["same"]}
     start = date(2024, 3, 1)
     ids = [case.fact(rule["kinds"][0], start + timedelta(days=20 * i), page=i + 1, **fields) for i in range(3)]
-    lone = case.fact(rule["kinds"][0], start, page=9, **{name: "other" for name in rule["same"]})
+    lone = case.fact(rule["kinds"][0], start, page=9, **dict[str, Any]({name: "other" for name in rule["same"]}))
     resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
     assert resp.status_code == 200
     body = {item["key"]: item for item in resp.json()["lanes"]}[lane["key"]]

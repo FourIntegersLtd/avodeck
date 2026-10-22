@@ -46,7 +46,7 @@ def build(pack: MergedPack, lane_key: str, facts: Sequence[repo.SeenFact]) -> La
             groups[norm].append(fact)
     runs: list[list[repo.SeenFact]] = []
     for group in groups.values():
-        group.sort(key=lambda f: (f.event_date, f.page_no))  # type: ignore[type-var, return-value]
+        group.sort(key=lambda f: (f.event_date, f.page_no))
         run = [group[0]]
         for fact in group[1:]:
             assert fact.event_date is not None and run[-1].event_date is not None
@@ -55,13 +55,15 @@ def build(pack: MergedPack, lane_key: str, facts: Sequence[repo.SeenFact]) -> La
                 run = []
             run.append(fact)
         runs.append(run)
-    kept = sorted((r for r in runs if len(r) >= rule["min_count"]), key=lambda r: (r[0].event_date, r[0].page_no))  # type: ignore[type-var, return-value]
+    kept = sorted((r for r in runs if len(r) >= rule["min_count"]), key=lambda r: (r[0].event_date, r[0].page_no))
     out = LaneSeries()
     for n, run in enumerate(kept, start=1):
         first, last = run[0].event_date, run[-1].event_date
         assert first is not None and last is not None
         key = f"{lane_key}:{n}"
         label = " ".join(_words(run[0].fields.get(name)) for name in same)
-        out.bars.append(Series(key=key, label=label, first=first, last=last, count=len(run), fact_ids=[f.fact_id for f in run]))
+        out.bars.append(
+            Series(key=key, label=label, first=first, last=last, count=len(run), fact_ids=[f.fact_id for f in run])
+        )
         out.keys.update({f.fact_id: key for f in run})
     return out
