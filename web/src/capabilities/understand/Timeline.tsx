@@ -45,7 +45,17 @@ export function Timeline() {
 
   const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId]);
   const caseRow = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId]);
+  // The ribbon always shows the whole record (as it stood on the chosen day), whatever the window and filters.
+  const whole = useRibbonData(caseId, day);
+  const recordRange = whole.data?.range ?? null;
+  // Until the instruction period (or, without one, the last two years) is applied, the board neither asks for
+  // nor draws anything: it would show the record's own span and then jump.
+  const windowReady =
+    windowPreset !== "period" ||
+    periodSeeded ||
+    (!caseRow.loading && !whole.loading && periodDefaultDates(caseRow.data, recordRange) === null);
   const found = useResource(async () => {
+    if (!windowReady) return null;
     const query: Record<string, string> = {};
     if (status === "verified" || status === "suggested") query.status = status;
     if (status === "not_linked" || status === "things_to_look") query.only = status;
@@ -54,10 +64,7 @@ export function Timeline() {
     if (from) query.from = from;
     if (to) query.to = to;
     return unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: query as never } }));
-  }, [caseId, status, questionId, from, to, day]);
-  // The ribbon always shows the whole record (as it stood on the chosen day), whatever the window and filters.
-  const whole = useRibbonData(caseId, day);
-  const recordRange = whole.data?.range ?? found.data?.range ?? null;
+  }, [caseId, status, questionId, from, to, day, windowReady]);
 
   useEffect(() => {
     if (windowPreset !== "period" || periodSeeded) return;
@@ -83,10 +90,7 @@ export function Timeline() {
     }
   };
 
-  // Until the instruction period is applied, the board would draw the record's own span and then jump.
-  const windowReady =
-    windowPreset !== "period" || periodSeeded || (!caseRow.loading && periodDefaultDates(caseRow.data, recordRange) === null);
-  const data = windowReady ? found.data : undefined;
+  const data = found.data ?? undefined;
   const order = useMemo(() => (data ? chronologyEntries(splitForTrack(data).lanes, splitForTrack(data).unplaced) : []), [data]);
   const entryId = params.get("entry");
   const current = entryId ? order.find((e) => e.fact_id === entryId) ?? null : null;
