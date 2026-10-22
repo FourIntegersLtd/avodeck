@@ -342,7 +342,8 @@ async def test_positions_link_paragraphs_by_id_and_show_both_texts_verbatim(
     served: World,
 ) -> None:
     _, report = await checked_report(client_for, storage, admin, aconn, worker_db, model, served)
-    assert [set(p) for p in report["positions"]] == [{"question_id", "question_no", "own", "theirs"}], "no summary field"
+    fields = [{"question_id", "question_no", "own", "theirs"}]
+    assert [set(p) for p in report["positions"]] == fields, "no summary field"
     [position] = report["positions"]
     assert position["question_id"] == str(served.question)
     assert position["own"] == [{"paragraph_id": str(served.paragraphs[2]), "para_no": 3, "text": PARAGRAPHS[2][1]}]
