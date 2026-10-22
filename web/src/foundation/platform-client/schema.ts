@@ -7198,6 +7198,11 @@ export interface components {
         Membership: {
             /** Kind */
             kind: string;
+            /**
+             * Member Count
+             * @default 1
+             */
+            member_count: number;
             /** Name */
             name: string;
             /**
@@ -8276,6 +8281,8 @@ export interface components {
             email: string;
             /** Full Name */
             full_name: string | null;
+            /** Greeting Name */
+            greeting_name?: string | null;
             /** Home Region */
             home_region: string | null;
             /**
@@ -8285,6 +8292,8 @@ export interface components {
             id: string;
             /** Locale */
             locale: string | null;
+            /** Password Changed At */
+            password_changed_at?: string | null;
             /** Timezone */
             timezone: string | null;
         };
