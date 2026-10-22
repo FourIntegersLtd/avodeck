@@ -1,0 +1,565 @@
+{
+  "id": "S22-JointStatement",
+  "artboard": "S22-JointStatement.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/joint-statement",
+  "width": 1440,
+  "height": 1100,
+  "session": true,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [
+        "case.view_metadata",
+        "case.view_content",
+        "case.edit_setup",
+        "case.upload",
+        "opinion.write",
+        "fact.verify",
+        "report.build",
+        "report.sign",
+        "request.draft",
+        "case.export"
+      ],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/jurisdictions/*": {
+      "code": "gb-eaw",
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "court_tracks": [
+        "small_claims",
+        "fast",
+        "intermediate",
+        "multi"
+      ],
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of {clinicians} have acted as this {clinician} did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "name": "England and Wales",
+      "timezone": "Europe/London",
+      "version": "2026.10.6",
+      "vocabulary": {
+        "court_bundle": "trial bundle",
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
+        },
+        "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
+        "request_notes": {
+          "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
+          "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "working_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/expert-meetings": {
+      "meetings": [
+        {
+          "id": "a9111111-1111-4111-8111-111111111111"
+        }
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/expert-meetings/a9111111-1111-4111-8111-111111111111": {
+      "id": "a9111111-1111-4111-8111-111111111111",
+      "type": "zz_conference",
+      "label": "Joint statement",
+      "status": "draft",
+      "hearing_id": null,
+      "discussion_on": "2027-02-12",
+      "sign_by": "2027-02-19",
+      "sign_rule_ref": "7 days after the discussion",
+      "send_by": "2027-02-26",
+      "send_rule_ref": "within 14 days",
+      "declarations": [
+        "We understand our duty to the court and have complied with it.",
+        "Neither of us has been instructed to avoid reaching agreement."
+      ],
+      "prepared_sha256": null,
+      "prepared_pages": null,
+      "certificate_sha256": null,
+      "signed_sha256": null,
+      "version": 4,
+      "items": [
+        {
+          "id": "a9222222-2222-4222-8222-222222222221",
+          "number": 1,
+          "text": "Did Dr P need to examine Mrs A on 15 May 2024?",
+          "own_position": "Yes. Bleeding with known anaemia called for abdominal and rectal examination.",
+          "other_positions": "Yes, examination was required.",
+          "agreed": true,
+          "reason": null,
+          "change_note": null,
+          "deviation": "consistent",
+          "deviation_reason": "same_words",
+          "served_paragraphs": [
+            "6.13"
+          ],
+          "pages": [
+            118
+          ],
+          "changed_from_previous": "same",
+          "version": 3
+        },
+        {
+          "id": "a9222222-2222-4222-8222-222222222222",
+          "number": 2,
+          "text": "Was the February result acted on appropriately?",
+          "own_position": "No. Iron was started without looking for a cause.",
+          "other_positions": "Within the range: iron first, review later, was reasonable.",
+          "agreed": false,
+          "reason": "we differ on whether a cause should have been sought at once.",
+          "change_note": null,
+          "deviation": "consistent",
+          "deviation_reason": "copied_from_report",
+          "served_paragraphs": [
+            "6.4"
+          ],
+          "pages": [
+            214,
+            87
+          ],
+          "changed_from_previous": "same",
+          "version": 2
+        },
+        {
+          "id": "a9222222-2222-4222-8222-222222222223",
+          "number": 3,
+          "text": "By what date should Mrs A have been referred?",
+          "own_position": "By 15 May 2024 at the latest.",
+          "other_positions": "By 15 May 2024.",
+          "agreed": true,
+          "reason": null,
+          "change_note": null,
+          "deviation": "changed",
+          "deviation_reason": "differs_from_report",
+          "served_paragraphs": [
+            "6.14"
+          ],
+          "pages": [
+            118
+          ],
+          "changed_from_previous": "changed",
+          "version": 5
+        }
+      ],
+      "agenda_versions": [
+        {
+          "id": "a9777777-7777-4777-8777-777777777777",
+          "version_no": 2,
+          "read_at": "2027-02-10T09:00:00Z",
+          "item_count": 3,
+          "created_at": "2027-02-10T09:00:00Z"
+        }
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/expert-meetings/a9111111-1111-4111-8111-111111111111/participants": {
+      "participants": [
+        {
+          "id": "a9888888-8888-4888-8888-888888888888",
+          "name": "Dr R",
+          "discipline": null,
+          "side": "instructing_side",
+          "on_avodeck": false
+        }
+      ]
+    }
+  },
+  "artboardCss": "main section:nth-of-type(1) > div:nth-child(4) > span:nth-child(2) > span:nth-child(2){font-size:0 !important}main section:nth-of-type(1) > div:nth-child(4) > span:nth-child(2) > span:nth-child(2)::before{content:\"This differs from your report\";font-size:17px;font-weight:700}main section:nth-of-type(1) > div:nth-child(4) > span:nth-child(2) > span:nth-child(2)::after{content:\" (para 6.14). Add a short note explaining why you've changed.\";font-size:17px;font-weight:400}header > div > span:nth-child(2){font-size:0 !important}header > div > span:nth-child(2)::after{content:\"Clin neg breach · due 30 Nov\";font-size:17px}",
+  "probes": [
+    {
+      "name": "back",
+      "artboard": "main a[href='S19-Served.dc.html']",
+      "page": ".av-trial-head__text .av-back-link",
+      "allow": [
+        "rect.y",
+        "rect.h",
+        "rect.w",
+        "fontFamily"
+      ]
+    },
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".av-trial-title h2"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".av-trial-lead"
+    },
+    {
+      "name": "line",
+      "artboard": "main h1 + p + p",
+      "page": "[data-testid=meeting-line]",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "chip sign",
+      "artboard": "main > div:first-child > div:last-child > span:nth-child(1)",
+      "page": ".av-trial-chip:nth-child(1)"
+    },
+    {
+      "name": "chip send",
+      "artboard": "main > div:first-child > div:last-child > span:nth-child(2)",
+      "page": ".av-trial-chip:nth-child(2)"
+    },
+    {
+      "name": "table",
+      "artboard": "main > section:nth-of-type(1)",
+      "page": ".av-trial-grid-card"
+    },
+    {
+      "name": "table head",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1)",
+      "page": ".av-trial-grid thead tr",
+      "allow": [
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft",
+        "backgroundColor",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "row 1",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(2)",
+      "page": ".av-trial-grid tbody tr:nth-child(1)",
+      "allow": [
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft",
+        "backgroundColor",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "row 1 position",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(2) > span:nth-child(2)",
+      "page": ".av-trial-grid tbody tr:nth-child(1) td:nth-child(2) p",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "row 1 tag",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(2) > span:nth-child(5)",
+      "page": ".av-trial-grid tbody tr:nth-child(1) .av-trial-tag"
+    },
+    {
+      "name": "row 2",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(3)",
+      "page": ".av-trial-grid tbody tr:nth-child(2)",
+      "allow": [
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft",
+        "backgroundColor",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "row 3",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(4)",
+      "page": ".av-trial-grid tbody tr:nth-child(3)",
+      "allow": [
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft",
+        "backgroundColor",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "declarations",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": ".av-trial-decl"
+    },
+    {
+      "name": "differs",
+      "artboard": "main section:nth-of-type(1) > div:nth-child(4) > span:nth-child(2) > span:nth-child(2)",
+      "page": ".av-trial-differs",
+      "allow": [
+        "fontSize",
+        "lineHeight",
+        "rect.w"
+      ]
+    },
+    {
+      "name": "decl footer",
+      "artboard": "main > section:nth-of-type(2) > span",
+      "page": ".av-trial-decl > p"
+    },
+    {
+      "name": "decl list",
+      "artboard": "main > section:nth-of-type(2) > label:nth-of-type(1)",
+      "page": ".av-trial-decl .av-trial-list li:nth-child(1)"
+    },
+    {
+      "name": "bar",
+      "artboard": "header",
+      "page": ".av-case-bar",
+      "allow": [
+        "backgroundColor"
+      ]
+    },
+    {
+      "name": "bar name",
+      "artboard": "header > div",
+      "page": ".av-case-bar__name"
+    },
+    {
+      "name": "bar title",
+      "artboard": "header > div > span:first-child",
+      "page": ".av-case-bar__title"
+    },
+    {
+      "name": "bar sub",
+      "artboard": "header > div > span:nth-child(2)",
+      "page": ".av-case-bar__sub",
+      "allow": [
+        "fontSize",
+        "lineHeight",
+        "rect.h",
+        "rect.w"
+      ]
+    },
+    {
+      "name": "bar steps",
+      "artboard": "header nav",
+      "page": ".av-case-bar__steps",
+      "allow": [
+        "rect.y",
+        "rect.h"
+      ]
+    },
+    {
+      "name": "pill1",
+      "artboard": "header nav a:nth-child(1)",
+      "page": ".av-steps .av-step:nth-child(1) .av-step__pill"
+    },
+    {
+      "name": "pill2",
+      "artboard": "header nav a:nth-child(2)",
+      "page": ".av-steps .av-step:nth-child(2) .av-step__pill"
+    },
+    {
+      "name": "pill3",
+      "artboard": "header nav a:nth-child(3)",
+      "page": ".av-steps .av-step:nth-child(3) .av-step__pill"
+    },
+    {
+      "name": "pill4",
+      "artboard": "header nav a:nth-child(4)",
+      "page": ".av-steps .av-step:nth-child(4) .av-step__pill"
+    },
+    {
+      "name": "pill5",
+      "artboard": "header nav a:nth-child(5)",
+      "page": ".av-steps .av-step:nth-child(5) .av-step__pill"
+    },
+    {
+      "name": "avatar",
+      "artboard": "header > span:last-child",
+      "page": ".av-shell__avatar-disc"
+    },
+    {
+      "name": "declarations title",
+      "artboard": "main > section:nth-of-type(2) h2",
+      "page": ".av-trial-decl h2"
+    },
+    {
+      "name": "prepare",
+      "artboard": "main > div:last-child a",
+      "page": ".av-trial-actions .av-button"
+    }
+  ],
+  "deviations": [
+    "The case bar's subtitle: the board shows a case description and status (\"Delayed colorectal referral · report served\"); the API has neither, the page shows the case type and due date. The artboard is rendered with the page's subtitle text for comparison (artboardCss).",
+    "Case bar: the step pills and avatar keep 52px hit areas (the board draws 44-46px); the bar's step links and avatar overhang by margin so the visible chips sit where the board draws them. Overrides are scoped to screens with a trial page (trial.css).",
+    "The \"differs\" note in row 3: the board says what the report said (\"which said early March 2024, soon after the blood result\"); the API has no earlier text, so the page says \"This differs from your report (para N). Add a short note explaining why you've changed.\". The artboard is rendered with that sentence (artboardCss).",
+    "Served paragraph numbers: the board shows \"para 6.13\"; the API returns whole numbers. The mock answers use the board's strings, the page prints what it is given.",
+    "Page numbers: the board writes p.087; the page writes p.87 (shared PageRef), the board's mock page in row 2 is 87 for that reason.",
+    "Each unchanged row has a \"Change\" link under its question (opens the editor; the board has no way to edit a position). It sits where the row already has spare height, so row heights match.",
+    "\"Add a new version of the agenda (PDF)\" sits right of the deadline chips; the board has no such link.",
+    "The date line says \"Discussion on 12 February 2027\" (with the year); the board omits the year. The footnote under the declarations keeps the page's words (the board's first sentence names the instructing party's plural, which the pack does not provide).",
+    "Row 3's columns carry a 3px, 2px, 1px left nudge: the board draws that row's 4px amber edge inside its grid, which pushes its columns right by those amounts.",
+    "Prepare button 19px/64px as drawn; the 'Prepare statement for signing' label is the page's.",
+    "The agenda line says (for the claimant) from the participant's side and the pack's party words, and question 3 reworded from the agenda comparison."
+  ]
+}

@@ -1,0 +1,40 @@
+/* S29 Court orders and hearings, matched to its board. Everything is scoped to .av-court-orders. */
+.av-court-orders.av-page { padding-top: 36px; padding-bottom: 48px; }
+.av-court-orders.av-stack > * + * { margin-top: 28px; }
+.av-court-orders__head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+.av-court-orders__title { display: flex; flex-direction: column; gap: 6px; }
+.av-court-orders .av-court-orders__title > h2, .av-case-bar ~ .av-page.av-court-orders > .av-court-orders__head > .av-court-orders__title > h2:first-of-type { margin: 0; font-size: 34px; line-height: 1.5; }
+.av-court-orders__title p { margin: 0; font-size: 18px; line-height: 1.5; }
+.av-court-orders .av-back-link { min-height: 0; padding: 14px 0; margin: -14px 0; line-height: 1.5; align-self: flex-start; }
+/* The board draws the button 18px with 16px 26px padding and no border; the border stays and takes 2px of it. */
+.av-court-orders__head > .av-button { font-size: 18px; padding: 14px 24px; line-height: normal; border-radius: 12px; }
+.av-court-orders .av-callout .av-button { padding: 10px 18px; line-height: normal; min-height: 52px; margin: -3.5px 0; border-radius: 12px; }
+.av-court-orders .av-after-panel--roomy { padding: 28px 32px; border-radius: 18px; }
+.av-court-orders .av-after-panel--roomy.av-stack > * + * { margin-top: 16px; }
+.av-court-orders .av-after-panel--roomy h3 { margin: 0; padding: 0; font-size: 22px; line-height: 1.5; }
+.av-court-orders__sechead { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+.av-court-orders__sechead .av-after-linkbtn { min-height: 0; padding: 14px 0; margin: -14px 0; line-height: 1.5; }
+.av-court-orders .av-after-hearings, .av-court-orders .av-after-orders { display: flex; flex-direction: column; gap: 16px; }
+.av-court-orders .av-after-hearing { border-top-color: #EEF1EF; }
+.av-court-orders .av-after-hearing__date { font-size: var(--text-body); }
+.av-court-orders .av-after-hearing .av-after-linkbtn { min-height: 0; padding: 14px 0; margin: -14px 0; line-height: 1.5; }
+.av-court-orders .av-after-state { font-size: var(--text-small); }
+.av-court-orders .av-after-order { background: #F6F7F5; }
+.av-court-orders .av-after-order.av-stack > * + * { margin-top: 10px; }
+.av-court-orders .av-after-order p { margin: 0; }
+.av-court-orders .av-after-order .av-muted { font-size: var(--text-small); }
+.av-court-orders .av-after-quote::before { content: "\""; }
+.av-court-orders .av-after-quote::after { content: "\""; }
+/* The columns start where the board's 2fr 1fr 1fr 2fr grid with 16px gaps starts them. */
+.av-court-orders .av-after-dates { table-layout: fixed; border-collapse: separate; border-spacing: 0 16px; margin: 0 0 -16px; }
+.av-court-orders .av-after-panel--roomy.av-stack > .av-after-dates { margin-top: 0; }
+.av-court-orders .av-after-dates th { font-size: var(--text-small); font-weight: 700; padding: 10px 0; }
+.av-court-orders .av-after-dates td { padding: 14px 0; border-top-color: #EEF1EF; }
+.av-court-orders .av-after-hold { gap: 16px; }
+.av-court-orders .av-after-hold h3 { line-height: 1.5; }
+.av-court-orders .av-after-hold .av-button { padding: 10px 18px; line-height: normal; min-height: 52px; margin: -3.5px 0; border-radius: 12px; }
+.av-case-bar:has(~ .av-court-orders) .av-steps { gap: 8px; }
+.av-case-bar:has(~ .av-court-orders) .av-shell__avatar { margin: 0 -4px; }
+.av-case-bar:has(~ .av-court-orders) .av-step__pill { min-height: 0; padding: 10px 16px; border: 0; line-height: 1.5; }
+.av-case-bar:has(~ .av-court-orders) .av-step--current .av-step__pill { padding: 10px 18px; }
+.av-case-bar:has(~ .av-court-orders) .av-step__marker { width: 22px; height: 22px; border: 0; }

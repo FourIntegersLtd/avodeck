@@ -14,7 +14,12 @@ const HEIGHT = 440;
 const WIDTH = 150;
 const MIN_BAND = 14;
 const SHORT_BAND = 48;
-const LINE = 26;
+// Text lines are 17px type at 1.5 line height; the short labels sit 4px apart.
+const TEXT_LINE = 25.5;
+const SHORT_GAP = 4;
+// Where a label's baseline falls in its line.
+const BASELINE = 18.75;
+const LABEL_X = 174;
 
 /** Band heights that add up to the stack's height, with every band tall enough to see. */
 export function bandHeights(pages: number[]): number[] {
@@ -43,34 +48,37 @@ export function SourceStack({ rows, label, unit, format }: Props) {
   const heights = bandHeights(rows.map((r) => r.pages));
   const tops = heights.map((_, i) => heights.slice(0, i).reduce((sum, h) => sum + h, 0));
   const compact = rows.filter((_, i) => heights[i]! < SHORT_BAND);
-  const firstCompact = compact.length;
-  const lines = compact.map((r, i) => ({ r, y: HEIGHT - 12 - (firstCompact - 1 - i) * LINE }));
+  // The short bands share one block of labels, centred on the space left under the tall bands.
+  const regionTop = compact.length > 0 ? tops[heights.findIndex((h) => h < SHORT_BAND)]! : HEIGHT;
+  const blockHeight = compact.length * TEXT_LINE + Math.max(0, compact.length - 1) * SHORT_GAP;
+  const blockTop = regionTop + (HEIGHT - regionTop) / 2 - blockHeight / 2;
+  const lines = compact.map((r, i) => ({ r, y: blockTop + i * (TEXT_LINE + SHORT_GAP) + BASELINE }));
   return (
     <div className="pl-stack">
-      <svg className="pl-stack__drawing" viewBox="0 0 370 452" role="img" aria-label={label}>
+      <svg className="pl-stack__drawing" viewBox={`0 0 370 ${HEIGHT + 2}`} role="img" aria-label={label}>
         <defs>
           <clipPath id={clip}>
-            <rect x="0" y="0" width={WIDTH} height={HEIGHT} rx="10" />
+            <rect x="1" y="1" width={WIDTH} height={HEIGHT} rx="9" />
           </clipPath>
         </defs>
         <rect className="pl-stack__shadow" x="12" y="12" width={WIDTH} height={HEIGHT} rx="10" />
-        <rect className="pl-stack__page" x="6" y="6" width={WIDTH} height={HEIGHT} rx="10" />
+        <rect className="pl-stack__page" x="6.5" y="6.5" width={WIDTH + 1} height={HEIGHT + 1} rx="10" />
         <g clipPath={`url(#${clip})`}>
           {rows.map((r, i) => (
-            <rect key={r.key} x="0" y={tops[i]} width={WIDTH} height={heights[i]} fill={r.colour} />
+            <rect key={r.key} x="1" y={tops[i]! + 1} width={WIDTH} height={heights[i]} fill={r.colour} />
           ))}
         </g>
-        <rect className="pl-stack__edge" x="0.5" y="0.5" width={WIDTH - 1} height={HEIGHT - 1} rx="10" />
+        <rect className="pl-stack__edge" x="0.5" y="0.5" width={WIDTH + 1} height={HEIGHT + 1} rx="10" />
         {rows.map((r, i) =>
           heights[i]! >= SHORT_BAND ? (
             <g key={r.key} aria-hidden="true">
-              <text className="pl-stack__name" x="184" y={tops[i]! + heights[i]! / 2 - 2}>{r.label}</text>
-              <text className="pl-stack__count" x="184" y={tops[i]! + heights[i]! / 2 + 18}>{`${format(r.pages)} ${unit(r.pages)}`}</text>
+              <text className="pl-stack__name" x={LABEL_X} y={tops[i]! + heights[i]! / 2 - TEXT_LINE + BASELINE}>{r.label}</text>
+              <text className="pl-stack__count" x={LABEL_X} y={tops[i]! + heights[i]! / 2 + BASELINE}>{`${format(r.pages)} ${unit(r.pages)}`}</text>
             </g>
           ) : null,
         )}
         {lines.map(({ r, y }) => (
-          <text key={r.key} className="pl-stack__name pl-stack__name--short" x="184" y={y} aria-hidden="true">
+          <text key={r.key} className="pl-stack__name pl-stack__name--short" x={LABEL_X} y={y} aria-hidden="true">
             {r.label}
             <tspan className="pl-stack__count" dx="8">{format(r.pages)}</tspan>
           </text>

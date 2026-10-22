@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Callout, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
+import { Button, Callout, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { longDate, useLocale, useSectionName, useWaiting } from "./shared";
 import { w } from "./words";
 
@@ -30,9 +30,23 @@ async function latest(caseId: string): Promise<Check | null> {
 
 function AlertIcon() {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" focusable="false">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true" focusable="false">
       <circle cx="12" cy="12" r="9" />
-      <path d="M12 7.5v5.5M12 16.5v.01" />
+      <path d="M12 7v6M12 16.5v.5" />
+    </svg>
+  );
+}
+
+/** The board's score ring: 120px, a 12px stroke on a 50px radius, with the passed count in the middle. */
+function ScoreRing({ passed, total }: { passed: number; total: number }) {
+  const circumference = 2 * Math.PI * 50;
+  const filled = total > 0 ? (circumference * passed) / total : 0;
+  return (
+    <svg className="rp-score" width="120" height="120" viewBox="0 0 120 120" role="img" aria-label={w("check.ring", { passed, total })}>
+      <circle className="rp-score__track" cx="60" cy="60" r="50" fill="none" strokeWidth="12" />
+      <circle className="rp-score__arc" cx="60" cy="60" r="50" fill="none" strokeWidth="12" strokeLinecap="round" strokeDasharray={`${filled} ${circumference - filled}`} transform="rotate(-90 60 60)" />
+      <text className="rp-score__number" x="60" y="58">{passed}</text>
+      <text className="rp-score__of" x="60" y="80">{w("check.ring_of", { total })}</text>
     </svg>
   );
 }
@@ -66,16 +80,9 @@ export function FinalCheck() {
 
   return (
     <div className="av-page rp-page rp-page--narrow">
-      <div className="rp-hero">
-        {check && (
-          <ProgressRing size={116} value={passed.length} max={check.results.length} label={w("check.ring", { passed: passed.length, total: check.results.length })}>
-            <span className="rp-score">
-              <strong>{passed.length}</strong>
-              <span>{w("check.ring_of", { total: check.results.length })}</span>
-            </span>
-          </ProgressRing>
-        )}
-        <div>
+      <div className="rp-hero rp-hero--check">
+        {check && <ScoreRing passed={passed.length} total={check.results.length} />}
+        <div className="rp-hero__text">
           <h1 className="rp-title">{title}</h1>
           <p className="rp-lead">{w("check.intro")}</p>
         </div>
@@ -110,7 +117,7 @@ export function FinalCheck() {
               <span className="rp-passed__name">{nameOf(r)}</span>
               {r.count > 0 && <span className="av-mono rp-passed__count">{r.count}</span>}
               {!all && passed.length > SHOWN && i === shown.length - 1 && (
-                <button type="button" className="av-text-link rp-linkbtn" onClick={() => setAll(true)}>{w("check.see_all", { count: passed.length })}</button>
+                <button type="button" className="av-text-link rp-linkbtn" onClick={() => setAll(true)}>{w("check.see_all", { count: check.results.length })}</button>
               )}
             </li>
           ))}
@@ -124,7 +131,7 @@ export function FinalCheck() {
       <div className="rp-bar">
         <div className="rp-bar__actions">
           <button type="button" className="av-text-link rp-linkbtn" aria-expanded={spotOpen} onClick={() => setSpotOpen(!spotOpen)}>{w("check.spot")}</button>
-          {check && <button type="button" className="av-text-link rp-linkbtn" onClick={() => void run()} disabled={wait.waiting}>{w("check.run_again")}</button>}
+          {check && <button type="button" className="av-text-link rp-linkbtn rp-again" onClick={() => void run()} disabled={wait.waiting}>{w("check.run_again")}</button>}
         </div>
         <div className="rp-bar__actions">
           {!check ? (
@@ -134,7 +141,7 @@ export function FinalCheck() {
           ) : (
             <>
               {failed.length > 0 && <span className="av-muted">{w("check.fix_first", { count: failed.length })}</span>}
-              <Button disabled>{w("check.sign")}</Button>
+              <Button className="rp-big" disabled>{w("check.sign")}</Button>
             </>
           )}
         </div>

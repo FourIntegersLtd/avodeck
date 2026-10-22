@@ -1,0 +1,380 @@
+{
+  "id": "S15-Opinion",
+  "artboard": "S15-Opinion.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/opinion?q=a2222222-2222-4222-8222-222222222222",
+  "width": 1440,
+  "height": 1100,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed_colorectal_referral",
+      "specialty": "general-practice",
+      "expert_role": "single",
+      "label": "Mrs A",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "created_at": "2026-10-01T09:00:00Z",
+      "updated_at": "2026-10-01T09:00:00Z",
+      "stage": "understand",
+      "allowed_actions": [
+        "case.view_content",
+        "finding.decide",
+        "opinion.write",
+        "points.write",
+        "comment.write"
+      ]
+    },
+    "/v1/cases/*/questions": {
+      "questions": [
+        {
+          "id": "a1111111-1111-4111-8111-111111111111",
+          "number": 1,
+          "text_verbatim": "Question 1",
+          "confirmed_text": null,
+          "kind": "x",
+          "outside_expertise": false,
+          "para_ref": null,
+          "status": "confirmed",
+          "version": 1,
+          "source_word_ids": [],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "a2222222-2222-4222-8222-222222222222",
+          "number": 2,
+          "text_verbatim": "Did Dr P's assessment on 15 May 2024, including examination, meet the standard of a reasonably competent GP?",
+          "confirmed_text": null,
+          "kind": "x",
+          "outside_expertise": false,
+          "para_ref": "4.2",
+          "status": "confirmed",
+          "version": 1,
+          "source_word_ids": [],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "a3333333-3333-4333-8333-333333333333",
+          "number": 3,
+          "text_verbatim": "Question 3",
+          "confirmed_text": null,
+          "kind": "x",
+          "outside_expertise": false,
+          "para_ref": null,
+          "status": "confirmed",
+          "version": 1,
+          "source_word_ids": [],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "a4444444-4444-4444-8444-444444444444",
+          "number": 4,
+          "text_verbatim": "Question 4",
+          "confirmed_text": null,
+          "kind": "x",
+          "outside_expertise": false,
+          "para_ref": null,
+          "status": "confirmed",
+          "version": 1,
+          "source_word_ids": [],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        }
+      ],
+      "assumptions": [],
+      "locked": false,
+      "reading": false,
+      "reopened": false,
+      "rejected": 0,
+      "warnings": [],
+      "version_no": 1,
+      "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+    },
+    "/v1/cases/*/write-progress": {
+      "answered": 2,
+      "total": 4,
+      "questions": [
+        {
+          "question_id": "a1111111-1111-4111-8111-111111111111",
+          "number": 1,
+          "short_title": "February bloods",
+          "points_done": true,
+          "has_opinion": true
+        },
+        {
+          "question_id": "a2222222-2222-4222-8222-222222222222",
+          "number": 2,
+          "short_title": "15 May visit",
+          "points_done": true,
+          "has_opinion": true
+        },
+        {
+          "question_id": "a3333333-3333-4333-8333-333333333333",
+          "number": 3,
+          "short_title": "Referral timing",
+          "points_done": false,
+          "has_opinion": false
+        },
+        {
+          "question_id": "a4444444-4444-4444-8444-444444444444",
+          "number": 4,
+          "short_title": "Timing of diagnosis",
+          "points_done": false,
+          "has_opinion": false
+        }
+      ]
+    },
+    "/v1/cases/*/steps/progress": {
+      "steps": [
+        {
+          "key": "read",
+          "done": 1231,
+          "total": 1231,
+          "percent": 100
+        }
+      ]
+    },
+    "/v1/cases/*/questions/*/workspace": {
+      "question_id": "a2222222-2222-4222-8222-222222222222",
+      "chips": [
+        {
+          "fact_id": "f0000001-2222-4222-8222-222222222222",
+          "page_id": "99999999-9999-4999-8999-000000000118",
+          "page_no": 118,
+          "kind": "symptom",
+          "value": "3 weeks of bright red bleeding, \"thinks piles\"",
+          "event_date": "2024-05-15",
+          "quote_verbatim": "3 weeks of bright red bleeding, \"thinks piles\"",
+          "fact_version": 1
+        },
+        {
+          "fact_id": "f0000002-2222-4222-8222-222222222222",
+          "page_id": "99999999-9999-4999-8999-000000000118",
+          "page_no": 118,
+          "kind": "symptom",
+          "value": "No examination recorded",
+          "event_date": "2024-05-15",
+          "quote_verbatim": "no examination recorded",
+          "fact_version": 1
+        },
+        {
+          "fact_id": "f0000003-2222-4222-8222-222222222222",
+          "page_id": "99999999-9999-4999-8999-000000000118",
+          "page_no": 214,
+          "kind": "symptom",
+          "value": "Hb 98, ferritin 9 on file since February",
+          "event_date": "2024-05-15",
+          "quote_verbatim": "hb 98, ferritin 9 on file since february",
+          "fact_version": 1
+        },
+        {
+          "fact_id": "f0000004-2222-4222-8222-222222222222",
+          "page_id": "99999999-9999-4999-8999-000000000118",
+          "page_no": 118,
+          "kind": "symptom",
+          "value": "\"Review if persists\"",
+          "event_date": "2024-05-15",
+          "quote_verbatim": "\"review if persists\"",
+          "fact_version": 1
+        }
+      ],
+      "guidance_on": "2024-05-15",
+      "guidance": [
+        {
+          "code": "NG12",
+          "title": "NICE NG12, lower bowel, as updated August 2023",
+          "source": "",
+          "url": null,
+          "in_force_from": "2023-08-01",
+          "in_force_to": null
+        }
+      ],
+      "points": {
+        "sides": [
+          {
+            "code": "supports_claim",
+            "label": "facts for the claim",
+            "count": 4
+          },
+          {
+            "code": "supports_defence",
+            "label": "for the doctor",
+            "count": 3
+          }
+        ],
+        "differ": 1
+      },
+      "views": [
+        {
+          "code": "within",
+          "label": "Within the range of reasonable practice"
+        },
+        {
+          "code": "limit",
+          "label": "At the limit of reasonable practice"
+        },
+        {
+          "code": "below",
+          "label": "Below the standard of a reasonable GP"
+        }
+      ],
+      "legal_test": "Would a responsible body of GPs have acted as Dr P did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)",
+      "opinion": {
+        "id": "e1111111-1111-4111-8111-111111111111",
+        "question_id": "a2222222-2222-4222-8222-222222222222",
+        "body": "On 15 May 2024 Mrs A told Dr P she had had bright red rectal bleeding for three weeks. Iron deficiency anaemia had been found in February and not explained.\n\nIn my opinion, a reasonably competent GP seeing this presentation in a 58-year-old with known anaemia would have examined the abdomen and rectum, and considered referral on a suspected cancer pathway.\n\nThe record shows no examination was carried out.",
+        "citation_refs": [],
+        "view": "below",
+        "provisional": false,
+        "test_text": null,
+        "restored_from": null,
+        "version": 3,
+        "updated_at": "2026-10-18T09:00:00Z",
+        "stale": false,
+        "changed_citations": [],
+        "lint": [
+          {
+            "id": "11111111-aaaa-4aaa-8aaa-111111111111",
+            "sentence_index": 2,
+            "sentence_start": 360,
+            "sentence_end": 408,
+            "source": "regex",
+            "status": "open",
+            "type": "uncited_fact",
+            "words": "no examination"
+          }
+        ]
+      },
+      "question": {
+        "number": 2,
+        "short_title": "15 May visit",
+        "kind": "breach",
+        "kind_label_key": "",
+        "para_ref": "4.2"
+      }
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".av-write-paper"
+    },
+    {
+      "hover": ".av-write-question"
+    }
+  ],
+  "probes": [
+    {
+      "name": "aside",
+      "artboard": "aside",
+      "page": "aside"
+    },
+    {
+      "name": "a1",
+      "artboard": "aside > section:nth-child(1)",
+      "page": "aside > section:nth-child(1)"
+    },
+    {
+      "name": "a2",
+      "artboard": "aside > section:nth-child(2)",
+      "page": "aside > section:nth-child(2)"
+    },
+    {
+      "name": "a3",
+      "artboard": "aside > section:nth-child(3)",
+      "page": "aside > section:nth-child(3)"
+    },
+    {
+      "name": "head",
+      "artboard": "main > section > div:nth-child(1)",
+      "page": ".av-write-split > div > div:first-child"
+    },
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-write-question"
+    },
+    {
+      "name": "paper",
+      "artboard": "main > section > div:nth-child(2)",
+      "page": ".av-write-paper"
+    },
+    {
+      "name": "cols",
+      "artboard": "main > section > div:nth-child(3)",
+      "page": ".av-write-columns"
+    },
+    {
+      "name": "view",
+      "artboard": "main > section > div:nth-child(3) > section:nth-child(1)",
+      "page": ".av-write-columns > section:nth-child(1)"
+    },
+    {
+      "name": "test",
+      "artboard": "main > section > div:nth-child(3) > section:nth-child(2)",
+      "page": ".av-write-columns > section:nth-child(2)"
+    },
+    {
+      "name": "checks",
+      "artboard": "main > section > section",
+      "page": "section[aria-labelledby=checks-title]"
+    },
+    {
+      "name": "foot",
+      "artboard": "main > section > div:last-child",
+      "page": ".av-write-footer"
+    },
+    {
+      "name": "next",
+      "artboard": "main > section > div:last-child > a",
+      "page": ".av-write-footer a"
+    },
+    {
+      "name": "paperText",
+      "artboard": "main > section > div:nth-child(2) > div:nth-child(1)",
+      "page": ".av-write-paper textarea"
+    },
+    {
+      "name": "paperFoot",
+      "artboard": "main > section > div:nth-child(2) > div:nth-child(2)",
+      "page": ".av-write-paper .av-dictation__footer"
+    },
+    {
+      "name": "dictate",
+      "artboard": "main > section > div:nth-child(2) > div:nth-child(2) > button",
+      "page": ".av-write-paper .av-dictation__footer button"
+    },
+    {
+      "name": "chk_h3",
+      "artboard": "main > section > section > h2",
+      "page": "section[aria-labelledby=checks-title] h3"
+    },
+    {
+      "name": "chk_r1",
+      "artboard": "main > section > section > div:nth-child(2)",
+      "page": ".av-write-issue"
+    },
+    {
+      "name": "chk_r2",
+      "artboard": "main > section > section > div:nth-child(3)",
+      "page": ".av-write-pass:nth-of-type(1)"
+    }
+  ],
+  "deviations": [
+    "Text under 17px is raised to 17px, so the harness renders the artboard the same way.",
+    "The paper is a text box (the expert types and dictates into it): page markers are not drawn as chips inside the words, paragraphs are separated by a blank line, and there is no 'Keep dictating\u2026' hint.",
+    "The sentence a check has marked is shown in a read-only copy under the footer (a text box cannot colour one sentence); 'Add the page' jumps to it. The canvas colours it in the paper.",
+    "The checks card also has a 'Dismiss' link beside 'Add the page'.",
+    "'Write my own test' is a link beside the test card's title; the canvas has none.",
+    "The facts, guidance and points words come from the pack and the API: 'facts for the claim \u00b7 for the doctor' replaces the canvas's role names.",
+    "The footer line's words 'Your words only. We never write your opinion.' sit over the Dictate row as drawn; 'Your words only' from the dictation component is hidden there.",
+    "Tap areas: chips, pills, links, checkbox and Dictate keep 52px through ::after hit boxes while drawn at canvas size."
+  ],
+  "budget": 1.4,
+  "budgetReason": "The paper is a text box, so its paragraphs are separated by blank lines and the page references are not drawn as green chips inside the words, and the 'Keep dictating\u2026' hint is not drawn; every box is probed and matches."
+}

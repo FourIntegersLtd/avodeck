@@ -1,0 +1,228 @@
+{
+  "id": "S20-Questions35",
+  "artboard": "S20-Questions35.dc.html",
+  "session": true,
+  "route": "/cases/44444444-4444-4444-8444-444444444444/written-questions",
+  "width": 1440,
+  "height": 1000,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed-colorectal-referral",
+      "specialty": "general-practice",
+      "expert_role": "defendant_expert",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/deadlines": {
+      "served_on": "2024-11-28",
+      "deadlines": [
+        {
+          "id": "d1111111-1111-4111-8111-111111111111",
+          "kind": "written_questions",
+          "due_on": "2024-12-19",
+          "due_at": "2024-12-19T23:59:59Z",
+          "days_left": 18,
+          "timezone": "Europe/London",
+          "calendar": "calendar_days",
+          "created_from": "pack",
+          "source": "pack",
+          "rule_ref": "ref",
+          "pack_version": "1",
+          "hearing_id": null,
+          "done_at": null,
+          "last_reminded_on": null,
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/*/written-question-rounds": {
+      "rounds": [
+        {
+          "id": "a1111111-1111-4111-8111-111111111111",
+          "number": 1,
+          "from_party_id": null,
+          "received_on": "2024-12-01",
+          "document_id": "c1111111-1111-4111-8111-111111111111",
+          "deadline_id": "d1111111-1111-4111-8111-111111111111",
+          "answers_version_id": null,
+          "status": "open",
+          "extracted_at": "2024-12-01T10:00:00Z",
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/*/written-questions": {
+      "questions": [
+        {
+          "id": "a2222222-2222-4222-8222-222222222222",
+          "round_id": "a1111111-1111-4111-8111-111111111111",
+          "number": 1,
+          "para_ref": "6.12 to 6.14",
+          "rule_ref": "ref",
+          "text_verbatim": "Would your opinion change if Dr P did examine Mrs A on 15 May 2024 but did not record it?",
+          "status": "answering",
+          "suggested_classification": null,
+          "classification_reason": "x",
+          "classification": "clarifies",
+          "suggested_paragraph_ids": [],
+          "paragraph_ids": [],
+          "answer_text": "If Dr P did examine Mrs A and found nothing of concern, my opinion on examination in paragraph 6.13 would no longer apply. My opinion in paragraph 6.14 would not change: the bleeding and the unexplained anaemia together called for referral, whatever the examination showed p.214.",
+          "citation_refs": [],
+          "told_instructing_party_at": null,
+          "version": 1
+        },
+        {
+          "id": "a3333333-3333-4333-8333-333333333333",
+          "round_id": "a1111111-1111-4111-8111-111111111111",
+          "number": 2,
+          "para_ref": null,
+          "rule_ref": "ref",
+          "text_verbatim": "What would a colonoscopy in May 2024 have shown?",
+          "status": "received",
+          "suggested_classification": null,
+          "classification_reason": "x",
+          "classification": "goes_beyond",
+          "suggested_paragraph_ids": [],
+          "paragraph_ids": [],
+          "answer_text": null,
+          "citation_refs": [],
+          "told_instructing_party_at": null,
+          "version": 1
+        }
+      ]
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".av-after-qcard"
+    }
+  ],
+  "pageRemove": [
+    ".av-after-change",
+    ".av-after-signlink",
+    ".av-after-qside > div:last-child",
+    ".av-after-footer > .av-after-linkbtn"
+  ],
+  "probes": [
+    {
+      "name": "back link",
+      "artboard": "main a[href='S19-Served.dc.html']",
+      "page": ".av-after-head .av-back-link"
+    },
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".av-after-title"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".av-after-lede"
+    },
+    {
+      "name": "day card",
+      "artboard": "main > div:first-child > div:last-child",
+      "page": ".av-after-daycard"
+    },
+    {
+      "name": "day number",
+      "artboard": "main > div:first-child > div:last-child > span:first-child",
+      "page": ".av-after-daycard > strong"
+    },
+    {
+      "name": "nav",
+      "artboard": "nav[aria-label='Questions']",
+      "page": ".av-after-qside > nav"
+    },
+    {
+      "name": "nav item 1",
+      "artboard": "nav[aria-label='Questions'] > a:nth-child(1)",
+      "page": ".av-after-qlist > li:nth-child(1) a"
+    },
+    {
+      "name": "nav item 2",
+      "artboard": "nav[aria-label='Questions'] > a:nth-child(2)",
+      "page": ".av-after-qlist > li:nth-child(2) a"
+    },
+    {
+      "name": "main column",
+      "artboard": "main > div:nth-child(2) > section",
+      "page": ".av-after-qmain",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "question card",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1)",
+      "page": ".av-after-qcards > li:nth-child(1) .av-after-qcard"
+    },
+    {
+      "name": "question text",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > span:nth-child(2)",
+      "page": ".av-after-qtext"
+    },
+    {
+      "name": "about row",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div",
+      "page": ".av-after-about"
+    },
+    {
+      "name": "answer frame",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(2)",
+      "page": ".av-after-qmain .av-dictation__frame"
+    },
+    {
+      "name": "answer text",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(2) > div:nth-child(1)",
+      "page": ".av-after-qmain .av-dictation__text",
+      "allow": [
+        "backgroundColor"
+      ]
+    },
+    {
+      "name": "answer footer",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(2) > div:nth-child(2)",
+      "page": ".av-after-qmain .av-dictation__footer"
+    },
+    {
+      "name": "beyond note",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(3)",
+      "page": ".av-after-note",
+      "allow": [
+        "color"
+      ]
+    },
+    {
+      "name": "save",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(4) a",
+      "page": ".av-after-footer .av-button"
+    }
+  ],
+  "budget": 0.85,
+  "budgetReason": "The API gives a question only its full wording, one classification and its paragraph reference, so the board's short title for the side list, the page chip (p.118), the citation chip inside the answer, the microphone icon, the 'Keep dictating' hint and the question-specific note text have no data; they and the shared case bar make up the 0.78%.",
+  "deviations": [
+    "The side list repeats the question's wording cut at 80 characters; the board writes a separate short title (gap: the API has none).",
+    "The 'About' row shows the paragraph chip only; the board adds a page chip (p.118) the API does not send.",
+    "The answer box is a plain text box: the board's citation chip inside the text, the grey 'Keep dictating...' hint and the microphone icon on the Dictate button are not drawn (the box and button are shared foundation parts).",
+    "The note about a question that may go beyond the report uses the pack's wording for that classification; the board writes question-specific words (gap). The note for every flagged question stays in view under whichever question is open, as the board draws it (question 2's note under question 1).",
+    "'Change' (classification), 'Tell the solicitor' under an unflagged question, 'Add a set of questions' and 'Ready to sign your answers' are working controls the board omits; they are removed from the page for the comparison.",
+    "The 'Tell the solicitor' note text uses the pack's word for the party; the due date is mocked as 19 December 2024 so the weekday reads Thursday as drawn.",
+    "The case bar's subtitle shows the due date; the board says 'report served' (shared case bar)."
+  ]
+}

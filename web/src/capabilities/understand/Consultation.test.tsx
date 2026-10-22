@@ -29,6 +29,7 @@ function serve(body = consultation()) {
     http.get("/v1/cases/:caseId/consultations/:factId/later-notes", () =>
       json({ notes: [{ fact_id: FACT_3, kind: "consultation", page_no: 131, event_date: "2024-08-08", available_at: "2024-08-09", has_note: true }] }),
     ),
+    http.get("/v1/cases/:caseId/pages/:pageNo", () => json({ page_no: 118, source_type: "primary_care_record" })),
     http.get("/v1/cases/:caseId/pages/:pageNo/image", () => new HttpResponse(new Uint8Array([137, 80, 78, 71]), { headers: { "content-type": "image/png" } })),
     http.get("/v1/cases/:caseId/comments", () => json({ comments: [comment()] })),
     http.post("/v1/cases/:caseId/comments", async ({ request }) => {
@@ -73,10 +74,10 @@ test("shows what was in the record, folds what came later with its count, and li
   const { user } = open();
   const seen = await screen.findByRole("region", { name: "What was in the record that day" });
   expect(within(seen).getByText("p.117")).toBeInTheDocument();
-  const later = screen.getByText("Show what came later (1)").closest("details")!;
-  expect(later).not.toHaveAttribute("open");
-  await user.click(screen.getByText("Show what came later (1)"));
-  expect(later).toHaveAttribute("open");
+  const later = document.getElementById("consult-later")!;
+  expect(later).not.toBeVisible();
+  await user.click(screen.getByRole("button", { name: "Show what came later (1)" }));
+  expect(later).toBeVisible();
   expect(within(later).getByText("p.301")).toBeInTheDocument();
   const unknown = screen.getByRole("region", { name: "Not known when this arrived" });
   expect(within(unknown).getByText("p.150")).toBeInTheDocument();
@@ -96,7 +97,7 @@ test("saves your note", async () => {
   inCase("launch");
   const calls = serve(consultation({ note: "Earlier note" }));
   const { user } = open();
-  const box = await screen.findByLabelText("Your note");
+  const box = await screen.findByLabelText("Write your note");
   expect(box).toHaveValue("Earlier note");
   await user.clear(box);
   await user.type(box, "Looks late");
@@ -174,7 +175,7 @@ describe("as the design shows it", () => {
     server.use(http.get("/v1/cases/:caseId/findings", () => json({ findings: [] })), http.get("/v1/me/checks", () => json({ checks: [] })));
     const { user } = open();
     expect(await screen.findByRole("button", { name: "Dictate" })).toBeInTheDocument();
-    await user.type(screen.getByLabelText("Your note"), "Seen late");
+    await user.type(screen.getByLabelText("Write your note"), "Seen late");
     await user.click(screen.getByRole("button", { name: "Save note and continue" }));
     await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ body: "Seen late" }));
     expect(await screen.findByRole("heading", { level: 2, name: "Things to look at" })).toBeInTheDocument();
@@ -185,12 +186,12 @@ describe("as the design shows it", () => {
     serve();
     const { user } = open();
     const toggle = await screen.findByRole("switch", { name: /Seen on the day on 15 May 2024/ });
-    expect(screen.getByText("Anything that arrived later is hidden")).toBeInTheDocument();
-    const later = screen.getByText("Show what came later (1)").closest("details")!;
-    expect(later).not.toHaveAttribute("open");
+    expect(screen.getByText("Anything that happened later is hidden")).toBeInTheDocument();
+    const later = document.getElementById("consult-later")!;
+    expect(later).not.toBeVisible();
     await user.click(toggle);
     expect(toggle).toHaveAttribute("aria-checked", "false");
-    expect(later).toHaveAttribute("open");
+    expect(later).toBeVisible();
   });
 
   test("the page comes before the cards, and the note sits under it with a way back at the foot", async () => {

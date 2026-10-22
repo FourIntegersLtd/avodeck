@@ -430,7 +430,7 @@ function Editor({
   const open = issues.filter((i) => i.status === "open");
   const sides = space.points.sides;
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-stack av-write-opinion">
       <h2 className="av-visually-hidden">{w("opinion.title")}</h2>
       <div className="av-write-split">
         <aside className="av-stack" data-chips>
@@ -499,10 +499,8 @@ function Editor({
         <div className="av-stack" onBlur={(e) => void leave(e)}>
           <div>
             <p className="av-muted">
-              <KindBadge header={space.question} />{" "}
-              {paraRef && (
-                <span>{w("opinion.from_paragraph", { ref: paraRef })}</span>
-              )}
+              <KindBadge header={space.question} apart />
+              {paraRef && <><span aria-hidden="true"> · </span><span>{w("opinion.from_paragraph", { ref: paraRef })}</span></>}
             </p>
             <h3 className="av-write-question">{question.confirmed_text ?? question.text_verbatim}</h3>
           </div>
@@ -541,14 +539,6 @@ function Editor({
             <p className="av-muted">{w("opinion.yours_only")}</p>
           </section>
 
-          <FlaggedCopy
-            body={savedBody}
-            issues={open}
-            page={(n) => {
-              const ref = (space.opinion?.citation_refs ?? latest.current.refs)[n - 1];
-              return space.chips.find((c) => c.fact_id === ref?.fact_id)?.page_no;
-            }}
-          />
 
           <div className="av-write-columns">
             <section className="av-card av-stack">
@@ -594,7 +584,11 @@ function Editor({
           <section className="av-card av-stack" aria-labelledby="checks-title">
             <h3 id="checks-title">{w("opinion.checks")}</h3>
             {open.map((issue) => (
-              <div key={issue.id} className="av-write-item__head">
+              <div key={issue.id} className="av-write-item__head av-write-issue">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true" focusable="false">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v6M12 16.5v.5" />
+                </svg>
                 <p>
                   {w(
                     ISSUE_TYPES.has(issue.type)
@@ -641,8 +635,14 @@ function Editor({
               ))}
           </section>
 
+
           <div className="av-write-footer av-write-footer--between">
             <p role="status" className="av-muted">
+              {status === "saved" && (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M5 12l5 5 9-10" />
+                </svg>
+              )}
               <span>{status === "saving"
                 ? w("opinion.saving")
                 : status === "saved"
@@ -683,6 +683,15 @@ function Editor({
               </>
             )}
           </div>
+
+          <FlaggedCopy
+            body={savedBody}
+            issues={open}
+            page={(n) => {
+              const ref = (space.opinion?.citation_refs ?? latest.current.refs)[n - 1];
+              return space.chips.find((c) => c.fact_id === ref?.fact_id)?.page_no;
+            }}
+          />
 
           {showVersions && (
             <section

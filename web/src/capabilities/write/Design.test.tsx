@@ -22,7 +22,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     serve(run, { workspace: workspace(run, { question: head }) });
     renderAt(`/cases/${CASE_A}/opinion?q=${Q1}`);
     const label = humanise(head.kind);
-    expect(await screen.findByText(new RegExp(`^Q1 · ${label}$`))).toBeInTheDocument();
+    // the head line is now the dark "Q1" badge and the kind in plain words after it (as the canvas draws it)
+    expect(await screen.findByText("Q1")).toBeInTheDocument();
+    expect(screen.getByText(label)).toBeInTheDocument();
     expect(screen.getByText("from paragraph 4.2 of your instructions")).toBeInTheDocument();
   });
 

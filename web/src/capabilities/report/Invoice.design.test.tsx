@@ -17,7 +17,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const { container } = renderAt(url);
     const time = await screen.findByRole("region", { name: M["report.invoice.time"]! });
     const paper = await screen.findByRole("article", { name: "Invoice JM-1" });
-    expect(time.parentElement).toBe(paper.parentElement);
+    expect(time.parentElement?.parentElement).toBe(paper.parentElement?.parentElement);
     expect(paper).toHaveClass("rp-paper");
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
@@ -28,7 +28,7 @@ test("the title has a tick tile; Adjust is a link-styled button on the time card
   serve("launch", { report: sentReport("launch") });
   renderAt(url);
   const title = await screen.findByRole("heading", { level: 1, name: M["report.invoice.heading_sent"]! });
-  expect(title.parentElement?.parentElement?.querySelector(".av-icon-tile--mint")).not.toBeNull();
+  expect(title.parentElement?.parentElement?.querySelector(".rp-hero__badge")).not.toBeNull();
   expect(await screen.findByRole("button", { name: M["report.invoice.adjust"]! })).toHaveClass("av-text-link");
 });
 

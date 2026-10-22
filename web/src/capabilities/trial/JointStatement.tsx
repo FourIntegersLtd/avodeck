@@ -11,7 +11,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { BackLink, Button, ChoicePills, Checkbox, LoadError, Loading, Notice, PageRef, TextField } from "../../foundation/ui";
 import { longDate, pdfBody, saveBlob, shortDate, tag, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
-import { w } from "./words";
+import { w, wn } from "./words";
 
 type Meeting = Schemas["MeetingOut"];
 type Item = Schemas["ItemOut"];
@@ -125,7 +125,12 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
 
   const locale = frame.locale;
   const locked = LOCKED.has(meeting.status);
-  const names = (people.data?.participants ?? []).map((p) => p.name).join(", ");
+  const participants = people.data?.participants ?? [];
+  const names = participants.map((p) => p.name).join(", ");
+  // "Dr R (for the instructing party)": the side's word comes from the pack's party roles.
+  const sideWord = (side: string | null) => frame.pack.party_roles.find((r) => r.key === side)?.label;
+  const withNames = participants.map((p) => (sideWord(p.side) ? `${p.name} ${w("meeting.for_side", { party: sideWord(p.side) })}` : p.name)).join(", ");
+  const reworded = meeting.items.filter((i) => i.changed_from_previous === "changed").map((i) => i.number);
   const pages = prepared ?? meeting.prepared_pages;
   const fail = (error: unknown) => setMessage({ tone: "error", text: errorMessage(error, ERRORS) });
 
@@ -190,8 +195,12 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
             <p className="av-trial-lead">{w("meeting.lead", { date: longDate(meeting.discussion_on, locale) })}</p>
             <p className="av-trial-muted av-trial-line" data-testid="meeting-line">
               {[
-                names && w("meeting.with", { names }),
-                agenda && w("meeting.agenda_received", { version: agenda.version_no, date: shortDate(agenda.created_at, locale) }),
+                withNames && w("meeting.with", { names: withNames }),
+                agenda &&
+                  [
+                    w("meeting.agenda_received", { version: agenda.version_no, date: shortDate(agenda.created_at, locale) }),
+                    reworded.length > 0 && wn("meeting.reworded", reworded.length, { numbers: reworded.join(", ") }),
+                  ].filter(Boolean).join(": "),
               ].filter(Boolean).join(" · ")}
               {!locked && frame.can("case.edit_setup") && (
                 <>
@@ -201,18 +210,16 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
                   </button>
                 </>
               )}
-              {!locked && meeting.items.length > 0 && frame.can("case.upload") && (
-                <>
-                  {" · "}
-                  <PdfPicker link label={w("meeting.agenda.new")} onFile={addAgenda} />
-                </>
-              )}
             </p>
           </TrialTitle>
         </div>
         <ul className="av-trial-chips">
           {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={shortDate(meeting.sign_by, locale)} rule={meeting.sign_rule_ref} />}
           {meeting.send_by && <Deadline label={w("meeting.send_by")} date={shortDate(meeting.send_by, locale)} rule={meeting.send_rule_ref} />}
+          {/* Beside the deadlines, where the board leaves room, so its line of text keeps its length. */}
+          {!locked && meeting.items.length > 0 && frame.can("case.upload") && (
+            <li className="av-trial-chips__action"><PdfPicker link label={w("meeting.agenda.new")} onFile={addAgenda} /></li>
+          )}
         </ul>
       </div>
       {adding && <AddExpert path={path} onDone={() => { setAdding(false); people.reload(); }} onCancel={() => setAdding(false)} />}
@@ -246,7 +253,7 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
           {pages !== null && pages !== undefined && frame.can("report.sign") && (
             <Button variant="secondary" onClick={download}>{w("meeting.download_for_signing")}</Button>
           )}
-          {frame.can("opinion.write") && <Button onClick={prepare} disabled={busy}>{w("meeting.prepare")}</Button>}
+          {frame.can("opinion.write") && <Button className="av-trial-cta" onClick={prepare} disabled={busy}>{w("meeting.prepare")}</Button>}
         </div>
       )}
     </TrialPage>
@@ -341,16 +348,22 @@ function Row({ item, canEdit, onChange }: { item: Item; canEdit: boolean; onChan
   const rowId = useId();
   return (
     <tr className={`av-trial-row${changed ? " av-trial-row--changed" : ""}`}>
-      <th scope="row" id={rowId}>{item.number}. {item.text}</th>
+      <th scope="row">
+        <span id={rowId}>{item.number}. {item.text}</span>
+        {/* Under the question, where the board leaves room, so the rows keep the board's heights. */}
+        {canEdit && !changed && (
+          <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => onChange(null)} aria-describedby={rowId}>{w("meeting.item.change")}</button>
+        )}
+      </th>
       <td>
         <div className="av-stack av-trial-cell">
           <p>
             <span>{item.own_position}</span>{" "}
-            {paras && <small className="av-trial-muted">{w("meeting.item.para", { paras })}</small>}
+            {paras && !changed && <small className="av-trial-muted">{w("meeting.item.para", { paras })}</small>}
           </p>
           {changed && (
             <p className="av-trial-differs">
-              <strong>{w("meeting.item.changed_lead")}</strong> {w("meeting.item.changed_rest")}
+              <strong>{w("meeting.item.changed_lead")}</strong>{paras ? ` ${w("meeting.item.changed_rest", { paras })}` : w("meeting.item.changed_rest_plain")}
             </p>
           )}
           {item.deviation === "unclear" && <p className="av-trial-differs">{w("meeting.item.unclear")}</p>}
@@ -368,9 +381,6 @@ function Row({ item, canEdit, onChange }: { item: Item; canEdit: boolean; onChan
           {item.agreed === false && item.reason && <small className="av-trial-muted">{w("meeting.item.reason_shown", { reason: item.reason })}</small>}
           {canEdit && changed && (
             <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => onChange("note")} aria-describedby={rowId}>{w("meeting.item.add_note")}</button>
-          )}
-          {canEdit && !changed && (
-            <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => onChange(null)} aria-describedby={rowId}>{w("meeting.item.change")}</button>
           )}
         </div>
       </td>

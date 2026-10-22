@@ -1,0 +1,557 @@
+{
+  "id": "S04-NewCase",
+  "artboard": "S04-NewCase.dc.html",
+  "route": "/cases/new",
+  "width": 1440,
+  "height": 1900,
+  "session": true,
+  "mock": {
+    "/v1/me": {
+      "person": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "email": "j.morgan@example.test",
+        "full_name": "Dr Morgan",
+        "locale": "en-GB",
+        "timezone": "Europe/London",
+        "home_region": "uk",
+        "created_at": "2026-01-05T09:00:00Z"
+      },
+      "expert": null,
+      "mfa_enrolled": true,
+      "memberships": [
+        {
+          "organisation_id": "22222222-2222-4222-8222-222222222222",
+          "name": "Jane Morgan",
+          "kind": "personal",
+          "role": "owner",
+          "started_at": "2026-01-05T09:00:00Z"
+        },
+        {
+          "organisation_id": "77777777-7777-4777-8777-777777777777",
+          "name": "Northgate Medico-Legal",
+          "kind": "firm",
+          "role": "member",
+          "started_at": "2026-01-05T09:00:00Z"
+        }
+      ]
+    },
+    "/v1/packs": [
+      {
+        "jurisdiction": {
+          "code": "gb-eaw",
+          "name": "England and Wales",
+          "version": "1"
+        },
+        "case_type": {
+          "code": "clin-neg-breach",
+          "name": "Case type A",
+          "version": "1"
+        },
+        "specialty": {
+          "code": "general-practice",
+          "name": "General practice",
+          "version": "1"
+        },
+        "expert_roles": [
+          "breach"
+        ]
+      }
+    ],
+    "/v1/jurisdictions/*": {
+      "code": "gb-eaw",
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "court_tracks": [
+        "multi",
+        "unsure"
+      ],
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of {clinicians} have acted as this {clinician} did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "name": "England and Wales",
+      "timezone": "Europe/London",
+      "version": "2026.10.6",
+      "vocabulary": {
+        "court_bundle": "trial bundle",
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
+        },
+        "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
+        "request_notes": {
+          "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
+          "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_status_hint": "Only changes the words we use, such as \"the deceased\".",
+        "subject_statuses": {
+          "living": "living",
+          "deceased": "has died",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "working_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "/v1/cases": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": null,
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": null,
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": null,
+      "period_end": null,
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/uploads": {
+      "upload_id": "u1111111-1111-4111-8111-111111111111",
+      "chunk_count": 1,
+      "chunk_size": 1048576
+    },
+    "/v1/uploads/*/chunks/*": {},
+    "/v1/uploads/*/complete": {
+      "__sequence": [
+        {
+          "document_id": "d0000001-0000-4000-8000-000000000000"
+        },
+        {
+          "document_id": "d0000002-0000-4000-8000-000000000000"
+        },
+        {
+          "document_id": "d0000003-0000-4000-8000-000000000000"
+        },
+        {
+          "document_id": "d0000004-0000-4000-8000-000000000000"
+        },
+        {
+          "document_id": "d0000005-0000-4000-8000-000000000000"
+        },
+        {
+          "document_id": "d0000006-0000-4000-8000-000000000000"
+        },
+        {
+          "document_id": "d0000007-0000-4000-8000-000000000000"
+        }
+      ]
+    },
+    "/v1/cases/*/instructions": {},
+    "/v1/cases/*/prefill": {
+      "suggestions": [],
+      "reading": false
+    },
+    "/v1/cases/*/files": [
+      {
+        "document_id": "d0000001-0000-4000-8000-000000000000",
+        "filename": "Letter of instruction 2 Oct 2026.pdf",
+        "kind": "instructions",
+        "page_count": 4,
+        "size": 1000
+      },
+      {
+        "document_id": "d0000002-0000-4000-8000-000000000000",
+        "filename": "r2.pdf",
+        "kind": "records",
+        "page_count": 211,
+        "size": 1000
+      },
+      {
+        "document_id": "d0000003-0000-4000-8000-000000000000",
+        "filename": "r3.pdf",
+        "kind": "records",
+        "page_count": 211,
+        "size": 1000
+      },
+      {
+        "document_id": "d0000004-0000-4000-8000-000000000000",
+        "filename": "r4.pdf",
+        "kind": "records",
+        "page_count": 211,
+        "size": 1000
+      },
+      {
+        "document_id": "d0000005-0000-4000-8000-000000000000",
+        "filename": "r5.pdf",
+        "kind": "records",
+        "page_count": 211,
+        "size": 1000
+      },
+      {
+        "document_id": "d0000006-0000-4000-8000-000000000000",
+        "filename": "r6.pdf",
+        "kind": "records",
+        "page_count": 212,
+        "size": 1000
+      },
+      {
+        "document_id": "d0000007-0000-4000-8000-000000000000",
+        "filename": "r7.pdf",
+        "kind": "records",
+        "page_count": 212,
+        "size": 1000
+      }
+    ]
+  },
+  "setup": [
+    {
+      "waitFor": "input[type=file]"
+    },
+    {
+      "setFiles": ".av-setup-drop:nth-child(1) input[type=file]",
+      "files": [
+        {
+          "name": "Letter of instruction 2 Oct 2026.pdf",
+          "mimeType": "application/pdf",
+          "text": "%PDF-1.4 Letter of instruction 2 Oct 2026.pdf"
+        }
+      ]
+    },
+    {
+      "waitFor": ".av-setup-drop:nth-child(1) .av-dropzone--added"
+    },
+    {
+      "setFiles": ".av-setup-drop:nth-child(2) input[type=file]",
+      "files": [
+        {
+          "name": "r1.pdf",
+          "mimeType": "application/pdf",
+          "text": "%PDF-1.4 r1.pdf"
+        },
+        {
+          "name": "r2.pdf",
+          "mimeType": "application/pdf",
+          "text": "%PDF-1.4 r2.pdf"
+        },
+        {
+          "name": "r3.pdf",
+          "mimeType": "application/pdf",
+          "text": "%PDF-1.4 r3.pdf"
+        },
+        {
+          "name": "r4.pdf",
+          "mimeType": "application/pdf",
+          "text": "%PDF-1.4 r4.pdf"
+        },
+        {
+          "name": "r5.pdf",
+          "mimeType": "application/pdf",
+          "text": "%PDF-1.4 r5.pdf"
+        },
+        {
+          "name": "r6.pdf",
+          "mimeType": "application/pdf",
+          "text": "%PDF-1.4 r6.pdf"
+        }
+      ]
+    },
+    {
+      "waitFor": ".av-setup-drop:nth-child(2) .av-dropzone--added"
+    },
+    {
+      "fill": "input[name=instructed_by_0]",
+      "value": "[Instructing solicitor]"
+    },
+    {
+      "click": "button:has-text('Defendant'), label:has-text('Defendant')"
+    },
+    {
+      "fill": "input[name=against_0]",
+      "value": "Dr P \u00b7 the GP practice"
+    },
+    {
+      "click": "label:has-text('Living')"
+    },
+    {
+      "click": "label:has-text('Multi-track')"
+    },
+    {
+      "fill": "input[name=due_date]",
+      "value": "2026-11-30"
+    },
+    {
+      "fill": "textarea",
+      "value": "Asked me to concentrate on the May consultation; causation will be covered by a colorectal surgeon."
+    },
+    {
+      "wait": 300
+    },
+    {
+      "blur": true
+    }
+  ],
+  "probes": [
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-newcase h1"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".av-setup-lead"
+    },
+    {
+      "name": "tile 1",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1)",
+      "page": ".av-setup-drop:nth-child(1) .av-dropzone"
+    },
+    {
+      "name": "tile 3",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(3)",
+      "page": ".av-setup-drop:nth-child(3) .av-dropzone"
+    },
+    {
+      "name": "tile 1 title",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1) > span[style*='font-size: 21px']",
+      "page": ".av-setup-drop:nth-child(1) .av-dropzone__title"
+    },
+    {
+      "name": "form",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": ".av-setup-form"
+    },
+    {
+      "name": "form h2",
+      "artboard": "main > section:nth-of-type(2) h2",
+      "page": "#setup-few-questions"
+    },
+    {
+      "name": "footer",
+      "artboard": "main > div:last-child",
+      "page": ".av-setup-footer",
+      "allow": [
+        "backgroundColor"
+      ]
+    },
+    {
+      "name": "prepare",
+      "artboard": "main > div:last-child > a:last-child",
+      "page": ".av-setup-footer .av-button:last-child"
+    },
+    {
+      "name": "q who for",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(2)",
+      "page": ".av-setup-form > :nth-child(2)"
+    },
+    {
+      "name": "q instructed",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(3)",
+      "page": ".av-setup-form > :nth-child(3)",
+      "allow": [
+        "fontWeight",
+        "lineHeight"
+      ]
+    },
+    {
+      "name": "q side",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(4)",
+      "page": ".av-setup-form > :nth-child(4)"
+    },
+    {
+      "name": "q against",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(5)",
+      "page": ".av-setup-form > :nth-child(5)"
+    },
+    {
+      "name": "q due",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(6)",
+      "page": ".av-setup-form > :nth-child(6)"
+    },
+    {
+      "name": "q oral",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(7)",
+      "page": ".av-setup-form > :nth-child(7)",
+      "allow": [
+        "fontWeight",
+        "lineHeight"
+      ]
+    },
+    {
+      "name": "oral footer",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(7) > span:last-child > span:last-child",
+      "page": ".av-dictation__footer",
+      "allow": [
+        "fontWeight",
+        "lineHeight"
+      ]
+    },
+    {
+      "name": "oral text",
+      "artboard": "main > section:nth-of-type(2) > :nth-child(7) textarea",
+      "page": ".av-dictation__text",
+      "allow": [
+        "color",
+        "borderTopLeftRadius"
+      ]
+    }
+  ],
+  "deviations": [
+    "Removed from the page for the comparison because the board omits them: the short case name field, the instructing firm field, and the example hints under text fields (the data and the API need them).",
+    "Removed from the artboard because the app has no data for them: the records tile's second line ('GP record, hospital notes, letters') and the court-track hint.",
+    "Each drop tile is one big file chooser (its label is visually hidden but stays in the page); the board's inline 'choose files' link has no equivalent.",
+    "The claim-against answer is a text box (the board draws a chip with Edit); the report due date is a date field (the board shows typed text); the dictation footer also says 'Your words only' and the Dictate button has no microphone icon.",
+    "Court tracks and patient states come from the jurisdiction (mock: Multi-track and Unsure; Living, Has died, Under 18), so their words differ from the board's.",
+    "Segmented options and link actions keep a 52px tap area through a transparent ::after; the visible size is the board's.",
+    "The footer stays pinned to the bottom of the window (sticky), the board draws it at the end of the page."
+  ],
+  "pageRemove": [
+    ".av-setup-form .av-field:has(input[name=label])",
+    ".av-setup-form .av-field:has(input[name=firm_0])",
+    ".av-setup-form .av-field__hint"
+  ],
+  "artboardCss": " main > section:nth-of-type(2) > div:nth-child(6) > div:nth-child(2) > span:last-child { display: none !important } main > section:nth-of-type(1) > div:nth-child(2) > span:last-child > br, main > section:nth-of-type(1) > div:nth-child(2) > span:last-child > span { display: none !important }",
+  "budget": 1.2,
+  "budgetReason": "Words that come from the pack or the app differ from the board's sample copy (the claim-against prompt, 'Jointly instructed', the anything-else hint, the date shown as a date field instead of typed text) and the claim-against answer is a text box where the board draws a chip with Edit; every box on the page is measured by the probes."
+}

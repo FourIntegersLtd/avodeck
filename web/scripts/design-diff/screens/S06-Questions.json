@@ -1,0 +1,278 @@
+{
+  "id": "S06-Questions",
+  "artboard": "S06-Questions.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/questions",
+  "width": 1440,
+  "height": 1000,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z",
+      "stage": "prepare"
+    },
+    "/v1/cases/*/questions": {
+      "questions": [
+        {
+          "id": "a0000001-1111-4111-8111-111111111111",
+          "number": 1,
+          "short_title": "Q1",
+          "text_verbatim": "Whether the blood results of 19 February 2024 showing iron deficiency anaemia were acted on appropriately.",
+          "confirmed_text": "Were the February blood results showing iron deficiency anaemia acted on appropriately?",
+          "kind": "breach",
+          "outside_expertise": false,
+          "outside_expertise_source": null,
+          "answer_parts": null,
+          "para_ref": "4.1",
+          "status": "confirmed",
+          "version": 1,
+          "source_word_ids": [
+            "p2-w1"
+          ],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "a0000002-1111-4111-8111-111111111111",
+          "number": 2,
+          "short_title": "Q2",
+          "text_verbatim": "Whether Dr P's assessment on 15 May 2024, including examination, met the standard of a reasonably competent GP.",
+          "confirmed_text": "Did Dr P's assessment on 15 May 2024, including examination, meet the standard of a reasonably competent GP?",
+          "kind": "breach",
+          "outside_expertise": false,
+          "outside_expertise_source": null,
+          "answer_parts": null,
+          "para_ref": "4.2",
+          "status": "confirmed",
+          "version": 1,
+          "source_word_ids": [
+            "p2-w2"
+          ],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "a0000003-1111-4111-8111-111111111111",
+          "number": 3,
+          "short_title": "Q3",
+          "text_verbatim": "Whether Mrs A should have been referred on a suspected cancer pathway, and if so, when.",
+          "confirmed_text": "Should Mrs A have been referred on a suspected cancer pathway, and if so, when?",
+          "kind": "breach",
+          "outside_expertise": false,
+          "outside_expertise_source": null,
+          "answer_parts": null,
+          "para_ref": "4.3",
+          "status": "confirmed",
+          "version": 1,
+          "source_word_ids": [
+            "p2-w3"
+          ],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        },
+        {
+          "id": "a0000004-1111-4111-8111-111111111111",
+          "number": 4,
+          "short_title": "Q4",
+          "text_verbatim": "Had Mrs A been referred earlier, on what date would she have been diagnosed and would the outcome have been different?",
+          "confirmed_text": "Had Mrs A been referred earlier, when would she have been diagnosed, and would the outcome have been different?",
+          "kind": "causation",
+          "outside_expertise": true,
+          "outside_expertise_source": "pack",
+          "answer_parts": [
+            "timing"
+          ],
+          "para_ref": "5.1",
+          "status": "suggested",
+          "version": 1,
+          "source_word_ids": [
+            "p2-w4"
+          ],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        }
+      ],
+      "assumptions": [
+        {
+          "id": "c1111111-1111-4111-8111-111111111111",
+          "number": 1,
+          "text_verbatim": "You should assume that Mrs A attended every appointment recorded in the GP diary unless the records show otherwise.",
+          "confirmed_text": "Assume Mrs A attended every appointment recorded in the GP diary unless the records show otherwise.",
+          "para_ref": "6",
+          "status": "suggested",
+          "version": 1,
+          "source_word_ids": [
+            "p2-w90"
+          ],
+          "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+        }
+      ],
+      "locked": false,
+      "reading": false,
+      "read_failed": false,
+      "reopened": false,
+      "rejected": 0,
+      "warnings": [],
+      "version_no": 1,
+      "instruction_version_id": "b1111111-1111-4111-8111-111111111111"
+    }
+  },
+  "probes": [
+    {
+      "name": "header",
+      "artboard": "header",
+      "page": ".av-case-bar"
+    },
+    {
+      "name": "title block",
+      "artboard": "main > div:first-child",
+      "page": ".av-setup-title"
+    },
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-questions h1",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "count",
+      "artboard": "main > div:first-child > span",
+      "page": ".av-setup-count",
+      "allow": [
+        "fontWeight"
+      ]
+    },
+    {
+      "name": "letter",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1)",
+      "page": ".av-setup-letter",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "letter p1",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1) > p:nth-of-type(2)",
+      "page": ".av-setup-letter p:nth-of-type(1)",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "cards col",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2)",
+      "page": ".av-setup-split > div.av-stack"
+    },
+    {
+      "name": "card Q1",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(1)",
+      "page": ".av-setup-split article:nth-of-type(1)"
+    },
+    {
+      "name": "card Q4",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4)",
+      "page": ".av-setup-split article:nth-of-type(4)"
+    },
+    {
+      "name": "card A1",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(5)",
+      "page": ".av-setup-split article:nth-of-type(5)"
+    },
+    {
+      "name": "footer",
+      "artboard": "main > div:last-child",
+      "page": ".av-setup-footer"
+    },
+    {
+      "name": "confirm",
+      "artboard": "main > div:last-child > a",
+      "page": ".av-setup-footer .av-button:last-child"
+    },
+    {
+      "name": "q1 head",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(1) > div:nth-child(1)",
+      "page": ".av-setup-split article:nth-of-type(1) > .av-row"
+    },
+    {
+      "name": "q1 chip",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(1) > div:nth-child(1) > span:nth-child(1)",
+      "page": ".av-setup-split article:nth-of-type(1) .av-qchip"
+    },
+    {
+      "name": "q1 kind",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(1) > div:nth-child(1) > span:nth-child(2)",
+      "page": ".av-setup-split article:nth-of-type(1) .av-setup-kind"
+    },
+    {
+      "name": "q1 text",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(1) > span:nth-child(2)",
+      "page": ".av-setup-split article:nth-of-type(1) .av-setup-text"
+    },
+    {
+      "name": "q1 ref",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(1) > span:nth-child(3)",
+      "page": ".av-setup-split article:nth-of-type(1) .av-setup-ref"
+    },
+    {
+      "name": "q4 text",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4) > span",
+      "page": ".av-setup-split article:nth-of-type(4) .av-setup-text"
+    },
+    {
+      "name": "q4 panel",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4) > div:nth-child(3)",
+      "page": ".av-setup-split article:nth-of-type(4) .av-setup-expertise"
+    },
+    {
+      "name": "q4 buttons",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4) > div:nth-child(4)",
+      "page": ".av-setup-split article:nth-of-type(4) > .av-row:nth-last-child(1)"
+    },
+    {
+      "name": "q4 btn1",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4) > div:nth-child(4) > button:nth-child(1)",
+      "page": ".av-setup-split article:nth-of-type(4) > .av-row:nth-last-child(1) .av-button:nth-child(1)"
+    },
+    {
+      "name": "q4 btn2",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4) > div:nth-child(4) > button:nth-child(2)",
+      "page": ".av-setup-split article:nth-of-type(4) > .av-row:nth-last-child(1) .av-button:nth-child(2)"
+    }
+  ],
+  "deviations": [
+    "The board's letter facsimile also draws paragraphs that are not questions (4, 5, 6, 7 and a date); the API gives only the cited paragraphs, so the artboard shows only the highlighted ones and the date is hidden.",
+    "Confirmed cards on the board have no buttons; the page keeps 'Edit wording' on every unlocked card because it is the only way to reword (restyled to the board's outlined button).",
+    "The page's 'Questions' and 'Assumptions' headings are read out but not drawn, as on the board.",
+    "Where a question has been reworded the page shows the letter's own words under it (rule 1: the letter stays on show); the board shows only the reworded text, so those lines and 'Edit wording' on confirmed cards are removed from the page for the diff.",
+    "Unconfirmed cards: the page also shows 'From paragraph N' (the board omits it on the open question and the assumption), so it is removed from the page for the diff.",
+    "The 'may be outside your expertise' panel: the page's wording (from the app's strings) is two lines, the board's is three; the artboard is clipped to two lines.",
+    "Card buttons are drawn at the board's 45px high with a 53px hit area kept by a transparent ::after (the 52px touch rule)."
+  ],
+  "artboardCss": "section[aria-label='Letter of instruction'] p:not([style*='background']) { display: none !important } section[aria-label='Letter of instruction'] > div:first-child > span:last-child { display: none !important } section[aria-label='Letter of instruction'] p:nth-of-type(7) { display: block !important; background: #FFF3B0; padding: 4px 8px; margin-left: -8px; margin-right: -8px; border-radius: 4px } div[style*='#FDF1E3'] > span:last-child { display: block; max-height: 51px; overflow: hidden }",
+  "pageRemove": [
+    ".av-setup-split article .av-setup-quote",
+    ".av-setup-split article p.av-small",
+    ".av-setup-split article:has(.av-setup-confirmed) .av-button--quiet",
+    ".av-setup-split article:has(.av-setup-confirmed) > .av-row:last-child",
+    ".av-setup-split article:not(:has(.av-setup-confirmed)) .av-setup-ref",
+    ".av-setup-split article.av-setup-card--outside > .av-row:nth-child(5)"
+  ],
+  "budget": 0.8,
+  "budgetReason": "Residual is copy only: the page's intro line, case subtitle, letter heading, paragraph 6 wording and the outside-expertise sentence come from app strings and the API, not the board's sample text; every box lines up."
+}

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useSession } from "../../foundation/lib/session";
 import type { Schemas } from "../../foundation/platform-client";
+import "@fontsource/ibm-plex-mono/500.css";
 import "./trial.css";
 
 export interface Frame {

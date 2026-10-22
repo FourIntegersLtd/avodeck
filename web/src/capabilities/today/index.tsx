@@ -1,5 +1,6 @@
 import type { RouteObject } from "react-router-dom";
 import { registerScreen } from "../../foundation/lib/screens";
+import "./today.css";
 import { Help } from "./Help";
 import { Today } from "./Today";
 

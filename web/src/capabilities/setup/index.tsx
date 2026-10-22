@@ -5,6 +5,10 @@ import { CaseDetails, NewCase } from "./NewCase";
 import { Profile } from "./Profile";
 import { Questions } from "./Questions";
 import "./setup.css";
+import "./profile.css";
+import "./newcase.css";
+import "./conflicts.css";
+import "./questions.css";
 import "./words";
 
 /** Slice C (case setup) screens. Signed-in routes (profile, new case) and routes inside a case

@@ -11,7 +11,7 @@ import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } 
 import { casePath, count, periodRange, sourceLabel } from "./data";
 import { suggestTimelineDate } from "./timelineDate";
 import { allowed, editableFields, FactCard } from "./FactCard";
-import { FactSwitcher } from "./FactSwitcher";
+import { actionable, FactSwitcher } from "./FactSwitcher";
 import { loadSplitPct, saveSplitPct } from "./splitPane";
 import { SplitDivider } from "./SplitDivider";
 import { Highlights } from "./Highlights";
@@ -296,7 +296,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const page = detail.data;
   const left = progress.data ? Math.max(0, progress.data.total - progress.data.read) : 0;
   const hard = queue.data ? queue.data.total - queue.data.done : 0;
+  // With one suggestion to check, the card comes first and the checked ones fold below it; with several, the switcher leads.
+  const switcherFirst = actionable(facts ?? []).length > 1;
   const focusedFact = facts?.find((f) => f.id === focus) ?? facts?.[0] ?? null;
+  const range = page.period_start && page.period_end ? periodRange(page.period_start, page.period_end, pack.locale) : "";
 
   return (
     <div className="rd">
@@ -308,7 +311,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               <circle cx="12" cy="12" r="3" />
             </svg>
             <p>
-              <strong>{w("read.in_period")}</strong>{page.period_start && page.period_end ? ` ${periodRange(page.period_start, page.period_end, pack.locale)} ` : " "}{read ? w("read.in_period_after") : ""}
+              <strong>{range ? w("read.in_period_range", { range }) : w("read.in_period")}</strong> {read ? w("read.in_period_after") : ""}
             </p>
             <button type="button" className="av-text-link rd-why" aria-expanded={why} onClick={() => setWhy((v) => !v)}>
               {w("read.why")}
@@ -361,7 +364,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {info && !notice && <Notice tone="success">{info}</Notice>}
           {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
           {facts?.length === 0 && <p className="rd-note">{w("read.none_found")}</p>}
-          {facts && facts.length > 0 && <FactSwitcher facts={facts} focus={focus} onFocus={setFocus} />}
+          {facts && facts.length > 0 && switcherFirst && <FactSwitcher facts={facts} focus={focus} onFocus={setFocus} />}
           {focusedFact && (
             <FactCard
               key={focusedFact.id}
@@ -399,6 +402,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               onCancelTimelineDate={() => setTimelineDraft(null)}
             />
           )}
+          {facts && facts.length > 0 && !switcherFirst && <FactSwitcher facts={facts} focus={focus} onFocus={setFocus} />}
           {read && (
             <div className="rd-keys">
               <p>
@@ -409,7 +413,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                 <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
                 <span><kbd>→</kbd> {w("read.keys.next")}</span>
               </p>
-              <p>{w("read.keys.more")}</p>
+              <p className="rd-sr">{w("read.keys.more")}</p>
             </div>
           )}
         </aside>
@@ -423,9 +427,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {progress.data && (
             <>
               <p>
-                {left === 0
-                  ? w("read.progress_all", { page: pageNo, total: count(progress.data.total, pack.locale) })
-                  : w("read.progress", { page: pageNo, total: count(progress.data.total, pack.locale), read: count(progress.data.read, pack.locale), left: count(left, pack.locale) })}
+                <strong>{w("read.progress_page", { page: pageNo, total: count(progress.data.total, pack.locale) })}</strong>{" "}
+                {left === 0 ? w("read.progress_all_rest") : w("read.progress_rest", { read: count(progress.data.read, pack.locale), left: count(left, pack.locale) })}
               </p>
               <ProgressBar max={progress.data.total || 1} value={progress.data.read} label={w("read.progress_done", { read: progress.data.read, total: progress.data.total })} />
             </>

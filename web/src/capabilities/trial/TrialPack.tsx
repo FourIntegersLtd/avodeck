@@ -20,6 +20,8 @@ type Message = { tone: "success" | "error" | "info"; text: string } | null;
 
 const POLL_MS = 800;
 const SECTIONS: Section[] = ["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests"];
+/** The board draws the joint statement and the answers to questions as one choice; both stay separate sections on the server. */
+const JOINT: Section[] = ["joint_statement", "written_answers"];
 const ERRORS = {
   not_served: "trial.pack.error.not_served",
   precondition_failed: "trial.pack.error.stale",
@@ -36,14 +38,19 @@ function Pack({ frame }: { frame: Frame }) {
   // The preview is a help: when it can't be had, the rest of the screen still works.
   const preview = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/preview", { params: { path } })).catch(() => null), [frame.caseId]);
   const latest = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/latest", { params: { path } })), [frame.caseId]);
+  // The hearing the pack is built for, said in the lead; without it the lead says when the pack was made.
+  const hearings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/hearings", { params: { path } })).catch(() => null), [frame.caseId]);
   const sheets = preview.data?.sheets ?? [];
   const made = latest.data?.pack;
+  const open = (hearings.data?.hearings ?? []).filter((h) => !h.replaced_by_hearing_id && h.status !== "adjourned").sort((a, b) => a.starts_on.localeCompare(b.starts_on));
+  const hearing = open.find((h) => h.id === latest.data?.settings.hearing_id) ?? open.find((h) => h.type === "trial") ?? open[0];
+  const built = made && (hearing ? w(hearing.type === "trial" ? "pack.built_for_trial" : "pack.built_for_hearing", { date: longDate(hearing.starts_on, frame.locale) }) : w("pack.built", { date: longDate(made.created_at, frame.locale) }));
   return (
     <TrialPage width="s24">
       <div className="av-trial-head__text">
         <BackLink to={screenPath("court_bundle_pages", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}/trial-pages`}>{w("pack.back")}</BackLink>
         <TrialTitle title={w("pack.title")}>
-          <p className="av-trial-lead">{[w("pack.lead"), made && w("pack.built", { date: longDate(made.created_at, frame.locale) })].filter(Boolean).join(" ")}</p>
+          <p className="av-trial-lead">{[w("pack.lead"), built].filter(Boolean).join(" ")}</p>
         </TrialTitle>
       </div>
       <Contents
@@ -153,9 +160,11 @@ function Sheet({ frame, sheet, bundleName }: { frame: Frame; sheet: Schemas["She
       </div>
       {message && <Notice tone={message.tone}><p>{message.text}</p></Notice>}
       {canWrite && !editing && (
-        <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => { setDraft(reply); setEditing(true); }}>
-          {reply ? w("pack.sheet.reply_edit") : w("pack.sheet.reply_write")}
-        </button>
+        <footer className="av-trial-sheet__foot">
+          <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => { setDraft(reply); setEditing(true); }}>
+            {reply ? w("pack.sheet.reply_edit") : w("pack.sheet.reply_write")}
+          </button>
+        </footer>
       )}
       {canWrite && editing && (
         <div className="av-field">
@@ -234,11 +243,14 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
   if (!chosen || !base || version === null || !latest.data) return <Loading />;
 
   const fail = (error: unknown) => setMessage({ tone: "error", text: errorMessage(error, ERRORS) });
-  const toggle = (section: Section) =>
+  const toggle = (...group: Section[]) =>
     setChosen((current) => {
       const next = new Set(current);
-      if (next.has(section)) next.delete(section);
-      else next.add(section);
+      const on = group.every((section) => next.has(section));
+      for (const section of group) {
+        if (on) next.delete(section);
+        else next.add(section);
+      }
       return next;
     });
   const dirty = !sameSet(chosen, base.sections) || (guidance ?? false) !== base.guidance;
@@ -305,12 +317,25 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
     <>
       {message && <Notice tone={message.tone}><p>{message.text}</p></Notice>}
       <div className="av-trial-split">
-        <div className="av-stack">
+        <div className="av-trial-left">
           <section aria-labelledby="trial-what-goes-in" className="av-card av-trial-checklist">
             <h2 id="trial-what-goes-in" className="av-trial-checklist__head">{w("pack.sections.heading")}</h2>
-            {SECTIONS.map((s) => (
-              <Choice key={s} label={sectionLabel(s, frame)} hint={w(`pack.section.${s}_hint` as TrialKey)} pages={countOf(s)} checked={chosen.has(s)} onChange={() => toggle(s)} disabled={!canBuild} />
-            ))}
+            {SECTIONS.filter((s) => s !== "written_answers").map((s) =>
+              s === "joint_statement" ? (
+                <Choice
+                  key={s}
+                  label={w("pack.section.joint_and_answers", { document: vocab(frame.pack, "expert_meeting_document") })}
+                  capital
+                  hint={w("pack.section.joint_and_answers_hint")}
+                  pages={countOf("joint_statement") === undefined && countOf("written_answers") === undefined ? undefined : (countOf("joint_statement") ?? 0) + (countOf("written_answers") ?? 0)}
+                  checked={JOINT.some((j) => chosen.has(j))}
+                  onChange={() => toggle(...JOINT)}
+                  disabled={!canBuild}
+                />
+              ) : (
+                <Choice key={s} label={sectionLabel(s, frame)} hint={w(`pack.section.${s}_hint` as TrialKey)} pages={countOf(s)} checked={chosen.has(s)} onChange={() => toggle(s)} disabled={!canBuild} />
+              ),
+            )}
             <Choice label={w("pack.section.guidance")} hint={w("pack.section.guidance_hint")} pages={countOf("guidance")} checked={guidance ?? false} onChange={() => setGuidance((g) => !g)} disabled={!canBuild} />
             {canBuild && dirty && (
               <div className="av-trial-checklist__save">
@@ -339,8 +364,8 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
         </p>
         <div className="av-trial-actions">
           {pack && changedSince && !pack.stale && canBuild && rebuild}
-          {pack && canGet && <Button variant="secondary" onClick={download}>{w("pack.download")}</Button>}
-          {pack && canGet && <Button className="av-trial-icon-button" onClick={print}>{PRINTER}{w("pack.print")}</Button>}
+          {pack && canGet && <Button variant="secondary" className="av-trial-download" onClick={download}>{w("pack.download")}</Button>}
+          {pack && canGet && <Button className="av-trial-icon-button av-trial-cta" onClick={print}>{PRINTER}{w("pack.print")}</Button>}
           {!pack && canBuild && <Button onClick={build} disabled={job !== null}>{w("pack.build")}</Button>}
         </div>
       </div>
@@ -354,13 +379,13 @@ function Contents({ frame, latest, pages, onChanged, preview }: { frame: Frame; 
   );
 }
 
-function Choice({ label, hint, pages, checked, onChange, disabled }: { label: string; hint: string; pages?: number; checked: boolean; onChange: () => void; disabled?: boolean }) {
+function Choice({ label, hint, pages, checked, onChange, disabled, capital }: { label: string; hint: string; pages?: number; checked: boolean; onChange: () => void; disabled?: boolean; capital?: boolean }) {
   const id = useId();
   return (
     <div className="av-trial-choice-row">
       <input id={`${id}-box`} type="checkbox" checked={checked} onChange={onChange} disabled={disabled} aria-describedby={`${id}-hint`} />
       <div>
-        <label htmlFor={`${id}-box`} className="av-trial-strong av-trial-choice-row__label">{label}</label>
+        <label htmlFor={`${id}-box`} className={`av-trial-strong av-trial-choice-row__label${capital ? " av-trial-cap" : ""}`}>{label}</label>
         <p id={`${id}-hint`} className="av-trial-muted av-trial-hint">{hint}</p>
       </div>
       {pages !== undefined && <span className="av-trial-muted av-trial-choice-row__pages">{wn("pack.pages", pages)}</span>}
@@ -394,25 +419,7 @@ function Check({ frame }: { frame: Frame }) {
     }
   };
   return (
-    <div className="av-stack">
-      {!open && (
-        <button type="button" className="av-text-link av-trial-linkbutton" aria-expanded={false} onClick={() => setOpen(true)}>{w("pack.check.open")}</button>
-      )}
-      {open && (
-        <section aria-labelledby={`${id}-h`} className="av-card av-stack">
-          <h2 id={`${id}-h`} className="av-trial-h3">{w("pack.check.open")}</h2>
-          <p>{w("pack.check.lead")}</p>
-          <div className="av-field">
-            <label className="av-field__label" htmlFor={id}>{w("pack.check.label")}</label>
-            <textarea id={id} className="av-textarea av-trial-short" value={text} onChange={(e) => setText(e.target.value)} />
-          </div>
-          <div className="av-trial-actions">
-            <Button variant="quiet" onClick={() => setOpen(false)}>{w("meeting.item.close")}</Button>
-            <Button variant="secondary" onClick={run} disabled={!text.trim()}>{w("pack.check.run")}</Button>
-          </div>
-          {message && <Notice tone="error"><p>{message.text}</p></Notice>}
-        </section>
-      )}
+    <div className="av-trial-left__check">
       {result && (
         <>
           {result.sentences.filter((s) => s.sourced).length > 0 && (
@@ -431,25 +438,42 @@ function Check({ frame }: { frame: Frame }) {
             s.note_id && s.choice ? (
               <p key={s.index} className="av-trial-strong">{s.choice === "tell" ? w("pack.check.told") : w("pack.check.left_out")}</p>
             ) : (
-              <Callout
-                key={s.index}
-                title={w("pack.check.heading")}
-                actions={
-                  s.note_id && frame.can("report.build") ? (
-                    <>
-                      <Button variant="secondary" onClick={() => choose(s.note_id!, "tell")}>{w("pack.check.tell", { party })}</Button>
-                      <Button variant="quiet" onClick={() => choose(s.note_id!, "leave_out")}>{w("pack.check.leave_out")}</Button>
-                    </>
-                  ) : undefined
-                }
-              >
+              <section key={s.index} className="av-trial-note" aria-labelledby={`${id}-note-${s.index}`}>
+                <h3 id={`${id}-note-${s.index}`} className="av-trial-note__title">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v6M12 16.5v.5" /></svg>
+                  {w("pack.check.heading")}
+                </h3>
                 <p>
                   {w("pack.check.callout_lead")} <em>{w("pack.check.quoted", { text: s.text })}</em> {w("pack.check.callout_tail", { party })}
                 </p>
-              </Callout>
+                {s.note_id && frame.can("report.build") && (
+                  <div className="av-trial-note__actions">
+                    <Button variant="secondary" onClick={() => choose(s.note_id!, "tell")}>{w("pack.check.tell", { party })}</Button>
+                    <Button variant="quiet" onClick={() => choose(s.note_id!, "leave_out")}>{w("pack.check.leave_out")}</Button>
+                  </div>
+                )}
+              </section>
             ),
           )}
         </>
+      )}
+      {!open && (
+        <button type="button" className="av-text-link av-trial-linkbutton" aria-expanded={false} onClick={() => setOpen(true)}>{w("pack.check.open")}</button>
+      )}
+      {open && (
+        <section aria-labelledby={`${id}-h`} className="av-card av-stack">
+          <h2 id={`${id}-h`} className="av-trial-h3">{w("pack.check.open")}</h2>
+          <p>{w("pack.check.lead")}</p>
+          <div className="av-field">
+            <label className="av-field__label" htmlFor={id}>{w("pack.check.label")}</label>
+            <textarea id={id} className="av-textarea av-trial-short" value={text} onChange={(e) => setText(e.target.value)} />
+          </div>
+          <div className="av-trial-actions">
+            <Button variant="quiet" onClick={() => setOpen(false)}>{w("meeting.item.close")}</Button>
+            <Button variant="secondary" onClick={run} disabled={!text.trim()}>{w("pack.check.run")}</Button>
+          </div>
+          {message && <Notice tone="error"><p>{message.text}</p></Notice>}
+        </section>
       )}
     </div>
   );

@@ -87,8 +87,8 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   const done = chosen.progress?.questions.find((p) => p.question_id === questionId)?.points_done ?? false;
   const live = data.points.filter((p) => p.status !== "dismissed");
   return (
-    <div className="av-page av-stack">
-      <div>
+    <div className="av-page av-write-screen av-stack">
+      <div className="av-write-head">
         <h2 className="av-write-title">{w("points.title")}</h2>
         <p className="av-muted">{w("points.intro")}</p>
       </div>
@@ -107,45 +107,47 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
           const mine = live.filter((p) => p.side === side.code);
           return (
             <section key={side.code} className="av-card" aria-labelledby={`side-${side.code}`}>
-              <h3 id={`side-${side.code}`}>{side.label}</h3>
+              <div className="av-write-side__head">
+                <h3 id={`side-${side.code}`}>{side.label}</h3>
+                {data.unused.length > 0 && (
+                  <button type="button" className="av-text-link av-write-linkbutton av-write-add" aria-expanded={adding === side.code} onClick={() => setAdding(adding === side.code ? null : side.code)}>
+                    {w("points.add_row_button")}
+                  </button>
+                )}
+              </div>
               {mine.length === 0 && <p className="av-muted">{w("points.side_empty")}</p>}
               <ul className="av-write-list">
                 {mine.map((point) => (
                   <li key={point.id} className="av-write-item">
-                    <div className="av-write-item__head">
-                      <span>{point.fact.value}</span>
-                      <PageRef page={point.fact.page_no} />
-                    </div>
+                    {/* The row is the way in to what you can do with the point; a point that needs a decision starts open. */}
+                    <details className="av-write-point" open={point.status === "suggested" || point.status === "stale" || undefined}>
+                      <summary className="av-write-item__head">
+                        <span>{point.fact.value}</span>
+                        <PageRef page={point.fact.page_no} />
+                      </summary>
+                      <div className="av-write-actions">
+                        {(point.status === "suggested" || point.status === "stale") && (
+                          <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void change(point, { status: "accepted" })}>
+                            {w("points.keep")}
+                          </button>
+                        )}
+                        {data.sides
+                          .filter((s) => s.code !== point.side)
+                          .map((s) => (
+                            <button type="button" key={s.code} className="av-text-link av-write-linkbutton" onClick={() => void change(point, { side: s.code })}>
+                              {w("points.move", { side: s.label })}
+                            </button>
+                          ))}
+                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => setRemoving(point)}>
+                          {w("points.remove")}
+                        </button>
+                      </div>
+                    </details>
                     {point.flagged && <p className="av-muted">{w("points.flagged")}</p>}
                     {point.status === "stale" && <p className="av-write-badge">{w("points.stale_point")}</p>}
-                    <div className="av-write-actions">
-                      {(point.status === "suggested" || point.status === "stale") && (
-                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void change(point, { status: "accepted" })}>
-                          {w("points.keep")}
-                        </button>
-                      )}
-                      {data.sides
-                        .filter((s) => s.code !== point.side)
-                        .map((s) => (
-                          <button type="button" key={s.code} className="av-text-link av-write-linkbutton" onClick={() => void change(point, { side: s.code })}>
-                            {w("points.move", { side: s.label })}
-                          </button>
-                        ))}
-                      <button type="button" className="av-text-link av-write-linkbutton" onClick={() => setRemoving(point)}>
-                        {w("points.remove")}
-                      </button>
-                    </div>
                   </li>
                 ))}
               </ul>
-              {data.unused.length > 0 && (
-                <div className="av-write-item av-write-item__head av-write-addrow">
-                  <span className="av-muted">{w("points.add_row")}</span>
-                  <button type="button" className="av-text-link av-write-linkbutton" aria-expanded={adding === side.code} onClick={() => setAdding(adding === side.code ? null : side.code)}>
-                    {w("points.add_row_button")}
-                  </button>
-                </div>
-              )}
               {adding === side.code && data.unused.length > 0 && (
                 <section aria-labelledby="unused-title">
                   <h4 id="unused-title" className="av-visually-hidden">{w("points.unused")}</h4>
@@ -169,9 +171,13 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
       {data.relevant.map((r) => (
         <Callout
           key={r.id}
-          title={
-            <strong>{w("points.relevant_title", { count: 1 })}</strong>
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true" focusable="false">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 7v6M12 16.5v.5" />
+            </svg>
           }
+          title={<strong>{w("points.relevant_title", { count: 1 })}</strong>}
           actions={
             <>
               <TextLink to={`/cases/${caseId}/consultation/${r.fact.id}`}>{w("points.relevant_look")}</TextLink>

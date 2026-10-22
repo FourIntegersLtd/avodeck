@@ -1,0 +1,1288 @@
+{
+  "id": "S18-SignSend",
+  "artboard": "S18-SignSend.dc.html",
+  "session": true,
+  "route": "/cases/44444444-4444-4444-8444-444444444444/sign",
+  "width": 1440,
+  "height": 1000,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed-colorectal-referral",
+      "specialty": "general-practice",
+      "expert_role": "defendant_expert",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/pack": {
+      "checks": [
+        {
+          "action_kinds": [
+            "prescription",
+            "referral",
+            "task",
+            "consultation",
+            "phone_consultation"
+          ],
+          "applies_to": "result",
+          "flag": {
+            "any_of": [
+              "L",
+              "H",
+              "LL",
+              "HH",
+              "A"
+            ],
+            "field": "flag"
+          },
+          "key": "abnormal_result_no_action",
+          "label_spans": true,
+          "rule": "no_action_within",
+          "window_days": 14
+        },
+        {
+          "acknowledged_field": "acknowledged_on",
+          "acknowledged_kinds": [
+            "letter"
+          ],
+          "acknowledges_field": "acknowledges_referral_dated",
+          "applies_to": "referral",
+          "key": "referral_acknowledged",
+          "rule": "not_acknowledged_within",
+          "window_days": 42
+        },
+        {
+          "applies_to": "prescription",
+          "key": "repeat_medicine_monitoring",
+          "rule": "monitoring_overdue",
+          "table": "drug_monitoring"
+        },
+        {
+          "applies_to": [
+            "consultation",
+            "phone_consultation",
+            "home_visit"
+          ],
+          "key": "ooh_reached_clinician",
+          "rule": "not_reached_clinician",
+          "when": {
+            "setting": "out_of_hours"
+          },
+          "window_days": 2
+        },
+        {
+          "action_kinds": [
+            "prescription",
+            "referral",
+            "task"
+          ],
+          "applies_to": "letter",
+          "field": "actions_requested",
+          "key": "hospital_letter_actions",
+          "label_spans": true,
+          "rule": "actions_not_done"
+        },
+        {
+          "applies_to": "consultation",
+          "field": "examination",
+          "gentle": true,
+          "key": "examination_recorded",
+          "or_kinds": [
+            "examination"
+          ],
+          "rule": "field_missing",
+          "scope": "linked"
+        },
+        {
+          "applies_to": "consultation",
+          "field": "safety_netting",
+          "gentle": true,
+          "key": "safety_netting_recorded",
+          "or_kinds": [
+            "safety_netting"
+          ],
+          "rule": "field_missing",
+          "scope": "linked"
+        },
+        {
+          "applies_to": "missed_appointment",
+          "default_on": false,
+          "followup_kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "task"
+          ],
+          "key": "missed_appointment_followed_up",
+          "rule": "not_followed_up",
+          "window_days": 14
+        }
+      ],
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "page_limit": {
+          "intermediate_track": 20
+        },
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "document_kinds": [
+        {
+          "key": "instructions",
+          "label_key": "document_kind.instructions"
+        },
+        {
+          "key": "records",
+          "label_key": "document_kind.records"
+        },
+        {
+          "key": "other",
+          "label_key": "document_kind.other"
+        }
+      ],
+      "expert_roles": [
+        "breach"
+      ],
+      "fact_kinds": [
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "examination": "string",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string",
+            "setting": "string"
+          },
+          "key": "consultation"
+        },
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string",
+            "setting": "string"
+          },
+          "key": "phone_consultation"
+        },
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "examination": "string",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string",
+            "setting": "string"
+          },
+          "key": "home_visit"
+        },
+        {
+          "arrives": true,
+          "fields": {
+            "actioned_on": "date",
+            "date": "date",
+            "flag": "string",
+            "received_on": "date",
+            "reference_range": "string",
+            "test": "string",
+            "unit": "string",
+            "value": "string"
+          },
+          "key": "result"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "dose": "string",
+            "drug": "string",
+            "quantity": "string",
+            "repeat": "boolean"
+          },
+          "key": "prescription"
+        },
+        {
+          "fields": {
+            "acknowledged_on": "date",
+            "date": "date",
+            "reason": "string",
+            "to": "string",
+            "urgency": "string"
+          },
+          "key": "referral"
+        },
+        {
+          "arrives": true,
+          "fields": {
+            "acknowledges_referral_dated": "date",
+            "actions_requested": "string",
+            "date": "date",
+            "from": "string",
+            "received_on": "date",
+            "to": "string"
+          },
+          "key": "letter"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "finding": "string",
+            "unit": "string",
+            "value": "string"
+          },
+          "key": "examination"
+        },
+        {
+          "fields": {
+            "advice": "string",
+            "date": "date"
+          },
+          "key": "safety_netting"
+        },
+        {
+          "fields": {
+            "appointment_type": "string",
+            "date": "date"
+          },
+          "key": "missed_appointment"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "description": "string",
+            "done_on": "date"
+          },
+          "key": "task"
+        }
+      ],
+      "final_checks": [
+        {
+          "key": "statement_of_truth_exact",
+          "text": "Statement of truth present with exact wording from declarations.md"
+        },
+        {
+          "key": "required_contents_present",
+          "text": "Every item in report.yaml required_contents is addressed"
+        },
+        {
+          "key": "page_limit",
+          "text": "Page count within the track limit (only if the case track has one)"
+        },
+        {
+          "key": "questions_answered",
+          "text": "Every question in the letter of instruction has an answer or an explained deferral"
+        },
+        {
+          "key": "points_against_considered",
+          "text": "Points against considered for every breach question"
+        },
+        {
+          "key": "guidance_in_force",
+          "text": "Guidance cited was in force on the date of the care in question"
+        }
+      ],
+      "instructing_party_types": [
+        {
+          "key": "lawyer",
+          "label": "solicitor"
+        }
+      ],
+      "lanes": [
+        {
+          "key": "primary_care_visits",
+          "kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "examination",
+            "safety_netting",
+            "task"
+          ]
+        },
+        {
+          "key": "results",
+          "kinds": [
+            "result"
+          ]
+        },
+        {
+          "key": "out_of_hours",
+          "kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "examination",
+            "safety_netting",
+            "task"
+          ],
+          "when": {
+            "setting": "out_of_hours"
+          }
+        },
+        {
+          "key": "prescriptions",
+          "kinds": [
+            "prescription"
+          ]
+        },
+        {
+          "key": "hospital_and_letters",
+          "kinds": [
+            "letter",
+            "referral"
+          ]
+        },
+        {
+          "key": "appointments",
+          "kinds": [
+            "missed_appointment"
+          ]
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of GPs have acted as this GP did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "opinion_views": [
+        {
+          "code": "within_range",
+          "label": "Within the range of reasonable practice"
+        },
+        {
+          "code": "at_limit",
+          "label": "At the limit of reasonable practice"
+        },
+        {
+          "code": "below_standard",
+          "label": "Below the standard of a reasonable GP"
+        }
+      ],
+      "outside_expertise_parts": [
+        "timing"
+      ],
+      "party_roles": [
+        {
+          "key": "instructing_side",
+          "label": "claimant"
+        },
+        {
+          "key": "other_side",
+          "label": "defendant"
+        },
+        {
+          "key": "joint",
+          "label": "jointly instructed"
+        }
+      ],
+      "point_sides": [
+        {
+          "code": "supports_claim",
+          "label": "Supports the claim"
+        },
+        {
+          "code": "supports_clinician",
+          "label": "Supports the GP"
+        },
+        {
+          "code": "neutral",
+          "label": "Neutral"
+        }
+      ],
+      "profession": "doctor",
+      "quarantine_purge_days": 14,
+      "question_types": [
+        {
+          "colour": "blue",
+          "key": "breach",
+          "label_key": "question_type.breach",
+          "parts": [
+            {
+              "key": "standard",
+              "label_key": "question_part.standard"
+            },
+            {
+              "key": "timing",
+              "label_key": "question_part.timing"
+            }
+          ]
+        },
+        {
+          "colour": "amber",
+          "key": "causation",
+          "label_key": "question_type.causation",
+          "parts": [
+            {
+              "key": "effect",
+              "label_key": "question_part.effect"
+            },
+            {
+              "key": "timing",
+              "label_key": "question_part.timing"
+            }
+          ]
+        },
+        {
+          "colour": "green",
+          "key": "other",
+          "label_key": "question_type.other",
+          "parts": [
+            {
+              "key": "whole",
+              "label_key": "question_part.whole"
+            }
+          ]
+        }
+      ],
+      "range_note_prompt": "What other GPs might reasonably do",
+      "registration_bodies": [
+        "GMC"
+      ],
+      "report_appendices": [
+        {
+          "key": "cv",
+          "label": "My CV"
+        },
+        {
+          "key": "glossary",
+          "label": "Glossary"
+        },
+        {
+          "key": "documents_list",
+          "label": "List of documents"
+        },
+        {
+          "key": "methodology",
+          "label": "How I carried out this review"
+        }
+      ],
+      "report_sections": [
+        {
+          "key": "introduction",
+          "label": "Introduction"
+        },
+        {
+          "key": "instructions",
+          "label": "My instructions"
+        },
+        {
+          "key": "documents",
+          "label": "Documents I have seen"
+        },
+        {
+          "key": "background",
+          "label": "Background"
+        },
+        {
+          "key": "what_happened",
+          "label": "What happened"
+        },
+        {
+          "key": "opinion",
+          "label": "My opinion"
+        },
+        {
+          "key": "range_of_opinion",
+          "label": "Range of opinion"
+        },
+        {
+          "key": "summary",
+          "label": "Summary of my conclusions"
+        },
+        {
+          "key": "declarations",
+          "label": "Declarations"
+        }
+      ],
+      "retention_years": 6,
+      "source_types": [
+        {
+          "colour": "#1E6B4E",
+          "key": "primary_care_record",
+          "own_record": true
+        },
+        {
+          "colour": "#4C6E91",
+          "key": "hospital"
+        },
+        {
+          "colour": "#2C8C99",
+          "key": "out_of_hours"
+        },
+        {
+          "colour": "#7A6BA8",
+          "key": "results"
+        },
+        {
+          "colour": "#8C7556",
+          "key": "letters"
+        },
+        {
+          "colour": "#A8577E",
+          "key": "witness_statement",
+          "statement": true
+        }
+      ],
+      "subject_statuses": [
+        {
+          "key": "living",
+          "label": "living",
+          "representative": null
+        },
+        {
+          "key": "deceased",
+          "label": "has died",
+          "representative": "personal representative"
+        },
+        {
+          "key": "minor",
+          "label": "under 18",
+          "representative": "litigation friend"
+        }
+      ],
+      "timezone": "Europe/London",
+      "versions": {
+        "case_type": "clin-neg-breach@2026.10.3",
+        "jurisdiction": "gb-eaw@2026.10.6",
+        "overlay": "gb-eaw/general-practice@2026.10.1",
+        "specialty": "general-practice@2026.10.2"
+      },
+      "vocabulary": {
+        "as_seen_title": "As the GP saw it",
+        "clinician": "GP",
+        "clinicians": "GPs",
+        "court_bundle": "trial bundle",
+        "coverage_question": "Were you working in general practice throughout the period of the claim?",
+        "coverage_roles": {
+          "locum": "locum",
+          "partner": "partner",
+          "salaried": "salaried general practitioner"
+        },
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "lanes": {
+          "appointments": "Appointments",
+          "hospital_and_letters": "Hospital and letters",
+          "out_of_hours": "Out of hours and NHS 111",
+          "prescriptions": "Prescriptions",
+          "primary_care_visits": "GP visits",
+          "results": "Results"
+        },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "outside_expertise_hint": "This looks outside what a general practitioner usually covers. You decide whether to answer it, or only part of it.",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
+        },
+        "practice": "GP surgery",
+        "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
+        "request_notes": {
+          "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
+          "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
+        },
+        "source_types": {
+          "primary_care_record": "GP record"
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "workflow_steps": [
+        {
+          "key": "prepare",
+          "meters": [
+            "questions_confirmed"
+          ],
+          "screens": [
+            "new_case",
+            "conflicts",
+            "questions",
+            "preparing",
+            "bundle_ready",
+            "ask_instructing_party"
+          ]
+        },
+        {
+          "key": "read",
+          "meters": [
+            "pages_read"
+          ],
+          "screens": [
+            "reader",
+            "couldnt_read"
+          ]
+        },
+        {
+          "key": "understand",
+          "meters": [
+            "facts_decided"
+          ],
+          "screens": [
+            "timeline",
+            "as_clinician_saw_it",
+            "things_to_look_at"
+          ]
+        },
+        {
+          "key": "write",
+          "meters": [
+            "questions_with_opinion",
+            "report_stages"
+          ],
+          "screens": [
+            "points_against",
+            "opinion",
+            "report",
+            "final_check",
+            "sign_send",
+            "invoice"
+          ]
+        },
+        {
+          "key": "court",
+          "screens": [
+            "after_serving",
+            "court_orders",
+            "written_questions",
+            "new_material",
+            "correct_report",
+            "expert_meeting",
+            "court_bundle_pages",
+            "trial_pack",
+            "witness_box",
+            "close"
+          ]
+        }
+      ],
+      "written_question_classifications": [
+        "clarifies",
+        "goes_beyond"
+      ]
+    },
+    "/v1/cases/*/report": {
+      "checklist": {
+        "rule_ref": "ref",
+        "items": []
+      },
+      "sections": [],
+      "version": {
+        "id": "b1111111-1111-4111-8111-111111111111",
+        "version_no": 1,
+        "type": "report",
+        "display_name": "Breach of duty report: Mrs A",
+        "status": "draft",
+        "created_at": "2026-11-27T09:00:00Z",
+        "page_count": 31,
+        "citation_style": "page",
+        "template_fallback": false
+      },
+      "versions": [
+        {
+          "id": "b1111111-1111-4111-8111-111111111111",
+          "version_no": 1,
+          "type": "report",
+          "display_name": "Breach of duty report: Mrs A",
+          "status": "draft",
+          "created_at": "2026-11-27T09:00:00Z",
+          "page_count": 31,
+          "citation_style": "page",
+          "template_fallback": false
+        }
+      ]
+    },
+    "/v1/cases/*/report/final-check/latest": {
+      "id": "f1111111-1111-4111-8111-111111111111",
+      "report_version_id": "b1111111-1111-4111-8111-111111111111",
+      "at": "2026-11-27T10:00:00Z",
+      "passed": true,
+      "current": true,
+      "declaration_changed": false,
+      "pack_versions": {},
+      "warnings": [],
+      "warnings_status": "done",
+      "results": [
+        {
+          "key": "c0",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c0",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c1",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c1",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c2",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c2",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c3",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c3",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c4",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c4",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c5",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c5",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c6",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c6",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c7",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c7",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c8",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c8",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c9",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c9",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c10",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c10",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c11",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c11",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c12",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c12",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c13",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c13",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c14",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c14",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c15",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c15",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c16",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c16",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c17",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c17",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c18",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c18",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c19",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c19",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c20",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c20",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c21",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c21",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c22",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c22",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c23",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c23",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c24",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c24",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c25",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c25",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c26",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c26",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "c27",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Check c27",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        }
+      ]
+    },
+    "/v1/me/profile": {
+      "full_name": "Dr James Morgan",
+      "profession": "GP",
+      "registration_body": "GMC",
+      "registration_number": "[GMC NUMBER]",
+      "specialties": [],
+      "currency": null,
+      "default_jurisdiction": null,
+      "default_retention": null,
+      "hourly_rate": null
+    },
+    "/v1/me/signature/image": {
+      "$body": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"200\" height=\"60\" viewBox=\"0 0 200 60\"><path d=\"M8 44c12-30 22-34 26-20s-6 26 4 14 14-28 22-20-4 22 6 18 12-16 22-12 4 14 14 10 16-14 26-10 10 8 22 2\" fill=\"none\" stroke=\"#16201B\" stroke-width=\"2.25\" stroke-linecap=\"round\"/></svg>",
+      "$type": "image/svg+xml"
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".rp-signature__image"
+    },
+    {
+      "click": ".rp-sign-card .av-checkbox"
+    },
+    {
+      "click": ".rp-title"
+    },
+    {
+      "blur": true
+    }
+  ],
+  "probes": [
+    {
+      "name": "badge",
+      "artboard": "main > div:first-child > span:first-child",
+      "page": ".rp-hero__badge",
+      "allow": [
+        "color"
+      ]
+    },
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".rp-title"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + span",
+      "page": ".rp-lead"
+    },
+    {
+      "name": "doc card",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1)",
+      "page": ".rp-doc"
+    },
+    {
+      "name": "thumb",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1) > div:first-child",
+      "page": ".rp-thumb"
+    },
+    {
+      "name": "doc title",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1) > div:nth-child(2) > span:first-child",
+      "page": ".rp-doc__title"
+    },
+    {
+      "name": "doc pages line",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1) > div:nth-child(2) > span:nth-child(2)",
+      "page": ".rp-doc__text > p:nth-child(2)"
+    },
+    {
+      "name": "signature card",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2)",
+      "page": ".rp-signature"
+    },
+    {
+      "name": "signature box",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > div",
+      "page": ".rp-signature__box"
+    },
+    {
+      "name": "signature image",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) svg",
+      "page": ".rp-signature__image"
+    },
+    {
+      "name": "signature line",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > span:last-child",
+      "page": ".rp-signature__line"
+    },
+    {
+      "name": "declaration card",
+      "artboard": "main > section:nth-of-type(1)",
+      "page": ".rp-sign-card"
+    },
+    {
+      "name": "declaration title",
+      "artboard": "main > section:nth-of-type(1) h2",
+      "page": ".rp-sign-card .rp-card__title"
+    },
+    {
+      "name": "declaration text",
+      "artboard": "main > section:nth-of-type(1) > div",
+      "page": ".rp-declaration"
+    },
+    {
+      "name": "confirm box",
+      "artboard": "main > section:nth-of-type(1) > label",
+      "page": ".rp-sign-card .av-checkbox"
+    },
+    {
+      "name": "confirm input",
+      "artboard": "main > section:nth-of-type(1) > label > input",
+      "page": ".rp-sign-card .av-checkbox input"
+    },
+    {
+      "name": "note",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": ".rp-note"
+    },
+    {
+      "name": "note text",
+      "artboard": "main > section:nth-of-type(2) > span",
+      "page": ".rp-note > span"
+    },
+    {
+      "name": "download word",
+      "artboard": "a[href='#docx']",
+      "page": ".rp-bar > .av-row a:nth-child(1)"
+    },
+    {
+      "name": "download pdf",
+      "artboard": "a[href='#pdf']",
+      "page": ".rp-bar > .av-row a:nth-child(2)"
+    },
+    {
+      "name": "sign button",
+      "artboard": "a[href='S18b-Invoice.dc.html']",
+      "page": ".rp-bar > button"
+    }
+  ],
+  "artboardCss": "main > section:nth-of-type(2) > svg{flex:none}",
+  "budget": 0.7,
+  "budgetReason": "The board's note shows the placeholder token \"[Instructing solicitor]\" in its first sentence and the literal words \"the solicitor\" in its last; the page prints the pack's word for the instructing party in both places (rule 11 forbids writing it in code), so the paragraph reflows. That paragraph is 0.53% of the screen; the rest of the screen matches exactly apart from the shared case bar (0.14%).",
+  "deviations": [
+    "The note names the instructing party from the pack (here \"solicitor\") where the board prints a placeholder token, so its wording reflows (rule 11).",
+    "The signature image is the saved picture from the API (mocked with the board's drawing); it is drawn 200 by 60 inside the board's 80px box.",
+    "The document card's title is the report version's name from the API, mocked as the board's words (\"Breach of duty report: Mrs A\").",
+    "The board's confirm box is drawn checked, so the setup ticks it; the page starts unticked.",
+    "The note's lock icon shrinks beside the text on the artboard (a flex bug in the canvas); the page keeps it at 22px and the artboard is rendered with flex:none for comparison.",
+    "The two download buttons and the main button keep the board's sizes (51.5 to 64px tall); the confirm box's hit area is widened to 52px with a pseudo-element."
+  ]
+}

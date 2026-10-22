@@ -11,8 +11,8 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Dialog, IconTile, LoadError, Loading, Notice, stepLabel, TextField } from "../../foundation/ui";
-import { longDate, money, useLocale } from "./shared";
+import { Button, Dialog, LoadError, Loading, Notice, stepLabel, TextField } from "../../foundation/ui";
+import { longDate, money, rate, useLocale } from "./shared";
 import { w } from "./words";
 
 type Invoice = Schemas["InvoiceOut"];
@@ -35,15 +35,15 @@ export function InvoiceScreen() {
   const sentTo = sent && served && time.data?.instructing_party ? w("invoice.sent_to_on", { party: time.data.instructing_party, date: longDate(served.served_on, locale) }) : null;
   return (
     <div className="av-page rp-page rp-page--wide2">
-      <div className="rp-hero rp-hero--small">
+      <div className="rp-hero rp-hero--small rp-hero--invoice">
         {sent && (
-          <IconTile tone="mint">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-              <path d="M5 12.5l4.5 4.5L19 7.5" />
+          <span className="rp-hero__badge" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+              <path d="M5 12l5 5 9-10" />
             </svg>
-          </IconTile>
+          </span>
         )}
-        <div>
+        <div className="rp-hero__text">
           <h1 className="rp-title">{sent ? w("invoice.heading_sent") : w("invoice.title")}</h1>
           <p className="rp-lead">{sentTo ? `${sentTo} ${w("invoice.intro")}` : w("invoice.intro")}</p>
         </div>
@@ -55,7 +55,7 @@ export function InvoiceScreen() {
 
 function duration(seconds: number): string {
   const total = Math.max(0, Math.round(seconds));
-  return w("invoice.hours", { hours: Math.floor(total / 3600), minutes: Math.floor((total % 3600) / 60) });
+  return w("invoice.hours", { hours: Math.floor(total / 3600), minutes: String(Math.floor((total % 3600) / 60)).padStart(2, "0") });
 }
 
 async function loadProfile(): Promise<{ profile: Schemas["BillingProfile"] | null; etag: string }> {
@@ -114,6 +114,7 @@ function Workspace({ caseId }: { caseId: string }) {
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <div className="rp-grid">
         <TimeCard caseId={caseId} />
+        <div className="rp-grid__papers">
         {list.length === 0 ? (
           <article className="rp-paper rp-paper--empty" aria-label={w("invoice.paper_title")}>
             <h3 className="rp-paper__title">{w("invoice.paper_title")}</h3>
@@ -125,8 +126,9 @@ function Workspace({ caseId }: { caseId: string }) {
             <InvoicePaper key={invoice.id} caseId={caseId} invoice={invoice} from={from} caseLabel={caseLabel} act={act} download={invoice === latest ? null : pdf(invoice)} />
           ))
         )}
+        </div>
       </div>
-      <div className="rp-bar">
+      <div className="rp-bar rp-bar--invoice">
         <span className="av-muted rp-bar__note">{w("invoice.fee_note")}</span>
         <div className="rp-bar__actions">
           {latest ? (
@@ -163,8 +165,9 @@ function TimeCard({ caseId }: { caseId: string }) {
   if (found.error) return <LoadError onRetry={found.reload} />;
   if (!found.data) return <Loading />;
   const time = found.data;
+  const longest = Math.max(1, ...time.stages.map((s) => s.seconds)); // each bar is as long as its share of the longest part
   return (
-    <>
+    <div className="rp-grid__time">
       <section className="rp-card rp-time" aria-labelledby="time-title">
         <div className="rp-time__head">
           <h2 id="time-title" className="rp-card__title">{w("invoice.time")}</h2>
@@ -174,7 +177,7 @@ function TimeCard({ caseId }: { caseId: string }) {
           {time.stages.map((s) => (
             <li key={s.stage} aria-label={stepLabel(s.stage)} className="rp-time__row">
               <span>{stepLabel(s.stage)}</span>
-              <meter className="rp-time__bar" min={0} max={Math.max(time.total_seconds, 1)} value={s.seconds} aria-label={stepLabel(s.stage)} />
+              <meter className="rp-time__bar" min={0} max={longest} value={s.seconds} aria-label={stepLabel(s.stage)} />
               <span className="av-mono rp-time__value">{duration(s.seconds)}</span>
             </li>
           ))}
@@ -188,9 +191,14 @@ function TimeCard({ caseId }: { caseId: string }) {
         {adjusting && <Adjust caseId={caseId} stages={time.stages} onClose={() => setAdjusting(false)} onSaved={() => { setAdjusting(false); found.reload(); }} />}
       </section>
       {time.estimate_hours != null && !time.over_estimate && time.instructing_party && (
-        <div className="rp-within"><Notice tone="success"><p>{w("invoice.within_estimate", { party: time.instructing_party, hours: Number(time.estimate_hours) })}</p></Notice></div>
+        <div className="rp-within">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+            <path d="M5 12l5 5 9-10" />
+          </svg>
+          <p><strong>{w("invoice.within_estimate_lead")}</strong> {w("invoice.within_estimate_rest", { party: time.instructing_party, hours: Number(time.estimate_hours) })}</p>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -233,18 +241,18 @@ function InvoicePaper({ caseId, invoice, from, caseLabel, act, download }: { cas
       <ul className="rp-paper__lines">
         {invoice.lines.map((line, i) => (
           <li key={i}>
-            <span>{line.kind === "time" ? w("invoice.line_time", { hours: String(line.hours), rate: money_(String(line.rate)) }) : w("invoice.line_expenses")}</span>
+            <span>{line.kind === "time" ? w("invoice.line_time", { hours: String(line.hours), rate: rate(String(line.rate), invoice.currency, locale) }) : w("invoice.line_expenses")}</span>
             <span>{money_(String(line.amount))}</span>
           </li>
         ))}
         {Number(invoice.tax) > 0 && (
           <li><span>{w("invoice.tax")}</span><span>{money_(invoice.tax)}</span></li>
         )}
-        <li className="rp-paper__total">
-          <strong>{w("invoice.total_due")}</strong>
-          <strong>{money_(invoice.total)}</strong>
-        </li>
       </ul>
+      <div className="rp-paper__total">
+        <strong>{w("invoice.total_due")}</strong>
+        <strong>{money_(invoice.total)}</strong>
+      </div>
       {invoice.estimate_amount != null && (
         <p className="rp-paper__small" data-estimate="true">{w("invoice.estimate_line", { estimate: money_(invoice.estimate_amount), amount: money_(invoice.total) })}</p>
       )}
@@ -256,7 +264,7 @@ function InvoicePaper({ caseId, invoice, from, caseLabel, act, download }: { cas
       {invoice.statements.map((line) => (
         <p key={line} className="rp-paper__small">{line}</p>
       ))}
-      <p className="rp-paper__small">{w("invoice.locked_note")}</p>
+      <p className="rp-paper__small">{w("invoice.payment_terms")} {w("invoice.locked_note")}</p>
       <div className="rp-payment">
         <span><strong>{w("invoice.payment")}</strong> <span>{paymentWord}</span></span>
         {open && <button type="button" className="av-text-link rp-linkbtn" onClick={() => void pay("paid")}>{w("invoice.mark_paid")}</button>}

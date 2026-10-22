@@ -27,7 +27,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     expect(await screen.findByRole("heading", { level: 2, name: k("pack.title") })).toBeInTheDocument();
     expect(await screen.findByRole("checkbox", { name: k("pack.section.report") })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: k("pack.section.chronology") })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: fill(k("pack.section.joint_statement"), { document: term(run, "expert_meeting_document") }) })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: fill(k("pack.section.joint_and_answers"), { document: term(run, "expert_meeting_document") }) })).not.toBeChecked();
     expect(screen.getByText(fill(k("pack.summary"), { pages: 54 }))).toBeInTheDocument();
     expect(await axeViolations(container)).toEqual([]);
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
@@ -38,14 +38,15 @@ test("saving what goes in sends the sections with the settings' version", async 
   const { sent, record } = servePack("launch");
   server.use(http.put("/v1/cases/:caseId/trial-pack/settings", async ({ request }) => (await record(request), etagged(settingsOut({ sections: ["report", "chronology", "written_answers"], version: 3 }), 3))));
   const { user } = renderAt(url);
-  const box = await screen.findByRole("checkbox", { name: k("pack.section.written_answers") });
+  // The board draws the joint statement and the written answers as one row; ticking it sets both.
+  const box = await screen.findByRole("checkbox", { name: fill(k("pack.section.joint_and_answers"), { document: term("launch", "expert_meeting_document") }) });
   expect(screen.queryByRole("button", { name: k("pack.save") })).not.toBeInTheDocument();
   await user.click(box);
   await user.click(screen.getByRole("button", { name: k("pack.save") }));
   await waitFor(() =>
     expect(sent.at(-1)).toMatchObject({
       method: "PUT", path: `/v1/cases/${CASE}/trial-pack/settings`, ifMatch: '"2"',
-      body: { sections: ["report", "chronology", "written_answers"], include_guidance: false },
+      body: { sections: ["report", "chronology", "joint_statement", "written_answers"], include_guidance: false },
     }),
   );
   expect(await screen.findByText(k("pack.saved"))).toBeInTheDocument();
@@ -142,7 +143,7 @@ test("checking a new note says which sentences come from what was served", async
   await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/trial-pack/check-new`, body: { text: "The plan was recorded. Zz the patient moved abroad." } }));
   expect(await screen.findByText(fill(k("pack.check.from_report"), { para: 2 }))).toBeInTheDocument();
   // A sentence found in nothing served is the amber "nothing new on the day" notice, quoting it.
-  const notice = await screen.findByRole("alert");
+  const notice = await screen.findByRole("region", { name: k("pack.check.heading") });
   expect(within(notice).getByText(k("pack.check.heading"))).toBeInTheDocument();
   expect(within(notice).getByText(/Zz the patient moved abroad\./)).toBeInTheDocument();
 });

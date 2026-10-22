@@ -1,0 +1,49 @@
+/* S05 A quick check before you start, transcribed from the canvas board (S05-Conflicts.dc.html). Scoped to .av-conflicts. */
+.av-page.av-conflicts { max-width: 980px; padding: 48px 40px 64px; display: flex; flex-direction: column; gap: 32px; }
+.av-conflicts.av-stack > * + * { margin-top: 0; }
+.av-conflicts .av-setup-heading { display: flex; flex-direction: column; gap: 8px; }
+.av-conflicts .av-setup-heading > * + * { margin-top: 0; }
+.av-conflicts .av-setup-eyebrow { font-size: 17px; font-weight: 700; text-transform: none; letter-spacing: 0; }
+.av-conflicts .av-setup-heading h1 { margin: 0; font-size: 36px; line-height: 1.5; }
+.av-conflicts .av-setup-lead { margin: 0; font-size: 19px; }
+
+/* The questions: one card of hairline rows */
+.av-conflicts .av-setup-qs.av-card { padding: 8px 36px; border-radius: 20px; display: flex; flex-direction: column; gap: 0; }
+.av-conflicts .av-setup-qs > * + * { margin-top: 0; }
+.av-conflicts .av-setup-qs > h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+.av-conflicts .av-setup-q { padding: 24px 0; border-top: 1px solid #EEF1EF; gap: 16px; display: flex; flex-direction: column; }
+.av-conflicts .av-setup-q:first-of-type { border-top: 0; }
+.av-conflicts .av-setup-qrow { gap: 24px; }
+.av-conflicts .av-setup-qrow__text { font-size: 19px; line-height: 1.5; }
+.av-conflicts .av-setup-row__source { font-size: 17px; }
+.av-conflicts .av-pill-group { gap: 10px; }
+.av-conflicts .av-pill { min-height: 0; padding: 12px 26px; border-radius: 12px; font-size: 17px; line-height: 1.5; gap: 10px; }
+.av-conflicts .av-pill::after { content: ""; position: absolute; inset: -5px 0; }
+.av-conflicts .av-setup-qrow .av-pill { min-width: 0; }
+.av-conflicts .av-setup-q .av-field { gap: 0; }
+.av-conflicts .av-setup-q .av-field__label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.av-conflicts .av-setup-q .av-textarea { height: 94px; min-height: 94px; line-height: normal; color: #000; padding: 14px 16px; font-size: 17px; border: 1.5px solid #B9C3BD; border-radius: 12px; }
+
+/* Balance card */
+.av-conflicts .av-setup-balance.av-card { padding: 28px 36px; border-radius: 20px; display: flex; flex-direction: column; gap: 14px; }
+.av-conflicts .av-setup-balance > * + * { margin-top: 0; }
+.av-conflicts .av-setup-balance > .av-row { align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.av-conflicts .av-setup-balance > .av-row h2 { font-size: 21px; line-height: 1.5; margin: 0; }
+.av-conflicts .av-stacked__bar { height: 22px; border-radius: 999px; }
+.av-conflicts .av-stacked__legend { margin: 14px 0 0; gap: 8px 28px; }
+
+/* Footer row */
+.av-conflicts .av-setup-actions { gap: 20px; }
+.av-conflicts .av-setup-actions .av-button { padding: 16px 28px; font-size: 19px; border-radius: 12px; }
+.av-conflicts .av-setup-q.av-stack > * + * { margin-top: 0; }
+
+/* Balance bar: the board's three greens and square swatches */
+.av-conflicts .av-stacked__bar rect:nth-child(2) { fill: #8FC7AB; }
+.av-conflicts .av-stacked__bar rect:nth-child(3) { fill: #DDE3DF; }
+.av-conflicts .av-stacked__legend { font-size: 17px; }
+.av-conflicts .av-stacked__legend li { gap: 8px; }
+.av-conflicts .av-stacked__legend svg { display: none; }
+.av-conflicts .av-stacked__legend li::before { content: ""; width: 14px; height: 14px; border-radius: 4px; background: #1E6B4E; flex: none; }
+.av-conflicts .av-stacked__legend li:nth-child(2)::before { background: #8FC7AB; }
+.av-conflicts .av-stacked__legend li:nth-child(3)::before { background: #DDE3DF; }
+.av-conflicts .av-setup-preparing { color: var(--ink-soft); font-weight: 400; text-decoration: none; gap: 10px; } .av-conflicts .av-setup-preparing svg { color: #2F9E6E; }

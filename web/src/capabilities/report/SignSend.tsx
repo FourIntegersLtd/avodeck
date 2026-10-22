@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { downloadPath, longDate, today, useLocale } from "./shared";
 import { w } from "./words";
 
@@ -48,11 +48,14 @@ export function SignSend() {
 
 function Paper() {
   return (
-    <svg className="rp-thumb" width="96" height="128" viewBox="0 0 96 128" aria-hidden="true" focusable="false">
-      <rect x="0.5" y="0.5" width="95" height="127" rx="2" className="rp-thumb__page" />
-      <rect x="10" y="14" width="34" height="5" className="rp-thumb__title" />
-      <path d="M10 27h76M10 35h76M10 43h60M10 51h76M10 59h40" className="rp-thumb__lines" />
-    </svg>
+    <span className="rp-thumb" aria-hidden="true">
+      <span className="rp-thumb__title" />
+      <span className="rp-thumb__line" />
+      <span className="rp-thumb__line" />
+      <span className="rp-thumb__line rp-thumb__line--80" />
+      <span className="rp-thumb__line" />
+      <span className="rp-thumb__line rp-thumb__line--70" />
+    </span>
   );
 }
 
@@ -71,7 +74,7 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
   const doc = (
     <section className="rp-card rp-doc" aria-labelledby="doc-title">
       <Paper />
-      <div>
+      <div className="rp-doc__text">
         <h3 id="doc-title" className="rp-doc__title">{version.display_name}</h3>
         <p className="av-muted">
           {version.page_count ? <span>{appendices > 0 ? w("sign.pages_appendices", { pages: version.page_count, count: appendices }) : w("sign.pages", { pages: version.page_count })}</span> : null}{" "}
@@ -86,15 +89,15 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
   );
   return (
     <div className="av-page rp-page rp-page--narrow">
-      <div className="rp-hero rp-hero--small">
+      <div className="rp-hero rp-hero--small rp-hero--sign">
         {status === "draft" && ready && (
-          <IconTile tone="mint">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
-              <path d="M5 12.5l4.5 4.5L19 7.5" />
+          <span className="rp-hero__badge" aria-hidden="true">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" focusable="false">
+              <path d="M5 12l5 5 9-10" />
             </svg>
-          </IconTile>
+          </span>
         )}
-        <div>
+        <div className="rp-hero__text">
           <h1 className="rp-title">{status === "draft" && ready ? w("sign.title_ready") : w("sign.title")}</h1>
           {status === "draft" && ready && check && <p className="rp-lead">{w("sign.checks_passed", { count: check.results.length })}</p>}
         </div>
@@ -187,12 +190,14 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
           {noPicture ? (
             <p className="av-muted">{w("sign.signature_body")}</p>
           ) : (
-            <img className="rp-signature__image" src={`${apiOrigin()}/v1/me/signature/image`} alt={w("sign.signature_alt")} onError={() => setNoPicture(true)} />
+            <div className="rp-signature__box">
+              <img className="rp-signature__image" src={`${apiOrigin()}/v1/me/signature/image`} alt={w("sign.signature_alt")} onError={() => setNoPicture(true)} />
+            </div>
           )}
           {me.data?.full_name && <p className="rp-signature__line">{signatureLine(me.data)}</p>}
         </section>
       </div>
-      <section className="rp-card" aria-labelledby="decl-title">
+      <section className="rp-card rp-sign-card" aria-labelledby="decl-title">
         <h2 id="decl-title" className="rp-card__title">{declarationName ? declarationName.charAt(0).toUpperCase() + declarationName.slice(1) : w("sign.declaration")}</h2>
         <div className="rp-declaration">
           {declarations.map((d) =>
@@ -203,7 +208,13 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
         </div>
         <Checkbox label={declarationName ? w("sign.confirm", { declaration: declarationName.toLowerCase() }) : w("sign.confirm_plain")} checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
       </section>
-      <p className="rp-note">{party ? w("sign.note", { party }) : w("sign.note_plain")}</p>
+      <p className="rp-note">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+          <rect x="5" y="10" width="14" height="10" rx="2" />
+          <path d="M8 10V7a4 4 0 018 0v3" />
+        </svg>
+        <span>{party ? w("sign.note", { party }) : w("sign.note_plain")}</span>
+      </p>
       {error && (
         <Notice tone="error">
           <p>{error.message}</p>

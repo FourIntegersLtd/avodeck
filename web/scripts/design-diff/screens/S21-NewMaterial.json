@@ -1,0 +1,1115 @@
+{
+  "id": "S21-NewMaterial",
+  "artboard": "S21-NewMaterial.dc.html",
+  "session": true,
+  "route": "/cases/44444444-4444-4444-8444-444444444444/new-material?document=c1111111-1111-4111-8111-111111111111",
+  "width": 1440,
+  "height": 1000,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed-colorectal-referral",
+      "specialty": "general-practice",
+      "expert_role": "defendant_expert",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/new-since-served": {
+      "served_at": "2026-11-28T10:00:00Z",
+      "pages": [
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000000",
+          "page_no": 1232,
+          "read": false,
+          "may_matter": [
+            {
+              "fact_id": "f1111111-1111-4111-8111-111111111111",
+              "question_id": "a2222222-2222-4222-8222-222222222222",
+              "why": "the colonoscopy report from 2 September 2024, which was missing before"
+            }
+          ]
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000001",
+          "page_no": 1233,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000002",
+          "page_no": 1234,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000003",
+          "page_no": 1235,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000004",
+          "page_no": 1236,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000005",
+          "page_no": 1237,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000006",
+          "page_no": 1238,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000007",
+          "page_no": 1239,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000008",
+          "page_no": 1240,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000009",
+          "page_no": 1241,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000010",
+          "page_no": 1242,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000011",
+          "page_no": 1243,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000012",
+          "page_no": 1244,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000013",
+          "page_no": 1245,
+          "read": false,
+          "may_matter": []
+        }
+      ]
+    },
+    "/v1/cases/*/opposing-reports/*": {
+      "id": "d1111111-1111-4111-8111-111111111111",
+      "document_id": "c1111111-1111-4111-8111-111111111111",
+      "received_on": "2026-12-09",
+      "checked_at": "2026-12-09T10:00:00Z",
+      "claims_found": 45,
+      "claims": [
+        {
+          "id": "b0000000-0000-4000-8000-000000000001",
+          "claim_no": 1,
+          "text_verbatim": "\"Mrs A reported weight loss on 15 May\"",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "118",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "wrong_page",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": true,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000002",
+          "claim_no": 2,
+          "text_verbatim": "\"Haemoglobin was 89 in February\"",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "214",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "wrong_value",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": true,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000003",
+          "claim_no": 3,
+          "text_verbatim": "\"The discharge letter of 24 Sep\"",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "640",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "not_on_page",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": true,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000004",
+          "claim_no": 4,
+          "text_verbatim": "\"Iron was started on 1 March\"",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "087",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000010",
+          "claim_no": 10,
+          "text_verbatim": "Statement 0",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000011",
+          "claim_no": 11,
+          "text_verbatim": "Statement 1",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000012",
+          "claim_no": 12,
+          "text_verbatim": "Statement 2",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000013",
+          "claim_no": 13,
+          "text_verbatim": "Statement 3",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000014",
+          "claim_no": 14,
+          "text_verbatim": "Statement 4",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000015",
+          "claim_no": 15,
+          "text_verbatim": "Statement 5",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000016",
+          "claim_no": 16,
+          "text_verbatim": "Statement 6",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000017",
+          "claim_no": 17,
+          "text_verbatim": "Statement 7",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000018",
+          "claim_no": 18,
+          "text_verbatim": "Statement 8",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000019",
+          "claim_no": 19,
+          "text_verbatim": "Statement 9",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000020",
+          "claim_no": 20,
+          "text_verbatim": "Statement 10",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000021",
+          "claim_no": 21,
+          "text_verbatim": "Statement 11",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000022",
+          "claim_no": 22,
+          "text_verbatim": "Statement 12",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000023",
+          "claim_no": 23,
+          "text_verbatim": "Statement 13",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000024",
+          "claim_no": 24,
+          "text_verbatim": "Statement 14",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000025",
+          "claim_no": 25,
+          "text_verbatim": "Statement 15",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000026",
+          "claim_no": 26,
+          "text_verbatim": "Statement 16",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000027",
+          "claim_no": 27,
+          "text_verbatim": "Statement 17",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000028",
+          "claim_no": 28,
+          "text_verbatim": "Statement 18",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000029",
+          "claim_no": 29,
+          "text_verbatim": "Statement 19",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000030",
+          "claim_no": 30,
+          "text_verbatim": "Statement 20",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000031",
+          "claim_no": 31,
+          "text_verbatim": "Statement 21",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000032",
+          "claim_no": 32,
+          "text_verbatim": "Statement 22",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000033",
+          "claim_no": 33,
+          "text_verbatim": "Statement 23",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000034",
+          "claim_no": 34,
+          "text_verbatim": "Statement 24",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000035",
+          "claim_no": 35,
+          "text_verbatim": "Statement 25",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000036",
+          "claim_no": 36,
+          "text_verbatim": "Statement 26",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000037",
+          "claim_no": 37,
+          "text_verbatim": "Statement 27",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000038",
+          "claim_no": 38,
+          "text_verbatim": "Statement 28",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000039",
+          "claim_no": 39,
+          "text_verbatim": "Statement 29",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000040",
+          "claim_no": 40,
+          "text_verbatim": "Statement 30",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000041",
+          "claim_no": 41,
+          "text_verbatim": "Statement 31",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000042",
+          "claim_no": 42,
+          "text_verbatim": "Statement 32",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000043",
+          "claim_no": 43,
+          "text_verbatim": "Statement 33",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000044",
+          "claim_no": 44,
+          "text_verbatim": "Statement 34",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000045",
+          "claim_no": 45,
+          "text_verbatim": "Statement 35",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000046",
+          "claim_no": 46,
+          "text_verbatim": "Statement 36",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000047",
+          "claim_no": 47,
+          "text_verbatim": "Statement 37",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000048",
+          "claim_no": 48,
+          "text_verbatim": "Statement 38",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000049",
+          "claim_no": 49,
+          "text_verbatim": "Statement 39",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        },
+        {
+          "id": "b0000000-0000-4000-8000-000000000050",
+          "claim_no": 50,
+          "text_verbatim": "Statement 40",
+          "paragraph_ref": "4.2",
+          "their_page_ref": "1",
+          "their_quote": "x",
+          "our_page_no": 1,
+          "our_quote": "y",
+          "status": "matches",
+          "reason": null,
+          "checked_by": "code",
+          "discrepancy": false,
+          "expert_confirmed": false,
+          "confirmed_at": null,
+          "version": 1
+        }
+      ],
+      "positions": [
+        {
+          "question_id": "a3333333-3333-4333-8333-333333333333",
+          "own": [
+            {
+              "paragraph_id": "e1111111-1111-4111-8111-111111111111",
+              "para_no": 1,
+              "text": "below the standard"
+            }
+          ],
+          "theirs": [
+            {
+              "paragraph_ref": "5.1",
+              "text_verbatim": "below the standard"
+            }
+          ]
+        },
+        {
+          "question_id": "a2222222-2222-4222-8222-222222222222",
+          "own": [
+            {
+              "paragraph_id": "e2222222-2222-4222-8222-222222222222",
+              "para_no": 2,
+              "text": "below the standard"
+            }
+          ],
+          "theirs": [
+            {
+              "paragraph_ref": "5.2",
+              "text_verbatim": "within the range"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".av-after-claims"
+    }
+  ],
+  "artboardCss": "main > section:nth-child(3) > div:nth-child(3) > span:nth-child(3){align-items:flex-start;max-height:25.5px;overflow:hidden}",
+  "pageRemove": [
+    ".av-after-columns",
+    ".av-after-claims td > div:has(.av-button)",
+    ".av-after-actions .av-after-linkbtn"
+  ],
+  "probes": [
+    {
+      "name": "back link",
+      "artboard": "main a[href='S19-Served.dc.html']",
+      "page": ".av-after-head .av-back-link"
+    },
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".av-after-title"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".av-after-lede"
+    },
+    {
+      "name": "pages card",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1)",
+      "page": ".av-after-pair > section:nth-child(1)"
+    },
+    {
+      "name": "pages icon",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1) > div > span:first-child",
+      "page": ".av-after-pair > section:nth-child(1) .av-icon-tile",
+      "allow": [
+        "color"
+      ]
+    },
+    {
+      "name": "pages title",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1) > div > span:nth-child(2) > span:first-child",
+      "page": "#new-pages",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "may matter",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1) > div:nth-child(2)",
+      "page": ".av-after-maymatter"
+    },
+    {
+      "name": "read button",
+      "artboard": "main a[href='S09-Reader.dc.html']",
+      "page": ".av-after-actions a"
+    },
+    {
+      "name": "report card",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2)",
+      "page": ".av-after-pair > section:nth-child(2)"
+    },
+    {
+      "name": "report text",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2) > span",
+      "page": ".av-after-pair > section:nth-child(2) > p"
+    },
+    {
+      "name": "claims card",
+      "artboard": "main > section:nth-child(3)",
+      "page": ".av-after-panel:nth-of-type(1)"
+    },
+    {
+      "name": "claims title",
+      "artboard": "main > section:nth-child(3) h2",
+      "page": "#claims-title"
+    },
+    {
+      "name": "claims head",
+      "artboard": "main > section:nth-child(3) > div:nth-child(2)",
+      "page": ".av-after-claims thead tr",
+      "allow": [
+        "paddingTop",
+        "paddingBottom",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "claim row 1",
+      "artboard": "main > section:nth-child(3) > div:nth-child(3)",
+      "page": ".av-after-claims tbody tr:nth-child(1)",
+      "allow": [
+        "paddingTop",
+        "paddingBottom",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "head col 2",
+      "artboard": "main > section:nth-child(3) > div:nth-child(2) > span:nth-child(2)",
+      "page": ".av-after-claims th:nth-child(2)",
+      "allow": [
+        "paddingRight",
+        "paddingTop",
+        "paddingBottom",
+        "rect.h",
+        "rect.y",
+        "rect.w"
+      ]
+    },
+    {
+      "name": "claim row 4",
+      "artboard": "main > section:nth-child(3) > div:nth-child(6)",
+      "page": ".av-after-claims tbody tr:nth-child(4)",
+      "allow": [
+        "paddingTop",
+        "paddingBottom",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "more matches",
+      "artboard": "main > section:nth-child(3) > div:nth-child(7)",
+      "page": ".av-after-claims tbody tr:nth-child(5)",
+      "allow": [
+        "paddingTop",
+        "paddingBottom",
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "differ card",
+      "artboard": "main > section:nth-child(4)",
+      "page": ".av-after-panel[aria-labelledby='differ-title']"
+    },
+    {
+      "name": "differ title",
+      "artboard": "main > section:nth-child(4) h2",
+      "page": "#differ-title"
+    },
+    {
+      "name": "differ row 1",
+      "artboard": "main > section:nth-child(4) > div:nth-child(2)",
+      "page": ".av-after-differ:nth-of-type(1)"
+    },
+    {
+      "name": "differ you 1",
+      "artboard": "main > section:nth-child(4) > div:nth-child(2) > span:nth-child(2)",
+      "page": ".av-after-differ:nth-of-type(1) .av-after-differ__you"
+    },
+    {
+      "name": "differ them 2",
+      "artboard": "main > section:nth-child(4) > div:nth-child(3) > span:nth-child(3)",
+      "page": ".av-after-differ:nth-of-type(2) .av-after-differ__them",
+      "allow": [
+        "backgroundColor"
+      ]
+    },
+    {
+      "name": "prepare",
+      "artboard": "main a[href='S22-JointStatement.dc.html']",
+      "page": ".av-after-footer .av-button"
+    }
+  ],
+  "budget": 1.15,
+  "budgetReason": "Layout, sizes and colours match; what is left is words. The board names the second delivery, calls the pages 'hospital' pages, writes 'Dr R' and 'the claimant', adds an explanation line under each failed check, labels each position row ('Q2 · 15 May visit') and colours Dr R's side amber where it differs. The API and the packs give none of those, so they are not drawn, and the pack's own words differ from the board's in the headings. Together with the shared case bar they make up the 1.1%.",
+  "deviations": [
+    "The new-pages card says '14 new pages' and 'Numbered 1,232 to 1,245 · read 0 of 14'; the board adds 'hospital' and 'Second delivery' (gap: the API has no source name or delivery number).",
+    "The may-matter box reads 'May matter: <why> (page N)' from the pack's words; the board writes '1 may matter: ...' without a page.",
+    "The other expert's card and the table and positions headings use the pack's words ('The other expert's report', 'What they say, checked against the records', 'Their statement'); the board names Dr R and the claimant (gap: no expert name or party word in the API).",
+    "The second line under a failed check ('First mentioned 8 Aug, p.131', 'The page says 98') is not drawn (gap: the API sends a status and two quotes, not a sentence). The board's first row is clipped to one line for the comparison.",
+    "The two quotes shown under a failed check, 'Yes, this is a difference' and 'Check the new pages' are working controls the board omits; they are removed from the page for the comparison.",
+    "Position rows have no question label ('Q2 · 15 May visit': gap, the API sends only a question id), so the first column is left empty; the 'Dr R' side is not tinted amber where it differs because the API does not say whether the positions differ.",
+    "The case bar is shared: the board's pill sizes and subtitle differ."
+  ]
+}

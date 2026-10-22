@@ -377,7 +377,7 @@ function NewCaseForm({
         cancelTo="/"
         cancelLabel={t("setup.cancel")}
       />
-      <div className="av-page av-setup-page av-stack">
+      <div className="av-page av-setup-page av-stack av-newcase">
         <div className="av-row av-row--spread av-setup-title">
           <div>
             <h1>{t("setup.new_case.title")}</h1>

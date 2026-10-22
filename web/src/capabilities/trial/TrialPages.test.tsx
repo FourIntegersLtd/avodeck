@@ -39,7 +39,8 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     expect(await screen.findByRole("heading", { level: 2, name: k("pages.title") })).toBeInTheDocument();
     expect(screen.getByTestId("tile-matched")).toHaveTextContent(`1${k("pages.tile_matched_one")}`);
     const missing = screen.getByRole("region", { name: fill(M["trial.pages.missing_heading_one"]!, { count: 1, court_bundle: bundle }) });
-    expect(within(missing).getByText(fill(M["trial.pages.missing_row_other"]!, { page: 214, paras: "11 and 4" }))).toBeInTheDocument();
+    // The page reference is its own mono span, then the rest of the line.
+    expect(within(missing).getByText((_, element) => element?.tagName === "LI" && element.textContent === `p.214 · ${fill(M["trial.pages.missing_row_other"]!, { paras: "11 and 4" })}`)).toBeInTheDocument();
     const table = screen.getByRole("table");
     expect(within(table).getByRole("columnheader", { name: fill(k("pages.col.trial"), { court_bundle: bundle }) })).toBeInTheDocument();
     const matched = within(table).getByRole("row", { name: /p\.118/ });
@@ -119,7 +120,7 @@ describe("the screen as designed", () => {
     serveConcordance("launch", concordanceOut({ bundle: { ...concordanceOut().bundle!, replaces_received_on: "2027-05-20" } }));
     renderAt(url);
     const card = await screen.findByTestId("bundle-card");
-    expect(card).toHaveTextContent(fill(k("pages.replaces"), { date: "20 May 2027" }));
+    expect(card).toHaveTextContent(fill(k("pages.replaces"), { date: "20 May" }));
     expect(card).toHaveTextContent("3,914");
   });
 
@@ -136,7 +137,7 @@ describe("the screen as designed", () => {
     const withDoc = rows().map((r) => (r.page_no === 214 ? { ...r, source_type: "letters", document_date: "2024-02-20" } : r));
     serveConcordance("launch", concordanceOut({ rows: withDoc }));
     renderAt(url);
-    const line = await screen.findByText(/p\.214 · .+ · /);
+    const line = await screen.findByText((_, element) => element?.tagName === "LI" && /^p\.214 · .+ · /.test(element.textContent ?? ""));
     expect(line).toHaveTextContent("20 Feb 2024");
     expect(line).toHaveTextContent("11 and 4");
   });
@@ -169,7 +170,7 @@ describe("the screen as designed", () => {
     const bundle = term("launch", "court_bundle");
     await screen.findByRole("table");
     expect(screen.queryByLabelText(k("pages.received_on"))).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: k("pages.new_version") }));
+    await user.click(screen.getByRole("button", { name: fill(k("pages.new_version"), { court_bundle: bundle }) }));
     await user.upload(screen.getByLabelText(fill(k("pages.replace"), { court_bundle: bundle })), pdf("v3.pdf"));
     await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", path: `/v1/cases/${CASE}/court-bundles/${BUNDLE}/supersede`, contentType: "application/pdf" }));
   });

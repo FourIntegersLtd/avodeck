@@ -12,7 +12,7 @@ const WORDS = {
   "open_questions": "Check the questions",
 
   "points.title": "Points against",
-  "points.intro": "Before you give your view, set out the facts on each side, including the points that cut against your view.",
+  "points.intro": "Before you give your view, set out the facts on each side. You are expected to have weighed the points that cut against you.",
   "points.side_empty": "Nothing here yet.",
   "points.page": "p.{{page}}",
   "points.flagged": "You flagged this",

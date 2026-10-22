@@ -1,0 +1,24 @@
+/* S03 Today, transcribed from the canvas board (S03-Today.dc.html). Scoped to .av-today. */
+.av-page.av-today { max-width: 1180px; padding: 56px 40px 64px; display: flex; flex-direction: column; gap: 40px; }
+.av-today .av-section { margin-top: 0; }
+.av-today .av-today__head { margin-bottom: 0; }
+.av-today__new { padding: 14px 24px; border-radius: 12px; }
+.av-today h2 { line-height: 1.5; font-size: 24px; margin: 0; }
+.av-today .av-needs-card { border-radius: 20px; padding: 8px 32px; }
+.av-today .av-needs-card h2 { margin: 0; padding: 24px 0 8px; }
+.av-today .av-needs__item:last-child { padding-bottom: 24px; }
+.av-today .av-needs__item .av-button { padding: 12px 22px; border-radius: 12px; }
+.av-today .av-needs__item .av-button:not(.av-button--secondary) { padding: 12px 24px; }
+/* The chips are drawn 41px tall; a transparent ::after keeps a 52px hit area (rule: tap targets at least 52px). */
+.av-today .av-filter .av-button { position: relative; min-height: 0; padding: 10px 16px; border: 0; border-radius: 10px; line-height: normal; }
+.av-today .av-filter .av-button::after { content: ""; position: absolute; inset: -6px 0; }
+.av-today .av-case-card__body { gap: 18px; }
+.av-today .av-section > .av-today__head { gap: 16px; }
+.av-today .av-cases { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.av-today .av-case-card { border-radius: 18px; padding: 24px; }
+.av-today .av-case-card__foot { font-size: 17px; }
+.av-today .av-today__balance { margin: 0; }
+.av-today .av-section > .av-today__head { align-items: center; }
+.av-today .av-case-card .av-case-card__title { line-height: 1.5; }
+.av-today section[aria-labelledby="your-cases"] { display: flex; flex-direction: column; gap: 18px; }
+.av-today .av-case-card__foot > :last-child { white-space: normal; }

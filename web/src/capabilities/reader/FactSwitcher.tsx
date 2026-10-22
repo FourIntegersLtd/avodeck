@@ -12,7 +12,7 @@ function summary(fact: Fact): string {
   return value.length > 48 ? `${kind}: ${value.slice(0, 45)}…` : `${kind}: ${value}`;
 }
 
-function actionable(list: Fact[]): Fact[] {
+export function actionable(list: Fact[]): Fact[] {
   return list.filter((f) => f.status === "suggested" || (f.status === "verified" && f.needs_recheck) || (f.status === "edited" && f.needs_recheck));
 }
 

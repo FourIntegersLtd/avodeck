@@ -1,0 +1,198 @@
+{
+  "id": "S30-NotThisPatient",
+  "artboard": "S30-NotThisPatient.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/bundle/not-this-patient",
+  "width": 1440,
+  "height": 1200,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed_colorectal_referral",
+      "specialty": "general-practice",
+      "expert_role": "single",
+      "label": "Mrs A",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "created_at": "2026-10-01T09:00:00Z",
+      "updated_at": "2026-10-01T09:00:00Z",
+      "stage": "prepare",
+      "allowed_actions": [
+        "case.view_content",
+        "fact.verify",
+        "request.draft",
+        "comment.write"
+      ]
+    },
+    "/v1/cases/*/bundle/summary": {
+      "pages": 1231,
+      "by_source": [
+        {
+          "source_type": "primary_care_record",
+          "pages": 1231
+        }
+      ],
+      "duplicates": 37,
+      "unreadable": 31,
+      "gaps": 1,
+      "missing_items": 2,
+      "documents": [],
+      "versions": [],
+      "exhibits": [],
+      "foreign_language": [],
+      "quarantined": [],
+      "quarantine_suggestions": [
+        {
+          "page_id": "99999999-9999-4999-8999-000000000412",
+          "page_no": 412,
+          "status": "suggested",
+          "reason": "identifiers_differ",
+          "job_id": null
+        },
+        {
+          "page_id": "99999999-9999-4999-8999-000000000413",
+          "page_no": 413,
+          "status": "suggested",
+          "reason": "identifiers_differ",
+          "job_id": null
+        },
+        {
+          "page_id": "99999999-9999-4999-8999-000000000414",
+          "page_no": 414,
+          "status": "suggested",
+          "reason": "identifiers_differ",
+          "job_id": null
+        },
+        {
+          "page_id": "99999999-9999-4999-8999-000000000415",
+          "page_no": 415,
+          "status": "suggested",
+          "reason": "identifiers_differ",
+          "job_id": null
+        }
+      ]
+    },
+    "/v1/cases/*/pages/*/thumbnail": {
+      "$file": "fixtures/blank-thumb.svg",
+      "contentType": "image/svg+xml"
+    }
+  },
+  "artboardCss": "section > div > div:first-child > span{visibility:hidden}",
+  "setup": [
+    {
+      "waitFor": ".pl-pagecard"
+    },
+    {
+      "click": ".pl-grid > li:nth-child(1) .pl-choice--not"
+    },
+    {
+      "click": ".pl-grid > li:nth-child(2) .pl-choice--not"
+    },
+    {
+      "click": ".pl-grid > li:nth-child(3) .pl-choice--not"
+    },
+    {
+      "click": ".pl-grid > li:nth-child(4) .pl-choice--not"
+    },
+    {
+      "blur": true
+    },
+    {
+      "hover": "h1"
+    }
+  ],
+  "probes": [
+    {
+      "name": "back",
+      "artboard": "main > div:first-child a",
+      "page": ".pl-ask-head a",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".pl-ask-head h1"
+    },
+    {
+      "name": "lead",
+      "artboard": "main > div:first-child p",
+      "page": ".pl-lead"
+    },
+    {
+      "name": "grid",
+      "artboard": "main > section:nth-child(2)",
+      "page": ".pl-grid"
+    },
+    {
+      "name": "card1",
+      "artboard": "main > section:nth-child(2) > div:nth-child(1)",
+      "page": ".pl-grid > li:nth-child(1)"
+    },
+    {
+      "name": "excerpt",
+      "artboard": "main > section:nth-child(2) > div:nth-child(1) > div:nth-child(1)",
+      "page": ".pl-grid > li:nth-child(1) .pl-excerpt",
+      "allow": [
+        "fontFamily",
+        "lineHeight",
+        "color",
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft"
+      ]
+    },
+    {
+      "name": "meta",
+      "artboard": "main > section:nth-child(2) > div:nth-child(1) > span",
+      "page": ".pl-grid > li:nth-child(1) .pl-pagecard__meta"
+    },
+    {
+      "name": "choices",
+      "artboard": "main > section:nth-child(2) > div:nth-child(1) > div:nth-child(3)",
+      "page": ".pl-grid > li:nth-child(1) .pl-choices"
+    },
+    {
+      "name": "explain",
+      "artboard": "main > section:nth-child(3)",
+      "page": ".pl-explain-card",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "actions",
+      "artboard": "main > div:last-child",
+      "page": ".pl-actions",
+      "allow": [
+        "rect.y"
+      ]
+    },
+    {
+      "name": "submit",
+      "artboard": "main > div:last-child > a:last-child",
+      "page": ".pl-actions button",
+      "allow": [
+        "rect.y"
+      ]
+    }
+  ],
+  "deviations": [
+    "The excerpt box shows the page's thumbnail picture (the API sends no text for a quarantined suggestion, and patient words must not be shown here); the canvas draws a sample of text, so its font and padding are not matched. The harness hides the canvas text.",
+    "The back link is only as wide as its words (the canvas stretches it); its rectangle width is not matched.",
+    "The explanation lines come from the pack's words and wrap a little differently, so the card is 7px shorter and the actions row sits 7px higher.",
+    "Tap areas: choices, back link and 'Decide later' keep 52px through ::after hit boxes while drawn at canvas size.",
+    "Button labels use the pack's party and patient words in place of 'Mrs A' and 'solicitor'; the code may not name them."
+  ],
+  "budget": 1.6,
+  "budgetReason": "The excerpt area shows the page thumbnail where the canvas shows a monospace text sample, and the four explanation lines wrap slightly differently in the pack's words (7px shorter), which moves the actions row up by the same amount."
+}

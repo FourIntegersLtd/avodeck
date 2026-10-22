@@ -10,6 +10,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
 import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import "./account.css";
 
 export function Account() {
   const { me } = useSession();

@@ -51,9 +51,11 @@ export function CaseHeader({ steps, current, title, children, bar, caseId, subti
         {steps.map((step, i) => {
           const state = currentIndex < 0 ? "todo" : i < currentIndex ? "done" : i === currentIndex ? "current" : "todo";
           const to = bar ? stepPath(step, caseId) : null;
+          // A step passed with pages still to go (say 90%) shows its figure instead of a tick.
+          const unfinished = state === "done" && (progress?.[step.key]?.percent ?? 100) < 100;
           const inner = (
             <span className="av-step__pill">
-              {state === "done" ? (
+              {unfinished ? null : state === "done" ? (
                 <svg className="av-step__tick" width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M5 12l5 5 9-10" />
                 </svg>
@@ -61,7 +63,7 @@ export function CaseHeader({ steps, current, title, children, bar, caseId, subti
                 <span className="av-step__marker">{String(i + 1)}</span>
               )}
               {stepLabel(step.key)}
-              {progress?.[step.key] && <span className="av-step__pct">{stepProgressText(progress[step.key]!)}</span>}
+              {progress?.[step.key] && (state !== "done" || unfinished) && <span className="av-step__pct">{stepProgressText(progress[step.key]!)}</span>}
             </span>
           );
           return (

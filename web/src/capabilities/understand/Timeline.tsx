@@ -56,7 +56,7 @@ function monthsOf(events: Event[]) {
   const marks: { at: number; label: string }[] = [];
   for (let d = new Date(start), i = 0; d.getTime() < end; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)), i++) {
     const long = i === 0 || d.getUTCMonth() === 0;
-    marks.push({ at: d.getTime(), label: new Intl.DateTimeFormat("en-GB", { month: "short", ...(long ? { year: "numeric" } : {}), timeZone: "UTC" }).format(d) });
+    marks.push({ at: d.getTime(), label: new Intl.DateTimeFormat("en-GB", { month: "short", ...(long ? { year: "numeric" } : {}), timeZone: "UTC" }).format(d).replace("Sept", "Sep") });
   }
   return { start, span: Math.max(end - start, DAY), marks };
 }
@@ -137,7 +137,7 @@ export function TimelineView({ caseId, data, numbers, zoom = "whole" }: { caseId
   };
   const found = data.counts?.things_to_look ?? 0;
   return (
-    <div className="av-stack">
+    <div className="av-stack av-understand-view">
       <GuidanceChanged codes={data.guidance_changed} />
       {showUndatedBanner && (
         <div className="av-card av-understand-undated-banner" data-testid="timeline-undated-banner">
@@ -177,7 +177,7 @@ export function TimelineView({ caseId, data, numbers, zoom = "whole" }: { caseId
             return (
             <section key={lane.key} aria-labelledby={`lane-${lane.key}`} className="av-understand-row av-understand-lane">
               <div className="av-understand-row__head av-understand-lane__head">
-                <span className="av-understand-lane__icon" data-testid="lane-icon" aria-hidden="true" style={{ background: lane.colour ?? "var(--ink-soft)" }}>
+                <span className="av-understand-lane__icon" data-testid="lane-icon" aria-hidden="true" style={{ color: lane.colour ?? "var(--ink-soft)" }}>
                   <LaneIcon laneKey={lane.key} label={lane.label} />
                 </span>
                 <span>
@@ -324,7 +324,7 @@ export function Timeline() {
     else setSeenOn("");
   };
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-stack av-understand-timeline">
       <div className="av-understand-top">
         <div>
           <h2>{w("timeline.title")}</h2>
@@ -406,6 +406,7 @@ export function Timeline() {
           ]}
         />
       )}
+      <div className="av-understand-statuses">
       <ChoicePills
         label={w("timeline.filter.status")}
         hideLabel
@@ -417,12 +418,13 @@ export function Timeline() {
             ? [
                 { value: "verified", label: w("timeline.count", { label: t("ui.status.checked"), n: c.checked }) },
                 { value: "suggested", label: w("timeline.count", { label: t("ui.status.please_check"), n: c.please_check }) },
-                { value: "things_to_look", label: w("timeline.count", { label: t("ui.status.look"), n: c.things_to_look }) },
+                { value: "things_to_look", label: w("timeline.count", { label: w("timeline.things"), n: c.things_to_look }) },
                 { value: "not_linked", label: w("timeline.count", { label: w("timeline.not_linked"), n: c.not_linked }) },
               ]
             : []),
         ]}
       />
+      </div>
       <details className="av-understand-adjust" open={adjust} onToggle={(e) => setAdjust(e.currentTarget.open)}>
         <summary>{w("timeline.adjust")}</summary>
         <form className="av-card av-understand-filters" aria-label={w("timeline.filters")} onSubmit={(e) => e.preventDefault()}>

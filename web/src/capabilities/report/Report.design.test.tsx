@@ -109,12 +109,12 @@ test("the bottom bar gives the page count and one main action with an arrow", as
   const run = await screen.findByRole("link", { name: M["report.report.final_check"]! });
   expect(run.querySelector("svg")).not.toBeNull();
   expect(run).not.toHaveClass("av-button--secondary");
-  expect(screen.getByText("Draft 1 · 31 pages")).toBeInTheDocument();
+  expect(screen.getByText("31 pages")).toBeInTheDocument();
 });
 
 test.each([
-  ["intermediate_track", "Draft 1 · 31 pages · page limit 20"],
-  ["some_other_track", "Draft 1 · 31 pages · no page limit"],
+  ["intermediate_track", "31 pages · intermediate-track, page limit 20"],
+  ["some_other_track", "31 pages · some-other-track, no page limit"],
 ])("the footer names the page limit from the pack for the case's court track (%s)", async (track, line) => {
   serve("launch");
   server.use(http.get("/v1/cases/:caseId", () => json(caseItem("launch", { court_track: track, instructing_party_type: null }), 200)));

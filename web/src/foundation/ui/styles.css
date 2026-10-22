@@ -99,7 +99,7 @@ a.av-step__hit:hover .av-step__pill { border-color: var(--green); }
 .av-skip { position: absolute; left: var(--space-4); top: -100px; background: var(--surface); padding: var(--space-3); z-index: 20; }
 .av-skip:focus { top: var(--space-4); }
 .av-shell__header { background: var(--surface); border-bottom: 1px solid var(--line); }
-.av-shell__bar { min-height: 76px; padding: var(--space-3) 40px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
+.av-shell__bar { min-height: 75px; padding: 11.5px 40px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
 .av-shell__nav ul { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; }
 .av-shell__nav a { display: inline-flex; align-items: center; min-height: var(--button-min-height); padding: 10px 16px; border-radius: 10px; font-weight: 700; text-decoration: none; color: var(--ink-soft); }
 .av-shell__nav a[aria-current="page"] { background: var(--green-tint); color: var(--green-dark); }
@@ -343,3 +343,14 @@ a.av-page-ref { color: var(--green); }
 .av-dropzone__added { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 700; }
 .av-dropzone__added svg { color: var(--green-bright); }
 .av-dictation__note { color: var(--ink-soft); }
+
+/* Case bar, transcribed from the S05 to S09 boards: pills 8px apart, 22px markers, avatar flush with the 40px edge.
+   The links keep their 52px tap area (.av-step__hit); only the drawn pill is smaller. */
+.av-case-bar .av-steps { gap: 8px; }
+.av-case-bar .av-step__pill { min-height: 0; padding: 9px 16px; gap: 8px; line-height: 1.5; }
+.av-case-bar .av-step__marker { width: 24px; height: 24px; }
+.av-case-bar .av-step--done .av-step__pill { padding: 10px 16px; border: 0; }
+.av-case-bar .av-step__pct { font-family: var(--font-mono); font-weight: 500; }
+.av-case-bar .av-step--current .av-step__marker { width: 22px; height: 22px; }
+.av-case-bar .av-step--current .av-step__pill { padding: 10px 18px; border-width: 0; }
+.av-case-bar .av-shell__avatar { margin: 0 -4px; }

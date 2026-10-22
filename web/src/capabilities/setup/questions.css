@@ -1,0 +1,47 @@
+/* S06 What you've been asked, transcribed from the canvas board (S06-Questions.dc.html). Scoped to .av-questions. */
+.av-page.av-questions { max-width: none; padding: 36px 40px 40px; display: flex; flex-direction: column; gap: 28px; }
+.av-questions.av-stack > *, .av-questions .av-stack > * + * { margin-top: 0; }
+.av-questions .av-setup-title { gap: 24px; flex-wrap: wrap; align-items: flex-end; }
+.av-questions .av-setup-title > div { display: flex; flex-direction: column; gap: 6px; }
+.av-questions .av-setup-title h1 { margin: 0; font-size: 34px; line-height: 1.5; }
+.av-questions .av-setup-title p { margin: 0; font-size: 18px; }
+
+/* Letter on the left, cards on the right */
+.av-questions .av-setup-split { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; }
+.av-questions .av-setup-split > .av-setup-letter { flex: 1 1 556px; min-width: 0; position: static; max-height: none; overflow: visible; gap: 14px; display: flex; flex-direction: column; }
+.av-questions .av-setup-split > div.av-stack { flex: 1 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.av-questions .av-setup-split > div.av-stack > h3 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; margin: 0; }
+.av-questions .av-setup-letter p { display: block; margin: 0; }
+.av-questions .av-setup-letter__ref { font-family: inherit; font-weight: 400; }
+.av-questions .av-setup-letter p:has(mark) { background: #FFF3B0; padding: 4px 8px; margin: 0 -8px; border-radius: 4px; }
+.av-questions .av-setup-letter p:has(mark.av-setup-mark--outside) { background: #FDE7CC; }
+.av-questions .av-setup-letter mark, .av-questions .av-setup-letter mark.av-setup-mark--outside { background: transparent; padding: 0; }
+
+/* Cards */
+.av-questions .av-setup-split article.av-card { padding: 22px 24px; border-radius: 18px; display: flex; flex-direction: column; gap: 12px; }
+.av-questions .av-setup-split article.av-card .av-row { gap: 10px; }
+.av-questions .av-qchip { padding: 3px 10px; font-size: 17px; line-height: 1.5; }
+.av-questions .av-setup-kind { padding: 4px 12px; font-size: 17px; background: #F1F2F1; }
+.av-questions .av-setup-confirmed { font-size: 17px; }
+.av-questions .av-setup-ref { font-size: 17px; }
+.av-questions .av-setup-card--outside { padding: 22px 24px; }
+.av-questions .av-setup-expertise { background: #FDF1E3; border-radius: 12px; padding: 14px 16px; gap: 12px; }
+.av-questions .av-setup-expertise p { font-size: 17px; }
+.av-questions .av-setup-card--outside .av-button, .av-questions .av-setup-split article .av-button { font-size: 17px; border-radius: 12px; padding: 12px 20px; }
+.av-questions .av-setup-split article .av-button--secondary { padding: 10px 18px; border: 2px solid #1E6B4E; background: #fff; color: #1E6B4E; }
+.av-questions .av-setup-split article .av-button--quiet { padding: 10px 20px; border: 2px solid #DDE3DF; background: #fff; color: #16201B; }
+
+/* Footer */
+.av-questions .av-setup-footer { position: static; background: transparent; padding: 0; gap: 20px; justify-content: flex-end; flex-wrap: wrap; }
+.av-questions .av-setup-footer .av-button:last-child { border: 0; padding: 18px 30px; font-size: 19px; border-radius: 12px; }
+.av-questions .av-setup-footer .av-button svg { display: none; }
+.av-questions .av-setup-footer .av-button[disabled] { opacity: 1; background: #E9ECEA; color: #4F5953; }
+
+/* Card buttons: drawn at the board's 45px, with a 53px hit area kept by ::after (deviation recorded in S06-Questions.json) */
+.av-questions .av-setup-split article .av-button { min-height: 0; line-height: normal; position: relative; }
+.av-questions .av-setup-split article .av-button::after { content: ""; position: absolute; inset: -4px 0; }
+.av-questions .av-setup-card--outside .av-row > .av-button:first-child { background: #1E6B4E; color: #FFFFFF; border: 0; padding: 12px 20px; }
+
+/* The assumption card: dashed border and a pill label */
+.av-questions .av-setup-split article:not(:has(.av-qchip)) { border: 2px dashed #8A948E; }
+.av-questions .av-setup-split article:not(:has(.av-qchip)) > .av-row > .av-row > strong { padding: 4px 12px; border-radius: 999px; background: #F1F2F1; font-size: 17px; }

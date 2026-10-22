@@ -1,0 +1,359 @@
+{
+  "id": "S19-Served",
+  "artboard": "S19-Served.dc.html",
+  "session": true,
+  "route": "/cases/44444444-4444-4444-8444-444444444444/served",
+  "width": 1440,
+  "height": 960,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed-colorectal-referral",
+      "specialty": "general-practice",
+      "expert_role": "defendant_expert",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/report/served": {
+      "version": {
+        "id": "b1111111-1111-4111-8111-111111111111",
+        "display_name": "Report 1",
+        "status": "served",
+        "version_no": 1,
+        "served_on": "2026-11-28",
+        "sha256": "abc"
+      },
+      "paragraphs": []
+    },
+    "/v1/cases/*/deadlines": {
+      "served_on": "2026-11-28",
+      "deadlines": [
+        {
+          "id": "d1111111-1111-4111-8111-111111111111",
+          "kind": "written_questions",
+          "due_on": "2026-12-19",
+          "due_at": "2026-12-19T23:59:59Z",
+          "days_left": 18,
+          "timezone": "Europe/London",
+          "calendar": "calendar_days",
+          "created_from": "pack",
+          "source": "pack",
+          "rule_ref": "ref",
+          "pack_version": "1",
+          "hearing_id": null,
+          "done_at": null,
+          "last_reminded_on": null,
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/*/written-question-rounds": {
+      "rounds": [
+        {
+          "id": "a1111111-1111-4111-8111-111111111111",
+          "number": 1,
+          "from_party_id": null,
+          "received_on": "2026-12-01",
+          "document_id": "c1111111-1111-4111-8111-111111111111",
+          "deadline_id": "d1111111-1111-4111-8111-111111111111",
+          "answers_version_id": null,
+          "status": "open",
+          "extracted_at": "2026-12-01T10:00:00Z",
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/*/written-questions": {
+      "questions": [
+        {
+          "id": "a2222222-2222-4222-8222-222222222222",
+          "round_id": "a1111111-1111-4111-8111-111111111111",
+          "number": 1,
+          "para_ref": "6.12",
+          "rule_ref": "ref",
+          "text_verbatim": "Question 1",
+          "status": "received",
+          "suggested_classification": "clarifies",
+          "classification_reason": "x",
+          "classification": null,
+          "suggested_paragraph_ids": [],
+          "paragraph_ids": [],
+          "answer_text": null,
+          "citation_refs": [],
+          "told_instructing_party_at": null,
+          "version": 1
+        },
+        {
+          "id": "a3333333-3333-4333-8333-333333333333",
+          "round_id": "a1111111-1111-4111-8111-111111111111",
+          "number": 2,
+          "para_ref": "6.12",
+          "rule_ref": "ref",
+          "text_verbatim": "Question 2",
+          "status": "received",
+          "suggested_classification": "clarifies",
+          "classification_reason": "x",
+          "classification": null,
+          "suggested_paragraph_ids": [],
+          "paragraph_ids": [],
+          "answer_text": null,
+          "citation_refs": [],
+          "told_instructing_party_at": null,
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/*/new-since-served": {
+      "served_at": "2026-11-28T10:00:00Z",
+      "pages": [
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000000",
+          "page_no": 1000,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000001",
+          "page_no": 1001,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000002",
+          "page_no": 1002,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000003",
+          "page_no": 1003,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000004",
+          "page_no": 1004,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000005",
+          "page_no": 1005,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000006",
+          "page_no": 1006,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000007",
+          "page_no": 1007,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000008",
+          "page_no": 1008,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000009",
+          "page_no": 1009,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000010",
+          "page_no": 1010,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000011",
+          "page_no": 1011,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000012",
+          "page_no": 1012,
+          "read": false,
+          "may_matter": []
+        },
+        {
+          "page_id": "f0000000-0000-4000-8000-000000000013",
+          "page_no": 1013,
+          "read": false,
+          "may_matter": []
+        }
+      ]
+    },
+    "/v1/cases/*/report-changes": {
+      "changes": [],
+      "supplementary": null
+    },
+    "/v1/cases/*/hearings": {
+      "hearings": [
+        {
+          "id": "e1111111-1111-4111-8111-111111111111",
+          "type": "trial",
+          "status": "listed",
+          "starts_on": "2027-06-14",
+          "ends_on": "2027-06-16",
+          "direction_id": null,
+          "replaced_by_hearing_id": null,
+          "changed_at": null,
+          "venue": null,
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/*/court-directions": {
+      "directions": [
+        {
+          "id": "e2222222-2222-4222-8222-222222222222",
+          "made_on": "2026-12-05",
+          "reference": null,
+          "stay": false,
+          "text": null,
+          "document_id": null,
+          "created_at": "2026-12-05T09:00:00Z",
+          "created_deadline_ids": []
+        }
+      ]
+    },
+    "/v1/cases/*/after-serving/steps": {
+      "meetings": [],
+      "pack": null
+    }
+  },
+  "probes": [
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".av-after-head h2"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".av-after-lede"
+    },
+    {
+      "name": "locked pill",
+      "artboard": "main > div:first-child > span",
+      "page": ".av-after-pill",
+      "allow": [
+        "color"
+      ]
+    },
+    {
+      "name": "view link",
+      "artboard": "a[href='#view']",
+      "page": ".av-after-linkbtn"
+    },
+    {
+      "name": "track card",
+      "artboard": "section[aria-label='What happens next']",
+      "page": ".av-after-trackcard"
+    },
+    {
+      "name": "track step 1",
+      "artboard": "section[aria-label='What happens next'] > div > div:nth-child(3)",
+      "page": ".av-after-track__step:nth-child(1)"
+    },
+    {
+      "name": "track dot 1",
+      "artboard": "section[aria-label='What happens next'] > div > div:nth-child(3) > span:first-child",
+      "page": ".av-after-track__step:nth-child(1) .av-after-track__dot",
+      "allow": [
+        "color"
+      ]
+    },
+    {
+      "name": "track step 2 name",
+      "artboard": "section[aria-label='What happens next'] > div > div:nth-child(4) > span:nth-child(2)",
+      "page": ".av-after-track__step:nth-child(2) .av-after-track__name"
+    },
+    {
+      "name": "track step 2 note",
+      "artboard": "section[aria-label='What happens next'] > div > div:nth-child(4) > span:nth-child(3)",
+      "page": ".av-after-track__step:nth-child(2) .av-after-track__note"
+    },
+    {
+      "name": "track step 5",
+      "artboard": "section[aria-label='What happens next'] > div > div:nth-child(7)",
+      "page": ".av-after-track__step:nth-child(5)"
+    },
+    {
+      "name": "tile 1",
+      "artboard": "main > div:last-child > a:nth-child(1)",
+      "page": ".av-after-tile:nth-child(1)"
+    },
+    {
+      "name": "tile 1 icon",
+      "artboard": "main > div:last-child > a:nth-child(1) > span:first-child",
+      "page": ".av-after-tile:nth-child(1) .av-icon-tile",
+      "allow": [
+        "color"
+      ]
+    },
+    {
+      "name": "tile 1 title",
+      "artboard": "main > div:last-child > a:nth-child(1) > span:nth-child(2)",
+      "page": ".av-after-tile:nth-child(1) h3"
+    },
+    {
+      "name": "tile 1 body",
+      "artboard": "main > div:last-child > a:nth-child(1) > span:nth-child(3)",
+      "page": ".av-after-tile:nth-child(1) p"
+    },
+    {
+      "name": "tile 1 action",
+      "artboard": "main > div:last-child > a:nth-child(1) > span:nth-child(4)",
+      "page": ".av-after-tile:nth-child(1) .av-text-link"
+    },
+    {
+      "name": "tile 2",
+      "artboard": "main > div:last-child > a:nth-child(2)",
+      "page": ".av-after-tile:nth-child(2)"
+    },
+    {
+      "name": "tile 3",
+      "artboard": "main > div:last-child > div",
+      "page": ".av-after-tile:nth-child(3)"
+    },
+    {
+      "name": "tile 3 action",
+      "artboard": "main > div:last-child > div > a",
+      "page": ".av-after-tile:nth-child(3) .av-text-link"
+    },
+    {
+      "name": "tile 4",
+      "artboard": "main > div:last-child > a:nth-child(4)",
+      "page": ".av-after-tile:nth-child(4)"
+    }
+  ],
+  "deviations": [
+    "The tile actions use the shared arrow icon instead of the board's arrow glyph.",
+    "The board's 'new pages' tile says 'and Dr R's report arrived' (gap: no source name in the API); the page says only the new-page count.",
+    "The case bar is shared: the board's pill sizes and subtitle differ."
+  ]
+}

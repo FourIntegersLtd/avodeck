@@ -211,7 +211,7 @@ function StepMark({ state }: { state: "done" | "current" | "waiting" }) {
   return (
     <svg className={`pl-step__mark pl-step__mark--${state}`} width="34" height="34" viewBox="0 0 34 34" aria-hidden="true" focusable="false">
       <circle cx="17" cy="17" r="15" />
-      {state === "done" && <path d="M11 17.5l4 4 8-8" />}
+      {state === "done" && <path d="M5 12l5 5 9-10" transform="translate(8 8) scale(0.75)" />}
     </svg>
   );
 }

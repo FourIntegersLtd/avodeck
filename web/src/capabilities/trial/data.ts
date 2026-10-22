@@ -107,6 +107,12 @@ function format(locale: string | null | undefined, options: Intl.DateTimeFormatO
 /** "19 Feb", as the boards write a deadline. */
 export const shortDate = (iso: string, locale?: string | null) => format(locale, { day: "numeric", month: "short" }, iso);
 
+/** "20 May", or "20 May 2026" when the year differs from the reference date's: the board leaves out a year that is plain from the line. */
+export function dayMonth(iso: string, locale?: string | null, reference?: string | null): string {
+  const sameYear = reference && reference.slice(0, 4) === iso.slice(0, 4);
+  return format(locale, sameYear ? { day: "numeric", month: "long" } : { day: "numeric", month: "long", year: "numeric" }, iso);
+}
+
 /** "1 Mar 2024", as the boards write a document's date. */
 export const mediumDate = (iso: string, locale?: string | null) => format(locale, { day: "numeric", month: "short", year: "numeric" }, iso);
 

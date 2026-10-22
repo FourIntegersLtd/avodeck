@@ -75,7 +75,7 @@ export function BundleReady() {
   const keptTitle = keptParts.length > 1 ? w("bundle.and", { first: keptParts[0], second: keptParts[1] }) : w("bundle.sentence", { text: keptParts[0] });
 
   return (
-    <div className="av-page">
+    <div className="av-page pl-bundle">
       <h1>{w("bundle.title")}</h1>
       <div className="pl-ready">
         <section className="av-card pl-sources">
@@ -91,11 +91,13 @@ export function BundleReady() {
             </Card>
           )}
           {suggested.length > 0 && (
-            <Card icon={<OtherPersonIcon />} tone="amber" title={wn("bundle.other_person", suggested.length, locale)}>
+            <Card
+              icon={<OtherPersonIcon />}
+              tone="amber"
+              title={wn("bundle.other_person", suggested.length, locale)}
+              action={can(item, "page.quarantine") ? <LinkButton to={`${base}/not-this-patient`} variant="secondary">{w("bundle.check")}</LinkButton> : undefined}
+            >
               <p>{w("bundle.other_person_note", { pages: pageList(suggested.map((q) => q.page_no), locale) })}</p>
-              {can(item, "page.quarantine") && (
-                <LinkButton to={`${base}/not-this-patient`} variant="secondary">{w("bundle.check")}</LinkButton>
-              )}
             </Card>
           )}
           {setAside.length > 0 && <Card icon={<OtherPersonIcon />} title={wn("bundle.set_aside", setAside.length, locale)} />}

@@ -2,7 +2,7 @@
 import { useId, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { t } from "../../foundation/i18n";
-import { Button, IconTile, StatusBadge } from "../../foundation/ui";
+import { Button, StatusBadge } from "../../foundation/ui";
 import { humanise, kindLabel, longDate } from "./data";
 import { w } from "./words";
 
@@ -60,6 +60,20 @@ export function editableFields(fact: Schemas["FactOut"]): Array<{ key: string; l
   );
 }
 
+const TICK = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M5 12l5 5 9-10" />
+  </svg>
+);
+const FLAG = (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+  </svg>
+);
+
+/** "Prescription · 15 May 2024": the kind and, when the record has one, its day. */
+const titleOf = (kind: string, day: string | null | undefined) => (day ? w("read.related", { kind: kindLabel(kind), date: longDate(day) }) : kindLabel(kind));
+
 export function FactCard(p: FactCardProps) {
   const { fact } = p;
   const id = useId();
@@ -67,153 +81,172 @@ export function FactCard(p: FactCardProps) {
   const checked = fact.status === "verified" || fact.status === "edited";
   const rejected = fact.status === "rejected";
   const recheck = checked && fact.needs_recheck === true;
-  const cls = ["rd-card", p.focused && "rd-card--focus", checked && "rd-card--checked", rejected && "rd-card--rejected"].filter(Boolean).join(" ");
+  // A checked fact is drawn as one quiet row, as the canvas draws the record found with a visit.
+  const compact = checked && !recheck && p.editing === null && !can.timelineDate && (p.timelineDraft === null || p.timelineDraft === undefined);
+  const cls = ["rd-card", p.focused && "rd-card--focus", rejected && "rd-card--rejected"].filter(Boolean).join(" ");
   return (
-    <article className={cls} aria-labelledby={`${id}-t`} onFocusCapture={p.onFocus} onClick={p.onFocus}>
-      {checked && !recheck ? (
-        <p className="rd-tick">
-          <IconTile tone="mint">✓</IconTile>
-          <span>{t("ui.status.checked")}</span>
-        </p>
-      ) : rejected ? (
-        <StatusBadge status="not_right" />
+    <article className="rd-fact" aria-labelledby={`${id}-t`} onFocusCapture={p.onFocus} onClick={p.onFocus}>
+      {compact ? (
+        <div className={`rd-row${p.focused ? " rd-row--focus" : ""}`}>
+          <span className="rd-row__tick">{TICK}</span>
+          <span className="rd-row__text">
+            <strong>{titleOf(fact.kind, fact.event_date)}</strong>
+            <br />
+            <span className="rd-row__sub">
+              <span id={`${id}-t`}>{fact.value}</span>
+              {` · ${w("read.checked_by_you")}`}
+            </span>
+          </span>
+          {can.notRight && (
+            <Button variant="quiet" className="rd-row__undo" disabled={p.busy} onClick={p.onNotRight} aria-keyshortcuts="2">
+              {w("fact.not_right")}
+            </Button>
+          )}
+        </div>
       ) : (
-        <p className="rd-state">{t("ui.status.please_check")}</p>
-      )}
-      <p className="rd-kind">{kindLabel(fact.kind)}</p>
-      <h3 id={`${id}-t`} className="rd-value">
-        {fact.value}
-      </h3>
-      {editableFields(fact).length > 0 && p.editing === null && (
-        <dl className="rd-rows">
-          {editableFields(fact).map(({ label, value }) => (
-            <div key={label}>
-              <dt>{label}</dt>
-              <dd>{value}</dd>
+        <div className={cls}>
+          {rejected ? <StatusBadge status="not_right" /> : <p className="rd-state">{t("ui.status.please_check")}</p>}
+          <p className="rd-kind rd-sr">{kindLabel(fact.kind)}</p>
+          <h3 id={`${id}-t`} className="rd-value">
+            {fact.value}
+          </h3>
+          {editableFields(fact).length > 0 && p.editing === null && (
+            <dl className="rd-rows">
+              {editableFields(fact).map(({ label, value }) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd>{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {recheck && <p className="rd-note">{w("fact.recheck")}</p>}
+
+          {rejected ? (
+            <div className="rd-actions">
+              <Button variant="secondary" disabled={p.busy} onClick={p.onCorrect}>
+                {w("fact.undo")}
+              </Button>
             </div>
-          ))}
-        </dl>
+          ) : p.timelineDraft !== null && p.timelineDraft !== undefined ? (
+            <div className="rd-edit">
+              <label htmlFor={`${id}-td`} className="rd-label">
+                {w("fact.timeline_date_label")}
+              </label>
+              <input id={`${id}-td`} className="av-input" type="date" autoFocus value={p.timelineDraft} onChange={(e) => p.onTimelineDateChange?.(e.target.value)} />
+              <div className="rd-actions">
+                <Button disabled={p.busy || !p.timelineDraft} onClick={p.onSaveTimelineDate}>
+                  {w("fact.save_change")}
+                </Button>
+                <Button variant="secondary" onClick={p.onCancelTimelineDate}>
+                  {w("fact.cancel")}
+                </Button>
+              </div>
+            </div>
+          ) : p.editing !== null && p.editingFields !== null ? (
+            <div className="rd-edit">
+              <label htmlFor={`${id}-e`} className="rd-label">
+                {w("fact.right_words")}
+              </label>
+              <input
+                id={`${id}-e`}
+                className="av-input"
+                autoFocus
+                value={p.editing}
+                onChange={(e) => p.onEditText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") p.onCancelEdit();
+                }}
+              />
+              {editableFields(fact).map(({ key, label }) => (
+                <div key={key} className="rd-edit__row">
+                  <label htmlFor={`${id}-f-${key}`} className="rd-label rd-label--small">{label}</label>
+                  <input
+                    id={`${id}-f-${key}`}
+                    className="av-input"
+                    value={p.editingFields?.[key] ?? ""}
+                    onChange={(e) => p.onEditField(key, e.target.value)}
+                  />
+                </div>
+              ))}
+              <p className="rd-note">{w("fact.choose_words")}</p>
+              {p.typedWords}
+              <div className="rd-actions">
+                <Button disabled={p.busy || p.canSave === false} onClick={p.onSaveEdit}>
+                  {w("fact.save_change")}
+                </Button>
+                <Button variant="secondary" onClick={p.onCancelEdit}>
+                  {w("fact.cancel")}
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="rd-actions">
+                {can.correct && (
+                  <Button disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
+                    {w("fact.correct")}
+                  </Button>
+                )}
+                {can.notRight && (
+                  <Button variant="secondary" disabled={p.busy} onClick={p.onNotRight} aria-keyshortcuts="2">
+                    {w("fact.not_right")}
+                  </Button>
+                )}
+              </div>
+              <div className="rd-links">
+                {can.edit && (
+                  <Button variant="quiet" disabled={p.busy} onClick={p.onStartEdit} aria-keyshortcuts="3">
+                    {w("fact.change")}
+                  </Button>
+                )}
+                {can.timelineDate && p.onStartTimelineDate && (
+                  <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
+                    {w("fact.set_timeline_date")}
+                  </Button>
+                )}
+                {can.notRight && (
+                  <details className="rd-why-not">
+                    <summary>{w("fact.say_why")}</summary>
+                    <label className="rd-reason">
+                      <span>{w("fact.why_not")}</span>
+                      <input className="av-input" value={p.reason} maxLength={200} onChange={(e) => p.onReason(e.target.value)} />
+                    </label>
+                  </details>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       )}
       {(fact.related ?? []).map((r) => {
         const live = p.allFacts?.find((f) => f.id === r.fact_id)?.status ?? r.status;
         const done = live === "verified" || live === "edited";
         return (
-          <p key={r.fact_id} className="rd-related">
-            <IconTile tone={done ? "mint" : "amber"}>{done ? "✓" : "•"}</IconTile>
-            <span>
-              {w("read.related", { kind: kindLabel(r.kind), date: longDate(r.event_date) })}
+          <p key={r.fact_id} className="rd-row rd-related">
+            <span className={`rd-row__tick${done ? "" : " rd-row__tick--open"}`}>{done ? TICK : "•"}</span>
+            <span className="rd-row__text">
+              <strong>{titleOf(r.kind, r.event_date)}</strong>
               <br />
-              {w(done ? "read.related_checked" : "read.related_open", { value: r.value ?? "" })}
+              <span className="rd-row__sub">{w(done ? "read.related_checked" : "read.related_open", { value: r.value ?? "" })}</span>
             </span>
           </p>
         );
       })}
-      {recheck && <p className="rd-note">{w("fact.recheck")}</p>}
-      {fact.flagged && (
-        <p className="rd-cuts">
-          <strong>{w("fact.cuts_against")}</strong>
-          <span>{w("fact.in_points_against")}</span>
-        </p>
-      )}
-
-      {rejected ? (
-        <div className="rd-actions">
-          <Button variant="secondary" disabled={p.busy} onClick={p.onCorrect}>
-            {w("fact.undo")}
-          </Button>
-        </div>
-      ) : p.timelineDraft !== null && p.timelineDraft !== undefined ? (
-        <div className="rd-edit">
-          <label htmlFor={`${id}-td`} className="rd-label">
-            {w("fact.timeline_date_label")}
-          </label>
-          <input id={`${id}-td`} className="av-input" type="date" autoFocus value={p.timelineDraft} onChange={(e) => p.onTimelineDateChange?.(e.target.value)} />
-          <div className="rd-actions">
-            <Button disabled={p.busy || !p.timelineDraft} onClick={p.onSaveTimelineDate}>
-              {w("fact.save_change")}
-            </Button>
-            <Button variant="secondary" onClick={p.onCancelTimelineDate}>
-              {w("fact.cancel")}
-            </Button>
-          </div>
-        </div>
-      ) : p.editing !== null && p.editingFields !== null ? (
-        <div className="rd-edit">
-          <label htmlFor={`${id}-e`} className="rd-label">
-            {w("fact.right_words")}
-          </label>
-          <input
-            id={`${id}-e`}
-            className="av-input"
-            autoFocus
-            value={p.editing}
-            onChange={(e) => p.onEditText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Escape") p.onCancelEdit();
-            }}
-          />
-          {editableFields(fact).map(({ key, label }) => (
-            <div key={key} className="rd-edit__row">
-              <label htmlFor={`${id}-f-${key}`} className="rd-label rd-label--small">{label}</label>
-              <input
-                id={`${id}-f-${key}`}
-                className="av-input"
-                value={p.editingFields?.[key] ?? ""}
-                onChange={(e) => p.onEditField(key, e.target.value)}
-              />
-            </div>
-          ))}
-          <p className="rd-note">{w("fact.choose_words")}</p>
-          {p.typedWords}
-          <div className="rd-actions">
-            <Button disabled={p.busy || p.canSave === false} onClick={p.onSaveEdit}>
-              {w("fact.save_change")}
-            </Button>
-            <Button variant="secondary" onClick={p.onCancelEdit}>
-              {w("fact.cancel")}
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <p className="rd-hint">{w("fact.fix_one_line")}</p>
-          <div className="rd-actions">
-            {can.correct && (
-              <Button disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
-                {w("fact.correct")}
-              </Button>
-            )}
-            {can.notRight && (
-              <Button variant="secondary" disabled={p.busy} onClick={p.onNotRight} aria-keyshortcuts="2">
-                {w("fact.not_right")}
-              </Button>
-            )}
-          </div>
-          {can.edit && (
-            <Button variant="quiet" disabled={p.busy} onClick={p.onStartEdit} aria-keyshortcuts="3">
-              {w("fact.change")}
-            </Button>
+      {checked && p.editing === null && (
+        <button type="button" className="rd-flag" disabled={p.busy} onClick={p.onFlag}>
+          {FLAG}
+          {fact.flagged ? (
+            <span>
+              {w("fact.cuts_against")}
+              <br />
+              <span className="rd-flag__sub">{w("fact.saved_to_points")}</span>
+              <span className="rd-sr"> {w("fact.points_against_off")}</span>
+            </span>
+          ) : (
+            <span>{w("fact.points_against")}</span>
           )}
-          {can.timelineDate && p.onStartTimelineDate && (
-            <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
-              {w("fact.set_timeline_date")}
-            </Button>
-          )}
-          {can.notRight && (
-            <details className="rd-why-not">
-              <summary>{w("fact.say_why")}</summary>
-              <label className="rd-reason">
-                <span>{w("fact.why_not")}</span>
-                <input className="av-input" value={p.reason} maxLength={200} onChange={(e) => p.onReason(e.target.value)} />
-              </label>
-            </details>
-          )}
-          {checked && (
-            <Button variant="secondary" disabled={p.busy} onClick={p.onFlag}>
-              {fact.flagged ? w("fact.points_against_off") : w("fact.points_against")}
-            </Button>
-          )}
-        </>
+        </button>
       )}
     </article>
   );

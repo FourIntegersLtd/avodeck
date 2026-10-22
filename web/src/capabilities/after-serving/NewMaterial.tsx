@@ -62,11 +62,13 @@ export function NewMaterial() {
   const meeting = screenPath("expert_meeting", { caseId });
 
   return (
-    <div className="av-page av-after-page av-stack">
-      <div>
+    <div className="av-page av-after-page av-after-page--full av-after-page--board av-stack">
+      <div className="av-after-head">
+        <div>
         <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
-        <h2>{w("new.title")}</h2>
+        <h2 className="av-after-title">{w("new.title")}</h2>
         <p className="av-muted av-after-lede">{w("new.intro")}</p>
+        </div>
       </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {checking.waiting && <Notice><p>{w("new.checking")}</p></Notice>}
@@ -165,7 +167,7 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
         <td className="av-after-mono">{c.their_page_ref ? `p.${c.their_page_ref}` : ""}</td>
         <td className="av-stack">
           <strong className={good ? "av-after-found av-after-found--good" : "av-after-found"}>
-            {good ? <TickGreenIcon /> : <WarnIcon />}
+            {good ? <TickGreenIcon /> : <WarnIcon size={18} />}
             {c.status === "read_first" ? w("new.read_first", { page: c.our_page_no ?? "" }) : keyName("new.status", c.status)}
           </strong>
           {shown(c) && (
@@ -204,7 +206,7 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
         </table>
       </section>
       {report.positions.length > 0 && (
-        <section className="av-after-panel av-stack" aria-labelledby="differ-title">
+        <section className="av-after-panel av-after-panel--differ av-stack" aria-labelledby="differ-title">
           <h3 id="differ-title">{w("new.positions")}</h3>
           {report.positions.map((p) => (
             <div key={p.question_id} className="av-after-differ">

@@ -10,12 +10,23 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, Callout, Checkbox, Dialog, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import "./court-orders.css";
 import { dateRange, keyName, longDate, Select, shortDate, useLocale, versionTag } from "./shared";
 import { w } from "./words";
 
 const ERRORS = { stale: "after_serving.error.stale", invalid: "after_serving.error.invalid" };
 const REASONS = ["court_order", "agreement", "correction"] as const;
 const HEARING_TYPES = ["trial", "case_management", "other"] as const;
+
+/** The month of a date, written in the case's locale ("June"). */
+function monthName(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { month: "long", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+}
+
+/** A day and month without the year ("14 June"). */
+function dayMonth(iso: string, locale: string): string {
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", timeZone: "UTC" }).format(new Date(`${iso}T00:00:00Z`));
+}
 
 export function CourtOrders() {
   const { caseId = "" } = useParams();
@@ -45,36 +56,46 @@ export function CourtOrders() {
   const live = (h: Schemas["HearingOut"]) => !h.replaced_by_hearing_id && h.status !== "adjourned";
   const ordered = [...hearings.data.hearings].sort((a, b) => Number(live(b)) - Number(live(a)) || b.starts_on.localeCompare(a.starts_on));
   const sourceName = (s: string) => keyName("source", s);
+  const movedTrial = hearings.data.hearings.find((h) => h.type === "trial" && live(h));
+  // Where an adjourned hearing went and which order moved it, when both are known.
+  const movedNote = (h: Schemas["HearingOut"]): string | null => {
+    const next = hearings.data!.hearings.find((x) => x.id === h.replaced_by_hearing_id);
+    const order = directions.data!.directions.find((d) => d.id === (next?.direction_id ?? h.direction_id));
+    return next && order ? w("hearings.moved_to", { date: dayMonth(next.starts_on, locale), order: longDate(order.made_on, locale) }) : null;
+  };
 
   return (
-    <div className="av-page av-after-page av-stack">
-      <div className="av-stack">
-        <div>
+    <div className="av-page av-after-page av-court-orders av-stack">
+      <div className="av-court-orders__head">
+        <div className="av-court-orders__title">
           <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
           <h2>{w("orders.title")}</h2>
           <p className="av-muted av-after-lede">{w("orders.intro")}</p>
         </div>
-        {adding !== "order" && <div><Button onClick={() => setAdding("order")}>{w("orders.add")}</Button></div>}
+        {adding !== "order" && <Button onClick={() => setAdding("order")}>{w("orders.add")}</Button>}
       </div>
       {trialMoved && (
         <Callout
           title={w("orders.trial_moved")}
-          actions={trialPack ? <LinkButton to={trialPack}>{w("orders.rebuild")}</LinkButton> : undefined}
+          actions={trialPack ? <LinkButton variant="secondary" to={trialPack}>{w("orders.rebuild")}</LinkButton> : undefined}
         >
-          <p>{w("orders.trial_moved_hint")}</p>
+          <p>{movedTrial ? w("orders.trial_moved_month", { month: monthName(movedTrial.starts_on, locale) }) : w("orders.trial_moved_hint")}</p>
         </Callout>
       )}
       {directions.data.directions.some((d) => d.stay) && <Notice tone="warning"><p>{w("orders.stayed")}</p></Notice>}
 
       <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="hearings-title">
-        <h3 id="hearings-title">{w("hearings.title")}</h3>
+        <div className="av-court-orders__sechead">
+          <h3 id="hearings-title">{w("hearings.title")}</h3>
+          {adding !== "hearing" && <button type="button" className="av-after-linkbtn" onClick={() => setAdding("hearing")}>{w("hearings.add")}</button>}
+        </div>
         {hearings.data.hearings.length === 0 && <p>{w("hearings.none")}</p>}
         <ul className="av-after-hearings">
           {ordered.map((h) => (
-            <HearingRow key={`${h.id}-${h.version}`} caseId={caseId} hearing={h} locale={locale} onDone={refresh} />
+            <HearingRow key={`${h.id}-${h.version}`} caseId={caseId} hearing={h} locale={locale} moved={movedNote(h)} onDone={refresh} />
           ))}
         </ul>
-        {adding === "hearing" ? <HearingForm caseId={caseId} onDone={() => { setAdding(null); refresh(); }} /> : <div><button type="button" className="av-after-linkbtn" onClick={() => setAdding("hearing")}>{w("hearings.add")}</button></div>}
+        {adding === "hearing" && <HearingForm caseId={caseId} onDone={() => { setAdding(null); refresh(); }} />}
       </section>
 
       <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="orders-list">
@@ -111,6 +132,7 @@ export function CourtOrders() {
         <section className="av-after-panel av-after-panel--roomy av-stack" aria-labelledby="history-title">
           <h3 id="history-title">{w("deadlines.history")}</h3>
           <table className="av-after-dates" aria-labelledby="history-title">
+            <colgroup><col style={{ width: "33.33%" }} /><col style={{ width: "17.42%" }} /><col style={{ width: "17.42%" }} /><col style={{ width: "31.83%" }} /></colgroup>
             <thead>
               <tr>
                 <th scope="col">{w("deadlines.col_deadline")}</th>
@@ -133,6 +155,8 @@ export function CourtOrders() {
         </section>
       )}
 
+
+      <HoldOrWithdraw caseId={caseId} onHold={item.on_hold} onDone={() => { reloadCase(); refresh(); }} />
       <details className="av-after-disclosure">
         <summary id="dates-title">{w("deadlines.title")}</summary>
         <ul className="av-after-list">
@@ -148,8 +172,6 @@ export function CourtOrders() {
           ))}
         </ul>
       </details>
-
-      <HoldOrWithdraw caseId={caseId} onHold={item.on_hold} onDone={() => { reloadCase(); refresh(); }} />
 
       {moving && <MoveDialog caseId={caseId} deadline={moving} onClose={() => setMoving(null)} onDone={() => { setMoving(null); refresh(); }} />}
     </div>
@@ -344,7 +366,7 @@ function HearingForm({ caseId, onDone }: { caseId: string; onDone: () => void })
   );
 }
 
-function HearingRow({ caseId, hearing, locale, onDone }: { caseId: string; hearing: Schemas["HearingOut"]; locale: string; onDone: () => void }) {
+function HearingRow({ caseId, hearing, locale, moved, onDone }: { caseId: string; hearing: Schemas["HearingOut"]; locale: string; moved: string | null; onDone: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const adjourn = async () => {
     try {
@@ -364,7 +386,7 @@ function HearingRow({ caseId, hearing, locale, onDone }: { caseId: string; heari
       <span className="av-after-mono av-after-hearing__date">{dateRange(hearing.starts_on, hearing.ends_on, locale)}</span>
       <span className="av-after-hearing__what">
         <strong>{keyName("hearings.type", hearing.type)}</strong>
-        <span className="av-muted">{where}</span>
+        <span className="av-muted">{moved ?? where}</span>
       </span>
       <span className={`av-after-state${hearing.status === "scheduled" ? " av-after-state--on" : ""}`}>{known ? w(`hearings.status.${hearing.status as "scheduled"}`) : hearing.status}</span>
       {hearing.status === "scheduled" && !changing && <button type="button" className="av-after-linkbtn" onClick={() => setChanging(true)}>{w("hearings.change")}</button>}

@@ -1,0 +1,416 @@
+{
+  "id": "S02-Profile",
+  "artboard": "S02-Profile.dc.html",
+  "route": "/profile",
+  "width": 1440,
+  "height": 1100,
+  "session": true,
+  "mock": {
+    "/v1/me/profile": {
+      "full_name": "Dr James Morgan",
+      "profession": "doctor",
+      "registration_body": "GMC",
+      "registration_number": "[GMC NUMBER]",
+      "specialties": [
+        "general-practice"
+      ],
+      "default_jurisdiction": "gb-eaw",
+      "default_retention": null,
+      "hourly_rate": null,
+      "currency": null,
+      "version": 1
+    },
+    "/v1/packs": [
+      {
+        "jurisdiction": {
+          "code": "gb-eaw",
+          "name": "England and Wales",
+          "version": "1"
+        },
+        "case_type": {
+          "code": "clin-neg-breach",
+          "name": "Case type A",
+          "version": "1"
+        },
+        "specialty": {
+          "code": "general-practice",
+          "name": "General practice",
+          "version": "1"
+        },
+        "expert_roles": [
+          "breach"
+        ]
+      }
+    ],
+    "/v1/jurisdictions/*": {
+      "code": "gb-eaw",
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "court_tracks": [
+        "small_claims",
+        "fast",
+        "intermediate",
+        "multi"
+      ],
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of {clinicians} have acted as this {clinician} did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "name": "England and Wales",
+      "timezone": "Europe/London",
+      "version": "2026.10.6",
+      "vocabulary": {
+        "court_bundle": "trial bundle",
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
+        },
+        "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
+        "request_notes": {
+          "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
+          "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "working_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "/v1/me/roles": [
+      {
+        "id": "e0000001-1111-4111-8111-111111111111",
+        "specialty": "general-practice",
+        "role_title": "GP partner, in-hours general practice",
+        "setting": null,
+        "started_on": "2011-04-01",
+        "ended_on": null
+      },
+      {
+        "id": "e0000002-1111-4111-8111-111111111111",
+        "specialty": "general-practice",
+        "role_title": "Out-of-hours GP",
+        "setting": null,
+        "started_on": "2013-04-01",
+        "ended_on": "2022-03-31"
+      },
+      {
+        "id": "e0000003-1111-4111-8111-111111111111",
+        "specialty": "general-practice",
+        "role_title": "Urgent care centre",
+        "setting": null,
+        "started_on": "2016-04-01",
+        "ended_on": "2019-03-31"
+      }
+    ],
+    "/v1/me/training": [
+      {
+        "id": "a0000001-2222-4222-8222-222222222222",
+        "title": "Civil expert certificate",
+        "year": 2019
+      },
+      {
+        "id": "a0000002-2222-4222-8222-222222222222",
+        "title": "Report writing course",
+        "year": 2021
+      },
+      {
+        "id": "a0000003-2222-4222-8222-222222222222",
+        "title": "Courtroom skills",
+        "year": 2023
+      }
+    ],
+    "/v1/me/template": {
+      "id": "f1111111-1111-4111-8111-111111111111",
+      "filename": "Morgan report template.docx",
+      "headings": [],
+      "styles": [
+        "Heading",
+        "Numbered",
+        "Quote"
+      ],
+      "mapping": [],
+      "sections": [
+        "introduction",
+        "opinion",
+        "other"
+      ],
+      "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "size_bytes": 2048,
+      "version": 1,
+      "created_at": "2026-10-01T09:00:00Z"
+    },
+    "/v1/me/declaration": {
+      "jurisdiction": "gb-eaw",
+      "wording": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "additions": [],
+      "locked": false
+    },
+    "/v1/me/signature/image": {
+      "__status": 404,
+      "json": {
+        "error": {
+          "code": "not_found"
+        }
+      }
+    }
+  },
+  "probes": [
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-profile h1"
+    },
+    {
+      "name": "intro",
+      "artboard": "main h1 + p",
+      "page": ".av-setup-title p"
+    },
+    {
+      "name": "progress card",
+      "artboard": "main > div:first-child > div:nth-child(2)",
+      "page": ".av-setup-progress"
+    },
+    {
+      "name": "about",
+      "artboard": "main > section:nth-of-type(1)",
+      "page": "section[aria-labelledby=setup-about]"
+    },
+    {
+      "name": "about h2",
+      "artboard": "main > section:nth-of-type(1) h2",
+      "page": "#setup-about"
+    },
+    {
+      "name": "about mark",
+      "artboard": "main > section:nth-of-type(1) > div:first-child > span",
+      "page": "section[aria-labelledby=setup-about] .av-setup-mark",
+      "allow": [
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "name box",
+      "artboard": "main > section:nth-of-type(1) label:nth-child(1) input",
+      "page": "section[aria-labelledby=setup-about] .av-field:nth-child(1) .av-setup-box"
+    },
+    {
+      "name": "roles",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": "section[aria-labelledby=setup-roles]"
+    },
+    {
+      "name": "roles h2",
+      "artboard": "main > section:nth-of-type(2) h2",
+      "page": "#setup-roles"
+    },
+    {
+      "name": "role 1",
+      "artboard": "main > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-child(1)",
+      "page": "section[aria-labelledby=setup-roles] .av-setup-line:nth-child(1)"
+    },
+    {
+      "name": "add role",
+      "artboard": "main > section:nth-of-type(2) > div:nth-of-type(2) > a",
+      "page": "section[aria-labelledby=setup-roles] > div:last-child",
+      "allow": [
+        "fontWeight",
+        "color"
+      ]
+    },
+    {
+      "name": "training",
+      "artboard": "main > div:nth-of-type(2) > section:nth-child(1)",
+      "page": "section[aria-labelledby=setup-training]"
+    },
+    {
+      "name": "template",
+      "artboard": "main > div:nth-of-type(2) > section:nth-child(2)",
+      "page": "section[aria-labelledby=setup-template]"
+    },
+    {
+      "name": "declaration",
+      "artboard": "main > section:nth-of-type(3)",
+      "page": "section[aria-labelledby=setup-declaration]"
+    },
+    {
+      "name": "goes with you",
+      "artboard": "main > section:nth-of-type(4)",
+      "page": "section[aria-labelledby=setup-goes-with-you]"
+    },
+    {
+      "name": "done",
+      "artboard": "main > div:last-child",
+      "page": ".av-setup-done"
+    },
+    {
+      "name": "role 3",
+      "artboard": "main > section:nth-of-type(2) > div:nth-of-type(2) > div:nth-child(3)",
+      "page": "section[aria-labelledby=setup-roles] .av-setup-line:nth-child(3)"
+    }
+  ],
+  "deviations": [
+    "The board draws About you as three open text boxes; the page shows the saved values in the same boxes and opens them with 'Edit your details' (the link is removed from the page for the comparison).",
+    "The 'See your balance over the last 12 months' link under 'This profile goes with you' has no place on the board (it is removed from the page for the comparison); the template's heading-matching link appears only when the template has headings (mocked empty).",
+    "The three style tiles carry two lines on the board (name and a sample); the API gives style names only, so the tiles keep the board's height with one name line.",
+    "Where you've practised: Edit links and Add another role keep a 52px tap area through a transparent ::after, the visible text is the board's size.",
+    "'Edit your courses' under Expert training has no place on the board (removed from the page for the comparison)."
+  ],
+  "pageRemove": [
+    "section[aria-labelledby=setup-about] .av-row--spread > :last-child",
+    "section[aria-labelledby=setup-goes-with-you] > div:last-child",
+    "section[aria-labelledby=setup-training] > div:last-child"
+  ]
+}

@@ -110,7 +110,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
   };
 
   return (
-    <div className="av-page av-page--narrow av-stack">
+    <div className="av-page av-page--narrow av-stack av-conflicts">
       <div className="av-stack av-setup-heading">
         {job && <span className="av-setup-eyebrow">{t("setup.conflicts.eyebrow")}</span>}
         <h1>{t("setup.conflicts.title")}</h1>

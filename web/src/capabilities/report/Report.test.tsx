@@ -33,7 +33,7 @@ test("says which sections you wrote and which were built for you, under the pape
   await user.click(screen.getByRole("button", { name: sectionLabel("launch", sectionKeys("launch")[1]!) }));
   expect(screen.getByText(M["report.report.section.generated"]!)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.report.final_check"]! })).toHaveAttribute("href", `/cases/${CASE_A}/final-check`);
-  expect(screen.getByText("Draft 1 · 31 pages")).toBeInTheDocument();
+  expect(screen.getByText("31 pages")).toBeInTheDocument();
 });
 
 test("before anything is built it says so, and offers to build", async () => {
@@ -59,7 +59,7 @@ test("building shows a waiting message, then the new version when it is ready", 
   const { user } = renderAt(url);
   await user.click(await screen.findByRole("button", { name: M["report.report.rebuild"]! }));
   expect(await screen.findByText(M["report.building"]!)).toBeInTheDocument();
-  expect(await screen.findByText("Draft 2 · 31 pages")).toBeInTheDocument();
+  expect(await screen.findByText("31 pages")).toBeInTheDocument();
   await waitFor(() => expect(screen.queryByText(M["report.building"]!)).toBeNull());
 });
 
@@ -197,7 +197,7 @@ test("the footer gives the page limit for the case's track", async () => {
   serve("launch");
   inCase("launch", { court_track: track });
   renderAt(url);
-  expect(await screen.findByText(`Draft 1 · 31 pages · page limit ${limit}`)).toBeInTheDocument();
+  expect(await screen.findByText(`31 pages · ${track.replace(/_/g, "-")}, page limit ${limit}`)).toBeInTheDocument();
 });
 
 describe("after the report is served (rule 8)", () => {

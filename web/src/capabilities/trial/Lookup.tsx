@@ -10,6 +10,7 @@ import { Button, Loading, Notice, TextField } from "../../foundation/ui";
 import { bundleAbbr, longDate, num } from "./data";
 import { checkWithServer, findCopy, unlockCopy, type Opened } from "./offline";
 import { search, type Hit } from "./search";
+import "@fontsource/ibm-plex-mono/500.css";
 import "./trial.css";
 import { w, wn } from "./words";
 

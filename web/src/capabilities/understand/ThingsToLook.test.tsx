@@ -47,12 +47,15 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("lists each thing to look at with its pages, how many you have decided, and passes axe", async () => {
     inCase(run);
     serve();
-    const { container } = open();
+    const { container, user } = open();
     expect(await screen.findByRole("heading", { level: 2, name: "Things to look at" })).toBeInTheDocument();
     expect(screen.getByText("These are prompts, not findings. You decide.", { exact: false })).toBeInTheDocument();
     expect(await screen.findByText("1 of 2 decided")).toBeInTheDocument();
     const first = screen.getByRole("article", { name: "Nothing in the record shows what followed this entry" });
     expect(within(first).getByText("p.214")).toBeInTheDocument();
+    // The decided one is a line in the decided list (new design); pressing it opens it as a card again.
+    const decided = screen.getByRole("region", { name: "Things you have decided" });
+    await user.click(within(decided).getByRole("button", { name: /Nothing in the record shows this was acknowledged/ }));
     const other = screen.getByRole("article", { name: "Nothing in the record shows this was acknowledged" });
     expect(within(other).getByText("p.1071, p.1072")).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
@@ -116,7 +119,7 @@ test("each finding names what the code found, with its date, words and a link to
   serve();
   open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
-  expect(within(card).getByText("19 February 2024 · Hb 98, ferritin 9")).toBeInTheDocument();
+  expect(within(card).getByText("19 Feb 2024 · Hb 98, ferritin 9")).toBeInTheDocument();
   expect(within(card).getByRole("link", { name: "p.214" })).toHaveAttribute("href", `/cases/${CASE_A}/read/214`);
 });
 
@@ -132,8 +135,12 @@ test("the reason can be dictated", async () => {
 test("already decided findings show a one-line summary of the decision", async () => {
   inCase("launch");
   serve();
-  open();
-  const other = await screen.findByRole("article", { name: "Nothing in the record shows this was acknowledged" });
+  const { user } = open();
+  const decided = await screen.findByRole("region", { name: "Things you have decided" });
+  const line = within(decided).getByRole("button", { name: /Nothing in the record shows this was acknowledged/ });
+  expect(line).toHaveTextContent("Relevant");
+  await user.click(line);
+  const other = screen.getByRole("article", { name: "Nothing in the record shows this was acknowledged" });
   expect(within(other).getByRole("radio", { name: "Relevant" })).toBeChecked();
 });
 

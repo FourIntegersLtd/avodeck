@@ -1,0 +1,503 @@
+{
+  "id": "S13-ThingsToLook",
+  "artboard": "S13-ThingsToLook.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/things-to-look-at",
+  "width": 1440,
+  "height": 1000,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed_colorectal_referral",
+      "specialty": "general-practice",
+      "expert_role": "single",
+      "label": "Mrs A",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "created_at": "2026-10-01T09:00:00Z",
+      "updated_at": "2026-10-01T09:00:00Z",
+      "stage": "understand",
+      "allowed_actions": [
+        "case.view_content",
+        "finding.decide",
+        "link.suggest",
+        "link.decide",
+        "comment.write"
+      ]
+    },
+    "/v1/cases/*/findings": {
+      "findings": [
+        {
+          "id": "c0000001-1111-4111-8111-111111111111",
+          "check_key": "abnormal_result_no_action",
+          "rule": "no_action_within",
+          "gentle": false,
+          "evidence_fact_ids": [
+            "f0000001-2222-4222-8222-222222222222"
+          ],
+          "evidence_pages": [
+            214
+          ],
+          "evidence": [
+            {
+              "fact_id": "f0000001-2222-4222-8222-222222222222",
+              "kind": "result",
+              "page_no": 214,
+              "event_date": "2024-02-19",
+              "summary": "Hb 98, ferritin 9"
+            }
+          ],
+          "decision": null,
+          "reason": null,
+          "version": 1,
+          "status": "open"
+        },
+        {
+          "id": "c0000002-1111-4111-8111-111111111111",
+          "check_key": "out_of_hours_no_letter",
+          "rule": "no_followup_within",
+          "gentle": false,
+          "evidence_fact_ids": [
+            "f0000002-2222-4222-8222-222222222222"
+          ],
+          "evidence_pages": [
+            1071
+          ],
+          "evidence": [
+            {
+              "fact_id": "f0000002-2222-4222-8222-222222222222",
+              "kind": "result",
+              "page_no": 1071,
+              "event_date": "2024-04-22",
+              "summary": "111 call for tummy pain"
+            }
+          ],
+          "decision": null,
+          "reason": null,
+          "version": 1,
+          "status": "open"
+        },
+        {
+          "id": "c0000003-1111-4111-8111-111111111111",
+          "check_key": "repeat_medicine_no_monitoring",
+          "rule": "no_followup_within",
+          "gentle": false,
+          "evidence_fact_ids": [
+            "f0000003-2222-4222-8222-222222222222"
+          ],
+          "evidence_pages": [
+            87
+          ],
+          "evidence": [
+            {
+              "fact_id": "f0000003-2222-4222-8222-222222222222",
+              "kind": "result",
+              "page_no": 87,
+              "event_date": "2024-06-03",
+              "summary": "Iron"
+            }
+          ],
+          "decision": "relevant",
+          "reason": "x",
+          "version": 1,
+          "status": "open"
+        },
+        {
+          "id": "c0000004-1111-4111-8111-111111111111",
+          "check_key": "examination_recorded",
+          "rule": "no_followup_within",
+          "gentle": false,
+          "evidence_fact_ids": [
+            "f0000004-2222-4222-8222-222222222222"
+          ],
+          "evidence_pages": [
+            118
+          ],
+          "evidence": [
+            {
+              "fact_id": "f0000004-2222-4222-8222-222222222222",
+              "kind": "result",
+              "page_no": 118,
+              "event_date": "2024-05-15",
+              "summary": "Rectal bleeding"
+            }
+          ],
+          "decision": "relevant",
+          "reason": "x",
+          "version": 1,
+          "status": "open"
+        },
+        {
+          "id": "c0000005-1111-4111-8111-111111111111",
+          "check_key": "safety_netting_recorded",
+          "rule": "no_followup_within",
+          "gentle": false,
+          "evidence_fact_ids": [
+            "f0000005-2222-4222-8222-222222222222"
+          ],
+          "evidence_pages": [
+            118
+          ],
+          "evidence": [
+            {
+              "fact_id": "f0000005-2222-4222-8222-222222222222",
+              "kind": "result",
+              "page_no": 118,
+              "event_date": "2024-05-15",
+              "summary": "Rectal bleeding"
+            }
+          ],
+          "decision": "explained_elsewhere",
+          "reason": "x",
+          "version": 1,
+          "status": "open"
+        },
+        {
+          "id": "c0000006-1111-4111-8111-111111111111",
+          "check_key": "missed_appointments_followed_up",
+          "rule": "no_followup_within",
+          "gentle": false,
+          "evidence_fact_ids": [
+            "f0000006-2222-4222-8222-222222222222"
+          ],
+          "evidence_pages": [
+            140
+          ],
+          "evidence": [
+            {
+              "fact_id": "f0000006-2222-4222-8222-222222222222",
+              "kind": "result",
+              "page_no": 140,
+              "event_date": "2024-06-28",
+              "summary": "Nurse appointment"
+            }
+          ],
+          "decision": "not_relevant",
+          "reason": "x",
+          "version": 1,
+          "status": "open"
+        },
+        {
+          "id": "c0000007-1111-4111-8111-111111111111",
+          "check_key": "referral_acknowledged",
+          "rule": "no_followup_within",
+          "gentle": false,
+          "evidence_fact_ids": [
+            "f0000007-2222-4222-8222-222222222222"
+          ],
+          "evidence_pages": [
+            150
+          ],
+          "evidence": [
+            {
+              "fact_id": "f0000007-2222-4222-8222-222222222222",
+              "kind": "result",
+              "page_no": 150,
+              "event_date": "2024-08-12",
+              "summary": "Referral"
+            }
+          ],
+          "decision": "not_relevant",
+          "reason": "x",
+          "version": 1,
+          "status": "open"
+        }
+      ]
+    },
+    "/v1/cases/*/findings/*": {
+      "id": "c0000001-1111-4111-8111-111111111111",
+      "check_key": "abnormal_result_no_action",
+      "rule": "no_action_within",
+      "gentle": false,
+      "evidence_fact_ids": [
+        "f0000001-2222-4222-8222-222222222222"
+      ],
+      "evidence_pages": [
+        214
+      ],
+      "evidence": [
+        {
+          "fact_id": "f0000001-2222-4222-8222-222222222222",
+          "kind": "result",
+          "page_no": 214,
+          "event_date": "2024-02-19",
+          "summary": "Hb 98, ferritin 9"
+        }
+      ],
+      "decision": "relevant",
+      "reason": "Central to question 1. Iron was started on 1 March, so the result was seen, but no cause was looked for.",
+      "version": 1,
+      "status": "open"
+    },
+    "/v1/me/checks": {
+      "checks": [
+        {
+          "key": "abnormal_result_no_action",
+          "label": "Abnormal results are acted on",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "referral_acknowledged",
+          "label": "Referrals are acknowledged",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "repeat_medicine_no_monitoring",
+          "label": "Repeat medicines are monitored",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "out_of_hours_no_letter",
+          "label": "Out-of-hours visits reach the GP",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "hospital_letter_no_action",
+          "label": "Hospital letters are acted on",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "examination_recorded",
+          "label": "Examination recorded",
+          "enabled": true,
+          "gentle": true,
+          "window_days": null
+        },
+        {
+          "key": "safety_netting_recorded",
+          "label": "Safety-netting recorded",
+          "enabled": true,
+          "gentle": true,
+          "window_days": null
+        },
+        {
+          "key": "missed_appointments_followed_up",
+          "label": "Missed appointments followed up",
+          "enabled": false,
+          "gentle": false,
+          "window_days": null
+        }
+      ]
+    },
+    "/v1/cases/*/steps/progress": {
+      "steps": [
+        {
+          "key": "read",
+          "done": 1231,
+          "total": 1231,
+          "percent": 100
+        }
+      ]
+    },
+    "/v1/cases/*/links": {
+      "links": []
+    },
+    "/v1/me/checks?*": {
+      "checks": [
+        {
+          "key": "abnormal_result_no_action",
+          "label": "Abnormal results are acted on",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "referral_acknowledged",
+          "label": "Referrals are acknowledged",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "repeat_medicine_no_monitoring",
+          "label": "Repeat medicines are monitored",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "out_of_hours_no_letter",
+          "label": "Out-of-hours visits reach the GP",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "hospital_letter_no_action",
+          "label": "Hospital letters are acted on",
+          "enabled": true,
+          "gentle": false,
+          "window_days": null
+        },
+        {
+          "key": "examination_recorded",
+          "label": "Examination recorded",
+          "enabled": true,
+          "gentle": true,
+          "window_days": null
+        },
+        {
+          "key": "safety_netting_recorded",
+          "label": "Safety-netting recorded",
+          "enabled": true,
+          "gentle": true,
+          "window_days": null
+        },
+        {
+          "key": "missed_appointments_followed_up",
+          "label": "Missed appointments followed up",
+          "enabled": false,
+          "gentle": false,
+          "window_days": null
+        }
+      ]
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".av-understand-finding"
+    },
+    {
+      "click": "label.av-pill:has-text(\"Relevant\")"
+    },
+    {
+      "blur": true
+    },
+    {
+      "hover": "h2"
+    }
+  ],
+  "probes": [
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-understand-things__head h2"
+    },
+    {
+      "name": "intro",
+      "artboard": "main section > div:first-child p",
+      "page": ".av-understand-things__head p"
+    },
+    {
+      "name": "count",
+      "artboard": "main section > div:first-child > span",
+      "page": ".av-understand-things__count"
+    },
+    {
+      "name": "card1",
+      "artboard": "main section > div:nth-child(2)",
+      "page": "article.av-understand-finding:nth-of-type(1)"
+    },
+    {
+      "name": "card2",
+      "artboard": "main section > div:nth-child(3)",
+      "page": "article.av-understand-finding:nth-of-type(2)"
+    },
+    {
+      "name": "done",
+      "artboard": "main section > div:nth-child(4)",
+      "page": ".av-understand-done"
+    },
+    {
+      "name": "aside",
+      "artboard": "aside",
+      "page": ".av-understand-things__side > section"
+    },
+    {
+      "name": "foot",
+      "artboard": "main > div:last-child a",
+      "page": ".av-understand-foot a"
+    },
+    {
+      "name": "pills1",
+      "artboard": "main section > div:nth-child(2) > div:nth-child(2)",
+      "page": "article.av-understand-finding:nth-of-type(1) .av-pill-group"
+    },
+    {
+      "name": "reason1",
+      "artboard": "main section > div:nth-child(2) > span",
+      "page": ".av-understand-reasonbox"
+    },
+    {
+      "name": "head1",
+      "artboard": "main section > div:nth-child(2) > div:nth-child(1)",
+      "page": "article.av-understand-finding:nth-of-type(1) .av-understand-finding__body"
+    },
+    {
+      "name": "asideh2",
+      "artboard": "aside > h2",
+      "page": ".av-understand-checks h2"
+    },
+    {
+      "name": "asidehint",
+      "artboard": "aside > p:nth-of-type(1)",
+      "page": ".av-understand-checks > div:first-child p"
+    },
+    {
+      "name": "row1",
+      "artboard": "aside > div:nth-of-type(1)",
+      "page": ".av-understand-check"
+    },
+    {
+      "name": "addcheck",
+      "artboard": "aside > a",
+      "page": ".av-understand-addcheck"
+    },
+    {
+      "name": "gentlenote",
+      "artboard": "aside > p:last-child",
+      "page": ".av-understand-checks > p"
+    },
+    {
+      "name": "donerow1",
+      "artboard": "main section > div:nth-child(4) > div:nth-child(1)",
+      "page": ".av-understand-done__row"
+    },
+    {
+      "name": "reason2",
+      "artboard": "main section > div:nth-child(3) > span",
+      "page": "article.av-understand-finding:nth-of-type(2) .av-dictation__frame",
+      "allow": [
+        "color",
+        "backgroundColor",
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft"
+      ]
+    }
+  ],
+  "deviations": [
+    "Text under 17px is raised to 17px, so the harness renders the artboard the same way.",
+    "'6 of 7 decided' where the canvas says '5 of 7': the canvas shows two cards and five decided rows (seven findings) with the first card already decided, which counts six.",
+    "A finding you decided earlier is one line in the decided list; pressing it opens it as a card again. The canvas keeps the card you have just decided open, as the app does.",
+    "The card icon is one flag for every check; the canvas draws a flask and a moon, which no data picks.",
+    "The second line has no 'filed by' part (no API field).",
+    "The reason box is always on a card you can decide (the canvas draws it only on the second card too); 'Save my decision' appears only when a reason is needed or has changed.",
+    "'Check again' and 'Look at the links to the questions' sit under the checks panel; the canvas has neither.",
+    "'\u00b7 gentle' is part of the check's name rather than a smaller muted word (the switch label is one string).",
+    "The 'Days allowed' fold under the checks shows only when a check has a number of days; the mock has none.",
+    "A step you have finished (Read 100%) shows its tick and no figure.",
+    "Saved is announced to screen readers but no longer printed under the card.",
+    "Tap areas: pills, switches, 'Dictate' and 'Add your own check' keep 52px through ::after hit boxes while drawn at canvas size."
+  ],
+  "budget": 1.1,
+  "budgetReason": "The remaining pixels are words: finding titles come from the pack's check words (the mock uses keys the pack has no words for), the 'filed by' part of the second line, the card icons (one flag for every check) and the decided rows' titles; every box is probed and matches."
+}

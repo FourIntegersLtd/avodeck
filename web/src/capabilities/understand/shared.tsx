@@ -16,6 +16,18 @@ export function longDate(iso: string | null | undefined): string {
   return LONG_DATE.format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
 }
 
+/** "2024-02-19" -> "19 Feb" (and "19 Feb 2023" when the year is not the one given): a calendar date, never shifted. */
+export function shortDate(iso: string | null | undefined, year?: string | null): string {
+  if (!iso) return w("common.no_date");
+  const [y, m, d] = iso.split("-").map(Number);
+  const day = new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1));
+  const words = (year && String(y) !== year ? SHORT_DATE_YEAR : SHORT_DATE).format(day);
+  return words.replace("Sept", "Sep");
+}
+
+const SHORT_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+const SHORT_DATE_YEAR = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
 /** Built once: a long timeline formats a date per entry, and making a formatter each time is slow. */
 const LONG_DATE = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 

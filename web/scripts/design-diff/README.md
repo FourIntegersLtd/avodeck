@@ -21,8 +21,8 @@ installed, set `CHROMIUM_PATH` to a Chromium binary.
 | `id`, `artboard`, `route` | screen id, artboard file name, route of the live page |
 | `width`, `height` | the artboard's `$preview` size |
 | `session` | `true` signs the page in with the standard mocks in `mocks.mjs` |
-| `mock` | `{ "/v1/path": json }` extra canned API answers for the state drawn (Playwright URL globs) |
-| `setup` | steps to reach the drawn state: `{fill, value}`, `{click}`, `{waitFor}`, `{blur: true}` |
+| `mock` | `{ "/v1/path": json }` extra canned API answers for the state drawn (Playwright URL globs). A body of `{"$file":"fixtures/x.svg","contentType":"image/svg+xml"}` serves that file as is |
+| `setup` | steps to reach the drawn state: `{fill, value}`, `{click}`, `{waitFor}`, `{blur: true}`, `{hover}` (move the pointer off a clicked button), `{scrollTop: true}`, `{goto: "/path"}`, `{wait: ms}`, `{setFiles}`, `{scrollTop: true}`, `{goto: "/path"}`, `{wait: ms}` |
 | `artboardRemove`, `pageRemove` | selectors to strip noise (the "Design notes" callout, banners, floating widgets) |
 | `probes` | `{name, artboard, page, allow?}` selector pairs to measure; `allow` lists props that deliberately differ |
 | `artboardCss` | extra CSS for the artboard only, for a deliberate deviation (explain it in `deviations`) |

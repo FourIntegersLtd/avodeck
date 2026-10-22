@@ -1,0 +1,69 @@
+/* S04 New case, transcribed from the canvas board (S04-NewCase.dc.html). Scoped to .av-newcase. */
+.av-focused-bar__cancel { margin-right: -8px; }
+.av-page.av-newcase { max-width: 1080px; padding: 48px 40px 64px; display: flex; flex-direction: column; gap: 40px; }
+.av-newcase.av-stack > * + * { margin-top: 0; }
+.av-newcase .av-setup-title > div { display: flex; flex-direction: column; gap: 8px; }
+.av-newcase .av-setup-title h1 { margin: 0; font-size: 36px; line-height: 1.5; }
+.av-newcase .av-setup-lead { margin: 0; font-size: 19px; }
+
+/* The three drop tiles */
+.av-newcase .av-setup-drops { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.av-newcase .av-dropzone { position: relative; padding: 28px; gap: 14px; border-radius: 20px; box-sizing: border-box; }
+.av-newcase .av-dropzone--added { border-color: #2F9E6E; }
+.av-newcase .av-dropzone__title { font-size: 21px; line-height: 1.5; }
+.av-newcase .av-dropzone__hint { font-size: 17px; }
+/* The whole tile is the file chooser; its label stays in the page for screen readers. */
+.av-newcase .av-dropzone__browse { position: absolute; inset: 0; margin: 0; min-height: 0; overflow: hidden; border-radius: 18px; text-indent: -9999px; cursor: pointer; }
+.av-newcase .av-dropzone:focus-within { outline: 3px solid var(--focus); outline-offset: 2px; }
+.av-newcase .av-dropzone__browse:focus-within { outline: 0; }
+.av-newcase .av-setup-added { padding: 10px 12px; border-radius: 10px; background: var(--surface-soft); }
+.av-newcase .av-setup-added li { display: block; }
+.av-newcase .av-setup-added li span { display: inline; }
+.av-newcase .av-setup-added li span + span { display: block; }
+
+/* A few questions */
+.av-newcase .av-setup-title > div { flex: 1 1 auto; }
+.av-newcase .av-setup-page .av-card, .av-page.av-newcase .av-card { border-radius: 20px; padding: 36px 40px; }
+.av-newcase .av-setup-form > * + * { margin-top: 0; }
+.av-newcase .av-setup-form { display: flex; flex-direction: column; gap: 30px; }
+.av-newcase .av-setup-form h2 { margin: 0; font-size: 24px; line-height: 1.5; }
+
+/* Footer */
+.av-newcase .av-setup-footer { padding: 0; gap: 20px; }
+.av-newcase .av-setup-footer .av-button--quiet { padding: 0; font-size: 17px; }
+.av-newcase .av-setup-footer .av-button:last-child { padding: 16px 28px; font-size: 19px; border-radius: 12px; }
+.av-newcase .av-dropzone { align-items: stretch; }
+
+/* Question blocks: 10px between a label, its hint and its control */
+.av-newcase .av-setup-form .av-stack > * + *, .av-newcase .av-setup-form .av-setup-choice > * + * { margin-top: 0; }
+.av-newcase .av-setup-form .av-stack, .av-newcase .av-setup-form .av-field, .av-newcase .av-setup-form .av-setup-choice { display: flex; flex-direction: column; gap: 10px; }
+.av-newcase .av-setup-form .av-field__label, .av-newcase .av-setup-form .av-setup-q-label { font-size: 19px; line-height: 1.5; margin: 0; }
+.av-newcase .av-setup-form .av-field__hint, .av-newcase .av-setup-form .av-setup-q-hint { font-size: 17px; margin: 0; }
+.av-newcase .av-setup-form .av-input, .av-newcase .av-setup-form .av-textarea { font-size: 18px; line-height: normal; min-height: 0; padding: 16px 18px; border: 1.5px solid #B9C3BD; border-radius: 12px; }
+.av-newcase .av-setup-form .av-setup-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; align-items: start; }
+.av-newcase .av-setup-form .av-stack > .av-setup-pair:first-child { grid-template-columns: minmax(0, 560px) minmax(0, 1fr); gap: 20px; }
+.av-newcase .av-setup-form .av-setup-linkbtn { position: relative; padding: 0; min-height: 0; font-size: 17px; text-decoration: none; }
+.av-newcase .av-setup-form .av-setup-linkbtn::after { content: ""; position: absolute; inset: -14px -4px; }
+.av-newcase .av-setup-plus { margin-right: 4px; }
+.av-newcase .av-setup-form .av-pill { min-height: 0; padding: 16px 30px; line-height: normal; }
+.av-newcase .av-setup-form h2 + .av-setup-choice .av-pill { padding: 14px 24px; }
+.av-newcase .av-setup-form h2 + .av-setup-choice .av-pill svg { display: none; }
+.av-newcase .av-setup-form .av-pill-group { gap: 12px; }
+.av-newcase .av-setup-q { padding: 0; border-top: 0; }
+.av-newcase .av-setup-pair .av-setup-q-hint { order: 3; } .av-newcase .av-setup-pair .av-segmented { order: 2; }
+
+/* Header: the bar is 76px with its border, as drawn */
+.av-focused-bar { padding-block: 11.5px; min-height: 75px; }
+.av-newcase .av-setup-form .av-stack > .av-setup-pair:first-child { grid-template-columns: minmax(0, 599px) minmax(0, 1fr); }
+.av-newcase .av-setup-form .av-setup-linkbtn { text-decoration: underline; text-underline-offset: auto; }
+
+/* The spoken answer box: one frame, a grey footer, a plain Dictate button */
+.av-newcase .av-dictation__frame { border: 1.5px solid #B9C3BD; border-radius: 12px; }
+.av-newcase .av-dictation__text { min-height: 90px; padding: 16px 18px; font-size: 17px; }
+.av-newcase .av-dictation__footer { padding: 10px; justify-content: space-between; border-top: 1px solid #DDE3DF; }
+.av-newcase .av-dictation__footer .av-button { padding: 10px 18px; min-height: 0; font-size: 17px; line-height: normal; background: #FFFFFF; color: var(--ink); border: 1.5px solid #DDE3DF; position: relative; }
+.av-newcase .av-dictation__footer .av-button::after { content: ""; position: absolute; inset: -7px 0; }
+.av-newcase .av-segmented__option { position: relative; min-height: 0; padding: 12px 20px; }
+.av-newcase .av-segmented__option::after { content: ""; position: absolute; inset: -1.5px 0; }
+.av-newcase .av-setup-form .av-dictation__text { border: 0; border-radius: 0; }
+.av-newcase .av-dictation__text { display: block; }

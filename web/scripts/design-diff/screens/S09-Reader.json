@@ -1,0 +1,323 @@
+{
+  "id": "S09-Reader",
+  "artboard": "S09-Reader.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/read/118",
+  "width": 1440,
+  "height": 960,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed_colorectal_referral",
+      "specialty": "general-practice",
+      "expert_role": "single",
+      "label": "Mrs A",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "created_at": "2026-10-01T09:00:00Z",
+      "updated_at": "2026-10-01T09:00:00Z",
+      "stage": "read",
+      "allowed_actions": [
+        "case.view_metadata",
+        "case.view_content",
+        "fact.verify",
+        "page.read"
+      ]
+    },
+    "/v1/cases/*/progress": {
+      "read": 1104,
+      "total": 1231,
+      "seconds_left": 0
+    },
+    "/v1/cases/*/pages?*": {
+      "pages": [
+        {
+          "page_no": 119
+        }
+      ]
+    },
+    "/v1/cases/*/pages/unreadable": {
+      "total": 22,
+      "done": 0,
+      "pages": []
+    },
+    "/v1/cases/*/pages/118": {
+      "page_id": "99999999-9999-4999-8999-000000000118",
+      "page_no": 118,
+      "source_type": "primary_care_record",
+      "read": true,
+      "in_period": true,
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "unreadable": false,
+      "rotation": 0,
+      "relevance": null,
+      "needs_clearer_copy": false,
+      "superseded_by_page_no": null,
+      "duplicate_of_page_no": null,
+      "handwriting": null,
+      "has_transcription": false,
+      "first_read_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/pages/118/image": {
+      "$file": "fixtures/blank-page.svg",
+      "contentType": "image/svg+xml"
+    },
+    "/v1/cases/*/pages/118/facts": {
+      "facts": [
+        {
+          "id": "88888888-8888-4888-8888-000000000001",
+          "kind": "consultation",
+          "fields": {
+            "date": "2024-05-15",
+            "who": "Dr P, GP",
+            "how": "Face to face, at the surgery",
+            "problems": "1 raised (haemorrhoids)",
+            "examination": "None recorded"
+          },
+          "value": "GP visit \u00b7 15 May 2024",
+          "word_ids": [
+            "w1"
+          ],
+          "bbox": {
+            "x0": 0.0286,
+            "y0": 0.32335,
+            "x1": 0.77145,
+            "y1": 0.61365
+          },
+          "event_date": "2024-05-15",
+          "status": "suggested",
+          "version": 1,
+          "flagged": false,
+          "needs_recheck": false,
+          "related": []
+        },
+        {
+          "id": "88888888-8888-4888-8888-000000000002",
+          "kind": "prescription",
+          "fields": {
+            "date": "2024-05-15"
+          },
+          "value": "Anusol HC suppositories",
+          "word_ids": [
+            "w2"
+          ],
+          "bbox": null,
+          "event_date": "2024-05-15",
+          "status": "verified",
+          "version": 1,
+          "flagged": true,
+          "needs_recheck": false,
+          "related": []
+        }
+      ]
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".rd-card"
+    },
+    {
+      "click": "button[aria-label='Zoom in']"
+    },
+    {
+      "hover": ".rd-source"
+    }
+  ],
+  "probes": [
+    {
+      "name": "banner",
+      "artboard": "body > div > div:nth-child(2)",
+      "page": ".rd-banner"
+    },
+    {
+      "name": "section",
+      "artboard": "section",
+      "page": ".rd-pane",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "paper",
+      "artboard": "section > div:nth-child(2)",
+      "page": ".rd-paper",
+      "allow": [
+        "fontFamily",
+        "lineHeight",
+        "color",
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft"
+      ]
+    },
+    {
+      "name": "aside",
+      "artboard": "aside",
+      "page": ".rd-side",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "aside h2",
+      "artboard": "aside h2",
+      "page": ".rd-side__head h2"
+    },
+    {
+      "name": "card",
+      "artboard": "aside > div:nth-child(2)",
+      "page": ".rd-side article:nth-of-type(1) .rd-card"
+    },
+    {
+      "name": "keys",
+      "artboard": "aside > div:nth-child(5)",
+      "page": ".rd-keys",
+      "allow": [
+        "rect.y"
+      ]
+    },
+    {
+      "name": "footer",
+      "artboard": "footer",
+      "page": ".rd-foot"
+    },
+    {
+      "name": "next button",
+      "artboard": "footer > a:last-child",
+      "page": ".rd-foot > .av-button:last-child"
+    },
+    {
+      "name": "highlight",
+      "artboard": "section > div:nth-child(2) > div[style*='FFF3B0']",
+      "page": ".rd-mark",
+      "allow": [
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft",
+        "fontFamily",
+        "fontSize",
+        "fontWeight",
+        "lineHeight",
+        "color"
+      ]
+    },
+    {
+      "name": "progress text",
+      "artboard": "footer > div > span",
+      "page": ".rd-progress p"
+    },
+    {
+      "name": "progress bar",
+      "artboard": "footer > div > div",
+      "page": ".rd-progress .av-progress"
+    },
+    {
+      "name": "prev",
+      "artboard": "footer > a:first-child",
+      "page": ".rd-foot > .av-button:first-child"
+    },
+    {
+      "name": "hard link",
+      "artboard": "footer > a:nth-child(3)",
+      "page": ".rd-hard"
+    },
+    {
+      "name": "bar",
+      "artboard": "body > div > header",
+      "page": ".av-case-bar",
+      "allow": [
+        "backgroundColor"
+      ]
+    },
+    {
+      "name": "bar logo",
+      "artboard": "header > a:first-child",
+      "page": ".av-case-bar .av-logo"
+    },
+    {
+      "name": "bar name",
+      "artboard": "header > div",
+      "page": ".av-case-bar__name"
+    },
+    {
+      "name": "bar steps",
+      "artboard": "header nav",
+      "page": ".av-case-bar__steps",
+      "allow": [
+        "rect.y",
+        "rect.h"
+      ]
+    },
+    {
+      "name": "step 1",
+      "artboard": "header nav a:nth-child(1)",
+      "page": ".av-step:nth-child(1) .av-step__pill"
+    },
+    {
+      "name": "step 2",
+      "artboard": "header nav a:nth-child(2)",
+      "page": ".av-step:nth-child(2) .av-step__pill"
+    },
+    {
+      "name": "step 3",
+      "artboard": "header nav a:nth-child(3)",
+      "page": ".av-step:nth-child(3) .av-step__pill"
+    },
+    {
+      "name": "step 5",
+      "artboard": "header nav a:nth-child(5)",
+      "page": ".av-step:nth-child(5) .av-step__pill"
+    },
+    {
+      "name": "marker 2",
+      "artboard": "header nav a:nth-child(2) > span",
+      "page": ".av-step:nth-child(2) .av-step__marker"
+    },
+    {
+      "name": "marker 3",
+      "artboard": "header nav a:nth-child(3) > span",
+      "page": ".av-step:nth-child(3) .av-step__marker"
+    },
+    {
+      "name": "avatar",
+      "artboard": "header > span:last-child",
+      "page": ".av-shell__avatar-disc"
+    },
+    {
+      "name": "step 4",
+      "artboard": "header nav a:nth-child(4)",
+      "page": ".av-step:nth-child(4) .av-step__pill",
+      "allow": [
+        "paddingTop",
+        "paddingBottom"
+      ]
+    }
+  ],
+  "deviations": [
+    "The scanned page is a picture in the app; the artboard draws it as typed text. The harness serves a blank page picture of the same size (fixtures/blank-page.svg) and hides the artboard's page text, so only the paper box and the highlight are compared (fonts, padding and colour of the paper are not).",
+    "Toolbar chips are drawn 44px high as in the canvas; their tap area stays 52px through an ::after hit box. Links such as 'Change a detail' and 'Why we do this' keep a 52px tap area the same way.",
+    "The canvas source line reads 'GP record \u00b7 consultations'; the API gives a page's source type only, so the page shows 'GP record'. The words after the dot need a page-section field.",
+    "'Not right' for a checked fact is a quiet link that appears on the checked row when pointed at, tapped or reached by keyboard (the canvas draws no button there; the server allows it).",
+    "'Also: R mark as read, 3 change a detail, J and K change page' is kept for screen readers only; the canvas draws just the three key hints.",
+    "'Add a reason' (optional reason for Not right) sits beside 'Change a detail' on one line; the canvas has no such control.",
+    "The first 'PLEASE CHECK' card shows no kind label ('Consultation'); it stays in the page for screen readers.",
+    "The Examination value is not bold when 'None recorded': the canvas emphasis is a content rule the API does not carry.",
+    "The header's step pills sit a few pixels from the canvas (case bar is foundation-owned, not changed here).",
+    "The page keeps the reader's suggestion switcher: one full card at a time, then the switcher list and 'Checked on this page (n)' folded below it. The canvas stacks the card, a checked row and a flag button, so the 'checked row' and 'flag button' probes are dropped (they are still built and tested in the card of a checked suggestion) and the keyboard hints sit higher (rect.y allowed on 'keys')."
+  ],
+  "artboardCss": "[style*='min-height: 560px'] > div:not([style*='FFF3B0']){visibility:hidden} [style*='min-height: 560px'] > div[style*='FFF3B0'] span{visibility:hidden}",
+  "artboardRemove": [],
+  "pageRemove": [],
+  "budget": 1.5,
+  "budgetReason": "Below the suggestion card the page keeps the reader's switcher list and 'Checked on this page (n)' fold where the canvas draws a checked row and a flag button; the source line lacks the words after the dot (no API field). Every box above that is probed and matches."
+}

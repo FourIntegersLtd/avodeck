@@ -1,0 +1,283 @@
+{
+  "id": "S08-BundleReady",
+  "artboard": "S08-BundleReady.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/bundle",
+  "width": 1440,
+  "height": 960,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [
+        "page.quarantine",
+        "request.draft",
+        "case.upload"
+      ],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z",
+      "stage": "prepare"
+    },
+    "/v1/cases/*/bundle/summary": {
+      "by_source": [
+        {
+          "source_type": "primary_care_record",
+          "pages": 405
+        },
+        {
+          "source_type": "hospital",
+          "pages": 664
+        },
+        {
+          "source_type": "out_of_hours",
+          "pages": 14
+        },
+        {
+          "source_type": "results",
+          "pages": 58
+        },
+        {
+          "source_type": "letters",
+          "pages": 90
+        }
+      ],
+      "documents": [
+        {
+          "bundle_version": 1,
+          "filename": "GP record (EMIS)",
+          "first_page_no": null,
+          "id": "d0000001-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": "Subject access request",
+          "pages": 405,
+          "received_on": "2026-10-02"
+        },
+        {
+          "bundle_version": 1,
+          "filename": "Hospital notes",
+          "first_page_no": null,
+          "id": "d0000002-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": "Pre-action disclosure",
+          "pages": 664,
+          "received_on": "2026-10-02"
+        },
+        {
+          "bundle_version": 1,
+          "filename": "Out of hours, results, letters",
+          "first_page_no": null,
+          "id": "d0000003-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": "With the GP record",
+          "pages": 162,
+          "received_on": "2026-10-02"
+        }
+      ],
+      "duplicates": 37,
+      "exhibits": [
+        {
+          "added_at": "2026-10-02T09:00:00Z",
+          "document_id": "e1111111-1111-4111-8111-111111111111",
+          "filename": "call.m4a",
+          "id": "f1111111-1111-4111-8111-111111111111",
+          "media_type": "audio/mp4",
+          "size": 1000
+        }
+      ],
+      "foreign_language": [
+        {
+          "language": "cy",
+          "page_id": "a1111111-1111-4111-8111-111111111111",
+          "page_no": 903
+        }
+      ],
+      "gaps": 0,
+      "missing_items": 2,
+      "pages": 1231,
+      "quarantine_suggestions": [
+        {
+          "page_id": "b0000412-1111-4111-8111-111111111111",
+          "page_no": 412,
+          "reason": "different_person",
+          "status": "suggested"
+        },
+        {
+          "page_id": "b0000413-1111-4111-8111-111111111111",
+          "page_no": 413,
+          "reason": "different_person",
+          "status": "suggested"
+        },
+        {
+          "page_id": "b0000414-1111-4111-8111-111111111111",
+          "page_no": 414,
+          "reason": "different_person",
+          "status": "suggested"
+        },
+        {
+          "page_id": "b0000415-1111-4111-8111-111111111111",
+          "page_no": 415,
+          "reason": "different_person",
+          "status": "suggested"
+        }
+      ],
+      "quarantined": [],
+      "unreadable": 31,
+      "versions": [
+        {
+          "added_at": "2026-10-02T09:00:00Z",
+          "bundle_version": 1,
+          "documents": 3,
+          "first_page_no": 1,
+          "last_page_no": 1231
+        }
+      ]
+    },
+    "/v1/cases/*/missing-items": {
+      "missing_items": [
+        {
+          "citing_page_id": "c0000001-1111-4111-8111-111111111111",
+          "citing_page_no": 100,
+          "description": "The colonoscopy report from September 2024 is mentioned in a letter but isn't in the bundle.",
+          "id": "m0000001-1111-4111-8111-111111111111",
+          "reason": null,
+          "received_page_id": null,
+          "received_page_no": null,
+          "reference_date": null,
+          "status": "open",
+          "version": 1,
+          "word_ids": []
+        },
+        {
+          "citing_page_id": "c0000002-1111-4111-8111-111111111111",
+          "citing_page_no": 200,
+          "description": "The practice task list stops in January 2024. It may show whether the February result was seen.",
+          "id": "m0000002-1111-4111-8111-111111111111",
+          "reason": null,
+          "received_page_id": null,
+          "received_page_no": null,
+          "reference_date": null,
+          "status": "open",
+          "version": 1,
+          "word_ids": []
+        }
+      ]
+    },
+    "/v1/me/stats/balance*": {
+      "counts": {
+        "other_side": 14,
+        "instructing_side": 9,
+        "joint": 2
+      },
+      "months": 12
+    }
+  },
+  "probes": [
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-page h1"
+    },
+    {
+      "name": "sources card",
+      "artboard": "main > div > section:nth-child(1)",
+      "page": ".pl-sources"
+    },
+    {
+      "name": "cards col",
+      "artboard": "main > div > section:nth-child(2)",
+      "page": ".pl-cards"
+    },
+    {
+      "name": "card 1",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(1)",
+      "page": ".pl-cards > :nth-child(1)"
+    },
+    {
+      "name": "card 2",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(2)",
+      "page": ".pl-cards > :nth-child(2)"
+    },
+    {
+      "name": "card 3",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(3)",
+      "page": ".pl-cards > :nth-child(3)"
+    },
+    {
+      "name": "card 4",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(4)",
+      "page": ".pl-cards > :nth-child(4)"
+    },
+    {
+      "name": "card 5",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(5)",
+      "page": ".pl-cards > :nth-child(5)"
+    },
+    {
+      "name": "card 6",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(6)",
+      "page": ".pl-cards > :nth-child(6)"
+    },
+    {
+      "name": "files",
+      "artboard": "main > section",
+      "page": ".pl-files"
+    },
+    {
+      "name": "start",
+      "artboard": "main > div:last-child > a",
+      "page": ".pl-actions .av-button"
+    },
+    {
+      "name": "c6 row",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(6) > div:nth-child(1)",
+      "page": ".pl-cards > :nth-child(6) .pl-card__row"
+    },
+    {
+      "name": "c6 title",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(6) > div:nth-child(1) > span:nth-child(2)",
+      "page": ".pl-cards > :nth-child(6) .pl-card__title"
+    },
+    {
+      "name": "c6 btn",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(6) > div:nth-child(1) > a",
+      "page": ".pl-cards > :nth-child(6) .av-button"
+    },
+    {
+      "name": "c6 list",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(6) > div:nth-child(2)",
+      "page": ".pl-cards > :nth-child(6) .pl-card__below"
+    },
+    {
+      "name": "c6 li1",
+      "artboard": "main > div > section:nth-child(2) > div:nth-child(6) > div:nth-child(2) > span:nth-child(1)",
+      "page": ".pl-cards > :nth-child(6) .pl-missing li:nth-child(1)"
+    }
+  ],
+  "deviations": [
+    "Source bands are proportional to the real page counts (the board's heights are fixed sample values), so band edges and the two shortest labels differ a little.",
+    "Card buttons are drawn at the board's 10px 18px size with a transparent ::after hit area of 52px."
+  ],
+  "budget": 1.0,
+  "budgetReason": "Residual is copy and data shape: the pack's source words differ from the board's sample labels, the board hard-codes band heights (33%, 54% ...) where the page draws bands in proportion to real page counts, and some sentences come from app strings."
+}

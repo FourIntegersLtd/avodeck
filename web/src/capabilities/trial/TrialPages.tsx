@@ -8,7 +8,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
 import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
-import { joined, longDate, mediumDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, trialRef, vocab } from "./data";
+import { dayMonth, joined, longDate, mediumDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, trialRef, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { w, wn } from "./words";
 
@@ -47,7 +47,7 @@ function Pages({ frame }: { frame: Frame }) {
 
   const header = (
     <TrialTitle title={w("pages.title")}>
-      <p className="av-trial-lead">{w("pages.lead", { court_bundle: bundleName })}</p>
+      <p className="av-trial-lead">{w(status === "matched" ? "pages.lead_done" : "pages.lead", { court_bundle: bundleName })}</p>
     </TrialTitle>
   );
   if (data.error) return <TrialPage width="s23">{header}<LoadError onRetry={data.reload} /></TrialPage>;
@@ -125,19 +125,16 @@ function Pages({ frame }: { frame: Frame }) {
           <div className="av-trial-top">
             <section className="av-card av-trial-bundle" data-testid="bundle-card">
               <IconTile>
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H2zM22 4h-7a3 3 0 0 0-3 3v13a2 2 0 0 1 2-2h8z" /></svg>
+                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 5h6a2 2 0 012 2v12a2 2 0 00-2-2H4zM20 5h-6a2 2 0 00-2 2v12a2 2 0 012-2h6z" /></svg>
               </IconTile>
               <div>
                 <p className="av-trial-strong av-trial-cap">{bundleName}</p>
                 <p className="av-trial-muted">
                   {[
                     w("pages.bundle_line", { version: bundle.version, pages: num(bundle.page_count ?? 0, frame.locale), date: bundle.received_on ? longDate(bundle.received_on, frame.locale) : "" }),
-                    bundle.replaces_received_on && w("pages.replaces", { date: longDate(bundle.replaces_received_on, frame.locale) }),
+                    bundle.replaces_received_on && w("pages.replaces", { date: dayMonth(bundle.replaces_received_on, frame.locale, bundle.received_on) }),
                   ].filter(Boolean).join(" · ")}
                 </p>
-                {frame.can("case.upload") && (
-                  <button type="button" className="av-text-link av-trial-linkbutton" aria-expanded={replacing} onClick={() => setReplacing(true)}>{w("pages.new_version")}</button>
-                )}
               </div>
             </section>
             {!matching && (
@@ -157,9 +154,12 @@ function Pages({ frame }: { frame: Frame }) {
                 <Missing rows={missing} bundleName={bundleName} party={partyWord(frame)} canTell={frame.can("request.draft")} told={told} onTell={tell} pack={frame.pack} locale={frame.locale} />
               )}
               <Table caseId={frame.caseId} rows={rows} pack={frame.pack} locale={frame.locale} bundleName={bundleName} canConfirm={frame.can("fact.verify")} onChanged={data.reload} onCsv={() => exportTable("csv")} />
-              <div className="av-trial-actions">
-                <Button variant="secondary" onClick={() => exportTable("pdf")}>{w("pages.export_pdf")}</Button>
-                <LinkButton to={screenPath("trial_pack", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}/trial-pack`} arrow>{w("pages.to_pack")}</LinkButton>
+              <div className="av-trial-actions av-trial-actions--stretch">
+                {frame.can("case.upload") && (
+                  <Button variant="quiet" aria-expanded={replacing} onClick={() => setReplacing(true)}>{w("pages.new_version", { court_bundle: bundleName })}</Button>
+                )}
+                <Button variant="secondary" className="av-trial-print" onClick={() => exportTable("pdf")}>{w("pages.export_pdf")}</Button>
+                <LinkButton className="av-trial-cta" to={screenPath("trial_pack", { caseId: frame.caseId }) ?? `/cases/${frame.caseId}/trial-pack`} arrow>{w("pages.to_pack")}</LinkButton>
               </div>
             </>
           )}
@@ -189,18 +189,22 @@ function Missing({ rows, bundleName, party, canTell, told, onTell, pack, locale 
   return (
     <section aria-labelledby={id} className="av-card av-stack av-trial-missing">
       <div className="av-trial-missing__head">
-        <IconTile tone="amber">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v6M12 16.5v.5" /></svg>
-        </IconTile>
+        <svg className="av-trial-missing__icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v6M12 16.5v.5" /></svg>
         <h2 id={id}>{wn("pages.missing_heading", rows.length, { court_bundle: bundleName })}</h2>
-        {canTell && !told && <Button variant="secondary" onClick={onTell}>{w("pages.tell", { party })}</Button>}
+        {canTell && !told && <Button variant="secondary" className="av-trial-tell" onClick={onTell}>{w("pages.tell", { party })}</Button>}
       </div>
       <ul className="av-trial-list av-trial-list--plain">
         {rows.map((r) => {
           const document = documentOf(r, pack, locale);
           const paras = joined(r.paragraphs, locale);
           const count = r.paragraphs.length;
-          return <li key={r.id}>{document ? wn("pages.missing_row_doc", count, { page: num(r.page_no, locale), document, paras }) : wn("pages.missing_row", count, { page: num(r.page_no, locale), paras })}</li>;
+          return (
+            <li key={r.id}>
+              <span className="av-trial-mono">{w("pages.page_ref", { page: num(r.page_no, locale) })}</span>
+              {" · "}
+              {document ? wn("pages.missing_row_doc", count, { document, paras }) : wn("pages.missing_row", count, { paras })}
+            </li>
+          );
         })}
       </ul>
       {told && <Notice tone="success"><p>{w("pages.told")}</p></Notice>}
@@ -225,6 +229,13 @@ function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged, 
   return (
     <section className="av-card av-trial-table-wrap">
       <table className="av-trial-table">
+        <colgroup>
+          <col className="av-trial-col-1" />
+          <col className="av-trial-col-2" />
+          <col className="av-trial-col-3" />
+          <col className="av-trial-col-4" />
+          <col className="av-trial-col-5" />
+        </colgroup>
         <thead>
           <tr>
             <th scope="col">{w("pages.col.paragraph")}</th>

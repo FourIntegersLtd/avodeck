@@ -42,7 +42,7 @@ export function Today() {
   const locale = me.person.locale;
 
   return (
-    <div className="av-page">
+    <div className="av-page av-today">
       <div className="av-today__head">
         <div>
           <p className="av-muted av-today__date" data-testid="today-date">

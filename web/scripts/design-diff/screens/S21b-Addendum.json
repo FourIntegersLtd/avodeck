@@ -1,0 +1,284 @@
+{
+  "id": "S21b-Addendum",
+  "artboard": "S21b-Addendum.dc.html",
+  "session": true,
+  "route": "/cases/44444444-4444-4444-8444-444444444444/correct-report",
+  "width": 1440,
+  "height": 1000,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed-colorectal-referral",
+      "specialty": "general-practice",
+      "expert_role": "defendant_expert",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/report/served": {
+      "version": {
+        "id": "b1111111-1111-4111-8111-111111111111",
+        "display_name": "Report 1",
+        "status": "served",
+        "version_no": 1,
+        "served_on": "2026-11-28",
+        "sha256": "abc"
+      },
+      "paragraphs": [
+        {
+          "id": "e1111111-1111-4111-8111-111111111111",
+          "para_no": 6.14,
+          "text": "Mrs A should have been referred in early March 2024, soon after the blood result.",
+          "fact_ids": []
+        },
+        {
+          "id": "e2222222-2222-4222-8222-222222222222",
+          "para_no": 7.3,
+          "text": "In summary, referral was late.",
+          "fact_ids": []
+        }
+      ]
+    },
+    "/v1/cases/*/report-changes": {
+      "changes": [
+        {
+          "id": "c3333333-3333-4333-8333-333333333333",
+          "paragraph_id": "e1111111-1111-4111-8111-111111111111",
+          "kind": "change_of_opinion",
+          "old_text": "Mrs A should have been referred in early March 2024, soon after the blood result.",
+          "new_text": "Mrs A should have been referred by 15 May 2024 at the latest.",
+          "reason": "Having considered Dr R's report, I accept that a reasonable GP could have started iron in March and reviewed. By 15 May, with rectal bleeding as well as unexplained anaemia, referral was needed.",
+          "citation_refs": [],
+          "dependent_paragraph_ids": [
+            "e2222222-2222-4222-8222-222222222222"
+          ],
+          "suggested_dependents": [
+            {
+              "paragraph_id": "e2222222-2222-4222-8222-222222222222",
+              "depends": true,
+              "reason": "refers to the timing"
+            }
+          ],
+          "supplementary_version_id": null,
+          "version": 1
+        }
+      ],
+      "supplementary": null
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".av-after-pcard"
+    }
+  ],
+  "pageRemove": [
+    ".av-after-disclosure",
+    ".av-after-pcard > div:not(.av-stack):not(.av-after-qcard__tags):not(:has(.av-after-linkbtn))"
+  ],
+  "artboardRemove": [
+    "[role=radiogroup]"
+  ],
+  "artboardCss": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(4) > div > div:last-child{display:none !important}aside > section:nth-child(1) > span:nth-child(n+2){max-height:25.5px !important;overflow:hidden}aside > section:nth-child(2) > span:nth-child(2){display:block;max-height:54.4px;overflow:hidden}aside > section:nth-child(3){max-height:51px;overflow:hidden}",
+  "probes": [
+    {
+      "name": "back link",
+      "artboard": "main a[href='S19-Served.dc.html']",
+      "page": ".av-after-head .av-back-link"
+    },
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".av-after-title"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".av-after-lede"
+    },
+    {
+      "name": "card",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1)",
+      "page": ".av-after-pcard"
+    },
+    {
+      "name": "tags row",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(1)",
+      "page": ".av-after-qcard__tags"
+    },
+    {
+      "name": "paragraph title",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(1) > span:nth-child(1)",
+      "page": ".av-after-pcard h4"
+    },
+    {
+      "name": "chip",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(1) > span:nth-child(2)",
+      "page": ".av-after-qcard__tags .av-after-aboutchip",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "said block",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(2)",
+      "page": ".av-after-pcard > div:nth-child(2)"
+    },
+    {
+      "name": "said label",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(2) > span:nth-child(1)",
+      "page": ".av-after-pcard > div:nth-child(2) h5"
+    },
+    {
+      "name": "said text",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(2) > span:nth-child(2)",
+      "page": ".av-after-pcard > div:nth-child(2) p",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "now label",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(3) > span:nth-child(1)",
+      "page": ".av-after-pcard > div:nth-child(3) h5"
+    },
+    {
+      "name": "now text",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(3) > span:nth-child(2)",
+      "page": ".av-after-pcard > div:nth-child(3) p",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "why label",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(4) > span:nth-child(1)",
+      "page": ".av-after-pcard > div:nth-child(4) h5",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "why box",
+      "artboard": "main > div:nth-child(2) > section > div:nth-child(1) > div:nth-child(4) > div",
+      "page": ".av-after-pcard > div:nth-child(4) p",
+      "allow": [
+        "fontFamily",
+        "lineHeight",
+        "paddingTop",
+        "paddingRight",
+        "paddingBottom",
+        "paddingLeft"
+      ]
+    },
+    {
+      "name": "another",
+      "artboard": "a[href='#another']",
+      "page": ".av-after-pcard .av-after-linkbtn",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "side checked",
+      "artboard": "aside > section:nth-child(1)",
+      "page": ".av-after-panel--side",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "side title",
+      "artboard": "aside > section:nth-child(1) h2",
+      "page": ".av-after-panel--side h3"
+    },
+    {
+      "name": "tick 1",
+      "artboard": "aside > section:nth-child(1) > span:nth-child(2)",
+      "page": ".av-after-ticks li:nth-child(1)",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "tick 2",
+      "artboard": "aside > section:nth-child(1) > span:nth-child(3)",
+      "page": ".av-after-ticks li:nth-child(2)"
+    },
+    {
+      "name": "tick 3",
+      "artboard": "aside > section:nth-child(1) > span:nth-child(4)",
+      "page": ".av-after-ticks li:nth-child(3)",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "paper",
+      "artboard": "aside > section:nth-child(2)",
+      "page": ".av-after-paper",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "paper title",
+      "artboard": "aside > section:nth-child(2) > span:nth-child(1)",
+      "page": ".av-after-paper h3"
+    },
+    {
+      "name": "tell note",
+      "artboard": "aside > section:nth-child(3)",
+      "page": ".av-after-tellnote",
+      "allow": [
+        "rect.h"
+      ]
+    },
+    {
+      "name": "footer",
+      "artboard": "main > div:last-child",
+      "page": ".av-after-footer"
+    },
+    {
+      "name": "read in full",
+      "artboard": "main a[href='#preview']",
+      "page": ".av-after-footer > button:nth-child(1)",
+      "allow": [
+        "rect.w",
+        "rect.x"
+      ]
+    },
+    {
+      "name": "build",
+      "artboard": "main > div:last-child > a:nth-child(2)",
+      "page": ".av-after-footer > button:nth-child(2)",
+      "allow": [
+        "rect.w",
+        "rect.x"
+      ]
+    }
+  ],
+  "budget": 0.85,
+  "budgetReason": "Layout, sizes and colours match; what is left is words the API and packs do not supply: the question chip ('Question 3 · referral timing'), the page chip inside the new view (p.118), the paper's name, date and page count, the longer check and note sentences, and the board's button label. With the shared case bar they make up the 0.8%.",
+  "deviations": [
+    "The board shows the kind choice (a correction / a change of opinion) above a saved change; the page shows the kind as a chip on the change and the choice only when adding one, so the choice is removed from the board for the comparison.",
+    "The chip beside 'Paragraph 6.14' says the kind of change; the board says 'Question 3 · referral timing' (gap: a change has no question in the API).",
+    "The new view has no page chip inside the text (gap: the citation chip is not drawn; citation_refs carry no label to show). The 'required' tag on 'Why it changed' and the editable dictation box with 'Dictate' are not drawn for a saved change, which is read-only (the box border and text are drawn; its footer is hidden on the board).",
+    "'Your served report · locked' (a working control) and the lines that say a later paragraph relies on this one are removed from the page for the comparison; the board omits them. The checks that other paragraphs rely on this one are in the side panel.",
+    "'What we've checked' and the note about telling the person who instructed you use the pack's shorter words; the board's longer sentences name the solicitor and the statement of truth, which are pack words. The board's paper shows the expert's name, the date and the page count (gap: no data until the supplementary report is drafted); the board's text is clipped to two lines for the comparison.",
+    "The main button says 'Draft the supplementary report' until one exists; the board's 'Sign and send to the solicitor' is the later step, which the page shows under the paper once drafted.",
+    "'+ Another paragraph' sits inside the last change's card as drawn; the board's link spans the full card width, the page's hit area is the text with a 52px target."
+  ]
+}

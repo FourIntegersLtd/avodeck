@@ -1,0 +1,4270 @@
+{
+  "id": "S23-TrialPages",
+  "artboard": "S23-TrialPages.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/trial-pages",
+  "width": 1440,
+  "height": 1000,
+  "session": true,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [
+        "case.view_metadata",
+        "case.view_content",
+        "case.edit_setup",
+        "case.upload",
+        "opinion.write",
+        "fact.verify",
+        "report.build",
+        "report.sign",
+        "request.draft",
+        "case.export"
+      ],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/jurisdictions/*": {
+      "code": "gb-eaw",
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "court_tracks": [
+        "small_claims",
+        "fast",
+        "intermediate",
+        "multi"
+      ],
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of {clinicians} have acted as this {clinician} did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "name": "England and Wales",
+      "timezone": "Europe/London",
+      "version": "2026.10.6",
+      "vocabulary": {
+        "court_bundle": "trial bundle",
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
+        },
+        "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
+        "request_notes": {
+          "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
+          "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "working_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "/v1/cases/*/pack": {
+      "checks": [
+        {
+          "action_kinds": [
+            "prescription",
+            "referral",
+            "task",
+            "consultation",
+            "phone_consultation"
+          ],
+          "applies_to": "result",
+          "flag": {
+            "any_of": [
+              "L",
+              "H",
+              "LL",
+              "HH",
+              "A"
+            ],
+            "field": "flag"
+          },
+          "key": "abnormal_result_no_action",
+          "label_spans": true,
+          "rule": "no_action_within",
+          "window_days": 14
+        },
+        {
+          "acknowledged_field": "acknowledged_on",
+          "acknowledged_kinds": [
+            "letter"
+          ],
+          "acknowledges_field": "acknowledges_referral_dated",
+          "applies_to": "referral",
+          "key": "referral_acknowledged",
+          "rule": "not_acknowledged_within",
+          "window_days": 42
+        },
+        {
+          "applies_to": "prescription",
+          "key": "repeat_medicine_monitoring",
+          "rule": "monitoring_overdue",
+          "table": "drug_monitoring"
+        },
+        {
+          "applies_to": [
+            "consultation",
+            "phone_consultation",
+            "home_visit"
+          ],
+          "key": "ooh_reached_clinician",
+          "rule": "not_reached_clinician",
+          "when": {
+            "setting": "out_of_hours"
+          },
+          "window_days": 2
+        },
+        {
+          "action_kinds": [
+            "prescription",
+            "referral",
+            "task"
+          ],
+          "applies_to": "letter",
+          "field": "actions_requested",
+          "key": "hospital_letter_actions",
+          "label_spans": true,
+          "rule": "actions_not_done"
+        },
+        {
+          "applies_to": "consultation",
+          "field": "examination",
+          "gentle": true,
+          "key": "examination_recorded",
+          "or_kinds": [
+            "examination"
+          ],
+          "rule": "field_missing",
+          "scope": "linked"
+        },
+        {
+          "applies_to": "consultation",
+          "field": "safety_netting",
+          "gentle": true,
+          "key": "safety_netting_recorded",
+          "or_kinds": [
+            "safety_netting"
+          ],
+          "rule": "field_missing",
+          "scope": "linked"
+        },
+        {
+          "applies_to": "missed_appointment",
+          "default_on": false,
+          "followup_kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "task"
+          ],
+          "key": "missed_appointment_followed_up",
+          "rule": "not_followed_up",
+          "window_days": 14
+        }
+      ],
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "page_limit": {
+          "intermediate_track": 20
+        },
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "document_kinds": [
+        {
+          "key": "instructions",
+          "label_key": "document_kind.instructions"
+        },
+        {
+          "key": "records",
+          "label_key": "document_kind.records"
+        },
+        {
+          "key": "other",
+          "label_key": "document_kind.other"
+        }
+      ],
+      "expert_roles": [
+        "breach"
+      ],
+      "fact_kinds": [
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "examination": "string",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string",
+            "setting": "string"
+          },
+          "key": "consultation"
+        },
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string",
+            "setting": "string"
+          },
+          "key": "phone_consultation"
+        },
+        {
+          "fields": {
+            "clinician_name": "string",
+            "date": "date",
+            "examination": "string",
+            "history": "string",
+            "plan": "string",
+            "reason": "string",
+            "safety_netting": "string",
+            "setting": "string"
+          },
+          "key": "home_visit"
+        },
+        {
+          "arrives": true,
+          "fields": {
+            "actioned_on": "date",
+            "date": "date",
+            "flag": "string",
+            "received_on": "date",
+            "reference_range": "string",
+            "test": "string",
+            "unit": "string",
+            "value": "string"
+          },
+          "key": "result"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "dose": "string",
+            "drug": "string",
+            "quantity": "string",
+            "repeat": "boolean"
+          },
+          "key": "prescription"
+        },
+        {
+          "fields": {
+            "acknowledged_on": "date",
+            "date": "date",
+            "reason": "string",
+            "to": "string",
+            "urgency": "string"
+          },
+          "key": "referral"
+        },
+        {
+          "arrives": true,
+          "fields": {
+            "acknowledges_referral_dated": "date",
+            "actions_requested": "string",
+            "date": "date",
+            "from": "string",
+            "received_on": "date",
+            "to": "string"
+          },
+          "key": "letter"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "finding": "string",
+            "unit": "string",
+            "value": "string"
+          },
+          "key": "examination"
+        },
+        {
+          "fields": {
+            "advice": "string",
+            "date": "date"
+          },
+          "key": "safety_netting"
+        },
+        {
+          "fields": {
+            "appointment_type": "string",
+            "date": "date"
+          },
+          "key": "missed_appointment"
+        },
+        {
+          "fields": {
+            "date": "date",
+            "description": "string",
+            "done_on": "date"
+          },
+          "key": "task"
+        }
+      ],
+      "final_checks": [
+        {
+          "key": "statement_of_truth_exact",
+          "text": "Statement of truth present with exact wording from declarations.md"
+        },
+        {
+          "key": "required_contents_present",
+          "text": "Every item in report.yaml required_contents is addressed"
+        },
+        {
+          "key": "page_limit",
+          "text": "Page count within the track limit (only if the case track has one)"
+        },
+        {
+          "key": "questions_answered",
+          "text": "Every question in the letter of instruction has an answer or an explained deferral"
+        },
+        {
+          "key": "points_against_considered",
+          "text": "Points against considered for every breach question"
+        },
+        {
+          "key": "guidance_in_force",
+          "text": "Guidance cited was in force on the date of the care in question"
+        }
+      ],
+      "instructing_party_types": [
+        {
+          "key": "lawyer",
+          "label": "solicitor"
+        }
+      ],
+      "lanes": [
+        {
+          "key": "primary_care_visits",
+          "kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "examination",
+            "safety_netting",
+            "task"
+          ]
+        },
+        {
+          "key": "results",
+          "kinds": [
+            "result"
+          ]
+        },
+        {
+          "key": "out_of_hours",
+          "kinds": [
+            "consultation",
+            "phone_consultation",
+            "home_visit",
+            "examination",
+            "safety_netting",
+            "task"
+          ],
+          "when": {
+            "setting": "out_of_hours"
+          }
+        },
+        {
+          "key": "prescriptions",
+          "kinds": [
+            "prescription"
+          ]
+        },
+        {
+          "key": "hospital_and_letters",
+          "kinds": [
+            "letter",
+            "referral"
+          ]
+        },
+        {
+          "key": "appointments",
+          "kinds": [
+            "missed_appointment"
+          ]
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of GPs have acted as this GP did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "opinion_views": [
+        {
+          "code": "within_range",
+          "label": "Within the range of reasonable practice"
+        },
+        {
+          "code": "at_limit",
+          "label": "At the limit of reasonable practice"
+        },
+        {
+          "code": "below_standard",
+          "label": "Below the standard of a reasonable GP"
+        }
+      ],
+      "outside_expertise_parts": [
+        "timing"
+      ],
+      "party_roles": [
+        {
+          "key": "instructing_side",
+          "label": "claimant"
+        },
+        {
+          "key": "other_side",
+          "label": "defendant"
+        },
+        {
+          "key": "joint",
+          "label": "jointly instructed"
+        }
+      ],
+      "point_sides": [
+        {
+          "code": "supports_claim",
+          "label": "Supports the claim"
+        },
+        {
+          "code": "supports_clinician",
+          "label": "Supports the GP"
+        },
+        {
+          "code": "neutral",
+          "label": "Neutral"
+        }
+      ],
+      "profession": "doctor",
+      "quarantine_purge_days": 14,
+      "question_types": [
+        {
+          "colour": "blue",
+          "key": "breach",
+          "label_key": "question_type.breach",
+          "parts": [
+            {
+              "key": "standard",
+              "label_key": "question_part.standard"
+            },
+            {
+              "key": "timing",
+              "label_key": "question_part.timing"
+            }
+          ]
+        },
+        {
+          "colour": "amber",
+          "key": "causation",
+          "label_key": "question_type.causation",
+          "parts": [
+            {
+              "key": "effect",
+              "label_key": "question_part.effect"
+            },
+            {
+              "key": "timing",
+              "label_key": "question_part.timing"
+            }
+          ]
+        },
+        {
+          "colour": "green",
+          "key": "other",
+          "label_key": "question_type.other",
+          "parts": [
+            {
+              "key": "whole",
+              "label_key": "question_part.whole"
+            }
+          ]
+        }
+      ],
+      "range_note_prompt": "What other GPs might reasonably do",
+      "registration_bodies": [
+        "GMC"
+      ],
+      "report_appendices": [
+        {
+          "key": "cv",
+          "label": "My CV"
+        },
+        {
+          "key": "glossary",
+          "label": "Glossary"
+        },
+        {
+          "key": "documents_list",
+          "label": "List of documents"
+        },
+        {
+          "key": "methodology",
+          "label": "How I carried out this review"
+        },
+        {
+          "key": "chronology",
+          "label": "Chronology"
+        }
+      ],
+      "report_sections": [
+        {
+          "key": "introduction",
+          "label": "Introduction"
+        },
+        {
+          "key": "instructions",
+          "label": "My instructions"
+        },
+        {
+          "key": "documents",
+          "label": "Documents I have seen"
+        },
+        {
+          "key": "background",
+          "label": "Background"
+        },
+        {
+          "key": "what_happened",
+          "label": "What happened"
+        },
+        {
+          "key": "opinion",
+          "label": "My opinion"
+        },
+        {
+          "key": "range_of_opinion",
+          "label": "Range of opinion"
+        },
+        {
+          "key": "summary",
+          "label": "Summary of my conclusions"
+        },
+        {
+          "key": "declarations",
+          "label": "Declarations"
+        }
+      ],
+      "retention_years": 6,
+      "source_types": [
+        {
+          "colour": "#1E6B4E",
+          "key": "primary_care_record",
+          "own_record": true
+        },
+        {
+          "colour": "#4C6E91",
+          "key": "hospital"
+        },
+        {
+          "colour": "#2C8C99",
+          "key": "out_of_hours"
+        },
+        {
+          "colour": "#7A6BA8",
+          "key": "results"
+        },
+        {
+          "colour": "#8C7556",
+          "key": "letters"
+        },
+        {
+          "colour": "#A8577E",
+          "key": "witness_statement",
+          "statement": true
+        }
+      ],
+      "subject_statuses": [
+        {
+          "key": "living",
+          "label": "living",
+          "representative": null
+        },
+        {
+          "key": "deceased",
+          "label": "has died",
+          "representative": "personal representative"
+        },
+        {
+          "key": "minor",
+          "label": "under 18",
+          "representative": "litigation friend"
+        }
+      ],
+      "timezone": "Europe/London",
+      "versions": {
+        "case_type": "clin-neg-breach@2026.10.3",
+        "jurisdiction": "gb-eaw@2026.10.6",
+        "overlay": "gb-eaw/general-practice@2026.10.1",
+        "specialty": "general-practice@2026.10.2"
+      },
+      "vocabulary": {
+        "as_seen_title": "As the GP saw it",
+        "clinician": "GP",
+        "clinicians": "GPs",
+        "court_bundle": "trial bundle",
+        "coverage_question": "Were you working in general practice throughout the period of the claim?",
+        "coverage_roles": {
+          "locum": "locum",
+          "partner": "partner",
+          "salaried": "salaried general practitioner"
+        },
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "lanes": {
+          "appointments": "Appointments",
+          "hospital_and_letters": "Hospital and letters",
+          "out_of_hours": "Out of hours and NHS 111",
+          "prescriptions": "Prescriptions",
+          "primary_care_visits": "GP visits",
+          "results": "Results"
+        },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "outside_expertise_hint": "This looks outside what a general practitioner usually covers. You decide whether to answer it, or only part of it.",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
+        },
+        "practice": "GP surgery",
+        "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
+        "request_notes": {
+          "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
+          "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
+        },
+        "source_types": {
+          "primary_care_record": "GP record",
+          "gp_prescriptions": "GP prescriptions",
+          "gp_consultation": "GP consultation",
+          "hospital_letter": "Hospital letter to GP",
+          "blood_result": "February blood result",
+          "task_list": "practice task list",
+          "ooh_record": "out-of-hours record"
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "workflow_steps": [
+        {
+          "key": "prepare",
+          "meters": [
+            "questions_confirmed"
+          ],
+          "screens": [
+            "new_case",
+            "conflicts",
+            "questions",
+            "preparing",
+            "bundle_ready",
+            "ask_instructing_party"
+          ]
+        },
+        {
+          "key": "read",
+          "meters": [
+            "pages_read"
+          ],
+          "screens": [
+            "reader",
+            "couldnt_read"
+          ]
+        },
+        {
+          "key": "understand",
+          "meters": [
+            "facts_decided"
+          ],
+          "screens": [
+            "timeline",
+            "as_clinician_saw_it",
+            "things_to_look_at"
+          ]
+        },
+        {
+          "key": "write",
+          "meters": [
+            "questions_with_opinion",
+            "report_stages"
+          ],
+          "screens": [
+            "points_against",
+            "opinion",
+            "report",
+            "final_check",
+            "sign_send",
+            "invoice"
+          ]
+        },
+        {
+          "key": "court",
+          "screens": [
+            "after_serving",
+            "court_orders",
+            "written_questions",
+            "new_material",
+            "correct_report",
+            "expert_meeting",
+            "court_bundle_pages",
+            "trial_pack",
+            "witness_box",
+            "close"
+          ]
+        }
+      ],
+      "written_question_classifications": [
+        "clarifies",
+        "goes_beyond"
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/concordance": {
+      "bundle": {
+        "id": "a9333333-3333-4333-8333-333333333333",
+        "status": "matched",
+        "hearing_id": null,
+        "received_on": "2027-06-02",
+        "page_count": 3914,
+        "version": 2,
+        "replaces_received_on": "2027-05-20",
+        "missing_told_at": null
+      },
+      "rows": [
+        {
+          "id": "a9444444-4444-4444-8444-000000000001",
+          "page_no": 87,
+          "trial_page_no": 2376,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.12"
+          ],
+          "version": 1,
+          "source_type": "gp_prescriptions",
+          "document_date": "2024-03-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000002",
+          "page_no": 118,
+          "trial_page_no": 2407,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.13"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-05-15"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000003",
+          "page_no": 131,
+          "trial_page_no": 2420,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.16"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-08-08"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000004",
+          "page_no": 1118,
+          "trial_page_no": 3102,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.19"
+          ],
+          "version": 1,
+          "source_type": "hospital_letter",
+          "document_date": "2024-09-24"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000005",
+          "page_no": 214,
+          "trial_page_no": null,
+          "status": "missing",
+          "method": "none",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.11",
+            "6.4"
+          ],
+          "version": 1,
+          "source_type": "blood_result",
+          "document_date": null
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000006",
+          "page_no": 221,
+          "trial_page_no": null,
+          "status": "missing",
+          "method": "none",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.14"
+          ],
+          "version": 1,
+          "source_type": "task_list",
+          "document_date": null
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000007",
+          "page_no": 1071,
+          "trial_page_no": null,
+          "status": "missing",
+          "method": "none",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.17"
+          ],
+          "version": 1,
+          "source_type": "ooh_record",
+          "document_date": "2024-04-22"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000008",
+          "page_no": 308,
+          "trial_page_no": 3208,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000009",
+          "page_no": 309,
+          "trial_page_no": 3209,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000010",
+          "page_no": 310,
+          "trial_page_no": 3210,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000011",
+          "page_no": 311,
+          "trial_page_no": 3211,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000012",
+          "page_no": 312,
+          "trial_page_no": 3212,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000013",
+          "page_no": 313,
+          "trial_page_no": 3213,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000014",
+          "page_no": 314,
+          "trial_page_no": 3214,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000015",
+          "page_no": 315,
+          "trial_page_no": 3215,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000016",
+          "page_no": 316,
+          "trial_page_no": 3216,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000017",
+          "page_no": 317,
+          "trial_page_no": 3217,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000018",
+          "page_no": 318,
+          "trial_page_no": 3218,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000019",
+          "page_no": 319,
+          "trial_page_no": 3219,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000020",
+          "page_no": 320,
+          "trial_page_no": 3220,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000021",
+          "page_no": 321,
+          "trial_page_no": 3221,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000022",
+          "page_no": 322,
+          "trial_page_no": 3222,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000023",
+          "page_no": 323,
+          "trial_page_no": 3223,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000024",
+          "page_no": 324,
+          "trial_page_no": 3224,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000025",
+          "page_no": 325,
+          "trial_page_no": 3225,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000026",
+          "page_no": 326,
+          "trial_page_no": 3226,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000027",
+          "page_no": 327,
+          "trial_page_no": 3227,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000028",
+          "page_no": 328,
+          "trial_page_no": 3228,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000029",
+          "page_no": 329,
+          "trial_page_no": 3229,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000030",
+          "page_no": 330,
+          "trial_page_no": 3230,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000031",
+          "page_no": 331,
+          "trial_page_no": 3231,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000032",
+          "page_no": 332,
+          "trial_page_no": 3232,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000033",
+          "page_no": 333,
+          "trial_page_no": 3233,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000034",
+          "page_no": 334,
+          "trial_page_no": 3234,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000035",
+          "page_no": 335,
+          "trial_page_no": 3235,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000036",
+          "page_no": 336,
+          "trial_page_no": 3236,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000037",
+          "page_no": 337,
+          "trial_page_no": 3237,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000038",
+          "page_no": 338,
+          "trial_page_no": 3238,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000039",
+          "page_no": 339,
+          "trial_page_no": 3239,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000040",
+          "page_no": 340,
+          "trial_page_no": 3240,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000041",
+          "page_no": 341,
+          "trial_page_no": 3241,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000042",
+          "page_no": 342,
+          "trial_page_no": 3242,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000043",
+          "page_no": 343,
+          "trial_page_no": 3243,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000044",
+          "page_no": 344,
+          "trial_page_no": 3244,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000045",
+          "page_no": 345,
+          "trial_page_no": 3245,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000046",
+          "page_no": 346,
+          "trial_page_no": 3246,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000047",
+          "page_no": 347,
+          "trial_page_no": 3247,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000048",
+          "page_no": 348,
+          "trial_page_no": 3248,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000049",
+          "page_no": 349,
+          "trial_page_no": 3249,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000050",
+          "page_no": 350,
+          "trial_page_no": 3250,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000051",
+          "page_no": 351,
+          "trial_page_no": 3251,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000052",
+          "page_no": 352,
+          "trial_page_no": 3252,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000053",
+          "page_no": 353,
+          "trial_page_no": 3253,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000054",
+          "page_no": 354,
+          "trial_page_no": 3254,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000055",
+          "page_no": 355,
+          "trial_page_no": 3255,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000056",
+          "page_no": 356,
+          "trial_page_no": 3256,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000057",
+          "page_no": 357,
+          "trial_page_no": 3257,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000058",
+          "page_no": 358,
+          "trial_page_no": 3258,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000059",
+          "page_no": 359,
+          "trial_page_no": 3259,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000060",
+          "page_no": 360,
+          "trial_page_no": 3260,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000061",
+          "page_no": 361,
+          "trial_page_no": 3261,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000062",
+          "page_no": 362,
+          "trial_page_no": 3262,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000063",
+          "page_no": 363,
+          "trial_page_no": 3263,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000064",
+          "page_no": 364,
+          "trial_page_no": 3264,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000065",
+          "page_no": 365,
+          "trial_page_no": 3265,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000066",
+          "page_no": 366,
+          "trial_page_no": 3266,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000067",
+          "page_no": 367,
+          "trial_page_no": 3267,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000068",
+          "page_no": 368,
+          "trial_page_no": 3268,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000069",
+          "page_no": 369,
+          "trial_page_no": 3269,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000070",
+          "page_no": 370,
+          "trial_page_no": 3270,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000071",
+          "page_no": 371,
+          "trial_page_no": 3271,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000072",
+          "page_no": 372,
+          "trial_page_no": 3272,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000073",
+          "page_no": 373,
+          "trial_page_no": 3273,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000074",
+          "page_no": 374,
+          "trial_page_no": 3274,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000075",
+          "page_no": 375,
+          "trial_page_no": 3275,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000076",
+          "page_no": 376,
+          "trial_page_no": 3276,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000077",
+          "page_no": 377,
+          "trial_page_no": 3277,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000078",
+          "page_no": 378,
+          "trial_page_no": 3278,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000079",
+          "page_no": 379,
+          "trial_page_no": 3279,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000080",
+          "page_no": 380,
+          "trial_page_no": 3280,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000081",
+          "page_no": 381,
+          "trial_page_no": 3281,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000082",
+          "page_no": 382,
+          "trial_page_no": 3282,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000083",
+          "page_no": 383,
+          "trial_page_no": 3283,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000084",
+          "page_no": 384,
+          "trial_page_no": 3284,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000085",
+          "page_no": 385,
+          "trial_page_no": 3285,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000086",
+          "page_no": 386,
+          "trial_page_no": 3286,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000087",
+          "page_no": 387,
+          "trial_page_no": 3287,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000088",
+          "page_no": 388,
+          "trial_page_no": 3288,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000089",
+          "page_no": 389,
+          "trial_page_no": 3289,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000090",
+          "page_no": 390,
+          "trial_page_no": 3290,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000091",
+          "page_no": 391,
+          "trial_page_no": 3291,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000092",
+          "page_no": 392,
+          "trial_page_no": 3292,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000093",
+          "page_no": 393,
+          "trial_page_no": 3293,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000094",
+          "page_no": 394,
+          "trial_page_no": 3294,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000095",
+          "page_no": 395,
+          "trial_page_no": 3295,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000096",
+          "page_no": 396,
+          "trial_page_no": 3296,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000097",
+          "page_no": 397,
+          "trial_page_no": 3297,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000098",
+          "page_no": 398,
+          "trial_page_no": 3298,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000099",
+          "page_no": 399,
+          "trial_page_no": 3299,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000100",
+          "page_no": 400,
+          "trial_page_no": 3300,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000101",
+          "page_no": 401,
+          "trial_page_no": 3301,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000102",
+          "page_no": 402,
+          "trial_page_no": 3302,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000103",
+          "page_no": 403,
+          "trial_page_no": 3303,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000104",
+          "page_no": 404,
+          "trial_page_no": 3304,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000105",
+          "page_no": 405,
+          "trial_page_no": 3305,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000106",
+          "page_no": 406,
+          "trial_page_no": 3306,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000107",
+          "page_no": 407,
+          "trial_page_no": 3307,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000108",
+          "page_no": 408,
+          "trial_page_no": 3308,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000109",
+          "page_no": 409,
+          "trial_page_no": 3309,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000110",
+          "page_no": 410,
+          "trial_page_no": 3310,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000111",
+          "page_no": 411,
+          "trial_page_no": 3311,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000112",
+          "page_no": 412,
+          "trial_page_no": 3312,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000113",
+          "page_no": 413,
+          "trial_page_no": 3313,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000114",
+          "page_no": 414,
+          "trial_page_no": 3314,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000115",
+          "page_no": 415,
+          "trial_page_no": 3315,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000116",
+          "page_no": 416,
+          "trial_page_no": 3316,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000117",
+          "page_no": 417,
+          "trial_page_no": 3317,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000118",
+          "page_no": 418,
+          "trial_page_no": 3318,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000119",
+          "page_no": 419,
+          "trial_page_no": 3319,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000120",
+          "page_no": 420,
+          "trial_page_no": 3320,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000121",
+          "page_no": 421,
+          "trial_page_no": 3321,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000122",
+          "page_no": 422,
+          "trial_page_no": 3322,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000123",
+          "page_no": 423,
+          "trial_page_no": 3323,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000124",
+          "page_no": 424,
+          "trial_page_no": 3324,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000125",
+          "page_no": 425,
+          "trial_page_no": 3325,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000126",
+          "page_no": 426,
+          "trial_page_no": 3326,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000127",
+          "page_no": 427,
+          "trial_page_no": 3327,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000128",
+          "page_no": 428,
+          "trial_page_no": 3328,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000129",
+          "page_no": 429,
+          "trial_page_no": 3329,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000130",
+          "page_no": 430,
+          "trial_page_no": 3330,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000131",
+          "page_no": 431,
+          "trial_page_no": 3331,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000132",
+          "page_no": 432,
+          "trial_page_no": 3332,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000133",
+          "page_no": 433,
+          "trial_page_no": 3333,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000134",
+          "page_no": 434,
+          "trial_page_no": 3334,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000135",
+          "page_no": 435,
+          "trial_page_no": 3335,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000136",
+          "page_no": 436,
+          "trial_page_no": 3336,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000137",
+          "page_no": 437,
+          "trial_page_no": 3337,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000138",
+          "page_no": 438,
+          "trial_page_no": 3338,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000139",
+          "page_no": 439,
+          "trial_page_no": 3339,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000140",
+          "page_no": 440,
+          "trial_page_no": 3340,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000141",
+          "page_no": 441,
+          "trial_page_no": 3341,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000142",
+          "page_no": 442,
+          "trial_page_no": 3342,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000143",
+          "page_no": 443,
+          "trial_page_no": 3343,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000144",
+          "page_no": 444,
+          "trial_page_no": 3344,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000145",
+          "page_no": 445,
+          "trial_page_no": 3345,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000146",
+          "page_no": 446,
+          "trial_page_no": 3346,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000147",
+          "page_no": 447,
+          "trial_page_no": 3347,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000148",
+          "page_no": 448,
+          "trial_page_no": 3348,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000149",
+          "page_no": 449,
+          "trial_page_no": 3349,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000150",
+          "page_no": 450,
+          "trial_page_no": 3350,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000151",
+          "page_no": 451,
+          "trial_page_no": 3351,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000152",
+          "page_no": 452,
+          "trial_page_no": 3352,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000153",
+          "page_no": 453,
+          "trial_page_no": 3353,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000154",
+          "page_no": 454,
+          "trial_page_no": 3354,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000155",
+          "page_no": 455,
+          "trial_page_no": 3355,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000156",
+          "page_no": 456,
+          "trial_page_no": 3356,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000157",
+          "page_no": 457,
+          "trial_page_no": 3357,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000158",
+          "page_no": 458,
+          "trial_page_no": 3358,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000159",
+          "page_no": 459,
+          "trial_page_no": 3359,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000160",
+          "page_no": 460,
+          "trial_page_no": 3360,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000161",
+          "page_no": 461,
+          "trial_page_no": 3361,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000162",
+          "page_no": 462,
+          "trial_page_no": 3362,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000163",
+          "page_no": 463,
+          "trial_page_no": 3363,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000164",
+          "page_no": 464,
+          "trial_page_no": 3364,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000165",
+          "page_no": 465,
+          "trial_page_no": 3365,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000166",
+          "page_no": 466,
+          "trial_page_no": 3366,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000167",
+          "page_no": 467,
+          "trial_page_no": 3367,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000168",
+          "page_no": 468,
+          "trial_page_no": 3368,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000169",
+          "page_no": 469,
+          "trial_page_no": 3369,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000170",
+          "page_no": 470,
+          "trial_page_no": 3370,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000171",
+          "page_no": 471,
+          "trial_page_no": 3371,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000172",
+          "page_no": 472,
+          "trial_page_no": 3372,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000173",
+          "page_no": 473,
+          "trial_page_no": 3373,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000174",
+          "page_no": 474,
+          "trial_page_no": 3374,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000175",
+          "page_no": 475,
+          "trial_page_no": 3375,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000176",
+          "page_no": 476,
+          "trial_page_no": 3376,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000177",
+          "page_no": 477,
+          "trial_page_no": 3377,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000178",
+          "page_no": 478,
+          "trial_page_no": 3378,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000179",
+          "page_no": 479,
+          "trial_page_no": 3379,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000180",
+          "page_no": 480,
+          "trial_page_no": 3380,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000181",
+          "page_no": 481,
+          "trial_page_no": 3381,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000182",
+          "page_no": 482,
+          "trial_page_no": 3382,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000183",
+          "page_no": 483,
+          "trial_page_no": 3383,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000184",
+          "page_no": 484,
+          "trial_page_no": 3384,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000185",
+          "page_no": 485,
+          "trial_page_no": 3385,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000186",
+          "page_no": 486,
+          "trial_page_no": 3386,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000187",
+          "page_no": 487,
+          "trial_page_no": 3387,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000188",
+          "page_no": 488,
+          "trial_page_no": 3388,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000189",
+          "page_no": 489,
+          "trial_page_no": 3389,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000190",
+          "page_no": 490,
+          "trial_page_no": 3390,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000191",
+          "page_no": 491,
+          "trial_page_no": 3391,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000192",
+          "page_no": 492,
+          "trial_page_no": 3392,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000193",
+          "page_no": 493,
+          "trial_page_no": 3393,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000194",
+          "page_no": 494,
+          "trial_page_no": 3394,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000195",
+          "page_no": 495,
+          "trial_page_no": 3395,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000196",
+          "page_no": 496,
+          "trial_page_no": 3396,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000197",
+          "page_no": 497,
+          "trial_page_no": 3397,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000198",
+          "page_no": 498,
+          "trial_page_no": 3398,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000199",
+          "page_no": 499,
+          "trial_page_no": 3399,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000200",
+          "page_no": 500,
+          "trial_page_no": 3400,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000201",
+          "page_no": 501,
+          "trial_page_no": 3401,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000202",
+          "page_no": 502,
+          "trial_page_no": 3402,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000203",
+          "page_no": 503,
+          "trial_page_no": 3403,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000204",
+          "page_no": 504,
+          "trial_page_no": 3404,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000205",
+          "page_no": 505,
+          "trial_page_no": 3405,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000206",
+          "page_no": 506,
+          "trial_page_no": 3406,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000207",
+          "page_no": 507,
+          "trial_page_no": 3407,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000208",
+          "page_no": 508,
+          "trial_page_no": 3408,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        },
+        {
+          "id": "a9444444-4444-4444-8444-000000000209",
+          "page_no": 509,
+          "trial_page_no": 3409,
+          "status": "matched",
+          "method": "text",
+          "score": 0.97,
+          "confirmed": false,
+          "paragraphs": [
+            "5.20"
+          ],
+          "version": 1,
+          "source_type": "gp_consultation",
+          "document_date": "2024-06-01"
+        }
+      ],
+      "counts": {
+        "matched": 209,
+        "to_confirm": 0,
+        "missing": 3
+      }
+    }
+  },
+  "artboardCss": "header > div > span:nth-child(2){font-size:0 !important}header > div > span:nth-child(2)::after{content:\"Clin neg breach · due 30 Nov\";font-size:17px}",
+  "probes": [
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".av-trial-title h2"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".av-trial-lead"
+    },
+    {
+      "name": "bundle card",
+      "artboard": "main > div:nth-child(2) > section:nth-child(1)",
+      "page": "[data-testid=bundle-card]"
+    },
+    {
+      "name": "tiles",
+      "artboard": "main > div:nth-child(2) > section:nth-child(2)",
+      "page": ".av-trial-tiles"
+    },
+    {
+      "name": "missing",
+      "artboard": "main > section:nth-of-type(1)",
+      "page": ".av-trial-missing"
+    },
+    {
+      "name": "table",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": ".av-trial-table-wrap"
+    },
+    {
+      "name": "missing head",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1)",
+      "page": ".av-trial-missing__head"
+    },
+    {
+      "name": "missing title",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1) > span",
+      "page": ".av-trial-missing__head h2"
+    },
+    {
+      "name": "missing list",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(2)",
+      "page": ".av-trial-missing .av-trial-list"
+    },
+    {
+      "name": "th row",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(1)",
+      "page": ".av-trial-table thead tr",
+      "allow": [
+        "paddingTop",
+        "paddingBottom",
+        "fontWeight",
+        "color",
+        "fontSize"
+      ]
+    },
+    {
+      "name": "row 1",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(2)",
+      "page": ".av-trial-table tbody tr:nth-child(1)",
+      "allow": [
+        "paddingTop",
+        "paddingBottom"
+      ]
+    },
+    {
+      "name": "row 4",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(5)",
+      "page": ".av-trial-table tbody tr:nth-child(4)",
+      "allow": [
+        "paddingTop",
+        "paddingBottom"
+      ]
+    },
+    {
+      "name": "foot",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(6)",
+      "page": ".av-trial-foot"
+    },
+    {
+      "name": "print",
+      "artboard": "main > div:last-child a:nth-child(1)",
+      "page": ".av-trial-print"
+    },
+    {
+      "name": "pack",
+      "artboard": "main > div:last-child a:nth-child(2)",
+      "page": ".av-trial-cta"
+    }
+  ],
+  "deviations": [
+    "The case bar's subtitle: the board shows a case description and trial month; the API has neither, the page shows the case type and due date. The artboard is rendered with the page's subtitle (artboardCss). Bar overrides are scoped to trial screens in trial.css (52px hit areas stay).",
+    "Document names (GP prescriptions, February blood result, ...) come from the pack's source_types words; the mock answers carry a pack with those words. The API gives a source type and a date, never free text, so the board's 'out-of-hours record, 22 April' prints as the label plus the date as 22 Apr 2024.",
+    "Paragraph numbers: the board shows 5.12; the API returns whole numbers. The mock answers use the board's strings. Page numbers print p.87 where the board writes p.087 (shared PageRef rule).",
+    "'Add a new version of the trial bundle' sits as a quiet button at the left of the action row (the board has no way to replace the bundle); 'Show every page' and 'Download as a spreadsheet' sit after 'and 205 more'.",
+    "Short dates follow the browser's en-GB wording (24 Sept 2024); the board writes 24 Sep.",
+    "Missing-pages heading icon and the matched/missing numbers are as drawn; the 'Tell the solicitor' word comes from the pack's instructing party type (mock case is instructed by a lawyer)."
+  ]
+}

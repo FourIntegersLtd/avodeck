@@ -76,10 +76,9 @@ export function ReportScreen() {
   const appendices = ((pack.report_appendices ?? []) as Array<{ key: string; label?: string }>).map((a) => a.label ?? humanise(a.key));
   const limits = ((pack.compliance_checklist as unknown as { page_limit?: Record<string, number> } | undefined)?.page_limit ?? {}) as Record<string, number>;
   const limit = item.court_track ? limits[item.court_track] : undefined;
-  const footer = [
-    version ? (version.page_count ? w("report.version", { name: version.display_name, pages: version.page_count }) : w("report.version_nopages", { name: version.display_name })) : null,
-    version && item.court_track ? (limit ? w("report.limit", { count: limit }) : w("report.no_limit")) : null,
-  ].filter(Boolean).join(" · ");
+  // "31 pages · multi-track, no page limit": the track's name and its limit come from the case and its pack.
+  const trackLine = version && item.court_track ? `${item.court_track.replace(/_/g, "-")}, ${limit ? w("report.limit", { count: limit }) : w("report.no_limit")}` : null;
+  const footer = [version?.page_count ? w("report.version", { pages: version.page_count }) : null, trackLine].filter(Boolean).join(" · ");
 
   return (
     <div className="av-page rp-page rp-page--wide">
@@ -139,6 +138,11 @@ export function ReportScreen() {
       </div>
     </div>
   );
+}
+
+/** Sets the bracketed page or paragraph references in a paragraph (for example "[p.214]") in the board's mono green. */
+function withCitations(text: string) {
+  return text.split(/(\[[^\]\s]{1,24}\])/).map((part, index) => (index % 2 ? <span key={index} className="rp-cite">{part}</span> : part));
 }
 
 function TickIcon() {
@@ -204,7 +208,7 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
           found.data.paragraphs.map((p) => (
             <div key={p.para_no} className="rp-para">
               <span className="rp-para__no">{`${number}.${p.para_no}`}</span>
-              <span>{p.text}</span>
+              <span>{withCitations(p.text)}</span>
             </div>
           ))
         )}
@@ -270,7 +274,7 @@ function Methodology({ caseId, locale }: { caseId: string; locale: string }) {
   const count = (n: number) => new Intl.NumberFormat(locale).format(n);
   return (
     <section className="rp-card" aria-labelledby="method-title">
-      <h2 id="method-title" className="rp-card__title">{w("report.methodology")}</h2>
+      <h2 id="method-title" className="rp-card__title rp-card__title--flush">{w("report.methodology")}</h2>
       <p className="av-muted rp-small">{w("report.methodology_body")}</p>
       <details className="rp-wording">
         <summary className="av-text-link">{w("report.wording")}</summary>

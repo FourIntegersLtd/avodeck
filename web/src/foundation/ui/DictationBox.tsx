@@ -3,6 +3,13 @@ import { t } from "../i18n";
 import { websocketUrl } from "../platform-client";
 import { Button } from "./Button";
 
+const MIC = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5 11a7 7 0 0014 0M12 18v3" />
+  </svg>
+);
+
 export interface DictationBoxProps {
   caseId: string;
   /** What the words are for (the API passes it on to the speech service's phrase list). */
@@ -15,6 +22,8 @@ export interface DictationBoxProps {
   bar?: boolean;
   /** Small words beside the bar, such as "Saved as you go". */
   note?: ReactNode;
+  /** Faint words shown while the box is empty ("Say or type why..."). */
+  placeholder?: string;
 }
 
 type State = "idle" | "starting" | "listening" | "finishing";
@@ -24,7 +33,7 @@ type Problem = "unavailable" | "microphone" | null;
  * A text box the expert can type in or dictate into. Audio goes only to the API's WebSocket
  * (rule 4); the words that come back are added to the end of the box for the expert to edit.
  */
-export function DictationBox({ caseId, context, label, value, onChange, rows = 8, bar, note }: DictationBoxProps) {
+export function DictationBox({ caseId, context, label, value, onChange, rows = 8, bar, note, placeholder }: DictationBoxProps) {
   const id = useId();
   const [state, setState] = useState<State>("idle");
   const [problem, setProblem] = useState<Problem>(null);
@@ -113,6 +122,7 @@ export function DictationBox({ caseId, context, label, value, onChange, rows = 8
       </Button>
     ) : (
       <Button variant="secondary" onClick={() => void start()} disabled={busy}>
+        {bar && MIC}
         {t("ui.dictation.start")}
       </Button>
     );
@@ -133,7 +143,7 @@ export function DictationBox({ caseId, context, label, value, onChange, rows = 8
       </label>
       {bar ? (
         <div className="av-dictation__frame">
-          <textarea id={id} className="av-textarea av-dictation__text" rows={rows} value={value} onChange={(e) => onChange(e.target.value)} />
+          <textarea id={id} className="av-textarea av-dictation__text" rows={rows} placeholder={placeholder} value={value} onChange={(e) => onChange(e.target.value)} />
           <div className="av-dictation__footer">
             <span className="av-dictation__own">{t("ui.dictation.own_words")}</span>
             {live}

@@ -247,7 +247,7 @@ describe("the picture of the record", () => {
     const pills = await screen.findByRole("radiogroup", { name: "Show" });
     expect(within(pills).getByRole("radio", { name: "Everything" })).toBeChecked();
     expect(within(pills).getByRole("radio", { name: "Checked by you · 2" })).toBeInTheDocument();
-    await user.click(within(pills).getByRole("radio", { name: "Thing to look at · 1" }));
+    await user.click(within(pills).getByRole("radio", { name: "Things to look at · 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("things_to_look"));
     await user.click(within(pills).getByRole("radio", { name: "Not linked to a question · 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("not_linked"));
@@ -276,7 +276,7 @@ describe("the picture of the record", () => {
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await openOverviewMap(user);
     const first = await screen.findByRole("region", { name: "Lane one words" });
-    expect(within(first).getByTestId("lane-icon")).toHaveStyle({ background: "#2a6f97" });
+    expect(within(first).getByTestId("lane-icon")).toHaveStyle({ color: "#2a6f97" });
     expect(within(first).getByTestId("lane-icon")).toHaveTextContent("L");
   });
 

@@ -52,6 +52,15 @@ export function money(amount: string | number, currency: string, locale: string)
   }
 }
 
+/** An hourly rate as the board writes it: "£180" for a whole number, "£180.50" otherwise. */
+export function rate(amount: string | number, currency: string, locale: string): string {
+  try {
+    return new Intl.NumberFormat(locale, { style: "currency", currency, minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(Number(amount));
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
+
 export function today(): string {
   return new Date().toISOString().slice(0, 10);
 }

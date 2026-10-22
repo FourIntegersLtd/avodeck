@@ -49,11 +49,13 @@ export const count = (n: number, locale: string | null | undefined) => new Intl.
 export function periodRange(start: string | null | undefined, end: string | null | undefined, locale: string | null | undefined): string {
   if (!start || !end) return "";
   const tag = localeTag(locale);
-  const fmt = (iso: string) => {
+  const fmt = (iso: string, withYear: boolean) => {
     const [y, m, d] = iso.split("-").map(Number);
-    return new Intl.DateTimeFormat(tag, { month: "short", year: "numeric", timeZone: "UTC" }).format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
+    return new Intl.DateTimeFormat(tag, withYear ? { month: "short", year: "numeric", timeZone: "UTC" } : { month: "short", timeZone: "UTC" }).format(new Date(Date.UTC(y!, (m ?? 1) - 1, d ?? 1)));
   };
-  return w("read.period_range", { from: fmt(start), to: fmt(end) });
+  // Inside one year the year is said once, at the end ("Feb to Aug 2024"), as the canvas writes it.
+  const sameYear = start.slice(0, 4) === end.slice(0, 4);
+  return w("read.period_range", { from: fmt(start, !sameYear), to: fmt(end, true) });
 }
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

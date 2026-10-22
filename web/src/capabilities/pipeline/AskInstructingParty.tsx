@@ -186,7 +186,7 @@ export function AskInstructingParty() {
               <textarea id="pl-ask-body" className="av-textarea" rows={14} value={body} onChange={(e) => setBody(e.target.value)} />
             </div>
           ) : (
-            <p className="pl-letter__body">{body}</p>
+            <div className="pl-letter__body">{letterBlocks(body)}</div>
           )}
           <div className="pl-letter__foot">
             <span className="pl-note">{w("ask.private")}</span>
@@ -264,4 +264,23 @@ export function AskInstructingParty() {
       </div>
     </div>
   );
+}
+
+const NUMBERED = /^\d+\. /;
+
+/** The letter's text as paragraphs; a block of numbered lines becomes a numbered list. */
+function letterBlocks(text: string) {
+  return text.split(/\n{2,}/).map((block, index) => {
+    const lines = block.split("\n");
+    if (lines.length > 0 && lines.every((line) => NUMBERED.test(line))) {
+      return (
+        <ol key={index}>
+          {lines.map((line) => (
+            <li key={line}>{line.replace(NUMBERED, "")}</li>
+          ))}
+        </ol>
+      );
+    }
+    return <p key={index}>{block}</p>;
+  });
 }

@@ -89,7 +89,7 @@ export function ServedScreen() {
     <div className="av-page av-after-page av-stack">
       <div className="av-after-head">
         <div>
-          <h2>{w("served.title")}</h2>
+          <h2 className="av-after-title">{w("served.title")}</h2>
           <p className="av-muted av-after-lede">{w("served.intro", { date: version.served_on ? longDate(version.served_on, locale) : "" })}</p>
         </div>
         <div className="av-after-pill" role="group" aria-label={w("served.locked")}>

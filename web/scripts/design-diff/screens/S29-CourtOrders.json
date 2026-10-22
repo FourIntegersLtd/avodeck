@@ -1,0 +1,418 @@
+{
+  "id": "S29-CourtOrders",
+  "artboard": "S29-CourtOrders.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/court-orders",
+  "width": 1440,
+  "height": 1500,
+  "session": true,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": "other_side",
+      "instructing_party_type": "lawyer",
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "served",
+      "on_hold": false,
+      "allowed_actions": [
+        "case.view_metadata",
+        "case.view_content",
+        "case.edit_setup",
+        "case.upload",
+        "opinion.write",
+        "fact.verify",
+        "report.build",
+        "report.sign",
+        "request.draft",
+        "case.export"
+      ],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/jurisdictions/*": {
+      "code": "gb-eaw",
+      "compliance_checklist": {
+        "items": [
+          {
+            "key": "qualifications",
+            "text": "Details of the expert's qualifications"
+          },
+          {
+            "key": "literature",
+            "text": "Details of any literature or other material relied on"
+          },
+          {
+            "key": "instructions",
+            "text": "A statement of the substance of all material instructions (written or oral)"
+          },
+          {
+            "key": "own_knowledge",
+            "text": "Which facts and matters are within the expert's own knowledge"
+          },
+          {
+            "key": "tests",
+            "text": "Who carried out any examination, measurement or test, their qualifications, and whether supervised"
+          },
+          {
+            "key": "range_of_opinion",
+            "text": "Where there is a range of opinion, a summary of the range and reasons for the expert's own opinion"
+          },
+          {
+            "key": "summary",
+            "text": "A summary of the conclusions reached"
+          },
+          {
+            "key": "qualified_opinion",
+            "text": "If an opinion is qualified, a statement of the qualification"
+          },
+          {
+            "key": "duty_and_truth",
+            "text": "A statement that the expert understands and has complied with their duty to the court, is aware of PD35 and the Guidance, and a statement of truth"
+          }
+        ],
+        "rule_ref": "CPR Part 35 / PD35"
+      },
+      "court_tracks": [
+        "small_claims",
+        "fast",
+        "intermediate",
+        "multi"
+      ],
+      "currency": "GBP",
+      "date_order": "DMY",
+      "deadline_rules": [
+        {
+          "calendar": "calendar_days",
+          "days": 28,
+          "from": "report_served",
+          "if_closed": "next_working_day",
+          "key": "written_questions",
+          "rule_ref": "CPR 35.6"
+        },
+        {
+          "key": "written_question_answers",
+          "rule_ref": "CPR 35.6",
+          "set_by": "direction"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 7,
+          "from": "discussion",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_signed",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "calendar": "calendar_days",
+          "days": 14,
+          "from": "signing",
+          "if_closed": "next_working_day",
+          "key": "expert_meeting_sent",
+          "rule_ref": "PD35 para 9"
+        },
+        {
+          "key": "trial",
+          "rule_ref": "court directions",
+          "set_by": "direction"
+        }
+      ],
+      "declarations": [
+        {
+          "key": "statement_of_truth",
+          "rule_ref": "PD35 para 3.3",
+          "text": "I confirm that I have made clear which facts and matters referred to in this report are within my own knowledge and which are not. Those that are within my own knowledge I confirm to be true. The opinions I have expressed represent my true and complete professional opinions on the matters to which they refer.\n\nI understand that proceedings for contempt of court may be brought against anyone who makes, or causes to be made, a false statement in a document verified by a statement of truth without an honest belief in its truth.",
+          "version": "2026.10.0"
+        }
+      ],
+      "language": "en",
+      "legal_tests": "## Breach of duty\nWould a responsible body of {clinicians} have acted as this {clinician} did, and would that view stand up to logical scrutiny? (Bolam, as qualified by Bolitho.)\n\n## Consent and information\nWas the patient told of material risks and reasonable alternatives? (Montgomery.)\n\nShown on screen 15 as reference text. The expert writes the test in their own words in their report.",
+      "locale": "en-GB",
+      "name": "England and Wales",
+      "timezone": "Europe/London",
+      "version": "2026.10.6",
+      "vocabulary": {
+        "court_bundle": "trial bundle",
+        "declaration_name": "statement of truth",
+        "expert_meeting": "experts' discussion",
+        "expert_meeting_document": "joint statement",
+        "instructing_party_request": {
+          "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
+          "label": "Ask the solicitor",
+          "subject": "Medical records request: {case_reference}"
+        },
+        "instructing_party_types": {
+          "coroner": "coroner",
+          "insurer": "insurer",
+          "lawyer": "solicitor"
+        },
+        "other_side_example": "For example, the practice or the doctor the claim is against",
+        "other_side_prompt": "Who is the defendant?",
+        "party_name_ignore_words": [
+          "the",
+          "and",
+          "ltd",
+          "limited",
+          "plc",
+          "llp",
+          "nhs",
+          "trust",
+          "practice",
+          "surgery",
+          "medical",
+          "centre",
+          "health",
+          "dr",
+          "mr",
+          "mrs",
+          "ms",
+          "miss"
+        ],
+        "party_roles": {
+          "instructing_side": "claimant",
+          "joint": "jointly instructed",
+          "other_side": "defendant"
+        },
+        "party_roles_plural": {
+          "instructing_side": "claimants",
+          "joint": "jointly instructed parties",
+          "other_side": "defendants"
+        },
+        "report_rules_name": "Part 35",
+        "request_extension": {
+          "days": "14",
+          "text": "If these records arrive late I may need up to {days} more days to finish my report. Please let me know whether the {instructing_party} can agree to this."
+        },
+        "request_notes": {
+          "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
+          "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
+        },
+        "subject": "claimant",
+        "subject_representatives": {
+          "deceased": "personal representative",
+          "minor": "litigation friend"
+        },
+        "subject_status_hint": "Say whether the claimant is living, has died or is under 18, so we ask about the right person.",
+        "subject_statuses": {
+          "deceased": "has died",
+          "living": "living",
+          "minor": "under 18"
+        },
+        "written_questions": "questions from the other side",
+        "written_questions_formal": "Part 35 questions"
+      },
+      "working_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/deadlines": {
+      "deadlines": [
+        {
+          "id": "d1111111-1111-4111-8111-111111111111",
+          "kind": "written_questions",
+          "due_on": "2027-02-12",
+          "due_at": "2027-02-12T23:59:59Z",
+          "timezone": "Europe/London",
+          "calendar": "calendar_days",
+          "created_from": "pack",
+          "source": "court_order",
+          "rule_ref": "ref",
+          "pack_version": "1",
+          "hearing_id": null,
+          "done_at": null,
+          "last_reminded_on": null,
+          "version": 1
+        },
+        {
+          "id": "d2111111-1111-4111-8111-111111111111",
+          "kind": "written_question_answers",
+          "due_on": "2027-02-26",
+          "due_at": "2027-02-26T23:59:59Z",
+          "timezone": "Europe/London",
+          "calendar": "calendar_days",
+          "created_from": "pack",
+          "source": "court_order",
+          "rule_ref": "ref",
+          "pack_version": "1",
+          "hearing_id": null,
+          "done_at": null,
+          "last_reminded_on": null,
+          "version": 1
+        },
+        {
+          "id": "d3111111-1111-4111-8111-111111111111",
+          "kind": "expert_meeting_signed",
+          "due_on": "2026-12-23",
+          "due_at": "2026-12-23T23:59:59Z",
+          "timezone": "Europe/London",
+          "calendar": "calendar_days",
+          "created_from": "pack",
+          "source": "court_order",
+          "rule_ref": "ref",
+          "pack_version": "1",
+          "hearing_id": null,
+          "done_at": null,
+          "last_reminded_on": null,
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/deadlines/*/changes": {
+      "changes": []
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/hearings": {
+      "hearings": [
+        {
+          "id": "h1",
+          "type": "trial",
+          "starts_on": "2027-06-14",
+          "ends_on": "2027-06-16",
+          "status": "scheduled",
+          "venue": "[COURT]",
+          "direction_id": null,
+          "replaced_by_hearing_id": null,
+          "changed_at": null,
+          "version": 1
+        },
+        {
+          "id": "h0",
+          "type": "trial",
+          "starts_on": "2027-03-03",
+          "ends_on": "2027-03-05",
+          "status": "adjourned",
+          "venue": "[COURT]",
+          "direction_id": "e1111111-1111-4111-8111-111111111111",
+          "replaced_by_hearing_id": "h1",
+          "changed_at": null,
+          "version": 1
+        }
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/court-directions": {
+      "directions": [
+        {
+          "id": "e1111111-1111-4111-8111-111111111111",
+          "created_at": "2027-01-21T10:00:00Z",
+          "created_deadline_ids": [],
+          "document_id": null,
+          "made_on": "2027-01-20",
+          "reference": "CASE-REF-1",
+          "stay": false,
+          "text": "The experts shall discuss by 12 February 2027 and file a joint statement by 26 February 2027. The trial listed for 3 March 2027 is adjourned to the first available date after 1 June 2027."
+        }
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/after-serving/steps": {
+      "meetings": [],
+      "pack": {
+        "built_on": "2027-05-30",
+        "stale": true
+      }
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/deadlines/d1111111-1111-4111-8111-111111111111/changes": {
+      "changes": [
+        {
+          "id": "c1111111-1111-4111-8111-111111111111",
+          "at": "2027-01-21T10:00:00Z",
+          "changed_by": null,
+          "new_due_on": "2027-02-12",
+          "old_due_on": "2027-01-29",
+          "reason": "court_order"
+        }
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/deadlines/d2111111-1111-4111-8111-111111111111/changes": {
+      "changes": [
+        {
+          "id": "c2111111-1111-4111-8111-111111111111",
+          "at": "2027-01-21T10:00:00Z",
+          "changed_by": null,
+          "new_due_on": "2027-02-26",
+          "old_due_on": "2027-02-12",
+          "reason": "court_order"
+        }
+      ]
+    },
+    "/v1/cases/44444444-4444-4444-8444-444444444444/deadlines/d3111111-1111-4111-8111-111111111111/changes": {
+      "changes": [
+        {
+          "id": "c3111111-1111-4111-8111-111111111111",
+          "at": "2027-01-21T10:00:00Z",
+          "changed_by": null,
+          "new_due_on": "2026-12-23",
+          "old_due_on": "2026-12-19",
+          "reason": "agreement"
+        }
+      ]
+    }
+  },
+  "setup": [
+    {
+      "waitFor": ".av-after-hold"
+    }
+  ],
+  "probes": [
+    {
+      "name": "head",
+      "artboard": "main > div:nth-child(1)",
+      "page": ".av-court-orders__head"
+    },
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-court-orders__title h2"
+    },
+    {
+      "name": "add",
+      "artboard": "main > div:nth-child(1) > button",
+      "page": ".av-court-orders__head > .av-button"
+    },
+    {
+      "name": "banner",
+      "artboard": "main > section:nth-of-type(1)",
+      "page": ".av-callout"
+    },
+    {
+      "name": "hearings",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": "section[aria-labelledby=hearings-title]"
+    },
+    {
+      "name": "orders",
+      "artboard": "main > section:nth-of-type(3)",
+      "page": "section[aria-labelledby=orders-list]"
+    },
+    {
+      "name": "history",
+      "artboard": "main > section:nth-of-type(4)",
+      "page": "section[aria-labelledby=history-title]"
+    },
+    {
+      "name": "hold",
+      "artboard": "main > section:nth-of-type(5)",
+      "page": ".av-after-hold"
+    }
+  ],
+  "artboardCss": "header > div > span:nth-child(2){font-size:0 !important}header > div > span:nth-child(2)::after{content:\"Clin neg breach · due 30 Nov\";font-size:17px;color:#4F5953}main > section:nth-of-type(2) > div:nth-of-type(1) > span:nth-child(2) > span:nth-child(3){font-size:0 !important}main > section:nth-of-type(2) > div:nth-of-type(1) > span:nth-child(2) > span:nth-child(3)::after{content:\"[COURT] · 3 days\";font-size:17px;color:#4F5953}main > section:nth-of-type(3) > div > span:nth-child(3){display:none !important}main > section:nth-of-type(4) > div:nth-of-type(2) > span:nth-child(1){font-size:0 !important}main > section:nth-of-type(4) > div:nth-of-type(2) > span:nth-child(1)::after{content:\"Questions to answer\";font-size:17px;font-weight:700}main > section:nth-of-type(4) > div:nth-of-type(3) > span:nth-child(1){font-size:0 !important}main > section:nth-of-type(4) > div:nth-of-type(3) > span:nth-child(1)::after{content:\"Answers to the questions\";font-size:17px;font-weight:700}main > section:nth-of-type(4) > div:nth-of-type(4) > span:nth-child(1){font-size:0 !important}main > section:nth-of-type(4) > div:nth-of-type(4) > span:nth-child(1)::after{content:\"Record of the experts' discussion signed\";font-size:17px;font-weight:700}main > section:nth-of-type(4) > div:nth-of-type(2) > span:nth-child(4){font-size:0 !important}main > section:nth-of-type(4) > div:nth-of-type(2) > span:nth-child(4)::after{content:\"A court order\";font-size:17px;}main > section:nth-of-type(4) > div:nth-of-type(3) > span:nth-child(4){font-size:0 !important}main > section:nth-of-type(4) > div:nth-of-type(3) > span:nth-child(4)::after{content:\"A court order\";font-size:17px;}main > section:nth-of-type(4) > div:nth-of-type(4) > span:nth-child(4){font-size:0 !important}main > section:nth-of-type(4) > div:nth-of-type(4) > span:nth-child(4)::after{content:\"An agreement with the other side\";font-size:17px;}main span[style*=\"font-size: 14px\"], main span[style*=\"font-size: 15px\"], main span[style*=\"font-size: 16px\"], main a[style*=\"font-size: 16px\"], main button[style*=\"font-size: 16px\"]{font-size:17px !important}",
+  "deviations": [
+    "The case bar's subtitle: the board shows a case description and trial month; the API has neither, the page shows the case type and due date (artboardCss).",
+    "Gap: the board's first hearing line ends 'you're expected on day 2' (no data on which day the expert attends) and the court is a placeholder '[COURT]'; the artboard is rendered without the day.",
+    "Gap: the order card's third line ('We suggested the dates it sets. You confirmed them on 21 January.') has no data (the order does not say which dates were suggested or confirmed); it is hidden on the artboard. The page lists 'Dates it set' when the order created some.",
+    "Gap: the history's 'Why' says the kind of reason ('A court order', 'An agreement with the other side'); the board names the order's date or the agreement ('Order of 20 January', 'Extension agreed by email, 16 December'), which the change record does not hold. Deadline names are the pack's words; the artboard is rendered with the page's wording (artboardCss).",
+    "The board has no 'Add a hearing' link or 'Move this date' list; the page keeps both so those jobs can still be done: 'Add a hearing' sits at the right of the Hearings heading, and the dates disclosure moves below the hold block (the board's last section).",
+    "Straight quote marks around the order's words, as the board; text the board sets at 14 to 16px is 17px; the Pause/withdraw and Rebuild buttons keep 52px hit areas with negative margins."
+  ]
+}

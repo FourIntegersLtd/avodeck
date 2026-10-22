@@ -45,7 +45,7 @@ describe.each([
     expect(await screen.findByRole("button", { name: "Mark as read" })).toBeVisible();
     await waitFor(() => expect(screen.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", expect.stringMatching(/^blob:/)));
     expect(screen.getByText(/You're in the period in question/)).toBeVisible();
-    expect(await screen.findByText(/Page 118 of 10\. You've read 3\. 7 to go\./)).toBeVisible();
+    expect((await screen.findByText(/You've read 3\. 7 to go\./)).closest("p")).toHaveTextContent("Page 118 of 10. You've read 3. 7 to go.");
     expect(screen.getByText(/Mark this page as read to see our suggestions/)).toBeVisible();
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
     expect(api.factRequests).toBe(0);
@@ -94,7 +94,7 @@ describe.each([
     expect(api.verifies[0]).toMatchObject({ id: factId(1), ifMatch: '"1"', body: { action: "correct" } });
     await user.click(await screen.findByText(/Checked on this page \(1\)/));
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
-    expect(screen.getByText("Checked by you")).toBeVisible();
+    expect(screen.getByText(/checked by you/)).toBeVisible();
   });
 
   test("Not right sends the short reason, keeps the card, and Undo checks it again", async () => {
@@ -160,7 +160,7 @@ describe.each([
     const c = await screen.findByRole("article", { name: /Dr P consultation/ });
     await user.click(within(c).getByRole("button", { name: "Send to Points against" }));
     await waitFor(() => expect(api.flags).toEqual([{ id: factId(1), method: "POST" }]));
-    await user.click(await within(c).findByRole("button", { name: "Take out of Points against" }));
+    await user.click(await within(c).findByRole("button", { name: /Take out of Points against/ }));
     await waitFor(() => expect(api.flags[1]).toEqual({ id: factId(1), method: "DELETE" }));
   });
 
@@ -197,7 +197,7 @@ describe.each([
     mockReader(pack, { alreadyRead: true, facts: [fact(1), fact(2, { value: "Anusol HC suppositories" })] });
     renderAt(`/cases/${CASE_ID}/read/118?fact=${second}`);
     const c = await screen.findByRole("article", { name: /Anusol HC/ });
-    expect(c.className).toContain("rd-card--focus");
+    expect(c.querySelector(".rd-card--focus")).not.toBeNull();
   });
 
   test("a checked suggestion offers only what the server allows, by button and by key", async () => {
@@ -226,11 +226,11 @@ describe.each([
     const { user } = renderAt(PATH);
     const c = await screen.findByRole("article", { name: /Dr P consultation/ });
     expect(within(c).getByText("Please check")).toBeVisible();
-    expect(within(c).queryByText("In Points against")).not.toBeInTheDocument();
+    expect(within(c).queryByText(/Saved to Points against for later/)).not.toBeInTheDocument();
     expect(within(c).getByRole("button", { name: "Send to Points against" })).toBeVisible();
     await user.click(within(c).getByRole("button", { name: "Correct" }));
     await waitFor(() => expect(api.verifies[0]?.body).toEqual({ action: "correct" }));
-    expect(await screen.findByText("Checked by you")).toBeVisible();
+    expect(await screen.findByText(/checked by you/)).toBeVisible();
   });
 
   test("keys are ignored while typing in a box", async () => {
@@ -252,7 +252,7 @@ describe.each([
     for (const name of ["Correct", "Not right", "Change a detail"]) expect(within(c).getByRole("button", { name })).toBeVisible();
     expect(screen.getByRole("separator", { name: /Drag to give more room/ })).toBeVisible();
     expect(screen.getByRole("button", { name: "Previous page" })).toBeVisible();
-    expect(await screen.findByRole("link", { name: /3 pages we couldn't read/ })).toHaveAttribute("href", `/cases/${CASE_ID}/read/couldnt-read`);
+    expect(await screen.findByRole("link", { name: /3 hard-to-read pages left/ })).toHaveAttribute("href", `/cases/${CASE_ID}/read/couldnt-read`);
   });
 
   test("without a page number it opens the first page not yet read", async () => {

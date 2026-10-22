@@ -37,7 +37,7 @@ test("the title has a tick tile, and the document and signature are cards side b
   serve("launch", { check: finalCheck() });
   renderAt(url);
   const title = await screen.findByRole("heading", { level: 1, name: M["report.sign.title_ready"]! });
-  expect(title.parentElement?.parentElement?.querySelector(".av-icon-tile--mint")).not.toBeNull();
+  expect(title.parentElement?.parentElement?.querySelector(".rp-hero__badge")).not.toBeNull();
   const doc = screen.getByRole("region", { name: "Draft 1" });
   expect(within(doc).getByText(/^31 pages · \d+ appendices$/)).toBeInTheDocument();
   const signature = screen.getByRole("region", { name: M["report.sign.signature"]! });

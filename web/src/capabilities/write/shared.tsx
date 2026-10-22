@@ -50,7 +50,7 @@ export function QuestionTabs({ caseId, chosen, screen }: { caseId: string; chose
     <nav className="av-write-tabs" aria-label={w("points.title")}>
       {chosen.all.map((q) => (
         <Link key={q.id} className="av-write-tab" to={`/cases/${caseId}/${screen}?q=${q.id}`} aria-current={q.id === chosen.current.id ? "page" : undefined}>
-          {chosen.progress?.questions.find((p) => p.question_id === q.id)?.points_done && (
+          {q.id !== chosen.current.id && chosen.progress?.questions.find((p) => p.question_id === q.id)?.points_done && (
             <>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M5 12l5 5 9-10" />
@@ -77,8 +77,10 @@ function TabName({ number, title }: { number: number; title: string | undefined 
 }
 
 /** "Q2 · Breach": the question's number and its kind, in the case type's own word for it. */
-export function KindBadge({ header }: { header: Schemas["QuestionHeader"] }) {
+export function KindBadge({ header, apart }: { header: Schemas["QuestionHeader"]; apart?: boolean }) {
   const kind = header.kind_label_key ? t(header.kind_label_key, {}, humanise(header.kind)) : humanise(header.kind);
+  // apart: the number in the dark badge, the kind as plain words after it (the opinion screen's head line)
+  if (apart) return <><span className="av-write-badge av-write-badge--dark">{w("tab.question_short", { number: header.number })}</span> <span>{kind}</span></>;
   return <span className="av-write-badge av-write-badge--dark">{w("tab.question_kind", { number: header.number, kind })}</span>;
 }
 

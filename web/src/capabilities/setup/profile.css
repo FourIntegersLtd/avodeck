@@ -1,0 +1,65 @@
+/* S02 Your expert profile, transcribed from the canvas board (S02-Profile.dc.html). Scoped to .av-profile. */
+.av-page.av-profile { max-width: 1120px; padding: 48px 40px 64px; display: flex; flex-direction: column; gap: 28px; }
+.av-profile.av-stack > * + * { margin-top: 0; }
+.av-profile .av-setup-title { gap: 24px; flex-wrap: wrap; }
+.av-profile .av-setup-title__text { display: flex; flex-direction: column; gap: 6px; }
+.av-profile .av-setup-title h1 { margin: 0; font-size: 34px; line-height: 1.5; }
+.av-profile .av-setup-title p { margin: 0; }
+.av-profile .av-setup-progress { gap: 14px; padding: 12px 18px; border-radius: 14px; }
+.av-profile > section.av-card { border-radius: 18px; padding: 28px 32px; gap: 20px; display: flex; flex-direction: column; }
+.av-profile > section.av-card > * { margin-top: 0; }
+.av-profile .av-setup-sechead { gap: 18px; display: flex; flex-direction: column; }
+.av-profile .av-setup-sechead > .av-row { gap: 12px; }
+.av-profile .av-setup-sechead > .av-row > .av-row { gap: 12px; flex-wrap: nowrap; }
+.av-profile .av-setup-sechead h2 { font-size: 22px; line-height: 1.5; }
+.av-profile .av-setup-mark { width: 30px; height: 30px; }
+
+/* About you: three boxes in a row */
+.av-profile .av-setup-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.av-profile .av-setup-summary .av-field { gap: 8px; display: flex; flex-direction: column; }
+.av-profile .av-setup-box { min-height: 0; padding: 14px 16px; border: 1.5px solid #B9C3BD; border-radius: 12px; color: #000; line-height: normal; font-size: 17px; }
+.av-profile .av-setup-summary .av-field:nth-child(2) .av-setup-box { font-family: var(--font-mono); }
+
+/* Roles and training: hairline rows */
+.av-profile section[aria-labelledby="setup-roles"] { gap: 18px; }
+.av-profile .av-setup-lines { gap: 0; }
+.av-profile section[aria-labelledby="setup-roles"] .av-setup-line { gap: 20px; padding: 16px 0; border-top: 1px solid #EEF1EF; min-height: 0; }
+.av-profile section[aria-labelledby="setup-roles"] .av-setup-line > :first-child { flex: 1; }
+.av-profile .av-setup-linkbtn { position: relative; padding: 0; min-height: 0; }
+.av-profile .av-setup-sechead p { margin: 0; }
+.av-profile .av-setup-progress .av-ring { width: 48px; height: 48px; }
+.av-profile .av-setup-linkbtn::after { content: ""; position: absolute; inset: -14px -8px; }
+.av-profile section[aria-labelledby="setup-roles"] > div:last-child { border-top: 1px solid #EEF1EF; padding-top: 14px; }
+.av-profile section[aria-labelledby="setup-roles"] > div:last-child .av-setup-linkbtn { text-decoration: none; }
+.av-profile section[aria-labelledby="setup-roles"] > div:last-child .av-setup-linkbtn::after { inset: -14px 0; }
+
+/* Training and template side by side */
+.av-profile > .av-setup-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px; }
+.av-profile > .av-setup-pair > section.av-card { border-radius: 18px; padding: 28px 32px; gap: 16px; }
+.av-profile > .av-setup-pair .av-setup-sechead { gap: 16px; }
+.av-profile > .av-setup-pair .av-setup-line { gap: 16px; padding: 12px 0; min-height: 0; justify-content: space-between; }
+
+/* Declaration */
+.av-profile section[aria-labelledby="setup-declaration"] { gap: 18px; }
+.av-profile .av-setup-halves { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; }
+.av-profile .av-setup-half { padding: 18px 20px; gap: 8px; border-radius: 12px; }
+.av-profile .av-setup-sigbar { padding: 24px; border-radius: 14px; min-height: 78px; gap: 14px; color: var(--ink-soft); }
+
+/* This profile goes with you */
+.av-profile section[aria-labelledby="setup-goes-with-you"] { padding: 24px 32px; }
+.av-profile section[aria-labelledby="setup-goes-with-you"] h2 { font-size: 19px; line-height: 1.5; margin: 0; }
+
+/* Done */
+.av-profile .av-setup-done { gap: 24px; }
+.av-profile .av-setup-done .av-button { font-size: 18px; padding: 14px 26px; }
+.av-profile section[aria-labelledby="setup-roles"] > ul + div { margin-top: -18px; }
+.av-profile > .av-setup-pair { align-items: stretch; }
+.av-profile > .av-setup-pair > section.av-card { display: flex; flex-direction: column; }
+.av-profile > .av-setup-pair > section.av-card > * { margin-top: 0; }
+.av-profile .av-setup-filetile { padding: 14px 16px; gap: 14px; border-radius: 12px; background: var(--surface-soft); }
+.av-profile .av-setup-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.av-profile .av-setup-tile { min-height: 73px; padding: 10px; border-radius: 8px; border: 1px solid #DDE3DF; }
+.av-profile section[aria-labelledby="setup-goes-with-you"] .av-row--spread { gap: 20px; align-items: center; }
+.av-profile section[aria-labelledby="setup-goes-with-you"] .av-row--spread > :first-child { flex: 1 1 420px; }
+.av-profile section[aria-labelledby="setup-goes-with-you"] p { margin: 0; }
+.av-profile .av-setup-halves { align-items: stretch; }

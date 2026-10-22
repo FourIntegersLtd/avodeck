@@ -18,7 +18,7 @@ describe.each([
   test("the banner names the period in question", async () => {
     mockReader(pack, { period: { start: "2024-02-01", end: "2024-08-31" } });
     renderAt(PATH);
-    expect(await screen.findByText(/Feb(ruary)? 2024 to Aug(ust)? 2024/)).toBeVisible();
+    expect(await screen.findByText(/Feb(ruary)? to Aug(ust)? 2024/)).toBeVisible();
   });
 
   test("with no period on the case the banner names none", async () => {

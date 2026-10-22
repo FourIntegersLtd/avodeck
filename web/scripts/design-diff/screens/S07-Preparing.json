@@ -1,0 +1,228 @@
+{
+  "id": "S07-Preparing",
+  "artboard": "S07-Preparing.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/preparing",
+  "width": 1440,
+  "height": 900,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [
+        "case.upload"
+      ],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z",
+      "stage": "prepare"
+    },
+    "/v1/cases/*/process": {
+      "job": {
+        "error_code": null,
+        "eta_seconds": 240,
+        "id": "88888888-8888-4888-8888-888888888888",
+        "kind": "process_bundle",
+        "pct": 66,
+        "status": "running",
+        "step": "sort",
+        "step_done": 840,
+        "step_total": 1268
+      }
+    },
+    "/v1/cases/*/bundle/summary": {
+      "by_source": [],
+      "documents": [
+        {
+          "bundle_version": 1,
+          "filename": "file1.pdf",
+          "first_page_no": null,
+          "id": "d0000001-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": null,
+          "pages": 300,
+          "received_on": null
+        },
+        {
+          "bundle_version": 1,
+          "filename": "file2.pdf",
+          "first_page_no": null,
+          "id": "d0000002-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": null,
+          "pages": 250,
+          "received_on": null
+        },
+        {
+          "bundle_version": 1,
+          "filename": "file3.pdf",
+          "first_page_no": null,
+          "id": "d0000003-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": null,
+          "pages": 200,
+          "received_on": null
+        },
+        {
+          "bundle_version": 1,
+          "filename": "file4.pdf",
+          "first_page_no": null,
+          "id": "d0000004-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": null,
+          "pages": 218,
+          "received_on": null
+        },
+        {
+          "bundle_version": 1,
+          "filename": "file5.pdf",
+          "first_page_no": null,
+          "id": "d0000005-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": null,
+          "pages": 200,
+          "received_on": null
+        },
+        {
+          "bundle_version": 1,
+          "filename": "file6.pdf",
+          "first_page_no": null,
+          "id": "d0000006-1111-4111-8111-111111111111",
+          "kind": "records",
+          "last_page_no": null,
+          "media_type": "application/pdf",
+          "obtained_how": null,
+          "pages": 100,
+          "received_on": null
+        }
+      ],
+      "duplicates": 0,
+      "exhibits": [
+        {
+          "added_at": "2026-10-02T09:00:00Z",
+          "document_id": "e1111111-1111-4111-8111-111111111111",
+          "filename": "call.m4a",
+          "id": "f1111111-1111-4111-8111-111111111111",
+          "media_type": "audio/mp4",
+          "size": 1000
+        }
+      ],
+      "foreign_language": [],
+      "gaps": 0,
+      "missing_items": 0,
+      "pages": 1268,
+      "quarantine_suggestions": [],
+      "quarantined": [],
+      "unreadable": 0,
+      "versions": []
+    },
+    "/v1/me/stats/balance*": {
+      "counts": {
+        "other_side": 14,
+        "instructing_side": 9,
+        "joint": 2
+      },
+      "months": 12
+    }
+  },
+  "probes": [
+    {
+      "name": "header",
+      "artboard": "header",
+      "page": ".av-case-bar"
+    },
+    {
+      "name": "picture",
+      "artboard": "main svg[role=img]",
+      "page": ".pl-preparing__head svg"
+    },
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".pl-preparing h1"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".pl-lead"
+    },
+    {
+      "name": "steps",
+      "artboard": "main > div > div:nth-child(2)",
+      "page": ".pl-steps"
+    },
+    {
+      "name": "step 1",
+      "artboard": "main > div > div:nth-child(2) > div:nth-child(1)",
+      "page": ".pl-step:nth-child(1)"
+    },
+    {
+      "name": "step 3",
+      "artboard": "main > div > div:nth-child(2) > div:nth-child(3)",
+      "page": ".pl-step:nth-child(3)"
+    },
+    {
+      "name": "bar",
+      "artboard": "main > div > div:nth-child(2) > div:nth-child(3) > div:nth-child(2)",
+      "page": ".pl-step:nth-child(3) .av-progress"
+    },
+    {
+      "name": "step 5",
+      "artboard": "main > div > div:nth-child(2) > div:nth-child(5)",
+      "page": ".pl-step:nth-child(5)"
+    },
+    {
+      "name": "notes",
+      "artboard": "main > div > div:nth-child(3)",
+      "page": ".pl-notes"
+    },
+    {
+      "name": "meanwhile",
+      "artboard": "main > div > div:nth-child(3) > a",
+      "page": ".pl-notes a"
+    },
+    {
+      "name": "note 1",
+      "artboard": "main > div > div:nth-child(3) > *:nth-child(1)",
+      "page": ".pl-notes > p:nth-child(1)"
+    },
+    {
+      "name": "note 2",
+      "artboard": "main > div > div:nth-child(3) > *:nth-child(2)",
+      "page": ".pl-notes > p:nth-child(2)"
+    },
+    {
+      "name": "note 3",
+      "artboard": "main > div > div:nth-child(3) > *:nth-child(3)",
+      "page": ".pl-notes > p:nth-child(3)"
+    }
+  ],
+  "deviations": [
+    "The turning arc on the current step keeps its animation (the board draws a still ring); the ring is restyled to the board's colours.",
+    "'Stop preparing' and 'Meanwhile...' links are drawn at the board's text size with a transparent hit area of 52px or more."
+  ]
+}

@@ -76,7 +76,7 @@ function ProfileView(props: ViewProps) {
   const words = (props.jurisdiction?.vocabulary.party_roles ?? {}) as Record<string, string>;
 
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-stack av-profile">
       <div className="av-row av-row--spread av-setup-title">
         <div className="av-setup-title__text">
           <h1>{t("setup.profile.title")}</h1>

@@ -139,9 +139,9 @@ export function CouldntRead() {
 
   return (
     <div className="rd rd--narrow">
-      <BackLink to={`/cases/${caseId}/read`}>{w("unreadable.back")}</BackLink>
       <div className="rd-head">
-        <div>
+        <div className="rd-head__main">
+          <BackLink to={`/cases/${caseId}/read`}>{w("unreadable.back")}</BackLink>
           <h1>{w("unreadable.title")}</h1>
           <p className="rd-lead">{w("unreadable.lead")}</p>
         </div>
@@ -161,8 +161,10 @@ export function CouldntRead() {
         <div className="rd-work">
           <section className="rd-pane" aria-label={w("read.page_alt", { page: current.page_no })}>
             <p className="rd-source">
-              {current.handwriting && <span className="rd-tag">{w("unreadable.handwriting")}</span>}{" "}
-              {sourceLabel(pack, current.source_type)} <span className="rd-ref">{w("read.page_ref", { page: current.page_no })}</span>
+              {current.handwriting && <span className="rd-tag">{w("unreadable.handwriting")}</span>}
+              <span>
+                {sourceLabel(pack, current.source_type)} · <span className="rd-ref">{w("read.page_ref", { page: current.page_no })}</span>
+              </span>
             </p>
             <PageImage caseId={caseId} pageNo={current.page_no} />
           </section>
@@ -180,6 +182,7 @@ export function CouldntRead() {
             </div>
             {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
             {current.needs_clearer_copy && !notice && <p className="rd-note">{w("unreadable.clearer_asked")}</p>}
+            <div className="rd-choose">
             <p className="rd-label rd-label--small">{w("unreadable.choose")}</p>
             <div className="rd-choices">
               <Button variant="secondary" disabled={busy} onClick={() => void nothingRelevant()}>
@@ -206,6 +209,7 @@ export function CouldntRead() {
                   if (file) void addClearerCopy(file);
                 }}
               />
+            </div>
             </div>
             {copying && (
               <div className="rd-copy">

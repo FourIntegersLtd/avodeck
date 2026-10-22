@@ -83,7 +83,7 @@ test("making the invoice sends the expenses and shows it as a draft with its tot
   await user.type(screen.getByLabelText(M["report.invoice.expenses"]!), "12.50");
   await user.click(screen.getByRole("button", { name: M["report.invoice.create"]! }));
   const card = await screen.findByRole("article", { name: M["report.invoice.draft"]! });
-  expect(within(card).getByText("20.25 hours at £180.00")).toBeInTheDocument();
+  expect(within(card).getByText("Report: 20.25 hours at £180")).toBeInTheDocument();
   expect(within(card).getAllByText("£3,645.00").length).toBeGreaterThan(0);
   expect(within(card).getByText(M["report.invoice.status.draft"]!)).toBeInTheDocument();
   expect(screen.getByRole("link", { name: M["report.invoice.download"]! })).toHaveAttribute("href", expect.stringContaining(`/v1/cases/${CASE_A}/invoices/${INV}/pdf`));
@@ -157,7 +157,7 @@ describe("a sent invoice", () => {
     await user.type(within(dialog).getByLabelText(M["report.invoice.credit_reason"]!), "Rate typo");
     await user.click(within(dialog).getByRole("button", { name: M["report.invoice.credit_save"]! }));
     await waitFor(() => expect(sent.at(-1)).toMatchObject({ method: "POST", body: { amount: "100", reason: "Rate typo" } }));
-    expect(screen.getByText(M["report.invoice.locked_note"]!)).toBeInTheDocument();
+    expect(screen.getByText((text) => text.includes(M["report.invoice.locked_note"]!))).toBeInTheDocument();
   });
 });
 
@@ -250,7 +250,8 @@ test("once the report is sent, the title says so and shows the bars and the with
   expect(bars).toHaveLength(stages.length);
   expect(bars[0]).toHaveAttribute("aria-label", stepLabel(stages[0]!.stage));
   expect(bars[0]).toHaveAttribute("value", "3600");
-  expect(screen.getByText("Within your estimate. You told the Party 22 hours when you accepted the case.")).toBeInTheDocument();
+  expect(screen.getByText("Within your estimate.")).toBeInTheDocument();
+  expect(screen.getByText(/You told the Party 22 hours when you accepted the case\./)).toBeInTheDocument();
 });
 
 test("an invoice shows who it is from and to, the case, the date and the pack's statements, with the fee note", async () => {

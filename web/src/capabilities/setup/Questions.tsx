@@ -75,7 +75,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
   };
 
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-stack av-questions">
       <div className="av-row av-row--spread av-setup-title">
         <div>
           <h1>{t("setup.questions.title")}</h1>

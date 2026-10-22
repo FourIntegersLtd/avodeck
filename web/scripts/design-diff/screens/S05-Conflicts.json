@@ -1,0 +1,234 @@
+{
+  "id": "S05-Conflicts",
+  "artboard": "S05-Conflicts.dc.html",
+  "route": "/cases/44444444-4444-4444-8444-444444444444/conflicts",
+  "width": 1440,
+  "height": 1300,
+  "session": true,
+  "mock": {
+    "/v1/cases/*": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "clin-neg-breach",
+      "specialty": "general-practice",
+      "expert_role": "breach",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z",
+      "stage": "prepare"
+    },
+    "/v1/cases/*/conflicts": {
+      "questions": [
+        {
+          "key": "treated",
+          "text": "Have you ever treated Mrs A, or anyone in her family?",
+          "detail_required": false,
+          "answer": "no",
+          "detail": null
+        },
+        {
+          "key": "worked_with",
+          "text": "Have you worked at, or with, Dr P's practice?",
+          "detail_required": false,
+          "answer": "no",
+          "detail": null
+        },
+        {
+          "key": "acted",
+          "text": "Have you acted for or against any of the parties before?",
+          "detail_required": true,
+          "answer": "yes",
+          "detail": "I have been instructed by the same defence organisation in three unrelated cases since 2024."
+        }
+      ],
+      "complete": true,
+      "paragraph": null,
+      "coverage_question": "Were you working in in-hours general practice between February and August 2024?",
+      "coverage": {
+        "status": "covered",
+        "period_start": "2024-02-01",
+        "period_end": "2024-08-31"
+      },
+      "warnings": [],
+      "declared_at": null,
+      "outcome": null,
+      "changed_since_declared": false
+    },
+    "/v1/cases/*/process": {
+      "job": {
+        "case_id": "44444444-4444-4444-8444-444444444444",
+        "created_at": "2026-10-02T09:00:00Z",
+        "error_code": null,
+        "eta_seconds": 240,
+        "finished_at": null,
+        "id": "88888888-8888-4888-8888-888888888888",
+        "kind": "process",
+        "pct": 40,
+        "started_at": "2026-10-02T09:00:10Z",
+        "status": "running"
+      }
+    },
+    "/v1/me/stats/balance*": {
+      "counts": {
+        "other_side": 14,
+        "instructing_side": 9,
+        "joint": 2
+      },
+      "months": 12
+    }
+  },
+  "probes": [
+    {
+      "name": "header",
+      "artboard": "header",
+      "page": ".av-case-bar"
+    },
+    {
+      "name": "name",
+      "artboard": "header > div:first-of-type",
+      "page": ".av-case-bar__name",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "steps",
+      "artboard": "nav",
+      "page": ".av-case-bar__steps",
+      "allow": [
+        "rect.y",
+        "rect.h"
+      ]
+    },
+    {
+      "name": "pill 1",
+      "artboard": "nav a:nth-child(1)",
+      "page": ".av-step:nth-child(1) .av-step__pill"
+    },
+    {
+      "name": "pill 2",
+      "artboard": "nav a:nth-child(2)",
+      "page": ".av-step:nth-child(2) .av-step__pill"
+    },
+    {
+      "name": "avatar",
+      "artboard": "header > span:last-child",
+      "page": ".av-case-bar .av-shell__avatar-disc"
+    },
+    {
+      "name": "heading",
+      "artboard": "main > div:first-child",
+      "page": ".av-setup-heading"
+    },
+    {
+      "name": "eyebrow",
+      "artboard": "main > div:first-child > span",
+      "page": ".av-setup-eyebrow"
+    },
+    {
+      "name": "h1",
+      "artboard": "main h1",
+      "page": ".av-conflicts h1"
+    },
+    {
+      "name": "card",
+      "artboard": "main > section:nth-of-type(1)",
+      "page": ".av-setup-qs"
+    },
+    {
+      "name": "row 1",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1)",
+      "page": ".av-setup-qs > :nth-child(2)"
+    },
+    {
+      "name": "row 2",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(2)",
+      "page": ".av-setup-qs > :nth-child(3)"
+    },
+    {
+      "name": "row 3",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(3)",
+      "page": ".av-setup-qs > :nth-child(4)"
+    },
+    {
+      "name": "row 4",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(4)",
+      "page": ".av-setup-qs > :nth-child(5)"
+    },
+    {
+      "name": "balance",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": ".av-setup-balance"
+    },
+    {
+      "name": "footer",
+      "artboard": "main > div:last-child",
+      "page": ".av-setup-actions"
+    },
+    {
+      "name": "confirm",
+      "artboard": "main > div:last-child > a",
+      "page": ".av-setup-actions .av-button"
+    },
+    {
+      "name": "pill 3",
+      "artboard": "nav a:nth-child(3)",
+      ".page": "x",
+      "page": ".av-step:nth-child(3) .av-step__pill"
+    },
+    {
+      "name": "pill 5",
+      "artboard": "nav a:nth-child(5)",
+      "page": ".av-step:nth-child(5) .av-step__pill"
+    },
+    {
+      "name": "bar",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(2)",
+      "page": ".av-stacked__bar",
+      "allow": [
+        "backgroundColor"
+      ]
+    },
+    {
+      "name": "legend",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(3)",
+      "page": ".av-stacked__legend"
+    },
+    {
+      "name": "textarea",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(3) textarea",
+      "page": ".av-setup-q textarea"
+    },
+    {
+      "name": "qrow 3",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(3) > div:first-child",
+      "page": ".av-setup-qs > :nth-child(4) > .av-setup-qrow"
+    },
+    {
+      "name": "yes pill",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(3) > div:first-child > div > span:first-child",
+      "page": ".av-setup-qs > :nth-child(4) .av-pill:first-child"
+    }
+  ],
+  "deviations": [
+    "Four questions' intro: the board adds a sentence about a check of the expert's other cases (no data in the API), so the artboard is clipped to its first line.",
+    "The board's 'That's not usually a conflict...' line under a yes answer has no data, so it is removed from the artboard.",
+    "The page has a quiet 'Step back from this case' link under the footer that the board does not draw (it opens the withdraw dialog, which needs the step-up code).",
+    "The question card's heading ('Your answers') and the 'Please tell us more' label are read out but not drawn, as on the board."
+  ],
+  "artboardCss": "main > div:first-child > p { max-height: 28.5px; overflow: hidden } main > section:nth-of-type(1) > div:nth-child(3) > span:last-child { display: none !important }",
+  "budget": 0.6,
+  "budgetReason": "Words the API and pack supply differ from the board's sample copy: the case subtitle (no summary field), the intro's first line and the profile line under the coverage question. Every box is measured by the probes."
+}

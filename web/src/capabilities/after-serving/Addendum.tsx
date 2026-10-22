@@ -56,11 +56,13 @@ export function AddendumScreen() {
   };
 
   return (
-    <div className="av-page av-after-page av-stack">
-      <div>
-        <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
-        <h2>{w("change.title")}</h2>
-        <p className="av-muted av-after-lede">{w("change.intro")}</p>
+    <div className="av-page av-after-page av-after-page--full av-after-page--board av-stack">
+      <div className="av-after-head">
+        <div>
+          <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
+          <h2 className="av-after-title">{w("change.title")}</h2>
+          <p className="av-muted av-after-lede">{w("change.intro")}</p>
+        </div>
       </div>
       <div className="av-after-twocol">
         <section className="av-after-main av-stack">
@@ -76,7 +78,7 @@ export function AddendumScreen() {
           <section className="av-stack" aria-labelledby="list-h">
             <h3 id="list-h" className="av-visually-hidden">{w("change.list")}</h3>
             {list.length === 0 && <p>{w("change.none")}</p>}
-            {list.map((c) => (
+            {list.map((c, index) => (
               <article key={c.id} className="av-after-pcard av-stack" aria-labelledby={`change-${c.id}`}>
                 <div className="av-after-qcard__tags">
                   <h4 id={`change-${c.id}`}>{w("served.paragraph", { n: num(c.paragraph_id) })}</h4>
@@ -100,11 +102,11 @@ export function AddendumScreen() {
                     <p className="av-muted">{w("change.depends_reason", { reason: d.reason })}</p>
                   </div>
                 ))}
+                {!locked && !adding && index === list.length - 1 && (
+                  <div><button type="button" className="av-after-linkbtn" onClick={() => setAdding(true)}>{w("change.another")}</button></div>
+                )}
               </article>
             ))}
-            {!locked && list.length > 0 && !adding && (
-              <div><button type="button" className="av-after-linkbtn" onClick={() => setAdding(true)}>{w("change.another")}</button></div>
-            )}
           </section>
         </section>
         {list.length > 0 && (

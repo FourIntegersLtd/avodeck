@@ -1,6 +1,6 @@
 /** How wide the scan column is on S09 (percent of the work row). Remembered for this browser tab. */
 export const SPLIT_STORAGE_KEY = "avodeck.reader.split";
-export const DEFAULT_SPLIT_PCT = 62;
+export const DEFAULT_SPLIT_PCT = 70;
 export const MIN_SPLIT_PCT = 32;
 export const MAX_SPLIT_PCT = 78;
 

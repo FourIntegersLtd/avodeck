@@ -2,9 +2,10 @@
 // come from the API (both from the case's packs); later entries are counted and folded away; entries with no
 // known arrival are shown as not known. Any day can be chosen. Each person keeps a private note, and the named
 // expert may change when something arrived, with a reason. Buttons follow what the person may do on the case.
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { t } from "../../foundation/i18n";
+import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -162,7 +163,7 @@ function ArrivalDialog({ caseId, entry, onClose, onSaved }: { caseId: string; en
 }
 
 /** The note card and the foot of the screen (the way back, and save and carry on to the things to look at). */
-function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factId: string; initial: string; canAdd: boolean }) {
+function NoteEditor({ caseId, factId, initial, canAdd, dayPicker }: { caseId: string; factId: string; initial: string; canAdd: boolean; dayPicker: ReactNode }) {
   const [body, setBody] = useState(initial);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -181,10 +182,10 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
   };
   return (
     <>
-      <section aria-labelledby="consult-note" className="av-card av-stack av-understand-area-note">
+      <section aria-labelledby="consult-note" className="av-card av-understand-area-note av-understand-note">
         <h2 id="consult-note">{w("consultation.note_title")}</h2>
-        <p className="av-muted" id="consult-note-hint">{w("consultation.note_hint")}</p>
-        {writable && <DictationBox caseId={caseId} context="consultation_note" label={w("consultation.note")} rows={4} bar value={body} onChange={(v) => { setBody(v); setSaved(false); }} />}
+        <p className="av-muted av-visually-hidden" id="consult-note-hint">{w("consultation.note_hint")}</p>
+        {writable && <DictationBox caseId={caseId} context="consultation_note" label={w("consultation.note_label")} rows={1} bar value={body} onChange={(v) => { setBody(v); setSaved(false); }} />}
         {error && <Notice tone="error"><p>{error}</p></Notice>}
         {saved && <Notice tone="success"><p>{w("consultation.note_saved")}</p></Notice>}
         {writable && (
@@ -194,9 +195,10 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
         )}
       </section>
       <div className="av-understand-foot av-understand-area-foot">
-        <LinkButton to={`/cases/${caseId}/timeline`} variant="secondary">
+        <LinkButton to={`/cases/${caseId}/timeline`} variant="secondary" arrow="back">
           {w("consultation.back_bottom")}
         </LinkButton>
+        {dayPicker}
         <Button arrow onClick={() => void save(true)}>{w("consultation.note_continue")}</Button>
       </div>
     </>
@@ -205,13 +207,19 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
 
 function PagePanel({ caseId, pageNo }: { caseId: string; pageNo: number }) {
   const shown = useResource(() => pageImage(caseId, pageNo), [caseId, pageNo]);
+  const { pack } = useCaseFrame();
+  // The page's own kind of record, in the pack's words; without it the heading says "The page".
+  const detail = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: pageNo } } })).catch(() => null), [caseId, pageNo]);
+  const key = detail.data?.source_type;
+  const kinds = (pack.vocabulary as Record<string, unknown>).source_types as Record<string, string> | undefined;
+  const source = key ? (kinds?.[key] ?? kindWord(key)) : "";
   return (
-    <section aria-labelledby="consult-page" className="av-card av-stack av-understand-page av-understand-area-page">
+    <section aria-labelledby="consult-page" className="av-understand-page av-understand-area-page">
       <div className="av-understand-page__head">
-        <h2 id="consult-page">{w("consultation.page_title")}</h2>
+        <h2 id="consult-page">{source || w("consultation.page_title")}</h2>
+        <p className="av-muted av-understand-page__context">{w("consultation.page_context", { page: pageNo })}</p>
         <PageRef page={pageNo} />
       </div>
-      <p className="av-muted av-understand-page__context">{w("consultation.page_context", { page: pageNo })}</p>
       {shown.error ? (
         <p className="av-muted">{w("consultation.page_none")}</p>
       ) : shown.data ? (
@@ -228,7 +236,6 @@ function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
   return (
     <section aria-labelledby="consult-later-notes" className="av-card av-stack av-understand-card">
       <h2 id="consult-later-notes">{w("consultation.later_notes_title")}</h2>
-      <p className="av-muted">{w("consultation.later_notes_hint")}</p>
       {found.error ? (
         <LoadError onRetry={found.reload} />
       ) : !found.data ? (
@@ -250,6 +257,7 @@ function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
           ))}
         </ul>
       )}
+      <p className="av-muted av-understand-card__hint">{w("consultation.later_notes_hint")}</p>
     </section>
   );
 }
@@ -260,6 +268,8 @@ export function Consultation() {
   const [on, setOn] = useState<string | null>(null);
   const [typed, setTyped] = useState<string | null>(null);
   const [asSeen, setAsSeen] = useState(true);
+  const [laterOpen, setLaterOpen] = useState<boolean | null>(null); // null: follow the switch (shown when it is off)
+  const laterShown = laterOpen ?? !asSeen;
   const can = useCan(caseId);
   const found = useResource(
     () =>
@@ -296,7 +306,7 @@ export function Consultation() {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setOn(value);
   };
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-stack av-understand-consultation">
       <div className="av-understand-top">
         <div>
           <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
@@ -315,13 +325,6 @@ export function Consultation() {
         <div className="av-understand-asseen">
           <ToggleSwitch label={w("consultation.on", { title: c.title, date: longDate(c.on) })} checked={asSeen} onChange={setAsSeen} />
           <span className="av-understand-asseen__hint">{w("consultation.switch_hint")}</span>
-          <details className="av-understand-asseen__day">
-            <summary>{w("consultation.change_day")}</summary>
-            <div className="av-field">
-              <label className="av-field__label" htmlFor="consult-on">{w("consultation.on_label")}</label>
-              <input id="consult-on" className="av-input" type="date" value={typed ?? c.on} onChange={(e) => pick(e.target.value)} />
-            </div>
-          </details>
         </div>
       </div>
       <GuidanceChanged codes={c.guidance_changed} />
@@ -329,16 +332,20 @@ export function Consultation() {
         {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} />}
         <div className="av-stack av-understand-area-aside">
           <section aria-labelledby="consult-seen" className="av-card av-stack av-understand-card">
-            <h2 id="consult-seen">{w("consultation.seen")}</h2>
+            <div className="av-understand-card__head">
+              <h2 id="consult-seen">{w("consultation.seen")}</h2>
+              <button type="button" className="av-understand-later__toggle" aria-expanded={laterShown} aria-controls="consult-later" onClick={() => setLaterOpen(!laterShown)}>
+                {w("consultation.later", { count: c.later_count })}
+              </button>
+            </div>
             {c.visible.length === 0 ? <p className="av-muted">{w("consultation.seen_none")}</p> : <SeenEntries items={c.visible} visitPage={c.entry.page_no} onChange={change} />}
-            <details className="av-understand-later" open={!asSeen || undefined}>
-              <summary>{w("consultation.later", { count: c.later_count })}</summary>
+            <div id="consult-later" className="av-understand-later" hidden={!laterShown}>
               {c.later.length === 0 ? (
                 <p className="av-muted">{w("consultation.later_none")}</p>
               ) : (
                 <GroupedEntries items={c.later} visitPage={c.entry.page_no} variant="known" onChange={change} />
               )}
-            </details>
+            </div>
           </section>
           {c.unknown.length > 0 && (
             <section aria-labelledby="consult-unknown" className="av-card av-stack av-understand-card av-understand-card--soft">
@@ -357,6 +364,7 @@ export function Consultation() {
           <section aria-labelledby="consult-guidance" className="av-card av-stack av-understand-card">
             <h2 id="consult-guidance">{w("consultation.guidance")}</h2>
             {c.guidance.length === 0 && <p className="av-muted">{w("consultation.guidance_none")}</p>}
+            <div className="av-understand-guidance-row">
             <ul className="av-understand-list">
               {c.guidance.map((g) => {
                 const name = `${g.title ?? g.code} (${g.code})`;
@@ -368,12 +376,10 @@ export function Consultation() {
                 );
               })}
             </ul>
-            {c.guidance.length > 0 && (
-              <>
-                <span className="av-understand-count av-understand-inforce">{w("consultation.in_force", { date: longDate(c.on) })}</span>
-                <p className="av-muted">{w("consultation.guidance_hint")}</p>
-              </>
-            )}
+            {c.guidance.length > 0 && <span className="av-understand-count av-understand-inforce">{w("consultation.in_force", { date: longDate(c.on) })}</span>}
+            </div>
+            {c.guidance.length > 0 && <p className="av-muted">{w("consultation.guidance_hint")}</p>}
+
           </section>
           <LaterNotes caseId={caseId} factId={factId} />
           <details className="av-understand-comments">
@@ -381,7 +387,17 @@ export function Consultation() {
             <Comments caseId={caseId} targetKind="fact" targetId={factId} />
           </details>
         </div>
-        <NoteEditor key={`${factId}-${c.note ?? ""}`} caseId={caseId} factId={factId} initial={c.note ?? ""} canAdd={can("consultation.note")} />
+        <NoteEditor key={`${factId}-${c.note ?? ""}`} caseId={caseId} factId={factId} initial={c.note ?? ""} canAdd={can("consultation.note")}
+          dayPicker={
+            <details className="av-understand-asseen__day">
+              <summary>{w("consultation.change_day")}</summary>
+              <div className="av-field">
+                <label className="av-field__label" htmlFor="consult-on">{w("consultation.on_label")}</label>
+                <input id="consult-on" className="av-input" type="date" value={typed ?? c.on} onChange={(e) => pick(e.target.value)} />
+              </div>
+            </details>
+          }
+        />
       </div>
       {changing && (
         <ArrivalDialog

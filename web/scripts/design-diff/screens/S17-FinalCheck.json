@@ -1,0 +1,455 @@
+{
+  "id": "S17-FinalCheck",
+  "artboard": "S17-FinalCheck.dc.html",
+  "session": true,
+  "route": "/cases/44444444-4444-4444-8444-444444444444/final-check",
+  "width": 1440,
+  "height": 1000,
+  "mock": {
+    "/v1/cases/44444444-4444-4444-8444-444444444444": {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "label": "Mrs A",
+      "organisation_id": "22222222-2222-4222-8222-222222222222",
+      "named_expert_id": "11111111-1111-4111-8111-111111111111",
+      "jurisdiction": "gb-eaw",
+      "case_type": "delayed-colorectal-referral",
+      "specialty": "general-practice",
+      "expert_role": "defendant_expert",
+      "party_role": "other_side",
+      "instructing_party_type": null,
+      "court_track": null,
+      "due_date": "2026-11-30",
+      "status": "open",
+      "on_hold": false,
+      "allowed_actions": [],
+      "period_start": "2024-02-01",
+      "period_end": "2024-08-31",
+      "subject_status": null,
+      "created_at": "2026-10-02T09:00:00Z",
+      "updated_at": "2026-10-02T09:00:00Z"
+    },
+    "/v1/cases/*/report/final-check/latest": {
+      "id": "f1111111-1111-4111-8111-111111111111",
+      "report_version_id": "b1111111-1111-4111-8111-111111111111",
+      "at": "2026-10-18T10:00:00Z",
+      "passed": false,
+      "current": true,
+      "declaration_changed": false,
+      "pack_versions": {},
+      "warnings": [],
+      "warnings_status": "done",
+      "results": [
+        {
+          "key": "age_agrees",
+          "source": "core",
+          "outcome": "failed",
+          "count": 2,
+          "text": "Paragraph 6.14 says Mrs A was 57.",
+          "code": null,
+          "fix": {
+            "screen": "opinion",
+            "item": "q6"
+          },
+          "fixes": [
+            {
+              "screen": "opinion",
+              "item": "q6"
+            }
+          ]
+        },
+        {
+          "key": "questions_answered",
+          "source": "core",
+          "outcome": "failed",
+          "count": 2,
+          "text": "Question 4 hasn't been answered yet.",
+          "code": null,
+          "fix": {
+            "screen": "opinion",
+            "item": "q4"
+          },
+          "fixes": [
+            {
+              "screen": "opinion",
+              "item": "q4"
+            }
+          ]
+        },
+        {
+          "key": "citations_resolve",
+          "source": "core",
+          "outcome": "passed",
+          "count": 214,
+          "text": "Every fact traced to a page you checked",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "quotes_match",
+          "source": "core",
+          "outcome": "passed",
+          "count": 38,
+          "text": "Every quotation matches its page word for word",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "facts_unchanged",
+          "source": "core",
+          "outcome": "passed",
+          "count": 214,
+          "text": "No fact has changed since you cited it",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "all_pages_read",
+          "source": "core",
+          "outcome": "passed",
+          "count": 1231,
+          "text": "Every page read by you",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "guidance_in_force",
+          "source": "core",
+          "outcome": "passed",
+          "count": 3,
+          "text": "Guidance applied only to dates it was in force",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "points_against_considered",
+          "source": "core",
+          "outcome": "passed",
+          "count": 4,
+          "text": "Points against considered for every question",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "tone_and_expertise",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Legal test stated, no loaded language, nothing outside your expertise",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "court_requirements",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Court requirements and statement of truth",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_0",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 0",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_1",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 1",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_2",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 2",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_3",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 3",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_4",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 4",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_5",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 5",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_6",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 6",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_7",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 7",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_8",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 8",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_9",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 9",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_10",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 10",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_11",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 11",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_12",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 12",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_13",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 13",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_14",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 14",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_15",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 15",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_16",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 16",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        },
+        {
+          "key": "other_17",
+          "source": "core",
+          "outcome": "passed",
+          "count": 0,
+          "text": "Other check 17",
+          "code": null,
+          "fix": null,
+          "fixes": []
+        }
+      ]
+    }
+  },
+  "probes": [
+    {
+      "name": "score ring",
+      "artboard": "main > div:first-child > svg",
+      "page": ".rp-score"
+    },
+    {
+      "name": "title",
+      "artboard": "main h1",
+      "page": ".rp-title"
+    },
+    {
+      "name": "lead",
+      "artboard": "main h1 + p",
+      "page": ".rp-lead"
+    },
+    {
+      "name": "first callout",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1)",
+      "page": ".rp-fixes > li:nth-child(1) .av-callout"
+    },
+    {
+      "name": "callout tile",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1) > span:first-child",
+      "page": ".rp-fixes > li:nth-child(1) .av-icon-tile",
+      "allow": [
+        "color"
+      ]
+    },
+    {
+      "name": "callout title",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1) > span:nth-child(2) > span:first-child",
+      "page": ".rp-fixes > li:nth-child(1) .av-callout__title",
+      "allow": [
+        "rect.w",
+        "rect.h"
+      ]
+    },
+    {
+      "name": "callout button",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(1) a",
+      "page": ".rp-fixes > li:nth-child(1) .av-button"
+    },
+    {
+      "name": "second callout",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(2)",
+      "page": ".rp-fixes > li:nth-child(2) .av-callout"
+    },
+    {
+      "name": "second callout button",
+      "artboard": "main > section:nth-of-type(1) > div:nth-child(2) a",
+      "page": ".rp-fixes > li:nth-child(2) .av-button",
+      "allow": [
+        "rect.x",
+        "rect.w"
+      ]
+    },
+    {
+      "name": "passed list",
+      "artboard": "main > section:nth-of-type(2)",
+      "page": ".rp-passed"
+    },
+    {
+      "name": "passed row 1",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(1)",
+      "page": ".rp-passed__row:nth-child(1)"
+    },
+    {
+      "name": "passed row 1 name",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(1) > span:nth-child(2)",
+      "page": ".rp-passed__row:nth-child(1) .rp-passed__name",
+      "allow": [
+        "rect.w",
+        "fontWeight"
+      ]
+    },
+    {
+      "name": "passed row 8",
+      "artboard": "main > section:nth-of-type(2) > div:nth-child(8)",
+      "page": ".rp-passed__row:nth-child(8)"
+    },
+    {
+      "name": "see all",
+      "artboard": "a[href='#all']",
+      "page": ".rp-passed .rp-linkbtn"
+    },
+    {
+      "name": "spot link",
+      "artboard": "a[href='#peer']",
+      "page": ".rp-bar__actions:first-child .rp-linkbtn"
+    },
+    {
+      "name": "fix first note",
+      "artboard": "main > div:last-child > span > span",
+      "page": ".rp-bar__actions:last-child .av-muted"
+    },
+    {
+      "name": "sign button",
+      "artboard": "a[href='S18-SignSend.dc.html']",
+      "page": ".rp-bar .rp-big"
+    }
+  ],
+  "pageRemove": [
+    ".rp-again"
+  ],
+  "budget": 0.75,
+  "budgetReason": "The API gives a check only a name and a count, so three things the board draws have no data: the second line under each failed check, the fix button's own words (\"Go to question 4\") and the unit after a count (\"214 facts\"). They are 0.55% of the screen; the shared case bar adds 0.14%.",
+  "deviations": [
+    "A failed check shows \"Fix it\" and, from its count, \"2 found\" where the board has a sentence of detail and a named button: the API sends no detail or label (gap).",
+    "A passed check shows its count as a bare number; the board adds a unit (\"214 facts\") and, for two rows, \"214 of 214\" (gap).",
+    "The ring's \"of 28\" is 17px, the board's 14px (nfr U2).",
+    "\"Check again\" is a link the board omits; it is removed from the page for the comparison.",
+    "The board draws only the failed state; the passed state (all clear, \"Sign and send\" on) has no board and keeps its existing layout."
+  ]
+}

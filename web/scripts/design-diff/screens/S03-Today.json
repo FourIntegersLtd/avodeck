@@ -67,11 +67,228 @@
       "allow": [
         "rect.x"
       ]
+    },
+    {
+      "name": "title",
+      "artboard": "h1",
+      "page": ".av-today__title",
+      "allow": [
+        "rect.w"
+      ]
+    },
+    {
+      "name": "new case",
+      "artboard": "main > div:first-child > a",
+      "page": ".av-today__new"
+    },
+    {
+      "name": "needs card",
+      "artboard": "main > section:nth-of-type(1)",
+      "page": ".av-needs-card"
+    },
+    {
+      "name": "needs row 1",
+      "artboard": "main > section:nth-of-type(1) > div:nth-of-type(1)",
+      "page": ".av-needs__item:nth-child(1)"
+    },
+    {
+      "name": "cases heading",
+      "artboard": "main > section:nth-of-type(2) h2",
+      "page": "#your-cases"
+    },
+    {
+      "name": "filter",
+      "artboard": "[role=group]",
+      "page": ".av-filter",
+      "allow": [
+        "rect.x",
+        "rect.w",
+        "rect.h"
+      ]
+    },
+    {
+      "name": "card 1",
+      "artboard": "main > section:nth-of-type(2) > div:nth-of-type(2) > a:nth-child(1)",
+      "page": ".av-cases li:nth-child(1) a"
+    },
+    {
+      "name": "card 4",
+      "artboard": "main > section:nth-of-type(2) > div:nth-of-type(2) > a:nth-child(4)",
+      "page": ".av-cases li:nth-child(4) a"
+    },
+    {
+      "name": "footer",
+      "artboard": "main > p",
+      "page": ".av-today__balance",
+      "allow": [
+        "rect.y"
+      ]
     }
   ],
   "deviations": [
     "Nav links, the bell and the avatar keep 52px touch targets (rule: buttons at least 52px); the canvas draws them 44-46px. The visible chip is the canvas size.",
     "The header has a Help link the canvas omits, which shifts the bell and avatar left by 40px.",
-    "The page's header background sits on .av-shell__header, the artboard's on the bar itself."
-  ]
+    "The page's header background sits on .av-shell__header, the artboard's on the bar itself.",
+    "The board's detail lines under each needs-you row, the case subtitles, the org tag on a needs-you row, the first card's 2px highlight and the bell's unread count have no data in the API: the artboard is rendered without them (artboardCss/artboardRemove).",
+    "Filter chips are drawn at the board's 41px with a transparent 52px hit area; the filter's x/width differ because the card badge and the chip both use organisation_name (mock 'Northgate'; the board uses 'Northgate' on the badge and 'Northgate Medico-Legal' on the chip).",
+    "The first needs-you row is the primary button (rank order); the board makes the second one primary.",
+    "Shell bar height 75px vs 76px on the board is left to the header owner; the body is 2px high as a result."
+  ],
+  "mock": {
+    "/v1/today": {
+      "cases": [
+        {
+          "case_id": "44444444-4444-4444-8444-444444444444",
+          "label": "Mrs A",
+          "organisation_id": "22222222-2222-4222-8222-222222222222",
+          "organisation_name": "Jane Morgan",
+          "organisation_kind": "personal",
+          "status": "open",
+          "stage": "read",
+          "due_date": "2026-11-30",
+          "party_role": "other_side",
+          "jurisdiction": "gb-eaw",
+          "case_type": "clin-neg-breach",
+          "specialty": "general-practice",
+          "your_role": "named_expert",
+          "on_hold": false
+        },
+        {
+          "case_id": "44444444-4444-4444-8444-444444444445",
+          "label": "Mr B",
+          "organisation_id": "22222222-2222-4222-8222-222222222222",
+          "organisation_name": "Jane Morgan",
+          "organisation_kind": "personal",
+          "status": "open",
+          "stage": "write",
+          "due_date": "2026-11-04",
+          "party_role": "instructing_side",
+          "jurisdiction": "gb-eaw",
+          "case_type": "clin-neg-breach",
+          "specialty": "general-practice",
+          "your_role": "named_expert",
+          "on_hold": false
+        },
+        {
+          "case_id": "44444444-4444-4444-8444-444444444446",
+          "label": "Ms C",
+          "organisation_id": "77777777-7777-4777-8777-777777777777",
+          "organisation_name": "Northgate",
+          "organisation_kind": "firm",
+          "status": "open",
+          "stage": "court",
+          "due_date": "2026-10-21",
+          "party_role": "other_side",
+          "jurisdiction": "gb-eaw",
+          "case_type": "clin-neg-breach",
+          "specialty": "general-practice",
+          "your_role": "named_expert",
+          "on_hold": false
+        },
+        {
+          "case_id": "44444444-4444-4444-8444-444444444447",
+          "label": "Mrs D",
+          "organisation_id": "22222222-2222-4222-8222-222222222222",
+          "organisation_name": "Jane Morgan",
+          "organisation_kind": "personal",
+          "status": "open",
+          "stage": "prepare",
+          "due_date": "2027-01-18",
+          "party_role": "joint",
+          "jurisdiction": "gb-eaw",
+          "case_type": "clin-neg-breach",
+          "specialty": "general-practice",
+          "your_role": "named_expert",
+          "on_hold": false
+        }
+      ],
+      "needs_you": [
+        {
+          "kind": "joint",
+          "case_id": "44444444-4444-4444-8444-444444444446",
+          "rank": 1,
+          "label_key": "trial.today.joint_statement_to_sign",
+          "action_key": "trial.today.joint_statement_to_sign_action",
+          "screen": "expert_meeting",
+          "count": null,
+          "minutes": null,
+          "due_at": "2026-10-21T09:00:00Z",
+          "params": {}
+        },
+        {
+          "kind": "pages",
+          "case_id": "44444444-4444-4444-8444-444444444444",
+          "rank": 2,
+          "label_key": "reader.today.pages_to_read",
+          "action_key": "reader.today.pages_to_read_action",
+          "screen": "reader",
+          "count": 127,
+          "minutes": 40,
+          "due_at": null,
+          "params": {}
+        },
+        {
+          "kind": "check",
+          "case_id": "44444444-4444-4444-8444-444444444445",
+          "rank": 3,
+          "label_key": "write.today.questions_without_opinion",
+          "action_key": "write.today.questions_without_opinion_action",
+          "screen": "opinion",
+          "count": 2,
+          "minutes": null,
+          "due_at": "2026-11-04T09:00:00Z",
+          "params": {}
+        }
+      ],
+      "organisations": [
+        {
+          "id": "22222222-2222-4222-8222-222222222222",
+          "name": "Jane Morgan",
+          "kind": "personal"
+        },
+        {
+          "id": "77777777-7777-4777-8777-777777777777",
+          "name": "Northgate",
+          "kind": "firm"
+        }
+      ],
+      "closed_count": 23
+    },
+    "/v1/me/stats/balance*": {
+      "counts": {
+        "other_side": 14,
+        "instructing_side": 9,
+        "joint": 2
+      },
+      "months": 12
+    },
+    "/v1/me": {
+      "person": {
+        "id": "11111111-1111-4111-8111-111111111111",
+        "email": "j.morgan@example.test",
+        "full_name": "Dr Morgan",
+        "locale": "en-GB",
+        "timezone": "Europe/London",
+        "home_region": "uk",
+        "created_at": "2026-01-05T09:00:00Z"
+      },
+      "expert": null,
+      "mfa_enrolled": true,
+      "memberships": [
+        {
+          "organisation_id": "22222222-2222-4222-8222-222222222222",
+          "name": "Jane Morgan",
+          "kind": "personal",
+          "role": "owner",
+          "started_at": "2026-01-05T09:00:00Z"
+        }
+      ]
+    }
+  },
+  "artboardCss": "main > section:first-of-type span[style*='flex: 1 1 360px'] > span[style*='#4F5953'], main > section:first-of-type span[style*='flex: 1 1 360px'] > span[style*='#EAF0F6'], main > section:first-of-type br, main > section:nth-of-type(2) a > span:nth-of-type(1) > span:last-of-type, main > section:nth-of-type(2) a > span:nth-of-type(1) br { display: none !important } main > section:nth-of-type(2) a[style*='border: 2px'] { border: 1px solid #DDE3DF !important }",
+  "artboardRemove": [
+    "header a[aria-label^=Messages] > span"
+  ],
+  "budget": 3.4,
+  "budgetReason": "The needs-you rows and case cards carry words from each slice's own keys and the API (no detail line, no case subtitle, no short firm name, no highlighted first card), so text and the primary/secondary button order differ from the board; every box, size and colour is measured by the probes. The app shell bar is 75px on the page and 76px on the board (lead-owned header: its 52px nav and bell hit areas), so the body sits 2px high; the footer y is excused for the same reason."
 }

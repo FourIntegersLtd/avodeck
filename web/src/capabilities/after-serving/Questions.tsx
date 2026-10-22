@@ -2,7 +2,7 @@
 // questions as they were written with a suggested classification, the expert's own answer (If-Match), a note to the
 // instructing party, and signing the answers behind the code (step-up). The name of this screen, the party and the
 // declaration wording come from the pack.
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { hasMessage, t } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
@@ -57,11 +57,11 @@ export function QuestionsScreen() {
   const effective = (q: Question) => q.classification ?? q.suggested_classification ?? "";
 
   return (
-    <div className="av-page av-after-page av-stack">
+    <div className="av-page av-after-page av-after-page--full av-stack">
       <div className="av-after-head">
         <div>
           <BackLink to={`/cases/${caseId}/served`}>{w("back")}</BackLink>
-          <h2>{capitalise(String(vocab ?? ""))}</h2>
+          <h2 className="av-after-title">{capitalise(String(vocab ?? ""))}</h2>
           <p className="av-muted av-after-lede">{w("questions.intro")}</p>
         </div>
         {chip && (
@@ -162,7 +162,7 @@ function RoundView({ caseId, round, questions, shown, currentId, classes, locale
       {round.status === "open" && !round.extracted_at && <div><Button variant="secondary" onClick={() => void importSet()}>{w("questions.read")}</Button></div>}
       <ul className="av-after-qcards">
         {questions.map((q) => (
-          <QuestionCard key={`${q.id}-${bump}`} caseId={caseId} question={q} shown={q.id === currentId} classes={classes} party={party} onReload={() => { setBump(bump + 1); onChanged(); }} />
+          <QuestionCard key={`${q.id}-${bump}`} caseId={caseId} question={q} shown={q.id === currentId} classes={classes} party={party} others={questions.filter((o) => o.id !== q.id && flagKey(o))} onReload={() => { setBump(bump + 1); onChanged(); }} />
         ))}
       </ul>
       {round.status === "answered" ? (
@@ -170,7 +170,7 @@ function RoundView({ caseId, round, questions, shown, currentId, classes, locale
       ) : (
         questions.length > 0 && (
           <div className="av-stack">
-            <div><button type="button" className="av-after-linkbtn" aria-expanded={signing} onClick={() => setSigning(!signing)}>{w("questions.sign_open")}</button></div>
+            <div><button type="button" className="av-after-linkbtn av-after-signlink" aria-expanded={signing} onClick={() => setSigning(!signing)}>{w("questions.sign_open")}</button></div>
             {signing && <section className="av-card"><SignAnswers caseId={caseId} roundId={round.id} declarations={declarations} onDone={onChanged} /></section>}
           </div>
         )
@@ -179,7 +179,64 @@ function RoundView({ caseId, round, questions, shown, currentId, classes, locale
   );
 }
 
-function QuestionCard({ caseId, question, shown, classes, party, onReload }: { caseId: string; question: Question; shown: boolean; classes: string[]; party: string; onReload: () => void }) {
+/** The pack's note for a question's classification, when it has one (a question that may go beyond the report). */
+function flagKey(question: Question): string | null {
+  const classification = question.classification ?? question.suggested_classification ?? "";
+  return classification && hasMessage(`after_serving.classification_note.${classification}`) ? `after_serving.classification_note.${classification}` : null;
+}
+
+/** Telling the instructing party about a question: the note to send, and when it was told. */
+function useTell(caseId: string, question: Question, fail: (message: string) => void) {
+  const [note, setNote] = useState<Schemas["Note"] | null>(null);
+  const [told, setTold] = useState(question.told_instructing_party_at);
+  const tell = async () => {
+    try {
+      setNote(await unwrap(api.POST("/v1/cases/{case_id}/written-questions/{question_id}/tell-instructing-party", { params: { path: { case_id: caseId, question_id: question.id } } })));
+      setTold(new Date().toISOString());
+    } catch (err) {
+      fail(errorMessage(err, ERRORS));
+    }
+  };
+  return { note, told, tell };
+}
+
+/** The amber note under the answer box, with the way to tell the instructing party. */
+function FlagNote({ number, noteKey, tellButton }: { number: number; noteKey: string; tellButton: ReactNode }) {
+  return (
+    <div role="note" aria-label={w("questions.beyond_title", { number })} className="av-after-note">
+      <WarnIcon />
+      <span className="av-after-note__text"><strong>{w("questions.beyond_title", { number })}:</strong> {t(noteKey)}</span>
+      {tellButton}
+    </div>
+  );
+}
+
+/** What telling the instructing party produced: the note to send, or when they were told. */
+function Told({ note, told, locale }: { note: Schemas["Note"] | null; told: string | null | undefined; locale: string }) {
+  return (
+    <>
+      {note && <Notice><h5>{w("questions.tell_title")}</h5><p>{t(note.key, note.params as Record<string, string | number>)}</p></Notice>}
+      {told && !note && <p className="av-muted">{w("questions.told", { date: longDate(told, locale) })}</p>}
+    </>
+  );
+}
+
+/** The note for another question of the set that may go beyond the report: it stays in view whichever question is open. */
+function OtherFlag({ caseId, question, party, locale }: { caseId: string; question: Question; party: string; locale: string }) {
+  const [error, setError] = useState<string | null>(null);
+  const { note, told, tell } = useTell(caseId, question, setError);
+  const noteKey = flagKey(question);
+  if (!noteKey) return null;
+  return (
+    <>
+      <FlagNote number={question.number} noteKey={noteKey} tellButton={<button type="button" className="av-after-linkbtn" onClick={() => void tell()}>{w("questions.tell", { party: party || w("questions.tell_party") })}</button>} />
+      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      <Told note={note} told={told} locale={locale} />
+    </>
+  );
+}
+
+function QuestionCard({ caseId, question, shown, classes, party, others, onReload }: { caseId: string; question: Question; shown: boolean; classes: string[]; party: string; others: Question[]; onReload: () => void }) {
   const [changing, setChanging] = useState(false);
   const [version, setVersion] = useState(question.version);
   const [answer, setAnswer] = useState(question.answer_text ?? "");
@@ -187,8 +244,6 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [stale, setStale] = useState<Schemas["QuestionChange"] | null>(null);
-  const [note, setNote] = useState<Schemas["Note"] | null>(null);
-  const [told, setTold] = useState(question.told_instructing_party_at);
   const locale = useLocale();
   const endpoint = { case_id: caseId, question_id: question.id };
 
@@ -214,15 +269,7 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
       setError(errorMessage(err, ERRORS));
     }
   };
-  const tell = async () => {
-    setError(null);
-    try {
-      setNote(await unwrap(api.POST("/v1/cases/{case_id}/written-questions/{question_id}/tell-instructing-party", { params: { path: endpoint } })));
-      setTold(new Date().toISOString());
-    } catch (err) {
-      setError(errorMessage(err, ERRORS));
-    }
-  };
+  const { note, told, tell } = useTell(caseId, question, setError);
   const noteKey = classification && hasMessage(`after_serving.classification_note.${classification}`) ? `after_serving.classification_note.${classification}` : null;
   const tellButton = <button type="button" className="av-after-linkbtn" onClick={() => void tell()}>{w("questions.tell", { party: party || w("questions.tell_party") })}</button>;
   const options = classes.includes(classification) || !classification ? classes : [...classes, classification];
@@ -234,7 +281,7 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
           <strong className="av-muted">{w("questions.number", { number: question.number })}</strong>
           {classification && <span className={`av-after-pillchip${noteKey ? " av-after-pillchip--flag" : ""}`}>{keyName("classification", classification)}</span>}
           {!question.classification && question.suggested_classification && <small className="av-muted">{w("questions.suggested")}</small>}
-          <button type="button" className="av-after-linkbtn" aria-expanded={changing} onClick={() => setChanging(!changing)}>{w("questions.change")}</button>
+          <button type="button" className="av-after-linkbtn av-after-change" aria-expanded={changing} onClick={() => setChanging(!changing)}>{w("questions.change")}</button>
         </div>
         {changing && (
           <Select
@@ -251,18 +298,12 @@ function QuestionCard({ caseId, question, shown, classes, party, onReload }: { c
           <p className="av-after-about"><span className="av-muted">{w("questions.about_label")}</span> <span className="av-after-aboutchip">{w("questions.about_paras", { para: question.para_ref })}</span></p>
         )}
       </div>
-      <DictationBox bar caseId={caseId} context="written_question_answer" label={w("questions.answer")} value={answer} onChange={(v) => { setAnswer(v); setSaved(false); }} rows={6} />
+      <DictationBox bar caseId={caseId} context="written_question_answer" label={w("questions.answer")} value={answer} onChange={(v) => { setAnswer(v); setSaved(false); }} rows={4} />
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {saved && <p role="status">{w("questions.saved")}</p>}
-      {noteKey && (
-        <div role="note" aria-label={w("questions.beyond_title", { number: question.number })} className="av-after-note">
-          <WarnIcon />
-          <span className="av-after-note__text"><strong>{w("questions.beyond_title", { number: question.number })}:</strong> {t(noteKey)}</span>
-          {tellButton}
-        </div>
-      )}
-      {note && <Notice><h5>{w("questions.tell_title")}</h5><p>{t(note.key, note.params as Record<string, string | number>)}</p></Notice>}
-      {told && !note && <p className="av-muted">{w("questions.told", { date: longDate(told, locale) })}</p>}
+      {noteKey && <FlagNote number={question.number} noteKey={noteKey} tellButton={tellButton} />}
+      <Told note={note} told={told} locale={locale} />
+      {shown && others.map((other) => <OtherFlag key={other.id} caseId={caseId} question={other} party={party} locale={locale} />)}
       <div className="av-after-footer">
         {!noteKey && tellButton}
         <Button onClick={() => void patch({ answer_text: answer })}>{w("questions.answer_save")}</Button>

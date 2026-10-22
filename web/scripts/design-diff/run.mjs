@@ -165,13 +165,27 @@ for (const screen of config.screens) {
   const pPage = await pCtx.newPage();
   // Canned API answers for a state the artboard draws (path -> JSON body); anything else goes through.
   const mocks = { ...(screen.session ? sessionMocks() : {}), ...(screen.mock ?? {}) };
-  for (const [path, body] of Object.entries(mocks))
-    await pPage.route(`**${path}`, (route) => route.fulfill({ json: body }));
+  // A body may be {__status, json} for an error answer, {__sequence: [json, ...]} to answer successive calls
+  // with successive bodies (the last repeats), or {"$body", "$type"} for a raw answer such as an image.
+  for (const [path, body] of Object.entries(mocks)) {
+    let calls = 0;
+    await pPage.route(`**${path}`, (route) => {
+      if (body?.__sequence) return route.fulfill({ json: body.__sequence[Math.min(calls++, body.__sequence.length - 1)] });
+      if (body?.$file) return route.fulfill({ body: readFileSync(join(here, body.$file)), contentType: body.contentType });
+      if (body?.$body !== undefined) return route.fulfill({ body: body.$body, contentType: body.$type });
+      return route.fulfill(body?.__status ? { status: body.__status, json: body.json ?? {} } : { json: body });
+    });
+  }
   await pPage.goto(base + screen.route);
   for (const step of screen.setup ?? []) {
     if (step.fill) await pPage.fill(step.fill, step.value);
     else if (step.click) await pPage.click(step.click);
     else if (step.waitFor) await pPage.waitForSelector(step.waitFor);
+    else if (step.setFiles) await pPage.setInputFiles(step.setFiles, step.files.map((f) => ({ name: f.name, mimeType: f.mimeType, buffer: Buffer.from(f.text ?? "x") })));
+    else if (step.hover) await pPage.hover(step.hover); // moves the pointer off a button a step just clicked
+    else if (step.scrollTop) await pPage.evaluate(() => window.scrollTo(0, 0));
+    else if (step.goto) await pPage.goto(base + step.goto);
+    else if (step.wait) await pPage.waitForTimeout(step.wait);
     else if (step.blur) await pPage.evaluate(() => document.activeElement?.blur());
   }
   await pPage.waitForLoadState("networkidle");

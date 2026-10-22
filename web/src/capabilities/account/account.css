@@ -1,0 +1,20 @@
+/* S28 Account and security, matched to its board. Hit areas stay 52px where the board draws smaller targets. */
+/* The board's header is 76px with its border; the shell's bar is 76px plus the border. */
+body:has(.av-account) .av-shell__header { margin-bottom: -1px; }
+.av-account > div:first-child { display: flex; flex-direction: column; gap: 6px; }
+.av-account > div:first-child h1 { margin: 0; font-size: 34px; line-height: 1.5; }
+.av-account > div:first-child p { margin: 0; }
+.av-account .av-back-link { min-height: 0; padding: 14px 0; margin: -14px 0; line-height: 1.5; align-self: flex-start; }
+.av-account-card .av-rows { gap: 16px; }
+.av-account-card .av-row-item { gap: 20px; border-top-color: #EEF1EF; }
+.av-account-card .av-row-item--head { gap: 16px; }
+.av-account-card .av-row-item p { line-height: 1.5; }
+.av-account-card .av-row-item__text { flex: 1 1 360px; }
+.av-account-card .av-row-item .av-button--quiet { min-height: 0; padding: 12px 0; margin: -14px -2px; line-height: 1.5; }
+.av-account-card h2 { line-height: 1.5; }
+.av-account-card > p { margin: 0; }
+.av-account-card .av-button--small { min-height: 52px; margin: -3.5px 0; padding: 10px 18px; line-height: normal; border-radius: 12px; font-size: 16px; }
+.av-account-card .av-badge { padding: 4px 12px; font-size: var(--text-small); }
+.av-account-card fieldset.av-row-item { padding: 16px 0; }
+.av-account-card fieldset.av-row-item .av-row { gap: 20px; }
+.av-account-card .av-checkbox { min-height: 0; gap: 10px; font-weight: 700; padding: 11px 0; margin: -11px 0; }

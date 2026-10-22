@@ -20,7 +20,7 @@ describe.each([
     renderAt(PATH);
     const n = new Intl.NumberFormat(pack.locale);
     const text = `Page 118 of ${n.format(1231)}. You've read ${n.format(1104)}. ${n.format(127)} to go.`;
-    expect(await screen.findByText(text)).toBeVisible();
+    expect((await screen.findByText(/to go\./)).closest("p")).toHaveTextContent(text);
   });
 
   test("the keyboard help is shown only once the page is read", async () => {
