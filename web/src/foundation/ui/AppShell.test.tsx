@@ -72,11 +72,12 @@ test("the unread badge is amber, inactive places are muted and the avatar has a 
   expect(css.match(/\.av-shell__avatar\s*\{([^}]*)\}/)?.[1]).toMatch(/min-height:\s*var\(--button-min-height\)/);
 });
 
-test("the logo is a 40px mark with the name drawn as SVG text", async () => {
+test("the logo is the pear mark beside the name in Outfit text, as the canvas draws it", async () => {
   signedIn();
   renderAt("/today");
   const header = await screen.findByRole("banner");
   const logo = within(header).getByRole("link", { name: "Avodeck home page" });
-  expect(logo.querySelector("svg")!.getAttribute("height")).toBe("40");
-  expect(logo.querySelector("svg text")).not.toBeNull();
+  expect(logo.querySelector("svg")!.getAttribute("aria-hidden")).toBe("true");
+  expect(logo.querySelector("svg text")).toBeNull();
+  expect(logo.querySelector(".av-logo__word")).toHaveTextContent("Avodeck");
 });
