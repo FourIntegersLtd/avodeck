@@ -1,0 +1,7 @@
+/* S11 smooth zoom: cards that arrive with a new window fade in; the slide itself is set by useCardMotion. */
+@keyframes av-motion-arrive {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+.av-motion-enter { animation: av-motion-arrive 250ms ease both; }
+@media (prefers-reduced-motion: reduce) { .av-motion-enter { animation: none; } }
