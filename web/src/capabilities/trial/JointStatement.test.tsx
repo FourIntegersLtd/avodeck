@@ -8,6 +8,7 @@ import { axeViolations, renderAt } from "../../test/render";
 import { blobReply, CASE, item, ITEMS, launchWords, MEETING, MEETING_TYPE, meetingOut, pdf, serveMeeting, term, type PackRun } from "./testing";
 import { TRIAL_MESSAGES as M } from "./words";
 
+const fill = (text: string, params: Record<string, string | number>) => Object.entries(params).reduce((s, [p, v]) => s.replaceAll(`{{${p}}}`, String(v)), text);
 const url = `/cases/${CASE}/joint-statement`;
 const k = (key: string) => M[`trial.${key}`]!;
 
@@ -73,6 +74,8 @@ test("a position that differs from the served report asks for a note, sent with 
   const { user } = renderAt(url);
   const row = await rowOf(3);
   expect(within(row).getByText(k("meeting.item.changed_lead"))).toBeInTheDocument();
+  // The note quotes what the served report said, with its paragraph.
+  expect(row.textContent).toContain(fill(k("meeting.item.changed_was"), { text: item(3).served_text!, paras: "14" }));
   await user.click(within(row).getByRole("button", { name: k("meeting.item.add_note") }));
   const third = await editor(3);
   expect(within(third).getByLabelText(k("meeting.item.change_note"))).toHaveFocus();
@@ -164,13 +167,13 @@ describe("the screen as designed", () => {
     expect(line).toHaveTextContent("2");
   });
 
-  test("each deadline is a chip with the rule it comes from", async () => {
+  test("each deadline is a chip with its date and the pack's words for the rule", async () => {
     serveMeeting("launch");
     renderAt(url);
     const sign = await screen.findByText(k("meeting.sign_by"));
-    expect(sign.closest("li")).toHaveTextContent("Rule Z.9");
+    expect(sign.closest("li")).toHaveTextContent("Zz 5 working days after the conference");
     expect(sign.closest("li")).toHaveTextContent("19 Feb");
-    expect(screen.getByText(k("meeting.send_by")).closest("li")).toHaveTextContent("Rule Z.10");
+    expect(screen.getByText(k("meeting.send_by")).closest("li")).toHaveTextContent("Zz within 10 working days");
   });
 
   test("each question shows the pages it cites as page references", async () => {
@@ -240,4 +243,12 @@ test("it sits in the case frame: the case bar with the case name as the page's m
   expect(await screen.findByRole("heading", { level: 1, name: "Mrs A" })).toBeInTheDocument();
   expect(await screen.findByRole("link", { name: M["trial.meeting.back"]! })).toBeInTheDocument();
   expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+});
+
+test("each deadline chip reads in the pack's own words, not the rule reference", async () => {
+  serveMeeting("launch");
+  renderAt(url);
+  expect(await screen.findByText("Zz 5 working days after the conference")).toBeInTheDocument();
+  expect(screen.getByText("Zz within 10 working days")).toBeInTheDocument();
+  expect(screen.queryByText("Rule Z.9")).not.toBeInTheDocument();
 });

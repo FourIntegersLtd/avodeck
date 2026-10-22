@@ -509,3 +509,28 @@ async def test_a_second_round_has_its_own_deadline_numbers_and_answers(
     deadlines = {d["id"]: d for d in (await client.get(served.url("deadlines"))).json()["deadlines"]}
     assert deadlines[second["deadline_id"]]["due_on"] == "2026-05-11"
     assert deadlines[first["deadline_id"]]["done_at"] is None
+
+
+async def test_each_question_names_the_pages_its_linked_paragraphs_rest_on(
+    client_for: ClientFor,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    _, questions = await imported(client_for, storage, admin, aconn, worker_db, model, served)
+    by_number = {q["number"]: q for q in questions}
+    assert all(q["page_nos"] == [] for q in questions), "nothing is linked yet, so no pages"
+    q3 = by_number[3]
+    client = await client_for(served.expert)
+    resp = await client.patch(
+        served.url(f"written-questions/{q3['id']}"),
+        json={"paragraph_ids": [str(served.paragraphs[2])]},
+        headers={"If-Match": etag(q3["version"])},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["page_nos"] == [1, 2], "paragraph 3 cites facts on pages 1 and 2, once each, in order"
+    listed = (await client.get(served.url("written-questions"))).json()["questions"]
+    assert {q["number"]: q["page_nos"] for q in listed}[3] == [1, 2]

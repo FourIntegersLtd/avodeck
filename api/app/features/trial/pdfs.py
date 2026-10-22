@@ -36,12 +36,23 @@ class SectionStart:
 
 
 @dataclass
+class Mark:
+    """Notes the page the next block lands on, without starting one (`Document.marks`)."""
+
+    key: str
+
+
+@dataclass
 class Document:
     title: str
-    blocks: list[Block | SectionStart | None] = field(default_factory=list)  # None: start a new page
+    blocks: list[Block | SectionStart | Mark | None] = field(default_factory=list)  # None: start a new page
+    marks: dict[str, int] = field(default_factory=dict)  # filled by `render_counted`: the page each mark landed on
 
     def section(self, key: str) -> None:
         self.blocks.append(SectionStart(key))
+
+    def mark(self, key: str) -> None:
+        self.blocks.append(Mark(key))
 
     def heading(self, text: str, level: int = 1) -> None:
         self.blocks.append(Block(text, level))
@@ -119,10 +130,14 @@ def render_counted(document: Document, *, body: int = BODY_PT) -> tuple[bytes, i
     )
     story: list[object] = [Paragraph(escape(document.title), styles[1]), Spacer(1, 4 * mm)]
     seen: dict[str, int] = {}
+    marks: dict[str, int] = {}
     keys: list[str] = []
     for block in document.blocks:
         if block is None:
             story.append(PageBreak())
+            continue
+        if isinstance(block, Mark):
+            story.append(_Mark(block.key, marks))
             continue
         if isinstance(block, SectionStart):
             if keys:
@@ -135,6 +150,7 @@ def render_counted(document: Document, *, body: int = BODY_PT) -> tuple[bytes, i
                 story.append(Paragraph(escape(part), styles[min(block.level, 2)]))
     doc.build(story, canvasmaker=_canvas(max(body, SMALLEST_PT)))
     total = int(doc.page)
+    document.marks = marks
     found = [k for k in keys if k in seen]
     starts = [seen[k] for k in found]
     ends = [*starts[1:], total + 1][: len(starts)]

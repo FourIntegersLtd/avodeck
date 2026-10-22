@@ -12,6 +12,8 @@ export interface Hit {
   page_no: number | null;
   trial_page_no: number | null;
   factKind: string | null;
+  /** The record source the fact was read from (a key of the copy's `source_types`), when the copy carries one. */
+  sourceType?: string | null;
   position: string | null;
 }
 
@@ -30,7 +32,7 @@ function pageHits(copy: CopyContent, n: number): Hit[] {
 }
 
 function fact(f: CopyContent["facts"][number]): Hit {
-  return { kind: "fact", text: f.text, ref: null, date: f.date, page_no: f.page_no, trial_page_no: f.trial_page_no, factKind: f.kind, position: null };
+  return { kind: "fact", text: f.text, ref: null, date: f.date, page_no: f.page_no, trial_page_no: f.trial_page_no, factKind: f.kind, sourceType: f.source_type ?? null, position: null };
 }
 
 function paragraph(p: NonNullable<CopyContent["report"]>["paragraphs"][number], page = p.pages[0]): Hit {

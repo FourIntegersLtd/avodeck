@@ -10,7 +10,8 @@ import { screenPath } from "../../foundation/lib/screens";
 import { Button, ChoicePills, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
-import { casePath, kindWord, longDate, useCan } from "./shared";
+import { hasIcon, LineIcon } from "./laneIcons";
+import { casePath, kindWord, longDate, shortDay, useCan } from "./shared";
 import { w } from "./words";
 
 type Finding = Schemas["FindingOut"];
@@ -19,6 +20,7 @@ const NEEDS_REASON = new Set<string>(["not_relevant", "explained_elsewhere"]);
 
 /** The words for a finding: the check's own key if the interface has one, else the rule type's, softer when gentle. */
 export function findingTitle(f: Finding): string {
+  if (f.title) return f.title;
   const rule = f.gentle
     ? t(`understand.rule.${f.rule}.gentle`, {}, w("rule.gentle_default"))
     : t(`understand.rule.${f.rule}`, {}, humanise(f.rule));
@@ -60,9 +62,15 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
       <div className="av-understand-finding__body">
         <div className="av-understand-finding__head">
           <IconTile tone="amber">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" focusable="false">
-              <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
-            </svg>
+            <span data-testid="finding-icon" className="av-understand-finding__icon">
+              {hasIcon(finding.icon) ? (
+                <LineIcon icon={finding.icon} size={22} />
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+                </svg>
+              )}
+            </span>
           </IconTile>
           <h3 id={titleId}>{findingTitle(finding)}</h3>
         </div>
@@ -108,6 +116,23 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
         </>
       )}
     </article>
+  );
+}
+
+/** A finding you have decided, folded into one line (title, date, your decision); open it to change the decision. */
+function FoldedFinding({ caseId, finding, canDecide, onDecided }: { caseId: string; finding: Finding; canDecide: boolean; onDecided: (f: Finding) => void }) {
+  const [open, setOpen] = useState(false);
+  const day = finding.evidence.find((e) => e.event_date)?.event_date;
+  const label = finding.status === "gone" ? w("things.gone_short") : t(`understand.things.decision.${finding.decision}`);
+  return (
+    <details className="av-card av-understand-folded" aria-label={findingTitle(finding)} open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+      <summary>
+        <span className="av-understand-key av-understand-key--checked av-understand-folded__tick" aria-hidden="true" />
+        <span className="av-understand-folded__title">{day ? w("things.folded", { title: findingTitle(finding), date: shortDay(day) }) : findingTitle(finding)}</span>
+        <span className="av-understand-count">{label}</span>
+      </summary>
+      {open && <FindingCard caseId={caseId} finding={finding} canDecide={canDecide} onDecided={onDecided} />}
+    </details>
   );
 }
 
@@ -207,7 +232,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {checks.map((c) => (
         <div key={c.key} className="av-understand-check">
-          <ToggleSwitch labelFirst label={c.label ?? t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
+          <ToggleSwitch labelFirst label={c.label ?? c.title ?? t(`understand.check.${c.key}`, {}, humanise(c.key))} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
           {c.gentle && <span className="av-muted">{w("things.gentle")}</span>}
         </div>
       ))}
@@ -226,7 +251,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
               <TextField
                 key={`days-${c.key}`}
                 name={`days-${c.key}`}
-                label={w("things.days", { check: t(`understand.check.${c.key}`, {}, humanise(c.key)) })}
+                label={w("things.days", { check: c.label ?? c.title ?? t(`understand.check.${c.key}`, {}, humanise(c.key)) })}
                 type="number"
                 min={1}
                 inputMode="numeric"
@@ -276,9 +301,10 @@ export function ThingsToLook() {
             {findings.length > 0 && <p><strong>{w("things.progress", { done, total: findings.length })}</strong></p>}
           </div>
           {findings.length === 0 && <p className="av-muted">{w("things.none")}</p>}
-          {findings.map((f) => (
-            <FindingCard key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => setDecided((d) => ({ ...d, [out.id]: out }))} />
-          ))}
+          {[...findings.filter((f) => f.decision === null), ...findings.filter((f) => f.decision !== null)].map((f) => {
+            const Row = f.decision === null ? FindingCard : FoldedFinding;
+            return <Row key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => setDecided((d) => ({ ...d, [out.id]: out }))} />;
+          })}
           {can("finding.decide") && (
             <div className="av-row">
               <Button variant="quiet" onClick={() => void rerun()}>{w("things.rerun")}</Button>

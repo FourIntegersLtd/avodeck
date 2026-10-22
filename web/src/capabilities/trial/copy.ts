@@ -10,8 +10,10 @@ export interface CopyContent {
   built_at: string;
   date_order: string;
   court_bundle: string;
+  case_label?: string | null;
+  source_types?: { key: string; label: string; colour: string | null }[];
   report: { version_no: number; served_on: string | null; paragraphs: { para_no: number; section: string; text: string; pages: CopyPage[] }[] } | null;
-  facts: { kind: string; text: string; date: string | null; page_no: number | null; trial_page_no: number | null }[];
+  facts: { kind: string; text: string; date: string | null; page_no: number | null; trial_page_no: number | null; source_type?: string | null }[];
   concordance: { page_no: number; trial_page_no: number | null; status: string }[];
   joint_statement: {
     type: string;

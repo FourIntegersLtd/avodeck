@@ -1,6 +1,7 @@
 # Deadline rules. calendar: calendar_days or business_days (business days count only the pack's
 # working_week, skipping holidays.yaml). if_closed: next_working_day moves a calendar-day deadline that
 # lands on a closed day (CPR 2.8(5)). Dates are worked out in the pack timezone.
+# phrase: how the deadline reads on a screen chip (<days> is filled in).
 # Court directions override these; the expert can edit any date. set_by: direction = no default date.
 # Verify against the current CPR and Practice Direction 35 before launch.
 deadlines:
@@ -15,12 +16,14 @@ deadlines:
     set_by: direction
   - key: expert_meeting_signed
     rule_ref: "PD35 para 9"
+    phrase: "<days> days after the discussion"
     days: 7
     calendar: calendar_days
     from: discussion
     if_closed: next_working_day
   - key: expert_meeting_sent
     rule_ref: "PD35 para 9"
+    phrase: "within <days> days"
     days: 14
     calendar: calendar_days
     from: signing

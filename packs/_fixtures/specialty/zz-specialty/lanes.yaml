@@ -1,4 +1,4 @@
 lanes:
-  - {key: sessions, kinds: [session]}
-  - {key: measurements, kinds: [measurement]}
-  - {key: letters, kinds: [measurement], when: {via: letter}}
+  - {key: sessions, icon: visit, kinds: [session]}
+  - {key: measurements, icon: flask, kinds: [measurement]}
+  - {key: letters, icon: mail, kinds: [measurement], when: {via: letter}}

@@ -45,6 +45,8 @@ class CaseCheck(BaseModel):
     window_days: int | None
     label: str | None = None
     custom: bool = False
+    title: str | None = None
+    icon: str | None = None
 
 
 class CaseChecks(BaseModel):
@@ -87,6 +89,8 @@ async def my_checks(request: Request, conn: DbConn, case_id: uuid.UUID | None = 
         return Settings(settings=[Setting(**{k: r[k] for k in Setting.model_fields}) for r in mine.values()])
     await check_case_access(conn, case_id, "case.view_content")
     pack = await case_pack(request, conn, case_id)
+    titles = pack.vocabulary.get("finding_titles")
+    titles = titles if isinstance(titles, dict) else {}
     out = []
     for check in pack.checks():
         key, own = str(check["key"]), mine.get(str(check["key"]), {})
@@ -100,6 +104,8 @@ async def my_checks(request: Request, conn: DbConn, case_id: uuid.UUID | None = 
                 default_on=default_on,
                 enabled=own["enabled"] if "enabled" in own else default_on,
                 window_days=int(window) if window is not None else None,
+                title=titles.get(key),
+                icon=check.get("icon"),
             )
         )
     out += [_own_check(r) for r in mine.values() if r["custom"]]

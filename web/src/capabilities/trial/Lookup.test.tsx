@@ -3,7 +3,7 @@
 // online, it asks the status check first and wipes a copy that was removed, has ended or is unknown; with
 // no network it keeps the copy (courts often have no wifi). It is read-only, shows both page numbers for
 // every result, and an out-of-date copy is wiped, not shown (threat model T10).
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, test, vi, type MockInstance } from "vitest";
 import { axeViolations, renderAt } from "../../test/render";
@@ -166,4 +166,22 @@ test("the words searched for are highlighted in what the record says", async () 
   await user.type(await screen.findByLabelText(k("lookup.search")), "iron started");
   await screen.findByText(fill(k("lookup.not_in_bundle"), { court_bundle: "Zz binder" }));
   expect([...container.querySelectorAll("mark")].map((m) => m.textContent?.toLowerCase())).toEqual(["iron", "started"]);
+}, SLOW);
+
+test("the bar names the case and each result is coloured by its record source", async () => {
+  await saveCopy(await sealed(), META, PIN);
+  const { user } = renderAt(url);
+  expect(await screen.findByText(k("lookup.bar_title"))).toBeInTheDocument();
+  await unlock(user);
+  expect(await screen.findByText(fill(k("lookup.bar_case"), { case: "Mrs A" }))).toBeInTheDocument();
+  const search = await screen.findByLabelText(k("lookup.search"));
+  await user.type(search, "reported, no");
+  const gp = (await screen.findByText("reported, no")).closest("li")!;
+  expect(gp).toHaveStyle({ "--av-source": "#1E6B4E" });
+  expect(within(gp).getByText("Zz record")).toBeInTheDocument();
+  await user.clear(search);
+  await user.type(search, "ferrous");
+  const other = (await screen.findByText("Ferrous")).closest("li")!;
+  expect(other).toHaveStyle({ "--av-source": "#4C6E91" });
+  expect(within(other).getByText("Zz hospital")).toBeInTheDocument();
 }, SLOW);

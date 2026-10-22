@@ -414,11 +414,11 @@ test("a dot's link keeps its name as text a screen reader and magnifier can reac
 });
 
 describe("lane icons", () => {
-  test("a known lane key draws an icon, an unknown one the first letter", async () => {
+  test("a lane whose pack icon this screen has draws it; any other lane draws its first letter", async () => {
     inCase("launch");
     serve(timeline({ lanes: [
-      { key: "results", label: "Zed words", events: [event({ fact_id: "r1", event_date: "2024-02-01" })], colour: "#2a6f97" },
-      { key: "lane_one", label: "Yak words", events: [event({ fact_id: "y1", event_date: "2024-03-01" })], colour: "#2a6f97" },
+      { key: "lane_one", label: "Zed words", events: [event({ fact_id: "r1", event_date: "2024-02-01" })], colour: "#2a6f97", icon: "flask" },
+      { key: "lane_two", label: "Yak words", events: [event({ fact_id: "y1", event_date: "2024-03-01" })], colour: "#2a6f97", icon: null },
     ] }));
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await openOverviewMap(user);

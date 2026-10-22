@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { casePack, launchWords } from "../setup/testing";
-import { declarations, finalCheck, partyWord, serve, type PackRun } from "./testing";
+import { declarations, finalCheck, partyWord, reportOut, serve, versionOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/sign`;
@@ -52,4 +52,13 @@ test("the downloads sit in the same row as the main action", async () => {
   const word = await screen.findByRole("link", { name: M["report.sign.download_word"]! });
   const sign = screen.getByRole("button", { name: /^Sign and send to the / });
   expect(word.parentElement?.parentElement).toBe(sign.parentElement);
+});
+
+test("the document card is headed by the title the server built from the pack's report name and the patient label", async () => {
+  serve("launch", {
+    check: finalCheck(),
+    report: reportOut("launch", { version: versionOut({ title: "Breach of duty report: Mrs A" }) }),
+  });
+  renderAt(url);
+  expect(await screen.findByRole("region", { name: "Breach of duty report: Mrs A" })).toBeInTheDocument();
 });

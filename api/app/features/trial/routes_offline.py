@@ -140,6 +140,10 @@ async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: 
     reads = getattr(request.app.state, "page_reads", None) or current().reads
     facts = await citable_facts(conn, case_id, reads)
     numbers = await repo.page_numbers(conn, list({f.page_id for f in facts}))
+    sources = await repo.page_sources(conn, list({f.page_id for f in facts}))
+    case = await repo.one(conn, "select label from app.cases where id = %s", (case_id,))
+    vocabulary = pack.vocabulary.get("source_types")
+    names = vocabulary if isinstance(vocabulary, dict) else {}
 
     def trial_no(page_no: int | None) -> int | None:
         ref = refs.get(page_no) if page_no is not None else None
@@ -154,6 +158,11 @@ async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: 
         "built_at": datetime.now(UTC).isoformat(),
         "date_order": pack.date_order,
         "court_bundle": pack.term("court_bundle"),
+        "case_label": case["label"] if case else None,
+        "source_types": [
+            {"key": str(s["key"]), "label": str(names.get(s["key"], s["key"])), "colour": s.get("colour")}
+            for s in pack.source_types()
+        ],
         "report": {
             "version_no": served.version_no,
             "served_on": served.served_on.isoformat() if served.served_on else None,
@@ -174,6 +183,7 @@ async def content(conn: Any, request: Request, crypto: Any, pack: Any, case_id: 
                 "date": f.event_date.isoformat() if f.event_date else None,
                 "page_no": numbers.get(f.page_id),
                 "trial_page_no": trial_no(numbers.get(f.page_id)),
+                "source_type": sources.get(f.page_id),
             }
             for f in facts
         ],

@@ -1,12 +1,14 @@
 # Timeline lanes, top to bottom (labels from vocabulary `lanes`). Each lane lists the fact kinds it shows.
 # A fact goes to the first lane whose kinds include its kind and whose `when` matches the fact's fields;
 # otherwise to the first lane listing its kind with no `when`.
+# `icon` names one of the generic line drawings the screen has (visit, flask, moon, pill, mail, calendar).
 lanes:
-  - {key: primary_care_visits, kinds: [consultation, phone_consultation, home_visit, examination, safety_netting, task]}
-  - {key: results, kinds: [result]}
+  - {key: primary_care_visits, icon: visit, kinds: [consultation, phone_consultation, home_visit, examination, safety_netting, task]}
+  - {key: results, icon: flask, kinds: [result]}
   - key: out_of_hours
+    icon: moon
     kinds: [consultation, phone_consultation, home_visit, examination, safety_netting, task]
     when: {setting: out_of_hours}
-  - {key: prescriptions, kinds: [prescription]}
-  - {key: hospital_and_letters, kinds: [letter, referral]}
-  - {key: appointments, kinds: [missed_appointment]}
+  - {key: prescriptions, icon: pill, kinds: [prescription]}
+  - {key: hospital_and_letters, icon: mail, kinds: [letter, referral]}
+  - {key: appointments, icon: calendar, kinds: [missed_appointment]}

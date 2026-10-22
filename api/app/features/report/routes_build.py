@@ -31,6 +31,7 @@ from app.features.report.assemble import (
     section_keys,
     template_order,
 )
+from app.features.report.checks import pack_file
 from app.features.report.common import (
     Build,
     Crypto,
@@ -59,6 +60,7 @@ class VersionOut(BaseModel):
     citation_style: str | None = None
     template_fallback: bool | None = None
     page_count: int | None = None
+    title: str | None = None
 
 
 class SectionOut(BaseModel):
@@ -86,6 +88,7 @@ class ReportOut(BaseModel):
     versions: list[VersionOut]
     sections: list[SectionOut]
     checklist: Checklist
+    court_track_label: str | None = None
 
 
 class SettingsOut(BaseModel):
@@ -168,7 +171,15 @@ async def report(case_id: uuid.UUID, access: View, conn: DbConn, pack: Pack, cry
     asked = {q.id for q in await questions.confirmed_questions(conn, case_id)}
     answered = len(asked & {o.question_id for o in await opinions.latest_opinions(conn, case_id, crypto)})
     checklist = pack.compliance_checklist()
+    cur = await conn.execute("select label, court_track from app.cases where id = %s", (case_id,))
+    label, track = await cur.fetchone() or ("", None)
+    report_name = pack_file(pack, "report_sections.yaml").get("report_name")
+    for version in versions:
+        version.title = f"{report_name}: {label}" if report_name and label else version.display_name
+    tracks = pack.vocabulary.get("court_tracks")
+    track_label = (tracks.get(track) if isinstance(tracks, dict) else None) or track
     return ReportOut(
+        court_track_label=track_label,
         version=versions[0] if versions else None,
         versions=versions,
         sections=[
