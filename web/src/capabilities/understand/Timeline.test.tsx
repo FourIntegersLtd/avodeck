@@ -112,7 +112,7 @@ describe("the board", () => {
     inCase("launch");
     serve();
     renderAt(`/cases/${CASE_A}/timeline`);
-    expect(await screen.findByText("86 days to the next entry")).toBeInTheDocument();
+    expect(await screen.findByText("86 days. Nothing in the record shows what followed.")).toBeInTheDocument();
   });
 
   test("names the stretch shown and how detailed the view is", async () => {
