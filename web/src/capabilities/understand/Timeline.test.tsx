@@ -272,8 +272,9 @@ describe("the ribbon and the window", () => {
     await screen.findByTestId("timeline-ribbon");
     await waitFor(() => expect(seenOverviews.length).toBeGreaterThan(0));
     expect(seenOverviews.every((u) => !u.searchParams.has("from") && !u.searchParams.has("to"))).toBe(true);
-    // The board's first ask goes out before the window is seeded; once it is, every board request carries it.
-    await waitFor(() => expect(seen.at(-1)!.searchParams.has("from")).toBe(true));
+    await waitFor(() => expect(seen.length).toBeGreaterThan(0));
+    // With an instruction period, the board waits for its window: it never asks for the whole record itself.
+    expect(seen.every((u) => u.searchParams.get("from") === "2024-02-01" && u.searchParams.get("to") === "2024-08-31")).toBe(true);
   });
 
   test("the window's two ends are sliders that read their dates and move a month with the arrow keys", async () => {
