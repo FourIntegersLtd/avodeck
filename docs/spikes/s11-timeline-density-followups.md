@@ -1,6 +1,6 @@
 # S11 timeline: deferred density interactions
 
-**Status:** spike (partially shipped). Activity tab delivers LabVis-style density; items below remain deferred.
+**Status:** superseded by timeline version 2 (`docs/design/timeline-redesign-plan.html`). The Activity tab is gone: its density now lives in the ribbon above the board. Same-day clusters shipped as day cards; the axis brush shipped as the ribbon's window. Notes below are kept for the history.
 
 ## Context
 

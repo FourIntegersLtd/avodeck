@@ -1,0 +1,553 @@
+<title>Timeline Redesign Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a long reading column (68ch) that breaks out to full width for the two mock-ups. Tokens follow Avodeck's own tokens.css. */
+:root {
+  --bg: #F6F7F5; --paper: #FFFFFF; --soft: #FBFCFB; --muted-bg: #EEF1EF;
+  --ink: #16201B; --ink-soft: #4F5953; --line: #DDE3DF; --line-strong: #B9C3BD;
+  --green: #1E6B4E; --green-dark: #0F3D2C; --green-tint: #E6F2EC; --green-ring: #CFE8DA;
+  --amber: #8A3F06; --amber-bright: #B45309; --amber-tint: #FDF1E3; --amber-border: #E8C9A6;
+  --l-visit: #1E6B4E; --l-result: #7A6BA8; --l-ooh: #2C8C99; --l-rx: #3F8A5F; --l-hosp: #4C6E91; --l-appt: #8A8F8C;
+  --q: #16201B; --q-ink: #FFFFFF;
+  --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0E1512; --paper: #151E1A; --soft: #18221D; --muted-bg: #1F2A25;
+  --ink: #E8EEEA; --ink-soft: #A4B0A9; --line: #2A3631; --line-strong: #3C4A43;
+  --green: #5CC596; --green-dark: #9FE0C0; --green-tint: #183528; --green-ring: #1F4A37;
+  --amber: #F2B27A; --amber-bright: #E58B3A; --amber-tint: #33220F; --amber-border: #6B4420;
+  --l-visit: #5CC596; --l-result: #A99BDB; --l-ooh: #5EC0CD; --l-rx: #7CC59A; --l-hosp: #8BADD3; --l-appt: #9AA19D;
+  --q: #E8EEEA; --q-ink: #0E1512; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0E1512; --paper: #151E1A; --soft: #18221D; --muted-bg: #1F2A25;
+  --ink: #E8EEEA; --ink-soft: #A4B0A9; --line: #2A3631; --line-strong: #3C4A43;
+  --green: #5CC596; --green-dark: #9FE0C0; --green-tint: #183528; --green-ring: #1F4A37;
+  --amber: #F2B27A; --amber-bright: #E58B3A; --amber-tint: #33220F; --amber-border: #6B4420;
+  --l-visit: #5CC596; --l-result: #A99BDB; --l-ooh: #5EC0CD; --l-rx: #7CC59A; --l-hosp: #8BADD3; --l-appt: #9AA19D;
+  --q: #E8EEEA; --q-ink: #0E1512; color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 17px/1.6 var(--font-body); padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 0 80px; }
+.col { max-width: 72ch; margin: 0 auto; }
+.wide { max-width: 1240px; margin: 0 auto; }
+h1, h2, h3 { text-wrap: balance; line-height: 1.2; }
+h1 { font-size: clamp(34px, 5vw, 50px); margin: 0; letter-spacing: -0.01em; }
+h2 { font-size: 28px; margin: 0 0 12px; }
+h3 { font-size: 20px; margin: 28px 0 8px; }
+p { margin: 0 0 14px; }
+a { color: var(--green); }
+code { font-family: var(--font-mono); font-size: 0.88em; background: var(--muted-bg); padding: 1px 5px; border-radius: 4px; }
+.eyebrow { font-family: var(--font-mono); font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--green); }
+header.top { padding-block: 56px 28px; }
+header.top .lede { font-size: 20px; color: var(--ink-soft); margin-top: 14px; }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 18px; font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft); }
+section { padding-block: 36px; border-top: 1px solid var(--line); }
+.verdict { background: var(--paper); border: 1px solid var(--line); border-radius: 18px; padding: 24px 26px; margin-top: 8px; }
+.verdict strong.big { display: block; font-size: 22px; margin-bottom: 8px; color: var(--green-dark); }
+ul.tight, ol.tight { margin: 0 0 14px; padding-left: 22px; }
+ul.tight li, ol.tight li { margin: 4px 0; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin: 18px 0; }
+.stat { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.stat b { display: block; font-size: 28px; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 15px; color: var(--ink-soft); line-height: 1.35; display: block; }
+.tbl { overflow-x: auto; margin: 14px 0 18px; }
+table { border-collapse: collapse; width: 100%; font-size: 16px; min-width: 560px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+th { font-size: 14px; color: var(--ink-soft); font-weight: 700; }
+td.y { color: var(--green); font-weight: 700; } td.n { color: var(--amber); font-weight: 700; }
+.note { font-size: 15px; color: var(--ink-soft); }
+.cite { font-size: 14px; color: var(--ink-soft); }
+.callout { border-left: 4px solid var(--amber-bright); background: var(--amber-tint); padding: 14px 18px; border-radius: 0 12px 12px 0; margin: 16px 0; }
+.phase { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; margin: 16px 0; }
+.phase h3 { margin-top: 0; display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+.phase h3 .tag { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--ink-soft); }
+.cols2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; }
+.cols2 > * { min-width: 0; }
+.principles { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 16px; }
+.pr { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
+.pr b { display: block; margin-bottom: 4px; }
+.pr p { margin: 0; font-size: 16px; color: var(--ink-soft); }
+.cap { font-size: 15px; color: var(--ink-soft); margin: 10px 0 0; }
+
+/* ---------- Mock-up: the proposed S11 ---------- */
+.mock-scroll { overflow-x: auto; margin-top: 18px; border-radius: 22px; }
+.mock { min-width: 1120px; background: var(--paper); border: 1px solid var(--line); border-radius: 22px; overflow: hidden; font-size: 15px; line-height: 1.3; }
+.m-bar { display: flex; align-items: center; gap: 14px; padding: 14px 22px; border-bottom: 1px solid var(--line); }
+.m-title { font-size: 22px; font-weight: 700; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; border: 1.5px solid var(--line); font-weight: 700; font-size: 15px; background: var(--paper); color: var(--ink); white-space: nowrap; }
+.pill.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.pill.warn { background: var(--amber-tint); border-color: var(--amber-border); color: var(--amber); }
+.pill .d { width: 9px; height: 9px; border-radius: 50%; background: var(--amber-bright); }
+.seg { display: inline-flex; padding: 3px; border-radius: 12px; background: var(--muted-bg); gap: 2px; }
+.seg span { padding: 6px 14px; border-radius: 9px; font-weight: 700; color: var(--ink-soft); }
+.seg span.on { background: var(--paper); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.12); }
+.sp { flex: 1; }
+.m-ribbon { padding: 12px 22px 8px; background: var(--soft); border-bottom: 1px solid var(--line); }
+.rb-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 14px; color: var(--ink-soft); }
+.rb-head b { color: var(--ink); }
+.m-body { display: grid; grid-template-columns: minmax(0, 1fr) 380px; }
+.board { border-right: 1px solid var(--line); }
+.b-axis { display: grid; grid-template-columns: 170px 1fr; border-bottom: 1px solid var(--line); background: var(--soft); }
+.b-axis .months { display: grid; grid-template-columns: repeat(8, 1fr); font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft); }
+.b-axis .months span { padding: 9px 10px; border-left: 1px solid var(--line); }
+.lane { display: grid; grid-template-columns: 170px 1fr; border-bottom: 1px solid var(--muted-bg); }
+.lane.thin .track { height: 44px; }
+.lh { padding: 12px 14px; border-right: 1px solid var(--line); display: flex; gap: 10px; align-items: flex-start; }
+.lh i { flex: none; width: 26px; height: 26px; border-radius: 8px; display: inline-block; margin-top: 1px; }
+.lh b { display: block; font-size: 16px; }
+.lh small { display: block; color: var(--ink-soft); font-size: 13px; }
+.track { position: relative; height: 92px; background-image: repeating-linear-gradient(90deg, var(--muted-bg) 0 1px, transparent 1px 12.5%); }
+.card { position: absolute; display: flex; gap: 7px; align-items: flex-start; padding: 6px 8px; border-radius: 10px; max-width: 170px; }
+.card .dt { width: 16px; height: 16px; border-radius: 50%; background: var(--green); flex: none; margin-top: 2px; }
+.card .dt.pc { background: var(--paper); border: 2px dashed var(--ink-soft); }
+.card .dt.fl { background: var(--amber-tint); border: 3px solid var(--amber-bright); width: 18px; height: 18px; }
+.card .dt.big { box-shadow: 0 0 0 4px var(--green-ring); }
+.card b { font-weight: 700; font-size: 14px; display: block; }
+.card small { color: var(--ink-soft); font-size: 13px; display: block; }
+.card.warn b, .card.warn small { color: var(--amber); }
+.card.sel { background: var(--green-tint); outline: 2px solid var(--green); }
+.qt { display: inline-block; padding: 0 5px; border-radius: 5px; background: var(--q); color: var(--q-ink); font-size: 11px; font-weight: 700; line-height: 1.5; margin-left: 3px; vertical-align: 1px; }
+.stack { position: absolute; display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; border: 1.5px solid var(--line-strong); background: var(--paper); font-weight: 700; font-size: 13px; }
+.stack em { font-style: normal; color: var(--ink-soft); font-weight: 400; }
+.tick { position: absolute; width: 2px; height: 12px; border-radius: 1px; background: var(--line-strong); bottom: 10px; }
+.gap { position: absolute; height: 0; border-top: 2px dashed var(--amber-bright); }
+.gap span { position: absolute; left: 50%; top: -22px; transform: translateX(-50%); white-space: nowrap; font-weight: 700; font-size: 13px; color: var(--amber); background: var(--paper); padding: 0 6px; }
+.b-foot { display: flex; gap: 18px; flex-wrap: wrap; padding: 10px 14px; font-size: 13px; color: var(--ink-soft); border-top: 1px solid var(--line); background: var(--soft); }
+.insp { background: var(--paper); display: flex; flex-direction: column; }
+.in-head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--soft); font-family: var(--font-mono); font-size: 13px; }
+.in-nav { display: flex; gap: 6px; }
+.in-nav span { width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--line); display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-body); }
+.in-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+.in-kind { font-size: 13px; font-weight: 700; color: var(--ink-soft); letter-spacing: .02em; }
+.in-title { font-size: 19px; font-weight: 700; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; }
+.badge { font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--green-tint); color: var(--green-dark); }
+.badge.w { background: var(--amber-tint); color: var(--amber); }
+.sheet { font-family: var(--font-mono); font-size: 13px; line-height: 1.65; background: var(--soft); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+.sheet p { margin: 0; }
+.sheet mark { background: var(--amber-tint); color: var(--ink); box-shadow: inset 0 -2px 0 var(--amber-bright); padding: 0 2px; border-radius: 2px; }
+.in-find { font-size: 14px; color: var(--amber); font-weight: 700; }
+.btn { display: flex; align-items: center; justify-content: center; min-height: 52px; border-radius: 12px; font-weight: 700; font-size: 16px; }
+.btn.p { background: var(--green); color: var(--paper); }
+.btn.s { border: 1.5px solid var(--line-strong); }
+.near { font-size: 14px; border-top: 1px solid var(--line); padding-top: 10px; color: var(--ink-soft); }
+.near div { display: flex; justify-content: space-between; padding: 4px 0; }
+.near b { color: var(--ink); font-weight: 400; }
+
+/* Ribbon SVG */
+.ribbon svg { display: block; width: 100%; height: auto; }
+.r-lab { font: 12px var(--font-mono); fill: var(--ink-soft); }
+.r-lane { font: 11px var(--font-body); fill: var(--ink-soft); }
+
+/* Tiers figure */
+.tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; margin-top: 16px; }
+.tier { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+.tier h4 { margin: 0 0 2px; font-size: 17px; }
+.tier p { font-size: 14px; color: var(--ink-soft); margin: 0 0 10px; line-height: 1.4; }
+.tier svg { width: 100%; height: auto; display: block; }
+
+/* Before / after */
+.ba { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-top: 16px; }
+.ba > div { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-width: 0; }
+.ba h4 { margin: 0 0 8px; font-size: 16px; }
+.ba svg { width: 100%; height: auto; display: block; }
+@media (prefers-reduced-motion: no-preference) { .card.sel { transition: background .2s; } }
+</style>
+
+<header class="top col">
+  <div class="eyebrow">Avodeck · S11 The timeline · slice D</div>
+  <h1>Timeline redesign plan</h1>
+  <p class="lede">The landing page looks calm because it shows 13 chosen entries over 8 months. A real bundle has thousands. The fix is to change what the lanes show at each distance, add a ribbon for the whole record, and open every entry in a side panel instead of a new screen.</p>
+  <div class="meta"><span>Based on main @ 2210637 (21 Oct 2026)</span><span>Prepared 22 Oct 2026</span><span>Owner: understand-owner (D), with foundation-owner for one token</span></div>
+</header>
+
+<section class="col" style="border-top:0">
+  <h2>The verdict</h2>
+  <div class="verdict">
+    <strong class="big">Keep lanes. Change the board into overview, story and inspector.</strong>
+    <p>No other chart type does the job better. Lanes by record type over time is the form every clinical timeline has settled on, from LifeLines (1996) to SystmOne's Patient Timeline that your GPs already know. Lanes are also how the packs are built.</p>
+    <p>What fails today is the <em>layout</em>. Dots sit in a fixed month grid with no words. Each lane repeats every entry in an open list underneath. The Activity tab is a second, weaker overview that competes with the first.</p>
+    <p style="margin:0">The research supports one structure for this kind of work: <b>an overview with a movable window</b>, <b>a labelled story board</b> that drops to ticks and counts as it fills, and <b>a side panel that always shows the source words</b>. The landing page already has the right look and click-to-page behaviour. The plan makes the real screen work like it at real volumes.</p>
+  </div>
+</section>
+
+<section class="col">
+  <h2>Why it is jam-packed now</h2>
+  <p>I measured the synthetic Mrs A bundle in <code>evals/…/expected/facts.json</code>. The board is not cluttered by accident. It cannot hold this much.</p>
+  <div class="stats">
+    <div class="stat"><b>3,691</b><span>dated facts in the test case</span></div>
+    <div class="stat"><b>348</b><span>months covered (about 29 years)</span></div>
+    <div class="stat"><b>1,848</b><span>results, on only 292 days (up to 21 on one day)</span></div>
+    <div class="stat"><b>1,614</b><span>marks left after grouping by lane and day</span></div>
+    <div class="stat"><b>13</b><span>entries on the landing page demo</span></div>
+  </div>
+  <p>Specific causes in the code:</p>
+  <ol class="tight">
+    <li><b>Every entry is drawn twice.</b> <code>Timeline.tsx:198</code> opens a full list under any lane with more than 4 entries, so the board doubles as a long list. This is also why the draw budget had to rise to 1.5 s in <code>5000dde</code>.</li>
+    <li><b>Words vanish at 5 entries.</b> <code>timelineLayout.ts</code> labels at most 4 dots per lane, and none once a lane has more than 4. Most of the time the board shows bare dots.</li>
+    <li><b>Same-day results pile up.</b> Twenty results on one morning become 20 overlapping dots instead of "Blood test, 20 results".</li>
+    <li><b>Repeat prescriptions are points.</b> 669 prescription facts are mostly the same drug reissued. LifeLines drew these as a bar with ticks.</li>
+    <li><b>Three views, two date controls and a hidden "Adjust" panel.</b> Window presets, From/To fields, a view switch (Chronology, Activity, Map), a zoom switch and status pills sit in five rows before any record appears.</li>
+    <li><b>The Activity tab repeats the Chronology list</b> under a density bar. Its useful part, density over time, belongs above the board as a permanent overview.</li>
+  </ol>
+</section>
+
+<section class="col">
+  <h2>What the research says</h2>
+  <p>A research pass covered clinical timeline studies, litigation chronology tools and techniques for dense time data. The findings that shape this plan:</p>
+  <ul class="tight">
+    <li><b>Timelines win for patterns and gaps, and lose for simple lookups.</b> In Health Timeline (BMC MIDM 2019), psychiatrists found deeper insights with the timeline, but their first insight was slower (about 13 s against 7 s). So a list must be one tap away.</li>
+    <li><b>Clinicians distrust pictures that hide the words.</b> Sultanum's MedStory and ChartWalk work found visual-only summaries "compromise trust". Notes must stay visible. This is the strongest reason for a side panel with the page text.</li>
+    <li><b>Overview with detail is the most consistently preferred technique.</b> No alternative has proved better for understanding (Cockburn, Karlson and Bederson, ACM Computing Surveys). Fisheye distortion shows no benefit and distorts intervals. Intervals are the evidence here, so fisheye is ruled out.</li>
+    <li><b>Aggregation is the standard cure for overplotting.</b> EventFlow cut a healthcare display from 2,700 to 492 marks (−80%). LifeLines2 grouped entries by year, month and day.</li>
+    <li><b>Story layers only work when curated.</b> Knight Lab advises about 20 items for a narrative timeline. Our flags and question-linked entries fit that number. All 3,691 entries do not.</li>
+    <li><b>Legal chronology products put a source-linked list first.</b> CaseMap, Opus 2, CaseFleet, Supio and Wisedocs all do this, with a visual timeline as a toggle or strip. That supports keeping a List mode.</li>
+    <li><b>"Result filed, no action" is common.</b> About 7% of abnormal lab alerts lacked timely follow-up (Singh, 2009). Gaps should be computed and drawn, not left for the eye to find. Our findings already do the computing.</li>
+  </ul>
+  <p class="cite">Most studies had 5 to 14 users, and none tested medico-legal experts. The legal tool evidence is vendor material. Several papers were read from abstracts only. Treat this as direction and confirm it with the usability test in phase 0.</p>
+</section>
+
+<section class="col">
+  <h2>Alternatives considered</h2>
+  <div class="tbl"><table>
+    <tr><th>Model</th><th>Good at</th><th>Why not as the main view</th><th>Use?</th></tr>
+    <tr><td>Today's lanes × month board</td><td>Comparing record types</td><td>Overplots, hides words, repeats every entry</td><td class="n">Replace</td></tr>
+    <tr><td>Chronology list only</td><td>Lookup, reading, the report</td><td>Gaps and clusters don't show; 3,691 rows is a wall</td><td class="y">As List mode</td></tr>
+    <tr><td>Calendar heatmap (GitHub style)</td><td>Rhythm and long quiet spells</td><td>One row per year hides record types; weak for intervals</td><td>Maybe, as a later option</td></tr>
+    <tr><td>Photos-style years, months and days</td><td>A 29-year span</td><td>Discrete jumps disorient users. We borrow the idea as automatic detail levels inside one board.</td><td class="y">Borrowed</td></tr>
+    <tr><td>Story-only annotated timeline</td><td>Telling the case</td><td>Hides what was not flagged; an expert must see the denominator</td><td class="y">As a layer</td></tr>
+    <tr><td>Lanes by legal question (Bui's problem-centric TimeLine)</td><td>"Show me everything for Q2"</td><td>Entries belong to several questions; better as highlighting</td><td class="y">As Q highlight</td></tr>
+    <tr><td>Fisheye or focus distortion</td><td>Nothing measured</td><td>Distorts time, which is the evidence</td><td class="n">No</td></tr>
+  </table></div>
+</section>
+
+<section>
+  <div class="col">
+    <h2>The proposed screen</h2>
+    <p>Desktop at 1440 px, showing the Mrs A example from the landing page. The ribbon covers the whole record. The lens, here Feb to Sep 2024, decides what the board shows. Clicking 19 Feb opens the inspector without leaving the screen.</p>
+  </div>
+  <div class="wide mock-scroll" role="img" aria-label="Mock-up of the proposed timeline screen: a header bar, a ribbon across the whole record with a lens around Feb to Sep 2024, a board of six lanes with labelled entries and a dashed 3 months later gap, and an inspector panel on the right showing page 412 with highlighted words.">
+    <div class="mock">
+      <div class="m-bar">
+        <span class="m-title">The timeline</span>
+        <span class="pill" style="font-family:var(--font-mono);font-weight:400;font-size:13px;background:var(--muted-bg);border-color:transparent">Mrs A · 1996 to 2025</span>
+        <span class="sp"></span>
+        <span class="seg"><span class="on">Board</span><span>List</span></span>
+        <span class="pill">As the GP saw it on…</span>
+        <span class="pill warn"><span class="d"></span>2 things to look at</span>
+      </div>
+      <div class="m-ribbon ribbon">
+        <div class="rb-head"><b>Whole record</b> · drag the lens or pick a period <span class="sp"></span><span class="pill on" style="padding:4px 12px;font-size:13px">The period in question</span><span class="pill" style="padding:4px 12px;font-size:13px">Whole record</span><span class="pill" style="padding:4px 12px;font-size:13px">Last 2 years</span></div>
+        <svg viewBox="0 0 1100 108" aria-hidden="true">
+          <rect x="0" y="0" width="1100" height="108" fill="var(--soft)"/>
+          <g id="rb"></g>
+          <rect x="986" y="2" width="44" height="84" rx="6" fill="var(--green-tint)" fill-opacity=".55" stroke="var(--green)" stroke-width="2"/>
+          <rect x="980" y="30" width="8" height="28" rx="3" fill="var(--green)"/><rect x="1028" y="30" width="8" height="28" rx="3" fill="var(--green)"/>
+          <circle cx="1002" cy="7" r="5" fill="var(--amber-tint)" stroke="var(--amber-bright)" stroke-width="2.5"/>
+          <circle cx="1012" cy="7" r="5" fill="var(--amber-tint)" stroke="var(--amber-bright)" stroke-width="2.5"/>
+          <circle cx="702" cy="7" r="4" fill="var(--paper)" stroke="var(--ink-soft)" stroke-width="2" stroke-dasharray="2 2"/>
+          <g class="r-lab"><text x="0" y="102">1996</text><text x="186" y="102">2000</text><text x="373" y="102">2005</text><text x="559" y="102">2010</text><text x="745" y="102">2015</text><text x="931" y="102">2020</text><text x="1062" y="102">2025</text></g>
+        </svg>
+      </div>
+      <div class="m-body">
+        <div class="board">
+          <div class="b-axis"><div style="padding:9px 14px;font-size:13px;color:var(--ink-soft)">Feb to Sep 2024</div><div class="months"><span>Feb 2024</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span><span>Sep</span></div></div>
+          <div class="lane"><div class="lh"><i style="background:var(--l-visit)"></i><span><b>GP visits</b><small>9 in this period</small></span></div>
+            <div class="track">
+              <div class="card" style="left:1%;top:8px"><span class="dt"></span><span><b>12 Feb</b><small>Bloods</small></span></div>
+              <div class="card" style="left:13%;top:8px"><span class="dt"></span><span><b>4 Mar <span class="qt">Q1</span></b><small>Call: "started iron"</small></span></div>
+              <div class="stack" style="left:28%;top:56px">+3 <em>tasks</em></div>
+              <div class="card" style="left:39%;top:8px"><span class="dt big"></span><span><b>15 May <span class="qt">Q2</span><span class="qt">Q3</span></b><small>Bleeding, "piles", no exam</small></span></div>
+              <div class="card" style="left:76%;top:8px"><span class="dt pc"></span><span><b>8 Aug <span class="qt">Q3</span></b><small>Weight loss, referred</small></span></div>
+            </div></div>
+          <div class="lane"><div class="lh"><i style="background:var(--l-result)"></i><span><b>Results</b><small>2 blood tests · 14 results</small></span></div>
+            <div class="track">
+              <div class="card warn sel" style="left:2%;top:8px"><span class="dt fl"></span><span><b>19 Feb · 6 results <span class="qt">Q1</span></b><small>Hb 98, ferritin 9. Filed</small></span></div>
+              <div class="gap" style="left:18%;width:21%;top:-14px"><span>85 days, no action recorded</span></div>
+              <div class="card" style="left:76%;top:8px"><span class="dt"></span><span><b>9 Aug · 8 results</b><small>Hb 91, CEA 14</small></span></div>
+            </div></div>
+          <div class="lane thin"><div class="lh"><i style="background:var(--l-ooh)"></i><span><b>Out of hours</b><small>1 call</small></span></div>
+            <div class="track"><div class="card warn" style="left:26%;top:4px"><span class="dt fl"></span><span><b>22 Apr</b><small>Not in GP record</small></span></div></div></div>
+          <div class="lane thin"><div class="lh"><i style="background:var(--l-rx)"></i><span><b>Prescriptions</b><small>Iron, 4 issues</small></span></div>
+            <div class="track">
+              <div style="position:absolute;left:14%;width:63%;top:18px;height:10px;border-radius:5px;background:var(--l-rx);opacity:.28"></div>
+              <span class="tick" style="left:14%;bottom:12px;height:18px;background:var(--l-rx)"></span><span class="tick" style="left:51%;bottom:12px;height:18px;background:var(--l-rx)"></span><span class="tick" style="left:63%;bottom:12px;height:18px;background:var(--l-rx)"></span><span class="tick" style="left:76%;bottom:12px;height:18px;background:var(--l-rx)"></span>
+              <span style="position:absolute;left:16%;top:2px;font-size:13px;font-weight:700">Ferrous fumarate 210 mg</span>
+            </div></div>
+          <div class="lane"><div class="lh"><i style="background:var(--l-hosp)"></i><span><b>Hospital and letters</b><small>4 in this period</small></span></div>
+            <div class="track">
+              <div class="card" style="left:74%;top:8px"><span class="dt"></span><span><b>12 Aug</b><small>Referral received</small></span></div>
+              <div class="stack" style="left:84%;top:58px">2 Sep <em>· 24 Sep</em></div>
+              <div class="card" style="left:88%;top:8px"><span class="dt big"></span><span><b>19 Sep</b><small>Diagnosis</small></span></div>
+            </div></div>
+          <div class="lane thin"><div class="lh"><i style="background:var(--l-appt)"></i><span><b>Appointments</b><small>1 missed</small></span></div>
+            <div class="track"><div class="card" style="left:51%;top:4px"><span class="dt" style="border-radius:4px;background:var(--paper);border:2px solid var(--ink-soft)"></span><span><b>28 Jun</b><small>Did not attend</small></span></div></div></div>
+          <div class="b-foot"><span>● Checked by you</span><span>◌ Please check</span><span style="color:var(--amber)">◉ Thing to look at</span><span><span class="qt">Q2</span> Linked to your question</span><span>+3 = more entries, opens a list</span><span class="sp"></span><span>Showing 23 of 23 entries</span></div>
+        </div>
+        <aside class="insp">
+          <div class="in-head"><span>Page 412 of 2,180</span><span class="in-nav"><span>‹</span><span>›</span><span>✕</span></span></div>
+          <div class="in-body">
+            <div><div class="in-kind">RESULTS · 19 FEBRUARY 2024</div><div class="in-title">Full blood count and ferritin</div></div>
+            <div class="badges"><span class="badge">Checked by you</span><span class="badge w">Thing to look at</span><span class="badge" style="background:var(--q);color:var(--q-ink)">Q1</span></div>
+            <div class="sheet"><p>Haemoglobin <mark>98 g/L</mark> (115–165) LOW</p><p>Ferritin <mark>9 ug/L</mark> (15–200) LOW</p><p>MCV 74 fL (80–100) LOW</p><p>Reviewed: <mark>Filed. No action.</mark></p></div>
+            <div class="in-find">Low result filed with no action recorded. Next entry: 15 May visit, 85 days later.</div>
+            <div class="btn p">Open the full page</div>
+            <div class="btn s">Open what the GP saw on 15 May</div>
+            <div class="near"><div><b>Same day</b><span>5 more results</span></div><div><b>Before</b><span>12 Feb · Bloods</span></div><div><b>After</b><span>1 Mar · Iron started</span></div></div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </div>
+  <p class="cap wide">The mock-up scrolls sideways on a phone. The real screen stacks the inspector as a bottom sheet below 960 px.</p>
+</section>
+
+<section class="col">
+  <h2>How an Apple designer would approach it</h2>
+  <p>Apple's interface guidelines rest on clarity, deference to content and depth. Their tools for dense time data (Photos years, months and days; Health highlights; Swift Charts' scrolling window and selection) translate into these rules:</p>
+  <div class="principles">
+    <div class="pr"><b>The record is the interface</b><p>Remove chrome until the entries are the loudest thing. Five control rows become one bar.</p></div>
+    <div class="pr"><b>Always know where you are</b><p>The ribbon always shows the whole record and where the lens sits, so an expert never loses their place in 29 years.</p></div>
+    <div class="pr"><b>Detail follows distance</b><p>Far away you see shape. Closer, you see labelled entries. Close up, you read every one. The board changes on its own, with no zoom switch.</p></div>
+    <div class="pr"><b>Direct, but never only direct</b><p>Dragging the lens is the fast way. Every drag also has a button, a click target and a key, because our users are not confident with a mouse.</p></div>
+    <div class="pr"><b>Continuity, not page jumps</b><p>Opening an entry slides in a panel; the board stays put. Changing the period animates the axis so the eye can follow.</p></div>
+    <div class="pr"><b>Highlight, don't hide</b><p>Filters fade what doesn't match instead of removing it. The count of everything else stays on screen.</p></div>
+  </div>
+</section>
+
+<section class="col">
+  <h2>The design, part by part</h2>
+
+  <h3>1. One header bar</h3>
+  <p>Title, case range, a <b>Board / List</b> switch (two choices, down from three), the "As the GP saw it on…" switch and the "things to look at" pill, in one row as on the landing page. The pill opens S13. Status and question filters become a second row of pills: <i>Everything · Checked 38 · Please check 9 · Things to look at 2 · Q1 · Q2 · Q3</i>. Pills highlight: matching entries stay full strength and the rest fade to 30% ticks. A small "Hide the rest" link turns highlighting into filtering for anyone who wants it.</p>
+  <p class="note">Removed: the zoom switch, the Activity tab, the scroll hint, the "Adjust" disclosure, the From/To fields shown all the time and the per-lane open lists.</p>
+
+  <h3>2. The ribbon (replaces the Activity tab and the date fields)</h3>
+  <ul class="tight">
+    <li>A full-width strip, about 110 px high, always covering the whole record. One thin row per lane (12 px) shows a density bar per month in the lane colour.</li>
+    <li>Pins above it: amber rings for things to look at, dashed rings for please-check entries linked to a question. These are the curated story points and are always visible.</li>
+    <li>The <b>lens</b> is a framed window with two handles. Drag it to move, drag a handle to resize, or click anywhere to centre it there. The board follows on release with a 250 ms axis animation. Keyboard: arrow keys move by a month, Shift with an arrow resizes, and <code>aria-valuetext</code> reads "From 1 February 2024 to 30 September 2024".</li>
+    <li>Preset pills beside it: <i>The period in question</i> (the default, from <code>periodDefaultDates</code>), <i>Whole record</i>, <i>Last 2 years</i>, and <i>Choose dates…</i>, which opens the two date fields in a popover. Year labels under the ribbon are buttons that set the lens to that year.</li>
+    <li>Following Cockburn's guidance, scrolling or opening entries on the board moves the lens but never changes the board. Only the expert's own action on the ribbon does that.</li>
+  </ul>
+
+  <h3>3. The story board: three automatic levels</h3>
+  <p>The lens width sets the level. There is no zoom control.</p>
+</section>
+
+<div class="wide"><div class="tiers">
+  <div class="tier"><h4>Years · lens over 3 years</h4><p>Each lane is a month-by-month density bar. Only pins for things to look at and question links carry labels. Click a bar to move the lens to that period.</p>
+    <svg viewBox="0 0 260 110" aria-hidden="true"><g id="t1"></g><circle cx="150" cy="10" r="6" fill="var(--amber-tint)" stroke="var(--amber-bright)" stroke-width="3"/><text x="160" y="14" font-size="11" font-weight="700" fill="var(--amber)">Hb 98 filed</text></svg></div>
+  <div class="tier"><h4>Months · lens 4 to 36 months</h4><p>Labelled cards for the most important entries. The rest become ticks, with a "+n" chip per busy week. This is the default with the period in question.</p>
+    <svg viewBox="0 0 260 110" aria-hidden="true"><g id="t2"></g></svg></div>
+  <div class="tier"><h4>Days · lens under 4 months</h4><p>Every entry gets a labelled card, stacked into up to 3 rows per lane. Same-day groups split into their parts on hover or in the inspector.</p>
+    <svg viewBox="0 0 260 110" aria-hidden="true"><g id="t3"></g></svg></div>
+</div></div>
+
+<section class="col" style="border-top:0;padding-top:20px">
+  <h3>4. Layout rules for each lane (the core of the fix)</h3>
+  <ol class="tight">
+    <li><b>Group first.</b> Entries in the same lane on the same day become one card: "19 Feb · 6 results". The card takes the strongest status in the group (look &gt; please check &gt; checked) and the combined question chips. That alone cuts 3,691 marks to 1,614.</li>
+    <li><b>Show repeated items as series.</b> Repeat prescriptions of the same drug become one bar from first to last issue, with a tick per issue. This needs a <code>series_key</code> from the server (see the API section). Where there is none, entries stay as cards.</li>
+    <li><b>Rank.</b> Order each group by importance: thing to look at, linked to a question, please check, checked, then by date.</li>
+    <li><b>Pack.</b> Place cards in rank order at their date into the first of up to 3 rows (2 when 7 or more lanes have entries) where they fit. A card is about 150 px wide and needs a 12 px gap.</li>
+    <li><b>Fold the rest.</b> Anything that doesn't fit becomes a 2 px tick at its date. Ticks are counted per week (months level) or month (years level) into a "+n" chip. Clicking the chip opens the inspector as a list of those entries.</li>
+    <li><b>Size lanes to content.</b> A lane with one row is 52 px high and the busiest lanes get up to 3 rows. A lane with nothing in the lens collapses to a 36 px row reading "Nothing in this period". It is not hidden, because a gap is evidence.</li>
+    <li><b>Keep the count honest.</b> The footer always says "Showing 23 of 318 entries in this period. 295 are ticks; switch to List to read them all."</li>
+  </ol>
+  <p>All of this is one pure function, <code>layoutLane(groups, pxPerDay, rows)</code> in <code>timelineLayout.ts</code>, tested without a browser. Only cards are DOM nodes. Ticks and density bars are drawn as one SVG path per lane, so a screen never holds more than about 300 nodes whatever the record size.</p>
+
+  <h3>5. Gaps drawn from findings</h3>
+  <p>Each finding in <code>GET /findings</code> already lists <code>evidence_fact_ids</code>. When a finding's evidence entries are both inside the lens, the board draws the landing page's dashed amber connector between them with the server's own wording ("85 days, no action recorded"). The browser does not work out what is a gap; it only draws what the checks found, which keeps rule 4. Following LezDo's distinction, the label says "no entry in the records" when the check found missing records rather than recorded inaction. That wording comes from the pack.</p>
+
+  <h3>6. The inspector (opening any entry)</h3>
+  <ul class="tight">
+    <li>Clicking a card, chip, tick, list row or pin opens a 380 px panel on the right (a bottom sheet below 960 px). The board does not move. The selected card gets a green ring.</li>
+    <li>Contents, top to bottom: page number; kind and date; the summary; status and question badges; <b>the page excerpt with the source words highlighted</b>, as in the landing page's pop-up, from the existing page image and word boxes (<code>pageImage.ts</code>); the finding sentence if there is one; then two buttons, <i>Open the full page</i> (Read, S10) and <i>Open what the GP saw on this day</i> (Consultation, S12).</li>
+    <li>"Nearby" shows the rest of a same-day group and the entries just before and after. ‹ and › buttons and the ← → keys step through the timeline in date order, crossing lanes, and the lens follows if needed. Esc closes and returns focus to the card.</li>
+    <li>The selected entry goes in the address as <code>?entry=&lt;fact_id&gt;</code>, so the back button and shared links reopen it. Coming back from S12 returns to the same lens and selection.</li>
+  </ul>
+
+  <h3>7. List mode (absorbs the Chronology tab)</h3>
+  <p>The same lens and pills, shown as the existing <code>ChronologyList</code>, grouped under sticky month headings ("May 2024 · 6 entries"), with same-day groups folded into one row. Each row opens the same inspector, so the two modes differ only in the middle. List is the accessible equivalent of the board and the quickest path for lookups, as Health Timeline found. The window list renders only visible rows, so 3,691 rows stay fast.</p>
+
+  <h3>8. Question highlight</h3>
+  <p>Hovering or focusing a Q chip anywhere (pill, card or inspector) lights every entry linked to that question across all lanes and dims the rest. This gives the question-centred view from Bui's TimeLine without a second lane layout.</p>
+
+  <h3>9. "As the GP saw it on…"</h3>
+  <p>Keep the switch. When it is on, the board draws a vertical green rule at that day. Entries that arrived later stay faint to its right, and the server already removes them from the data. The ribbon shows the same rule.</p>
+</section>
+
+<section class="col">
+  <h2>Before and after</h2>
+  <div class="ba">
+    <div><h4>Now: a busy year, months view</h4><svg viewBox="0 0 300 150" aria-hidden="true"><g id="before"></g></svg><p class="cap">Unlabelled dots in fixed months; every lane repeats its entries in a list below.</p></div>
+    <div><h4>Proposed: the same year</h4><svg viewBox="0 0 300 150" aria-hidden="true"><g id="after"></g></svg><p class="cap">Grouped days, ranked labels, ticks for the rest, one gap connector.</p></div>
+  </div>
+</section>
+
+<section class="col">
+  <h2>Rules this plan keeps</h2>
+  <ul class="tight">
+    <li><b>Packs (rule 11):</b> lanes, their order, colours, icons and every word still come from the pack and i18n keys. Series and gap wording come from the server. No lane is named in code; the fixture-pack test keeps passing.</li>
+    <li><b>No product logic in the browser (rule 4):</b> grouping and packing are drawing only. Gaps, density counts and series come from FastAPI.</li>
+    <li><b>Blind read (rule 3):</b> the inspector shows only what <code>/timeline</code> already returns for read pages. The page excerpt uses the same server-gated route as S12.</li>
+    <li><b>Accessibility:</b> buttons and handles at least 52 px; body text at least 17 px; roving focus across cards (arrows move, Enter opens); the board is <code>role="grid"</code> with lane rows; List mode is a full text equivalent; motion stops under reduced motion; colour is never the only signal (shape and wording carry status).</li>
+    <li><b>Performance (P8):</b> under 1 s for 1,500 entries, so the CI budget can go back from 1.5 s to 1 s. Measure 3,691 too.</li>
+  </ul>
+  <div class="callout"><b>One decision for foundation-owner.</b> Card labels at 17 px fit about 4 cards per lane per 1,000 px. At 15 px for the summary line (date stays 17 px bold) they fit 6. Either way works; the 15 px option needs an exception to the 17 px body rule for chart labels, the same exception the landing page already makes.</div>
+</section>
+
+<section class="col">
+  <h2>API changes (slice D, contracts only grow)</h2>
+  <div class="tbl"><table>
+    <tr><th>Change</th><th>Why</th></tr>
+    <tr><td><code>GET /v1/cases/{id}/timeline/overview</code>: counts per lane per month for the whole record, and pins (fact_id, date, lane, has_finding, question_ids)</td><td>The ribbon needs the whole record while the board loads only the lens. It's a small payload (348 months × 6 lanes) and ignores the lens but honours <code>as_seen_on</code>.</td></tr>
+    <tr><td><code>Event.series_key</code> (nullable) and <code>series_label</code>, from a pack rule such as "prescription: same drug and dose"</td><td>Repeat-prescription bars. Packs say what counts as a series; code doesn't.</td></tr>
+    <tr><td><code>Timeline.gaps[]</code>: from_fact_id, to_fact_id, days, label_key, finding_id</td><td>Gap connectors with server-made wording. Built from findings already stored.</td></tr>
+    <tr><td><code>Event.word_box</code> or reuse of the S12 page-excerpt route</td><td>Highlighted words in the inspector. Check what S12 already returns before adding anything.</td></tr>
+  </table></div>
+</section>
+
+<section class="col">
+  <h2>Delivery plan</h2>
+  <p>Each phase ships on its own behind <code>timeline_v2</code>, test-first under the <code>tdd-feature</code> skill, with <code>verify-slice</code> before merging.</p>
+
+  <div class="phase"><h3>Phase 0 · Prove it <span class="tag">about 1 week</span></h3>
+    <ul class="tight">
+      <li>A clickable prototype on the Mrs A data, built from this page's mock-up and the real <code>layoutLane</code>.</li>
+      <li>Test with 5 GP experts on the current screen and the prototype. Tasks: find the abnormal result that was filed with no action; how many visits were there in June 1994; open the source page for the 15 May visit; what did Q2's entries have in common? Record time, success and wrong clicks.</li>
+      <li>Go on if the prototype is at least as fast on lookups and clearly faster on the gap task.</li>
+    </ul></div>
+
+  <div class="phase"><h3>Phase 1 · Inspector and fewer controls <span class="tag">about 1 week · lowest risk, quickest gain</span></h3>
+    <ul class="tight">
+      <li>New <code>TimelineInspector.tsx</code>, opened from today's board and Chronology, with keyboard stepping and <code>?entry=</code>.</li>
+      <li>Remove the per-lane open lists (<code>Timeline.tsx:198–207</code>), the Activity tab, the zoom switch and the Adjust panel. Move status and question to pills.</li>
+      <li>Tests: opening from card, list and chip; Esc returns focus; ← → crosses lanes in date order; the address reopens the entry; axe passes.</li>
+    </ul></div>
+
+  <div class="phase"><h3>Phase 2 · Ribbon and lens <span class="tag">about 1.5 weeks</span></h3>
+    <ul class="tight">
+      <li>The API <code>/timeline/overview</code> endpoint with tests under fixture packs.</li>
+      <li><code>TimelineRibbon.tsx</code> with lens drag, click and keyboard, presets, year buttons and pins. Delete <code>ActivityDensityStrip.tsx</code> and <code>TimelineActivity.tsx</code>; keep <code>activityBuckets.ts</code> logic only if the ribbon reuses it.</li>
+      <li>Tests: dragging commits on release; keys move and resize; presets set the right dates; the lens follows inspector stepping; touch targets are at least 52 px.</li>
+    </ul></div>
+
+  <div class="phase"><h3>Phase 3 · Story board <span class="tag">about 2 weeks</span></h3>
+    <ul class="tight">
+      <li><code>groupByDay</code>, <code>rankGroups</code> and <code>layoutLane</code> in <code>timelineLayout.ts</code>; the three automatic levels; ticks and density as SVG paths; "+n" chips; lane sizing; the honest count.</li>
+      <li>Highlight-not-hide pills; question highlight; the "as seen on" rule.</li>
+      <li>Tests: the same day and lane makes one card with the strongest status; no two cards overlap; rank order decides who gets a label; folded counts add up to the lane total; a 1,500-entry draw is under 1 s and under 400 nodes.</li>
+    </ul></div>
+
+  <div class="phase"><h3>Phase 4 · Series and gaps <span class="tag">about 1.5 weeks, needs pack work</span></h3>
+    <ul class="tight">
+      <li>A pack rule for series (foundation-owner reviews the pack schema), <code>series_key</code> on events, and prescription bars.</li>
+      <li><code>Timeline.gaps</code> from findings, and connectors drawn when both ends are in the lens.</li>
+      <li>Tests: the fixture pack's series rule changes the bars with no code change; a gap shows only when both entries are in view; the wording comes from the pack.</li>
+    </ul></div>
+
+  <div class="phase"><h3>Phase 5 · Finish <span class="tag">about 1 week</span></h3>
+    <ul class="tight">
+      <li>Animations (axis tween, panel slide) with reduced-motion fallbacks; bottom sheet below 960 px; dark mode check; canvas board S11 updated to match.</li>
+      <li>Re-run the phase 0 test. Remove the flag. Put the CI draw budget back to 1 s.</li>
+    </ul></div>
+
+  <h3>Success measures</h3>
+  <ul class="tight">
+    <li>The gap task is found within 60 s by at least 4 of 5 experts (today's baseline is set in phase 0).</li>
+    <li>Lookups are no slower than in today's Chronology view.</li>
+    <li>Draw time is under 1 s at 1,500 entries and under 1.5 s at 3,691, with fewer than 400 nodes on screen.</li>
+    <li>No support requests about "too many dots" (the trigger already named in spike S11).</li>
+  </ul>
+
+  <h3>Risks</h3>
+  <ul class="tight">
+    <li><b>Dragging is hard for some users.</b> Every lens action also has a button, a click and a key. Presets are the default way in.</li>
+    <li><b>Ranking can hide a quiet entry that matters.</b> The count line and List mode always show the total, highlighting never removes anything, and the expert's own question links raise an entry's rank.</li>
+    <li><b>Automatic levels can surprise.</b> The level name ("Showing months") sits in the axis corner, and the change animates.</li>
+    <li><b>Series rules differ by specialty.</b> They live in packs, and the fixture-pack test proves it.</li>
+  </ul>
+</section>
+
+<section class="col">
+  <h2>Sources</h2>
+  <p class="cite">Plaisant et al., LifeLines (1996, 1998), umiacs.umd.edu · Wang, Plaisant and Shneiderman, LifeLines2 (2008–09), cs.umd.edu/projects/hcil/lifelines2 · Fails et al., PatternFinder (VAST 2006) · Monroe et al., EventFlow (2013), cs.umd.edu/~ben/Monroe2013Temporal.pdf · Bade, Schlechtweg and Miksch, Midgaard (CHI 2004) · Bui et al., TimeLine (IEEE TITB 2007) · Hirsch et al., Harvest (JAMIA 2015) · Ledesma et al., Health Timeline (BMC MIDM 2019) · Sultanum et al., "More Text Please" (CHI 2018) and ChartWalk (VIS 2022) · LabVis (BMC MIDM 2025), doi 10.1186/s12911-025-03173-7 · Cockburn, Karlson and Bederson, "A review of overview+detail, zooming, and focus+context interfaces" (ACM Computing Surveys) · Brehmer et al., "Timelines revisited" (TVCG 2017) · Heer et al., horizon graphs (CHI 2009) · Knight Lab TimelineJS docs · Singh et al. 2009 on lab follow-up · SystmOne Patient Timeline guide (Bradford VTS) · LexisNexis CaseMap and TimeMap docs · Everlaw, Opus 2, CaseFleet, EvenUp, Supio and Wisedocs product pages · LezDo on record gaps · Apple WWDC23 "Explore pie charts and interactivity in Swift Charts".</p>
+</section>
+
+<script>
+(function () {
+  var NS = "http://www.w3.org/2000/svg";
+  function el(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); parent.appendChild(e); return e; }
+  // A fixed pseudo-random sequence, so the drawing is the same on every load.
+  var seed = 7; function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+  var lanes = ["--l-visit", "--l-result", "--l-ooh", "--l-rx", "--l-hosp", "--l-appt"];
+  var rate = [0.6, 1, 0.08, 0.5, 0.25, 0.05];
+
+  // Ribbon: 348 months across 1100 px, one row per lane, busier after 2015.
+  var rb = document.getElementById("rb");
+  lanes.forEach(function (c, i) {
+    var y = 14 + i * 12, d = "";
+    for (var m = 0; m < 348; m++) {
+      var busy = m > 230 ? 1.6 : m > 100 ? 1 : 0.6;
+      var h = Math.min(10, Math.round(rnd() * 11 * rate[i] * busy));
+      if (h > 0) { var x = (m / 348 * 1100).toFixed(1); d += "M" + x + " " + (y + 10) + "v-" + h + "h2.4v" + h + "z"; }
+    }
+    el("path", { d: d, fill: "var(" + c + ")", "fill-opacity": "0.8" }, rb);
+  });
+
+  // Tier 1: density bars only.
+  var t1 = document.getElementById("t1");
+  lanes.forEach(function (c, i) {
+    var y = 22 + i * 14, d = "";
+    for (var m = 0; m < 36; m++) { var h = Math.min(11, Math.round(rnd() * 13 * rate[i])); if (h > 0) d += "M" + (m * 7.2) + " " + (y + 11) + "v-" + h + "h5.6v" + h + "z"; }
+    el("path", { d: d, fill: "var(" + c + ")" }, t1);
+  });
+
+  // Tier 2 and 3: cards as rounded rectangles, ticks and +n chips.
+  function cardsTier(g, rows, nCards, ticks) {
+    lanes.slice(0, 4).forEach(function (c, i) {
+      var y = 8 + i * 26;
+      el("line", { x1: 0, x2: 260, y1: y + 22, y2: y + 22, stroke: "var(--line)" }, g);
+      for (var k = 0; k < nCards[i]; k++) {
+        var row = k % rows, x = 6 + (k * 61) % 220;
+        el("rect", { x: x, y: y + row * 9, width: 44, height: 8, rx: 3, fill: "var(" + c + ")", "fill-opacity": i === 1 && k === 0 ? "1" : "0.55" }, g);
+      }
+      for (var t = 0; t < ticks[i]; t++) el("rect", { x: 4 + rnd() * 250, y: y + 15, width: 1.5, height: 5, fill: "var(--line-strong)" }, g);
+      if (ticks[i] > 6) { el("rect", { x: 222, y: y + 1, width: 30, height: 12, rx: 6, fill: "var(--paper)", stroke: "var(--line-strong)" }, g); var tx = el("text", { x: 237, y: y + 10, "text-anchor": "middle", "font-size": "8", "font-weight": "700", fill: "var(--ink)" }, g); tx.textContent = "+" + ticks[i]; }
+    });
+  }
+  cardsTier(document.getElementById("t2"), 1, [3, 2, 1, 2], [14, 22, 0, 9]);
+  cardsTier(document.getElementById("t3"), 2, [5, 4, 1, 3], [0, 0, 0, 0]);
+
+  // Before: dots crowded into 12 month cells.
+  var b = document.getElementById("before");
+  for (var i = 0; i < 5; i++) {
+    var y = 14 + i * 26;
+    el("line", { x1: 0, x2: 300, y1: y + 18, y2: y + 18, stroke: "var(--line)" }, b);
+    var n = [18, 30, 2, 12, 6][i];
+    for (var k = 0; k < n; k++) el("circle", { cx: 8 + rnd() * 284, cy: y + 6 + rnd() * 4, r: 5, fill: "var(" + lanes[i] + ")", "fill-opacity": "0.75" }, b);
+  }
+  for (var m = 1; m < 12; m++) el("line", { x1: m * 25, x2: m * 25, y1: 6, y2: 146, stroke: "var(--muted-bg)" }, b);
+
+  // After: a few labelled cards, ticks, +n chips and one gap.
+  var a = document.getElementById("after");
+  var spec = [[[10, 1], [120, 0], [210, 0]], [[20, 2], [190, 0]], [[90, 2]], [[40, 0], [160, 0]], [[230, 1]]];
+  spec.forEach(function (cards, i) {
+    var y = 14 + i * 26;
+    el("line", { x1: 0, x2: 300, y1: y + 18, y2: y + 18, stroke: "var(--line)" }, a);
+    cards.forEach(function (cd) {
+      var st = cd[1];
+      el("circle", { cx: cd[0] + 4, cy: y + 6, r: 4, fill: st === 2 ? "var(--amber-tint)" : "var(" + lanes[i] + ")", stroke: st === 2 ? "var(--amber-bright)" : "none", "stroke-width": 2 }, a);
+      el("rect", { x: cd[0] + 11, y: y + 2, width: 34, height: 4, rx: 2, fill: st === 2 ? "var(--amber)" : "var(--ink)" }, a);
+      el("rect", { x: cd[0] + 11, y: y + 9, width: 46, height: 3, rx: 1.5, fill: "var(--ink-soft)", "fill-opacity": "0.6" }, a);
+    });
+    for (var t = 0; t < [10, 20, 0, 6, 3][i]; t++) el("rect", { x: 4 + rnd() * 290, y: y + 13, width: 1.5, height: 4, fill: "var(--line-strong)" }, a);
+  });
+  el("path", { d: "M62 34H86Q92 34 92 28V22", fill: "none", stroke: "var(--amber-bright)", "stroke-width": 1.5, "stroke-dasharray": "4 3" }, a);
+})();
+</script>

@@ -13,13 +13,21 @@ for (const run of PACKS) {
       await expect(page.getByRole("region", { name: "Line 1" })).toBeVisible();
       await expect(page.getByRole("region", { name: "Not on a line yet" })).toBeVisible();
       await expect(page.getByRole("list", { name: "Months" })).toBeVisible();
-      // A dot is a drawn circle in a real colour (an undefined colour token once made them invisible).
-      const dot = await page.locator(".av-understand-event--dot > a").first().evaluate((a) => {
-        const css = getComputedStyle(a, "::before");
-        return { w: css.width, bg: css.backgroundColor };
+      await expect(page.getByTestId("timeline-ribbon")).toBeVisible();
+      // A card's dot is drawn in a real colour (an undefined colour token once made them invisible).
+      const dot = await page.locator(".av-story-card__dot").first().evaluate((d) => {
+        const css = getComputedStyle(d);
+        return { w: css.width, bg: css.backgroundColor, border: css.borderTopColor };
       });
-      expect(dot.w).toBe("20px");
-      expect(dot.bg).not.toBe("rgba(0, 0, 0, 0)");
+      expect(dot.w).toBe("18px");
+      expect([dot.bg, dot.border].some((c) => c !== "rgba(0, 0, 0, 0)")).toBe(true);
+      // Every card is a button at least 52px tall, and opening one shows the side panel without leaving the screen.
+      const card = page.locator(".av-story-card").first();
+      expect((await card.boundingBox())!.height).toBeGreaterThanOrEqual(52);
+      await card.click();
+      await expect(page.getByRole("complementary", { name: "The entry you opened" })).toBeVisible();
+      await checkScreen(page);
+      await page.keyboard.press("Escape");
       await expect(page.getByRole("link", { name: /Look at the 1 thing we found/ })).toBeVisible();
       await checkScreen(page);
     });
@@ -51,6 +59,6 @@ test("11 The timeline draws 1,500 events in under one second", async ({ page }) 
   const stub = await stubUnderstand(page, PACKS[0]!, { events: 1500 });
   await page.goto(`/cases/${CASE_A}/timeline`);
   await showTimelineMap(page);
-  await expect(page.locator(".av-understand-track .av-understand-event--dot")).toHaveCount(1500, { timeout: 60_000 });
+  await expect(page.getByText(/^Showing [\d,]+ of 1,500 entries/)).toBeVisible({ timeout: 60_000 });
   expect(Date.now() - stub.timelineSentAt()).toBeLessThan(5000);
 });

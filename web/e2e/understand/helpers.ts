@@ -26,9 +26,8 @@ export interface Stub {
   timelineSentAt: () => number;
 }
 
-/** Segmented view control: the real radio is visually hidden, so click its label. */
+/** The board is the timeline's first view: wait until it has drawn. */
 export async function showTimelineMap(page: Page) {
-  await page.locator("label.av-segmented__option", { hasText: "Overview map" }).click();
   await expect(page.getByTestId("timeline-board")).toBeVisible();
 }
 

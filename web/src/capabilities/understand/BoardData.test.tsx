@@ -1,7 +1,6 @@
 // What the S11, S12 and S13 boards show that the server now sends: lane icon and subtitle, the "Question N only"
 // chip, the author line, the pack's card titles, the entry highlighted and later entries blurred on the page, and
 // finding titles and icons from the pack with decided findings folded into one-line rows.
-import type { UserEvent } from "@testing-library/user-event";
 import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
@@ -9,10 +8,6 @@ import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { forgetPages } from "./pageImage";
 import { consultation, event, FACT_1, FACT_2, FACT_3, finding, inCase, launchWords, Q_2, timeline } from "./testing";
-
-async function openOverviewMap(user: UserEvent) {
-  await user.click(await screen.findByRole("radio", { name: "Overview map" }));
-}
 
 function serveTimeline(body = timeline()) {
   const seen: URL[] = [];
@@ -36,22 +31,20 @@ describe("S11 lanes", () => {
         ],
       }),
     );
-    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    await openOverviewMap(user);
+    renderAt(`/cases/${CASE_A}/timeline`);
     const first = await screen.findByRole("region", { name: "Lane one words" });
     expect(within(first).getByText("2 zz tests")).toBeInTheDocument();
-    expect(within(first).queryByText("2 entries")).not.toBeInTheDocument();
+    expect(within(first).queryByText("2 entries in this period")).not.toBeInTheDocument();
     expect(within(first).getByTestId("lane-icon").querySelector("svg")).not.toBeNull();
     const second = screen.getByRole("region", { name: "Lane two words" });
-    expect(within(second).getByText("1 entry")).toBeInTheDocument();
+    expect(within(second).getByText("1 entry in this period")).toBeInTheDocument();
     expect(within(second).getByTestId("lane-icon")).toHaveTextContent("L");
   });
 
   test("an icon name this screen has no drawing for falls back to the first letter", async () => {
     inCase("fixture");
     serveTimeline(timeline({ lanes: [{ key: "lane_one", label: "Zed words", events: [event()], icon: "no_such_drawing", subtitle: "1 zz" }] }));
-    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    await openOverviewMap(user);
+    renderAt(`/cases/${CASE_A}/timeline`);
     const lane = await screen.findByRole("region", { name: "Zed words" });
     expect(within(lane).getByTestId("lane-icon")).toHaveTextContent("Z");
   });
@@ -60,10 +53,9 @@ describe("S11 lanes", () => {
     inCase("launch");
     const seen = serveTimeline();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    await screen.findByTestId("timeline-chronology");
+    const pills = await screen.findByRole("radiogroup", { name: "Linked to" });
     expect(screen.queryByText("Question 2 only")).not.toBeInTheDocument();
-    await user.click(screen.getByText("Change the dates or question"));
-    await user.selectOptions(await screen.findByLabelText("Linked to"), Q_2);
+    await user.click(await within(pills).findByRole("radio", { name: "Q2" }));
     expect(await screen.findByText("Question 2 only")).toBeInTheDocument();
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("question_id")).toBe(Q_2));
     await user.click(screen.getByRole("button", { name: "Show every question" }));

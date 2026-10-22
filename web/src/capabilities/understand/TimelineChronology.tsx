@@ -1,80 +1,96 @@
-import { Link } from "react-router-dom";
+// S11 List: every entry in the window in date order, under month headings. Each row opens the same side panel as
+// the board, so the two views differ only in how the entries are laid out.
 import type { Schemas } from "../../foundation/platform-client";
 import { PageRef, QChip, StatusBadge } from "../../foundation/ui";
 import { LaneIcon } from "./laneIcons";
 import type { ChronologyEntry } from "./chronologyEntries";
-import { chronologyEntries } from "./chronologyEntries";
-import { axisIso, entryHref, kindWord, longDate, statusOf } from "./shared";
+import { axisIso, kindWord, statusOf } from "./shared";
+import { entryName } from "./TimelineBoard";
 import { w } from "./words";
 
-type TimelineData = Pick<Schemas["Timeline"], "lanes" | "unplaced">;
+type Event = Schemas["Event"];
 
-export function ChronologyList({
-  caseId,
-  entries,
-  numbers,
-  headingId = "timeline-chronology-heading",
-}: {
-  caseId: string;
-  entries: ChronologyEntry[];
-  numbers?: Record<string, number>;
-  headingId?: string;
-}) {
-  if (entries.length === 0) {
-    return <p className="av-muted">{w("timeline.nothing")}</p>;
+const MONTH_YEAR = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
+
+function byMonth(entries: ChronologyEntry[]): { key: string; title: string; rows: ChronologyEntry[] }[] {
+  const out: { key: string; title: string; rows: ChronologyEntry[] }[] = [];
+  for (const e of entries) {
+    const iso = axisIso(e);
+    const key = iso ? iso.slice(0, 7) : "none";
+    let group = out.at(-1);
+    if (!group || group.key !== key) {
+      group = { key, title: iso ? MONTH_YEAR.format(new Date(`${key}-01T00:00:00Z`)) : w("common.no_date"), rows: [] };
+      out.push(group);
+    }
+    group.rows.push(e);
   }
-  return (
-    <ol className="av-understand-chronology__list" aria-labelledby={headingId}>
-      {entries.map((event) => {
-        const linked = event.question_ids.length;
-        const chips = event.question_ids.map((id) => numbers?.[id]).filter((n): n is number => n !== undefined);
-        const iso = axisIso(event);
-        return (
-          <li key={event.fact_id} className="av-understand-chronology__row">
-            <div className="av-understand-chronology__when">
-              <time dateTime={iso ?? undefined}>{iso ? longDate(iso) : w("common.no_date")}</time>
-            </div>
-            <div className="av-understand-chronology__main">
-              {event.laneKey ? (
-                <span className="av-understand-chronology__lane">
-                  <span className="av-understand-lane__icon av-understand-chronology__lane-icon" aria-hidden="true">
-                    <LaneIcon icon={event.laneIcon} label={event.laneLabel} />
-                  </span>
-                  <span className="av-muted">{event.laneLabel}</span>
-                </span>
-              ) : (
-                <span className="av-muted">{w("timeline.unplaced")}</span>
-              )}
-              <p className="av-understand-chronology__summary">
-                <Link to={entryHref(caseId, event)}>{event.summary || kindWord(event.kind)}</Link>
-              </p>
-              <div className="av-understand-chronology__meta">
-                <PageRef page={event.page_no} to={entryHref(caseId, event)} />
-                <StatusBadge status={statusOf(event.status)} />
-                {event.has_finding && <StatusBadge status="look" />}
-                <span className="av-muted">{linked ? w("timeline.linked", { count: linked }) : w("timeline.not_linked")}</span>
-                {chips.length > 0 && (
-                  <span className="av-understand-chips">
-                    {chips.map((n) => (
-                      <QChip key={n} n={n} />
-                    ))}
-                  </span>
-                )}
-              </div>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
-  );
+  return out;
 }
 
-export function TimelineChronology({ caseId, data, numbers }: { caseId: string; data: TimelineData; numbers?: Record<string, number> }) {
-  const entries = chronologyEntries(data.lanes, data.unplaced);
+export function TimelineChronology({
+  entries,
+  numbers,
+  selectedId,
+  onOpen,
+}: {
+  entries: ChronologyEntry[];
+  numbers?: Record<string, number>;
+  selectedId?: string | null;
+  onOpen: (events: Event[], at?: string) => void;
+}) {
+  if (entries.length === 0) return <p className="av-muted">{w("timeline.nothing")}</p>;
   return (
-    <section className="av-understand-chronology" aria-labelledby="timeline-chronology-heading" data-testid="timeline-chronology">
-      <h3 id="timeline-chronology-heading" className="av-visually-hidden">{w("timeline.view.chronology")}</h3>
-      <ChronologyList caseId={caseId} entries={entries} numbers={numbers} />
+    <section className="av-understand-chronology" data-testid="timeline-chronology" aria-label={w("timeline.view.list")}>
+      {byMonth(entries).map((month) => (
+        <section key={month.key} className="av-story-month" aria-labelledby={`month-${month.key}`}>
+          <h4 id={`month-${month.key}`} className="av-story-month__head">
+            {month.title}
+          </h4>
+          <ol className="av-understand-chronology__list">
+            {month.rows.map((event) => {
+              const iso = axisIso(event);
+              const chips = event.question_ids.map((id) => numbers?.[id]).filter((n): n is number => n !== undefined);
+              return (
+                <li key={event.fact_id} className={`av-understand-chronology__row${selectedId === event.fact_id ? " av-understand-chronology__row--selected" : ""}`}>
+                  <div className="av-understand-chronology__when">
+                    <time dateTime={iso ?? undefined}>{iso ? SHORT_DAY.format(new Date(`${iso}T00:00:00Z`)) : w("common.no_date")}</time>
+                  </div>
+                  <div className="av-understand-chronology__main">
+                    {event.laneKey ? (
+                      <span className="av-understand-chronology__lane">
+                        <span className="av-understand-lane__icon av-understand-chronology__lane-icon" aria-hidden="true">
+                          <LaneIcon icon={event.laneIcon} label={event.laneLabel} />
+                        </span>
+                        <span className="av-muted">{event.laneLabel}</span>
+                      </span>
+                    ) : (
+                      <span className="av-muted">{w("timeline.unplaced")}</span>
+                    )}
+                    <p className="av-understand-chronology__summary">
+                      <button type="button" className="av-story-list__open" data-facts={event.fact_id} aria-label={w("timeline.list.open", { name: entryName(event) })} onClick={() => onOpen([event], event.fact_id)}>
+                        {event.summary || kindWord(event.kind)}
+                      </button>
+                    </p>
+                    <div className="av-understand-chronology__meta">
+                      <PageRef page={event.page_no} />
+                      <StatusBadge status={statusOf(event.status)} />
+                      {event.has_finding && <StatusBadge status="look" />}
+                      {chips.length > 0 && (
+                        <span className="av-understand-chips">
+                          {chips.map((n) => (
+                            <QChip key={n} n={n} />
+                          ))}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </section>
+      ))}
     </section>
   );
 }
