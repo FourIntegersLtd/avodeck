@@ -194,7 +194,7 @@ async def test_invite_states_are_terminal(admin: psycopg.Connection, world: Worl
     iid = admin.execute(
         "insert into app.invites (organisation_id, email, role, invited_by, token_hash, status)"
         " values (%s, 'a@example.test', 'viewer', %s, %s, 'cancelled') returning id",
-        (world.agency, world["owner"], "0" * 64),
+        (world.agency, world["owner"], uuid.uuid4().hex * 2),
     ).fetchone()
     assert iid is not None
     with pytest.raises(psycopg.Error):
@@ -205,7 +205,7 @@ async def test_only_owners_and_admins_see_invites(api_db: Database, world: World
     admin.execute(
         "insert into app.invites (organisation_id, email, role, invited_by, token_hash)"
         " values (%s, 'a@example.test', 'viewer', %s, %s)",
-        (world.agency, world["owner"], "1" * 64),
+        (world.agency, world["owner"], uuid.uuid4().hex * 2),
     )
     for who, seen in (("viewer", 0), ("outsider", 0), ("admin", 1)):
         async with api_db.request(scope_for(world[who])) as conn:
