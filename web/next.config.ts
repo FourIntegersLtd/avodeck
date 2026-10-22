@@ -6,6 +6,8 @@ const API_ORIGIN = process.env.API_DEV_ORIGIN ?? "http://127.0.0.1:8000";
 
 const config: NextConfig = {
   poweredByHeader: false,
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+  agentRules: false, // next dev would otherwise rewrite web/AGENTS.md
   typescript: { tsconfigPath: "tsconfig.next.json" },
   async rewrites() {
     return [{ source: "/v1/:path*", destination: `${API_ORIGIN}/v1/:path*` }];

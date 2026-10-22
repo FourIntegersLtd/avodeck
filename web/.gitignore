@@ -2,3 +2,4 @@
 scripts/design-diff/out/
 .next/
 next-env.d.ts
+.next-*/

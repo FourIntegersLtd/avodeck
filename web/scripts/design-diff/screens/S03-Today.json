@@ -1,0 +1,77 @@
+{
+  "id": "S03-Today",
+  "artboard": "S03-Today.dc.html",
+  "route": "/today",
+  "width": 1440,
+  "height": 960,
+  "session": true,
+  "probes": [
+    {
+      "name": "header",
+      "artboard": "header",
+      "page": ".av-shell__bar",
+      "allow": [
+        "backgroundColor"
+      ]
+    },
+    {
+      "name": "header logo",
+      "artboard": "header > a:first-child",
+      "page": ".av-shell__header .av-logo"
+    },
+    {
+      "name": "nav",
+      "artboard": "header nav",
+      "page": ".av-shell__nav ul",
+      "allow": [
+        "rect.y",
+        "rect.h",
+        "fontWeight"
+      ]
+    },
+    {
+      "name": "nav Today",
+      "artboard": "header nav a:nth-child(1)",
+      "page": ".av-shell__nav li:nth-child(1) a",
+      "allow": [
+        "rect.y",
+        "rect.h",
+        "fontWeight"
+      ]
+    },
+    {
+      "name": "nav Cases",
+      "artboard": "header nav a:nth-child(2)",
+      "page": ".av-shell__nav li:nth-child(2) a",
+      "allow": [
+        "rect.y",
+        "rect.h",
+        "fontWeight"
+      ]
+    },
+    {
+      "name": "bell",
+      "artboard": "header a[aria-label^=Messages]",
+      "page": ".av-shell__bell",
+      "allow": [
+        "rect.x",
+        "rect.y",
+        "rect.w",
+        "rect.h"
+      ]
+    },
+    {
+      "name": "avatar",
+      "artboard": "header > div > span",
+      "page": ".av-shell__avatar-disc",
+      "allow": [
+        "rect.x"
+      ]
+    }
+  ],
+  "deviations": [
+    "Nav links, the bell and the avatar keep 52px touch targets (rule: buttons at least 52px); the canvas draws them 44-46px. The visible chip is the canvas size.",
+    "The header has a Help link the canvas omits, which shifts the bell and avatar left by 40px.",
+    "The page's header background sits on .av-shell__header, the artboard's on the bar itself."
+  ]
+}

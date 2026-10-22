@@ -100,8 +100,8 @@ a.av-step__hit:hover .av-step__pill { border-color: var(--green); }
 .av-skip:focus { top: var(--space-4); }
 .av-shell__header { background: var(--surface); border-bottom: 1px solid var(--line); }
 .av-shell__bar { min-height: 76px; padding: var(--space-3) 40px; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
-.av-shell__nav ul { list-style: none; display: flex; gap: var(--space-1); margin: 0; padding: 0; }
-.av-shell__nav a { display: inline-flex; align-items: center; min-height: var(--button-min-height); padding: 0 var(--space-4); border-radius: var(--radius); font-weight: 700; text-decoration: none; color: var(--ink-soft); }
+.av-shell__nav ul { list-style: none; display: flex; gap: 6px; margin: 0; padding: 0; }
+.av-shell__nav a { display: inline-flex; align-items: center; min-height: var(--button-min-height); padding: 10px 16px; border-radius: 10px; font-weight: 700; text-decoration: none; color: var(--ink-soft); }
 .av-shell__nav a[aria-current="page"] { background: var(--green-tint); color: var(--green-dark); }
 .av-page { max-width: var(--page-width); margin: 0 auto; padding: 56px 40px 64px; }
 .av-page--wide { max-width: var(--page-width-wide); }
@@ -170,7 +170,7 @@ a.av-step__hit:hover .av-step__pill { border-color: var(--green); }
 .av-small { font-size: var(--text-small); margin: var(--space-3) 0 0; }
 
 /* Header: bell and the person's initials (S03) */
-.av-shell__left, .av-shell__right { display: flex; align-items: center; gap: var(--space-4); }
+.av-shell__left, .av-shell__right { display: flex; align-items: center; gap: 20px; }
 .av-shell__left { gap: 40px; }
 .av-shell__bell { position: relative; display: inline-flex; align-items: center; justify-content: center; min-width: var(--button-min-height); min-height: var(--button-min-height); border-radius: 12px; color: var(--green-dark); }
 .av-shell__count { position: absolute; top: 2px; right: 0; min-width: 24px; height: 24px; padding: 0 5px; border-radius: 12px; background: var(--amber-bright); color: #FFFFFF; font-size: var(--text-small); font-weight: 700; line-height: 24px; text-align: center; }
