@@ -31,16 +31,17 @@ export async function showTimelineMap(page: Page) {
   await expect(page.getByTestId("timeline-board")).toBeVisible();
 }
 
-export async function stubUnderstand(page: Page, run: Run, opts: { events?: number } = {}): Promise<Stub> {
+export async function stubUnderstand(page: Page, run: Run, opts: { events?: number; range?: { first: string; last: string }; laneEvents?: Record<string, unknown>[][] } = {}): Promise<Stub> {
   let sentAt = 0;
   const total = opts.events ?? 6;
+  const range = opts.range ?? { first: "2024-03-11", last: "2024-08-18" };
   const lanes = [0, 1, 2].map((lane) => ({
     key: `lane_${lane}`,
     label: `Line ${lane + 1}`,
     colour: ["#1E6B4E", "#4C6E91", "#7A6BA8"][lane],
     icon: ["visit", "flask", "moon"][lane],
     subtitle: `${Math.ceil((total - lane) / 3)} entries here`,
-    events: Array.from({ length: total }, (_, i) => i).filter((i) => i % 3 === lane).map((i) => event(i)),
+    events: (opts.laneEvents?.[lane] as ReturnType<typeof event>[] | undefined) ?? Array.from({ length: total }, (_, i) => i).filter((i) => i % 3 === lane).map((i) => event(i)),
   }));
   const theCase = {
     id: CASE_A, organisation_id: ORG, named_expert_id: "11111111-1111-4111-8111-111111111111", jurisdiction: run.jurisdiction, case_type: run.caseType,
@@ -70,11 +71,11 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
       type Ev = ReturnType<typeof event>;
       const counts = (evs: Ev[]) => months.map((m) => evs.filter((e) => String(e.event_date).startsWith(m)).length);
       const pins = lanes.flatMap((l) => l.events.filter((e) => e.has_finding || e.question_ids.length > 0).map((e) => ({ fact_id: e.fact_id, date: e.event_date, lane_key: l.key, has_finding: e.has_finding, question_ids: e.question_ids })));
-      return json(route, { range: { first: "2024-03-11", last: "2024-08-18" }, months, lanes: lanes.map((l) => ({ key: l.key, label: l.label, colour: l.colour, counts: counts(l.events) })), pins });
+      return json(route, { range, months, lanes: lanes.map((l) => ({ key: l.key, label: l.label, colour: l.colour, counts: counts(l.events) })), pins });
     }
     if (path === `${c}/timeline`) {
       sentAt = Date.now();
-      return json(route, { as_seen_on: null, as_seen_title: null, range: { first: "2024-03-11", last: "2024-08-18" }, sources: [{ key: "src_a", label: "Source A", colour: "#1E6B4E" }], counts: { checked: 3, please_check: 3, things_to_look: 1, not_linked: 4, undated: 1, total: 6 }, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
+      return json(route, { as_seen_on: null, as_seen_title: null, range, sources: [{ key: "src_a", label: "Source A", colour: "#1E6B4E" }], counts: { checked: 3, please_check: 3, things_to_look: 1, not_linked: 4, undated: 1, total: 6 }, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
     }
     if (path === `${c}/consultations/${FACT_1}`) {
       return json(route, {

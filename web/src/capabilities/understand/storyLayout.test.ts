@@ -1,7 +1,7 @@
 // S11 story board layout: entries are grouped by lane and day, ranked by what matters most, packed into a few
 // rows without overlapping, and whatever does not fit is folded into counted marks. Pure functions, no browser.
 import { describe, expect, test } from "vitest";
-import { foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, nextEntryAfter, type StoryGroup } from "./storyLayout";
+import { axisMarks, AXIS_CHAR_PX, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, nextEntryAfter, type StoryGroup } from "./storyLayout";
 import { event, Q_1 } from "./testing";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -124,5 +124,47 @@ describe("nextEntryAfter", () => {
     const all = [...groupByDay("a", [event({ event_date: "2024-02-19" })]), ...groupByDay("b", [event({ event_date: "2024-02-19" }), event({ fact_id: id(9), event_date: "2024-05-15" })])];
     expect(nextEntryAfter(all, all[0]!)?.date).toBe("2024-05-15");
     expect(nextEntryAfter(all, all.at(-1)!)).toBeNull();
+  });
+});
+
+describe("axisMarks", () => {
+  const start = Date.UTC(1992, 11, 1);
+  const end = Date.UTC(1995, 0, 1);
+  const need = (label: string) => label.length * AXIS_CHAR_PX + 16;
+
+  test("a two-year window is marked on January, April, July and October only", () => {
+    const marks = axisMarks(start, end, "months", 960);
+    expect(marks.length).toBeGreaterThan(5);
+    for (const m of marks) expect([0, 3, 6, 9]).toContain(new Date(m.at).getUTCMonth());
+  });
+
+  test("January 1993 is kept with its year and the colliding December 1992 is not drawn", () => {
+    const labels = axisMarks(start, end, "months", 960).map((m) => m.label);
+    expect(labels).toContain("Jan 1993");
+    expect(labels.some((l) => l.startsWith("Dec"))).toBe(false);
+  });
+
+  test("no two kept marks are closer than the first one's label is wide", () => {
+    for (const track of [320, 736, 960]) {
+      const marks = axisMarks(start, end, "months", track);
+      const span = end - start;
+      for (let i = 1; i < marks.length; i++) {
+        const gap = ((marks[i]!.at - marks[i - 1]!.at) / span) * track;
+        expect(gap).toBeGreaterThanOrEqual(need(marks[i - 1]!.label));
+      }
+    }
+  });
+
+  test("a first mark that is not January carries the year when no January is near", () => {
+    const marks = axisMarks(Date.UTC(2024, 1, 1), Date.UTC(2024, 8, 1), "months", 960);
+    expect(marks[0]!.label).toBe("Feb 2024");
+  });
+
+  test("years are labelled by year and kept apart", () => {
+    const s = Date.UTC(1990, 0, 1);
+    const e = Date.UTC(2000, 0, 1);
+    const marks = axisMarks(s, e, "years", 400);
+    expect(marks[0]!.label).toBe("1990");
+    for (let i = 1; i < marks.length; i++) expect(((marks[i]!.at - marks[i - 1]!.at) / (e - s)) * 400).toBeGreaterThanOrEqual(need(marks[i - 1]!.label));
   });
 });

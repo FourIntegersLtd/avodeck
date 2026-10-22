@@ -7,6 +7,7 @@ import { describe, expect, test } from "vitest";
 import { http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
+import { ROW } from "./boardGeometry";
 import { entryHref } from "./shared";
 import { splitForTrack } from "./Timeline";
 import { TimelineBoard } from "./TimelineBoard";
@@ -172,6 +173,29 @@ describe("the board", () => {
     await screen.findByRole("region", { name: "Lane one words" });
     expect(screen.getAllByText("Year worked out from the two-digit year on the page, please check").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Date taken from the line above, please check").length).toBeGreaterThan(0);
+  });
+
+  test("the date mark is an icon with the full sentence as its name, not words on the card", async () => {
+    inCase("launch");
+    serve(timeline({ lanes: [{ key: "lane_0", label: "Lane one words", events: [event({ fact_id: FACT_1, date_basis: "printed_century" })] }] }));
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const lane = await screen.findByRole("region", { name: "Lane one words" });
+    const card = lane.querySelector<HTMLElement>(".av-story-card")!;
+    const mark = card.querySelector(".av-story-card__check")!;
+    expect(mark.querySelector("svg")).not.toBeNull();
+    expect(mark).toHaveAttribute("title", "Year worked out from the two-digit year on the page, please check");
+    expect(within(card as HTMLElement).getByText("Year worked out from the two-digit year on the page, please check")).toHaveClass("av-visually-hidden");
+    expect(card.textContent).not.toContain("Check the date");
+  });
+
+  test("every card has a fixed height inside its row, and the legend explains the date mark", async () => {
+    inCase("launch");
+    serve(timeline({ lanes: [{ key: "lane_0", label: "Lane one words", events: [event({ fact_id: FACT_1, date_basis: "line_above" })] }] }));
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const lane = await screen.findByRole("region", { name: "Lane one words" });
+    expect(lane.querySelector<HTMLElement>(".av-story-card")!.style.height).toBe(`${ROW - 6}px`);
+    const dots = screen.getByRole("list", { name: "What the dots mean" });
+    expect(within(dots).getByText("Check the date")).toBeInTheDocument();
   });
 
   test("entries with a printed date show no mark", async () => {
