@@ -24,7 +24,7 @@ const layer = (from, banned) => ({
 });
 
 export default tseslint.config(
-  { ignores: ["dist", "coverage", "playwright-report", "test-results", "src/foundation/platform-client/schema.ts"] },
+  { ignores: ["dist", ".next", "next-env.d.ts", "coverage", "playwright-report", "test-results", "design", "scripts/design-diff/out", "src/foundation/platform-client/schema.ts"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -42,6 +42,12 @@ export default tseslint.config(
   },
   {
     files: ["src/foundation/platform-client/**/*.{ts,tsx}", "src/**/*.test.{ts,tsx}", "src/test/**", "e2e/**", "*.config.ts"],
+    rules: { "no-restricted-globals": "off" },
+  },
+  {
+    // Dev tooling that drives a browser (scripts/design-diff): runs in Node, and its page callbacks in Chromium.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: { globals: { ...globals.browser, ...globals.node } },
     rules: { "no-restricted-globals": "off" },
   },
   {

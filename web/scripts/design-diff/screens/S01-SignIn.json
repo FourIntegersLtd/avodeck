@@ -1,0 +1,107 @@
+{
+  "id": "S01-SignIn",
+  "artboard": "S01-SignIn.dc.html",
+  "route": "/sign-in",
+  "width": 1440,
+  "height": 900,
+  "artboardRemove": [],
+  "pageRemove": [],
+  "probes": [
+    {
+      "name": "h1",
+      "artboard": "h1",
+      "page": ".av-sign-in__tagline"
+    },
+    {
+      "name": "h2",
+      "artboard": "h2",
+      "page": ".av-sign-in__form h1"
+    },
+    {
+      "name": "email input",
+      "artboard": "input[type=email]",
+      "page": "input[type=email]"
+    },
+    {
+      "name": "password input",
+      "artboard": "input[type=password]",
+      "page": "input[name=password]"
+    },
+    {
+      "name": "sign in button",
+      "artboard": "a[href='S03-Today.dc.html']",
+      "page": "button[type=submit]"
+    },
+    {
+      "name": "logo wordmark",
+      "artboard": "span[style*=Outfit]",
+      "page": ".av-sign-in__brand .av-logo__word"
+    },
+    {
+      "name": "first point",
+      "artboard": "div[style*='gap: 16px'][style*='align-items: center']",
+      "page": ".av-sign-in__points li"
+    },
+    {
+      "name": "note",
+      "artboard": "div[style*='border: 1px solid #DDE3DF']",
+      "page": ".av-sign-in__note"
+    },
+    {
+      "name": "forgot link",
+      "artboard": "a[href='#forgot']",
+      "page": ".av-row--spread .av-button--quiet"
+    },
+    {
+      "name": "support line",
+      "artboard": "p[style*='font-size: 15px'][style*='color: #4F5953']:last-child",
+      "page": "[data-testid=support-line]"
+    },
+    {
+      "name": "intro line",
+      "artboard": "h2 + p",
+      "page": ".av-sign-in__form > h1 + p"
+    },
+    {
+      "name": "form column",
+      "artboard": "div[style*='max-width: 440px']",
+      "page": ".av-sign-in__form"
+    },
+    {
+      "name": "right pane",
+      "artboard": "div[style*='padding: 64px 40px']",
+      "page": ".av-sign-in__main"
+    },
+    {
+      "name": "footnote",
+      "artboard": "p[style*='font-size: 15px'][style*='A9CDBB']",
+      "page": ".av-sign-in__footnote"
+    }
+  ],
+  "setup": [
+    {
+      "fill": "input[type=email]",
+      "value": "j.morgan@example.co.uk"
+    },
+    {
+      "fill": "input[name=password]",
+      "value": "password12"
+    },
+    {
+      "blur": true
+    }
+  ],
+  "mock": {
+    "/v1/cell": {
+      "storage_place": "the UK",
+      "support_phone": "[SUPPORT NUMBER]",
+      "support_hours": "weekdays 8am to 6pm"
+    }
+  },
+  "artboardCss": "div[style*='border: 1px solid #DDE3DF'] > svg{flex:none}",
+  "deviations": [
+    "Show password is unticked: ticking it unmasks the password, which the artboard shows masked.",
+    "The artboard's lock icon shrinks to about 8px beside the note (a flex bug in the canvas); the page keeps it at 22px and the artboard is rendered with flex:none for comparison.",
+    "The phone number in the help line is a tel: link styled as plain text."
+  ]
+}
