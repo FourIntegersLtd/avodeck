@@ -166,3 +166,43 @@ export function nextEntryAfter(all: StoryGroup[], group: StoryGroup): StoryGroup
 export function daysBetween(from: string, to: string): number {
   return Math.round((dayMs(to) - dayMs(from)) / DAY);
 }
+
+/** Estimated width of one axis character: mono at 0.62em of the 17px axis text. */
+export const AXIS_CHAR_PX = 0.62 * 17;
+const AXIS_PAD = 16; // the label's own side padding
+const AXIS_GAP = 12; // space kept clear after a label
+
+const MONTH_LABEL = (year: boolean) => new Intl.DateTimeFormat("en-GB", { month: "short", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" });
+const labelNeed = (label: string) => label.length * AXIS_CHAR_PX + AXIS_PAD + AXIS_GAP;
+
+/**
+ * Axis labels for a window, never closer together than the earlier label is wide. Months step on calendar months
+ * (quarters are Jan, Apr, Jul, Oct); January always has a place and wins over a neighbour that is not January.
+ */
+export function axisMarks(start: number, end: number, level: Level, track: number): { at: number; label: string }[] {
+  const span = Math.max(end - start, DAY);
+  const total = Math.round((end - start) / (30.44 * DAY));
+  const step = level === "years" ? 12 : total > 12 ? 3 : 1;
+  const candidates: { at: number; january: boolean; label: string }[] = [];
+  for (let d = new Date(start), i = 0; d.getTime() < end; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)), i++) {
+    const january = d.getUTCMonth() === 0;
+    if (level === "years" ? !(january || i === 0) : d.getUTCMonth() % step !== 0) continue;
+    const label = level === "years" ? String(d.getUTCFullYear()) : MONTH_LABEL(january).format(d);
+    candidates.push({ at: d.getTime(), january, label });
+  }
+  const x = (at: number) => ((at - start) / span) * track;
+  const kept: typeof candidates = [];
+  for (const c of candidates) {
+    let prev = kept.at(-1);
+    if (prev && x(c.at) - x(prev.at) < labelNeed(prev.label) && c.january && !prev.january) {
+      kept.pop();
+      prev = kept.at(-1);
+    }
+    if (prev && x(c.at) - x(prev.at) < labelNeed(prev.label)) continue;
+    kept.push(c);
+  }
+  // The first mark names its year when it is not January; a January that follows would have replaced it.
+  const first = kept[0];
+  if (first && level !== "years" && !first.january) first.label = MONTH_LABEL(true).format(new Date(first.at));
+  return kept.map(({ at, label }) => ({ at, label }));
+}
