@@ -20,6 +20,7 @@ from app.features.understand.timeline_models import Gap
 
 ACTION_KEYS = ("action_kinds", "acknowledged_kinds", "followup_kinds", "or_kinds")
 NONE_AFTER = "timeline.gap.none_after"
+NO_ACTION_AFTER = "timeline.gap.no_action_after"
 RECORDS_QUIET = "records_quiet"
 
 
@@ -64,7 +65,8 @@ async def assemble(
         begin = start.event_date
         assert begin is not None
         kinds = _action_kinds(checks.get(found.check_key))
-        later = [f for f in dated if f.event_date and f.event_date > begin and (not kinds or f.kind in kinds)]
+        after = [f for f in dated if f.event_date and f.event_date > begin]
+        later = [f for f in after if not kinds or f.kind in kinds]
         end_fact = min(later, key=lambda f: (f.event_date, f.page_no), default=None)
         end = end_fact.event_date if end_fact and end_fact.event_date else max(latest or begin, begin)
         quiet = [
@@ -73,6 +75,10 @@ async def assemble(
             if g.source_type == start.source or (g.fact_kind is not None and g.fact_kind in kinds)
         ]
         kind = RECORDS_QUIET if quiet else found.rule
+        if end_fact or (after and quiet):
+            label = f"timeline.gap.{kind}"
+        else:
+            label = NO_ACTION_AFTER if after else NONE_AFTER
         out.append(
             (
                 begin,
@@ -83,7 +89,7 @@ async def assemble(
                     to_fact_id=end_fact.fact_id if end_fact else None,
                     days=(end - begin).days,
                     kind=kind,
-                    label_key=f"timeline.gap.{kind}" if end_fact else NONE_AFTER,
+                    label_key=label,
                 ),
             )
         )
