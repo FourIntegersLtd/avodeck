@@ -131,6 +131,30 @@ class InviteAccepted(BaseModel):
     membership_id: uuid.UUID
 
 
+ReasonCode = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,39}$")]
+
+
+class SupportGrantCreate(Strict):
+    reason: ReasonCode
+    granted_to: uuid.UUID | None = None
+
+
+class SupportGrant(BaseModel):
+    id: uuid.UUID
+    case_id: uuid.UUID
+    granted_by: uuid.UUID
+    granted_to: uuid.UUID | None
+    reason: str
+    granted_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    active: bool
+
+
+class SupportGrantList(BaseModel):
+    grants: list[SupportGrant]
+
+
 class AccountClosed(BaseModel):
     closed_at: datetime
     deletion_job_ids: list[uuid.UUID]

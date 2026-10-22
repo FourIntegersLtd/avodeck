@@ -174,6 +174,47 @@ async def end_membership(conn: AsyncConnection, membership_id: uuid.UUID) -> Non
     await conn.execute("update app.memberships set ended_at = now() where id = %s", (membership_id,))
 
 
+_GRANT = """
+select id, case_id, granted_by, granted_to, reason, granted_at, expires_at, revoked_at,
+       revoked_at is null and expires_at > now() as active
+from app.support_access_grants
+"""
+
+
+async def is_support_staff(conn: AsyncConnection, person_id: uuid.UUID) -> bool:
+    return bool(await value(conn, "select app.is_support_staff(%s)", (person_id,)))
+
+
+async def end_active_grants(conn: AsyncConnection, case_id: uuid.UUID) -> None:
+    await conn.execute(
+        "update app.support_access_grants set revoked_at = now()"
+        " where case_id = %s and revoked_at is null and expires_at > now()",
+        (case_id,),
+    )
+
+
+async def add_grant(conn: AsyncConnection, case_id: uuid.UUID, reason: str, granted_to: uuid.UUID | None) -> uuid.UUID:
+    grant_id: uuid.UUID = await value(
+        conn,
+        "insert into app.support_access_grants (case_id, granted_by, granted_to, reason)"
+        " values (%s, app.current_person_id(), %s, %s) returning id",
+        (case_id, granted_to, reason),
+    )
+    return grant_id
+
+
+async def grants(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
+    return await rows(conn, _GRANT + " where case_id = %s order by granted_at, id", (case_id,))
+
+
+async def grant(conn: AsyncConnection, case_id: uuid.UUID, grant_id: uuid.UUID) -> dict[str, Any] | None:
+    return await row(conn, _GRANT + " where case_id = %s and id = %s", (case_id, grant_id))
+
+
+async def revoke_grant(conn: AsyncConnection, grant_id: uuid.UUID) -> None:
+    await conn.execute("update app.support_access_grants set revoked_at = now() where id = %s", (grant_id,))
+
+
 async def account_closed(conn: AsyncConnection) -> bool:
     return bool(await value(conn, "select closed_at is not null from app.people where id = app.current_person_id()"))
 
