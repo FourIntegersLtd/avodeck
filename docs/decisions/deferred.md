@@ -10,6 +10,7 @@ Things we chose not to build yet, and what would make us build them. Review at e
 | Gmail/Outlook sending | `mailto:` is enough for the MVP | Experts report more than 5 minutes a case on emails |
 | Cross-cell organisations | Data must stay in one cell | An organisation operating in two countries signs up |
 | Exhibits analysis (audio, video, DICOM) | Out of intended purpose | A specialty pack needs it and the intended-purpose review allows it |
+| Stripe subscription and its webhook (`POST /webhooks/stripe`, seats per organisation; slice O) | No Stripe account yet; organisations, members and invites work without billing | Stripe account opened |
 | Seat-based billing beyond Stripe quantity | Simple per-seat subscription suffices | Agencies ask for pooled credits or per-case billing |
 | Real-time co-editing of opinions | Opinions are personal to the named expert; ETag prevents loss | A joint-report workflow needs simultaneous editing |
 | Automatic reprocessing with new models | Must never change verified work silently | Never automatically; opt-in only (10.3) |

@@ -161,9 +161,16 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 ### support_access_grants
 | Field | In plain words |
 |---|---|
-| granted_by / granted_to | The expert giving permission and the support person receiving it |
-| reason | Why support needs to look |
-| expires_at / revoked_at | When the permission ends automatically or was cancelled |
+| granted_by / granted_to | The expert giving permission and the support person receiving it (empty: anyone in support). Only a grant from the case's current named expert counts |
+| reason | Why support needs to look, as a short code (never free text) |
+| granted_at | When the permission was given (set by the database) |
+| expires_at / revoked_at | When the permission ends by itself (at most 24 hours after it was given, checked every time) or was cancelled. A cancellation is never undone |
+
+### support_staff
+| Field | In plain words |
+|---|---|
+| person_id | The person who works for Avodeck support (they sign in like anyone else, with MFA) |
+| added_at / removed_at | When they joined support and when they left it; only current staff can use a grant |
 
 ## Case
 

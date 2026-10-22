@@ -22,7 +22,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `invites` | O | Owner/admin | Many | pending → accepted/cancelled/expired | Expire after 7 days |
 | `billing_profiles` | O (personal ones in F) | Person or org owner | One per issuer | Number sequence never skips; edits don't touch sent invoices | Kept with sent invoices for tax |
 | `notification_preferences` | Foundation | The person | One per person per org | Edit freely | Deleted with the membership |
-| `support_access_grants` | O | Named expert grants or revokes | Any; one active per case | Expire after 24 hours | Audit rows kept |
+| `support_access_grants` | O (table created by foundation, migration 0030) | Named expert grants or revokes; only `revoked_at` changes | Any; one active per case (O's route) | Expire after 24 hours, checked on every read; a revocation is final | Kept after case deletion (record of consent, ids and a code only); opens nothing on a deleted case |
+| `support_staff` | Foundation | Operators by hand in SQL (`docs/ops/support-staff.md`); never the app | One per person | Added; removed by setting `removed_at` (never deleted) | A removed person's grants stop working at once |
 | `cases` | Foundation (C fills) | Named expert; org admin for admin fields | Many per org | State machine; on hold flag; named expert fixed after serving; settled_at and closed_at set by the system | Case deletion; legal hold blocks |
 | `case_members` | C | Named expert or org admin | Many per case | Added and removed with dates, history kept | Removed when membership ends unless named |
 | `case_parties` | C | Named expert or assistant | Many | Editable until served; then additions only (edit or removal refused, 409) | Case deletion |

@@ -72,6 +72,45 @@ class Seed:
             (org, person),
         )
 
+    def case_status(self, case: uuid.UUID, status: str) -> None:
+        """Move a case on by one step of the case state machine."""
+        self.admin.execute("update app.cases set status = %s where id = %s", (status, case))
+
+    def close_account(self, person: uuid.UUID) -> None:
+        """Scenario S15: the person closed their account."""
+        self.admin.execute("update app.people set closed_at = now() where id = %s", (person,))
+
+    def support_staff(self, person: uuid.UUID, *, removed: bool = False) -> None:
+        """Avodeck support staff, as `docs/ops/support-staff.md` adds them by hand."""
+        self.admin.execute(
+            "insert into app.support_staff (person_id, removed_at) values (%s, case when %s then now() end)",
+            (person, removed),
+        )
+
+    def support_grant(
+        self,
+        case: uuid.UUID,
+        granted_by: uuid.UUID,
+        *,
+        granted_to: uuid.UUID | None = None,
+        expires_in: timedelta = timedelta(hours=23),
+        revoked: bool = False,
+        reason: str = "support_request",
+    ) -> uuid.UUID:
+        """A support access grant given 24 hours before `expires_in` from now (so a negative one has expired)."""
+        gid = uuid.uuid4()
+        seconds = int(expires_in.total_seconds())
+        self.admin.execute(
+            """
+            insert into app.support_access_grants (id, case_id, granted_by, granted_to, reason, granted_at,
+                                                   expires_at, revoked_at)
+            values (%s, %s, %s, %s, %s, now() + make_interval(secs => %s) - interval '24 hours',
+                    now() + make_interval(secs => %s), case when %s then now() end)
+            """,
+            (gid, case, granted_by, granted_to, reason, seconds, seconds, revoked),
+        )
+        return gid
+
     def case(
         self,
         org: uuid.UUID,

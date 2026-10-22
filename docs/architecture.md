@@ -231,7 +231,8 @@ Who owns cases and pays, who belongs, and how they want to be told about things.
 | `invites` | An invitation to join an organisation, sent by email, valid for 7 days. | organisation_id, email, role, invited_by, expires_at, accepted_at |
 | `billing_profiles` | Who an invoice is from: name, address and tax number of the organisation or expert issuing it, with their own invoice numbering. | owner_type, owner_id, legal_name, address, tax_number, currency, next_invoice_no |
 | `notification_preferences` | How a person wants to be told about things, per organisation (in-app, email, daily digest). | person_id, organisation_id, channel, enabled, digest, muted_kinds[] |
-| `support_access_grants` | A time-limited permission the named expert gives Avodeck support to look at one case. | case_id, granted_by, granted_to, reason, expires_at, revoked_at |
+| `support_access_grants` | A time-limited permission the named expert gives Avodeck support to look at one case (at most 24 hours). Created by foundation (migration 0030); slice O builds the routes. Kept after the case is deleted as the record of consent. | case_id, granted_by, granted_to (empty: any staff member), reason (short code), granted_at, expires_at, revoked_at |
+| `support_staff` | Who works for Avodeck support. Added and removed by hand in SQL (`docs/ops/support-staff.md`); no route writes it. | person_id, added_at, removed_at |
 
 ### 4.3 Case
 

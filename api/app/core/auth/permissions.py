@@ -1,7 +1,11 @@
 """The case permissions matrix from docs/spec/permissions.md, as one table.
 
-`app.case_action_allowed()` (migration 0003, redefined in 0017, 0019, 0021 and 0200) mirrors this table; the guard test
+`app.case_action_allowed()` (migration 0003, redefined in 0017, 0019, 0021 and 0200) mirrors this table, and
+`app.case_role_allowed()` (migration 0030) adds the `support` role to it; the guard test
 `tests/guards/test_permissions.py` checks both against the document, cell by cell.
+
+`ORG_ACTIONS` is the document's "Organisation actions" table, checked by `require_org_access`
+(`core/auth/org_access.py`) and `tests/guards/test_foundation_org_access.py`.
 """
 
 from __future__ import annotations
@@ -12,6 +16,9 @@ from typing import Literal
 CASE_ROLES = ("named_expert", "co_expert", "supervisor", "assistant", "viewer")
 ORG_ROLES = ("owner", "admin", "expert", "assistant", "viewer")
 ORG_KINDS = ("personal", "team")
+# Avodeck support under a live grant from the named expert (permissions.md "Avodeck staff"). Not a
+# `case_members` role: `app.case_access()` gives it only to current staff while the grant lasts.
+SUPPORT_ROLE = "support"
 
 # What an organisation owner or admin who is not on the case may do:
 # none; admin = owner and admin; owner = owner only; team_admin = owner and admin, team organisations only.
@@ -81,6 +88,11 @@ CASE_ACTIONS: dict[str, ActionRule] = {
 }
 
 
+# All the support role may do (permissions.md, the "Avodeck support" column): look, never change.
+# The same list is in `app.case_role_allowed()` (migration 0030).
+SUPPORT_ACTIONS = frozenset({"case.view_metadata", "case.view_content", "case.view_audit"})
+
+
 def _org_allows(grant: OrgGrant, org_role: str | None, org_kind: str | None) -> bool:
     if grant == "none" or org_role not in ("owner", "admin"):
         return False
@@ -96,8 +108,45 @@ def allowed(action: str, case_role: str | None, org_role: str | None, org_kind: 
     rule = CASE_ACTIONS.get(action)
     if rule is None:
         return False
-    return (case_role in rule.case_roles) or _org_allows(rule.org, org_role, org_kind)
+    by_case = case_role in rule.case_roles or (case_role == SUPPORT_ROLE and action in SUPPORT_ACTIONS)
+    return by_case or _org_allows(rule.org, org_role, org_kind)
 
 
 def allowed_actions(case_role: str | None, org_role: str | None, org_kind: str | None) -> list[str]:
     return sorted(a for a in CASE_ACTIONS if allowed(a, case_role, org_role, org_kind))
+
+
+# --- organisation actions -------------------------------------------------------------------------
+
+_ORG_EVERYONE = frozenset(ORG_ROLES)
+_ORG_CASE_CREATORS = frozenset({"owner", "admin", "expert", "assistant"})
+_ORG_ADMINS = frozenset({"owner", "admin"})
+_ORG_OWNER = frozenset({"owner"})
+
+
+@dataclass(frozen=True)
+class OrgActionRule:
+    roles: frozenset[str]
+    step_up: bool = False
+
+
+ORG_ACTIONS: dict[str, OrgActionRule] = {
+    "org.view_members": OrgActionRule(_ORG_EVERYONE),
+    "org.manage_members": OrgActionRule(_ORG_ADMINS, step_up=True),
+    "org.create_case": OrgActionRule(_ORG_CASE_CREATORS),
+    "org.view_all_cases": OrgActionRule(_ORG_ADMINS),
+    "org.set_policy": OrgActionRule(_ORG_ADMINS, step_up=True),
+    "org.billing": OrgActionRule(_ORG_ADMINS, step_up=True),
+    "org.close": OrgActionRule(_ORG_OWNER, step_up=True),
+    "org.export": OrgActionRule(_ORG_OWNER, step_up=True),
+}
+
+
+def org_allowed(action: str, org_role: str | None) -> bool:
+    """May a current member with this role do `action` for the organisation? Unknown actions: never."""
+    rule = ORG_ACTIONS.get(action)
+    return rule is not None and org_role in rule.roles
+
+
+def org_allowed_actions(org_role: str | None) -> list[str]:
+    return sorted(a for a in ORG_ACTIONS if org_allowed(a, org_role))

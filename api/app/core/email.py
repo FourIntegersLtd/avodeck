@@ -14,6 +14,8 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Protocol
 
+from app.core.auth.permissions import ORG_ROLES
+
 EMAIL_CHANGE_CONFIRM_OLD = "email_change.confirm_old"
 EMAIL_CHANGE_CONFIRM_NEW = "email_change.confirm_new"
 RECOVERY_CODE_USED = "mfa.recovery_code_used"
@@ -22,6 +24,9 @@ NOTIFICATION_DIGEST = "notification.digest"
 DELETION_CERTIFICATE = "deletion.certificate"
 INVOICE_SENT = "invoice.sent"
 SPOT_CHECK_CODE = "spot_check.code"
+ORG_INVITE = "org.invite"
+CASE_REASSIGNED = "case.reassigned"
+SUPPORT_ACCESS_GRANTED = "support_access.granted"
 TEMPLATES = frozenset(
     {
         EMAIL_CHANGE_CONFIRM_OLD,
@@ -32,6 +37,9 @@ TEMPLATES = frozenset(
         DELETION_CERTIFICATE,
         INVOICE_SENT,
         SPOT_CHECK_CODE,
+        ORG_INVITE,
+        CASE_REASSIGNED,
+        SUPPORT_ACCESS_GRANTED,
     }
 )
 
@@ -40,6 +48,9 @@ _AMOUNT = re.compile(r"^\d{1,10}\.\d{2}$")
 _CURRENCY = re.compile(r"^[A-Z]{3}$")
 _INVOICE_NO = re.compile(r"^[A-Za-z0-9/_.-]{1,40}$")
 _CODE = re.compile(r"^\d{6}$")
+# An invite's accept link: the web app's `/invites/<token>` page and nothing else (no query, no names).
+_INVITE_LINK = re.compile(r"^(https://[A-Za-z0-9.-]+|http://localhost)(:[0-9]{1,5})?/invites/[A-Za-z0-9_-]{20,128}$")
+REASSIGNED_SIDES = frozenset({"outgoing", "incoming"})
 _COUNTS = re.compile(r"^([a-z][a-z0-9_]{0,62}:[0-9]{1,12})(,[a-z][a-z0-9_]{0,62}:[0-9]{1,12})*$")
 
 
@@ -81,6 +92,18 @@ TEMPLATE_PARAMS: dict[str, dict[str, Callable[[str], bool]]] = {
     },
     # A colleague's spot-check code (slice F): the code only; the link reaches them from the expert.
     SPOT_CHECK_CODE: {"code": lambda v: bool(_CODE.match(v))},
+    # An invitation to join an organisation (slice O). The role is a code the web app turns into words;
+    # the organisation's name is shown only once the person has signed in.
+    ORG_INVITE: {
+        "org_ref": _is_uuid,
+        "role": lambda v: v in ORG_ROLES,
+        "link": lambda v: bool(_INVITE_LINK.match(v)),
+        "expires_on": _is_date,
+    },
+    # The named expert changed before serving (slice O): sent to the outgoing and the incoming expert.
+    CASE_REASSIGNED: {"case_ref": _is_uuid, "side": lambda v: v in REASSIGNED_SIDES},
+    # The named expert let support look at one case (slice O): when the access ends.
+    SUPPORT_ACCESS_GRANTED: {"case_ref": _is_uuid, "grant_ref": _is_uuid, "expires_at": _is_time},
 }
 
 
@@ -135,6 +158,35 @@ def invoice_sent_mail(to: str, *, case_id: uuid.UUID, invoice_no: str, amount: D
 def spot_check_code_mail(to: str, *, code: str) -> Mail:
     """The 6-digit code a colleague needs to open a spot-check link."""
     mail = Mail(to, SPOT_CHECK_CODE, {"code": code})
+    check_params(mail)
+    return mail
+
+
+def invite_mail(to: str, *, organisation_id: uuid.UUID, role: str, link: str, expires_on: date) -> Mail:
+    """An invitation: the organisation's id, the role code, the accept link and the day it expires."""
+    mail = Mail(
+        to,
+        ORG_INVITE,
+        {"org_ref": str(organisation_id), "role": role, "link": link, "expires_on": expires_on.isoformat()},
+    )
+    check_params(mail)
+    return mail
+
+
+def case_reassigned_mail(to: str, *, case_id: uuid.UUID, side: str) -> Mail:
+    """The case's named expert changed: its reference id and whether the reader is `outgoing` or `incoming`."""
+    mail = Mail(to, CASE_REASSIGNED, {"case_ref": str(case_id), "side": side})
+    check_params(mail)
+    return mail
+
+
+def support_access_granted_mail(to: str, *, case_id: uuid.UUID, grant_id: uuid.UUID, expires_at: datetime) -> Mail:
+    """Support may look at one case: its reference id, the grant's id and when the access ends."""
+    mail = Mail(
+        to,
+        SUPPORT_ACCESS_GRANTED,
+        {"case_ref": str(case_id), "grant_ref": str(grant_id), "expires_at": expires_at.isoformat()},
+    )
     check_params(mail)
     return mail
 
