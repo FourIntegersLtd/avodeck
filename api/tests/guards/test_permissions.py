@@ -7,6 +7,8 @@ with two organisations, so a pass cannot depend on launch-pack words.
 Reading a cell:
 - case-role columns: "✓…" or "own reads only" = allowed (qualifiers are enforced by the slice
   service, not the access check); "—" = not allowed;
+- support column: what Avodeck support may do under a live grant from the named expert (the case
+  role `support`, never a `case_members` role);
 - organisation column: "✓…" = owner and admin, "✓ (team cases)" = owner and admin on team
   organisations only, "owner only…" = owner only, "—" = neither.
 Not allowed but able to see the case = 403; unable to see it at all = 404.
@@ -24,14 +26,14 @@ import psycopg
 import pytest
 
 from app.core.auth.access import check_case_access
-from app.core.auth.permissions import CASE_ACTIONS, CASE_ROLES, ORG_ROLES, allowed
+from app.core.auth.permissions import CASE_ACTIONS, CASE_ROLES, ORG_ROLES, SUPPORT_ACTIONS, SUPPORT_ROLE, allowed
 from app.core.db import Database
 from app.core.errors import ApiError
 from tests.support.db import scope_for
 from tests.support.seed import Seed
 
 REPO = Path(__file__).resolve().parents[3]
-DOC_COLUMNS = ("named_expert", "co_expert", "supervisor", "assistant", "viewer", "org")
+DOC_COLUMNS = ("named_expert", "co_expert", "supervisor", "assistant", "viewer", "support", "org")
 ORG_KINDS = ("personal", "team")
 
 
@@ -94,7 +96,8 @@ def test_code_knows_exactly_the_documented_actions() -> None:
 
 
 def test_case_roles_and_org_roles_are_the_documented_ones() -> None:
-    assert set(CASE_ROLES) == set(DOC_COLUMNS) - {"org"}
+    assert set(CASE_ROLES) == set(DOC_COLUMNS) - {"support", "org"}
+    assert SUPPORT_ROLE == "support" and SUPPORT_ROLE not in CASE_ROLES  # never a case_members role
     assert set(ORG_ROLES) == {"owner", "admin", "expert", "assistant", "viewer"}
 
 
@@ -103,7 +106,9 @@ def test_step_up_marks_match_the_document(action: str) -> None:
     assert CASE_ACTIONS[action].step_up is DOC[action].step_up
 
 
-COMBOS = list(itertools.product((None, *CASE_ROLES), (None, *ORG_ROLES), ORG_KINDS))
+COMBOS = list(itertools.product((None, *CASE_ROLES, SUPPORT_ROLE), (None, *ORG_ROLES), ORG_KINDS))
+# `app.case_action_allowed()` knows the case_members roles; `app.case_role_allowed()` adds support to it.
+MEMBER_COMBOS = [c for c in COMBOS if c[0] != SUPPORT_ROLE]
 
 
 @pytest.mark.parametrize("action", sorted(DOC))
@@ -134,7 +139,7 @@ def test_unknown_actions_are_refused() -> None:
 
 
 def test_the_database_matrix_matches_the_code(admin: psycopg.Connection) -> None:
-    rows = [(a, c, o, k) for a in sorted(DOC) for c, o, k in COMBOS]
+    rows = [(a, c, o, k) for a in sorted(DOC) for c, o, k in MEMBER_COMBOS]
     result = admin.execute(
         """
         select r.action, r.case_role, r.org_role, r.org_kind,
@@ -145,6 +150,28 @@ def test_the_database_matrix_matches_the_code(admin: psycopg.Connection) -> None
     ).fetchall()
     wrong = [r[:4] for r in result if r[4] is not allowed(r[0], r[1], r[2], r[3])]
     assert wrong == []
+
+
+def test_the_database_matrix_with_support_matches_the_code(admin: psycopg.Connection) -> None:
+    """`app.case_role_allowed()` is what `app.can_access_case()` asks: the matrix plus the support role."""
+    rows = [(a, c, o, k) for a in sorted(DOC) for c, o, k in COMBOS]
+    result = admin.execute(
+        """
+        select r.action, r.case_role, r.org_role, r.org_kind,
+               app.case_role_allowed(r.action, r.case_role, r.org_role, r.org_kind)
+        from unnest(%s::text[], %s::text[], %s::text[], %s::text[]) as r(action, case_role, org_role, org_kind)
+        """,
+        ([r[0] for r in rows], [r[1] for r in rows], [r[2] for r in rows], [r[3] for r in rows]),
+    ).fetchall()
+    wrong = [r[:4] for r in result if r[4] is not allowed(r[0], r[1], r[2], r[3])]
+    assert wrong == []
+
+
+def test_support_never_writes() -> None:
+    """Rule 9: under a grant, support only looks (S17)."""
+    assert SUPPORT_ACTIONS == {"case.view_metadata", "case.view_content", "case.view_audit"}
+    assert {a for a in CASE_ACTIONS if allowed(a, SUPPORT_ROLE, None, "team")} == SUPPORT_ACTIONS
+    assert all(SUPPORT_ROLE not in rule.case_roles for rule in CASE_ACTIONS.values())  # not a case_members role
 
 
 # --- every cell, end to end against real rows -------------------------------------------------
@@ -159,8 +186,10 @@ class World:
 
 @pytest.fixture
 def world(seed: Seed) -> World:
-    """A team case with someone in every column, and an outsider from a second organisation."""
-    people = {name: seed.person() for name in (*CASE_ROLES, "owner", "admin", "org_expert", "outsider")}
+    """A team case with someone in every column, and an outsider from a second organisation.
+
+    `support` is Avodeck support staff holding a live grant from the named expert."""
+    people = {name: seed.person() for name in (*CASE_ROLES, SUPPORT_ROLE, "owner", "admin", "org_expert", "outsider")}
     org_roles = {
         "named_expert": "expert",
         "co_expert": "expert",
@@ -174,8 +203,10 @@ def world(seed: Seed) -> World:
     team = seed.org(kind="team", members={people[n]: r for n, r in org_roles.items()})
     seed.org(kind="personal", members={people["outsider"]: "owner"})
     case = seed.case(team, people["named_expert"], members={people[r]: r for r in CASE_ROLES if r != "named_expert"})
+    seed.support_staff(people[SUPPORT_ROLE])
+    seed.support_grant(case, people["named_expert"], granted_to=people[SUPPORT_ROLE])
     roles: dict[str, tuple[str | None, str | None]] = {
-        n: (n if n in CASE_ROLES else None, org_roles.get(n)) for n in people
+        n: (n if n in (*CASE_ROLES, SUPPORT_ROLE) else None, org_roles.get(n)) for n in people
     }
     return World(case, people, roles)
 
@@ -184,7 +215,7 @@ pytestmark_anyio = pytest.mark.anyio
 
 
 @pytestmark_anyio
-@pytest.mark.parametrize("who", [*CASE_ROLES, "owner", "admin", "org_expert", "outsider"])
+@pytest.mark.parametrize("who", [*CASE_ROLES, SUPPORT_ROLE, "owner", "admin", "org_expert", "outsider"])
 async def test_every_cell_end_to_end(api_db: Database, world: World, who: str) -> None:
     case_role, org_role = world.roles[who]
     can_see = expected("case.view_metadata", case_role, org_role, "team")
