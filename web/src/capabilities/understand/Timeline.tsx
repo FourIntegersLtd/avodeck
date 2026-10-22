@@ -206,6 +206,7 @@ export function Timeline() {
             { value: "list", label: w("timeline.view.list") },
           ]}
         />
+        {c && (
         <ChoicePills
           label={w("timeline.filter.status")}
           hideLabel
@@ -213,16 +214,13 @@ export function Timeline() {
           onChange={setStatus}
           options={[
             { value: "", label: w("timeline.filter.status.all") },
-            ...(c
-              ? [
-                  { value: "verified", label: w("timeline.count", { label: t("ui.status.checked"), n: c.checked }) },
-                  { value: "suggested", label: w("timeline.count", { label: t("ui.status.please_check"), n: c.please_check }) },
-                  { value: "things_to_look", label: w("timeline.count", { label: t("ui.status.look"), n: c.things_to_look }) },
-                  { value: "not_linked", label: w("timeline.count", { label: w("timeline.not_linked"), n: c.not_linked }) },
-                ]
-              : []),
+            { value: "verified", label: w("timeline.count", { label: t("ui.status.checked"), n: c.checked }) },
+            { value: "suggested", label: w("timeline.count", { label: t("ui.status.please_check"), n: c.please_check }) },
+            { value: "things_to_look", label: w("timeline.count", { label: t("ui.status.look"), n: c.things_to_look }) },
+            { value: "not_linked", label: w("timeline.count", { label: w("timeline.not_linked"), n: c.not_linked }) },
           ]}
         />
+        )}
         <ChoicePills
           label={w("timeline.filter.question")}
           hideLabel
