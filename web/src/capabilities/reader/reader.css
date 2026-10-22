@@ -196,3 +196,12 @@
 /* The case bar markers sit on the canvas line height on the reader boards. */
 .av-case-bar:has(~ .rd) .av-step__marker { line-height: 1.5; }
 .rd-zoom .av-button::after { inset: -4px; }
+
+/* Real 52px boxes: chips drawn 44px and buttons drawn 49px grow a few pixels each side over their gaps; links keep their
+   25.5px line through padding that a negative margin takes back. */
+.rd-bar .av-button, .rd-zoom .av-button { min-height: 52px; height: 52px; margin-block: -4px; }
+.rd-bar .av-button::after, .rd-zoom .av-button::after, .rd-side .rd-actions .av-button::after, .rd-links .av-button--quiet::after, .rd-why-not summary::after { content: none; }
+.rd-side .rd-actions .av-button { min-height: 52px; margin-block: -1.5px; }
+.rd-links .av-button--quiet { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; }
+.rd--narrow .rd-form .av-dictation__footer .av-button { min-height: 52px; margin-block: -4.5px; }
+.rd--narrow .rd-form .av-dictation__footer .av-button::after { content: none; }

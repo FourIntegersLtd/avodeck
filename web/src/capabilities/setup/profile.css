@@ -63,3 +63,7 @@
 .av-profile section[aria-labelledby="setup-goes-with-you"] .av-row--spread > :first-child { flex: 1 1 420px; }
 .av-profile section[aria-labelledby="setup-goes-with-you"] p { margin: 0; }
 .av-profile .av-setup-halves { align-items: stretch; }
+
+/* Real 52px boxes: the board's 25.5px links keep their place through padding that a negative margin takes back. */
+.av-profile .av-setup-linkbtn { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; }
+.av-profile .av-setup-linkbtn::after { content: none; }

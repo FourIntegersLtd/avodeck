@@ -38,7 +38,7 @@
         {
           "page_id": "99999999-9999-4999-8999-000000000612",
           "page_no": 612,
-          "source_type": "hospital_notes_\u00b7_nursing_record",
+          "source_type": "hospital_notes_·_nursing_record",
           "handwriting": true,
           "relevance": null,
           "has_transcription": false,
@@ -173,7 +173,9 @@
       "artboard": "span:has(> textarea) button",
       "page": ".av-dictation__footer .av-button",
       "allow": [
-        "lineHeight"
+        "lineHeight",
+        "rect.h",
+        "rect.y"
       ]
     },
     {
@@ -199,6 +201,7 @@
   "deviations": [
     "The page picture is served as a blank picture of the same size by the harness (fixtures/blank-page-wide.svg); the canvas draws typed text, so the picture's pixels are not compared.",
     "Buttons and links keep a 52px tap area through ::after hit boxes while drawn at canvas size.",
-    "The case bar is shared (foundation-owned); its step pills follow the canvas through the shared case-bar block in styles.css, flagged to the lead."
+    "The case bar is shared (foundation-owned); its step pills follow the canvas through the shared case-bar block in styles.css, flagged to the lead.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: dictate differ in height/position only."
   ]
 }

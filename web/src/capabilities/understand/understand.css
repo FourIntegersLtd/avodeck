@@ -371,3 +371,12 @@
 .av-understand-folded__title { flex: 1; font-weight: 700; }
 .av-understand-folded > article { border: 0; box-shadow: none; }
 .av-understand-finding__icon { display: inline-flex; }
+
+/* Real 52px boxes: the board's links, switches and pills keep their place through padding or a margin of half the difference. */
+.av-understand-later__toggle { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; }
+.av-understand-addcheck { min-height: 52px; margin-bottom: -13.5px; }
+.av-understand-asseen .av-switch { min-height: 52px; margin-block: -12.5px; }
+.av-understand-checks .av-switch { min-height: 52px; margin-block: -12px; }
+.av-understand-later__toggle::after, .av-understand-addcheck::after, .av-understand-asseen .av-switch::after, .av-understand-checks .av-switch::after, .av-understand-note .av-dictation__footer .av-button::after, .av-understand-finding .av-dictation__footer .av-button::after { content: none; }
+.av-understand-note .av-dictation__footer .av-button { min-height: 52px; margin-block: -6.5px; }
+.av-understand-finding .av-dictation__footer .av-button { min-height: 52px; padding-block: 13.25px; }

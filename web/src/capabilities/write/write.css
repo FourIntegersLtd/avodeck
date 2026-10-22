@@ -166,3 +166,10 @@
 .av-write-opinion .av-write-columns > section:nth-child(2) { position: relative; }
 .av-write-opinion .av-write-columns > section:nth-child(2) > .av-write-linkbutton { position: absolute; top: 21px; right: 22px; align-self: auto; }
 .av-write-opinion .av-write-paper .av-dictation__footer .av-button { border: 0; }
+
+/* Real 52px boxes: the board's 25.5px links and pills keep their place through padding or a margin of half the difference. */
+.av-write-screen .av-write-add, .av-write-screen [aria-labelledby="differ-title"] .av-write-linkbutton, .av-write-opinion .av-write-columns .av-write-linkbutton, .av-write-screen .av-write-note .av-dictation__footer .av-button, .av-write-screen .av-write-note .av-write-actions .av-button { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; }
+.av-write-screen .av-write-add::after, .av-write-screen [aria-labelledby="differ-title"] .av-write-linkbutton::after, .av-write-opinion .av-write-columns .av-write-linkbutton::after, .av-write-screen .av-write-note .av-dictation__footer .av-button::after, .av-write-screen .av-write-note .av-write-actions .av-button::after, .av-write-opinion .av-write-paper .av-dictation__footer .av-button::after { content: none; }
+.av-write-opinion .av-write-paper .av-dictation__footer .av-button { min-height: 52px; margin-block: -3.5px; }
+.av-write-opinion .av-write-chip { min-height: 52px; padding-block: 12.75px; margin-block: -2.75px; }
+.av-write-opinion .av-write-chip::after { content: none; }

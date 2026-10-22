@@ -422,12 +422,24 @@
     {
       "name": "see all",
       "artboard": "a[href='#all']",
-      "page": ".rp-passed .rp-linkbtn"
+      "page": ".rp-passed .rp-linkbtn",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "spot link",
       "artboard": "a[href='#peer']",
-      "page": ".rp-bar__actions:first-child .rp-linkbtn"
+      "page": ".rp-bar__actions:first-child .rp-linkbtn",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "fix first note",
@@ -450,6 +462,7 @@
     "A passed check shows its count as a bare number; the board adds a unit (\"214 facts\") and, for two rows, \"214 of 214\" (gap).",
     "The ring's \"of 28\" is 17px, the board's 14px (nfr U2).",
     "\"Check again\" is a link the board omits; it is removed from the page for the comparison.",
-    "The board draws only the failed state; the passed state (all clear, \"Sign and send\" on) has no board and keeps its existing layout."
+    "The board draws only the failed state; the passed state (all clear, \"Sign and send\" on) has no board and keeps its existing layout.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: see all, spot link differ in height/position only."
   ]
 }

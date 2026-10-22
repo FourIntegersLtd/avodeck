@@ -960,7 +960,13 @@
     {
       "name": "adjust",
       "artboard": "a[href='#adjust']",
-      "page": ".rp-time__head .rp-linkbtn"
+      "page": ".rp-time__head .rp-linkbtn",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "time row 1",
@@ -1052,6 +1058,7 @@
     "A draft invoice has no 'Mark as paid' link, as on the board; it appears once the invoice is sent.",
     "The 'Case:' line shows the case label ('Mrs A'), as the API gives it.",
     "The payment-terms line carries the copy 'Payment within 30 days. Your bank details are added from your profile.' to match the board's strip.",
-    "The case bar is shared: the board's pill sizes and subtitle differ."
+    "The case bar is shared: the board's pill sizes and subtitle differ.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: adjust differ in height/position only."
   ]
 }

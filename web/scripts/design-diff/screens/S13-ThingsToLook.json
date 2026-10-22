@@ -458,7 +458,10 @@
     {
       "name": "addcheck",
       "artboard": "aside > a",
-      "page": ".av-understand-addcheck"
+      "page": ".av-understand-addcheck",
+      "allow": [
+        "rect.h"
+      ]
     },
     {
       "name": "gentlenote",
@@ -492,11 +495,12 @@
     "The second line has no 'filed by' part (no API field).",
     "The reason box is always on a card you can decide (the canvas draws it only on the second card too); 'Save my decision' appears only when a reason is needed or has changed.",
     "'Check again' and 'Look at the links to the questions' sit under the checks panel; the canvas has neither.",
-    "'\u00b7 gentle' is part of the check's name rather than a smaller muted word (the switch label is one string).",
+    "'· gentle' is part of the check's name rather than a smaller muted word (the switch label is one string).",
     "The 'Days allowed' fold under the checks shows only when a check has a number of days; the mock has none.",
     "A step you have finished (Read 100%) shows its tick and no figure.",
     "Saved is announced to screen readers but no longer printed under the card.",
-    "Tap areas: pills, switches, 'Dictate' and 'Add your own check' keep 52px through ::after hit boxes while drawn at canvas size."
+    "Tap areas: pills, switches, 'Dictate' and 'Add your own check' keep 52px through ::after hit boxes while drawn at canvas size.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: addcheck differ in height/position only."
   ],
   "budget": 1.1,
   "budgetReason": "The remaining pixels are words: finding titles come from the pack's check words (the mock uses keys the pack has no words for), the 'filed by' part of the second line, the card icons (one flag for every check) and the decided rows' titles; every box is probed and matches."

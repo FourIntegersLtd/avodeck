@@ -188,7 +188,11 @@
       "artboard": "a[href='#another']",
       "page": ".av-after-pcard .av-after-linkbtn",
       "allow": [
-        "rect.w"
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.w",
+        "rect.y"
       ]
     },
     {
@@ -279,6 +283,7 @@
     "'Your served report · locked' (a working control) and the lines that say a later paragraph relies on this one are removed from the page for the comparison; the board omits them. The checks that other paragraphs rely on this one are in the side panel.",
     "'What we've checked' and the note about telling the person who instructed you use the pack's shorter words; the board's longer sentences name the solicitor and the statement of truth, which are pack words. The board's paper shows the expert's name, the date and the page count (gap: no data until the supplementary report is drafted); the board's text is clipped to two lines for the comparison.",
     "The main button says 'Draft the supplementary report' until one exists; the board's 'Sign and send to the solicitor' is the later step, which the page shows under the paper once drafted.",
-    "'+ Another paragraph' sits inside the last change's card as drawn; the board's link spans the full card width, the page's hit area is the text with a 52px target."
+    "'+ Another paragraph' sits inside the last change's card as drawn; the board's link spans the full card width, the page's hit area is the text with a 52px target.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: another differ in height/position only."
   ]
 }

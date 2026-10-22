@@ -267,7 +267,13 @@
     {
       "name": "view link",
       "artboard": "a[href='#view']",
-      "page": ".av-after-linkbtn"
+      "page": ".av-after-linkbtn",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "track card",
@@ -328,7 +334,13 @@
     {
       "name": "tile 1 action",
       "artboard": "main > div:last-child > a:nth-child(1) > span:nth-child(4)",
-      "page": ".av-after-tile:nth-child(1) .av-text-link"
+      "page": ".av-after-tile:nth-child(1) .av-text-link",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "tile 2",
@@ -343,7 +355,13 @@
     {
       "name": "tile 3 action",
       "artboard": "main > div:last-child > div > a",
-      "page": ".av-after-tile:nth-child(3) .av-text-link"
+      "page": ".av-after-tile:nth-child(3) .av-text-link",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "tile 4",
@@ -354,6 +372,7 @@
   "deviations": [
     "The tile actions use the shared arrow icon instead of the board's arrow glyph.",
     "The board's 'new pages' tile says 'and Dr R's report arrived' (gap: no source name in the API); the page says only the new-page count.",
-    "The case bar is shared: the board's pill sizes and subtitle differ."
+    "The case bar is shared: the board's pill sizes and subtitle differ.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: tile 1 action, tile 3 action, view link differ in height/position only."
   ]
 }

@@ -486,9 +486,13 @@
       "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(1) a:nth-child(1)",
       "page": ".av-trial-arrowbtn:nth-child(1)",
       "allow": [
-        "fontWeight",
         "backgroundColor",
-        "fontSize"
+        "fontSize",
+        "fontWeight",
+        "rect.h",
+        "rect.w",
+        "rect.x",
+        "rect.y"
       ]
     },
     {
@@ -546,6 +550,7 @@
     "The joint statement and the written answers are one row, as drawn; ticking it sets both sections (they stay separate on the server). Hints follow the board where the page has the data; 'Including your note on the referral date' and 'Bolam, Bolitho, Montgomery...' and 'NICE NG12...' are case/pack specifics the preview does not give, so the page keeps generic hints.",
     "The lead says 'Built for the trial from 14 June 2027' from the case's hearings (trial type first), and falls back to 'Made on ...' without one.",
     "'Nothing new on the day' is drawn as a result of the note check (the board shows it standing): the mock answers run a check first, so the callout stands where the board draws it. The check form opens under it; 'Tell the solicitor' and 'Leave it out' keep 52px hit areas.",
-    "Preview arrows are drawn 44px with a 52px hit area (pseudo-element); the checkbox rows' native boxes are the board's 24px."
+    "Preview arrows are drawn 44px with a 52px hit area (pseudo-element); the checkbox rows' native boxes are the board's 24px.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: arrow prev differ in height/position only."
   ]
 }

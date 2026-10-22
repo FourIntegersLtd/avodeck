@@ -318,6 +318,6 @@
   "artboardCss": "[style*='min-height: 560px'] > div:not([style*='FFF3B0']){visibility:hidden} [style*='min-height: 560px'] > div[style*='FFF3B0'] span{visibility:hidden}",
   "artboardRemove": [],
   "pageRemove": [],
-  "budget": 1.5,
-  "budgetReason": "Below the suggestion card the page keeps the reader's switcher list and 'Checked on this page (n)' fold where the canvas draws a checked row and a flag button; the source line lacks the words after the dot (no API field). Every box above that is probed and matches."
+  "budget": 1.6,
+  "budgetReason": "Below the suggestion card the page keeps the reader's switcher list and 'Checked on this page (n)' fold where the canvas draws a checked row and a flag button; the source line lacks the words after the dot (no API field). Every box above that is probed and matches. The toolbar chips and the card buttons are 52px boxes (the 52px rule, measured by e2e) where the board draws 44px and 49px, which adds about 0.1%."
 }

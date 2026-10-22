@@ -202,3 +202,10 @@
 .pl-quarantine-page .pl-actions .av-button { padding: 16px 26px; font-size: 18px; border-radius: 12px; min-height: 0; border: 0; }
 .pl-quarantine-page .pl-actions .av-text-link { font-weight: 700; font-size: 17px; position: relative; }
 .pl-quarantine-page .pl-actions .av-text-link::after { content: ""; position: absolute; inset: -13px -4px; }
+
+/* Real 52px boxes: links and buttons are drawn at the board's size; padding or a margin of half the difference keeps the layout. */
+.pl-notes .av-text-link { min-height: 52px; padding-block: 15.5px; margin-block: -15.5px; box-sizing: border-box; }
+.pl-notes .av-text-link::after { content: none; }
+.pl-bundle .pl-card__row > .av-button { min-height: 52px; margin-block: -1.25px; }
+.pl-bundle .pl-card__row > .av-button::after, .pl-ask-page .pl-letter__foot .av-button::after { content: none; }
+.pl-ask-page .pl-letter__foot .av-button { min-height: 52px; margin-block: -4.5px; }

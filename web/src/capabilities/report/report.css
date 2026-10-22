@@ -149,7 +149,8 @@
 .rp-declaration p { margin: 0; line-height: 1.7; }
 .rp-sign-card .av-checkbox { position: relative; align-items: flex-start; gap: 14px; min-height: 0; font-size: 18px; }
 .rp-sign-card .av-checkbox input { flex: none; width: 26px; height: 26px; margin: 2px 3px 3px 4px; }
-.rp-sign-card .av-checkbox::after { content: ""; position: absolute; inset: -12px 0; }
+/* The label itself is 52px tall (padding that a negative margin takes back); a ::after overlay would sit on top of the box and stop it being clicked directly. */
+.rp-sign-card .av-checkbox { padding-block: 10.5px; margin-block: -10.5px; }
 .rp-note { display: flex; align-items: flex-start; gap: 14px; margin: 0; padding: 18px 22px; border-radius: var(--radius-large); background: var(--green-tint); }
 .rp-note svg { flex: none; color: var(--green); }
 .rp-bar > .av-row a.av-button { min-height: 0; padding: 13px 20px; }
@@ -193,3 +194,10 @@
 .rp-bar--invoice .rp-bar__actions { gap: 12px; align-items: stretch; }
 .rp-bar--invoice .av-button--secondary { min-height: 0; padding: 15px 24px; font-size: 18px; }
 .av-report-crop { max-width: 100%; height: auto; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+
+/* Real 52px boxes: the board's 25.5px lines keep their place through padding that a negative margin takes back. */
+.rp-linkbtn, .rp-passed .rp-linkbtn, .rp-bar .rp-linkbtn, .rp-time__head .rp-linkbtn { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; box-sizing: border-box; }
+.rp-linkbtn::after, .rp-contents__name::after { content: none; }
+.rp-contents__name { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; }
+.rp-head__tools a.av-button { min-height: 52px; margin-block: -0.25px; }
+.rp-fixes .av-callout .av-button { min-height: 52px; margin-block: -0.25px; }

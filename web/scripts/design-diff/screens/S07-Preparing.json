@@ -203,7 +203,13 @@
     {
       "name": "meanwhile",
       "artboard": "main > div > div:nth-child(3) > a",
-      "page": ".pl-notes a"
+      "page": ".pl-notes a",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "note 1",
@@ -223,6 +229,7 @@
   ],
   "deviations": [
     "The turning arc on the current step keeps its animation (the board draws a still ring); the ring is restyled to the board's colours.",
-    "'Stop preparing' and 'Meanwhile...' links are drawn at the board's text size with a transparent hit area of 52px or more."
+    "'Stop preparing' and 'Meanwhile...' links are drawn at the board's text size with a transparent hit area of 52px or more.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: meanwhile differ in height/position only."
   ]
 }

@@ -347,7 +347,11 @@
     {
       "name": "dictate",
       "artboard": "main > section > div:nth-child(2) > div:nth-child(2) > button",
-      "page": ".av-write-paper .av-dictation__footer button"
+      "page": ".av-write-paper .av-dictation__footer button",
+      "allow": [
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "chk_h3",
@@ -367,14 +371,15 @@
   ],
   "deviations": [
     "Text under 17px is raised to 17px, so the harness renders the artboard the same way.",
-    "The paper is a text box (the expert types and dictates into it): page markers are not drawn as chips inside the words, paragraphs are separated by a blank line, and there is no 'Keep dictating\u2026' hint.",
+    "The paper is a text box (the expert types and dictates into it): page markers are not drawn as chips inside the words, paragraphs are separated by a blank line, and there is no 'Keep dictating…' hint.",
     "The sentence a check has marked is shown in a read-only copy under the footer (a text box cannot colour one sentence); 'Add the page' jumps to it. The canvas colours it in the paper.",
     "The checks card also has a 'Dismiss' link beside 'Add the page'.",
     "'Write my own test' is a link beside the test card's title; the canvas has none.",
-    "The facts, guidance and points words come from the pack and the API: 'facts for the claim \u00b7 for the doctor' replaces the canvas's role names.",
+    "The facts, guidance and points words come from the pack and the API: 'facts for the claim · for the doctor' replaces the canvas's role names.",
     "The footer line's words 'Your words only. We never write your opinion.' sit over the Dictate row as drawn; 'Your words only' from the dictation component is hidden there.",
-    "Tap areas: chips, pills, links, checkbox and Dictate keep 52px through ::after hit boxes while drawn at canvas size."
+    "Tap areas: chips, pills, links, checkbox and Dictate keep 52px through ::after hit boxes while drawn at canvas size.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: dictate differ in height/position only."
   ],
   "budget": 1.4,
-  "budgetReason": "The paper is a text box, so its paragraphs are separated by blank lines and the page references are not drawn as green chips inside the words, and the 'Keep dictating\u2026' hint is not drawn; every box is probed and matches."
+  "budgetReason": "The paper is a text box, so its paragraphs are separated by blank lines and the page references are not drawn as green chips inside the words, and the 'Keep dictating…' hint is not drawn; every box is probed and matches."
 }

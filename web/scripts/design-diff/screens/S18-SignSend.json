@@ -1241,7 +1241,13 @@
     {
       "name": "confirm box",
       "artboard": "main > section:nth-of-type(1) > label",
-      "page": ".rp-sign-card .av-checkbox"
+      "page": ".rp-sign-card .av-checkbox",
+      "allow": [
+        "paddingBottom",
+        "paddingTop",
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "confirm input",
@@ -1283,6 +1289,7 @@
     "The document card's title is the report version's name from the API, mocked as the board's words (\"Breach of duty report: Mrs A\").",
     "The board's confirm box is drawn checked, so the setup ticks it; the page starts unticked.",
     "The note's lock icon shrinks beside the text on the artboard (a flex bug in the canvas); the page keeps it at 22px and the artboard is rendered with flex:none for comparison.",
-    "The two download buttons and the main button keep the board's sizes (51.5 to 64px tall); the confirm box's hit area is widened to 52px with a pseudo-element."
+    "The two download buttons and the main button keep the board's sizes (51.5 to 64px tall); the confirm box's hit area is widened to 52px with a pseudo-element.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: confirm box differ in height/position only."
   ]
 }

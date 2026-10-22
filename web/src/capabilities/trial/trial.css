@@ -242,3 +242,12 @@
 .av-trial-sheet .av-trial-linkbutton { font-family: var(--font-body); }
 .av-trial-picker.av-text-link { color: var(--green); text-decoration: underline; }
 .av-trial-sheet__footer { margin: 0; padding-top: 10px; border-top: 1px solid #EEF1EF; font: 13px var(--font-body); color: var(--ink-soft); }
+
+/* Real 52px boxes: the link rules above gave 51.5px (25.5px line plus 13px padding); 13.25px makes 52px and the
+   margin takes it back, so nothing on the board moves. */
+.av-trial-line .av-trial-linkbutton, .av-trial-agreed .av-trial-linkbutton, .av-trial-foot .av-trial-linkbutton, .av-trial-sheet__foot .av-trial-linkbutton { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; }
+.av-trial-grid tbody th .av-trial-linkbutton { min-height: 52px; padding-block: 13.25px; margin: -5.25px 0 -13.25px; }
+.av-trial-note__actions .av-button, .av-trial-tell { min-height: 52px; }
+.av-trial-tell { margin-block: -1.25px; }
+.av-trial-arrowbtn { width: 52px; height: 52px; min-height: 52px; margin: -4px; }
+.av-trial-arrowbtn::after { content: none; }

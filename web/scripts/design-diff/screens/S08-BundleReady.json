@@ -261,7 +261,10 @@
     {
       "name": "c6 btn",
       "artboard": "main > div > section:nth-child(2) > div:nth-child(6) > div:nth-child(1) > a",
-      "page": ".pl-cards > :nth-child(6) .av-button"
+      "page": ".pl-cards > :nth-child(6) .av-button",
+      "allow": [
+        "rect.h"
+      ]
     },
     {
       "name": "c6 list",
@@ -276,7 +279,8 @@
   ],
   "deviations": [
     "Source bands are proportional to the real page counts (the board's heights are fixed sample values), so band edges and the two shortest labels differ a little.",
-    "Card buttons are drawn at the board's 10px 18px size with a transparent ::after hit area of 52px."
+    "Card buttons are drawn at the board's 10px 18px size with a transparent ::after hit area of 52px.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: c6 btn differ in height/position only."
   ],
   "budget": 1.0,
   "budgetReason": "Residual is copy and data shape: the pack's source words differ from the board's sample labels, the board hard-codes band heights (33%, 54% ...) where the page draws bands in proportion to real page counts, and some sentences come from app strings."

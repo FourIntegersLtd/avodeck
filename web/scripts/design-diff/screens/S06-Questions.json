@@ -247,12 +247,20 @@
     {
       "name": "q4 btn1",
       "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4) > div:nth-child(4) > button:nth-child(1)",
-      "page": ".av-setup-split article:nth-of-type(4) > .av-row:nth-last-child(1) .av-button:nth-child(1)"
+      "page": ".av-setup-split article:nth-of-type(4) > .av-row:nth-last-child(1) .av-button:nth-child(1)",
+      "allow": [
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "q4 btn2",
       "artboard": "main > div:nth-child(2) > section:nth-child(2) > div:nth-child(4) > div:nth-child(4) > button:nth-child(2)",
-      "page": ".av-setup-split article:nth-of-type(4) > .av-row:nth-last-child(1) .av-button:nth-child(2)"
+      "page": ".av-setup-split article:nth-of-type(4) > .av-row:nth-last-child(1) .av-button:nth-child(2)",
+      "allow": [
+        "rect.h",
+        "rect.y"
+      ]
     }
   ],
   "deviations": [
@@ -262,7 +270,8 @@
     "Where a question has been reworded the page shows the letter's own words under it (rule 1: the letter stays on show); the board shows only the reworded text, so those lines and 'Edit wording' on confirmed cards are removed from the page for the diff.",
     "Unconfirmed cards: the page also shows 'From paragraph N' (the board omits it on the open question and the assumption), so it is removed from the page for the diff.",
     "The 'may be outside your expertise' panel: the page's wording (from the app's strings) is two lines, the board's is three; the artboard is clipped to two lines.",
-    "Card buttons are drawn at the board's 45px high with a 53px hit area kept by a transparent ::after (the 52px touch rule)."
+    "Card buttons are drawn at the board's 45px high with a 53px hit area kept by a transparent ::after (the 52px touch rule).",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: q4 btn1, q4 btn2 differ in height/position only."
   ],
   "artboardCss": "section[aria-label='Letter of instruction'] p:not([style*='background']) { display: none !important } section[aria-label='Letter of instruction'] > div:first-child > span:last-child { display: none !important } section[aria-label='Letter of instruction'] p:nth-of-type(7) { display: block !important; background: #FFF3B0; padding: 4px 8px; margin-left: -8px; margin-right: -8px; border-radius: 4px } div[style*='#FDF1E3'] > span:last-child { display: block; max-height: 51px; overflow: hidden }",
   "pageRemove": [

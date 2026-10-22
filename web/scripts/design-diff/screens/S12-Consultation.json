@@ -233,7 +233,11 @@
     {
       "name": "dictate",
       "artboard": "section[aria-label='Record page'] > div:nth-child(3) > button",
-      "page": ".av-understand-note .av-dictation__footer .av-button"
+      "page": ".av-understand-note .av-dictation__footer .av-button",
+      "allow": [
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "pagehead",
@@ -251,7 +255,8 @@
     "The note's own-words label and the card hints are visually hidden (still read aloud); the canvas has no room for them.",
     "The back arrow in the foot is a 13px icon where the canvas uses a text arrow.",
     "Page numbers are not zero-padded (p.87, not p.087).",
-    "The right-hand cards are not probed by box: their heights follow words the API does not carry (the first card is 3px taller for the later-entries control, which moves the cards below it by 3px)."
+    "The right-hand cards are not probed by box: their heights follow words the API does not carry (the first card is 3px taller for the later-entries control, which moves the cards below it by 3px).",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: dictate differ in height/position only."
   ],
   "artboardCss": "section[aria-label='Record page'] > div:nth-child(2) > *{visibility:hidden}",
   "budget": 2.0,

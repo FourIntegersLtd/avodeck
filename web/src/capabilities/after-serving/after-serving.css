@@ -219,3 +219,9 @@
 .av-after-hold h3 { margin: 0; font-size: 19px; }
 .av-after-hold p { margin: 0; }
 .av-button.av-after-amberbtn { color: var(--amber); border-color: var(--amber-border); }
+
+/* Real 52px boxes (e2e measures the element, not a ::after): links keep the board's 25.5px line through padding that
+   a negative margin takes back; the Dictate pill is drawn 45px and grows 3.5px each side over its footer's padding. */
+.av-after-linkbtn, .av-after-qmain .av-after-linkbtn, .av-after-pcard .av-after-linkbtn, .av-after-tile .av-text-link { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; box-sizing: border-box; }
+.av-after-linkbtn::after, .av-after-qmain .av-after-linkbtn::after, .av-after-pcard .av-after-linkbtn::after, .av-after-tile .av-text-link::after { content: none; }
+.av-after-qmain .av-dictation__footer .av-button { min-height: 52px; margin-block: -3.5px; }

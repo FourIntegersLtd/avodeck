@@ -244,7 +244,11 @@
     {
       "name": "edit btn",
       "artboard": "main > div:nth-child(2) > section > div:nth-child(3) > button",
-      "page": ".pl-letter__foot .av-button"
+      "page": ".pl-letter__foot .av-button",
+      "allow": [
+        "rect.h",
+        "rect.y"
+      ]
     },
     {
       "name": "aside",
@@ -291,7 +295,8 @@
     "The 'To' line is a real address field with a hint (the board prints a placeholder), so the artboard head is padded to the same height.",
     "The numbered list in the letter comes from the server's plain text, so item lead-ins are not bold as on the board.",
     "'What happens next' and 'Need more time?' boxes: the app's wording wraps to slightly different heights than the board's sample text (rect.h and the second box's y are excused, about 5px).",
-    "Small buttons (Edit the email) and the back link are drawn at the board's size with a 52px+ hit area kept by a transparent ::after."
+    "Small buttons (Edit the email) and the back link are drawn at the board's size with a 52px+ hit area kept by a transparent ::after.",
+    "Hit areas are real boxes, not a ::after: every button and link is 52px tall as the 52px rule and the e2e check measure it. Links keep the board's text position (padding that a negative margin takes back); drawn chips and pills are taller than the board by the difference. Probes: edit btn differ in height/position only."
   ],
   "artboardCss": "main > div:nth-child(2) > section > div:nth-child(1) { padding-bottom: 73.5px !important }",
   "budget": 2.5,

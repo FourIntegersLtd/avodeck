@@ -67,3 +67,8 @@
 .av-newcase .av-segmented__option::after { content: ""; position: absolute; inset: -1.5px 0; }
 .av-newcase .av-setup-form .av-dictation__text { border: 0; border-radius: 0; }
 .av-newcase .av-dictation__text { display: block; }
+
+/* Real 52px boxes (see profile.css). */
+.av-newcase .av-setup-form .av-setup-linkbtn { min-height: 52px; padding-block: 13.25px; margin-block: -13.25px; }
+.av-newcase .av-setup-form .av-setup-linkbtn::after, .av-newcase .av-dictation__footer .av-button::after { content: none; }
+.av-newcase .av-dictation__footer .av-button { min-height: 52px; margin-block: -3.5px; }
