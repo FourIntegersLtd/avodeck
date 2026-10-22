@@ -41,3 +41,21 @@ class OrganisationCreate(Strict):
 
 class OrganisationRename(Strict):
     name: OrgName
+
+
+class Member(BaseModel):
+    membership_id: uuid.UUID
+    person_id: uuid.UUID
+    full_name: str | None
+    email: str
+    role: OrgRole
+    started_at: datetime
+    ended_at: datetime | None
+
+
+class MemberList(BaseModel):
+    members: list[Member]
+
+
+class RoleChange(Strict):
+    role: OrgRole

@@ -49,3 +49,23 @@ async def create_team(conn: AsyncConnection, name: str, region: str) -> uuid.UUI
 
 async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> None:
     await conn.execute("update app.organisations set name = %s where id = %s", (name, org_id))
+
+
+async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[dict[str, Any]]:
+    return await rows(conn, "select * from app.organisation_members(%s)", (org_id,))
+
+
+async def current_membership(conn: AsyncConnection, org_id: uuid.UUID, membership_id: uuid.UUID) -> dict[str, Any] | None:
+    return await row(
+        conn,
+        "select id, person_id, role from app.memberships where id = %s and organisation_id = %s and ended_at is null",
+        (membership_id, org_id),
+    )
+
+
+async def set_role(conn: AsyncConnection, membership_id: uuid.UUID, role: str) -> None:
+    await conn.execute("update app.memberships set role = %s where id = %s", (role, membership_id))
+
+
+async def end_membership(conn: AsyncConnection, membership_id: uuid.UUID) -> None:
+    await conn.execute("update app.memberships set ended_at = now() where id = %s", (membership_id,))
