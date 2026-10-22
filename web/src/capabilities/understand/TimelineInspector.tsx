@@ -5,12 +5,14 @@ import type { Schemas } from "../../foundation/platform-client";
 import { LinkButton, PageRef, StatusBadge } from "../../foundation/ui";
 import { useHighlight } from "./highlight";
 import { QuestionToggle } from "./QuestionChip";
-import { axisIso, entryHref, statusOf } from "./shared";
+import { axisIso, entryHref, kindWord, statusOf } from "./shared";
 import { pageImage } from "./pageImage";
 import { entryLabel, entryName } from "./TimelineBoard";
 import { w } from "./words";
 
 type Event = Schemas["Event"];
+
+const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
 
 function PagePicture({ caseId, page }: { caseId: string; page: number }) {
   const [src, setSrc] = useState<string | null>(null);
@@ -123,7 +125,7 @@ export function TimelineInspector({
                     onClick={() => onSelect(e)}
                   >
                     <span className="av-story-card__dot" data-state={e.has_finding ? "look" : statusOf(e.status)} aria-hidden="true" />
-                    <span>{e.summary || entryLabel(e)}</span>
+                    <span>{`${axisIso(e) ? SHORT_DAY.format(new Date(`${axisIso(e)}T00:00:00Z`)) : w("common.no_date")} · ${e.summary || kindWord(e.kind)}`}</span>
                   </button>
                 </li>
               ))}

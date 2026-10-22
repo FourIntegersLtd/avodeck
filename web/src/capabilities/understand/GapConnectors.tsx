@@ -2,11 +2,14 @@
 // Everything comes from the server's `gaps` (which entry, how long, in which words); nothing is guessed here.
 import type { Schemas } from "../../foundation/platform-client";
 import { CARD, ROW } from "./boardGeometry";
-import { gapWords } from "./gaps.words";
+import { gapShort, gapWords } from "./gaps.words";
 import "./gaps.css";
 import type { StoryGroup } from "./storyLayout";
 
 type Gap = Schemas["Gap"];
+
+/** About how wide a character of the label is (15px bold), to tell whether the sentence fits along the line. */
+const CHAR_PX = 7.5;
 
 export function GapConnectors({
   cards,
@@ -29,13 +32,22 @@ export function GapConnectors({
     const end = target?.date ?? latest;
     if (end === null) return [];
     const left = card.x + CARD;
-    return [{ key: gap.finding_id, left, width: Math.max(0, toX(end) - left), top: (rowOffset + card.row) * ROW + 2, text: gapWords(gap.label_key, gap.days) }];
+    const width = Math.max(0, toX(end) - left);
+    const text = gapWords(gap.label_key, gap.days);
+    return [{ key: gap.finding_id, left, width, top: (rowOffset + card.row) * ROW + 2, text, fits: text.length * CHAR_PX <= width, short: gapShort(gap.days) }];
   });
   return (
     <>
       {drawn.map((g) => (
         <span key={g.key} className="av-story-gap" style={{ left: g.left, width: g.width, top: g.top }}>
-          <span>{g.text}</span>
+          {g.fits ? (
+            <span>{g.text}</span>
+          ) : (
+            <>
+              <span aria-hidden="true">{g.short}</span>
+              <span className="av-visually-hidden">{g.text}</span>
+            </>
+          )}
         </span>
       ))}
     </>
