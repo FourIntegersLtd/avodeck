@@ -17,6 +17,7 @@ function state(over: Record<string, unknown> = {}) {
     questions: questionsList,
     complete: true,
     paragraph: "I confirm I have no conflict.",
+    other_cases: { checked: 3, matches: 0, organisations: ["Northgate", "Your practice"] },
     coverage_question: "Were you working throughout the period of the case?",
     coverage: { status: "covered", period_start: "2024-02-01", period_end: "2024-08-31" },
     warnings: [],
@@ -113,4 +114,21 @@ test("the balance is a bar with a legend, and stepping back is a quiet link rath
   const back = screen.getByRole("button", { name: "Step back from this case" });
   expect(back).not.toHaveClass("av-button--danger");
   expect(screen.getByRole("button", { name: "Confirm and continue" }).querySelector("svg")).not.toBeNull();
+});
+
+test("the conflict check says how many other cases were compared and that none matched", async () => {
+  open("launch");
+  renderAt(`/cases/${CASE_A}/conflicts`);
+  expect(await screen.findByText("We've also checked 3 of your other cases, in Northgate and Your practice, for the same patient: no matches.")).toBeInTheDocument();
+});
+
+test("a match asks the expert to look, and nothing is said when no case could be compared", async () => {
+  open("launch", { other_cases: { checked: 2, matches: 1, organisations: ["Northgate"] } });
+  const { unmount } = renderAt(`/cases/${CASE_A}/conflicts`);
+  expect(await screen.findByText("1 of your other cases is about the same patient. Please look at it before you go on.")).toBeInTheDocument();
+  unmount();
+  open("launch", { other_cases: { checked: 0, matches: 0, organisations: [] } });
+  renderAt(`/cases/${CASE_A}/conflicts`);
+  await screen.findByText("Confirm and continue");
+  expect(screen.queryByText(/other cases/)).toBeNull();
 });

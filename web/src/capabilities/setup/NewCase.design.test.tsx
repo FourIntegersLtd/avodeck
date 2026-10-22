@@ -84,6 +84,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const words = jurisdiction(run).vocabulary.party_roles as Record<string, string>;
     expect(within(side).getByRole("radio", { name: cap(words.other_side!) })).toBeInTheDocument();
     expect(screen.getByLabelText(String(jurisdiction(run).vocabulary.other_side_prompt))).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: String(jurisdiction(run).vocabulary.other_side_add_another) })).toBeInTheDocument();
     const subject = screen.getByRole("radiogroup", { name: "The patient is" });
     for (const label of statuses(run)) expect(within(subject).getByRole("radio", { name: cap(label) })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Prepare my bundle" })).toBeEnabled();
