@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Avodeck landing page</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&amp;family=Outfit:wght@600&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F5}
+a{color:#1E6B4E}a:hover{color:#0F3D2C}
+h1,h2,h3{text-wrap:balance}
+p{text-wrap:pretty}
+details summary{cursor:pointer;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details[open] .faq-plus{transform:rotate(45deg)}
+.cta:hover{background:#0F3D2C !important}
+.ghost:hover{background:#E6F2EC !important}
+@media (max-width: 760px){
+  .hide-sm{display:none !important}
+  .hero-h{font-size:44px !important}
+  .sec-h{font-size:36px !important}
+}
+</style>
+</helmet>
+<div style="background: #F6F7F5; color: #16201B; font-family: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif; font-size: 19px; line-height: 1.6; display: flex; flex-direction: column">
+
+  <!-- Nav -->
+  <header style="background: #F6F7F5; border-bottom: 1px solid #DDE3DF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 18px 32px; display: flex; align-items: center; gap: 32px; flex-wrap: wrap">
+      <a href="#top" style="display: inline-flex; align-items: center; gap: 12px; text-decoration: none; color: #0F3D2C"><svg width="30.5" height="40" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#0F3D2C"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#E4F3D6"/><circle cx="50" cy="83" r="17" fill="#1E6B4E"/></svg><span style="font-family: 'Outfit', 'Atkinson Hyperlegible', sans-serif; font-weight: 600; font-size: 26px; letter-spacing: -0.025em">Avodeck</span></a>
+      <nav aria-label="Main" class="hide-sm" style="display: flex; gap: 28px; font-size: 17px; font-weight: 700; margin-left: 24px">
+        <a href="#how" style="text-decoration: none; color: #4F5953">How it works</a>
+        <a href="#safeguards" style="text-decoration: none; color: #4F5953">Safeguards</a>
+        <a href="#questions" style="text-decoration: none; color: #4F5953">Questions</a>
+      </nav>
+      <div style="margin-left: auto; display: flex; align-items: center; gap: 18px">
+        <a href="#pilot" class="ghost hide-sm" style="display: inline-flex; align-items: center; min-height: 52px; padding: 0 24px; border-radius: 12px; font-size: 17px; font-weight: 700; text-decoration: none; color: #0F3D2C">Join the pilot</a>
+        <a href="S01-SignIn.dc.html" class="cta" style="display: inline-flex; align-items: center; min-height: 52px; padding: 0 24px; border-radius: 12px; font-size: 17px; font-weight: 700; text-decoration: none; background: #1E6B4E; color: #FFFFFF">Sign in</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section id="top" style="position: relative; overflow: hidden">
+    <div style="max-width: 1360px; min-height: calc(100vh - 89px); box-sizing: border-box; margin: 0 auto; padding: 48px 32px 56px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 72px; align-items: center">
+      <div style="display: flex; flex-direction: column; gap: 28px">
+        <h1 class="hero-h" style="margin: 0; font-family: 'Newsreader', Georgia, 'Times New Roman', serif; font-weight: 400; font-size: 80px; line-height: 1.02; letter-spacing: -0.015em; color: #0F3D2C">Every page read.<br><span style="font-style: italic">Every fact traced.</span></h1>
+        <p style="margin: 0; font-size: 23px; color: #3E4843; max-width: 38ch">Avodeck helps GP expert witnesses review medical records by sorting the bundle and linking every detail to the exact words in the document, so you spend less time hunting through pages and more time forming your opinion.</p>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; align-items: center">
+          <a href="#pilot" class="cta" style="display: inline-flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 30px; border-radius: 14px; background: #1E6B4E; color: #FFFFFF; font-size: 19px; font-weight: 700; text-decoration: none">Join the pilot <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          <a href="#how" class="ghost" style="display: inline-flex; align-items: center; min-height: 60px; padding: 0 22px; border-radius: 14px; color: #0F3D2C; font-size: 19px; font-weight: 700; text-decoration: none">See how it works</a>
+        </div>
+      </div>
+
+      <!-- Hero visual: a record page with a traced phrase -->
+      <div aria-label="Illustration: a consultation entry on page 118, with one phrase highlighted and linked to a checked fact" role="img" style="position: relative; min-height: 520px">
+        <div style="position: absolute; top: 18px; left: 6%; right: 14%; bottom: 0; background: #FFFFFF; border-radius: 6px; box-shadow: 0 1px 2px rgba(15,61,44,0.06), 0 24px 60px rgba(15,61,44,0.14); padding: 34px 36px; font-family: 'IBM Plex Mono', ui-monospace, monospace; font-size: 13.5px; line-height: 1.8; color: #2A2F2C; transform: rotate(-1.2deg)">
+          <div style="display: flex; justify-content: space-between; color: #6B736E; font-size: 11.5px; border-bottom: 1px solid #E3E6E4; padding-bottom: 10px; margin-bottom: 14px"><span>ASHWORTH, Margaret (Mrs)</span><span>Consultations</span></div>
+          <div style="color: #6B736E">03-May-2024 09:12  Reception</div>
+          <div style="color: #6B736E; margin-bottom: 12px">Rx request: ferrous fumarate. Issued.</div>
+          <div style="font-weight: 500">15-May-2024 10:42  Dr P  Surgery</div>
+          <div>Problem: Haemorrhoids (new)</div>
+          <div>History: c/o bright red <span style="background: #FFF3B0; box-shadow: 0 0 0 3px #FFF3B0; border-radius: 2px">PR bleeding x3/52</span>, on paper.</div>
+          <div>Tired. Thinks piles.</div>
+          <div>Plan: fybogel, anusol. Rv if persists.</div>
+          <div style="color: #6B736E; margin-top: 12px">03-Jun-2024 08:55  Reception</div>
+          <div style="color: #6B736E">Rx request: ferrous fumarate. Issued.</div>
+          <div style="position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; color: #8A928D; font-size: 11px">Page 118</div>
+        </div>
+        <div style="position: absolute; top: 236px; right: 0; width: 270px; background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 44px rgba(15,61,44,0.16); font-family: 'Atkinson Hyperlegible', sans-serif; display: flex; flex-direction: column; gap: 10px">
+          <span style="display: flex; justify-content: space-between; align-items: center"><span style="font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #4F5953">GP visit</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; font-weight: 500; color: #0F3D2C; background: #E6F2EC; border-radius: 6px; padding: 2px 8px">p.118</span></span>
+          <span style="font-size: 19px; font-weight: 700; line-height: 1.3">15 May 2024 · rectal bleeding for three weeks</span>
+          <span style="display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: #1E6B4E"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Checked by you</span>
+        </div>
+        <div style="position: absolute; top: 262px; right: 262px; width: 70px; height: 2px; background: #1E6B4E; opacity: 0.55"></div>
+        <div style="position: absolute; top: 257px; right: 326px; width: 12px; height: 12px; border-radius: 50%; background: #1E6B4E; box-shadow: 0 0 0 5px rgba(30,107,78,0.15)"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Assurances -->
+  <section aria-label="What Avodeck promises" style="border-top: 1px solid #DDE3DF; border-bottom: 1px solid #DDE3DF; background: #FFFFFF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 36px 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 28px 40px">
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 24px; color: #0F3D2C">Your opinion stays yours</span><span style="font-size: 16px; color: #4F5953">The software never writes conclusions or prose for you.</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 24px; color: #0F3D2C">Every fact has a page</span><span style="font-size: 16px; color: #4F5953">Each entry points to the exact words it came from.</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 24px; color: #0F3D2C">Kept in the UK</span><span style="font-size: 16px; color: #4F5953">Processed and stored in the UK, never used to train AI.</span></div>
+      <div style="display: flex; flex-direction: column; gap: 4px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 24px; color: #0F3D2C">Made by NHS GPs</span><span style="font-size: 16px; color: #4F5953">Built by doctors working in the NHS.</span></div>
+    </div>
+  </section>
+
+  <!-- The difference -->
+  <section style="background: #F6F7F5">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 56px 80px; align-items: start">
+      <div style="display: flex; flex-direction: column; gap: 22px">
+        <span style="font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #1E6B4E">Why experts use it</span>
+        <h2 class="sec-h" style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 48px; line-height: 1.1; color: #0F3D2C">Two thousand unsorted pages shouldn't cost you three weekends.</h2>
+        <p style="margin: 0; color: #3E4843; max-width: 36ch">You still read every page. Avodeck takes away the sorting, the cross-referencing and the page-number hunting, so your time goes on judgement.</p>
+      </div>
+      <div style="display: flex; flex-direction: column">
+        <div style="display: flex; gap: 22px; padding: 26px 0; border-top: 1px solid #CBD4CF">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #1E6B4E; padding-top: 6px; min-width: 56px">p.1–1,231</span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 23px; font-weight: 700">Sorted and numbered. Nothing thrown away.</span><span style="color: #4F5953">Pages are grouped by source and date, duplicates are set aside rather than deleted, and missing records are spotted, with the email to the solicitor already drafted.</span></span>
+        </div>
+        <div style="display: flex; gap: 22px; padding: 26px 0; border-top: 1px solid #CBD4CF">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #1E6B4E; padding-top: 6px; min-width: 56px">15 May</span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 23px; font-weight: 700">See each visit as the GP saw it on the day.</span><span style="color: #4F5953">Open any consultation and see only what the clinician could have known then: which results were back, which letters had arrived, and which guidance was in force.</span></span>
+        </div>
+        <div style="display: flex; gap: 22px; padding: 26px 0; border-top: 1px solid #CBD4CF; border-bottom: 1px solid #CBD4CF">
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; color: #1E6B4E; padding-top: 6px; min-width: 56px">TB 2,407</span>
+          <span style="display: flex; flex-direction: column; gap: 6px"><span style="font-size: 23px; font-weight: 700">Walk into court with page numbers that match.</span><span style="color: #4F5953">When the trial bundle arrives, every page your report relies on is matched to its new number, and your large-print trial pack is ready to print.</span></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section id="how" style="background: #FFFFFF; border-top: 1px solid #DDE3DF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; gap: 56px">
+      <div style="display: flex; flex-direction: column; gap: 18px; max-width: 760px">
+        <span style="font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #1E6B4E">How it works</span>
+        <h2 class="sec-h" style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 48px; line-height: 1.1; color: #0F3D2C">The way you already work, with the drudgery taken out.</h2>
+      </div>
+      <ol style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: 0; border-top: 2px solid #0F3D2C">
+        <li style="padding: 26px 24px 0 0; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #1E6B4E">01</span><span style="font-family: 'Newsreader', Georgia, serif; font-size: 28px; color: #0F3D2C">Prepare</span><span style="font-size: 17px; color: #4F5953">Drop in the letter and the records.</span></li>
+        <li style="padding: 26px 24px 0 0; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #1E6B4E">02</span><span style="font-family: 'Newsreader', Georgia, serif; font-size: 28px; color: #0F3D2C">Read</span><span style="font-size: 17px; color: #4F5953">Read each page, then check what we found.</span></li>
+        <li style="padding: 26px 24px 0 0; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #1E6B4E">03</span><span style="font-family: 'Newsreader', Georgia, serif; font-size: 28px; color: #0F3D2C">Understand</span><span style="font-size: 17px; color: #4F5953">See everything on one timeline.</span></li>
+        <li style="padding: 26px 24px 0 0; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #1E6B4E">04</span><span style="font-family: 'Newsreader', Georgia, serif; font-size: 28px; color: #0F3D2C">Write</span><span style="font-size: 17px; color: #4F5953">Your words, citing only facts you've checked.</span></li>
+        <li style="padding: 26px 0 0 0; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'IBM Plex Mono', monospace; font-size: 14px; color: #1E6B4E">05</span><span style="font-family: 'Newsreader', Georgia, serif; font-size: 28px; color: #0F3D2C">Court</span><span style="font-size: 17px; color: #4F5953">Ready for questions, meetings and the witness box.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- Showcase -->
+  <section style="background: #F6F7F5; border-top: 1px solid #DDE3DF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); gap: 64px; align-items: center">
+      <div style="background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 20px; padding: 32px; box-shadow: 0 20px 50px rgba(15,61,44,0.08); display: flex; flex-direction: column; gap: 20px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap">
+          <span style="font-family: 'Newsreader', Georgia, serif; font-size: 26px; color: #0F3D2C">As the GP saw it on 15 May 2024</span>
+          <span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #4F5953">p.118</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 0; font-size: 17px">
+          <div style="display: flex; gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid #EEF1EF"><span style="width: 10px; height: 10px; border-radius: 50%; background: #1E6B4E; flex-shrink: 0"></span><span style="flex: 1">Ferritin 9 µg/L, filed 19 February</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1E6B4E">p.214 · available</span></div>
+          <div style="display: flex; gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid #EEF1EF"><span style="width: 10px; height: 10px; border-radius: 50%; background: #1E6B4E; flex-shrink: 0"></span><span style="flex: 1">Iron started 1 March, no repeat blood count</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #1E6B4E">p.087 · available</span></div>
+          <div style="display: flex; gap: 14px; align-items: center; padding: 14px 0; border-top: 1px solid #EEF1EF"><span style="width: 10px; height: 10px; border-radius: 50%; border: 2px solid #9AA29D; box-sizing: border-box; flex-shrink: 0"></span><span style="flex: 1; color: #6B736E">Colonoscopy report, 2 September</span><span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; color: #6B736E">not yet written</span></div>
+        </div>
+        <div style="background: #FDF1E3; border-radius: 12px; padding: 14px 16px; font-size: 16px; color: #6E3305"><span style="font-weight: 700">Thing to look at:</span> unexplained iron deficiency was known before this visit. You decide whether it matters.</div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 22px">
+        <span style="font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #1E6B4E">Hindsight, removed</span>
+        <h2 class="sec-h" style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 44px; line-height: 1.12; color: #0F3D2C">Judge the care by what was knowable at the time.</h2>
+        <p style="margin: 0; color: #3E4843; max-width: 38ch">Breach of duty turns on what a reasonable GP knew and could have known on the day. Avodeck works out when each result and letter actually reached the practice, so your opinion rests on that, and you can show your working.</p>
+        <p style="margin: 0; color: #3E4843; max-width: 38ch">Gentle prompts point out things worth a second look, such as a result never acted on or a safety-net with no follow-up. You decide what's relevant. Nothing is decided for you.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Safeguards -->
+  <section id="safeguards" style="background: #0F3D2C; color: #FFFFFF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; gap: 56px">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 32px 80px; align-items: end">
+        <h2 class="sec-h" style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 48px; line-height: 1.1">Built to stand up in the witness box.</h2>
+        <p style="margin: 0; color: #CFE6DA; max-width: 40ch">Your duty is to the court. Avodeck is built so you can say exactly how you used it, and so nothing in your report can be traced to anything other than you and the records.</p>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 1px; background: rgba(255,255,255,0.14); border: 1px solid rgba(255,255,255,0.14); border-radius: 20px; overflow: hidden">
+        <div style="background: #0F3D2C; padding: 32px 28px; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 25px">You read first</span><span style="font-size: 17px; color: #CFE6DA">Suggestions for a page stay hidden until you've read it yourself. The record of pages you've read is kept for you.</span></div>
+        <div style="background: #0F3D2C; padding: 32px 28px; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 25px">Only checked facts</span><span style="font-size: 17px; color: #CFE6DA">Your report can only cite entries you've checked against the page, with quotes matched word for word.</span></div>
+        <div style="background: #0F3D2C; padding: 32px 28px; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 25px">A final check</span><span style="font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 17px; color: #CFE6DA">Before you sign, your report is checked against the mistakes judges most often criticise experts for.</span></div>
+        <div style="background: #0F3D2C; padding: 32px 28px; display: flex; flex-direction: column; gap: 10px"><span style="font-family: 'Newsreader', Georgia, serif; font-size: 25px">Nothing hidden</span><span style="font-size: 17px; color: #CFE6DA">A plain appendix explains what the software did and didn't do, ready for anyone who asks.</span></div>
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 14px 36px; font-size: 16px; color: #CFE6DA">
+        <span style="display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7CCFA6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Records processed and stored in the UK</span>
+        <span style="display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7CCFA6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Never used to train AI</span>
+        <span style="display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7CCFA6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Deleted when the case ends, with a certificate</span>
+        <span style="display: inline-flex; align-items: center; gap: 10px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7CCFA6" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg>Served reports locked and fingerprinted</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Founder note -->
+  <section style="background: #FFFFFF">
+    <div style="max-width: 880px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; gap: 28px">
+      <span style="font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #1E6B4E">Why Avodeck exists</span>
+      <blockquote style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-size: 28px; line-height: 1.4; color: #0F3D2C; display: flex; flex-direction: column; gap: 20px"><p style="margin: 0">“As a doctor, I know how much our notes hold.</p><p style="margin: 0">A result filed and forgotten. A call that never made it into the record. A check that was done but never written down.</p><p style="margin: 0">When a case comes, details like these decide it. Miss one page, and you can miss the whole story.</p><p style="margin: 0">I built Avodeck so that every page gets read, every fact can be traced to the words it came from, and the expert can stand behind every line of their report.”</p></blockquote>
+      <div style="display: flex; align-items: center; gap: 16px">
+        <span><span style="font-weight: 700">Dr Kenny</span><br><span style="font-size: 16px; color: #4F5953">Founder</span></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pilot -->
+  <section id="pilot" style="background: #E6F2EC; border-top: 1px solid #CFE3D8; border-bottom: 1px solid #CFE3D8">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 104px 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr)); gap: 56px 80px; align-items: start">
+      <div style="display: flex; flex-direction: column; gap: 22px">
+        <span style="font-size: 15px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #1E6B4E">The pilot</span>
+        <h2 class="sec-h" style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 48px; line-height: 1.1; color: #0F3D2C">We're inviting a small group of GP experts to shape Avodeck.</h2>
+        <p style="margin: 0; color: #2F3A34; max-width: 38ch">You'll use it on your own cases, with help on hand whenever you want it, and your feedback will decide what we build next.</p>
+        <p style="margin: 0; color: #2F3A34">Prefer to talk first? We'll arrange a 20-minute call at a time that suits you.</p>
+      </div>
+      <form style="background: #FFFFFF; border-radius: 20px; padding: 36px; box-shadow: 0 20px 50px rgba(15,61,44,0.10); display: flex; flex-direction: column; gap: 20px">
+        <label for="p-name" style="display: flex; flex-direction: column; gap: 8px; font-weight: 700; font-size: 17px">Your name<input id="p-name" type="text" placeholder="Dr …" style="font-family: inherit; font-size: 18px; padding: 16px 18px; border: 1.5px solid #B9C3BD; border-radius: 12px; color: #16201B; background: #FFFFFF"></label>
+        <label for="p-email" style="display: flex; flex-direction: column; gap: 8px; font-weight: 700; font-size: 17px">Email address<input id="p-email" type="email" placeholder="you@example.co.uk" style="font-family: inherit; font-size: 18px; padding: 16px 18px; border: 1.5px solid #B9C3BD; border-radius: 12px; color: #16201B; background: #FFFFFF"></label>
+        <label for="p-vol" style="display: flex; flex-direction: column; gap: 8px; font-weight: 700; font-size: 17px">Reports you write a year<select id="p-vol" style="font-family: inherit; font-size: 18px; padding: 16px 18px; border: 1.5px solid #B9C3BD; border-radius: 12px; color: #16201B; background: #FFFFFF"><option>Fewer than 20</option><option>20 to 50</option><option>50 to 100</option><option>More than 100</option></select></label>
+        <button type="button" class="cta" style="min-height: 60px; border: 0; border-radius: 14px; background: #1E6B4E; color: #FFFFFF; font-family: inherit; font-size: 19px; font-weight: 700; cursor: pointer">Request an invitation</button>
+        <span style="font-size: 15px; color: #4F5953">We'll only use your details to contact you about the pilot.</span>
+      </form>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="questions" style="background: #F6F7F5">
+    <div style="max-width: 880px; margin: 0 auto; padding: 112px 32px; display: flex; flex-direction: column; gap: 36px">
+      <h2 class="sec-h" style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 44px; line-height: 1.1; color: #0F3D2C">Questions experts ask us</h2>
+      <div style="display: flex; flex-direction: column; border-top: 1px solid #CBD4CF">
+        <details style="border-bottom: 1px solid #CBD4CF; padding: 24px 0"><summary style="display: flex; justify-content: space-between; gap: 24px; font-size: 22px; font-weight: 700">Does AI write any of my report?<span class="faq-plus" aria-hidden="true" style="font-size: 28px; line-height: 1; color: #1E6B4E; transition: transform 0.2s">+</span></summary><p style="margin: 14px 0 0; color: #3E4843">No. It finds and labels entries in the records and shows you where they are. Every word of your opinion is yours, typed or dictated.</p></details>
+        <details style="border-bottom: 1px solid #CBD4CF; padding: 24px 0"><summary style="display: flex; justify-content: space-between; gap: 24px; font-size: 22px; font-weight: 700">Is it compliant with the court rules?<span class="faq-plus" aria-hidden="true" style="font-size: 28px; line-height: 1; color: #1E6B4E; transition: transform 0.2s">+</span></summary><p style="margin: 14px 0 0; color: #3E4843">Reports follow Part 35 and its Practice Direction: the declaration and statement of truth are added in the exact wording, and a checklist shows each requirement as you go.</p></details>
+        <details style="border-bottom: 1px solid #CBD4CF; padding: 24px 0"><summary style="display: flex; justify-content: space-between; gap: 24px; font-size: 22px; font-weight: 700">Where are the records kept?<span class="faq-plus" aria-hidden="true" style="font-size: 28px; line-height: 1; color: #1E6B4E; transition: transform 0.2s">+</span></summary><p style="margin: 14px 0 0; color: #3E4843">In the UK, encrypted, for each case separately. When the case ends you choose how long they're kept, and you get a certificate when they're deleted.</p></details>
+        <details style="border-bottom: 1px solid #CBD4CF; padding: 24px 0"><summary style="display: flex; justify-content: space-between; gap: 24px; font-size: 22px; font-weight: 700">I'm not very good with computers. Will I manage?<span class="faq-plus" aria-hidden="true" style="font-size: 28px; line-height: 1; color: #1E6B4E; transition: transform 0.2s">+</span></summary><p style="margin: 14px 0 0; color: #3E4843">It's designed for exactly that: large text, one clear next step on every screen, and plain words throughout. We'll set up your first case with you.</p></details>
+        <details style="border-bottom: 1px solid #CBD4CF; padding: 24px 0"><summary style="display: flex; justify-content: space-between; gap: 24px; font-size: 22px; font-weight: 700">Can I keep my own report template?<span class="faq-plus" aria-hidden="true" style="font-size: 28px; line-height: 1; color: #1E6B4E; transition: transform 0.2s">+</span></summary><p style="margin: 14px 0 0; color: #3E4843">Yes. Upload your Word template once and every report is built in it, with your headings, numbering and fonts.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- Closing CTA + footer -->
+  <footer style="background: #0F3D2C; color: #FFFFFF">
+    <div style="max-width: 1200px; margin: 0 auto; padding: 88px 32px 40px; display: flex; flex-direction: column; gap: 64px">
+      <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 32px; flex-wrap: wrap">
+        <h2 class="sec-h" style="margin: 0; font-family: 'Newsreader', Georgia, serif; font-weight: 400; font-size: 48px; line-height: 1.1; max-width: 16ch">Spend your time on judgement, not on page numbers.</h2>
+        <a href="#pilot" style="display: inline-flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 30px; border-radius: 14px; background: #FFFFFF; color: #0F3D2C; font-size: 19px; font-weight: 700; text-decoration: none">Join the pilot <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 24px; flex-wrap: wrap; border-top: 1px solid rgba(255,255,255,0.16); padding-top: 28px; font-size: 15px; color: #A9CDBB">
+        <span style="display: inline-flex; align-items: center; gap: 12px"><svg width="22.9" height="30" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#E6F2EC"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#2E7556"/><circle cx="50" cy="83" r="17" fill="#E6F2EC"/></svg><span style="font-family: 'Outfit', sans-serif; font-weight: 600; font-size: 20px; letter-spacing: -0.025em; color: #FFFFFF">Avodeck</span></span>
+        <nav aria-label="Footer" style="display: flex; gap: 24px; flex-wrap: wrap">
+          <a href="#security" style="color: #CFE6DA; text-decoration: none">Security</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":6900}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

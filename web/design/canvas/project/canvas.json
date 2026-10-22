@@ -1,0 +1,398 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "Main.dc.html": {
+      "h": 2200,
+      "title": "Design system",
+      "w": 1440,
+      "x": 0,
+      "y": 0
+    },
+    "S01-SignIn.dc.html": {
+      "expand": "fill",
+      "h": 940,
+      "title": "01 · Sign in",
+      "w": 1440,
+      "x": 0,
+      "y": 2520
+    },
+    "S02-Profile.dc.html": {
+      "expand": "fill",
+      "h": 1860,
+      "title": "02 · Your expert profile",
+      "w": 1440,
+      "x": 1520,
+      "y": 2520
+    },
+    "S03-Today.dc.html": {
+      "expand": "fill",
+      "h": 1260,
+      "title": "03 · Today",
+      "w": 1440,
+      "x": 3040,
+      "y": 2520
+    },
+    "S04-NewCase.dc.html": {
+      "expand": "fill",
+      "h": 1900,
+      "title": "04 · New case",
+      "w": 1440,
+      "x": 4560,
+      "y": 2520
+    },
+    "S05-Conflicts.dc.html": {
+      "expand": "fill",
+      "h": 1300,
+      "title": "05 · Before you start",
+      "w": 1440,
+      "x": 6080,
+      "y": 2520
+    },
+    "S06-Questions.dc.html": {
+      "expand": "fill",
+      "h": 1500,
+      "title": "06 · What you've been asked",
+      "w": 1440,
+      "x": 7600,
+      "y": 2520
+    },
+    "S07-Preparing.dc.html": {
+      "expand": "fill",
+      "h": 980,
+      "title": "07 · Preparing your bundle",
+      "w": 1440,
+      "x": 9120,
+      "y": 2520
+    },
+    "S08-BundleReady.dc.html": {
+      "expand": "fill",
+      "h": 1560,
+      "title": "08 · Your bundle is ready",
+      "w": 1440,
+      "x": 10640,
+      "y": 2520
+    },
+    "S08b-AskSolicitor.dc.html": {
+      "expand": "fill",
+      "h": 1080,
+      "title": "09 · Ask the solicitor for what's missing",
+      "w": 1440,
+      "x": 12160,
+      "y": 2520
+    },
+    "S09-Reader.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "10 · Reading",
+      "w": 1440,
+      "x": 0,
+      "y": 4820
+    },
+    "S10-CouldntRead.dc.html": {
+      "expand": "fill",
+      "h": 1080,
+      "title": "11 · Pages we couldn't read",
+      "w": 1440,
+      "x": 1520,
+      "y": 4820
+    },
+    "S11-Timeline.dc.html": {
+      "expand": "fill",
+      "h": 1120,
+      "title": "12 · The timeline",
+      "w": 1440,
+      "x": 3040,
+      "y": 4820
+    },
+    "S12-Consultation.dc.html": {
+      "expand": "fill",
+      "h": 1380,
+      "title": "13 · One consultation, as the GP saw it",
+      "w": 1440,
+      "x": 4560,
+      "y": 4820
+    },
+    "S13-ThingsToLook.dc.html": {
+      "expand": "fill",
+      "h": 1280,
+      "title": "14 · Things to look at",
+      "w": 1440,
+      "x": 6080,
+      "y": 4820
+    },
+    "S14-PointsAgainst.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "title": "15 · Points against",
+      "w": 1440,
+      "x": 0,
+      "y": 6760
+    },
+    "S15-Opinion.dc.html": {
+      "expand": "fill",
+      "h": 1260,
+      "title": "16 · Your opinion",
+      "w": 1440,
+      "x": 1520,
+      "y": 6760
+    },
+    "S16-Report.dc.html": {
+      "expand": "fill",
+      "h": 1040,
+      "title": "17 · Your report",
+      "w": 1440,
+      "x": 3040,
+      "y": 6760
+    },
+    "S17-FinalCheck.dc.html": {
+      "expand": "fill",
+      "h": 1140,
+      "title": "18 · Final check",
+      "w": 1440,
+      "x": 4560,
+      "y": 6760
+    },
+    "S18-SignSend.dc.html": {
+      "expand": "fill",
+      "h": 1080,
+      "title": "19 · Sign and send",
+      "w": 1440,
+      "x": 6080,
+      "y": 6760
+    },
+    "S18b-Invoice.dc.html": {
+      "expand": "fill",
+      "h": 920,
+      "title": "20 · Time and invoice",
+      "w": 1440,
+      "x": 7600,
+      "y": 6760
+    },
+    "S19-Served.dc.html": {
+      "expand": "fill",
+      "h": 1300,
+      "title": "21 · After serving",
+      "w": 1440,
+      "x": 0,
+      "y": 8580
+    },
+    "S20-Questions35.dc.html": {
+      "expand": "fill",
+      "h": 1040,
+      "title": "22 · Questions from the other side",
+      "w": 1440,
+      "x": 1520,
+      "y": 8580
+    },
+    "S21-NewMaterial.dc.html": {
+      "expand": "fill",
+      "h": 1340,
+      "title": "23 · New records and the other expert's report",
+      "w": 1440,
+      "x": 3040,
+      "y": 8580
+    },
+    "S21b-Addendum.dc.html": {
+      "expand": "fill",
+      "h": 1040,
+      "title": "24 · Correct or update your report",
+      "w": 1440,
+      "x": 4560,
+      "y": 8580
+    },
+    "S22-JointStatement.dc.html": {
+      "expand": "fill",
+      "h": 1180,
+      "title": "25 · Joint statement",
+      "w": 1440,
+      "x": 6080,
+      "y": 8580
+    },
+    "S23-TrialPages.dc.html": {
+      "expand": "fill",
+      "h": 1100,
+      "title": "26 · Trial page numbers",
+      "w": 1440,
+      "x": 7600,
+      "y": 8580
+    },
+    "S24-TrialPack.dc.html": {
+      "expand": "fill",
+      "h": 1320,
+      "title": "27 · Trial pack",
+      "w": 1440,
+      "x": 9120,
+      "y": 8580
+    },
+    "S25-Lookup.dc.html": {
+      "expand": "fill",
+      "h": 1000,
+      "title": "28 · In the witness box",
+      "w": 1440,
+      "x": 10640,
+      "y": 8580
+    },
+    "S26-Close.dc.html": {
+      "expand": "fill",
+      "h": 1150,
+      "title": "29 · Close the case",
+      "w": 1440,
+      "x": 12160,
+      "y": 8580
+    },
+    "Logo6.dc.html": {
+      "h": 1500,
+      "title": "Logo",
+      "w": 1440,
+      "x": 1520,
+      "y": 0
+    },
+    "S30-NotThisPatient.dc.html": {
+      "expand": "fill",
+      "h": 1200,
+      "title": "30 · Not this patient's record",
+      "w": 1440,
+      "x": 7600,
+      "y": 4820
+    },
+    "S29-CourtOrders.dc.html": {
+      "expand": "fill",
+      "h": 1500,
+      "title": "31 · Court orders and hearings",
+      "w": 1440,
+      "x": 13680,
+      "y": 8580
+    },
+    "S27-OrgMembers.dc.html": {
+      "expand": "fill",
+      "h": 1700,
+      "title": "32 · Organisation and members",
+      "w": 1440,
+      "x": 0,
+      "y": 10560
+    },
+    "S28-Account.dc.html": {
+      "expand": "fill",
+      "h": 2000,
+      "title": "33 · Account and security",
+      "w": 1440,
+      "x": 1520,
+      "y": 10560
+    },
+    "Landing.dc.html": {
+      "expand": "fill",
+      "h": 6900,
+      "title": "Landing page",
+      "w": 1440,
+      "x": 0,
+      "y": 13180
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-10-12T04:30:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "t1": {
+      "kind": "title1",
+      "maxW": 1440,
+      "text": "Avodeck — design system",
+      "w": 240,
+      "x": 0,
+      "y": -300
+    },
+    "t2": {
+      "kind": "title1",
+      "maxW": 13600,
+      "text": "Prepare — set-up, instruction and the bundle",
+      "w": 240,
+      "x": 0,
+      "y": 2220
+    },
+    "t3": {
+      "kind": "title1",
+      "maxW": 9040,
+      "text": "Read and Understand — every page, the timeline, as the GP saw it",
+      "w": 240,
+      "x": 0,
+      "y": 4520
+    },
+    "t4": {
+      "kind": "title1",
+      "maxW": 9040,
+      "text": "Write — points against, opinion, report, final check, invoice",
+      "w": 240,
+      "x": 0,
+      "y": 6460
+    },
+    "t5": {
+      "kind": "title1",
+      "maxW": 15120,
+      "text": "Court — after serving to the witness box, then close",
+      "w": 240,
+      "x": 0,
+      "y": 8280
+    },
+    "t6": {
+      "kind": "title1",
+      "maxW": 2960,
+      "text": "Accounts and teams — organisation, members, security",
+      "w": 240,
+      "x": 0,
+      "y": 10260
+    },
+    "t7": {
+      "kind": "title1",
+      "maxW": 1440,
+      "text": "Marketing — landing page",
+      "w": 240,
+      "x": 0,
+      "y": 12880
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "Logo6.dc.html",
+    "S01-SignIn.dc.html",
+    "S02-Profile.dc.html",
+    "S03-Today.dc.html",
+    "S04-NewCase.dc.html",
+    "S05-Conflicts.dc.html",
+    "S06-Questions.dc.html",
+    "S07-Preparing.dc.html",
+    "S08-BundleReady.dc.html",
+    "S08b-AskSolicitor.dc.html",
+    "S09-Reader.dc.html",
+    "S10-CouldntRead.dc.html",
+    "S11-Timeline.dc.html",
+    "S12-Consultation.dc.html",
+    "S13-ThingsToLook.dc.html",
+    "S30-NotThisPatient.dc.html",
+    "S14-PointsAgainst.dc.html",
+    "S15-Opinion.dc.html",
+    "S16-Report.dc.html",
+    "S17-FinalCheck.dc.html",
+    "S18-SignSend.dc.html",
+    "S18b-Invoice.dc.html",
+    "S19-Served.dc.html",
+    "S20-Questions35.dc.html",
+    "S21-NewMaterial.dc.html",
+    "S21b-Addendum.dc.html",
+    "S22-JointStatement.dc.html",
+    "S23-TrialPages.dc.html",
+    "S24-TrialPack.dc.html",
+    "S25-Lookup.dc.html",
+    "S26-Close.dc.html",
+    "S29-CourtOrders.dc.html",
+    "S27-OrgMembers.dc.html",
+    "S28-Account.dc.html",
+    "Landing.dc.html"
+  ],
+  "pages": [],
+  "title": "Avodeck – Screens"
+}

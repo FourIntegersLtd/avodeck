@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Today</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&amp;family=IBM+Plex+Mono:wght@400;500&amp;family=Outfit:wght@600&amp;display=swap">
+<style>
+body{margin:0;background:#F6F7F5}
+a{color:#1E6B4E}a:hover{color:#0F3D2C}
+</style>
+</helmet>
+<div style="min-height: 960px; background: #F6F7F5; font-family: 'Atkinson Hyperlegible', system-ui, sans-serif; color: #16201B; font-size: 17px; line-height: 1.5; display: flex; flex-direction: column">
+  <header style="background: #FFFFFF; border-bottom: 1px solid #DDE3DF; display: flex; align-items: center; gap: 40px; padding: 12px 40px; min-height: 76px; box-sizing: border-box; flex-wrap: wrap">
+    <a href="S03-Today.dc.html" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: #0F3D2C; font-weight: 700; font-size: 19px"><svg width="30.5" height="40" viewBox="8 8 84 110" aria-hidden="true"><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" fill="#0F3D2C"/><path d="M50 12 C66 12 74 27 76 40 C78 53 88 61 88 80 C88 101 71 114 50 114 C29 114 12 101 12 80 C12 61 22 53 24 40 C26 27 34 12 50 12 Z" transform="translate(50 76) scale(0.80) translate(-50 -76)" fill="#E4F3D6"/><circle cx="50" cy="83" r="17" fill="#1E6B4E"/></svg><span style="font-family: 'Outfit', 'Atkinson Hyperlegible', sans-serif; font-weight: 600; font-size: 22px; letter-spacing: -0.025em">Avodeck</span></a>
+    <nav style="display: flex; gap: 6px; font-size: 17px; font-weight: 700">
+      <a href="S03-Today.dc.html" style="padding: 10px 16px; border-radius: 10px; text-decoration: none; color: #0F3D2C; background: #E6F2EC">Today</a>
+      <a href="S03-Today.dc.html" style="padding: 10px 16px; border-radius: 10px; text-decoration: none; color: #4F5953">Cases</a>
+      <a href="S02-Profile.dc.html" style="padding: 10px 16px; border-radius: 10px; text-decoration: none; color: #4F5953">Your profile</a>
+    </nav>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 20px">
+      <a href="#notifications" aria-label="Messages, 2 unread" style="position: relative; width: 44px; height: 44px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center; color: #0F3D2C"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 20a2 2 0 004 0"/></svg><span style="position: absolute; top: 4px; right: 4px; min-width: 18px; height: 18px; border-radius: 9px; background: #B45309; color: #FFFFFF; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">2</span></a>
+      <a href="#help" style="font-weight: 700; text-decoration: none">Help</a>
+      <span style="width: 44px; height: 44px; border-radius: 50%; background: #E6F2EC; color: #0F3D2C; font-weight: 700; display: inline-flex; align-items: center; justify-content: center">JM</span>
+    </div>
+  </header>
+
+  <main style="flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 56px 40px 64px; box-sizing: border-box; display: flex; flex-direction: column; gap: 40px">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap">
+      <div style="display: flex; flex-direction: column; gap: 6px">
+        <span style="font-size: 17px; color: #4F5953">Wednesday 14 October</span>
+        <h1 style="margin: 0; font-size: 40px; font-weight: 700; line-height: 1.15">Good morning, Dr Morgan</h1>
+      </div>
+      <a href="S04-NewCase.dc.html" style="display: inline-flex; align-items: center; gap: 10px; background: #1E6B4E; color: #FFFFFF; text-decoration: none; font-size: 18px; font-weight: 700; padding: 16px 26px; border-radius: 12px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>New case</a>
+    </div>
+
+    <section style="background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 20px; padding: 8px 32px; display: flex; flex-direction: column">
+      <h2 style="margin: 0; padding: 24px 0 8px; font-size: 24px">3 things need you</h2>
+      <div style="display: flex; align-items: center; gap: 20px; padding: 20px 0; border-top: 1px solid #EEF1EF; flex-wrap: wrap">
+        <span style="width: 52px; height: 52px; border-radius: 14px; background: #FDF1E3; display: inline-flex; align-items: center; justify-content: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <span style="flex: 1 1 360px"><span style="font-weight: 700; font-size: 19px">Ms C · joint statement due in 7 days</span> <span style="display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #EAF0F6; color: #2F4A66; font-weight: 700; font-size: 13px">Northgate</span><br><span style="color: #4F5953">The agenda arrived yesterday. Your positions are ready to review.</span></span>
+        <a href="S22-JointStatement.dc.html" style="display: inline-flex; align-items: center; gap: 8px; background: #FFFFFF; color: #1E6B4E; border: 2px solid #1E6B4E; text-decoration: none; font-weight: 700; padding: 12px 22px; border-radius: 12px">Prepare</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 20px; padding: 20px 0; border-top: 1px solid #EEF1EF; flex-wrap: wrap">
+        <span style="width: 52px; height: 52px; border-radius: 14px; background: #E6F2EC; display: inline-flex; align-items: center; justify-content: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#1E6B4E" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h6a2 2 0 012 2v12a2 2 0 00-2-2H4zM20 5h-6a2 2 0 00-2 2v12a2 2 0 012-2h6z"/></svg></span>
+        <span style="flex: 1 1 360px"><span style="font-weight: 700; font-size: 19px">Mrs A · 127 pages still to read</span><br><span style="color: #4F5953">You stopped at page 1,104 yesterday. About 40 minutes left.</span></span>
+        <a href="S09-Reader.dc.html" style="display: inline-flex; align-items: center; gap: 8px; background: #1E6B4E; color: #FFFFFF; text-decoration: none; font-weight: 700; padding: 14px 24px; border-radius: 12px">Carry on reading</a>
+      </div>
+      <div style="display: flex; align-items: center; gap: 20px; padding: 20px 0 24px; border-top: 1px solid #EEF1EF; flex-wrap: wrap">
+        <span style="width: 52px; height: 52px; border-radius: 14px; background: #FDF1E3; display: inline-flex; align-items: center; justify-content: center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 01-2 2H6a2 2 0 01-2-2V5a2 2 0 012-2h9"/></svg></span>
+        <span style="flex: 1 1 360px"><span style="font-weight: 700; font-size: 19px">Mr B · the final check found 2 things</span><br><span style="color: #4F5953">An age that doesn't match the records, and one unanswered question.</span></span>
+        <a href="S17-FinalCheck.dc.html" style="display: inline-flex; align-items: center; gap: 8px; background: #FFFFFF; color: #1E6B4E; border: 2px solid #1E6B4E; text-decoration: none; font-weight: 700; padding: 12px 22px; border-radius: 12px">Fix them</a>
+      </div>
+    </section>
+
+    <section style="display: flex; flex-direction: column; gap: 18px">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap"><h2 style="margin: 0; font-size: 24px">Your cases</h2>
+        <div role="group" aria-label="Show cases from" style="display: inline-flex; background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 14px; padding: 5px; flex-wrap: wrap">
+          <button type="button" aria-pressed="true" style="font-family: inherit; font-size: 16px; font-weight: 700; padding: 10px 16px; border-radius: 10px; border: 0; background: #E6F2EC; color: #0F3D2C">All · 4</button>
+          <button type="button" aria-pressed="false" style="font-family: inherit; font-size: 16px; font-weight: 700; padding: 10px 16px; border-radius: 10px; border: 0; background: transparent; color: #4F5953">My practice · 3</button>
+          <button type="button" aria-pressed="false" style="font-family: inherit; font-size: 16px; font-weight: 700; padding: 10px 16px; border-radius: 10px; border: 0; background: transparent; color: #4F5953">Northgate Medico-Legal · 1</button>
+        </div>
+        <span style="color: #4F5953; font-size: 16px">4 open · 23 closed</span></div>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px">
+        <a href="S09-Reader.dc.html" style="background: #FFFFFF; border: 2px solid #1E6B4E; border-radius: 18px; padding: 24px; text-decoration: none; color: #16201B; display: flex; flex-direction: column; gap: 18px">
+          <svg width="80" height="80" viewBox="0 0 80 80" role="img" aria-label="Reading, step 2 of 5"><circle cx="40" cy="40" r="33" fill="none" stroke="#E9ECEA" stroke-width="9"/><circle cx="40" cy="40" r="33" fill="none" stroke="#2F9E6E" stroke-width="9" stroke-linecap="round" stroke-dasharray="83 207" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" font-size="15" font-weight="700" fill="#16201B" font-family="Atkinson Hyperlegible, sans-serif">Read</text></svg>
+          <span><span style="font-size: 22px; font-weight: 700">Mrs A</span><br><span style="color: #4F5953">Delayed colorectal referral</span></span>
+          <span style="display: flex; justify-content: space-between; border-top: 1px solid #EEF1EF; padding-top: 14px; font-size: 15px"><span style="color: #4F5953">For the defendant</span><span><span style="font-weight: 700">Due</span> 30 Nov</span></span>
+        </a>
+        <a href="S17-FinalCheck.dc.html" style="background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 18px; padding: 24px; text-decoration: none; color: #16201B; display: flex; flex-direction: column; gap: 18px">
+          <svg width="80" height="80" viewBox="0 0 80 80" role="img" aria-label="Writing, step 4 of 5"><circle cx="40" cy="40" r="33" fill="none" stroke="#E9ECEA" stroke-width="9"/><circle cx="40" cy="40" r="33" fill="none" stroke="#2F9E6E" stroke-width="9" stroke-linecap="round" stroke-dasharray="166 207" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" font-size="15" font-weight="700" fill="#16201B" font-family="Atkinson Hyperlegible, sans-serif">Write</text></svg>
+          <span><span style="font-size: 22px; font-weight: 700">Mr B</span><br><span style="color: #4F5953">Missed sepsis, out of hours</span></span>
+          <span style="display: flex; justify-content: space-between; border-top: 1px solid #EEF1EF; padding-top: 14px; font-size: 15px"><span style="color: #4F5953">For the claimant</span><span><span style="font-weight: 700">Due</span> 4 Nov</span></span>
+        </a>
+        <a href="S22-JointStatement.dc.html" style="background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 18px; padding: 24px; text-decoration: none; color: #16201B; display: flex; flex-direction: column; gap: 18px">
+          <svg width="80" height="80" viewBox="0 0 80 80" role="img" aria-label="Court, step 5 of 5"><circle cx="40" cy="40" r="33" fill="none" stroke="#E9ECEA" stroke-width="9"/><circle cx="40" cy="40" r="33" fill="none" stroke="#2F9E6E" stroke-width="9" stroke-linecap="round" stroke-dasharray="190 207" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" font-size="15" font-weight="700" fill="#16201B" font-family="Atkinson Hyperlegible, sans-serif">Court</text></svg>
+          <span><span style="font-size: 22px; font-weight: 700">Ms C</span> <span style="display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; background: #EAF0F6; color: #2F4A66; font-weight: 700; font-size: 13px">Northgate</span><br><span style="color: #4F5953">Delayed cauda equina referral</span></span>
+          <span style="display: flex; justify-content: space-between; border-top: 1px solid #EEF1EF; padding-top: 14px; font-size: 15px"><span style="color: #4F5953">For the defendant</span><span style="color: #8A3F06"><span style="font-weight: 700">Due</span> 21 Oct</span></span>
+        </a>
+        <a href="S06-Questions.dc.html" style="background: #FFFFFF; border: 1px solid #DDE3DF; border-radius: 18px; padding: 24px; text-decoration: none; color: #16201B; display: flex; flex-direction: column; gap: 18px">
+          <svg width="80" height="80" viewBox="0 0 80 80" role="img" aria-label="Preparing, step 1 of 5"><circle cx="40" cy="40" r="33" fill="none" stroke="#E9ECEA" stroke-width="9"/><circle cx="40" cy="40" r="33" fill="none" stroke="#2F9E6E" stroke-width="9" stroke-linecap="round" stroke-dasharray="30 207" transform="rotate(-90 40 40)"/><text x="40" y="45" text-anchor="middle" font-size="15" font-weight="700" fill="#16201B" font-family="Atkinson Hyperlegible, sans-serif">Prepare</text></svg>
+          <span><span style="font-size: 22px; font-weight: 700">Mrs D</span><br><span style="color: #4F5953">Repeat prescription not monitored</span></span>
+          <span style="display: flex; justify-content: space-between; border-top: 1px solid #EEF1EF; padding-top: 14px; font-size: 15px"><span style="color: #4F5953">Joint expert</span><span><span style="font-weight: 700">Due</span> 18 Jan</span></span>
+        </a>
+      </div>
+    </section>
+
+    <p style="margin: 0; font-size: 15px; color: #4F5953; text-align: center">This year, across your practice and Northgate: 14 cases for defendants, 9 for claimants, 2 joint.</p>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
