@@ -4,6 +4,7 @@ that agree on the named fields and are issued within the allowed gap. Rule words
 from __future__ import annotations
 
 import uuid
+from dataclasses import replace
 from datetime import date, timedelta
 from typing import Any
 
@@ -94,10 +95,8 @@ def test_facts_of_other_kinds_or_missing_a_field_or_a_date_are_left_out(rig: Rig
     bare = rig.fact(5)
     del bare.fields[rig.same[0]]
     empty = rig.fact(6, **{rig.same[0]: "  "})
-    undated = rig.fact(7)
-    undated.event_date = None
-    other = rig.fact(8)
-    other.kind = "zz_other"
+    undated = replace(rig.fact(7), event_date=None)
+    other = replace(rig.fact(8), kind="zz_other")
     ok = [rig.fact(0), rig.fact(9)]
     got = rig.build(bare, empty, undated, other, *ok)
     assert got.bars[0].fact_ids == [f.fact_id for f in ok]
