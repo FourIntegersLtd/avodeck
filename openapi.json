@@ -8375,6 +8375,11 @@
             "title": "Kind",
             "type": "string"
           },
+          "member_count": {
+            "default": 1,
+            "title": "Member Count",
+            "type": "integer"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -11407,6 +11412,17 @@
             ],
             "title": "Full Name"
           },
+          "greeting_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting Name"
+          },
           "home_region": {
             "anyOf": [
               {
@@ -11433,6 +11449,18 @@
               }
             ],
             "title": "Locale"
+          },
+          "password_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Changed At"
           },
           "timezone": {
             "anyOf": [
