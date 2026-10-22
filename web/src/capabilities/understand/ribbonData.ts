@@ -29,8 +29,13 @@ export function ribbonFromTimeline(body: Timeline): RibbonData {
 
 /** The ribbon for a case, as the record stood on `day` (or as it stands now). */
 export function useRibbonData(caseId: string, day: string) {
-  return useResource(async () => {
-    const body = await unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: (day ? { as_seen_on: day } : {}) as never } }));
-    return ribbonFromTimeline(body);
-  }, [caseId, day]);
+  return useResource(
+    () =>
+      unwrap(
+        api.GET("/v1/cases/{case_id}/timeline/overview", {
+          params: { path: { case_id: caseId }, query: day ? { as_seen_on: day } : {} },
+        }),
+      ),
+    [caseId, day],
+  );
 }
