@@ -1,7 +1,8 @@
 // Prefill "Date on timeline" from the pack date field (e.g. 31.12.93 → 1993-12-31), same century rule as the API.
 import type { Schemas } from "../../foundation/platform-client";
 
-function dateFieldKey(pack: Schemas["CasePack"], kind: string): string | null {
+/** Key of the kind's date field per the pack, or null when the kind has none. */
+export function dateFieldKey(pack: Schemas["CasePack"], kind: string): string | null {
   const entry = pack.fact_kinds.find((k) => k.key === kind);
   if (!entry?.fields || typeof entry.fields !== "object") return null;
   for (const [name, type] of Object.entries(entry.fields as Record<string, string>)) {

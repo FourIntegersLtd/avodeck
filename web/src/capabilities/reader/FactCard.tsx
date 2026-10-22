@@ -27,6 +27,9 @@ export interface FactCardProps {
   onStartEdit: () => void;
   onEditText: (text: string) => void;
   onEditField: (key: string, value: string) => void;
+  /** While changing, for a fact with a date field: the calendar day and its setter. Absent = no calendar. */
+  editEventDate?: string | null;
+  onEditEventDate?: (value: string) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onFlag: () => void;
@@ -163,6 +166,12 @@ export function FactCard(p: FactCardProps) {
               />
             </div>
           ))}
+          {p.editEventDate !== null && p.editEventDate !== undefined && (
+            <div className="rd-edit__row">
+              <label htmlFor={`${id}-ed`} className="rd-label rd-label--small">{w("fact.timeline_date_label")}</label>
+              <input id={`${id}-ed`} className="av-input" type="date" value={p.editEventDate} onChange={(e) => p.onEditEventDate?.(e.target.value)} />
+            </div>
+          )}
           <p className="rd-note">{w("fact.choose_words")}</p>
           {p.typedWords}
           <div className="rd-actions">
