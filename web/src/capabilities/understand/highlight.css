@@ -1,0 +1,8 @@
+/* S11 question highlight: faded for what is not linked, an outline (not colour alone) for what is. */
+[data-faded="on"] { opacity: 0.35; }
+[data-highlight="on"] { outline: 3px solid var(--green); outline-offset: 2px; }
+.av-story-pin[data-highlight="on"] { box-shadow: 0 0 0 4px var(--green-tint), 0 0 0 6px var(--green); }
+.av-question-toggle { display: inline-flex; align-items: center; justify-content: center; min-height: var(--button-min-height, 52px); min-width: 52px; padding: 0 10px; border: 2px solid var(--green); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.av-question-toggle[aria-pressed="true"] { background: var(--green-tint); }
+.av-question-toggle:focus-visible { outline: 3px solid var(--green); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) { [data-faded="on"], [data-highlight="on"] { transition: opacity 0.15s ease, outline-color 0.15s ease; } }
