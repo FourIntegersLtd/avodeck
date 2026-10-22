@@ -22,13 +22,13 @@ describe("useRibbonData", () => {
     const seen = serveOverview();
     const { result } = renderHook(() => useRibbonData(CASE_A, ""));
     await waitFor(() => expect(result.current.data).toEqual(overview()));
-    expect(seen[0].searchParams.has("as_seen_on")).toBe(false);
+    expect(seen[0]!.searchParams.has("as_seen_on")).toBe(false);
   });
 
   test("passes the day when one is chosen", async () => {
     const seen = serveOverview();
     renderHook(() => useRibbonData(CASE_A, "2024-03-01"));
     await waitFor(() => expect(seen.length).toBeGreaterThan(0));
-    expect(seen[0].searchParams.get("as_seen_on")).toBe("2024-03-01");
+    expect(seen[0]!.searchParams.get("as_seen_on")).toBe("2024-03-01");
   });
 });

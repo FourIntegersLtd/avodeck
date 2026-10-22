@@ -67,8 +67,8 @@ async def test_the_lane_colour_is_its_commonest_source_with_a_colour(client_for:
     coloured = [s for s in case.pack.source_types() if s.get("colour")]
     assert coloured
     for _ in range(2):
-        fact = case.fact(kind, date(2024, 1, 10))
-        case.admin.execute("update app.facts set source = %s where id = %s", (coloured[0]["key"], fact))
+        case.fact(kind, date(2024, 1, 10))
+    case.admin.execute("update app.pages set source_type = %s where id = %s", (coloured[0]["key"], case.page(1)))
     body = await _overview(client_for, case)
     lane = next(lane for lane in body["lanes"] if lane["key"] == lane_key)
     assert lane["colour"] == coloured[0]["colour"]
