@@ -19,10 +19,10 @@ from app.core.auth.org_access import OrgAccess
 from app.core.auth.session import Session
 from app.core.auth.step_up import check_step_up
 from app.core.contracts.org_policy import parse
-from app.core.email import Mailer, invite_mail
+from app.core.email import Mailer, case_reassigned_mail, invite_mail
 from app.core.errors import CONFLICT_SQLSTATE, ApiError, conflict
 from app.core.http import stale
-from app.core.notifications import send_mail
+from app.core.notifications import notify, send_mail
 from app.features.organisations import repo
 from app.features.organisations.schemas import (
     BillingProfile,
@@ -30,6 +30,7 @@ from app.features.organisations.schemas import (
     Invite,
     InviteAccepted,
     Member,
+    NamedExpert,
     Organisation,
     Policy,
     PolicyUpdate,
@@ -231,6 +232,52 @@ async def save_billing_profile(
         conn, action="billing_profile.changed", target=f"billing_profile:{profile_id}", organisation_id=access.org_id
     )
     return await billing_profile(conn, access)
+
+
+EXPERT_ROLES = frozenset({"owner", "admin", "expert"})
+REASSIGNED = "case.reassigned"
+
+
+def served_use_replacement(case_id: uuid.UUID) -> ApiError:
+    return ApiError(
+        "served_use_replacement",
+        "This case has been served, so its expert cannot change. Create a replacement case instead.",
+        409,
+        replacement={"method": "POST", "path": f"/v1/cases/{case_id}/replacement"},
+    )
+
+
+async def _tell(conn: AsyncConnection, mailer: Mailer, person: uuid.UUID, org: uuid.UUID, case_id: uuid.UUID) -> None:
+    """In-app message for a current member; someone who has left gets the email alone."""
+    try:
+        await notify(conn, mailer, person_id=person, organisation_id=org, kind=REASSIGNED, case_id=case_id)
+    except psycopg.Error:
+        pass  # not a current member of the organisation any more: notify() refused inside its savepoint
+
+
+async def reassign(conn: AsyncConnection, mailer: Mailer, case_id: uuid.UUID, person_id: uuid.UUID) -> NamedExpert:
+    case = await repo.case_row(conn, case_id)
+    if case is None:  # pragma: no cover - the access check found it
+        raise not_found()
+    if case["served"]:
+        raise served_use_replacement(case_id)
+    outgoing: uuid.UUID = case["named_expert_id"]
+    if person_id == outgoing:
+        raise conflict()
+    org: uuid.UUID = case["organisation_id"]
+    people = await repo.members(conn, org)
+    current = {m["person_id"]: m for m in people if m["ended_at"] is None}
+    target = current.get(person_id)
+    if target is None or target["role"] not in EXPERT_ROLES:
+        raise ApiError("invalid", "Some details are not valid.", 422, fields=["person_id"])
+    await repo.set_named_expert(conn, case_id, person_id)
+    await audit.record(conn, action="case.named_expert_changed", target=f"case:{case_id}", case_id=case_id)
+    await _tell(conn, mailer, outgoing, org, case_id)
+    emails = {m["person_id"]: m["email"] for m in people}
+    for person, side in ((outgoing, "outgoing"), (person_id, "incoming")):
+        if emails.get(person):
+            await send_mail(mailer, case_reassigned_mail(emails[person], case_id=case_id, side=side))
+    return NamedExpert(case_id=case_id, named_expert_id=person_id)
 
 
 async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> Organisation:

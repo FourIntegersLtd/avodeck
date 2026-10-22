@@ -92,6 +92,19 @@ async def change_billing_profile(conn: AsyncConnection, profile_id: uuid.UUID, v
     )
 
 
+async def case_row(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any] | None:
+    return await row(
+        conn,
+        "select id, organisation_id, named_expert_id, status, app.case_ever_served(id) as served"
+        " from app.cases where id = %s",
+        (case_id,),
+    )
+
+
+async def set_named_expert(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> None:
+    await conn.execute("update app.cases set named_expert_id = %s where id = %s", (person_id, case_id))
+
+
 async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[dict[str, Any]]:
     return await rows(conn, "select * from app.organisation_members(%s)", (org_id,))
 

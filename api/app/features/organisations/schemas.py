@@ -69,6 +69,15 @@ class RoleChange(Strict):
     role: OrgRole
 
 
+class NamedExpertChange(Strict):
+    person_id: uuid.UUID
+
+
+class NamedExpert(BaseModel):
+    case_id: uuid.UUID
+    named_expert_id: uuid.UUID
+
+
 Money = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
 
 
