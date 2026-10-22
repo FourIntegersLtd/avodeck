@@ -2510,6 +2510,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/repair-fact-dates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Repair Fact Dates Route
+         * @description Fills missing fact dates from printed words on each page, without guessing from free text.
+         */
+        post: operations["repair_fact_dates_route_v1_cases__case_id__repair_fact_dates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/report": {
         parameters: {
             query?: never;
@@ -9837,6 +9857,8 @@ export interface components {
             things_to_look: number;
             /** Total */
             total: number;
+            /** Undated */
+            undated: number;
         };
         /** TimelineSource */
         TimelineSource: {
@@ -17287,6 +17309,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CloseSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    repair_fact_dates_route_v1_cases__case_id__repair_fact_dates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobQueued"];
                 };
             };
             /** @description Validation Error */

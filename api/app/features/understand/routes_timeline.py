@@ -62,6 +62,7 @@ class TimelineCounts(BaseModel):
     please_check: int
     things_to_look: int
     not_linked: int
+    undated: int
     total: int
 
 
@@ -141,6 +142,7 @@ async def timeline(
         please_check=sum(1 for f in facts if f.status not in repo.CHECKED),
         things_to_look=sum(1 for f in facts if f.fact_id in flagged),
         not_linked=sum(1 for f in facts if not links.get(f.fact_id)),
+        undated=sum(1 for f in facts if f.event_date is None),
         total=len(facts),
     )
     icon_of = {str(lane["key"]): lane.get("icon") for lane in lanes}

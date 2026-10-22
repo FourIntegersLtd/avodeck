@@ -26,6 +26,12 @@ export interface Stub {
   timelineSentAt: () => number;
 }
 
+/** Segmented view control: the real radio is visually hidden, so click its label. */
+export async function showTimelineMap(page: Page) {
+  await page.locator("label.av-segmented__option", { hasText: "Overview map" }).click();
+  await expect(page.getByTestId("timeline-board")).toBeVisible();
+}
+
 export async function stubUnderstand(page: Page, run: Run, opts: { events?: number } = {}): Promise<Stub> {
   let sentAt = 0;
   const total = opts.events ?? 6;
@@ -61,7 +67,7 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     if (path === `${c}/questions`) return json(route, { questions: [{ id: "a1111111-1111-4111-8111-111111111111", number: 1, text_verbatim: "Q", confirmed_text: null, kind: "x", outside_expertise: false, para_ref: null, status: "confirmed", version: 1, source_word_ids: [], instruction_version_id: "b1111111-1111-4111-8111-111111111111" }], assumptions: [], locked: false, reading: false, reopened: false, rejected: 0, warnings: [], version_no: 1, instruction_version_id: "b1111111-1111-4111-8111-111111111111" });
     if (path === `${c}/timeline`) {
       sentAt = Date.now();
-      return json(route, { as_seen_on: null, as_seen_title: null, range: { first: "2024-03-11", last: "2024-08-18" }, sources: [{ key: "src_a", label: "Source A", colour: "#1E6B4E" }], counts: { checked: 3, please_check: 3, things_to_look: 1, not_linked: 4, total: 6 }, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
+      return json(route, { as_seen_on: null, as_seen_title: null, range: { first: "2024-03-11", last: "2024-08-18" }, sources: [{ key: "src_a", label: "Source A", colour: "#1E6B4E" }], counts: { checked: 3, please_check: 3, things_to_look: 1, not_linked: 4, undated: 1, total: 6 }, lanes, unplaced: [event(7000, { event_date: null, kind: "letter" })] });
     }
     if (path === `${c}/consultations/${FACT_1}`) {
       return json(route, {

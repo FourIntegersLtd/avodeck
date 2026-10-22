@@ -6,6 +6,9 @@ web/dist/
 .env
 .env.*
 !.env.example
+api/.env
+api/.env.*
+!api/.env.example
 .coverage
 coverage/
 playwright-report/
@@ -19,3 +22,5 @@ evals/**/_tmp/
 .vercel
 # Local authenticator keys kept by the dev server (web/devMfa.ts)
 web/.dev-mfa.json
+UKIPO copy/**
+UKIPO-submission/**

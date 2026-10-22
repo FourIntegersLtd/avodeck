@@ -1,6 +1,7 @@
 // What the S11, S12 and S13 boards show that the server now sends: lane icon and subtitle, the "Question N only"
 // chip, the author line, the pack's card titles, the entry highlighted and later entries blurred on the page, and
 // finding titles and icons from the pack with decided findings folded into one-line rows.
+import type { UserEvent } from "@testing-library/user-event";
 import { screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
@@ -8,6 +9,10 @@ import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { forgetPages } from "./pageImage";
 import { consultation, event, FACT_1, FACT_2, FACT_3, finding, inCase, launchWords, Q_2, timeline } from "./testing";
+
+async function openOverviewMap(user: UserEvent) {
+  await user.click(await screen.findByRole("radio", { name: "Overview map" }));
+}
 
 function serveTimeline(body = timeline()) {
   const seen: URL[] = [];
@@ -31,7 +36,8 @@ describe("S11 lanes", () => {
         ],
       }),
     );
-    renderAt(`/cases/${CASE_A}/timeline`);
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await openOverviewMap(user);
     const first = await screen.findByRole("region", { name: "Lane one words" });
     expect(within(first).getByText("2 zz tests")).toBeInTheDocument();
     expect(within(first).queryByText("2 entries")).not.toBeInTheDocument();
@@ -44,7 +50,8 @@ describe("S11 lanes", () => {
   test("an icon name this screen has no drawing for falls back to the first letter", async () => {
     inCase("fixture");
     serveTimeline(timeline({ lanes: [{ key: "lane_one", label: "Zed words", events: [event()], icon: "no_such_drawing", subtitle: "1 zz" }] }));
-    renderAt(`/cases/${CASE_A}/timeline`);
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await openOverviewMap(user);
     const lane = await screen.findByRole("region", { name: "Zed words" });
     expect(within(lane).getByTestId("lane-icon")).toHaveTextContent("Z");
   });
@@ -53,7 +60,7 @@ describe("S11 lanes", () => {
     inCase("launch");
     const seen = serveTimeline();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    await screen.findByRole("region", { name: "Lane one words" });
+    await screen.findByTestId("timeline-chronology");
     expect(screen.queryByText("Question 2 only")).not.toBeInTheDocument();
     await user.click(screen.getByText("Change the dates or question"));
     await user.selectOptions(await screen.findByLabelText("Linked to"), Q_2);
@@ -99,7 +106,7 @@ describe("S12 card titles, author line and the page", () => {
     inCase("fixture");
     serve();
     open();
-    expect(await screen.findByRole("region", { name: "In the record that day" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "What was in the record that day" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Not known when this arrived" })).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(launchWords());
   });
@@ -115,7 +122,7 @@ describe("S12 card titles, author line and the page", () => {
       ],
     });
     const { container } = open();
-    const page = await screen.findByRole("region", { name: "The page" });
+    const page = await screen.findByRole("region", { name: "This visit's page" });
     await within(page).findByRole("img");
     const mark = within(page).getByTestId("page-mark-entry");
     expect(mark).toHaveStyle({ left: "10%", top: "40%", width: "80%", height: "10%" });
@@ -130,7 +137,7 @@ describe("S12 card titles, author line and the page", () => {
     inCase("launch");
     serve();
     open();
-    const page = await screen.findByRole("region", { name: "The page" });
+    const page = await screen.findByRole("region", { name: "This visit's page" });
     await within(page).findByRole("img");
     expect(within(page).queryByTestId("page-mark-entry")).not.toBeInTheDocument();
     expect(within(page).queryByTestId("page-mark-later")).not.toBeInTheDocument();

@@ -207,11 +207,13 @@ async def change_fact(
     bbox: Any,
     fields: dict[str, Any],
     event_date: Any,
+    date_basis: str | None = None,
 ) -> dict[str, Any] | None:
     """Apply a check if the fact is still at `version` (the database bumps it); None when it moved on."""
+    basis_sql = ", date_basis = %(date_basis)s" if date_basis is not None else ""
     cur = await conn.execute(
         f"""update app.facts f set status = %(status)s, value = %(value)s, word_ids = %(word_ids)s,
-                page_id = %(page)s, bbox = %(bbox)s, fields = %(fields)s, event_date = %(event_date)s
+                page_id = %(page)s, bbox = %(bbox)s, fields = %(fields)s, event_date = %(event_date)s{basis_sql}
             where f.id = %(fact)s and f.version = %(version)s returning {_FACT_COLUMNS}""",  # noqa: S608
         {
             "status": status,
@@ -221,6 +223,7 @@ async def change_fact(
             "bbox": Jsonb(bbox) if bbox is not None else None,
             "fields": Jsonb(fields),
             "event_date": event_date,
+            "date_basis": date_basis,
             "fact": fact_id,
             "version": version,
             **_FLAGS,

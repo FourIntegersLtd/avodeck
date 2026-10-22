@@ -31,6 +31,19 @@ const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "sho
 
 export const pageLabel = (page: number) => w("common.page", { page });
 
+type DatedEvent = { fact_id: string; page_no: number; event_date?: string | null; available_at?: string | null };
+
+/** Date used to place a dot on the timeline (event day, else when the record became available). */
+export function axisIso(e: DatedEvent): string | null {
+  return e.event_date ?? e.available_at ?? null;
+}
+
+/** Consultation needs a visit day; undated entries open Read on the cited page. */
+export function entryHref(caseId: string, event: DatedEvent): string {
+  if (axisIso(event)) return `/cases/${caseId}/consultation/${event.fact_id}`;
+  return `/cases/${caseId}/read/${event.page_no}?fact=${event.fact_id}`;
+}
+
 export function TextArea({ label, hint, ...box }: { label: string; hint?: string } & Omit<TextareaHTMLAttributes<HTMLTextAreaElement>, "id">) {
   const id = useId();
   return (

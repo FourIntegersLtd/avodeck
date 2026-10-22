@@ -13,7 +13,7 @@ install:        ## Poetry env for api/ (and pnpm for web/ once it exists)
 	$(MAKE) -C api install
 	@$(call in_web,pnpm install --frozen-lockfile)
 
-dev:            ## local Supabase, API, worker, web app (:5173) and landing page (:3000)
+dev:            ## local Supabase, API, worker, web app (:5173) and landing page (:3000); secrets in api/.env
 	supabase start
 	$(MAKE) site & \
 	$(MAKE) -C api start & \

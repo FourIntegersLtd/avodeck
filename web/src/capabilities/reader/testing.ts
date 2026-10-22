@@ -96,7 +96,14 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       if (api.verifyStatus) return apiError(api.verifyStatus, api.verifyCode ?? "stale");
       const current = api.facts.find((f) => f.id === params.id)!;
       const status = body.action === "correct" ? "verified" : body.action === "not_right" ? "rejected" : "edited";
-      const next = { ...current, status: body.action === "correct" && current.needs_recheck ? current.status : status, needs_recheck: false, version: current.version + 1, value: body.action === "edit" ? String(body.new_value) : current.value };
+      const next = {
+        ...current,
+        status: body.action === "correct" && current.needs_recheck ? current.status : status,
+        needs_recheck: false,
+        version: current.version + 1,
+        value: body.action === "edit" && body.new_value != null ? String(body.new_value) : current.value,
+        fields: body.action === "edit" && body.fields != null ? { ...current.fields, ...(body.fields as Record<string, unknown>) } : current.fields,
+      };
       api.facts = api.facts.map((f) => (f.id === next.id ? next : f));
       return json(next, 200);
     }),

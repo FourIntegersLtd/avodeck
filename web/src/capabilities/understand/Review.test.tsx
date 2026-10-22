@@ -70,9 +70,9 @@ test("someone who may not add notes or change arrivals sees neither on a consult
   inCase("launch", ASSISTANT_ACTIONS);
   server.use(http.get("/v1/cases/:caseId/consultations/:factId", () => json(consultation())));
   renderAt(`/cases/${CASE_A}/consultation/${FACT_1}`);
-  await screen.findByRole("heading", { level: 2, name: "In the record that day" });
+  await screen.findByRole("heading", { level: 2, name: "What was in the record that day" });
   expect(screen.queryByRole("button", { name: "Save note" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Change when this arrived" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Set arrival" })).not.toBeInTheDocument();
 });
 
 // --- decided findings no longer found and each check's days -----------------------------------------------

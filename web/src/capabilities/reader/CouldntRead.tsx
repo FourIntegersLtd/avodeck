@@ -7,7 +7,7 @@ import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, ChoicePills, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
 import { casePath, count, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
-import { forgetPage } from "./pageImage";
+import { forgetPage } from "./pageImageCache";
 import { uploadLaterRecords } from "./upload";
 import { w } from "./words";
 
@@ -81,28 +81,8 @@ export function CouldntRead() {
     }
   }
 
-  async function askForClearerCopy() {
-    if (!current || busy) return;
-    setBusy(true);
-    setNotice(null);
-    try {
-      await unwrap(
-        api.PATCH("/v1/cases/{case_id}/pages/{page_no}", {
-          params: { path: { case_id: caseId, page_no: current.page_no } },
-          body: { needs_clearer_copy: true },
-        }),
-      );
-      setQueue((q) => q && { ...q, pages: q.pages.map((p) => (p.page_no === current.page_no ? { ...p, needs_clearer_copy: true } : p)) });
-      setNotice({ tone: "success", text: w("unreadable.clearer_asked") });
-    } catch (error) {
-      setNotice({ tone: "error", text: errorMessage(error) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
   // Runs one action on this page, then moves to the next page still to do.
-  async function settle(run: () => Promise<void>, failure: string) {
+  async function settle(run: () => Promise<void>, failure: string, success?: string) {
     if (!current || busy) return;
     setBusy(true);
     setNotice(null);
@@ -112,12 +92,27 @@ export function CouldntRead() {
       setQueue(fresh);
       const at = fresh.pages.findIndex((p) => p.page_no === current.page_no);
       choose(fresh.pages.slice(at + 1).find((p) => !p.done) ?? fresh.pages.find((p) => !p.done));
+      if (success) setNotice({ tone: "success", text: success });
     } catch (error) {
       setNotice({ tone: "error", text: failure || errorMessage(error) });
     } finally {
       setBusy(false);
     }
   }
+
+  const askForClearerCopy = () =>
+    settle(
+      async () => {
+        await unwrap(
+          api.PATCH("/v1/cases/{case_id}/pages/{page_no}", {
+            params: { path: { case_id: caseId, page_no: current!.page_no } },
+            body: { needs_clearer_copy: true },
+          }),
+        );
+      },
+      w("unreadable.error.generic"),
+      w("unreadable.clearer_asked"),
+    );
 
   const nothingRelevant = () =>
     settle(async () => {

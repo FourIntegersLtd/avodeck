@@ -162,11 +162,11 @@ def test_the_latest_override_wins_including_unknown() -> None:
 
 
 def test_as_seen_on_the_day_hides_what_came_later_and_lists_the_unknown() -> None:
-    consult = SeenItem(_id(), date(2024, 5, 15), "verified")
-    blood = SeenItem(_id(), date(2024, 5, 14), "verified")
-    letter = SeenItem(_id(), date(2024, 5, 22), "verified")
-    unknown = SeenItem(_id(), None, "suggested")
-    rejected = SeenItem(_id(), date(2024, 5, 1), "rejected")
+    consult = SeenItem(_id(), date(2024, 5, 15), "verified", date(2024, 5, 15))
+    blood = SeenItem(_id(), date(2024, 5, 14), "verified", date(2024, 5, 14))
+    letter = SeenItem(_id(), date(2024, 5, 22), "verified", date(2024, 5, 10))
+    unknown = SeenItem(_id(), None, "suggested", date(2024, 5, 1))
+    rejected = SeenItem(_id(), date(2024, 5, 1), "rejected", date(2024, 5, 1))
     view = as_seen(date(2024, 5, 15), [consult, blood, letter, unknown, rejected], exclude=consult.fact_id)
     assert view.visible == [blood]
     assert view.later == [letter]
@@ -174,5 +174,15 @@ def test_as_seen_on_the_day_hides_what_came_later_and_lists_the_unknown() -> Non
 
 
 def test_something_available_on_the_day_itself_is_visible() -> None:
-    same_day = SeenItem(_id(), date(2024, 5, 15), "edited")
+    same_day = SeenItem(_id(), date(2024, 5, 15), "edited", date(2024, 5, 15))
     assert as_seen(date(2024, 5, 15), [same_day], exclude=None).visible == [same_day]
+
+
+def test_as_seen_omits_unknown_arrival_when_the_event_is_after_the_visit_day() -> None:
+    on_day = date(2024, 5, 15)
+    before = SeenItem(_id(), None, "verified", date(2024, 5, 1))
+    undated = SeenItem(_id(), None, "suggested", None)
+    after = SeenItem(_id(), None, "verified", date(2024, 6, 1))
+    view = as_seen(on_day, [before, undated, after], exclude=None)
+    assert view.unknown == [before, undated]
+    assert after.fact_id not in {i.fact_id for i in view.visible + view.later + view.unknown}

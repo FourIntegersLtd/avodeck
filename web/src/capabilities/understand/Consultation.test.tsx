@@ -7,7 +7,7 @@ import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { forgetPages } from "./pageImage";
-import { comment, consultation, FACT_1, FACT_3, inCase, launchWords, type PackRun } from "./testing";
+import { comment, consultation, entry, FACT_1, FACT_2, FACT_3, inCase, launchWords, type PackRun } from "./testing";
 
 function serve(body = consultation()) {
   const calls: Array<{ method: string; url: URL; body: unknown }> = [];
@@ -41,6 +41,18 @@ function serve(body = consultation()) {
 }
 const open = () => renderAt(`/cases/${CASE_A}/consultation/${FACT_1}`);
 
+test("an undated entry shows a notice and a link to Read on the page", async () => {
+  inCase("launch");
+  server.use(
+    http.get("/v1/cases/:caseId/consultations/:factId", () =>
+      HttpResponse.json({ error: { code: "undated_entry", message: "This entry has no visit date yet.", page_no: 8 } }, { status: 422 }),
+    ),
+  );
+  renderAt(`/cases/${CASE_A}/consultation/${FACT_1}`);
+  expect(await screen.findByText(/needs a date on the timeline/)).toBeVisible();
+  expect(screen.getByRole("link", { name: "Open in Read" })).toHaveAttribute("href", `/cases/${CASE_A}/read/8?fact=${FACT_1}`);
+});
+
 describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
   test("is titled with the pack's words for the day, asks for the day as seen, and passes axe", async () => {
     inCase(run);
@@ -59,7 +71,7 @@ test("shows what was in the record, folds what came later with its count, and li
   inCase("launch");
   serve();
   const { user } = open();
-  const seen = await screen.findByRole("region", { name: "In the record that day" });
+  const seen = await screen.findByRole("region", { name: "What was in the record that day" });
   expect(within(seen).getByText("p.117")).toBeInTheDocument();
   const later = screen.getByText("Show what came later (1)").closest("details")!;
   expect(later).not.toHaveAttribute("open");
@@ -97,9 +109,8 @@ test("changing when something arrived needs a reason", async () => {
   inCase("launch");
   const calls = serve();
   const { user } = open();
-  await user.click(await screen.findByText("Show what came later (1)"));
-  const later = screen.getByText("Show what came later (1)").closest("details")!;
-  await user.click(within(later).getByRole("button", { name: "Change when this arrived" }));
+  const unknown = await screen.findByRole("region", { name: "Not known when this arrived" });
+  await user.click(within(unknown).getByRole("button", { name: "Set arrival" }));
   const dialog = await screen.findByRole("dialog", { name: "When did this arrive?" });
   const save = within(dialog).getByRole("button", { name: "Save" });
   await user.type(within(dialog).getByLabelText("Date it arrived"), "2024-05-11");
@@ -107,7 +118,7 @@ test("changing when something arrived needs a reason", async () => {
   await user.type(within(dialog).getByLabelText("Why are you changing it?"), "Stamped by the surgery on the 11th");
   await user.click(save);
   await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ available_at: "2024-05-11", unknown: false, reason: "Stamped by the surgery on the 11th" }));
-  expect((calls.find((c) => c.method === "PATCH")!.url.pathname)).toContain(FACT_3);
+  expect((calls.find((c) => c.method === "PATCH")!.url.pathname)).toContain("f4444444");
 });
 
 test("you can say it is not known when something arrived, with a reason", async () => {
@@ -115,7 +126,7 @@ test("you can say it is not known when something arrived, with a reason", async 
   const calls = serve();
   const { user } = open();
   const unknown = await screen.findByRole("region", { name: "Not known when this arrived" });
-  await user.click(within(unknown).getByRole("button", { name: "Change when this arrived" }));
+  await user.click(within(unknown).getByRole("button", { name: "Set arrival" }));
   const dialog = await screen.findByRole("dialog", { name: "When did this arrive?" });
   await user.click(within(dialog).getByLabelText("It is not known when it arrived"));
   await user.type(within(dialog).getByLabelText("Why are you changing it?"), "No stamp on the page");
@@ -145,7 +156,7 @@ describe("as the design shows it", () => {
     const bears = screen.getByLabelText("Linked to");
     expect(within(bears).getByText("Q2")).toBeInTheDocument();
     expect(within(bears).getByText("Q3")).toBeInTheDocument();
-    const seen = screen.getByRole("region", { name: "In the record that day" });
+    const seen = screen.getByRole("region", { name: "What was in the record that day" });
     expect(within(seen).getAllByText("Hb 98, ferritin 9").length).toBeGreaterThan(0);
   });
 
@@ -153,7 +164,7 @@ describe("as the design shows it", () => {
     inCase("launch");
     serve(consultation({ visible: [{ ...consultation().visible[0]!, has_finding: true }] }));
     open();
-    const seen = await screen.findByRole("region", { name: "In the record that day" });
+    const seen = await screen.findByRole("region", { name: "What was in the record that day" });
     expect(within(seen).getByText("Thing to look at")).toBeInTheDocument();
   });
 
@@ -186,8 +197,8 @@ describe("as the design shows it", () => {
     inCase("launch");
     serve();
     open();
-    const page = await screen.findByRole("region", { name: "The page" });
-    const seen = screen.getByRole("region", { name: "In the record that day" });
+    const page = await screen.findByRole("region", { name: "This visit's page" });
+    const seen = screen.getByRole("region", { name: "What was in the record that day" });
     expect(page.compareDocumentPosition(seen) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to the timeline" })).toHaveAttribute("href", `/cases/${CASE_A}/timeline`);
   });
@@ -200,12 +211,52 @@ describe("the page and the later notes", () => {
       inCase("launch");
       serve();
       open();
-      const panel = await screen.findByRole("region", { name: "The page" });
+      const panel = await screen.findByRole("region", { name: "This visit's page" });
       await waitFor(() => expect(within(panel).getByRole("img", { name: "Page 118 of the record" })).toHaveAttribute("src", "blob:page-118"));
     } finally {
       forgetPages();
       vi.unstubAllGlobals();
     }
+  });
+
+  test("explains that the picture is only this visit's page and groups other bundle pages", async () => {
+    inCase("launch");
+    serve(
+      consultation({
+        visible: [
+          entry({ fact_id: FACT_2, page_no: 118, summary: "On visit page" }),
+          entry({ fact_id: "f5555555-5555-4555-8555-555555555555", page_no: 117 }),
+          entry({ fact_id: "f6666666-6666-4666-8666-666666666666", page_no: 214 }),
+          entry({ fact_id: "f7777777-7777-4777-8777-777777777777", page_no: 215 }),
+        ],
+      }),
+    );
+    open();
+    const panel = await screen.findByRole("region", { name: "This visit's page" });
+    expect(within(panel).getByText(/other pages in the bundle/i)).toBeInTheDocument();
+    const seen = screen.getByRole("region", { name: "What was in the record that day" });
+    expect(within(seen).getByRole("heading", { name: "On this page" })).toBeInTheDocument();
+    expect(within(seen).getByText("From other pages (3)")).toBeInTheDocument();
+  });
+
+  test("folds a long unknown list closed by default", async () => {
+    inCase("launch");
+    const unknown = Array.from({ length: 4 }, (_, i) =>
+      entry({
+        fact_id: `f9000000-0000-4000-8000-00000000000${i}`,
+        page_no: 150 + i,
+        event_date: `2024-05-0${i + 1}`,
+        available_at: null,
+      }),
+    );
+    serve(consultation({ unknown }));
+    const { user } = open();
+    const region = await screen.findByRole("region", { name: "Not known when this arrived" });
+    const fold = within(region).getByText("4 entries — arrival not known for this visit").closest("details")!;
+    expect(fold).not.toHaveAttribute("open");
+    await user.click(within(fold).getByText("4 entries — arrival not known for this visit"));
+    expect(fold).toHaveAttribute("open");
+    expect(within(fold).getByText("p.150")).toBeInTheDocument();
   });
 
   test("lists later entries of the same kind without their words, and says if you have a note on one", async () => {

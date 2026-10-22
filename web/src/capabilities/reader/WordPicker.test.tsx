@@ -3,7 +3,7 @@
 // chosen again, so Save waits for a choice. Runs under both pack sets.
 import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImage";
+import { forgetPages } from "./pageImageCache";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
@@ -91,6 +91,7 @@ describe.each([
     const { user } = renderAt(PATH);
     const c = await screen.findByRole("article", { name: /Dr P consultation/ });
     await user.click(within(c).getByRole("button", { name: "Change a detail" }));
+    await user.type(within(c).getByLabelText("The right words"), " extra");
     await user.click(within(c).getByRole("button", { name: "Save change" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Choose the words on the page that show this.");
   });

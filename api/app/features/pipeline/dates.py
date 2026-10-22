@@ -23,6 +23,7 @@ import dateparser
 from app.core.packs import MergedPack
 
 PRINTED = "printed"
+PRINTED_CENTURY = "printed_century"
 PLEASE_CHECK = "please_check"
 _SWAPPED = {"DMY": "MDY", "MDY": "DMY"}  # the other reading of a day-and-month date
 _NUMERIC = re.compile(r"^\W*\d{1,2}[/.\-]\d{1,2}[/.\-](\d{2}|\d{4})\W*$")
@@ -135,3 +136,30 @@ def date_field(pack: MergedPack, kind: str) -> str | None:
         if entry["key"] == kind:
             return next((name for name, t in entry.get("fields", {}).items() if t == "date"), None)
     return None
+
+
+def pick_past_century(day: int, month: int, yy: int, anchor: dt.date) -> dt.date | None:
+    """The latest calendar day on or before `anchor` for a two-digit year (19xx and 20xx)."""
+    options: list[dt.date] = []
+    for base in (1900, 2000):
+        try:
+            got = dt.date(base + yy, month, day)
+        except ValueError:
+            continue
+        if got <= anchor:
+            options.append(got)
+    return max(options) if options else None
+
+
+def century_from_ambiguous_text(text: str, pack: MergedPack, anchor: dt.date | None = None) -> dt.date | None:
+    """Turn a printed numeric date with a two-digit year into one calendar day (anchor defaults to today)."""
+    anchor = anchor or dt.date.today()
+    found = find([("0", text.strip())], pack)
+    if len(found) != 1 or not found[0].ambiguous:
+        return None
+    match = _NUMERIC.match(text.strip())
+    if match is None or len(match.group(1)) != 2:
+        return None
+    yy = int(match.group(1))
+    part = found[0].value
+    return pick_past_century(part.day, part.month, yy, anchor)

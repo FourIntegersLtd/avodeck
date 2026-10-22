@@ -14,6 +14,7 @@ export interface FactCardProps {
   focused: boolean;
   busy: boolean;
   editing: string | null;
+  editingFields: Record<string, string> | null;
   /** While changing: whether Save may go (a "Please check" fact needs words chosen first). */
   canSave?: boolean;
   /** While changing: toggles for typed words that have no place on the picture. */
@@ -25,28 +26,37 @@ export interface FactCardProps {
   onNotRight: () => void;
   onStartEdit: () => void;
   onEditText: (text: string) => void;
+  onEditField: (key: string, value: string) => void;
   onSaveEdit: () => void;
   onCancelEdit: () => void;
   onFlag: () => void;
+  timelineDraft?: string | null;
+  onStartTimelineDate?: () => void;
+  onTimelineDateChange?: (value: string) => void;
+  onSaveTimelineDate?: () => void;
+  onCancelTimelineDate?: () => void;
 }
 
 /** What the server's state machine lets the expert do with this fact (docs/spec/state-machines.md "Fact").
  * A checked fact flagged "Please check" may be confirmed again, or changed to cite words chosen again. */
-export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight: boolean; edit: boolean } {
+export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight: boolean; edit: boolean; timelineDate: boolean } {
   const checked = fact.status === "verified" || fact.status === "edited";
   return {
     correct: fact.status === "suggested" || fact.status === "rejected" || (checked && fact.needs_recheck === true),
     notRight: fact.status === "suggested" || checked,
     edit: fact.status === "suggested" || (checked && fact.needs_recheck === true),
+    timelineDate: checked && !fact.event_date,
   };
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
 
-/** The fact's own details as label and value rows. A date is left out: the title already carries it. */
-function detailRows(fact: Schemas["FactOut"]): Array<[string, string]> {
-  return Object.entries(fact.fields ?? {}).flatMap(([key, value]): Array<[string, string]> =>
-    (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value)) ? [[humanise(key), String(value)]] : [],
+/** Editable detail rows: pack key, label, display value. Dates in fields are omitted (title carries the date). */
+export function editableFields(fact: Schemas["FactOut"]): Array<{ key: string; label: string; value: string }> {
+  return Object.entries(fact.fields ?? {}).flatMap(([key, value]) =>
+    (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value))
+      ? [{ key, label: humanise(key), value: String(value) }]
+      : [],
   );
 }
 
@@ -74,9 +84,9 @@ export function FactCard(p: FactCardProps) {
       <h3 id={`${id}-t`} className="rd-value">
         {fact.value}
       </h3>
-      {detailRows(fact).length > 0 && (
+      {editableFields(fact).length > 0 && p.editing === null && (
         <dl className="rd-rows">
-          {detailRows(fact).map(([label, value]) => (
+          {editableFields(fact).map(({ label, value }) => (
             <div key={label}>
               <dt>{label}</dt>
               <dd>{value}</dd>
@@ -112,7 +122,22 @@ export function FactCard(p: FactCardProps) {
             {w("fact.undo")}
           </Button>
         </div>
-      ) : p.editing !== null ? (
+      ) : p.timelineDraft !== null && p.timelineDraft !== undefined ? (
+        <div className="rd-edit">
+          <label htmlFor={`${id}-td`} className="rd-label">
+            {w("fact.timeline_date_label")}
+          </label>
+          <input id={`${id}-td`} className="av-input" type="date" autoFocus value={p.timelineDraft} onChange={(e) => p.onTimelineDateChange?.(e.target.value)} />
+          <div className="rd-actions">
+            <Button disabled={p.busy || !p.timelineDraft} onClick={p.onSaveTimelineDate}>
+              {w("fact.save_change")}
+            </Button>
+            <Button variant="secondary" onClick={p.onCancelTimelineDate}>
+              {w("fact.cancel")}
+            </Button>
+          </div>
+        </div>
+      ) : p.editing !== null && p.editingFields !== null ? (
         <div className="rd-edit">
           <label htmlFor={`${id}-e`} className="rd-label">
             {w("fact.right_words")}
@@ -125,13 +150,23 @@ export function FactCard(p: FactCardProps) {
             onChange={(e) => p.onEditText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") p.onCancelEdit();
-              if (e.key === "Enter") p.onSaveEdit();
             }}
           />
+          {editableFields(fact).map(({ key, label }) => (
+            <div key={key} className="rd-edit__row">
+              <label htmlFor={`${id}-f-${key}`} className="rd-label rd-label--small">{label}</label>
+              <input
+                id={`${id}-f-${key}`}
+                className="av-input"
+                value={p.editingFields?.[key] ?? ""}
+                onChange={(e) => p.onEditField(key, e.target.value)}
+              />
+            </div>
+          ))}
           <p className="rd-note">{w("fact.choose_words")}</p>
           {p.typedWords}
           <div className="rd-actions">
-            <Button disabled={p.busy || !p.editing.trim() || p.canSave === false} onClick={p.onSaveEdit}>
+            <Button disabled={p.busy || p.canSave === false} onClick={p.onSaveEdit}>
               {w("fact.save_change")}
             </Button>
             <Button variant="secondary" onClick={p.onCancelEdit}>
@@ -141,6 +176,7 @@ export function FactCard(p: FactCardProps) {
         </div>
       ) : (
         <>
+          <p className="rd-hint">{w("fact.fix_one_line")}</p>
           <div className="rd-actions">
             {can.correct && (
               <Button disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
@@ -156,6 +192,11 @@ export function FactCard(p: FactCardProps) {
           {can.edit && (
             <Button variant="quiet" disabled={p.busy} onClick={p.onStartEdit} aria-keyshortcuts="3">
               {w("fact.change")}
+            </Button>
+          )}
+          {can.timelineDate && p.onStartTimelineDate && (
+            <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
+              {w("fact.set_timeline_date")}
             </Button>
           )}
           {can.notRight && (
