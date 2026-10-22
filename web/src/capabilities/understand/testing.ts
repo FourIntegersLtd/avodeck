@@ -117,6 +117,22 @@ export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Time
   };
 }
 
+export function overview(over: Partial<Schemas["Overview"]> = {}): Schemas["Overview"] {
+  return {
+    range: { first: "2024-02-19", last: "2024-05-15" },
+    months: ["2024-02", "2024-03", "2024-04", "2024-05"],
+    lanes: [
+      { key: "lane_one", label: "Lane one words", colour: "#2a6f97", counts: [0, 0, 0, 1] },
+      { key: "lane_two", label: "Lane two words", colour: null, counts: [1, 0, 0, 0] },
+    ],
+    pins: [
+      { fact_id: FACT_2, date: "2024-02-19", lane_key: "lane_two", has_finding: true, question_ids: [Q_1, Q_2] },
+      { fact_id: FACT_3, date: "2024-05-15", lane_key: "lane_one", has_finding: false, question_ids: [Q_1] },
+    ],
+    ...over,
+  };
+}
+
 export function entry(over: Partial<Schemas["Entry"]> = {}): Schemas["Entry"] {
   return { fact_id: FACT_2, kind: "result", page_no: 117, event_date: "2024-05-14", available_at: "2024-05-14", status: "verified", summary: "Hb 98, ferritin 9", source: "source_one", has_finding: false, ...over };
 }
