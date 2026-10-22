@@ -15,7 +15,7 @@ What happens when things go wrong, so the code handles each case on purpose. Pri
 | F9 | Prompt injection text in a scanned document ("ignore instructions…") | Output schema plus provenance check (values must be in cited words) | Injected instructions cannot add fields or free text; suspicious pages flagged in metrics | Nothing | A, core |
 | F10 | Identifier stripping misses something | Weekly synthetic canary test; log scanner | Block release if the canary fails | Nothing | Core |
 | F11 | Cost guard tripped (K3) | Running cost per case | Job paused; alert to you | "Taking longer than usual, we're checking it." | Foundation |
-| F12 | Date ambiguous (03/04 with no context) | Date normaliser | Not guessed; marked "Please check" | Badge on the fact | A |
+| F12 | Date ambiguous (03/04 with no context), two-digit year, or no date on the fact itself | Date normaliser | Unclear dates not guessed; marked "Please check" (`please_check`). A two-digit year gets a century by a fixed rule (`printed_century`); a fact with no date of its own takes the nearest date on its line or the line above (`line_above`); both flagged (ADR 0017) | Badge on the fact; mark on the timeline | A; `api/tests/repository/test_pipeline_date_repair.py` (`printed_century`, `line_above`) |
 | F13 | Duplicate wrongly suggested | Expert undo | Undo restores the page | — | A, B |
 | F14 | Expert rejects a fact already cited | State machine guard | Warn and list citing paragraphs | "This fact is used in your opinion on Q2. Change it?" | B, E |
 | F15 | Two tabs edit the same opinion | `If-Match` version check | 412 `stale` with both versions | "You changed this in another window. Which version do you want to keep?" | E |
