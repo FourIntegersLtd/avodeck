@@ -113,11 +113,18 @@ test("the bottom bar gives the page count and one main action with an arrow", as
 });
 
 test.each([
-  ["intermediate_track", "31 pages · intermediate-track, page limit 20"],
-  ["some_other_track", "31 pages · some-other-track, no page limit"],
+  ["intermediate_track", "31 pages · page limit 20"],
+  ["some_other_track", "31 pages · no page limit"],
 ])("the footer names the page limit from the pack for the case's court track (%s)", async (track, line) => {
   serve("launch");
   server.use(http.get("/v1/cases/:caseId", () => json(caseItem("launch", { court_track: track, instructing_party_type: null }), 200)));
   renderAt(url);
   expect(await screen.findByText(line)).toBeInTheDocument();
+});
+
+test("the footer names the court track the server gives, before the page limit", async () => {
+  serve("launch", { report: reportOut("launch", { court_track_label: "multi-track" }) });
+  server.use(http.get("/v1/cases/:caseId", () => json(caseItem("launch", { court_track: "some_other_track", instructing_party_type: null }), 200)));
+  renderAt(url);
+  expect(await screen.findByText("31 pages · multi-track, no page limit")).toBeInTheDocument();
 });

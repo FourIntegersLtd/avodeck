@@ -12,6 +12,33 @@ lanes:
   prescriptions: Prescriptions
   hospital_and_letters: Hospital and letters
   appointments: Appointments
+# Screen 11 lane subtitles ({count} is filled by the server), one form for a single entry and one for the rest.
+lane_subtitle_one:
+  primary_care_visits: "{count} visit or call"
+  results: "{count} blood test"
+  prescriptions: "{count} issue"
+  hospital_and_letters: "{count} event"
+  appointments: "{count} missed"
+lane_subtitle_other:
+  primary_care_visits: "{count} visits and calls"
+  results: "{count} blood tests"
+  prescriptions: "{count} issues"
+  hospital_and_letters: "{count} events"
+  appointments: "{count} missed"
+# Screen 12 card titles and the kind of visit on the author line.
+seen_title: "What the {clinician} had in front of them"
+unseen_title: "Not in front of the {clinician}"
+visit_modes: {consultation: face to face, phone_consultation: by phone, home_visit: at home}
+# Screen 13 finding title for each check ({clinician} is filled at merge).
+finding_titles:
+  abnormal_result_no_action: An abnormal result had no action recorded
+  referral_acknowledged: A referral was not acknowledged in time
+  repeat_medicine_monitoring: A repeat medicine was issued without its monitoring test
+  ooh_reached_clinician: An out-of-hours call never reached the {clinician} record
+  hospital_letter_actions: A hospital letter asked for something that was not done
+  examination_recorded: No examination recorded
+  safety_netting_recorded: No safety-netting advice recorded
+  missed_appointment_followed_up: A missed appointment was not followed up
 # Screen 06: the line shown on a question outside the expert's usual expertise, and the coverage question.
 outside_expertise_hint: This looks outside what a general practitioner usually covers. You decide whether to answer it, or only part of it.
 coverage_question: Were you working in general practice throughout the period of the claim?

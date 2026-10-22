@@ -226,12 +226,14 @@
 .av-trial-lookup__count { font-size: 17px; color: var(--ink-soft); white-space: nowrap; }
 .av-trial-lookup__footer { margin: 0; text-align: center; font-size: 17px; line-height: 1.5; color: var(--ink-soft); }
 .av-trial-hits { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 26px; }
-.av-trial-hit { background: var(--surface); border: 1px solid var(--line); border-left: 8px solid var(--green); border-radius: 18px; padding: 26px 30px; display: flex; flex-direction: column; gap: 14px; }
+.av-trial-hit { --av-source: var(--green); background: var(--surface); border: 1px solid var(--line); border-left: 8px solid var(--av-source); border-radius: 18px; padding: 26px 30px; display: flex; flex-direction: column; gap: 14px; }
 .av-trial-hit > * { margin: 0; }
 .av-trial-hit__head { display: flex; align-items: baseline; gap: 18px; flex-wrap: wrap; }
 .av-trial-hit__tb { font: 500 38px/1 var(--font-mono); color: var(--green-dark); }
 .av-trial-hit__yours { font: 18px var(--font-mono); color: var(--ink-soft); }
 .av-trial-hit__chip { margin-left: auto; padding: 6px 14px; border-radius: 999px; background: var(--green-tint); color: var(--green-dark); font-weight: 700; font-size: 17px; line-height: 1.5; }
+.av-trial-hit__source { margin-left: auto; padding: 6px 14px; border-radius: 999px; background: color-mix(in srgb, var(--av-source) 14%, #fff); color: color-mix(in srgb, var(--av-source) 55%, #000); font-weight: 700; font-size: 17px; line-height: 1.5; }
+.av-trial-hit__chip--plain { margin-left: 0; background: transparent; padding: 6px 0; color: var(--ink-soft); }
 .av-trial-hit__title { font-size: 20px; font-weight: 700; }
 .av-trial-hit__quote { margin: 0; padding: 16px 20px; background: #FBFCFB; border-radius: 12px; font: 22px/1.6 Georgia, "Times New Roman", serif; color: #1F2421; }
 .av-trial-hit__quote mark { background: #FFF3B0; color: inherit; }
@@ -239,3 +241,4 @@
 .av-trial-lookup__search::-webkit-search-cancel-button { appearance: none; display: none; }
 .av-trial-sheet .av-trial-linkbutton { font-family: var(--font-body); }
 .av-trial-picker.av-text-link { color: var(--green); text-decoration: underline; }
+.av-trial-sheet__footer { margin: 0; padding-top: 10px; border-top: 1px solid #EEF1EF; font: 13px var(--font-body); color: var(--ink-soft); }

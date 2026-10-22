@@ -250,8 +250,7 @@ test("once the report is sent, the title says so and shows the bars and the with
   expect(bars).toHaveLength(stages.length);
   expect(bars[0]).toHaveAttribute("aria-label", stepLabel(stages[0]!.stage));
   expect(bars[0]).toHaveAttribute("value", "3600");
-  expect(screen.getByText("Within your estimate.")).toBeInTheDocument();
-  expect(screen.getByText(/You told the Party 22 hours when you accepted the case\./)).toBeInTheDocument();
+  expect(screen.getByRole("status")).toHaveTextContent("Within your estimate. You told the Party 22 hours when you accepted the case.");
 });
 
 test("an invoice shows who it is from and to, the case, the date and the pack's statements, with the fee note", async () => {

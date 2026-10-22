@@ -353,3 +353,12 @@ describe("the bar at the bottom", () => {
     expect(within(notice).getByRole("button", { name: k("pack.rebuild") })).toBeInTheDocument();
   });
 });
+
+test("a readiness sheet ends with the case, the pack and its page in the printed pack", async () => {
+  servePack("launch");
+  const { user } = renderAt(url);
+  const preview = await screen.findByRole("region", { name: k("pack.preview.heading") });
+  expect(within(preview).getByText(fill(k("pack.sheet.footer"), { case: "Mrs A", page: 40, pages: 48 }))).toBeInTheDocument();
+  await user.click(within(preview).getByRole("button", { name: k("pack.preview.next") }));
+  expect(within(preview).getByText(fill(k("pack.sheet.footer"), { case: "Mrs A", page: 41, pages: 48 }))).toBeInTheDocument();
+});

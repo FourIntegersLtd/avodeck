@@ -2,7 +2,10 @@
 checks:
   - key: statement_of_truth_exact
     text: Statement of truth present with exact wording from declarations.md
+    explain: "The declaration must appear word for word as the court requires."
   - key: required_contents_present
     text: Every item in report.yaml required_contents is addressed
+    explain: "The court expects every item on the list beside your report to be covered."
   - key: page_limit
     text: Page count within the track limit (only if the case track has one)
+    explain: "Your report is longer than the court allows on this track. Shorten it, or ask the court."

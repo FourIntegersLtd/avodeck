@@ -10,6 +10,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { Button, ChoicePills, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
+import { hasIcon, LineIcon } from "./laneIcons";
 import { casePath, kindWord, shortDate, useCan } from "./shared";
 import { w } from "./words";
 
@@ -19,6 +20,7 @@ const NEEDS_REASON = new Set<string>(["not_relevant", "explained_elsewhere"]);
 
 /** The words for a finding: the check's own key if the interface has one, else the rule type's, softer when gentle. */
 export function findingTitle(f: Finding): string {
+  if (f.title) return f.title;
   const rule = f.gentle
     ? t(`understand.rule.${f.rule}.gentle`, {}, w("rule.gentle_default"))
     : t(`understand.rule.${f.rule}`, {}, humanise(f.rule));
@@ -65,9 +67,15 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
       <div className="av-understand-finding__body">
         <div className="av-understand-finding__head">
           <IconTile tone="amber">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" focusable="false">
-              <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
-            </svg>
+            <span data-testid="finding-icon" className="av-understand-finding__icon">
+              {hasIcon(finding.icon) ? (
+                <LineIcon icon={finding.icon} size={22} />
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+                  <path d="M5 21V4M5 4h11l-2 4 2 4H5" />
+                </svg>
+              )}
+            </span>
           </IconTile>
           <h3 id={titleId}>{findingTitle(finding)}</h3>
         </div>
@@ -135,7 +143,7 @@ function DoneList({ items, onOpen }: { items: Finding[]; onOpen: (id: string) =>
                 <span className="av-understand-done__tick" aria-hidden="true">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" focusable="false"><path d="M5 12l5 5 9-10" /></svg>
                 </span>
-                <span className="av-understand-done__what">{findingTitle(f)}{day ? ` · ${shortDate(day, day.slice(0, 4))}` : ""}</span>
+                <span className="av-understand-done__what">{day ? w("things.folded", { title: findingTitle(f), date: shortDate(day, day.slice(0, 4)) }) : findingTitle(f)}</span>
                 <span className="av-understand-done__decision" data-decision={f.decision}>{t(`understand.things.decision.${f.decision}`)}</span>
               </button>
             </li>
@@ -242,7 +250,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {checks.map((c) => (
         <div key={c.key} className="av-understand-check">
-          <ToggleSwitch labelFirst label={`${c.label ?? t(`understand.check.${c.key}`, {}, humanise(c.key))}${c.gentle ? ` ${w("things.gentle")}` : ""}`} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
+          <ToggleSwitch labelFirst label={`${c.label ?? c.title ?? t(`understand.check.${c.key}`, {}, humanise(c.key))}${c.gentle ? ` ${w("things.gentle")}` : ""}`} checked={enabled[c.key] ?? c.enabled} onChange={(on) => void toggle(c.key, on)} />
         </div>
       ))}
       {can("finding.decide") && (
@@ -258,7 +266,7 @@ function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }
               <TextField
                 key={`days-${c.key}`}
                 name={`days-${c.key}`}
-                label={w("things.days", { check: t(`understand.check.${c.key}`, {}, humanise(c.key)) })}
+                label={w("things.days", { check: c.label ?? c.title ?? t(`understand.check.${c.key}`, {}, humanise(c.key)) })}
                 type="number"
                 min={1}
                 inputMode="numeric"

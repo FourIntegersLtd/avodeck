@@ -75,7 +75,7 @@ function SignView({ caseId, version, check, declarations, onChanged }: { caseId:
     <section className="rp-card rp-doc" aria-labelledby="doc-title">
       <Paper />
       <div className="rp-doc__text">
-        <h3 id="doc-title" className="rp-doc__title">{version.display_name}</h3>
+        <h3 id="doc-title" className="rp-doc__title">{version.title ?? version.display_name}</h3>
         <p className="av-muted">
           {version.page_count ? <span>{appendices > 0 ? w("sign.pages_appendices", { pages: version.page_count, count: appendices }) : w("sign.pages", { pages: version.page_count })}</span> : null}{" "}
           {status === "draft" && !ready && <span className="av-badge">{w("sign.not_ready")}</span>}

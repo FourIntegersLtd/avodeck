@@ -76,9 +76,12 @@ export function ReportScreen() {
   const appendices = ((pack.report_appendices ?? []) as Array<{ key: string; label?: string }>).map((a) => a.label ?? humanise(a.key));
   const limits = ((pack.compliance_checklist as unknown as { page_limit?: Record<string, number> } | undefined)?.page_limit ?? {}) as Record<string, number>;
   const limit = item.court_track ? limits[item.court_track] : undefined;
-  // "31 pages · multi-track, no page limit": the track's name and its limit come from the case and its pack.
-  const trackLine = version && item.court_track ? `${item.court_track.replace(/_/g, "-")}, ${limit ? w("report.limit", { count: limit }) : w("report.no_limit")}` : null;
-  const footer = [version?.page_count ? w("report.version", { pages: version.page_count }) : null, trackLine].filter(Boolean).join(" · ");
+  // "31 pages · multi-track, no page limit" as the canvas draws it: the track's name comes from the server (pack), its limit from the case.
+  const limitWords = limit ? w("report.limit", { count: limit }) : w("report.no_limit");
+  const footer = [
+    version?.page_count ? w("report.version", { pages: version.page_count }) : null,
+    version && item.court_track ? (data.court_track_label ? w("report.track_limit", { track: data.court_track_label, limit: limitWords }) : limitWords) : null,
+].filter(Boolean).join(" · ");
 
   return (
     <div className="av-page rp-page rp-page--wide">

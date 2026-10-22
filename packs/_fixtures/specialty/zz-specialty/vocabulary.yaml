@@ -6,3 +6,6 @@ as_seen_title: "What the {clinician} had in hand"
 lanes: {sessions: zz sessions, measurements: zz measurements, letters: zz letters}
 outside_expertise_hint: zz outside-expertise hint
 coverage_question: zz coverage question?
+lane_subtitle_one: {sessions: "{count} zz session", measurements: "{count} zz measurement", letters: "{count} zz letter"}
+lane_subtitle_other: {sessions: "{count} zz sessions", measurements: "{count} zz measurements", letters: "{count} zz letters"}
+finding_titles: {zz_measurement_unanswered: zz measurement unanswered, zz_session_length_recorded: zz no session length}

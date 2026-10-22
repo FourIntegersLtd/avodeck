@@ -103,8 +103,14 @@ export function NewMaterial() {
           <div className="av-after-tile__head">
             <IconTile><PeopleIcon /></IconTile>
             <span>
-              <h3 id="opposing">{w("new.opposing")}</h3>
-              {rep && <span className="av-muted">{w("new.received_short", { date: dayMonth(rep.received_on, locale) })}</span>}
+              <h3 id="opposing">{rep?.expert_name ? w("new.opposing_named", { name: rep.expert_name }) : w("new.opposing")}</h3>
+              {rep && (
+                <span className="av-muted">
+                  {[rep.expert_role, rep.pages ? w("new.report_pages", { count: rep.pages }) : null].filter(Boolean).concat(
+                    w(rep.expert_role || rep.pages ? "new.received_lower" : "new.received_short", { date: dayMonth(rep.received_on, locale) }),
+                  ).join(" · ")}
+                </span>
+              )}
             </span>
           </div>
           {registering.waiting && <Notice><p>{w("new.registering")}</p></Notice>}
@@ -121,11 +127,13 @@ export function NewMaterial() {
 
 function Register({ caseId, document, onStart }: { caseId: string; document: string; onStart: () => void }) {
   const [receivedOn, setReceivedOn] = useState("");
+  const [expertName, setExpertName] = useState("");
+  const [expertRole, setExpertRole] = useState("");
   const [error, setError] = useState<string | null>(null);
   const go = async () => {
     setError(null);
     try {
-      await unwrap(api.POST("/v1/cases/{case_id}/opposing-reports", { params: { path: { case_id: caseId } }, body: { document_id: document, received_on: receivedOn } }));
+      await unwrap(api.POST("/v1/cases/{case_id}/opposing-reports", { params: { path: { case_id: caseId } }, body: { document_id: document, received_on: receivedOn, expert_name: expertName || null, expert_role: expertRole || null } }));
       onStart();
     } catch (err) {
       setError(errorMessage(err, ERRORS));
@@ -136,6 +144,8 @@ function Register({ caseId, document, onStart }: { caseId: string; document: str
       <p>{w("new.opposing_none")}</p>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       <TextField label={w("new.received_on")} name="received_on" type="date" value={receivedOn} onChange={(e) => setReceivedOn(e.target.value)} />
+      <TextField label={w("new.expert_name")} name="expert_name" value={expertName} onChange={(e) => setExpertName(e.target.value)} />
+      <TextField label={w("new.expert_role")} name="expert_role" value={expertRole} onChange={(e) => setExpertRole(e.target.value)} />
       <div className="av-after-footer">
         <Button disabled={!receivedOn} onClick={() => void go()}>{w("new.register")}</Button>
       </div>
@@ -209,12 +219,15 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
         <section className="av-after-panel av-after-panel--differ av-stack" aria-labelledby="differ-title">
           <h3 id="differ-title">{w("new.positions")}</h3>
           {report.positions.map((p) => (
-            <div key={p.question_id} className="av-after-differ">
-              <div className="av-after-differ__you">
-                <strong>{w("new.you")}:</strong> {p.own.map((o) => <span key={o.paragraph_id}>{o.text}</span>)}
-              </div>
-              <div className="av-after-differ__them">
-                <strong>{w("new.them")}:</strong> {p.theirs.map((o) => <span key={o.paragraph_ref}>{o.text_verbatim}</span>)}
+            <div key={p.question_id} className="av-stack">
+              {p.question_no != null && <strong className="av-after-mono">{w("new.question_short", { n: p.question_no })}</strong>}
+              <div className="av-after-differ">
+                <div className="av-after-differ__you">
+                  <strong>{w("new.you")}:</strong> {p.own.map((o) => <span key={o.paragraph_id}>{o.text}</span>)}
+                </div>
+                <div className="av-after-differ__them">
+                  <strong>{w("new.them")}:</strong> {p.theirs.map((o) => <span key={o.paragraph_ref}>{o.text_verbatim}</span>)}
+                </div>
               </div>
             </div>
           ))}

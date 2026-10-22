@@ -21,12 +21,12 @@ const PACK = {
 };
 const MEETING = {
   id: "a9111111-1111-4111-8111-111111111111", type: "zz_conference", label: "Zz minute", status: "draft", hearing_id: null,
-  discussion_on: "2027-02-12", sign_by: "2027-02-19", sign_rule_ref: "Rule Z.9", send_by: "2027-02-26", send_rule_ref: "Rule Z.10",
+  discussion_on: "2027-02-12", sign_by: "2027-02-19", sign_rule_ref: "Rule Z.9", sign_rule_phrase: "7 days after the discussion", send_by: "2027-02-26", send_rule_ref: "Rule Z.10", send_rule_phrase: "within 14 days",
   declarations: ["We understand our duty to the court and have complied with it.", "Neither of us has been instructed to avoid reaching agreement."], prepared_sha256: null, prepared_pages: null, certificate_sha256: null, signed_sha256: null, version: 1,
   items: [
     { id: "a9222222-2222-4222-8222-222222222221", number: 1, text: "Did Dr P need to examine Mrs A on 15 May 2024?", own_position: "Yes. Bleeding with known anaemia called for abdominal and rectal examination.", other_positions: "Yes, examination was required.", agreed: true, reason: null, change_note: null, deviation: "consistent", deviation_reason: "same_words", served_paragraphs: [13], pages: [118], changed_from_previous: "same", version: 1 },
     { id: "a9222222-2222-4222-8222-222222222222", number: 2, text: "Was the February result acted on appropriately?", own_position: "No. Iron was started without looking for a cause.", other_positions: "Within the range: iron first, review later, was reasonable.", agreed: false, reason: "We differ on whether a cause should have been sought at once.", change_note: null, deviation: "consistent", deviation_reason: "copied_from_report", served_paragraphs: [4], pages: [214, 87], changed_from_previous: "same", version: 1 },
-    { id: "a9222222-2222-4222-8222-222222222223", number: 3, text: "By what date should Mrs A have been referred?", own_position: "By 15 May 2024 at the latest.", other_positions: "By 15 May 2024.", agreed: true, reason: null, change_note: null, deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], pages: [118], changed_from_previous: "same", version: 1 },
+    { id: "a9222222-2222-4222-8222-222222222223", number: 3, text: "By what date should Mrs A have been referred?", own_position: "By 15 May 2024 at the latest.", other_positions: "By 15 May 2024.", agreed: true, reason: null, change_note: null, deviation: "changed", deviation_reason: "differs_from_report", served_paragraphs: [14], served_text: "Early March 2024, soon after the blood result.", pages: [118], changed_from_previous: "same", version: 1 },
   ],
   agenda_versions: [{ id: "a9777777-7777-4777-8777-777777777777", version_no: 1, read_at: "2027-02-10T09:00:00Z", item_count: 1, created_at: "2027-02-10T09:00:00Z" }],
 };
@@ -55,7 +55,8 @@ const BODIES: Record<string, unknown> = {
   [`/v1/cases/${CASE_A}/trial-pack/preview`]: {
     sections: [{ key: "report", pages: 31 }, { key: "chronology", pages: 9 }, { key: "readiness", pages: 3 }, { key: "joint_statement", pages: 6 }, { key: "legal_tests", pages: 1 }, { key: "guidance", pages: 4 }],
     total_pages: 54,
-    sheets: [{ number: 2, text: "The visit on 15 May 2024", answer: "Rectal bleeding with known iron-deficiency anaemia called for an abdominal and rectal examination and a two-week-wait referral. Neither happened. (para 6.13-6.14)", asked: "\"He may have examined her and not written it down.\"", agreed: true, reason: null, pages: [{ page_no: 118, trial_page_no: 2407, status: "matched" }], reply: "Referral was needed whatever an exam showed.", replied_at: "2027-06-01T08:00:00Z" }, { number: 3, text: "Next", answer: null, asked: null, agreed: null, reason: null, pages: [] }],
+    case_label: "Mrs A",
+    sheets: [{ number: 2, text: "The visit on 15 May 2024", answer: "Rectal bleeding with known iron-deficiency anaemia called for an abdominal and rectal examination and a two-week-wait referral. Neither happened. (para 6.13-6.14)", asked: "\"He may have examined her and not written it down.\"", agreed: true, reason: null, pages: [{ page_no: 118, trial_page_no: 2407, status: "matched" }], pack_page_no: 44, reply: "Referral was needed whatever an exam showed.", replied_at: "2027-06-01T08:00:00Z" }, { number: 3, text: "Next", answer: null, asked: null, agreed: null, reason: null, pages: [] }],
   },
   [`/v1/cases/${CASE_A}/offline-packages`]: { packages: [] },
 };
@@ -108,9 +109,11 @@ async function sealedCopy(id: string) {
     format_version: 1, case_id: CASE_A, built_at: "2027-06-03T09:00:00Z", date_order: "DMY", court_bundle: "trial bundle",
     report: { version_no: 1, served_on: "2027-01-10", paragraphs: [{ para_no: 13, section: "opinion", text: "Rectal bleeding on 15 May 2024 called for an examination.", pages: [{ page_no: 118, trial_page_no: 2407 }] }] },
     facts: [
-      { kind: "consultation", text: "Problem: Haemorrhoids (new). History: c/o bright red PR bleeding x3/52, on paper. Tired. Thinks piles. Plan: fybogel, anusol. Rv if persists.", date: "2024-05-15", page_no: 118, trial_page_no: 2407 },
-      { kind: "letter", text: "Reports intermittent rectal bleeding since around 15 May, seen by GP at that time.", date: "2024-09-24", page_no: 1118, trial_page_no: 3102 },
+      { kind: "consultation", text: "Problem: Haemorrhoids (new). History: c/o bright red PR bleeding x3/52, on paper. Tired. Thinks piles. Plan: fybogel, anusol. Rv if persists.", date: "2024-05-15", page_no: 118, trial_page_no: 2407, source_type: "primary_care_record" },
+      { kind: "letter", text: "Reports intermittent rectal bleeding since around 15 May, seen by GP at that time.", date: "2024-09-24", page_no: 1118, trial_page_no: 3102, source_type: "letters" },
     ],
+    case_label: "Mrs A",
+    source_types: [{ key: "primary_care_record", label: "GP record", colour: "#1E6B4E" }, { key: "letters", label: "Hospital letter", colour: "#4C6E91" }],
     concordance: [], joint_statement: null, answers: [],
   };
   const raw = webcrypto.getRandomValues(new Uint8Array(32));

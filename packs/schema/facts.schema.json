@@ -32,6 +32,11 @@
               ]
             }
           },
+          "author_field": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "The field naming who saw the patient (screen 12 author line); one of the kind's fields."
+          },
           "arrives": {
             "type": "boolean",
             "description": "Arrives from outside (a result, a letter): never treated as available on its own event date."

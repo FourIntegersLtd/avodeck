@@ -67,6 +67,14 @@ _SCREEN_ONLY_VOCABULARY = frozenset(
         "request_notes",
         "request_extension",
         "lanes",
+        "lane_subtitle_one",
+        "lane_subtitle_other",
+        "visit_modes",
+        "finding_titles",
+        "seen_title",
+        "unseen_title",
+        "court_tracks",
+        "written_questions_one",
         "as_seen_title",
         "other_side_prompt",
         "other_side_example",
@@ -390,7 +398,7 @@ class MergedPack:
         values = {k: v for k, v in self.vocabulary.items() if isinstance(v, str)}
         values.setdefault("instructing_party", self.instructing_party_types()[0]["label"])
         for key, word in list(self.vocabulary.items()):  # top-level words and lane labels name other words
-            if isinstance(word, str) or key == "lanes":
+            if isinstance(word, str) or key in ("lanes", "finding_titles"):
                 self.vocabulary[key] = _fill(word, values, f"{label}: vocabulary {key}")
         self._files = {name: _fill(content, values, f"{label}: {name}") for name, content in files.items()}
         self._check_kinds(label)

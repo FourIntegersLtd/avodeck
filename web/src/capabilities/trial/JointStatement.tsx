@@ -214,8 +214,8 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
           </TrialTitle>
         </div>
         <ul className="av-trial-chips">
-          {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={shortDate(meeting.sign_by, locale)} rule={meeting.sign_rule_ref} />}
-          {meeting.send_by && <Deadline label={w("meeting.send_by")} date={shortDate(meeting.send_by, locale)} rule={meeting.send_rule_ref} />}
+          {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={shortDate(meeting.sign_by, locale)} rule={meeting.sign_rule_phrase || meeting.sign_rule_ref} />}
+          {meeting.send_by && <Deadline label={w("meeting.send_by")} date={shortDate(meeting.send_by, locale)} rule={meeting.send_rule_phrase || meeting.send_rule_ref} />}
           {/* Beside the deadlines, where the board leaves room, so its line of text keeps its length. */}
           {!locked && meeting.items.length > 0 && frame.can("case.upload") && (
             <li className="av-trial-chips__action"><PdfPicker link label={w("meeting.agenda.new")} onFile={addAgenda} /></li>
@@ -363,7 +363,9 @@ function Row({ item, canEdit, onChange }: { item: Item; canEdit: boolean; onChan
           </p>
           {changed && (
             <p className="av-trial-differs">
-              <strong>{w("meeting.item.changed_lead")}</strong>{paras ? ` ${w("meeting.item.changed_rest", { paras })}` : w("meeting.item.changed_rest_plain")}
+              <strong>{w("meeting.item.changed_lead")}</strong>{" "}
+              {item.served_text && <>{w("meeting.item.changed_was", { text: item.served_text, paras })} </>}
+              {w("meeting.item.changed_rest")}
             </p>
           )}
           {item.deviation === "unclear" && <p className="av-trial-differs">{w("meeting.item.unclear")}</p>}

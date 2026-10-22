@@ -197,7 +197,7 @@ test("the footer gives the page limit for the case's track", async () => {
   serve("launch");
   inCase("launch", { court_track: track });
   renderAt(url);
-  expect(await screen.findByText(`31 pages · ${track.replace(/_/g, "-")}, page limit ${limit}`)).toBeInTheDocument();
+  expect(await screen.findByText(`31 pages · page limit ${limit}`)).toBeInTheDocument();
 });
 
 describe("after the report is served (rule 8)", () => {

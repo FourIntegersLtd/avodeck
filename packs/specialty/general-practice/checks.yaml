@@ -5,6 +5,7 @@
 #             actions_not_done, field_missing, not_followed_up
 checks:
   - key: abnormal_result_no_action
+    icon: flask
     rule: no_action_within
     applies_to: result
     flag: {field: flag, any_of: [L, H, LL, HH, A]}   # laboratory abnormal flags
@@ -12,25 +13,29 @@ checks:
     action_kinds: [prescription, referral, task, consultation, phone_consultation]
     label_spans: true
   - key: referral_acknowledged
+    icon: mail
     rule: not_acknowledged_within
     applies_to: referral
     window_days: 42
     acknowledged_field: acknowledged_on
     acknowledged_kinds: [letter]
     acknowledges_field: acknowledges_referral_dated
-  - {key: repeat_medicine_monitoring, rule: monitoring_overdue, applies_to: prescription, table: drug_monitoring}
+  - {key: repeat_medicine_monitoring, icon: pill, rule: monitoring_overdue, applies_to: prescription, table: drug_monitoring}
   - key: ooh_reached_clinician
+    icon: moon
     rule: not_reached_clinician
     applies_to: [consultation, phone_consultation, home_visit]
     when: {setting: out_of_hours}
     window_days: 2
   - key: hospital_letter_actions
+    icon: mail
     rule: actions_not_done
     applies_to: letter
     field: actions_requested
     action_kinds: [prescription, referral, task]
     label_spans: true
   - key: examination_recorded
+    icon: visit
     rule: field_missing
     applies_to: consultation
     field: examination
@@ -38,6 +43,7 @@ checks:
     scope: linked
     gentle: true
   - key: safety_netting_recorded
+    icon: visit
     rule: field_missing
     applies_to: consultation
     field: safety_netting
@@ -45,6 +51,7 @@ checks:
     scope: linked
     gentle: true
   - key: missed_appointment_followed_up
+    icon: calendar
     rule: not_followed_up
     applies_to: missed_appointment
     window_days: 14

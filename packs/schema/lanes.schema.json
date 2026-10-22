@@ -45,6 +45,11 @@
               },
               "enabled": {
                 "type": "boolean"
+              },
+              "icon": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "description": "A generic line drawing the screen has for this lane (the screen falls back to the label's first letter)."
               }
             },
             "additionalProperties": false,

@@ -54,7 +54,8 @@ export function ServedScreen() {
   const nextHearing = upcoming[0];
   const count = questions.data.questions.length;
   const vocabulary = pack.vocabulary as Record<string, unknown>;
-  const vocab = String(vocabulary.written_questions ?? "");
+  const vocabPlural = String(vocabulary.written_questions ?? "");
+  const vocab = count === 1 && vocabulary.written_questions_one ? String(vocabulary.written_questions_one) : vocabPlural;
   const pages = fresh.data.pages.length;
   const made = changes.data.changes.length;
   const orders = directions.data.directions.length;
@@ -68,7 +69,7 @@ export function ServedScreen() {
   const track: Array<{ key: string; name: string; note: string; done: boolean; alert?: boolean; to?: string | null }> = [
     { key: "served", name: w("served.step_served"), note: version.served_on ? shortDate(version.served_on, locale) : "", done: true },
     {
-      key: "questions", name: capitalise(vocab) || w("served.questions"), done: questionsDone, alert: !questionsDone && !!due,
+      key: "questions", name: capitalise(vocabPlural) || w("served.questions"), done: questionsDone, alert: !questionsDone && !!due,
       note: questionsDone ? w("served.status_answered") : due ? w("served.answer_by", { date: shortDate(due, locale) }) : w("served.questions_none"),
     },
     {

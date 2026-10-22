@@ -174,8 +174,8 @@
 .rp-time__bar::-webkit-meter-bar { background: var(--surface-muted); border: 0; border-radius: 9px; height: 18px; }
 .rp-time__bar::-webkit-meter-optimum-value, .rp-time__bar::-webkit-meter-suboptimum-value, .rp-time__bar::-webkit-meter-even-less-good-value { background: var(--green-bright); border-radius: 9px; }
 .rp-time__bar::-moz-meter-bar { background: var(--green-bright); border-radius: 9px; }
-.rp-within { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; border-radius: 16px; background: var(--green-tint); }
-.rp-within svg { flex: none; margin-top: 4px; color: var(--green); }
+.rp-within { padding: 16px 20px; border-radius: 16px; background: var(--green-tint); }
+.rp-within svg { display: inline-block; vertical-align: -3px; margin-right: 12px; color: var(--green); }
 .rp-within p { margin: 0; }
 .rp-grid .rp-paper, .rp-paper--empty { display: flex; flex-direction: column; gap: 16px; padding: 34px 36px; border-radius: 6px; }
 .rp-paper__head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }

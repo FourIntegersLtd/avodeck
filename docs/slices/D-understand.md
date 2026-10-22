@@ -6,20 +6,20 @@ Owner: Claude session, branch `slice/d-understand` · Phase: MVP (screen 12 basi
 The expert sees the whole story on a timeline, opens any consultation exactly as the clinician saw it on that day (later notes hidden, guidance in force shown), and works through a short list of "Things to look at" that code has found. They decide each one; the computer never decides.
 
 ## Screens
-- 11 The timeline (`S11-Timeline`): lanes from the pack with an initial tile in the source colour (a real icon needs an icon field on the pack's source types), range pill, status pills with counts, "as seen on" day, filters (date, question), links to questions
-- 12 One consultation, as the clinician saw it (`S12-Consultation`): label from the packs: "as the GP saw it" under gb-eaw/general-practice
-- 13 Things to look at (`S13-ThingsToLook`): findings with evidence pages (a decided finding no longer found stays listed, marked so); links to the questions (suggest, confirm, reject, add by hand, stale list); check settings (on/off and days allowed). Buttons follow `Case.allowed_actions`
+- 11 The timeline (`S11-Timeline`): lanes from the pack, each with the pack's icon word (`lanes.yaml` `icon`) in the source colour and the pack's subtitle (`lane_subtitle_one` / `lane_subtitle_other`, e.g. "4 visits and calls"), a "Question N only" chip while a question filter is on, range pill, status pills with counts, "as seen on" day, filters (date, question), links to questions
+- 12 One consultation, as the clinician saw it (`S12-Consultation`): label from the packs: "as the GP saw it" under gb-eaw/general-practice; author line (`Dr P · face to face`) from the kind's `author_field` and `visit_modes`; card titles `seen_title` / `unseen_title`; the entry highlighted and later entries on the same page blurred from `page_marks`
+- 13 Things to look at (`S13-ThingsToLook`): findings titled and drawn from the pack (`finding_titles`, check `icon`), with evidence pages; decided ones fold into one-line rows (a decided finding no longer found stays listed, marked so); links to the questions (suggest, confirm, reject, add by hand, stale list); check settings (on/off and days allowed). Buttons follow `Case.allowed_actions`
 - Today cards: registers "things to look at to decide"
 
 ## Endpoints (architecture 5.2)
-- `GET /v1/cases/{id}/timeline?from=&to=&status=&question_id=&only=&as_seen_on=` (`only` is `not_linked` or `things_to_look`; `as_seen_on` keeps what had arrived by that day; the reply carries the record's `range`, `as_seen_title` from the pack, and each lane's `colour` from its commonest source type; the chip counts ignore the filters)
+- `GET /v1/cases/{id}/timeline?from=&to=&status=&question_id=&only=&as_seen_on=` (`only` is `not_linked` or `things_to_look`; `as_seen_on` keeps what had arrived by that day; the reply carries the record's `range`, `as_seen_title` from the pack, and each lane's `colour` from its commonest source type, its pack `icon` word and its `subtitle`; the chip counts ignore the filters)
 - `GET /v1/cases/{id}/consultations/{fact_id}/later-notes` (later entries of the same kind that arrived after the visit: date, page, whether the viewer has a note on them, never their words)
 - `GET /v1/cases/{id}/fact-links`; `POST /v1/cases/{id}/fact-links/suggest` → 202; `PATCH /v1/cases/{id}/fact-links/{link_id}` (If-Match; a `stale` link gives 409 `stale_link`); `POST /v1/cases/{id}/fact-links` (confirmed questions only, through `confirmed_questions`)
-- `GET /v1/cases/{id}/consultations/{fact_id}?as_seen=true&on=` (`on` shows the record as it stood on another day; the reply carries `guidance_changed`)
+- `GET /v1/cases/{id}/consultations/{fact_id}?as_seen=true&on=` (`on` shows the record as it stood on another day; the reply carries `guidance_changed`, `seen_title` / `unseen_title` from the pack, `entry.author_line`, and `page_marks`: `{fact_id, role: entry|later, box}` with the box a 0 to 1 share of the page, only for entries the person may see, on the visit's page, with a box)
 - `PATCH /v1/cases/{id}/facts/{fact_id}/availability` `{available_at | unknown, reason}`
 - `PUT /v1/cases/{id}/consultations/{fact_id}/note`
 - `GET /v1/guidelines/in-force?code=&date=` (jurisdiction taken from the case or query; global table)
-- `GET /v1/cases/{id}/findings`; `PATCH /v1/cases/{id}/findings/{finding_id}` `{decision, reason}`
+- `GET /v1/cases/{id}/findings` (each finding also carries the pack's `title` and `icon` for its check; none for a check the expert added); `PATCH /v1/cases/{id}/findings/{finding_id}` `{decision, reason}`
 - `GET/PATCH /v1/me/checks`; `POST /v1/cases/{id}/findings/rerun` → 202
 - `POST /v1/me/checks/custom` (the expert adds a check of their own: a name, the kind of entry it starts from, the kind that should follow, and the days; runs only for them)
 

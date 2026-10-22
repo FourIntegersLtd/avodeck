@@ -815,6 +815,7 @@
       ]
     },
     "/v1/cases/*/report": {
+      "court_track_label": "multi-track",
       "checklist": {
         "rule_ref": "ref",
         "items": [

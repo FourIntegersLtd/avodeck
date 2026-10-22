@@ -26,6 +26,7 @@ export const deadlineKinds = (run: PackRun) => (casePack(run).deadline_rules as 
 export const firstKind = (run: PackRun) => deadlineKinds(run)[0]!;
 export const declarations = (run: PackRun) => (casePack(run) as unknown as { declarations: Array<{ key: string; text: string }> }).declarations;
 export const questionsName = (run: PackRun) => String((casePack(run).vocabulary as Record<string, unknown>).written_questions);
+export const questionsOne = (run: PackRun) => String((casePack(run).vocabulary as Record<string, unknown>).written_questions_one);
 export const partyName = (run: PackRun) => (casePack(run).instructing_party_types as Array<{ key: string; label?: string }>)[0]!.label!;
 export const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
@@ -51,7 +52,7 @@ export const round = (over: Partial<Schemas["RoundOut"]> = {}): Schemas["RoundOu
 export const question = (over: Partial<Schemas["WrittenQuestionOut"]> = {}): Schemas["WrittenQuestionOut"] => ({
   id: Q1, round_id: ROUND, number: 1, para_ref: "6.12 to 6.14", rule_ref: "ref", text_verbatim: "Would your opinion change if the examination was not recorded?",
   status: "received", suggested_classification: "clarifies", classification_reason: "refers to a paragraph", classification: null,
-  suggested_paragraph_ids: [P1], paragraph_ids: [], answer_text: null, citation_refs: [], told_instructing_party_at: null, version: 1, ...over,
+  suggested_paragraph_ids: [P1], paragraph_ids: [], answer_text: null, citation_refs: [], told_instructing_party_at: null, page_nos: [], version: 1, ...over,
 });
 
 export const claim = (over: Partial<Schemas["OpposingClaimOut"]> = {}): Schemas["OpposingClaimOut"] => ({

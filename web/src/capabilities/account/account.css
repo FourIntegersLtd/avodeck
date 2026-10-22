@@ -1,6 +1,4 @@
 /* S28 Account and security, matched to its board. Hit areas stay 52px where the board draws smaller targets. */
-/* The board's header is 76px with its border; the shell's bar is 76px plus the border. */
-body:has(.av-account) .av-shell__header { margin-bottom: -1px; }
 .av-account > div:first-child { display: flex; flex-direction: column; gap: 6px; }
 .av-account > div:first-child h1 { margin: 0; font-size: 34px; line-height: 1.5; }
 .av-account > div:first-child p { margin: 0; }

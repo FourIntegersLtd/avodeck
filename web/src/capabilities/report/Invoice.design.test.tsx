@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { invoiceOut, reportOut, serve, versionOut, type PackRun } from "./testing";
+import { invoiceOut, reportOut, serve, stepKeys, versionOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/invoice`;
@@ -66,4 +66,18 @@ test("the fee note stands beside the buttons on the bottom bar", async () => {
   renderAt(url);
   const note = await screen.findByText(M["report.invoice.fee_note"]!);
   expect(note.closest(".rp-bar")).not.toBeNull();
+});
+
+test("Within your estimate is a bold lead with a tick, then the rest of the sentence", async () => {
+  const stages = stepKeys("launch").map((stage, i) => ({ stage, seconds: (i + 1) * 3600, estimate_hours: null }));
+  serve("launch", {
+    report: reportOut("launch", { version: versionOut({ status: "served" }) }),
+    time: { adjusted: false, total_seconds: 72900, stages, estimate_hours: "22.00", over_estimate: null, instructing_party: "Party" } as never,
+  });
+  renderAt(url);
+  const lead = await screen.findByText(M["report.invoice.within_estimate_lead"]!);
+  expect(lead.tagName).toBe("STRONG");
+  const note = lead.closest("p")!;
+  expect(note.querySelector("svg")).not.toBeNull();
+  expect(note).toHaveTextContent("Within your estimate. You told the Party 22 hours when you accepted the case.");
 });

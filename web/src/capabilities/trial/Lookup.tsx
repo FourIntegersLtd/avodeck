@@ -3,11 +3,12 @@
 // when it was put here; five wrong PINs wipe it. When online, the one call made is the copy's status check,
 // which wipes a copy that was removed or has ended (threat model T10); with no network the copy is kept.
 // It is read-only; a copy past its end date is wiped and a copy that does not unseal is refused.
-import { useEffect, useId, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useId, useMemo, useState, type CSSProperties, type FormEvent } from "react";
 import { Link, useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { Button, Loading, Notice, TextField } from "../../foundation/ui";
 import { bundleAbbr, longDate, num } from "./data";
+import type { CopyContent } from "./copy";
 import { checkWithServer, findCopy, unlockCopy, type Opened } from "./offline";
 import { search, type Hit } from "./search";
 import "@fontsource/ibm-plex-mono/500.css";
@@ -55,7 +56,7 @@ export function Lookup() {
   return (
     <div className="av-trial-lookup">
       <header className="av-trial-lookup__bar">
-        <span className="av-trial-lookup__brand"><Mark />{w("lookup.bar_title")}</span>
+        <span className="av-trial-lookup__brand"><Mark />{view?.state === "open" && view.content.case_label ? w("lookup.bar_case", { case: view.content.case_label }) : w("lookup.bar_title")}</span>
         <span className="av-trial-lookup__chip">{LOCK}{w("lookup.read_only")}</span>
         <Link className="av-trial-lookup__exit" to={`/cases/${caseId}/trial-pack`}>{w("lookup.exit")}</Link>
       </header>
@@ -150,21 +151,22 @@ function Search({ opened }: { opened: Extract<Opened, { state: "open" }> }) {
       {typed && hits.length === 0 && <p role="status" className="av-trial-muted">{w("lookup.nothing")}</p>}
       {typed && hits.length > 0 && (
         <ol className="av-trial-hits">
-          {hits.map((hit, n) => <Result key={`${hit.kind}-${hit.ref ?? ""}-${n}`} hit={hit} bundle={content.court_bundle} locale={meta.locale} kinds={meta.kinds} query={query} />)}
+          {hits.map((hit, n) => <Result key={`${hit.kind}-${hit.ref ?? ""}-${n}`} hit={hit} bundle={content.court_bundle} locale={meta.locale} kinds={meta.kinds} sources={content.source_types ?? []} query={query} />)}
         </ol>
       )}
     </>
   );
 }
 
-function Result({ hit, bundle, locale, kinds, query }: { hit: Hit; bundle: string; locale: string; kinds: Record<string, string>; query: string }) {
+function Result({ hit, bundle, locale, kinds, sources, query }: { hit: Hit; bundle: string; locale: string; kinds: Record<string, string>; sources: NonNullable<CopyContent["source_types"]>; query: string }) {
   let where = "";
   if (hit.kind === "paragraph" && hit.ref !== null) where = w("lookup.in_report", { para: hit.ref });
   if (hit.kind === "item" && hit.ref !== null) where = w("lookup.in_statement", { number: hit.ref });
   if (hit.kind === "answer" && hit.ref !== null) where = w("lookup.in_answer", { number: hit.ref });
   const kind = hit.factKind ? (kinds[hit.factKind] ?? humanise(hit.factKind)) : null;
+  const source = hit.sourceType ? sources.find((s) => s.key === hit.sourceType) : undefined;
   return (
-    <li className="av-trial-hit">
+    <li className="av-trial-hit" style={source?.colour ? ({ "--av-source": source.colour } as CSSProperties) : undefined}>
       <div className="av-trial-hit__head">
         {hit.page_no !== null && hit.trial_page_no !== null && (
           <span className="av-trial-hit__tb">{w("lookup.trial_page", { abbr: bundleAbbr(bundle), number: num(hit.trial_page_no, locale) })}</span>
@@ -173,7 +175,8 @@ function Result({ hit, bundle, locale, kinds, query }: { hit: Hit; bundle: strin
           <span className="av-trial-strong">{w("lookup.not_in_bundle", { court_bundle: bundle })}</span>
         )}
         {hit.page_no !== null && <span className="av-trial-hit__yours">{w("lookup.your_page", { page: num(hit.page_no, locale) })}</span>}
-        {kind && <span className="av-trial-hit__chip">{kind}</span>}
+        {source && <span className="av-trial-hit__source">{source.label}</span>}
+        {kind && <span className={`av-trial-hit__chip${source ? " av-trial-hit__chip--plain" : ""}`}>{kind}</span>}
       </div>
       {hit.date && <p className="av-trial-hit__title">{longDate(hit.date, locale)}</p>}
       <blockquote className="av-trial-hit__quote"><Highlighted text={hit.text} query={query} /></blockquote>

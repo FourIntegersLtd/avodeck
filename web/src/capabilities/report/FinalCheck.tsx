@@ -3,7 +3,7 @@
 // colleague spot-check behind one link.
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { humanise } from "../../foundation/i18n";
+import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
@@ -18,6 +18,18 @@ const WARNING_TYPES = ["uncited_fact", "loaded_language", "outside_expertise"] a
 const SHOWN = 8;
 const ERRORS = { not_built: "report.check.no_build" };
 const nameOf = (r: Result) => r.text ?? humanise(r.key);
+const UNITS = ["fact", "quote", "page", "question", "guideline"] as const;
+/** The pack's own line for a check, else the screen's line for a core check (none for a check it does not know). */
+const explanation = (r: Result) => r.explain ?? t(`report.check.explain.${r.key}`, {}, "");
+
+/** "214 facts" or "1,231 of 1,231 pages"; just the number for a unit this screen has no word for. */
+function counted(r: Result, locale: string): string | null {
+  if (r.checked == null) return r.count > 0 ? String(r.count) : null;
+  const unit = (UNITS as readonly string[]).includes(r.unit ?? "") ? w(`check.unit.${r.unit as (typeof UNITS)[number]}`, { count: r.total ?? r.checked }) : null;
+  const checked = r.checked.toLocaleString(locale);
+  if (!unit) return checked;
+  return r.total != null ? w("check.counted_of", { checked, total: r.total.toLocaleString(locale), unit }) : w("check.counted", { checked, unit });
+}
 
 async function latest(caseId: string): Promise<Check | null> {
   try {
@@ -58,6 +70,7 @@ export function FinalCheck() {
   const [error, setError] = useState<string | null>(null);
   const [all, setAll] = useState(false);
   const [spotOpen, setSpotOpen] = useState(false);
+  const locale = useLocale();
 
   const run = async () => {
     setError(null);
@@ -115,7 +128,7 @@ export function FinalCheck() {
                 <path d="M5 12.5l4.5 4.5L19 7.5" />
               </svg>
               <span className="rp-passed__name">{nameOf(r)}</span>
-              {r.count > 0 && <span className="av-mono rp-passed__count">{r.count}</span>}
+              {counted(r, locale) && <span className="av-mono rp-passed__count">{counted(r, locale)}</span>}
               {!all && passed.length > SHOWN && i === shown.length - 1 && (
                 <button type="button" className="av-text-link rp-linkbtn" onClick={() => setAll(true)}>{w("check.see_all", { count: check.results.length })}</button>
               )}
@@ -156,6 +169,7 @@ function Failed({ caseId, result }: { caseId: string; result: Result }) {
   return (
     <li aria-label={nameOf(result)}>
       <Callout title={nameOf(result)} icon={<AlertIcon />} actions={to ? <LinkButton to={to}>{w("check.fix")}</LinkButton> : undefined}>
+        {explanation(result) && <p>{explanation(result)}</p>}
         {result.count > 1 && <p>{w("check.count", { count: result.count })}</p>}
       </Callout>
     </li>

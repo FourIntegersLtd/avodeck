@@ -13,9 +13,9 @@ Avodeck assembles the expert's report in their own Word template, with the court
 - Today cards: registers "report ready to check", "final check failed" and "invoice not sent"
 
 ## Endpoints (architecture 5.2)
-- `POST /v1/cases/{id}/report/build` → 202; `GET /v1/cases/{id}/report`; `GET /v1/cases/{id}/report/preview/{page}`; `GET /v1/cases/{id}/report/paragraphs?section=` (text of the built paragraphs, read-only; the report's `sections[].done/total` count answered questions on the opinion section); `PATCH /v1/cases/{id}/report/settings`; `GET /v1/cases/{id}/report/methodology`
+- `POST /v1/cases/{id}/report/build` → 202; `GET /v1/cases/{id}/report`; `GET /v1/cases/{id}/report/preview/{page}`; `GET /v1/cases/{id}/report/paragraphs?section=` (text of the built paragraphs, read-only; the report's `sections[].done/total` count answered questions on the opinion section; each version carries `title` (the case type pack's `report_name`, a colon and the case label, else the version name) and the report carries `court_track_label` from the jurisdiction vocabulary `court_tracks`); `PATCH /v1/cases/{id}/report/settings`; `GET /v1/cases/{id}/report/methodology`
 - `POST /v1/cases/{id}/report/word-import` (Phase 2; returns 501 in MVP)
-- `POST /v1/cases/{id}/report/final-check` → 202; `GET /v1/cases/{id}/report/final-check/latest`
+- `POST /v1/cases/{id}/report/final-check` → 202; `GET /v1/cases/{id}/report/final-check/latest` (a result may add `checked`, `total`, `unit` for passed checks and `explain`, the pack's line for a failed pack check)
 - `POST /v1/cases/{id}/spot-checks`; `GET/POST /v1/spot-checks/{token}[/responses]` (no login; expiring token plus emailed code)
 - `POST /v1/cases/{id}/report/sign` 🔒; `GET /v1/cases/{id}/report/versions/{v}/download?format=docx|pdf`; `POST /v1/cases/{id}/report/versions/{v}/serve` 🔒
 - `POST /v1/cases/{id}/time/heartbeat`; `GET /v1/cases/{id}/time`; `PATCH /v1/cases/{id}/time/adjust`; `POST /v1/cases/{id}/time/estimates`
