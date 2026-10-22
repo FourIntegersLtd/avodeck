@@ -215,6 +215,14 @@ async def revoke_grant(conn: AsyncConnection, grant_id: uuid.UUID) -> None:
     await conn.execute("update app.support_access_grants set revoked_at = now() where id = %s", (grant_id,))
 
 
+async def support_cases(conn: AsyncConnection, case_id: uuid.UUID | None, email: str | None) -> list[dict[str, Any]]:
+    return await rows(conn, "select * from app.support_cases(%s, %s)", (case_id, email))
+
+
+async def support_case_grants(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
+    return await rows(conn, "select * from app.support_case_grants(%s)", (case_id,))
+
+
 async def account_closed(conn: AsyncConnection) -> bool:
     return bool(await value(conn, "select closed_at is not null from app.people where id = app.current_person_id()"))
 

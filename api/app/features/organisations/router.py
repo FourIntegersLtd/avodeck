@@ -13,6 +13,7 @@ from app.features.organisations import (  # noqa: E402, F401
     routes_invites,
     routes_members,
     routes_orgs,
+    routes_support,
 )
 
 __all__ = ["router"]

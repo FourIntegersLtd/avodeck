@@ -17,7 +17,13 @@ from app.core.email import Mailer, support_access_granted_mail
 from app.core.errors import ApiError, conflict
 from app.core.notifications import send_mail
 from app.features.organisations import repo
-from app.features.organisations.schemas import SupportGrant, SupportGrantCreate
+from app.features.organisations.schemas import (
+    SupportCase,
+    SupportCaseDetail,
+    SupportCaseGrant,
+    SupportGrant,
+    SupportGrantCreate,
+)
 
 
 async def grants(conn: AsyncConnection, case_id: uuid.UUID) -> list[SupportGrant]:
@@ -37,6 +43,33 @@ async def give(
     mail = support_access_granted_mail(expert_email, case_id=case_id, grant_id=grant_id, expires_at=given["expires_at"])
     await send_mail(mailer, mail)
     return SupportGrant(**given)
+
+
+def _query(q: str) -> tuple[uuid.UUID | None, str | None]:
+    try:
+        return uuid.UUID(q), None
+    except ValueError:
+        return None, (q if "@" in q else None)
+
+
+async def console_search(conn: AsyncConnection, q: str) -> list[SupportCase]:
+    case_id, email = _query(q.strip())
+    if case_id is None and email is None:
+        return []
+    return [SupportCase(**r) for r in await repo.support_cases(conn, case_id, email)]
+
+
+async def console_case(conn: AsyncConnection, case_id: uuid.UUID) -> SupportCaseDetail:
+    found = await repo.support_cases(conn, case_id, None)
+    if not found:
+        raise not_found()
+    rows = await repo.support_case_grants(conn, case_id)
+    await audit.record(conn, action="support.case_looked_up", target=f"case:{case_id}", case_id=case_id)
+    return SupportCaseDetail(
+        case=SupportCase(**found[0]),
+        grants=[SupportCaseGrant(**{k: v for k, v in r.items() if k != "mine"}) for r in rows],
+        content_access=any(r["mine"] for r in rows),
+    )
 
 
 async def revoke(conn: AsyncConnection, case_id: uuid.UUID, grant_id: uuid.UUID) -> None:

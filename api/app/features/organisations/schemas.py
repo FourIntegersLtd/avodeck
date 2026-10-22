@@ -155,6 +155,39 @@ class SupportGrantList(BaseModel):
     grants: list[SupportGrant]
 
 
+class SupportCase(BaseModel):
+    """What the support console shows of a case: metadata only (permissions.md "Avodeck staff")."""
+
+    case_id: uuid.UUID
+    status: str
+    organisation_id: uuid.UUID
+    organisation_kind: Literal["personal", "team"]
+    created_at: datetime
+    served: bool
+    grant_active: bool
+    grant_expires_at: datetime | None
+
+
+class SupportCaseList(BaseModel):
+    cases: list[SupportCase]
+
+
+class SupportCaseGrant(BaseModel):
+    id: uuid.UUID
+    granted_to: uuid.UUID | None
+    reason: str
+    granted_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    active: bool
+
+
+class SupportCaseDetail(BaseModel):
+    case: SupportCase
+    grants: list[SupportCaseGrant]
+    content_access: bool
+
+
 class AccountClosed(BaseModel):
     closed_at: datetime
     deletion_job_ids: list[uuid.UUID]
