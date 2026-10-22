@@ -28,6 +28,12 @@ async def change_member_role(
     return await service.change_role(conn, access, membership_id, body.role)
 
 
+@router.post("/organisations/{org_id}/leave", status_code=204)
+async def leave_organisation(org_id: uuid.UUID, conn: DbConn, _: ViewMembers) -> Response:
+    await service.leave(conn, org_id)
+    return Response(status_code=204)
+
+
 @router.delete("/organisations/{org_id}/members/{membership_id}", status_code=204, dependencies=STEP_UP_FIRST)
 async def remove_member(org_id: uuid.UUID, membership_id: uuid.UUID, conn: DbConn, access: ManageMembers) -> Response:
     await service.end_membership(conn, access, membership_id)

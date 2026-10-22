@@ -63,6 +63,16 @@ async def current_membership(conn: AsyncConnection, org_id: uuid.UUID, membershi
     )
 
 
+async def my_membership_id(conn: AsyncConnection, org_id: uuid.UUID) -> uuid.UUID | None:
+    found: uuid.UUID | None = await value(
+        conn,
+        "select id from app.memberships where organisation_id = %s and person_id = app.current_person_id()"
+        " and ended_at is null",
+        (org_id,),
+    )
+    return found
+
+
 async def set_role(conn: AsyncConnection, membership_id: uuid.UUID, role: str) -> None:
     await conn.execute("update app.memberships set role = %s where id = %s", (role, membership_id))
 

@@ -166,6 +166,16 @@ async def end_membership(conn: AsyncConnection, access: OrgAccess, membership_id
     await audit.record(conn, action="membership.ended", target=f"membership:{membership_id}", organisation_id=access.org_id)
 
 
+async def leave(conn: AsyncConnection, org_id: uuid.UUID) -> None:
+    """Ends my own membership; named-expert access to my named cases is kept (F31: it never came from it)."""
+    mine = await repo.my_membership_id(conn, org_id)
+    if mine is None:
+        raise not_found()
+    async with refusals():
+        await repo.end_membership(conn, mine)
+    await audit.record(conn, action="membership.left", target=f"membership:{mine}", organisation_id=org_id)
+
+
 async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> Organisation:
     await repo.rename(conn, org_id, name)
     await audit.record(conn, action="organisation.renamed", target=f"organisation:{org_id}", organisation_id=org_id)
