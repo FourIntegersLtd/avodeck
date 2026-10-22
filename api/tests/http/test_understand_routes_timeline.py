@@ -183,6 +183,24 @@ async def test_counts_include_undated_facts(client_for: ClientFor, seed: Seed) -
     assert str(undated) in ids or str(undated) in {e["fact_id"] for e in resp.json()["unplaced"]}
 
 
+async def test_an_event_carries_its_date_basis_and_first_word_order(client_for: ClientFor, seed: Seed) -> None:
+    case = Case(seed)
+    kind = _plain_lanes(case.pack)[0]["kinds"][0]
+    marked = case.fact(kind, date(1987, 5, 1))
+    bare = case.fact(kind, date(2024, 5, 1), page=2)
+    case.admin.execute("update app.facts set date_basis = 'printed_century' where id = %s", (marked,))
+    case.admin.execute(
+        "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
+        " values (%s, %s, 7, 'w1', 'x'::bytea, '{0,0,1,0,1,1,0,1}', 0.9, 'ocr')",
+        (case.page(1), case.id),
+    )
+    resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
+    got = {e["fact_id"]: e for lane in resp.json()["lanes"] for e in lane["events"]}
+    got.update({e["fact_id"]: e for e in resp.json()["unplaced"]})
+    assert got[str(marked)]["date_basis"] == "printed_century" and got[str(marked)]["first_word_n"] == 7
+    assert got[str(bare)]["date_basis"] is None and got[str(bare)]["first_word_n"] is None
+
+
 # --- links between facts and questions ------------------------------------------------------------
 
 

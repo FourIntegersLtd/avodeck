@@ -4969,6 +4969,17 @@
             ],
             "title": "Available At"
           },
+          "date_basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Basis"
+          },
           "event_date": {
             "anyOf": [
               {
@@ -4985,6 +4996,17 @@
             "format": "uuid",
             "title": "Fact Id",
             "type": "string"
+          },
+          "first_word_n": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Word N"
           },
           "has_finding": {
             "title": "Has Finding",

@@ -6018,6 +6018,8 @@ export interface components {
         Event: {
             /** Available At */
             available_at: string | null;
+            /** Date Basis */
+            date_basis?: string | null;
             /** Event Date */
             event_date: string | null;
             /**
@@ -6025,6 +6027,8 @@ export interface components {
              * Format: uuid
              */
             fact_id: string;
+            /** First Word N */
+            first_word_n?: number | null;
             /** Has Finding */
             has_finding: boolean;
             /** Kind */

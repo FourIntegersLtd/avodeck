@@ -38,6 +38,8 @@ class Event(BaseModel):
     has_finding: bool
     summary: str | None = None
     source: str | None = None
+    date_basis: str | None = None
+    first_word_n: int | None = None
 
 
 class Lane(BaseModel):
@@ -131,6 +133,8 @@ async def timeline(
             has_finding=fact.fact_id in flagged,
             summary=repo.summary_of(fact),
             source=fact.source,
+            date_basis=fact.date_basis,
+            first_word_n=fact.first_word_n,
         )
 
     lanes = pack.lanes()

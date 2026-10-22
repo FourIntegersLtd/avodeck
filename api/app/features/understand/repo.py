@@ -34,6 +34,8 @@ class SeenFact:
     version: int
     source: str | None = None
     bbox: Any = None
+    date_basis: str | None = None
+    first_word_n: int | None = None
 
 
 async def person_id(conn: AsyncConnection) -> uuid.UUID:
@@ -52,8 +54,9 @@ async def read_pages(request: Request, conn: AsyncConnection, case_id: uuid.UUID
 _FACTS = (
     "select f.id as fact_id, f.page_id, p.bundle_page_no as page_no, f.kind, f.fields, f.value, f.event_date,"
     " coalesce(o.at, (f.available_at at time zone 'UTC')::date) as available_at, o.unknown, f.status, f.version,"
-    " p.source_type as source, f.bbox"
+    " p.source_type as source, f.bbox, f.date_basis, w.n as first_word_n"
     " from app.facts f join app.pages p on p.id = f.page_id"
+    " left join app.ocr_words w on w.page_id = f.page_id and w.word_id = f.word_ids[1]"
     " left join lateral (select ao.available_at::date as at, ao.unknown from app.availability_overrides ao"
     "   where ao.fact_id = f.id order by ao.created_at desc, ao.id desc limit 1) o on true"
     " where f.case_id = %s and f.status <> 'rejected'"
