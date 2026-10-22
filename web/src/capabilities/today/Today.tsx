@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatDay, formatDue, hasMessage, hourIn, humanise, t } from "../../foundation/i18n";
+import { GLYPHS, needsYouIcon, type Glyph } from "../../foundation/lib/needsYouIcons";
 import { partyLine } from "../../foundation/lib/pack";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
@@ -38,7 +39,7 @@ export function Today() {
   const today = useResource(() => unwrap(api.GET("/v1/today")), []);
   const packs = usePacks(today.data?.cases);
   const [org, setOrg] = useState<string | null>(null);
-  const name = me.person.full_name || me.person.email;
+  const name = me.person.greeting_name || me.person.full_name || me.person.email;
   const locale = me.person.locale;
 
   return (
@@ -121,11 +122,11 @@ function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: C
               ) : (
                 words
               );
-            const deadline = Boolean(item.due_at);
+            const icon = needsYouIcon(item.kind, Boolean(item.due_at));
             return (
               <li key={`${item.kind}-${item.case_id ?? ""}-${item.rank}`} className="av-needs__item">
-                <IconTile tone={deadline ? "amber" : "mint"}>
-                  <Icon d={deadline ? "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM12 7v5l3 2" : "M4 5h6a2 2 0 0 1 2 2v12a2 2 0 0 0-2-2H4zM20 5h-6a2 2 0 0 0-2 2v12a2 2 0 0 1 2-2h6z"} size={26} />
+                <IconTile tone={icon.tone}>
+                  <Icon glyph={icon.glyph} size={26} />
                 </IconTile>
                 <div className="av-needs__text">
                   <p className="av-needs__title">{title}</p>
@@ -222,11 +223,10 @@ function StepRing({ step, number, total }: { step: string; number: number; total
 }
 
 /** A line icon on a 24px grid. */
-function Icon({ d, size = 20 }: { d: string; size?: number }) {
+function Icon({ glyph, d, size = 20 }: { glyph?: Glyph; d?: string; size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
-      <path d={d} />
+    <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" data-glyph={glyph}>
+      <path d={glyph ? GLYPHS[glyph] : d} />
     </svg>
   );
 }
-

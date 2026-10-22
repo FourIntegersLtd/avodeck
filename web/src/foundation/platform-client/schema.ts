@@ -5470,6 +5470,7 @@ export interface components {
             coverage_question?: string | null;
             /** Declared At */
             declared_at: string | null;
+            other_cases: components["schemas"]["OtherCases"];
             /** Outcome */
             outcome: ("none" | "disclosed") | null;
             /**
@@ -7197,6 +7198,11 @@ export interface components {
         Membership: {
             /** Kind */
             kind: string;
+            /**
+             * Member Count
+             * @default 1
+             */
+            member_count: number;
             /** Name */
             name: string;
             /**
@@ -7827,6 +7833,24 @@ export interface components {
             /** Transcript Id */
             transcript_id?: string | null;
         };
+        /** OtherCases */
+        OtherCases: {
+            /**
+             * Checked
+             * @description Your other cases compared by the patient's identifier; 0 if none yet.
+             */
+            checked: number;
+            /**
+             * Matches
+             * @description How many of them are about the same patient. Never named here.
+             */
+            matches: number;
+            /**
+             * Organisations
+             * @description Where the checked cases sit, by organisation name.
+             */
+            organisations: string[];
+        };
         /** OverEstimate */
         OverEstimate: {
             /** Instructing Party */
@@ -8257,6 +8281,8 @@ export interface components {
             email: string;
             /** Full Name */
             full_name: string | null;
+            /** Greeting Name */
+            greeting_name?: string | null;
             /** Home Region */
             home_region: string | null;
             /**
@@ -8266,6 +8292,8 @@ export interface components {
             id: string;
             /** Locale */
             locale: string | null;
+            /** Password Changed At */
+            password_changed_at?: string | null;
             /** Timezone */
             timezone: string | null;
         };
@@ -9668,6 +9696,24 @@ export interface components {
             /** Total */
             total: number | null;
         };
+        /** StyleDetail */
+        StyleDetail: {
+            /** Bold */
+            bold: boolean;
+            /** Indented */
+            indented: boolean;
+            /** Italic */
+            italic: boolean;
+            /** Name */
+            name: string;
+            /** Numbered */
+            numbered: boolean;
+            /**
+             * Size Pt
+             * @description The style's own point size, if it sets one.
+             */
+            size_pt: number | null;
+        };
         /** Subject */
         Subject: {
             /** Label */
@@ -9793,6 +9839,11 @@ export interface components {
             sha256: string;
             /** Size Bytes */
             size_bytes: number;
+            /**
+             * Style Details
+             * @description What each style looks like, in the order of `styles`.
+             */
+            style_details?: components["schemas"]["StyleDetail"][];
             /** Styles */
             styles: string[];
             /** Version */

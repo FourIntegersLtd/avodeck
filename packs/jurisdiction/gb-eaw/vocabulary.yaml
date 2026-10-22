@@ -67,6 +67,7 @@ request_extension:
     whether the {instructing_party} can agree to this.
 other_side_prompt: Who is the defendant?
 other_side_example: For example, the practice or the doctor the claim is against
+other_side_add_another: Add another (e.g. a hospital trust)
 party_roles_plural:
   instructing_side: claimants
   other_side: defendants

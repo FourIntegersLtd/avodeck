@@ -11,6 +11,7 @@ tax: none
 working_week: [7, 1, 2, 3, 4]     # Sunday to Thursday
 holidays: {source: fixture}
 registration_bodies: {therapist: [ZZ-REG]}
+professional_titles: {therapist: Zed}
 default_retention_years: 2
 quarantine_purge_days: 9
 speech: {locale: en-US}
