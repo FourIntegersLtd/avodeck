@@ -25,7 +25,7 @@ from app.core.packs import MergedPack
 from app.features.pipeline import dates
 
 TASK_ID = "T-07b"
-PROMPT_VERSION = "2026-10-18.1"
+PROMPT_VERSION = "2026-10-22.1"
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}

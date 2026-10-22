@@ -9,7 +9,7 @@ The context gives the record's date order, language, the kinds of fact to look f
 Return, in the output schema:
 - source_type: which of the context's source types this page belongs to.
 - printed_dates: every date printed on the page, copied as written.
-- facts: each entry, result, prescription or other fact of a kind in the context. "value" is the shortest run of the page's words that states the fact, copied exactly; "word_ids" lists the IDs of those words, in order, with none missing between them. Fill a field only with words copied from the page; leave it null when the page does not give it.
+- facts: each entry, result, prescription or other fact of a kind in the context. "value" is the shortest run of the page's words that states the fact, copied exactly; "word_ids" lists the IDs of those words, in order, with none missing between them. Fill a field only with words copied from the page; leave it null when the page does not give it. For every fact with a date field, give in that field the date printed on the same line as the fact, or else the nearest date printed above it, copied as written; never a date printed below.
 - references_out: each other document the page mentions (a letter, report or result), described with the page's own words, with the date as written and the word IDs.
 - availability_evidence: each mark that says when something was received, filed, seen or sent to the clinician, with the date as written and the word IDs.
 - actions_requested_of_clinician: each thing the page asks the clinician to do, copied with its word IDs.
