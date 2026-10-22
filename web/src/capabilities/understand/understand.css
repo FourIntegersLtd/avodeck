@@ -121,20 +121,20 @@
 
 .av-story-board { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; overflow: hidden; }
 .av-story-axis { display: grid; grid-template-columns: 200px minmax(0, 1fr); background: var(--surface-soft); border-bottom: 1px solid var(--line); }
-.av-story-axis__level { padding: 12px 20px; color: var(--ink-soft); border-right: 1px solid var(--line); }
-.av-story-axis__marks { list-style: none; margin: 0 0 0 12px; padding: 0; position: relative; height: 48px; font-family: var(--font-mono); color: var(--ink-soft); }
+.av-story-axis__level { position: relative; z-index: 1; padding: 12px 20px; color: var(--ink-soft); border-right: 1px solid var(--line); }
+.av-story-axis__marks { overflow: hidden; list-style: none; margin: 0 0 0 12px; padding: 0; position: relative; height: 48px; font-family: var(--font-mono); color: var(--ink-soft); }
 .av-story-axis__marks li { position: absolute; top: 0; bottom: 0; padding: 12px 8px; border-left: 1px solid var(--line); white-space: nowrap; }
 .av-story-lane-wrap { position: relative; border-bottom: 1px solid var(--surface-muted); }
 .av-story-lane-wrap:last-child { border-bottom: 0; }
 .av-story-density { position: absolute; left: 212px; bottom: 0; opacity: 0.35; pointer-events: none; }
 .av-story-lane { display: grid; grid-template-columns: 200px minmax(0, 1fr); }
-.av-story-lane__head { display: flex; align-items: flex-start; gap: var(--space-3); padding: 14px 16px 14px 20px; border-right: 1px solid var(--line); background: var(--surface); }
+.av-story-lane__head { position: relative; z-index: 1; display: flex; align-items: flex-start; gap: var(--space-3); padding: 14px 16px 14px 20px; border-right: 1px solid var(--line); background: var(--surface); }
 .av-story-lane__head h3 { margin: 0; font-size: var(--text-body); }
 .av-story-lane__count { color: var(--ink-soft); }
-.av-story-lane__track { position: relative; margin-left: 12px; }
+.av-story-lane__track { position: relative; overflow: hidden; margin-left: 12px; }
 .av-story-lane__ticks { position: absolute; left: 0; bottom: 4px; overflow: visible; }
 .av-story-lane__ticks path { stroke: var(--line-strong); stroke-width: 2; }
-.av-story-card { position: absolute; display: flex; align-items: flex-start; gap: 8px; min-height: var(--button-min-height); padding: 6px 8px; box-sizing: border-box; border: 1.5px solid transparent; border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.av-story-card { position: absolute; display: flex; align-items: flex-start; gap: 8px; min-height: var(--button-min-height); padding: 6px 8px; overflow: hidden; box-sizing: border-box; border: 1.5px solid transparent; border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
 .av-story-card:hover { background: var(--green-tint); }
 .av-story-card:focus-visible { outline: 3px solid var(--green); outline-offset: 1px; }
 .av-story-card--selected { background: var(--green-tint); border-color: var(--green); }
@@ -143,8 +143,9 @@
 .av-story-card__dot[data-state="please_check"] { background: var(--surface); border: 2px dashed var(--ink-soft); }
 .av-story-card__dot[data-state="look"] { background: var(--amber-tint); border: 3px solid var(--amber-bright); }
 .av-story-card__words { display: flex; flex-direction: column; min-width: 0; }
-.av-story-card__top { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; font-size: 16px; }
-.av-story-card__check { font-size: 17px; font-weight: 600; color: var(--amber); }
+.av-story-card__top { display: flex; align-items: center; flex-wrap: nowrap; gap: 4px; font-size: 16px; line-height: 22px; overflow: hidden; white-space: nowrap; }
+.av-story-card__check { display: inline-flex; flex: none; color: var(--amber); }
+.av-understand-legend .av-story-datemark { color: var(--amber); }
 .av-story-card__top .av-qchip { font-size: 13px; padding: 0 6px; }
 .av-story-card small { display: block; font-size: 15px; line-height: 1.3; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .av-story-more { position: absolute; min-height: var(--button-min-height); min-width: 64px; padding: 0 12px; border: 1.5px solid var(--line-strong); border-radius: 999px; background: var(--surface); color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }

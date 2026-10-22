@@ -12,9 +12,9 @@ import { useHighlightAttrs } from "./highlight";
 import { QuestionChip } from "./QuestionChip";
 import { SeriesBars, seriesFacts, seriesRows } from "./SeriesBars";
 import { useCardMotion } from "./useCardMotion";
-import { LaneIcon } from "./laneIcons";
+import { DateMarkIcon, LaneIcon } from "./laneIcons";
 import { axisIso, kindWord, longDate } from "./shared";
-import { dayMs, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, type Level, type StoryGroup } from "./storyLayout";
+import { axisMarks, dayMs, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, type Level, type StoryGroup } from "./storyLayout";
 import { w, type WordKey } from "./words";
 
 type Event = Schemas["Event"];
@@ -26,7 +26,6 @@ export type BoardData = { lanes: Lane[]; unplaced: Event[]; sources?: Source[]; 
 const DEFAULT_WIDTH = 960;
 
 const SHORT_DAY = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", timeZone: "UTC" });
-const MONTH = (year: boolean) => new Intl.DateTimeFormat("en-GB", { month: "short", ...(year ? { year: "numeric" } : {}), timeZone: "UTC" });
 const NUMBER = new Intl.NumberFormat("en-GB");
 const shortDay = (iso: string) => SHORT_DAY.format(new Date(`${iso}T00:00:00Z`));
 
@@ -67,18 +66,6 @@ function domainOf(from: string, to: string, lanes: Lane[], range?: { first: stri
   return { start, end, span: Math.max(end - start, 86_400_000), first, last };
 }
 
-function axisMarks(start: number, end: number, level: Level): { at: number; label: string }[] {
-  const marks: { at: number; label: string }[] = [];
-  const total = Math.round((end - start) / (30.44 * 86_400_000));
-  const step = level === "years" ? 12 : total > 12 ? 3 : 1;
-  for (let d = new Date(start), i = 0; d.getTime() < end; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)), i++) {
-    const january = d.getUTCMonth() === 0;
-    if (level === "years" ? !(january || i === 0) : !(i % step === 0 || january)) continue;
-    marks.push({ at: d.getTime(), label: level === "years" ? String(d.getUTCFullYear()) : MONTH(i === 0 || january).format(d) });
-  }
-  return marks;
-}
-
 function useWidth(ref: React.RefObject<HTMLElement>) {
   const [width, setWidth] = useState(DEFAULT_WIDTH);
   useLayoutEffect(() => {
@@ -105,7 +92,7 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
     <button
       type="button"
       className={`av-story-card${selected ? " av-story-card--selected" : ""}`}
-      style={{ left: x, top: row * ROW + 4, width: CARD }}
+      style={{ left: x, top: row * ROW + 4, width: CARD, height: ROW - 6 }}
       data-state={group.state}
       data-facts={group.events.map((e) => e.fact_id).join(" ")}
       {...highlight}
@@ -121,7 +108,7 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
           ))}
           {mark && (
             <span className="av-story-card__check" title={w(mark)}>
-              <span aria-hidden="true">{w("timeline.check_the_date")}</span>
+              <DateMarkIcon />
               <span className="av-visually-hidden">{w(mark)}</span>
             </span>
           )}
@@ -263,7 +250,7 @@ export function TimelineBoard({
   const onBars = lanes.reduce((n, lane) => n + seriesFacts(lane).size, 0);
   const total = all.reduce((n, g) => n + g.events.length, 0) + onBars;
   const shown = laid.reduce((n, l) => n + l.layout.cards.reduce((s, c) => s + c.group.events.length, 0), 0) + onBars;
-  const marks = domain ? axisMarks(domain.start, domain.end, level) : [];
+  const marks = domain ? axisMarks(domain.start, domain.end, level, track) : [];
   const density = useMemo(() => (domain && level === "years" ? monthlyCounts(lanes, domain.first, domain.last) : null), [domain?.first, domain?.last, level, lanes]); // eslint-disable-line react-hooks/exhaustive-deps
   const found = data.counts?.things_to_look ?? 0;
 
@@ -335,6 +322,7 @@ export function TimelineBoard({
             <li><span className="av-understand-key av-understand-key--please_check" aria-hidden="true" />{t("ui.status.please_check")}</li>
             <li><span className="av-understand-key av-understand-key--look" aria-hidden="true" />{t("ui.status.look")}</li>
             <li><QChip n={2} />{w("timeline.legend_question")}</li>
+            <li><DateMarkIcon />{w("timeline.check_the_date")}</li>
           </ul>
           {data.sources && data.sources.length > 0 && (
             <ul className="av-understand-legend" aria-label={w("timeline.legend")}>

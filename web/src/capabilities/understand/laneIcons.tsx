@@ -29,3 +29,12 @@ export function LineIcon({ icon, size = 20 }: { icon: string; size?: number }) {
 export function LaneIcon({ icon, label }: { icon: string | null | undefined; label: string }) {
   return hasIcon(icon) ? <LineIcon icon={icon} /> : <>{label.slice(0, 1).toUpperCase()}</>;
 }
+
+/** The "check the date" mark: a small amber calendar with a question mark. The words come from the caller. */
+export function DateMarkIcon() {
+  return (
+    <svg className="av-story-datemark" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" focusable="false">
+      <path d="M4 5h16v15H4zM4 10h16M8 3v4M16 3v4M10 13.5a2 2 0 1 1 2.5 1.9c-.4.2-.5.5-.5 1M12 18.2v.1" />
+    </svg>
+  );
+}
