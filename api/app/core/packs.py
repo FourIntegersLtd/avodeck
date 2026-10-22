@@ -73,6 +73,8 @@ _SCREEN_ONLY_VOCABULARY = frozenset(
         "finding_titles",
         "seen_title",
         "unseen_title",
+        "court_tracks",
+        "written_questions_one",
         "as_seen_title",
         "other_side_prompt",
         "other_side_example",
