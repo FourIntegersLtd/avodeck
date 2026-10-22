@@ -503,11 +503,15 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
       )}
       {template && template.data.styles.length > 0 && (
         <ul className="av-setup-plain av-setup-tiles" aria-label={t("setup.template.styles")}>
-          {template.data.styles.map((style) => (
-            <li key={style} className="av-setup-tile">
-              {style}
-            </li>
-          ))}
+          {template.data.styles.map((style) => {
+            const detail = styleLook(template.data.style_details?.find((d) => d.name === style), t);
+            return (
+              <li key={style} className="av-setup-tile">
+                <span>{style}</span>
+                {detail && <span className="av-setup-tile__detail">{detail}</span>}
+              </li>
+            );
+          })}
         </ul>
       )}
       {template && template.data.headings.length > 0 && (
@@ -756,4 +760,14 @@ function SignaturePad({ signed, onSigned }: { signed: boolean; onSigned: () => v
       )}
     </div>
   );
+}
+
+type StyleDetail = NonNullable<Schemas["Template"]["style_details"]>[number];
+
+/** "Bold 14 pt", "Numbered", "Italic · Indented": the server's facts about a style, in words. */
+function styleLook(d: StyleDetail | undefined, t: (key: string, params?: Record<string, string | number>) => string): string {
+  if (!d) return "";
+  const look = [d.bold ? t("setup.template.style.bold") : "", d.italic ? t("setup.template.style.italic") : "", d.size_pt != null ? t("setup.template.style.size", { size: d.size_pt }) : ""].filter(Boolean).join(" ");
+  const layout = [d.numbered ? t("setup.template.style.numbered") : "", d.indented ? t("setup.template.style.indented") : ""].filter(Boolean);
+  return [look, ...layout].filter(Boolean).join(" · ");
 }

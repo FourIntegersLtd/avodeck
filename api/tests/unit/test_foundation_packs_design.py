@@ -20,7 +20,7 @@ from app.core import packs
 from tests.support.packs import BOTH, FIXTURE, FIXTURE_ROOT, LAUNCH, LAUNCH_ROOT, Combo, copy_packs
 
 IDS = [c.jurisdiction for c in BOTH]
-JURISDICTION_WORDS = ("other_side_prompt", "other_side_example", "subject_status_hint")
+JURISDICTION_WORDS = ("other_side_prompt", "other_side_example", "other_side_add_another", "subject_status_hint")
 
 
 @pytest.fixture(scope="module")

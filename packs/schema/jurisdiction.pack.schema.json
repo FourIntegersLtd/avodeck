@@ -103,6 +103,19 @@
         }
       }
     },
+    "professional_titles": {
+      "type": "object",
+      "description": "How the cell addresses a profession in a greeting (e.g. a doctor's title), by profession.",
+      "propertyNames": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20
+      }
+    },
     "default_retention_years": {
       "type": "integer",
       "minimum": 1

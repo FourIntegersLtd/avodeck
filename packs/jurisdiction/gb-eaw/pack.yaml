@@ -18,6 +18,7 @@ registration_bodies:       # by profession (the specialty pack declares the prof
   physiotherapist: [HCPC]
   psychologist: [HCPC]
   dentist: [GDC]
+professional_titles: {doctor: Dr, dentist: Dr}   # how a greeting addresses them: "Dr Morgan"
 default_retention_years: 6 # expert's default; configurable per case
 quarantine_purge_days: 14        # a file that failed the virus scan is set aside this long, then purged
 speech: {locale: en-GB}

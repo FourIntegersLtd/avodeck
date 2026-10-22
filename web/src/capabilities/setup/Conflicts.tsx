@@ -115,6 +115,16 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
         {job && <span className="av-setup-eyebrow">{t("setup.conflicts.eyebrow")}</span>}
         <h1>{t("setup.conflicts.title")}</h1>
         <p className="av-muted av-setup-lead">{t("setup.conflicts.intro", { count: state.questions.length + (state.coverage_question ? 1 : 0) })}</p>
+        {state.other_cases.checked > 0 && (
+          <p className="av-muted av-setup-lead">
+            {state.other_cases.matches > 0
+              ? t("setup.conflicts.other_cases_match", { count: state.other_cases.matches })
+              : t("setup.conflicts.other_cases_none", {
+                  count: state.other_cases.checked,
+                  places: new Intl.ListFormat("en-GB", { style: "long", type: "conjunction" }).format(state.other_cases.organisations),
+                })}
+          </p>
+        )}
       </div>
       {state.warnings.map((key) => (
         <Callout

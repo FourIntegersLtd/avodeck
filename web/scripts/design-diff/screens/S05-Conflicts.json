@@ -30,6 +30,7 @@
       "stage": "prepare"
     },
     "/v1/cases/*/conflicts": {
+      "other_cases": { "checked": 0, "matches": 0, "organisations": [] },
       "questions": [
         {
           "key": "treated",

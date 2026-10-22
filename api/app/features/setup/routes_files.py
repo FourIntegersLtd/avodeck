@@ -93,6 +93,15 @@ class MappingUpdate(BaseModel):
     mapping: list[MappingItem] = Field(max_length=200)
 
 
+class StyleDetail(BaseModel):
+    name: str
+    bold: bool
+    italic: bool
+    size_pt: float | None = Field(description="The style's own point size, if it sets one.")
+    numbered: bool
+    indented: bool
+
+
 class Template(BaseModel):
     id: uuid.UUID
     filename: str
@@ -101,6 +110,9 @@ class Template(BaseModel):
     version: int
     headings: list[Heading]
     styles: list[str]
+    style_details: list[StyleDetail] = Field(
+        default_factory=list, description="What each style looks like, in the order of `styles`."
+    )
     mapping: list[MappingItem]
     sections: list[str] = Field(description="The report section keys a heading can be mapped to, `other` last.")
     created_at: datetime
@@ -124,6 +136,49 @@ def _read_headings(data: bytes) -> tuple[list[dict[str, Any]], list[str]]:
     return headings, styles
 
 
+def _inherited(style: Any, read: Any) -> Any:
+    """The first value a style, or the style it is based on, sets."""
+    seen = 0
+    while style is not None and seen < 20:
+        value = read(style)
+        if value is not None:
+            return value
+        style = style.base_style
+        seen += 1
+    return None
+
+
+def _style_details(data: bytes) -> list[dict[str, Any]]:
+    try:
+        document = docx.Document(io.BytesIO(data))
+    except Exception:  # an unreadable copy shows names only
+        return []
+    out: list[dict[str, Any]] = []
+    done: set[str] = set()
+    for paragraph in document.paragraphs:
+        style = paragraph.style
+        name = str(style.name) if style is not None else ""
+        if not name or name in done:
+            continue
+        done.add(name)
+        size = _inherited(style, lambda s: s.font.size)
+        indent = _inherited(style, lambda s: s.paragraph_format.left_indent)
+        numbered = _inherited(
+            style, lambda s: True if s.element.pPr is not None and s.element.pPr.numPr is not None else None
+        )
+        out.append(
+            {
+                "name": name,
+                "bold": bool(_inherited(style, lambda s: s.font.bold)),
+                "italic": bool(_inherited(style, lambda s: s.font.italic)),
+                "size_pt": round(size.pt, 1) if size is not None else None,
+                "numbered": bool(numbered),
+                "indented": indent is not None and indent > 0,
+            }
+        )
+    return out
+
+
 _TEMPLATE = (
     "select id, filename, sha256, size_bytes, version, heading_map as headings, style_map as styles, mapping,"
     " created_at, revision, storage_path from app.report_templates"
@@ -140,10 +195,18 @@ async def _latest_template(conn: DbConn) -> dict[str, Any]:
     return row
 
 
-def _template_out(row: dict[str, Any], response: Response, request: Request) -> Template:
+async def _template_out(row: dict[str, Any], response: Response, request: Request) -> Template:
     response.headers["etag"] = etag(row["revision"])
     fields = {k: v for k, v in row.items() if k not in ("revision", "storage_path")}
-    return Template(**fields, sections=_section_list(request))
+    person = request.state.scope.person_id
+    try:
+        data = await _get_sealed(
+            request, row["storage_path"], purpose="report_template", subject=f"{person}:{row['id']}"
+        )
+        details = [StyleDetail(**d) for d in _style_details(data)]
+    except Exception:  # the tiles then show names only
+        details = []
+    return Template(**fields, style_details=details, sections=_section_list(request))
 
 
 @router.post("/me/template/file", status_code=201, response_model=Template)
@@ -180,12 +243,12 @@ async def upload_template(
             version,
         ),
     )
-    return _template_out(await _latest_template(conn), response, request)
+    return await _template_out(await _latest_template(conn), response, request)
 
 
 @router.get("/me/template", response_model=Template)
 async def get_template(request: Request, conn: DbConn, response: Response) -> Template:
-    return _template_out(await _latest_template(conn), response, request)
+    return await _template_out(await _latest_template(conn), response, request)
 
 
 @router.get("/me/template/file", response_class=Response)
@@ -228,7 +291,7 @@ async def update_mapping(
         "update app.report_templates set mapping = %s where id = %s",
         (json.dumps([m.model_dump() for m in body.mapping]), row["id"]),
     )
-    return _template_out(await _latest_template(conn), response, request)
+    return await _template_out(await _latest_template(conn), response, request)
 
 
 class SectionSuggestion(BaseModel):
