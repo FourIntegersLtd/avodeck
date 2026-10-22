@@ -9,7 +9,7 @@ import { caseItem, casePack, combination, jurisdiction, launchWords, type PackRu
 
 function open(run: PackRun, teams = true) {
   const person = me();
-  if (teams) person.memberships.push({ organisation_id: TEAM_ORG, name: "Northgate Medico-Legal", kind: "team", role: "member", started_at: "2026-02-01T09:00:00Z" });
+  if (teams) person.memberships.push({ organisation_id: TEAM_ORG, name: "Northgate Medico-Legal", kind: "team", role: "member", started_at: "2026-02-01T09:00:00Z", member_count: 1 });
   signedIn({ me: person, pack: casePack(run) });
   server.use(
     http.get("/v1/packs", () => json([combination(run)])),

@@ -8,8 +8,8 @@ import { useSession } from "../../foundation/lib/session";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { screenPath } from "../../foundation/lib/screens";
-import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { hasScreen, screenPath } from "../../foundation/lib/screens";
+import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField, TextLink } from "../../foundation/ui";
 
 export function Account() {
   const { me } = useSession();
@@ -41,7 +41,7 @@ export function Account() {
           <p>{message.text}</p>
         </Notice>
       )}
-      <SigningIn email={me.person.email} act={act} />
+      <SigningIn email={me.person.email} passwordChangedAt={me.person.password_changed_at} locale={me.person.locale} act={act} />
       <Devices
         act={act}
         locale={me.person.locale}
@@ -58,21 +58,39 @@ export function Account() {
   );
 }
 
-/** "Your organisations": each one you belong to and your role there (from /v1/me). Settings and leaving are slice O's. */
+/** "Your organisations": each one you belong to, your role and how many people are in it. Settings and Leave open slice O's screens. */
 function Organisations({ memberships }: { memberships: Schemas["Membership"][] }) {
   if (memberships.length === 0) return null;
+  const open = (key: string, m: Schemas["Membership"]) =>
+    hasScreen(key) ? screenPath(key, { params: { organisation_id: m.organisation_id } }) : null;
   return (
     <section aria-labelledby="your-organisations" className="av-card av-account-card">
       <h2 id="your-organisations">{t("account.orgs.title")}</h2>
       <ul className="av-rows" role="list">
-        {memberships.map((m) => (
-          <li key={m.organisation_id} className="av-row-item">
-            <div className="av-row-item__text">
-              <p className="av-field__label">{m.kind === "personal" ? t("today.filter.personal") : m.name}</p>
-              <p className="av-muted">{t(`account.orgs.role.${m.role}`, {}, humanise(m.role))}</p>
-            </div>
-          </li>
-        ))}
+        {memberships.map((m) => {
+          const name = m.kind === "personal" ? t("today.filter.personal") : m.name;
+          const people = m.member_count === 1 ? t("account.orgs.just_you") : t("account.orgs.people", { count: m.member_count });
+          const settings = open("organisation_settings", m);
+          const leave = m.kind === "personal" ? null : open("organisation_leave", m);
+          return (
+            <li key={m.organisation_id} className="av-row-item">
+              <div className="av-row-item__text">
+                <p className="av-field__label">{name}</p>
+                <p className="av-muted">{t("account.orgs.line", { role: t(`account.orgs.role.${m.role}`, {}, humanise(m.role)), people })}</p>
+              </div>
+              {settings && (
+                <TextLink to={settings} aria-label={t("account.orgs.settings_for", { name })}>
+                  {t("account.orgs.settings")}
+                </TextLink>
+              )}
+              {leave && (
+                <TextLink to={leave} aria-label={t("account.orgs.leave_name", { name })}>
+                  {t("account.orgs.leave")}
+                </TextLink>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -80,7 +98,7 @@ function Organisations({ memberships }: { memberships: Schemas["Membership"][] }
 
 type Act = (action: () => Promise<unknown>, success?: string) => Promise<unknown>;
 
-function SigningIn({ email, act }: { email: string; act: Act }) {
+function SigningIn({ email, passwordChangedAt, locale, act }: { email: string; passwordChangedAt?: string | null; locale?: string | null; act: Act }) {
   const [changing, setChanging] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [sent, setSent] = useState(false);
@@ -122,7 +140,10 @@ function SigningIn({ email, act }: { email: string; act: Act }) {
           </Notice>
         )}
         <div className="av-row-item">
-          <p className="av-field__label av-row-item__text">{t("account.password.label")}</p>
+          <div className="av-row-item__text">
+            <p className="av-field__label">{t("account.password.label")}</p>
+            {passwordChangedAt && <p className="av-muted">{t("account.password.changed", { when: formatRelative(new Date(passwordChangedAt), locale) })}</p>}
+          </div>
           <Button
             variant="quiet"
             aria-label={t("account.password.change")}

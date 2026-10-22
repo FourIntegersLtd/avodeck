@@ -61,6 +61,8 @@ export function formatDay(date: Date, locale: string | null | undefined, timeZon
 }
 
 const UNITS: Array<[Intl.RelativeTimeFormatUnit, number]> = [
+  ["year", 365 * 86_400_000],
+  ["month", 30 * 86_400_000],
   ["day", 86_400_000],
   ["hour", 3_600_000],
   ["minute", 60_000],

@@ -16,7 +16,7 @@ function account() {
       ...person,
       memberships: [
         ...person.memberships,
-        { organisation_id: TEAM_ORG, name: "Northgate", kind: "team", role: "admin", started_at: "2026-02-01T09:00:00Z" },
+        { organisation_id: TEAM_ORG, name: "Northgate", kind: "team", role: "admin", started_at: "2026-02-01T09:00:00Z", member_count: 1 },
       ],
     },
   });

@@ -29,7 +29,7 @@ export function me(over: Partial<Schemas["Person"]> = {}): Schemas["Me"] {
     expert: null,
     mfa_enrolled: true,
     memberships: [
-      { organisation_id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", role: "owner", started_at: "2026-01-05T09:00:00Z" },
+      { organisation_id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", role: "owner", started_at: "2026-01-05T09:00:00Z", member_count: 1 },
     ],
   };
 }
