@@ -91,11 +91,11 @@ async def test_with_no_action_kinds_the_next_entry_of_any_kind_ends_the_wait() -
     assert (out[0].to_fact_id, out[0].days) == (nxt.fact_id, 19)
 
 
-async def test_nothing_after_runs_to_the_latest_date_the_person_can_see() -> None:
+async def test_no_action_after_runs_to_the_latest_date_the_person_can_see() -> None:
     result = fact("result", date(2024, 1, 1))
     note = fact("letter", date(2024, 2, 1))
     out = await assemble(LAUNCH_PACK, [finding(CHECK, "no_action_within", result)], [result], [result, note])
-    assert (out[0].to_fact_id, out[0].days, out[0].label_key) == (None, 31, "timeline.gap.none_after")
+    assert (out[0].to_fact_id, out[0].days, out[0].label_key) == (None, 31, "timeline.gap.no_action_after")
 
 
 async def test_nothing_after_and_no_later_date_is_zero_days() -> None:
@@ -152,3 +152,25 @@ async def test_the_earliest_shown_evidence_starts_the_gap_and_gaps_are_in_date_o
     out = await assemble(LAUNCH_PACK, [second, first], [late, early, other])
     assert [g.from_fact_id for g in out] == [early.fact_id, other.fact_id]
     assert [g.finding_id for g in out] == [first.id, second.id]
+
+
+async def test_later_entries_of_other_kinds_only_is_not_nothing_after() -> None:
+    result = fact("result", date(2024, 1, 1))
+    note = fact("letter", date(2024, 2, 1))  # later, but not an action kind for this check
+    out = await assemble(LAUNCH_PACK, [finding(CHECK, "no_action_within", result)], [result], [result, note])
+    assert (out[0].to_fact_id, out[0].days, out[0].label_key) == (None, 31, "timeline.gap.no_action_after")
+
+
+async def test_records_quiet_still_applies_when_no_action_entry_follows() -> None:
+    result = fact("result", date(2024, 1, 1), source="zz_source")
+    note = fact("letter", date(2024, 3, 1))
+    quiet = [record_gaps.RecordGap("zz_source", "zz_kind", date(2024, 1, 10), date(2024, 2, 10))]
+    out = await assemble(LAUNCH_PACK, [finding(CHECK, "no_action_within", result)], [result], [result, note], quiet)
+    assert (out[0].kind, out[0].label_key) == ("records_quiet", "timeline.gap.records_quiet")
+
+
+async def test_nothing_later_at_all_keeps_nothing_after_and_records_quiet() -> None:
+    result = fact("result", date(2024, 1, 1), source="zz_source")
+    quiet = [record_gaps.RecordGap("zz_source", "zz_kind", date(2024, 1, 1), date(2024, 2, 10))]
+    out = await assemble(LAUNCH_PACK, [finding(CHECK, "no_action_within", result)], [result], [result], quiet)
+    assert out[0].label_key == "timeline.gap.none_after"

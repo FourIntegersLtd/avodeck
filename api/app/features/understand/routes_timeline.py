@@ -55,6 +55,9 @@ async def timeline(
     links = await repo.linked_questions(conn, case_id)
     flagged = await repo.flagged_facts(conn, case_id)
 
+    def arrived(fact: repo.SeenFact) -> bool:
+        return as_seen_on is None or (fact.available_at is not None and fact.available_at <= as_seen_on)
+
     def keep(fact: repo.SeenFact) -> bool:
         if since is not None and (fact.event_date is None or fact.event_date < since):
             return False
@@ -64,7 +67,7 @@ async def timeline(
             return False
         if status not in (None, "verified") and fact.status != status:
             return False
-        if as_seen_on is not None and (fact.available_at is None or fact.available_at > as_seen_on):
+        if not arrived(fact):
             return False
         if only == "not_linked" and links.get(fact.fact_id):
             return False
@@ -132,7 +135,7 @@ async def timeline(
             )
             for key, got in placed
         ],
-        gaps=await gaps.build(conn, case_id, pack, kept, facts),
+        gaps=await gaps.build(conn, case_id, pack, kept, [f for f in facts if arrived(f)]),
         unplaced=[event(f) for f in unplaced],
         guidance_changed=await guidelines.changed(conn, case_id, pack.guidelines()),
     )

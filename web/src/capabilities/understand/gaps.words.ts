@@ -11,6 +11,7 @@ const WORDS: Record<string, string> = {
   "timeline.gap.records_quiet_one": "{{count}} day. The records go quiet here, so pages may be missing.",
   "timeline.gap.records_quiet_other": "{{count}} days. The records go quiet here, so pages may be missing.",
   "timeline.gap.none_after": "Nothing in the record after this.",
+  "timeline.gap.no_action_after": "Later entries exist, but none show what followed.",
   "timeline.gap.short_one": "{{count}} day",
   "timeline.gap.short_other": "{{count}} days",
 };
