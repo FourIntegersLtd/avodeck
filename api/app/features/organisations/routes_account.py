@@ -6,7 +6,12 @@ from app.core.http import CurrentScope, DbConn
 from app.features.organisations import account
 from app.features.organisations.deps import STEP_UP_FIRST
 from app.features.organisations.router import router
-from app.features.organisations.schemas import Custodian
+from app.features.organisations.schemas import AccountClosed, Custodian
+
+
+@router.post("/me/close", response_model=AccountClosed, dependencies=STEP_UP_FIRST)
+async def close_account(conn: DbConn, scope: CurrentScope) -> AccountClosed:
+    return await account.close_account(conn, scope.person_id)
 
 
 @router.put("/me/custodian", response_model=Custodian, dependencies=STEP_UP_FIRST)

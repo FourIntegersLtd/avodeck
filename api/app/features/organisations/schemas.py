@@ -131,6 +131,11 @@ class InviteAccepted(BaseModel):
     membership_id: uuid.UUID
 
 
+class AccountClosed(BaseModel):
+    closed_at: datetime
+    deletion_job_ids: list[uuid.UUID]
+
+
 class Custodian(Strict):
     """A records custodian: both a name and an email, or neither (cleared)."""
 

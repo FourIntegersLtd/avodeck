@@ -14,6 +14,7 @@ _ORG = """
 select o.id, o.name, o.kind, o.region, o.policy, o.created_at, m.role
 from app.memberships m join app.organisations o on o.id = m.organisation_id
 where m.person_id = app.current_person_id() and m.ended_at is null and o.closed_at is null
+  and exists (select 1 from app.people p where p.id = m.person_id and p.closed_at is null)
 """
 
 
@@ -171,6 +172,39 @@ async def accept_invite(conn: AsyncConnection, token_hash: str) -> dict[str, Any
 
 async def end_membership(conn: AsyncConnection, membership_id: uuid.UUID) -> None:
     await conn.execute("update app.memberships set ended_at = now() where id = %s", (membership_id,))
+
+
+async def account_closed(conn: AsyncConnection) -> bool:
+    return bool(await value(conn, "select closed_at is not null from app.people where id = app.current_person_id()"))
+
+
+async def unserved_personal_cases(conn: AsyncConnection) -> list[uuid.UUID]:
+    """My own practice's cases on which I am the named expert, never served, not deleted or being deleted."""
+    found = await rows(
+        conn,
+        """
+        select c.id from app.cases c join app.organisations o on o.id = c.organisation_id
+        where o.kind = 'personal' and c.named_expert_id = app.current_person_id() and c.status <> 'deleted'
+          and c.retention_policy is distinct from 'delete_now' and not app.case_ever_served(c.id)
+        order by c.created_at, c.id
+        """,
+    )
+    return [r["id"] for r in found]
+
+
+async def my_team_memberships(conn: AsyncConnection) -> list[uuid.UUID]:
+    found = await rows(
+        conn,
+        "select m.id from app.memberships m join app.organisations o on o.id = m.organisation_id"
+        " where m.person_id = app.current_person_id() and m.ended_at is null and o.kind = 'team'",
+    )
+    return [r["id"] for r in found]
+
+
+async def close_account(conn: AsyncConnection) -> Any:
+    return await value(
+        conn, "update app.people set closed_at = now() where id = app.current_person_id() returning closed_at"
+    )
 
 
 async def set_custodian(conn: AsyncConnection, name: str | None, email: str | None) -> None:
