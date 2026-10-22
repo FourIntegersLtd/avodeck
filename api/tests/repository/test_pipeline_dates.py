@@ -237,3 +237,136 @@ async def test_the_same_printed_date_reads_in_each_pack_date_order(
             first, second = facts[full["bundle_page_no"]], facts[short["bundle_page_no"]]
             assert (first["event_date"], first["date_basis"]) == (READ_AS[pack.date_order], "printed")
             assert (second["event_date"], second["date_basis"]) == (None, "please_check")
+
+
+# ---- the bundle anchor, the century rule and the line above at ingest -----------------------
+
+
+def _printed(day: int, month: int, year: int, *, ambiguous: bool = False) -> Any:
+    from app.features.pipeline.dates import Printed
+
+    return Printed(("w",), dt.date(year, month, day), None, ambiguous)
+
+
+def test_the_bundle_anchor_is_the_latest_unambiguous_printed_date() -> None:
+    from app.features.pipeline import dates
+
+    found = [_printed(1, 2, 1990), _printed(5, 6, 1995), _printed(9, 9, 2010, ambiguous=True)]
+    assert dates.bundle_anchor(found, today=dt.date(2026, 1, 1)) == dt.date(1995, 6, 5)
+
+
+def test_the_bundle_anchor_is_today_when_no_date_reads_one_way() -> None:
+    from app.features.pipeline import dates
+
+    today = dt.date(2026, 1, 1)
+    assert dates.bundle_anchor([], today=today) == today
+    assert dates.bundle_anchor([_printed(9, 9, 2010, ambiguous=True)], today=today) == today
+
+
+def test_a_printed_date_after_today_does_not_push_the_anchor_past_today() -> None:
+    from app.features.pipeline import dates
+
+    assert dates.bundle_anchor([_printed(1, 1, 2090)], today=dt.date(2026, 1, 1)) == dt.date(2026, 1, 1)
+
+
+def test_the_anchor_decides_which_century_a_two_digit_year_is_in() -> None:
+    from app.features.pipeline import dates
+
+    assert dates.pick_past_century(3, 4, 5, dt.date(1999, 1, 1)) == dt.date(1905, 4, 3)
+    assert dates.pick_past_century(3, 4, 5, dt.date(2026, 1, 1)) == dt.date(2005, 4, 3)
+
+
+def _answer_with(combo: Combo, facts: list[tuple[str, str | None, list[str]]]) -> Any:
+    """A T-07b answer: each fact is (value, date pointer, word ids), on a kind with a date field if any."""
+    pack = default_library().combine(*combo.codes)
+    kinds = pack.fact_kinds()
+    kind = next((k for k in kinds if "date" in k.get("fields", {}).values()), kinds[0])
+    names = [n for n, t in kind.get("fields", {}).items() if t == "date"]
+    return response(
+        {
+            "source_type": pack.source_types()[0]["key"],
+            "printed_dates": [],
+            "facts": [
+                {
+                    "kind": kind["key"],
+                    "clinician_role": None,
+                    "fields": {n: pointer for n in names if pointer},
+                    "value": value,
+                    "word_ids": ids,
+                }
+                for value, pointer, ids in facts
+            ],
+            "references_out": [],
+            "availability_evidence": [],
+            "actions_requested_of_clinician": [],
+        }
+    )
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.codes[0])
+async def test_a_two_digit_year_is_given_its_century_at_ingest(
+    combo: Combo,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: SupabaseStorage,
+) -> None:
+    from app.features.pipeline import dates
+
+    pack = default_library().combine(*combo.codes)
+    want = dt.date(1987, 4, 3) if pack.date_order == "DMY" else dt.date(1987, 3, 4)
+    opened = await _open(
+        combo,
+        None,
+        ScriptedBedrock([_answer_with(combo, [("review", "03/04/87", ["p1w3"])])]),
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        seed=seed,
+        storage=storage,
+    )
+    async with opened as h:
+        await h.upload(text_pdf([["Seen 03/04/87 review"]]))
+        finished = await h.drain()
+        assert set(finished.values()) == {"done"}
+        (fact,) = facts_of(h)
+        if dates.date_field(pack, fact["kind"]) is None:
+            assert (fact["event_date"], fact["date_basis"]) == (None, None)
+        else:
+            assert (fact["event_date"], fact["date_basis"]) == (want, "printed_century")
+
+
+async def test_a_result_mid_line_is_dated_from_its_line_at_ingest(
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: SupabaseStorage,
+) -> None:
+    answer = _answer_with(LAUNCH, [("Hb 112", None, ["p1w4", "p1w5"]), ("later", None, ["p1w6"])])
+    opened = await _open(
+        LAUNCH,
+        None,
+        ScriptedBedrock([answer]),
+        admin=admin,
+        api_db=api_db,
+        worker_dsn=worker_dsn,
+        auth_env=auth_env,
+        seed=seed,
+        storage=storage,
+    )
+    async with opened as h:
+        await h.upload(text_pdf([["21/10/87 FBC nad Hb 112", "later"]]))
+        finished = await h.drain()
+        assert set(finished.values()) == {"done"}
+        facts = {f["value"]: f for f in facts_of(h)}
+        mid = facts["Hb 112"]
+        assert (mid["event_date"], mid["date_basis"]) == (dt.date(1987, 10, 21), "line_above")
+        assert mid["word_ids"][:2] == ["p1w4", "p1w5"]
+        assert "p1w1" in mid["word_ids"]
+        # the line below the date is still within "the line above" of its own line: also dated
+        assert facts["later"]["date_basis"] == "line_above"
