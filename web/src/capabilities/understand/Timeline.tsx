@@ -13,6 +13,8 @@ import { casePath, GuidanceChanged } from "./shared";
 import { splitForTrack, TimelineBoard } from "./TimelineBoard";
 import { TimelineChronology } from "./TimelineChronology";
 import { TimelineInspector } from "./TimelineInspector";
+import { HighlightProvider } from "./highlight";
+import { useRibbonData } from "./ribbonData";
 import { TimelineRibbon } from "./TimelineRibbon";
 import { lastTwoYearsWindow, periodDefaultDates } from "./timelineTimeWindow";
 import { w } from "./words";
@@ -54,10 +56,7 @@ export function Timeline() {
     return unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: query as never } }));
   }, [caseId, status, questionId, from, to, day]);
   // The ribbon always shows the whole record (as it stood on the chosen day), whatever the window and filters.
-  const whole = useResource(
-    () => unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: (day ? { as_seen_on: day } : {}) as never } })),
-    [caseId, day],
-  );
+  const whole = useRibbonData(caseId, day);
   const recordRange = whole.data?.range ?? found.data?.range ?? null;
 
   useEffect(() => {
@@ -119,7 +118,7 @@ export function Timeline() {
   const c = data?.counts ?? lastCounts.current;
   if (data?.counts) lastCounts.current = data.counts;
   const numbers = Object.fromEntries((asked.data?.questions ?? []).map((q) => [q.id, q.number]));
-  const seenTitle = data?.as_seen_title ?? whole.data?.as_seen_title ?? w("consultation.on_label");
+  const seenTitle = data?.as_seen_title ?? w("consultation.on_label");
   const switchDay = (on: boolean) => {
     setDayOn(on);
     if (!on) setSeenOn("");
@@ -129,6 +128,7 @@ export function Timeline() {
   const showUndatedBanner = !!split && undated > 0 && !split.lanes.some((l) => l.events.length > 0) && split.unplaced.length > 0;
 
   return (
+    <HighlightProvider>
     <div className="av-page av-page--wide av-stack">
       <div className="av-understand-top">
         <div>
@@ -176,8 +176,7 @@ export function Timeline() {
         </div>
         {whole.data && (
           <TimelineRibbon
-            lanes={splitForTrack(whole.data).lanes}
-            range={whole.data.range}
+            data={whole.data}
             from={from}
             to={to}
             onChange={(f, t2) => {
@@ -265,5 +264,6 @@ export function Timeline() {
         <Loading />
       )}
     </div>
+    </HighlightProvider>
   );
 }

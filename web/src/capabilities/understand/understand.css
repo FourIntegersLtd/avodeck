@@ -198,3 +198,5 @@
 .av-understand-folded__title { flex: 1; font-weight: 700; }
 .av-understand-folded > article { border: 0; box-shadow: none; }
 .av-understand-finding__icon { display: inline-flex; }
+.av-story-pin { position: absolute; top: -4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; box-sizing: border-box; background: var(--surface); border: 2px dashed var(--ink-soft); pointer-events: none; }
+.av-story-pin[data-state="look"] { background: var(--amber-tint); border: 2.5px solid var(--amber-bright); }

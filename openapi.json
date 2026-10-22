@@ -5006,6 +5006,17 @@
             "title": "Question Ids",
             "type": "array"
           },
+          "series_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series Key"
+          },
           "source": {
             "anyOf": [
               {
@@ -5730,6 +5741,55 @@
           "email"
         ],
         "title": "Forgot",
+        "type": "object"
+      },
+      "Gap": {
+        "description": "The wait after an entry an open thing to look at rests on, in the server's own words (`label_key`).",
+        "properties": {
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "finding_id": {
+            "format": "uuid",
+            "title": "Finding Id",
+            "type": "string"
+          },
+          "from_fact_id": {
+            "format": "uuid",
+            "title": "From Fact Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "label_key": {
+            "title": "Label Key",
+            "type": "string"
+          },
+          "to_fact_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Fact Id"
+          }
+        },
+        "required": [
+          "finding_id",
+          "from_fact_id",
+          "to_fact_id",
+          "days",
+          "kind",
+          "label_key"
+        ],
+        "title": "Gap",
         "type": "object"
       },
       "Guidance": {
@@ -7353,6 +7413,20 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "series": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Series"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Series"
           },
           "subtitle": {
             "anyOf": [
@@ -10228,6 +10302,84 @@
         "title": "OverEstimate",
         "type": "object"
       },
+      "Overview": {
+        "description": "The ribbon: the whole record, counted per lane per month (`months` are \"YYYY-MM\").",
+        "properties": {
+          "lanes": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OverviewLane"
+            },
+            "title": "Lanes",
+            "type": "array"
+          },
+          "months": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Months",
+            "type": "array"
+          },
+          "pins": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Pin"
+            },
+            "title": "Pins",
+            "type": "array"
+          },
+          "range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Range"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "title": "Overview",
+        "type": "object"
+      },
+      "OverviewLane": {
+        "properties": {
+          "colour": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Colour"
+          },
+          "counts": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Counts",
+            "type": "array"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "counts"
+        ],
+        "title": "OverviewLane",
+        "type": "object"
+      },
       "OwnCheck": {
         "properties": {
           "applies_to": {
@@ -11517,6 +11669,45 @@
           "created_at"
         ],
         "title": "Person",
+        "type": "object"
+      },
+      "Pin": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "has_finding": {
+            "title": "Has Finding",
+            "type": "boolean"
+          },
+          "lane_key": {
+            "title": "Lane Key",
+            "type": "string"
+          },
+          "question_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Question Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "fact_id",
+          "date",
+          "lane_key",
+          "has_finding",
+          "question_ids"
+        ],
+        "title": "Pin",
         "type": "object"
       },
       "PointAdd": {
@@ -14364,6 +14555,51 @@
         "title": "SentenceOut",
         "type": "object"
       },
+      "Series": {
+        "description": "Entries the lane's pack rule groups into one bar (e.g. one medicine issued again and again).",
+        "properties": {
+          "count": {
+            "title": "Count",
+            "type": "integer"
+          },
+          "fact_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Fact Ids",
+            "type": "array"
+          },
+          "first": {
+            "format": "date",
+            "title": "First",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last": {
+            "format": "date",
+            "title": "Last",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "label",
+          "first",
+          "last",
+          "count",
+          "fact_ids"
+        ],
+        "title": "Series",
+        "type": "object"
+      },
       "ServeIn": {
         "additionalProperties": false,
         "properties": {
@@ -16109,6 +16345,20 @@
                 "type": "null"
               }
             ]
+          },
+          "gaps": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Gap"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gaps"
           },
           "guidance_changed": {
             "default": [],
@@ -30960,6 +31210,79 @@
           }
         },
         "summary": "Timeline",
+        "tags": [
+          "understand"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/timeline/overview": {
+      "get": {
+        "description": "The whole record for the ribbon: counts per lane per month and the entries worth a pin.",
+        "operationId": "timeline_overview_v1_cases__case_id__timeline_overview_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Only what had arrived by this day.",
+            "in": "query",
+            "name": "as_seen_on",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only what had arrived by this day.",
+              "title": "As Seen On"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Timeline Overview",
         "tags": [
           "understand"
         ]
