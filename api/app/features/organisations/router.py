@@ -6,6 +6,6 @@ from app.core.http import router as _router
 
 router = _router(prefix="/v1", tags=["organisations"])
 
-from app.features.organisations import routes_members, routes_orgs  # noqa: E402, F401
+from app.features.organisations import routes_invites, routes_members, routes_orgs  # noqa: E402, F401
 
 __all__ = ["router"]

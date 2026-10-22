@@ -59,3 +59,35 @@ class MemberList(BaseModel):
 
 class RoleChange(Strict):
     role: OrgRole
+
+
+Email = Annotated[
+    str, StringConstraints(strip_whitespace=True, to_lower=True, max_length=254, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+]
+InviteStatus = Literal["pending", "accepted", "cancelled", "expired"]
+
+
+class InviteCreate(Strict):
+    email: Email
+    role: OrgRole
+
+
+class Invite(BaseModel):
+    id: uuid.UUID
+    email: str
+    role: OrgRole
+    status: InviteStatus
+    invited_by: uuid.UUID
+    created_at: datetime
+    expires_at: datetime
+    accepted_at: datetime | None
+
+
+class InviteList(BaseModel):
+    invites: list[Invite]
+
+
+class InviteAccepted(BaseModel):
+    organisation_id: uuid.UUID
+    role: OrgRole
+    membership_id: uuid.UUID

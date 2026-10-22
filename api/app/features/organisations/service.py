@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import secrets
 import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from typing import Any
 
 import psycopg
@@ -14,9 +17,11 @@ from app.core import audit
 from app.core.auth.access import not_found
 from app.core.auth.org_access import OrgAccess
 from app.core.contracts.org_policy import parse
-from app.core.errors import CONFLICT_SQLSTATE, ApiError
+from app.core.email import Mailer, invite_mail
+from app.core.errors import CONFLICT_SQLSTATE, ApiError, conflict
+from app.core.notifications import send_mail
 from app.features.organisations import repo
-from app.features.organisations.schemas import Member, Organisation, Policy
+from app.features.organisations.schemas import Invite, InviteAccepted, Member, Organisation, Policy
 
 
 def to_policy(raw: Any) -> Policy:
@@ -68,7 +73,62 @@ LAST_OWNER = ApiError("last_owner", "Make someone else an owner first.", 409)
 REFUSALS = {
     "last_owner": LAST_OWNER,
     "personal_membership": ApiError("personal_organisation", "Your own practice stays while your account is open.", 409),
+    "invite_not_found": not_found(),
+    "invite_expired": ApiError("invite_expired", "This invitation has expired. Ask for a new one.", 409),
+    "invite_closed": ApiError("invite_closed", "This invitation has already been used or cancelled.", 409),
+    "already_member": ApiError("already_member", "You are already a member of this organisation.", 409),
 }
+INVITE_TTL = timedelta(days=7)
+
+
+def personal_organisation() -> ApiError:
+    return ApiError("personal_organisation", "Invite people to a team, not to your own practice.", 409)
+
+
+def token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def invites(conn: AsyncConnection, org_id: uuid.UUID) -> list[Invite]:
+    return [Invite(**r) for r in await repo.invites(conn, org_id)]
+
+
+async def send_invite(
+    conn: AsyncConnection, mailer: Mailer, access: OrgAccess, app_origin: str, email: str, role: str
+) -> Invite:
+    if access.kind != "team":
+        raise personal_organisation()
+    if access.role != "owner" and role == "owner":
+        raise forbidden()
+    token = secrets.token_urlsafe(32)
+    invite_id = await repo.add_invite(conn, access.org_id, email, role, token_hash(token))
+    sent = await repo.invite(conn, access.org_id, invite_id)
+    assert sent is not None
+    await audit.record(conn, action="invite.sent", target=f"invite:{invite_id}", organisation_id=access.org_id)
+    mail = invite_mail(
+        email, organisation_id=access.org_id, role=role, link=f"{app_origin}/invites/{token}",
+        expires_on=sent["expires_at"].date(),
+    )  # fmt: skip
+    await send_mail(mailer, mail)
+    return Invite(**sent)
+
+
+async def cancel_invite(conn: AsyncConnection, org_id: uuid.UUID, invite_id: uuid.UUID) -> None:
+    found = await repo.invite(conn, org_id, invite_id)
+    if found is None:
+        raise not_found()
+    if found["status"] != "pending":
+        raise conflict()
+    await repo.cancel_invite(conn, invite_id)
+    await audit.record(conn, action="invite.cancelled", target=f"invite:{invite_id}", organisation_id=org_id)
+
+
+async def accept_invite(conn: AsyncConnection, token: str) -> InviteAccepted:
+    async with refusals():
+        accepted = await repo.accept_invite(conn, token_hash(token))
+    if accepted is None:  # pragma: no cover - the function answers one row or refuses
+        raise not_found()
+    return InviteAccepted(**accepted)
 
 
 def forbidden() -> ApiError:
