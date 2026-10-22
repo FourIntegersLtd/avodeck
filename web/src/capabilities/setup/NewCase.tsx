@@ -573,7 +573,7 @@ function NewCaseForm({
                   <span aria-hidden="true" className="av-setup-plus">
                     +
                   </span>
-                  {t("setup.new_case.add_another")}
+                  {String(vocabulary.other_side_add_another ?? t("setup.new_case.add_another"))}
                 </LinkAction>
               </div>
             </div>

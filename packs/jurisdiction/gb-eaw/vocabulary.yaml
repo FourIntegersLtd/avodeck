@@ -10,7 +10,13 @@ instructing_party_types:
   coroner: coroner
 subject: claimant
 court_bundle: trial bundle
+court_tracks:
+  small_claims: small claims track
+  fast: fast track
+  intermediate: intermediate track
+  multi: multi-track
 written_questions: questions from the other side
+written_questions_one: question from the other side
 written_questions_formal: Part 35 questions
 expert_meeting: experts' discussion
 expert_meeting_document: joint statement
@@ -61,6 +67,7 @@ request_extension:
     whether the {instructing_party} can agree to this.
 other_side_prompt: Who is the defendant?
 other_side_example: For example, the practice or the doctor the claim is against
+other_side_add_another: Add another (e.g. a hospital trust)
 party_roles_plural:
   instructing_side: claimants
   other_side: defendants

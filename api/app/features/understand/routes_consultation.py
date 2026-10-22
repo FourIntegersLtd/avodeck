@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Query, Request
 from pydantic import BaseModel, Field, model_validator
@@ -42,6 +42,22 @@ class Entry(BaseModel):
     summary: str | None = None
     source: str | None = None
     has_finding: bool = False
+    author_line: str | None = None
+
+
+class Box(BaseModel):
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+class PageMark(BaseModel):
+    """Where an entry sits on the visit's page (a share of the page, 0 to 1): the visit, or a later entry to blur."""
+
+    fact_id: uuid.UUID
+    role: Literal["entry", "later"]
+    box: Box
 
 
 class Guidance(BaseModel):
@@ -63,10 +79,31 @@ class Consultation(BaseModel):
     on: date
     note: str | None
     question_numbers: list[int] = []
+    seen_title: str | None = None
+    unseen_title: str | None = None
+    page_marks: list[PageMark] = []
 
 
-def _entry(fact: repo.SeenFact, flagged: set[uuid.UUID] = frozenset()) -> Entry:  # type: ignore[assignment]
+def _author_line(pack: Any, fact: repo.SeenFact) -> str | None:
+    """Who saw the patient (the field the pack names for the kind) and how the pack words the visit."""
+    field = next((k.get("author_field") for k in pack.fact_kinds() if k["key"] == fact.kind), None)
+    who = fact.fields.get(field) if field else None
+    modes = pack.vocabulary.get("visit_modes")
+    mode = modes.get(fact.kind) if isinstance(modes, dict) else None
+    parts = [p for p in (who if isinstance(who, str) else None, mode) if p]
+    return " · ".join(parts) or None
+
+
+def _mark(fact: repo.SeenFact, role: Literal["entry", "later"]) -> PageMark | None:
+    try:
+        return PageMark(fact_id=fact.fact_id, role=role, box=Box(**fact.bbox))
+    except (TypeError, ValueError):
+        return None  # no usable box for this entry
+
+
+def _entry(fact: repo.SeenFact, flagged: set[uuid.UUID] = frozenset(), pack: Any = None) -> Entry:  # type: ignore[assignment]
     return Entry(
+        author_line=_author_line(pack, fact) if pack is not None else None,
         fact_id=fact.fact_id,
         kind=fact.kind,
         page_no=fact.page_no,
@@ -77,6 +114,11 @@ def _entry(fact: repo.SeenFact, flagged: set[uuid.UUID] = frozenset()) -> Entry:
         source=fact.source,
         has_finding=fact.fact_id in flagged,
     )
+
+
+def _word(pack: Any, key: str) -> str | None:
+    word = pack.vocabulary.get(key)
+    return word if isinstance(word, str) else None
 
 
 @router.get("/cases/{case_id}/consultations/{fact_id}", response_model=Consultation)
@@ -114,7 +156,7 @@ async def consultation(
     )
 
     def pick(items: list[SeenItem]) -> list[Entry]:
-        return [_entry(by_id[i.fact_id], flagged) for i in items]
+        return [_entry(by_id[i.fact_id], flagged, pack) for i in items]
 
     table = pack.guidelines()
     shown = [r for r in table if in_force([r], str(r["code"]), on)]
@@ -131,7 +173,7 @@ async def consultation(
     note = await cur.fetchone()
     return Consultation(
         title=pack.term("as_seen_title"),
-        entry=_entry(visit, flagged),
+        entry=_entry(visit, flagged, pack),
         visible=pick(view.visible),
         later_count=len(view.later),
         later=pick(view.later),
@@ -141,6 +183,16 @@ async def consultation(
         on=on,
         note=note[0] if note else None,
         question_numbers=numbers,
+        seen_title=_word(pack, "seen_title"),
+        unseen_title=_word(pack, "unseen_title"),
+        page_marks=[
+            m
+            for m in [
+                _mark(visit, "entry"),
+                *(_mark(by_id[i.fact_id], "later") for i in view.later if by_id[i.fact_id].page_id == visit.page_id),
+            ]
+            if m is not None
+        ],
     )
 
 

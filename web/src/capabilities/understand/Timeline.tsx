@@ -228,6 +228,16 @@ export function Timeline() {
           ]}
         />
       </div>
+      {questionId && numbers[questionId] !== undefined && (
+        <p className="av-understand-onlychip">
+          <span className="av-understand-onlychip__pill">
+            {w("timeline.question_only", { n: numbers[questionId] })}
+            <button type="button" className="av-understand-onlychip__clear" aria-label={w("timeline.question_clear")} onClick={() => setQuestionId("")}>
+              <span aria-hidden="true">×</span>
+            </button>
+          </span>
+        </p>
+      )}
 
       {found.error ? (
         <LoadError onRetry={found.reload} />

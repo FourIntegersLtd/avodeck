@@ -211,8 +211,8 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
           </TrialTitle>
         </div>
         <ul className="av-trial-chips">
-          {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={shortDate(meeting.sign_by, locale)} rule={meeting.sign_rule_ref} />}
-          {meeting.send_by && <Deadline label={w("meeting.send_by")} date={shortDate(meeting.send_by, locale)} rule={meeting.send_rule_ref} />}
+          {meeting.sign_by && <Deadline label={w("meeting.sign_by")} date={shortDate(meeting.sign_by, locale)} rule={meeting.sign_rule_phrase || meeting.sign_rule_ref} />}
+          {meeting.send_by && <Deadline label={w("meeting.send_by")} date={shortDate(meeting.send_by, locale)} rule={meeting.send_rule_phrase || meeting.send_rule_ref} />}
         </ul>
       </div>
       {adding && <AddExpert path={path} onDone={() => { setAdding(false); people.reload(); }} onCancel={() => setAdding(false)} />}
@@ -350,7 +350,9 @@ function Row({ item, canEdit, onChange }: { item: Item; canEdit: boolean; onChan
           </p>
           {changed && (
             <p className="av-trial-differs">
-              <strong>{w("meeting.item.changed_lead")}</strong> {w("meeting.item.changed_rest")}
+              <strong>{w("meeting.item.changed_lead")}</strong>{" "}
+              {item.served_text && <>{w("meeting.item.changed_was", { text: item.served_text, paras })} </>}
+              {w("meeting.item.changed_rest")}
             </p>
           )}
           {item.deviation === "unclear" && <p className="av-trial-differs">{w("meeting.item.unclear")}</p>}

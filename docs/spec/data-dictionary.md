@@ -21,6 +21,9 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | records_custodian | Someone they nominate to look after their served cases if they die or can't work |
 | closed_at | When they closed their account (empty if active) |
 | email_bounced_at | When an email to them bounced; no more emails until the address changes |
+| (shown, not stored) greeting_name | The short form Today greets them with ("Dr Morgan"): the title their jurisdiction's pack gives their profession plus their surname; empty when the pack has no title |
+| (shown, not stored) password_changed_at | When they last reset their password, read from the audit log; empty if they never have. Account and security says "Changed 3 months ago" |
+| (shown, not stored) member_count | On each of their memberships: how many people currently belong to that organisation (1 reads "just you") |
 
 ### experts (the professional side of a person who gives evidence)
 | Field | In plain words |
@@ -55,6 +58,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | storage_path | Where the Word file is kept |
 | sha256 | A fingerprint of the file, proving it hasn't changed |
 | style_map / heading_map | Which styles and headings in the file match which report sections |
+| style_details (not stored) | What each style looks like (bold, italic, point size, numbered, indented), read from the Word file each time the template is shown |
 | version | Goes up each time the template is replaced |
 
 ### declarations
@@ -529,6 +533,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | decision / reason | The expert's decision (relevant, not relevant, explained elsewhere) and why |
 | status | Open, or gone when a later run no longer finds it (never deleted; a decided gone finding stays listed). One finding per check and set of evidence facts |
 | gentle | Whether the screen uses the softer wording |
+| title / icon | Not stored: the check's title and icon word are read from the packs when the finding is shown |
 
 ### check_runs
 | Field | In plain words |
@@ -693,7 +698,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 ### final_check_runs
 | Field | In plain words |
 |---|---|
-| results / passed / at | Each check's result, whether all passed, and when |
+| results / passed / at | Each check's result, whether all passed, and when. A result may carry how much it looked at (a number, an optional total and a unit word such as fact, quote, page, question or guideline) and, for a pack check, the pack's one-line explanation |
 
 ### spot_checks
 | Field | In plain words |
@@ -815,12 +820,14 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | round_id / number / text_verbatim / word_ids[] | Which batch, its number, the exact words and where they are |
 | classification | E.g. asks for clarification or goes beyond the report (from the pack) |
 | paragraph_ids[] | Which report paragraphs it relates to |
+| page_nos (not stored) | The bundle pages those paragraphs cite, worked out on request; shown as page chips beside the question |
 | answer_text / status | The expert's answer and whether it's done |
 
 ### opposing_reports
 | Field | In plain words |
 |---|---|
 | document_id / received_on | The other expert's report (an uploaded document) and when it arrived |
+| expert_name / expert_role | Who wrote it and in what role, as the expert typed them when adding it (both optional). The page count comes from the document. |
 | job_id / checked_at / claims_found | The check that read it, when it finished and how many statements it found |
 | positions | Each question's answer in their report beside ours, for the expert to compare (no new wording) |
 
@@ -845,6 +852,8 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 |---|---|
 | type | Joint statement, joint report, conclave… (from the pack) |
 | discussion_on / sign_by / send_by | When the experts meet and the deadlines to sign and send |
+| sign_rule_phrase / send_rule_phrase (API only) | How the pack words each deadline on the screen (e.g. "7 days after the discussion"); not stored, read from the pack's deadline rule |
+| served_text (API only, on an agenda item) | The served report's own words for the item's paragraph(s), quoted beside a changed position; never altered |
 | status | Draft, out for signature, signed, signed outside Avodeck |
 | signed_document_id / signed_hash | The signed document and its fingerprint |
 
@@ -904,6 +913,7 @@ Not a database table: these fields are the rows of the overlay pack's `guideline
 | built_at / expires_at / revoked_at | When made, when it stops opening, and if it was cancelled |
 | stale / stale_reason / stale_at | New material has arrived since it was made, why (a short key), and when it was marked; a stale copy never becomes current again |
 | court_bundle_id / built_hearing_version / built_last_page_no / built_served_version_id | What it was made from: the court bundle whose page numbers it carries, the hearing's version, the last numbered page and the newest served version |
+| case_label / source_types / each fact's source_type (inside the sealed copy only) | The case's label for the witness-box bar, the pack's record sources (name and colour) and which source each fact came from, so results are coloured by source; never stored or sent in plain |
 
 ### readiness_replies
 | Field | In plain words |

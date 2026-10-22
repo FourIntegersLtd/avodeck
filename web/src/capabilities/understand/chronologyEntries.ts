@@ -4,7 +4,7 @@ import { axisIso } from "./shared";
 type Event = Schemas["Event"];
 type Lane = Schemas["Timeline"]["lanes"][number];
 
-export type ChronologyEntry = Event & { laneKey: string; laneLabel: string };
+export type ChronologyEntry = Event & { laneKey: string; laneLabel: string; laneIcon?: string | null };
 
 const dayMs = (iso: string | null | undefined): number | null => {
   if (!iso) return null;
@@ -17,7 +17,7 @@ export function chronologyEntries(lanes: Lane[], unplaced: Event[]): ChronologyE
   const rows: ChronologyEntry[] = [];
   for (const lane of lanes) {
     for (const e of lane.events) {
-      rows.push({ ...e, laneKey: lane.key, laneLabel: lane.label });
+      rows.push({ ...e, laneKey: lane.key, laneLabel: lane.label, laneIcon: lane.icon });
     }
   }
   for (const e of unplaced) {

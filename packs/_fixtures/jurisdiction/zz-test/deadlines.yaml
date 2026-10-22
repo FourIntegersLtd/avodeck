@@ -9,11 +9,13 @@ deadlines:
     set_by: direction
   - key: zz_conference_signed
     rule_ref: "Rule Z.9"
+    phrase: "Zz <days> working days after the conference"
     days: 5
     calendar: business_days
     from: discussion
   - key: zz_conference_sent
     rule_ref: "Rule Z.9.2"
+    phrase: "Zz within <days> working days"
     days: 10
     calendar: business_days
     from: signing

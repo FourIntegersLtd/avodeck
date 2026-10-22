@@ -63,3 +63,69 @@ async def test_timestamps_come_back_in_utc(client_for: ClientFor) -> None:
     body = (await (await client_for(uuid.uuid4())).get("/v1/me")).json()
     created = datetime.fromisoformat(body["person"]["created_at"])
     assert created.utcoffset() is not None and created.utcoffset().total_seconds() == 0  # type: ignore[union-attr]
+
+
+async def test_the_short_name_is_the_pack_title_for_the_profession_and_the_surname(
+    client_for: ClientFor, admin: psycopg.Connection
+) -> None:
+    person = uuid.uuid4()
+    client = await client_for(person, full_name="Alex Quill Mortimer")
+    first = (await client.get("/v1/me")).json()
+    assert first["person"]["greeting_name"] is None  # no expert profile yet, so no title to use
+    admin.execute(
+        "insert into app.experts (person_id, profession, default_jurisdiction) values (%s, 'therapist', 'zz-test')",
+        (person,),
+    )
+    assert (await client.get("/v1/me")).json()["person"]["greeting_name"] == "Zed Mortimer"
+
+
+async def test_no_short_name_when_the_pack_has_no_title_for_the_profession(
+    client_for: ClientFor, admin: psycopg.Connection
+) -> None:
+    person = uuid.uuid4()
+    client = await client_for(person, full_name="Alex Mortimer")
+    await client.get("/v1/me")
+    admin.execute(
+        "insert into app.experts (person_id, profession, default_jurisdiction) values (%s, 'surveyor', 'zz-test')",
+        (person,),
+    )
+    assert (await client.get("/v1/me")).json()["person"]["greeting_name"] is None
+
+
+async def test_password_changed_at_is_the_last_password_reset_and_empty_before_one(
+    client_for: ClientFor, admin: psycopg.Connection
+) -> None:
+    person = uuid.uuid4()
+    client = await client_for(person)
+    assert (await client.get("/v1/me")).json()["person"]["password_changed_at"] is None
+    for age in ("90 days", "3 days"):
+        admin.execute(
+            "insert into app.audit_log (person_id, action, target, at)"
+            " values (%s, 'auth.password_reset', %s, now() - %s::interval)",
+            (person, f"person:{person}", age),
+        )
+    changed = datetime.fromisoformat((await client.get("/v1/me")).json()["person"]["password_changed_at"])
+    assert 2 <= (datetime.now(changed.tzinfo) - changed).days <= 3
+
+
+async def test_each_membership_says_how_many_people_are_in_the_organisation(
+    client_for: ClientFor, admin: psycopg.Connection
+) -> None:
+    person, colleague, ended = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
+    client = await client_for(person)
+    [mine] = (await client.get("/v1/me")).json()["memberships"]
+    assert mine["member_count"] == 1
+    await (await client_for(colleague)).get("/v1/me")
+    await (await client_for(ended)).get("/v1/me")
+    team = admin.execute(
+        "insert into app.organisations (name, kind, region) values ('Team', 'team', 'zz') returning id"
+    ).fetchone()
+    assert team is not None
+    for who, role, gone in ((person, "owner", False), (colleague, "admin", False), (ended, "admin", True)):
+        admin.execute(
+            "insert into app.memberships (organisation_id, person_id, role, ended_at)"
+            " values (%s, %s, %s, case when %s then now() end)",
+            (team[0], who, role, gone),
+        )
+    counts = {m["kind"]: m["member_count"] for m in (await client.get("/v1/me")).json()["memberships"]}
+    assert counts == {"personal": 1, "team": 2}

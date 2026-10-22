@@ -80,7 +80,10 @@ test("someone who may not add notes or change arrivals sees neither on a consult
 test("a decided finding that is no longer found stays listed and says so", async () => {
   inCase("launch");
   serveThings([], [finding({ status: "gone", decision: "relevant" })]);
-  things();
+  const { user } = things();
+  const row = await screen.findByRole("group", { name: "Nothing in the record shows what followed this entry" });
+  expect(within(row).getByText("No longer found")).toBeInTheDocument();
+  await user.click(within(row).getByText("Nothing in the record shows what followed this entry · 19 Feb"));
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
   expect(within(card).getByText("No longer found when we checked again. Your decision is kept.")).toBeInTheDocument();
 });

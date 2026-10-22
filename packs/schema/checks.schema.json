@@ -16,6 +16,11 @@
           "enabled": {
             "type": "boolean"
           },
+          "icon": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "description": "A generic line drawing the screen shows beside findings of this check."
+          },
           "rule": {
             "enum": [
               "no_action_within",

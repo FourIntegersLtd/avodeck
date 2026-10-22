@@ -60,7 +60,7 @@ export function TimelineChronology({
                     {event.laneKey ? (
                       <span className="av-understand-chronology__lane">
                         <span className="av-understand-lane__icon av-understand-chronology__lane-icon" aria-hidden="true">
-                          <LaneIcon laneKey={event.laneKey} label={event.laneLabel} />
+                          <LaneIcon icon={event.laneIcon} label={event.laneLabel} />
                         </span>
                         <span className="av-muted">{event.laneLabel}</span>
                       </span>

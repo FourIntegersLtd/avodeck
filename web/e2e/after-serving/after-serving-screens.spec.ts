@@ -23,10 +23,11 @@ async function stub(page: Page) {
   await reply("/hearings", { hearings: [] });
   await reply("/court-directions", { directions: [] });
   await reply("/written-question-rounds", { rounds: [{ id: ROUND, number: 1, from_party_id: null, received_on: "2026-12-01", document_id: DOC, deadline_id: D1, answers_version_id: null, status: "open", extracted_at: "2026-12-01T10:00:00Z", version: 1 }] });
-  await reply("/written-questions", { questions: [{ id: Q1, round_id: ROUND, number: 1, para_ref: "6.12", rule_ref: null, text_verbatim: "A question?", status: "received", suggested_classification: "clarifies", classification_reason: null, classification: null, suggested_paragraph_ids: [], paragraph_ids: [], answer_text: null, citation_refs: [], told_instructing_party_at: null, version: 1 }] });
+  await reply("/written-questions", { questions: [{ id: Q1, round_id: ROUND, number: 1, para_ref: "6.12", rule_ref: null, text_verbatim: "A question?", status: "received", suggested_classification: "clarifies", classification_reason: null, classification: null, suggested_paragraph_ids: [], paragraph_ids: [], answer_text: null, citation_refs: [], told_instructing_party_at: null, page_nos: [118], version: 1 }] });
   await reply("/new-since-served", { pages: [{ page_id: P1, page_no: 1232, read: false, may_matter: [{ fact_id: P1, question_id: Q1, why: "a result" }] }], served_at: "2026-11-28T10:00:00Z" });
   await reply(`/opposing-reports/${DOC}`, {
-    id: "r", document_id: DOC, received_on: "2026-12-09", checked_at: "2026-12-09T10:00:00Z", claims_found: 1, positions: [],
+    id: "r", document_id: DOC, received_on: "2026-12-09", checked_at: "2026-12-09T10:00:00Z", claims_found: 1, expert_name: "Dr R", expert_role: "Expert", pages: 34,
+    positions: [{ question_id: Q1, question_no: 2, own: [{ paragraph_id: P1, para_no: 614, text: "Our words." }], theirs: [{ paragraph_ref: "5.1", text_verbatim: "Their words." }] }],
     claims: [{ id: CLAIM, claim_no: 1, text_verbatim: "A statement.", paragraph_ref: null, their_page_ref: "214", their_quote: "89", our_page_no: 214, our_quote: "98", status: "wrong_value", reason: null, checked_by: "code", discrepancy: true, expert_confirmed: false, confirmed_at: null, version: 1 }],
   });
   await reply("/report-changes", { changes: [], supplementary: null });

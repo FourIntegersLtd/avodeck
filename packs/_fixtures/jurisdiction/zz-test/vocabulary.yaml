@@ -3,6 +3,7 @@ instructing_party_types: {lawyer: counsel, insurer: carrier}
 subject: petitioner
 court_bundle: hearing binder
 written_questions: interrogatories
+written_questions_one: interrogatory
 expert_meeting: expert conference
 expert_meeting_document: conference minute
 report_rules_name: Rule Z
@@ -33,6 +34,7 @@ request_extension:
     Zz: {days} more days may be needed. {instructing_party} to confirm.
 other_side_prompt: Who is the respondent zz?
 other_side_example: zz example of the other party
+other_side_add_another: Add another (zz example of a further party)
 party_roles_plural: {instructing_side: petitioners, other_side: respondents}
 subject_status_hint: zz hint about the present or absent subject
 party_name_ignore_words: [zzthe, zzand, zzco]

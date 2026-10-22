@@ -19,7 +19,7 @@ from app.core.auth.access import CaseAccess, require_case_access
 from app.core.http import DbConn
 from app.features.understand import guidelines, repo
 from app.features.understand.common import case_pack
-from app.features.understand.lanes import arrange
+from app.features.understand.lanes import arrange, subtitle
 from app.features.understand.router import router
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
@@ -45,6 +45,8 @@ class Lane(BaseModel):
     label: str
     events: list[Event]
     colour: str | None = None
+    icon: str | None = None
+    subtitle: str | None = None
 
 
 class TimelineSource(BaseModel):
@@ -143,6 +145,7 @@ async def timeline(
         undated=sum(1 for f in facts if f.event_date is None),
         total=len(facts),
     )
+    icon_of = {str(lane["key"]): lane.get("icon") for lane in lanes}
     colour_of = {str(src["key"]): src.get("colour") for src in pack.source_types()}
 
     def lane_colour(got: list[repo.SeenFact]) -> str | None:
@@ -160,7 +163,14 @@ async def timeline(
         ],
         counts=counts,
         lanes=[
-            Lane(key=key, label=str(labels.get(key, key)), events=[event(f) for f in got], colour=lane_colour(got))
+            Lane(
+                key=key,
+                label=str(labels.get(key, key)),
+                events=[event(f) for f in got],
+                colour=lane_colour(got),
+                icon=icon_of.get(key),
+                subtitle=subtitle(pack.vocabulary, key, len(got)),
+            )
             for key, got in placed
         ],
         unplaced=[event(f) for f in unplaced],

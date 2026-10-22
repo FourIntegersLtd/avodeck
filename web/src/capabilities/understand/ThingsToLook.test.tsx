@@ -53,8 +53,8 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     expect(await screen.findByText("1 of 2 decided")).toBeInTheDocument();
     const first = screen.getByRole("article", { name: "Nothing in the record shows what followed this entry" });
     expect(within(first).getByText("p.214")).toBeInTheDocument();
-    const other = screen.getByRole("article", { name: "Nothing in the record shows this was acknowledged" });
-    expect(within(other).getByText("p.1071, p.1072")).toBeInTheDocument();
+    const other = screen.getByRole("group", { name: "Nothing in the record shows this was acknowledged" });
+    expect(within(other).getByText("Relevant")).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
   });
@@ -132,7 +132,10 @@ test("the reason can be dictated", async () => {
 test("already decided findings show a one-line summary of the decision", async () => {
   inCase("launch");
   serve();
-  open();
+  const { user } = open();
+  const row = await screen.findByRole("group", { name: "Nothing in the record shows this was acknowledged" });
+  expect(within(row).getByText("Relevant")).toBeInTheDocument();
+  await user.click(within(row).getByText(/^Nothing in the record shows this was acknowledged/));
   const other = await screen.findByRole("article", { name: "Nothing in the record shows this was acknowledged" });
   expect(within(other).getByRole("radio", { name: "Relevant" })).toBeChecked();
 });

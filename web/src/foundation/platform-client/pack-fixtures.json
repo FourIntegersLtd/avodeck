@@ -14,6 +14,7 @@
             ],
             "field": "unit"
           },
+          "icon": "flask",
           "key": "zz_measurement_unanswered",
           "label_spans": true,
           "rule": "no_action_within",
@@ -23,6 +24,7 @@
           "applies_to": "session",
           "field": "duration_minutes",
           "gentle": true,
+          "icon": "visit",
           "key": "zz_session_length_recorded",
           "or_kinds": [
             "measurement"
@@ -63,6 +65,7 @@
           "days": 5,
           "from": "discussion",
           "key": "zz_conference_signed",
+          "phrase": "Zz <days> working days after the conference",
           "rule_ref": "Rule Z.9"
         },
         {
@@ -70,6 +73,7 @@
           "days": 10,
           "from": "signing",
           "key": "zz_conference_sent",
+          "phrase": "Zz within <days> working days",
           "rule_ref": "Rule Z.9.2"
         }
       ],
@@ -129,18 +133,21 @@
       ],
       "lanes": [
         {
+          "icon": "visit",
           "key": "sessions",
           "kinds": [
             "session"
           ]
         },
         {
+          "icon": "flask",
           "key": "measurements",
           "kinds": [
             "measurement"
           ]
         },
         {
+          "icon": "mail",
           "key": "letters",
           "kinds": [
             "measurement"
@@ -309,6 +316,10 @@
         "declaration_name": "affirmation",
         "expert_meeting": "expert conference",
         "expert_meeting_document": "conference minute",
+        "finding_titles": {
+          "zz_measurement_unanswered": "zz measurement unanswered",
+          "zz_session_length_recorded": "zz no session length"
+        },
         "instructing_party_request": {
           "body": "To the {instructing_party},\n\nFor file {case_reference} please supply:\n{missing_items}\n\nLegible copies needed:\n{clearer_copies}\n\n{expert_name}",
           "label": "Ask the carrier",
@@ -318,11 +329,22 @@
           "insurer": "carrier",
           "lawyer": "counsel"
         },
+        "lane_subtitle_one": {
+          "letters": "{count} zz letter",
+          "measurements": "{count} zz measurement",
+          "sessions": "{count} zz session"
+        },
+        "lane_subtitle_other": {
+          "letters": "{count} zz letters",
+          "measurements": "{count} zz measurements",
+          "sessions": "{count} zz sessions"
+        },
         "lanes": {
           "letters": "zz letters",
           "measurements": "zz measurements",
           "sessions": "zz sessions"
         },
+        "other_side_add_another": "Add another (zz example of a further party)",
         "other_side_example": "zz example of the other party",
         "other_side_prompt": "Who is the respondent zz?",
         "outside_expertise_hint": "zz outside-expertise hint",
@@ -360,7 +382,8 @@
           "dependent": "dependent subject",
           "present": "present subject"
         },
-        "written_questions": "interrogatories"
+        "written_questions": "interrogatories",
+        "written_questions_one": "interrogatory"
       },
       "workflow_steps": [
         {
@@ -436,6 +459,7 @@
           "days": 5,
           "from": "discussion",
           "key": "zz_conference_signed",
+          "phrase": "Zz <days> working days after the conference",
           "rule_ref": "Rule Z.9"
         },
         {
@@ -443,6 +467,7 @@
           "days": 10,
           "from": "signing",
           "key": "zz_conference_sent",
+          "phrase": "Zz within <days> working days",
           "rule_ref": "Rule Z.9.2"
         }
       ],
@@ -474,6 +499,7 @@
           "insurer": "carrier",
           "lawyer": "counsel"
         },
+        "other_side_add_another": "Add another (zz example of a further party)",
         "other_side_example": "zz example of the other party",
         "other_side_prompt": "Who is the respondent zz?",
         "party_name_ignore_words": [
@@ -509,7 +535,8 @@
           "dependent": "dependent subject",
           "present": "present subject"
         },
-        "written_questions": "interrogatories"
+        "written_questions": "interrogatories",
+        "written_questions_one": "interrogatory"
       },
       "working_week": [
         7,
@@ -542,6 +569,7 @@
             ],
             "field": "flag"
           },
+          "icon": "flask",
           "key": "abnormal_result_no_action",
           "label_spans": true,
           "rule": "no_action_within",
@@ -554,12 +582,14 @@
           ],
           "acknowledges_field": "acknowledges_referral_dated",
           "applies_to": "referral",
+          "icon": "mail",
           "key": "referral_acknowledged",
           "rule": "not_acknowledged_within",
           "window_days": 42
         },
         {
           "applies_to": "prescription",
+          "icon": "pill",
           "key": "repeat_medicine_monitoring",
           "rule": "monitoring_overdue",
           "table": "drug_monitoring"
@@ -570,6 +600,7 @@
             "phone_consultation",
             "home_visit"
           ],
+          "icon": "moon",
           "key": "ooh_reached_clinician",
           "rule": "not_reached_clinician",
           "when": {
@@ -585,6 +616,7 @@
           ],
           "applies_to": "letter",
           "field": "actions_requested",
+          "icon": "mail",
           "key": "hospital_letter_actions",
           "label_spans": true,
           "rule": "actions_not_done"
@@ -593,6 +625,7 @@
           "applies_to": "consultation",
           "field": "examination",
           "gentle": true,
+          "icon": "visit",
           "key": "examination_recorded",
           "or_kinds": [
             "examination"
@@ -604,6 +637,7 @@
           "applies_to": "consultation",
           "field": "safety_netting",
           "gentle": true,
+          "icon": "visit",
           "key": "safety_netting_recorded",
           "or_kinds": [
             "safety_netting"
@@ -620,6 +654,7 @@
             "home_visit",
             "task"
           ],
+          "icon": "calendar",
           "key": "missed_appointment_followed_up",
           "rule": "not_followed_up",
           "window_days": 14
@@ -691,6 +726,7 @@
           "from": "discussion",
           "if_closed": "next_working_day",
           "key": "expert_meeting_signed",
+          "phrase": "<days> days after the discussion",
           "rule_ref": "PD35 para 9"
         },
         {
@@ -699,6 +735,7 @@
           "from": "signing",
           "if_closed": "next_working_day",
           "key": "expert_meeting_sent",
+          "phrase": "within <days> days",
           "rule_ref": "PD35 para 9"
         },
         {
@@ -734,6 +771,7 @@
       ],
       "fact_kinds": [
         {
+          "author_field": "clinician_name",
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -747,6 +785,7 @@
           "key": "consultation"
         },
         {
+          "author_field": "clinician_name",
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -759,6 +798,7 @@
           "key": "phone_consultation"
         },
         {
+          "author_field": "clinician_name",
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -851,26 +891,32 @@
       ],
       "final_checks": [
         {
+          "explain": "The declaration must appear word for word as the court requires.",
           "key": "statement_of_truth_exact",
           "text": "Statement of truth present with exact wording from declarations.md"
         },
         {
+          "explain": "The court expects every item on the list beside your report to be covered.",
           "key": "required_contents_present",
           "text": "Every item in report.yaml required_contents is addressed"
         },
         {
+          "explain": "Your report is longer than the court allows on this track. Shorten it, or ask the court.",
           "key": "page_limit",
           "text": "Page count within the track limit (only if the case track has one)"
         },
         {
+          "explain": "Answer the question in full, or say in a sentence that the rest is for another expert.",
           "key": "questions_answered",
           "text": "Every question in the letter of instruction has an answer or an explained deferral"
         },
         {
+          "explain": "Points against the care were found for this question. Decide each one so your report is balanced.",
           "key": "points_against_considered",
           "text": "Points against considered for every breach question"
         },
         {
+          "explain": "Guidance you named was not yet in force on the date of the care. Check the dates.",
           "key": "guidance_in_force",
           "text": "Guidance cited was in force on the date of the care in question"
         }
@@ -883,6 +929,7 @@
       ],
       "lanes": [
         {
+          "icon": "visit",
           "key": "primary_care_visits",
           "kinds": [
             "consultation",
@@ -894,12 +941,14 @@
           ]
         },
         {
+          "icon": "flask",
           "key": "results",
           "kinds": [
             "result"
           ]
         },
         {
+          "icon": "moon",
           "key": "out_of_hours",
           "kinds": [
             "consultation",
@@ -914,12 +963,14 @@
           }
         },
         {
+          "icon": "pill",
           "key": "prescriptions",
           "kinds": [
             "prescription"
           ]
         },
         {
+          "icon": "mail",
           "key": "hospital_and_letters",
           "kinds": [
             "letter",
@@ -927,6 +978,7 @@
           ]
         },
         {
+          "icon": "calendar",
           "key": "appointments",
           "kinds": [
             "missed_appointment"
@@ -1148,6 +1200,12 @@
         "clinician": "GP",
         "clinicians": "GPs",
         "court_bundle": "trial bundle",
+        "court_tracks": {
+          "fast": "fast track",
+          "intermediate": "intermediate track",
+          "multi": "multi-track",
+          "small_claims": "small claims track"
+        },
         "coverage_question": "Were you working in general practice throughout the period of the claim?",
         "coverage_roles": {
           "locum": "locum",
@@ -1157,6 +1215,16 @@
         "declaration_name": "statement of truth",
         "expert_meeting": "experts' discussion",
         "expert_meeting_document": "joint statement",
+        "finding_titles": {
+          "abnormal_result_no_action": "An abnormal result had no action recorded",
+          "examination_recorded": "No examination recorded",
+          "hospital_letter_actions": "A hospital letter asked for something that was not done",
+          "missed_appointment_followed_up": "A missed appointment was not followed up",
+          "ooh_reached_clinician": "An out-of-hours call never reached the GP record",
+          "referral_acknowledged": "A referral was not acknowledged in time",
+          "repeat_medicine_monitoring": "A repeat medicine was issued without its monitoring test",
+          "safety_netting_recorded": "No safety-netting advice recorded"
+        },
         "instructing_party_request": {
           "body": "Dear {instructing_party},\n\nThank you for the records in this case ({case_reference}). Having gone through the bundle, I need the following before I can finish my report.\n\nRecords that appear to be missing:\n{missing_items}\n\nPages I need a clearer copy of:\n{clearer_copies}\n\nKind regards,\n{expert_name}",
           "label": "Ask the solicitor",
@@ -1167,6 +1235,22 @@
           "insurer": "insurer",
           "lawyer": "solicitor"
         },
+        "lane_subtitle_one": {
+          "appointments": "{count} missed",
+          "hospital_and_letters": "{count} event",
+          "out_of_hours": "{count} call to 111",
+          "prescriptions": "{count} issue",
+          "primary_care_visits": "{count} visit or call",
+          "results": "{count} blood test"
+        },
+        "lane_subtitle_other": {
+          "appointments": "{count} missed",
+          "hospital_and_letters": "{count} events",
+          "out_of_hours": "{count} calls to 111",
+          "prescriptions": "{count} issues",
+          "primary_care_visits": "{count} visits and calls",
+          "results": "{count} blood tests"
+        },
         "lanes": {
           "appointments": "Appointments",
           "hospital_and_letters": "Hospital and letters",
@@ -1175,6 +1259,7 @@
           "primary_care_visits": "GP visits",
           "results": "Results"
         },
+        "other_side_add_another": "Add another (e.g. a hospital trust)",
         "other_side_example": "For example, the practice or the doctor the claim is against",
         "other_side_prompt": "Who is the defendant?",
         "outside_expertise_hint": "This looks outside what a general practitioner usually covers. You decide whether to answer it, or only part of it.",
@@ -1218,6 +1303,7 @@
           "quarantine": "I have set aside these pages because they appear to belong to someone else: {pages}. Please check them and send the right records if any of them are part of this case.",
           "translation": "These pages are not in English and need a certified translation before I can rely on them: {pages}. Please arrange this and send me the translated copies."
         },
+        "seen_title": "What the GP had in front of them",
         "source_types": {
           "primary_care_record": "GP record"
         },
@@ -1232,8 +1318,15 @@
           "living": "living",
           "minor": "under 18"
         },
+        "unseen_title": "Not in front of the GP",
+        "visit_modes": {
+          "consultation": "face to face",
+          "home_visit": "at home",
+          "phone_consultation": "by phone"
+        },
         "written_questions": "questions from the other side",
-        "written_questions_formal": "Part 35 questions"
+        "written_questions_formal": "Part 35 questions",
+        "written_questions_one": "question from the other side"
       },
       "workflow_steps": [
         {
@@ -1378,6 +1471,7 @@
           "from": "discussion",
           "if_closed": "next_working_day",
           "key": "expert_meeting_signed",
+          "phrase": "<days> days after the discussion",
           "rule_ref": "PD35 para 9"
         },
         {
@@ -1386,6 +1480,7 @@
           "from": "signing",
           "if_closed": "next_working_day",
           "key": "expert_meeting_sent",
+          "phrase": "within <days> days",
           "rule_ref": "PD35 para 9"
         },
         {
@@ -1410,6 +1505,12 @@
       "version": "2026.10.6",
       "vocabulary": {
         "court_bundle": "trial bundle",
+        "court_tracks": {
+          "fast": "fast track",
+          "intermediate": "intermediate track",
+          "multi": "multi-track",
+          "small_claims": "small claims track"
+        },
         "declaration_name": "statement of truth",
         "expert_meeting": "experts' discussion",
         "expert_meeting_document": "joint statement",
@@ -1423,6 +1524,7 @@
           "insurer": "insurer",
           "lawyer": "solicitor"
         },
+        "other_side_add_another": "Add another (e.g. a hospital trust)",
         "other_side_example": "For example, the practice or the doctor the claim is against",
         "other_side_prompt": "Who is the defendant?",
         "party_name_ignore_words": [
@@ -1476,7 +1578,8 @@
           "minor": "under 18"
         },
         "written_questions": "questions from the other side",
-        "written_questions_formal": "Part 35 questions"
+        "written_questions_formal": "Part 35 questions",
+        "written_questions_one": "question from the other side"
       },
       "working_week": [
         1,

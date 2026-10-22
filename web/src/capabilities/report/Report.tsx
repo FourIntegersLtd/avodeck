@@ -76,9 +76,10 @@ export function ReportScreen() {
   const appendices = ((pack.report_appendices ?? []) as Array<{ key: string; label?: string }>).map((a) => a.label ?? humanise(a.key));
   const limits = ((pack.compliance_checklist as unknown as { page_limit?: Record<string, number> } | undefined)?.page_limit ?? {}) as Record<string, number>;
   const limit = item.court_track ? limits[item.court_track] : undefined;
+  const limitWords = limit ? w("report.limit", { count: limit }) : w("report.no_limit");
   const footer = [
     version ? (version.page_count ? w("report.version", { name: version.display_name, pages: version.page_count }) : w("report.version_nopages", { name: version.display_name })) : null,
-    version && item.court_track ? (limit ? w("report.limit", { count: limit }) : w("report.no_limit")) : null,
+    version && item.court_track ? (data.court_track_label ? w("report.track_limit", { track: data.court_track_label, limit: limitWords }) : limitWords) : null,
   ].filter(Boolean).join(" · ");
 
   return (

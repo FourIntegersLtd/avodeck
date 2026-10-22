@@ -116,6 +116,7 @@ class ItemOut(BaseModel):
     deviation: Deviation | None
     deviation_reason: str | None
     served_paragraphs: list[int]
+    served_text: str | None = None
     pages: list[int]
     changed_from_previous: Literal["same", "changed", "new"] | None
     version: int
@@ -130,8 +131,10 @@ class MeetingSummary(BaseModel):
     discussion_on: date
     sign_by: date
     sign_rule_ref: str
+    sign_rule_phrase: str | None = None
     send_by: date
     send_rule_ref: str
+    send_rule_phrase: str | None = None
     declarations: list[str]
     prepared_sha256: str | None
     prepared_pages: int | None
@@ -176,7 +179,16 @@ def _label(pack: Any, key: str) -> str:
     return str(kind["label"]) if kind else key
 
 
+def _phrase(pack: Any, key: str) -> str | None:
+    """How the pack words a deadline on a screen chip ("7 days after the discussion")."""
+    rule = next((r for r in pack.deadline_rules() if r["key"] == key), None)
+    if rule is None or not rule.get("phrase") or "days" not in rule:
+        return None
+    return str(rule["phrase"]).replace("<days>", str(rule["days"]))
+
+
 def _summary(pack: Any, row: dict[str, Any]) -> MeetingSummary:
+    kind = meeting_type(pack, row["type"]) or {}
     return MeetingSummary(
         id=row["id"],
         type=row["type"],
@@ -186,8 +198,10 @@ def _summary(pack: Any, row: dict[str, Any]) -> MeetingSummary:
         discussion_on=row["discussion_on"],
         sign_by=row["sign_by"],
         sign_rule_ref=row["sign_rule_ref"],
+        sign_rule_phrase=_phrase(pack, str(kind.get("sign_deadline", "expert_meeting_signed"))),
         send_by=row["send_by"],
         send_rule_ref=row["send_rule_ref"],
+        send_rule_phrase=_phrase(pack, str(kind.get("send_deadline", "expert_meeting_sent"))),
         declarations=[str(d) for d in row["declarations"]],
         prepared_sha256=row["prepared_sha256"],
         prepared_pages=row["prepared_pages"],
@@ -200,6 +214,8 @@ def _summary(pack: Any, row: dict[str, Any]) -> MeetingSummary:
 def _item(row: dict[str, Any], served: ServedReport | None) -> ItemOut:
     numbers = {p.id: p.para_no for p in served.paragraphs} if served else {}
     cited = {p.id: [no for _, no in p.cited] for p in served.paragraphs} if served else {}
+    texts = {p.id: p.text for p in served.paragraphs} if served else {}
+    quoted = "\n".join(texts[p] for p in row["served_paragraph_ids"] if p in texts)
     return ItemOut(
         id=row["id"],
         number=row["number"],
@@ -212,6 +228,7 @@ def _item(row: dict[str, Any], served: ServedReport | None) -> ItemOut:
         deviation=row["deviation"],
         deviation_reason=row["deviation_reason"],
         served_paragraphs=[numbers[p] for p in row["served_paragraph_ids"] if p in numbers],
+        served_text=quoted or None,
         pages=sorted({no for p in row["served_paragraph_ids"] for no in cited.get(p, [])}),
         changed_from_previous=row["changed_from_previous"],
         version=row["version"],

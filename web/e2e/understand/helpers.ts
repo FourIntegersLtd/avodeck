@@ -38,6 +38,8 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     key: `lane_${lane}`,
     label: `Line ${lane + 1}`,
     colour: ["#1E6B4E", "#4C6E91", "#7A6BA8"][lane],
+    icon: ["visit", "flask", "moon"][lane],
+    subtitle: `${Math.ceil((total - lane) / 3)} entries here`,
     events: Array.from({ length: total }, (_, i) => i).filter((i) => i % 3 === lane).map((i) => event(i)),
   }));
   const theCase = {
@@ -69,7 +71,13 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     if (path === `${c}/consultations/${FACT_1}`) {
       return json(route, {
         title: String((run.pack.vocabulary as Record<string, unknown>).as_seen_title ?? "Seen on the day").replace(/\{[a-z_]+\}/g, "reader"),
-        entry: { ...entry("consultation", 118, "2024-05-15"), fact_id: FACT_1, event_date: "2024-05-15" },
+        seen_title: "What the reader had in front of them",
+        unseen_title: "Not in front of the reader",
+        page_marks: [
+          { fact_id: FACT_1, role: "entry", box: { x0: 0.08, y0: 0.35, x1: 0.92, y1: 0.5 } },
+          { fact_id: uuid(901), role: "later", box: { x0: 0.08, y0: 0.58, x1: 0.92, y1: 0.7 } },
+        ],
+        entry: { ...entry("consultation", 118, "2024-05-15"), fact_id: FACT_1, event_date: "2024-05-15", author_line: "Dr P · face to face" },
         visible: [entry("result", 117, "2024-05-14")],
         on: "2024-05-15",
         question_numbers: [2, 3],
@@ -87,8 +95,8 @@ export async function stubUnderstand(page: Page, run: Run, opts: { events?: numb
     if (path === `${c}/comments`) return json(route, { comments: [] });
     if (path === `${c}/findings`) {
       return json(route, { findings: [
-        { id: "c1111111-1111-4111-8111-111111111111", check_key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, evidence_fact_ids: [], evidence: [], evidence_pages: [214], decision: null, reason: null, version: 1 },
-        { id: "c2222222-2222-4222-8222-222222222222", check_key: "zz_session_length_recorded", rule: "field_missing", gentle: true, evidence_fact_ids: [], evidence: [], evidence_pages: [1071], decision: "not_relevant", reason: "Seen on the ward", version: 2 },
+        { id: "c1111111-1111-4111-8111-111111111111", check_key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, evidence_fact_ids: [], evidence: [{ fact_id: uuid(902), kind: "result", page_no: 214, event_date: "2024-02-19", summary: "Hb 98" }], evidence_pages: [214], decision: null, reason: null, version: 1, title: "An abnormal result had no action recorded", icon: "flask" },
+        { id: "c2222222-2222-4222-8222-222222222222", check_key: "zz_session_length_recorded", rule: "field_missing", gentle: true, evidence_fact_ids: [], evidence: [{ fact_id: uuid(903), kind: "consultation", page_no: 1071, event_date: "2024-06-03", summary: "Repeat" }], evidence_pages: [1071], decision: "not_relevant", reason: "Seen on the ward", version: 2, title: "No session length recorded", icon: "visit" },
       ] });
     }
     if (path === "/v1/me/checks") return json(route, { checks: [{ key: "abnormal_result_no_action", rule: "no_action_within", gentle: false, default_on: true, enabled: true, window_days: 14 }] });

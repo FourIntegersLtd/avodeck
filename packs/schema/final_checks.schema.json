@@ -19,6 +19,10 @@
             "type": "string",
             "minLength": 1
           },
+          "explain": {
+            "type": "string",
+            "minLength": 1
+          },
           "text_key": {
             "type": "string",
             "minLength": 1

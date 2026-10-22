@@ -912,6 +912,34 @@
         "title": "BillingProfileOut",
         "type": "object"
       },
+      "Box": {
+        "properties": {
+          "x0": {
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "title": "Box",
+        "type": "object"
+      },
       "BuildQueued": {
         "properties": {
           "job_id": {
@@ -1514,6 +1542,17 @@
             "title": "Gentle",
             "type": "boolean"
           },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -1532,6 +1571,17 @@
           "rule": {
             "title": "Rule",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "window_days": {
             "anyOf": [
@@ -2416,6 +2466,17 @@
       },
       "CheckResult": {
         "properties": {
+          "checked": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked"
+          },
           "code": {
             "anyOf": [
               {
@@ -2430,6 +2491,17 @@
           "count": {
             "title": "Count",
             "type": "integer"
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explain"
           },
           "fix": {
             "anyOf": [
@@ -2470,6 +2542,28 @@
               }
             ],
             "title": "Text"
+          },
+          "total": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Total"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
           }
         },
         "required": [
@@ -3352,6 +3446,9 @@
             ],
             "title": "Declared At"
           },
+          "other_cases": {
+            "$ref": "#/components/schemas/OtherCases"
+          },
           "outcome": {
             "anyOf": [
               {
@@ -3400,6 +3497,7 @@
           "complete",
           "paragraph",
           "coverage",
+          "other_cases",
           "warnings",
           "declared_at",
           "outcome"
@@ -3454,6 +3552,14 @@
             "title": "On",
             "type": "string"
           },
+          "page_marks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PageMark"
+            },
+            "title": "Page Marks",
+            "type": "array"
+          },
           "question_numbers": {
             "default": [],
             "items": {
@@ -3461,6 +3567,17 @@
             },
             "title": "Question Numbers",
             "type": "array"
+          },
+          "seen_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Seen Title"
           },
           "title": {
             "title": "Title",
@@ -3472,6 +3589,17 @@
             },
             "title": "Unknown",
             "type": "array"
+          },
+          "unseen_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unseen Title"
           },
           "visible": {
             "items": {
@@ -4657,6 +4785,17 @@
       },
       "Entry": {
         "properties": {
+          "author_line": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Line"
+          },
           "available_at": {
             "anyOf": [
               {
@@ -5430,6 +5569,17 @@
             "title": "Gentle",
             "type": "boolean"
           },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -5458,6 +5608,17 @@
             ],
             "title": "Status",
             "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "version": {
             "title": "Version",
@@ -6796,6 +6957,17 @@
             "title": "Served Paragraphs",
             "type": "array"
           },
+          "served_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served Text"
+          },
           "text": {
             "title": "Text",
             "type": "string"
@@ -7163,6 +7335,17 @@
             "title": "Events",
             "type": "array"
           },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -7170,6 +7353,17 @@
           "label": {
             "title": "Label",
             "type": "string"
+          },
+          "subtitle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subtitle"
           }
         },
         "required": [
@@ -7752,6 +7946,17 @@
             "title": "Send By",
             "type": "string"
           },
+          "send_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Send Rule Phrase"
+          },
           "send_rule_ref": {
             "title": "Send Rule Ref",
             "type": "string"
@@ -7760,6 +7965,17 @@
             "format": "date",
             "title": "Sign By",
             "type": "string"
+          },
+          "sign_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sign Rule Phrase"
           },
           "sign_rule_ref": {
             "title": "Sign Rule Ref",
@@ -7933,6 +8149,17 @@
             "title": "Send By",
             "type": "string"
           },
+          "send_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Send Rule Phrase"
+          },
           "send_rule_ref": {
             "title": "Send Rule Ref",
             "type": "string"
@@ -7941,6 +8168,17 @@
             "format": "date",
             "title": "Sign By",
             "type": "string"
+          },
+          "sign_rule_phrase": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sign Rule Phrase"
           },
           "sign_rule_ref": {
             "title": "Sign Rule Ref",
@@ -8140,6 +8378,11 @@
           "kind": {
             "title": "Kind",
             "type": "string"
+          },
+          "member_count": {
+            "default": 1,
+            "title": "Member Count",
+            "type": "integer"
           },
           "name": {
             "title": "Name",
@@ -8729,6 +8972,30 @@
             "format": "uuid",
             "title": "Document Id",
             "type": "string"
+          },
+          "expert_name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Name"
+          },
+          "expert_role": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Role"
           },
           "received_on": {
             "format": "date",
@@ -9780,10 +10047,43 @@
             "title": "Document Id",
             "type": "string"
           },
+          "expert_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Name"
+          },
+          "expert_role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Role"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "pages": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pages"
           },
           "positions": {
             "items": {
@@ -9879,6 +10179,35 @@
           "received_on"
         ],
         "title": "OralInstructionIn",
+        "type": "object"
+      },
+      "OtherCases": {
+        "properties": {
+          "checked": {
+            "description": "Your other cases compared by the patient's identifier; 0 if none yet.",
+            "title": "Checked",
+            "type": "integer"
+          },
+          "matches": {
+            "description": "How many of them are about the same patient. Never named here.",
+            "title": "Matches",
+            "type": "integer"
+          },
+          "organisations": {
+            "description": "Where the checked cases sit, by organisation name.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Organisations",
+            "type": "array"
+          }
+        },
+        "required": [
+          "checked",
+          "matches",
+          "organisations"
+        ],
+        "title": "OtherCases",
         "type": "object"
       },
       "OverEstimate": {
@@ -10570,6 +10899,34 @@
         "title": "PageList",
         "type": "object"
       },
+      "PageMark": {
+        "description": "Where an entry sits on the visit's page (a share of the page, 0 to 1): the visit, or a later entry to blur.",
+        "properties": {
+          "box": {
+            "$ref": "#/components/schemas/Box"
+          },
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "entry",
+              "later"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id",
+          "role",
+          "box"
+        ],
+        "title": "PageMark",
+        "type": "object"
+      },
       "PageReplacement": {
         "properties": {
           "document_id": {
@@ -11088,6 +11445,17 @@
             ],
             "title": "Full Name"
           },
+          "greeting_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Greeting Name"
+          },
           "home_region": {
             "anyOf": [
               {
@@ -11114,6 +11482,18 @@
               }
             ],
             "title": "Locale"
+          },
+          "password_changed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Password Changed At"
           },
           "timezone": {
             "anyOf": [
@@ -11420,6 +11800,17 @@
             "title": "Question Id",
             "type": "string"
           },
+          "question_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Question No"
+          },
           "theirs": {
             "items": {
               "$ref": "#/components/schemas/TheirParagraph"
@@ -11498,6 +11889,17 @@
       },
       "PreviewOut": {
         "properties": {
+          "case_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Label"
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/SectionPages"
@@ -12937,6 +13339,17 @@
         "properties": {
           "checklist": {
             "$ref": "#/components/schemas/Checklist"
+          },
+          "court_track_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Court Track Label"
           },
           "sections": {
             "items": {
@@ -14499,6 +14912,17 @@
             "title": "Number",
             "type": "integer"
           },
+          "pack_page_no": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pack Page No"
+          },
           "pages": {
             "items": {
               "$ref": "#/components/schemas/SheetPage"
@@ -15178,6 +15602,52 @@
         "title": "StepProgress",
         "type": "object"
       },
+      "StyleDetail": {
+        "properties": {
+          "bold": {
+            "title": "Bold",
+            "type": "boolean"
+          },
+          "indented": {
+            "title": "Indented",
+            "type": "boolean"
+          },
+          "italic": {
+            "title": "Italic",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "numbered": {
+            "title": "Numbered",
+            "type": "boolean"
+          },
+          "size_pt": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The style's own point size, if it sets one.",
+            "title": "Size Pt"
+          }
+        },
+        "required": [
+          "name",
+          "bold",
+          "italic",
+          "size_pt",
+          "numbered",
+          "indented"
+        ],
+        "title": "StyleDetail",
+        "type": "object"
+      },
       "Subject": {
         "properties": {
           "label": {
@@ -15493,6 +15963,14 @@
           "size_bytes": {
             "title": "Size Bytes",
             "type": "integer"
+          },
+          "style_details": {
+            "description": "What each style looks like, in the order of `styles`.",
+            "items": {
+              "$ref": "#/components/schemas/StyleDetail"
+            },
+            "title": "Style Details",
+            "type": "array"
           },
           "styles": {
             "items": {
@@ -16509,6 +16987,17 @@
             ],
             "title": "Template Fallback"
           },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "type": {
             "title": "Type",
             "type": "string"
@@ -16881,6 +17370,14 @@
           "number": {
             "title": "Number",
             "type": "integer"
+          },
+          "page_nos": {
+            "description": "Numbers of the pages the linked paragraphs cite, in order, once each.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Page Nos",
+            "type": "array"
           },
           "para_ref": {
             "anyOf": [

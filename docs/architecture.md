@@ -175,7 +175,7 @@ Also neutral: "clinician" (not GP) in code and logic; "subject" in code (the pac
 ### 3.5 How code uses packs
 
 - **One entry point:** `pack = packs.for_case(case)` (in `api/app/core/packs.py`) returns the merged pack from all four layers (jurisdiction, case type, specialty, and the jurisdiction × specialty overlay), cached and version-stamped.
-- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.own_record_sources()`, `pack.arriving_kinds()`, `pack.guidelines()`, `pack.guideline_sources()`, `pack.report_sections()`, `pack.compliance_checklist()` (with `page_limit` per court track), `pack.page_limits()`, `pack.document_kinds()`, `pack.outside_expertise_parts()`, `pack.subject_statuses()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
+- **Examples:** `pack.deadline("written_questions", served_on)` (uses the pack's calendar and timezone), `pack.declarations()`, `pack.term("instructing_side")`, `pack.party_roles()`, `pack.instructing_party_types()`, `pack.registration_bodies(profession)`, `professional_titles` (a profession's greeting title, jurisdiction pack), `pack.timezone`, `pack.retention_years`, `pack.quarantine_purge_days`, `pack.instructing_party_request(**slots)`, `pack.speech()`, `pack.prompt_context()`, `pack.workflow_steps()`, `pack.question_types()`, `pack.fact_kinds()`, `pack.lanes()`, `pack.checks()`, `pack.own_record_sources()`, `pack.arriving_kinds()`, `pack.guidelines()`, `pack.guideline_sources()`, `pack.report_sections()`, `pack.compliance_checklist()` (with `page_limit` per court track), `pack.page_limits()`, `pack.document_kinds()`, `pack.outside_expertise_parts()`, `pack.subject_statuses()`, `pack.date_order`, `pack.identifier_recognisers()`, `pack.record_hints()`.
 - **Never hard-code** in slice code, prompts, schemas, enums or tests outside fixtures: court or rule names (CPR, PD35, Part 35), guidance bodies (NICE), "statement of truth", party or instructing-party words (claimant, defendant, solicitor), clinician titles (GP), record systems (EMIS, SystmOne), identifier types (NHS number), currencies, date orders, timezones, holiday rules, retention periods or fixed lists of anything in a registry.
 - **Recorded on the report:** `cases.pack_versions` and each served report store the pack versions used, so later wording changes never alter old reports.
 - **Tested per combination:** `evals/<jurisdiction>/<case-type>/<specialty>/` holds synthetic bundles and expected facts.
@@ -355,7 +355,7 @@ Everything after serving: deadlines, hearings, questions, meetings and court bun
 | `hearings` | Trials and other hearings, with adjournments kept as history. | case_id, type, starts_on, ends_on, venue, status, replaced_by_hearing_id |
 | `written_question_rounds` | Each batch of written questions from a party, with its deadline. | case_id, from_party_id, received_on, deadline_id |
 | `written_questions` | Each written question and the expert's answer. | case_id, round_id, rule_ref, number, text_verbatim, word_ids[], classification, paragraph_ids[], answer_text, status |
-| `opposing_reports` | Each other side's expert report registered for checking, with when it was checked and the positions compared. | case_id, document_id, received_on, job_id, checked_at, claims_found, positions |
+| `opposing_reports` | Each other side's expert report registered for checking, with when it was checked and the positions compared. | case_id, document_id, received_on, expert_name, expert_role, job_id, checked_at, claims_found, positions |
 | `opposing_claims` | Statements in the other side's expert report checked against the pages they cite. | case_id, document_id, text_verbatim, word_ids[], cited_page_ref, cited_value, status, evidence_word_ids[], expert_confirmed |
 | `report_changes` | Corrections or changes of opinion after serving, which become a supplementary report. | case_id, kind, paragraph_id, old_text, new_text, reason, dependent_paragraph_ids[], supplementary_version_id |
 | `expert_meetings` | A meeting of experts and the document they sign (e.g. joint statement). | case_id, type, discussion_on, sign_by, send_by, status, signed_document_id, signed_hash |
@@ -439,7 +439,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/auth/password/reset` | `{token, new_password}` → leaked-password check → all sessions revoked | |
 | GET | `/cell` | Public: `{support_phone, support_hours, storage_place}` from the cell's environment, null when unset (sign-in screen) | |
 | GET | `/auth/session` | Is the session valid, MFA level, minutes until timeout | |
-| GET | `/me` | Person record, expert profile (if any), memberships and whether MFA is enrolled | Creates the `people` row and the personal organisation on first call |
+| GET | `/me` | Person record (with the short greeting name from the jurisdiction pack's `professional_titles`, e.g. "Dr Morgan", and when the password was last reset), expert profile (if any), memberships (with how many people are in each organisation) and whether MFA is enrolled | Creates the `people` row and the personal organisation on first call |
 | POST | `/me/sessions/revoke-all` | Signs out all devices | 🔒 |
 
 **02 Expert profile**
@@ -731,7 +731,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | PUT | `/cases/{case_id}/readiness-replies/{question_no}` | The expert's reply to a readiness question |
 | PUT | `/cases/{case_id}/trial-pack/settings` | Sections to include |
 | GET | `/cases/{case_id}/trial-pack/settings` | Sections chosen so far |
-| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question) |
+| GET | `/cases/{case_id}/trial-pack/preview` | Pages each section adds when printed on its own, and the readiness sheets (one per agenda question, each with its page in the printed pack), with the case label for the sheet footer |
 | POST | `/cases/{case_id}/trial-pack` | Build large-print PDF (202 + job) |
 | GET | `/cases/{case_id}/trial-pack/latest` | Preview pages |
 | GET | `/cases/{case_id}/trial-pack/latest/download` | PDF streamed by the API (🔒 export) |

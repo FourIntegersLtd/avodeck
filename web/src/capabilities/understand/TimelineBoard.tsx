@@ -175,11 +175,11 @@ function LaneRow({
     <section aria-labelledby={headingId} className="av-story-lane">
       <div className="av-story-lane__head">
         <span className="av-understand-lane__icon" data-testid="lane-icon" aria-hidden="true" style={{ background: lane.colour ?? "var(--ink-soft)" }}>
-          <LaneIcon laneKey={lane.key} label={lane.label} />
+          <LaneIcon icon={lane.icon} label={lane.label} />
         </span>
         <span>
           <h3 id={headingId}>{lane.label}</h3>
-          <span className="av-story-lane__count">{count ? w("timeline.lane_window", { count }) : w("timeline.empty_window")}</span>
+          <span className="av-story-lane__count">{count ? (lane.subtitle ?? w("timeline.lane_window", { count })) : w("timeline.empty_window")}</span>
         </span>
       </div>
       <div className="av-story-lane__track" style={{ height: count ? height : 52 }}>
