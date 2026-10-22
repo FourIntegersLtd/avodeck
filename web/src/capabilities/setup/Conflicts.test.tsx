@@ -14,6 +14,7 @@ type State = {
   paragraph: string | null;
   coverage_question?: string | null;
   coverage: { status: "covered" | "partial" | "none" | "unknown"; period_start: string | null; period_end: string | null };
+  other_cases: { checked: number; matches: number; organisations: string[] };
   warnings: string[];
   declared_at: string | null;
   outcome: "none" | "disclosed" | null;
@@ -29,6 +30,7 @@ function state(over: Partial<State> = {}): State {
     paragraph: null,
     coverage_question: "Were you working throughout the period of the case?",
     coverage: { status: "partial", period_start: "2024-02-01", period_end: "2024-08-31" },
+    other_cases: { checked: 0, matches: 0, organisations: [] },
     warnings: ["setup.conflicts.warning.coverage_partial"],
     declared_at: null,
     outcome: null,

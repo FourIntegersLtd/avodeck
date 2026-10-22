@@ -344,6 +344,7 @@
           "measurements": "zz measurements",
           "sessions": "zz sessions"
         },
+        "other_side_add_another": "Add another (zz example of a further party)",
         "other_side_example": "zz example of the other party",
         "other_side_prompt": "Who is the respondent zz?",
         "outside_expertise_hint": "zz outside-expertise hint",
@@ -498,6 +499,7 @@
           "insurer": "carrier",
           "lawyer": "counsel"
         },
+        "other_side_add_another": "Add another (zz example of a further party)",
         "other_side_example": "zz example of the other party",
         "other_side_prompt": "Who is the respondent zz?",
         "party_name_ignore_words": [
@@ -1257,6 +1259,7 @@
           "primary_care_visits": "GP visits",
           "results": "Results"
         },
+        "other_side_add_another": "Add another (e.g. a hospital trust)",
         "other_side_example": "For example, the practice or the doctor the claim is against",
         "other_side_prompt": "Who is the defendant?",
         "outside_expertise_hint": "This looks outside what a general practitioner usually covers. You decide whether to answer it, or only part of it.",
@@ -1521,6 +1524,7 @@
           "insurer": "insurer",
           "lawyer": "solicitor"
         },
+        "other_side_add_another": "Add another (e.g. a hospital trust)",
         "other_side_example": "For example, the practice or the doctor the claim is against",
         "other_side_prompt": "Who is the defendant?",
         "party_name_ignore_words": [

@@ -50,6 +50,7 @@ test("an answer changed after declaring asks the expert to declare again", async
         complete: true,
         paragraph: "I have nothing to declare.",
         coverage: { status: "covered", period_start: "2024-02-01", period_end: "2024-08-31" },
+        other_cases: { checked: 0, matches: 0, organisations: [] },
         warnings: ["setup.conflicts.warning.declare_again"],
         declared_at: "2026-10-17T09:00:00Z",
         outcome: "none",

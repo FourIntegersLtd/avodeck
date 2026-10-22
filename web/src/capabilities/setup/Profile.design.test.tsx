@@ -11,7 +11,13 @@ const TEMPLATE = {
   id: "f1111111-1111-4111-8111-111111111111",
   filename: "Morgan template.docx",
   headings: [],
-  styles: ["Heading 1", "Normal"],
+  styles: ["Heading 1", "Normal", "List Number", "Quote"],
+  style_details: [
+    { name: "Heading 1", bold: true, italic: false, size_pt: 14, numbered: false, indented: false },
+    { name: "Normal", bold: false, italic: false, size_pt: null, numbered: false, indented: false },
+    { name: "List Number", bold: false, italic: false, size_pt: null, numbered: true, indented: false },
+    { name: "Quote", bold: false, italic: true, size_pt: null, numbered: false, indented: true },
+  ],
   mapping: [],
   sections: ["introduction", "other"],
   sha256: "0".repeat(64),
@@ -60,6 +66,9 @@ test("the template shows its styles as chips and a Replace link, and a Done butt
   const template = await screen.findByRole("region", { name: "Your report template" });
   expect(within(template).getByText("Heading 1")).toBeInTheDocument();
   expect(within(template).getByText("Normal")).toBeInTheDocument();
+  expect(within(template).getByText("Bold 14 pt")).toBeInTheDocument();
+  expect(within(template).getByText("Numbered")).toBeInTheDocument();
+  expect(within(template).getByText("Italic · Indented")).toBeInTheDocument();
   expect(within(template).getByText("Replace")).toBeInTheDocument();
   expect(within(template).getByText("Your headings, numbering and fonts will be kept")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Done" })).toHaveAttribute("href", "/today");

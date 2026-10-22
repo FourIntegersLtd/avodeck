@@ -78,6 +78,7 @@ _SCREEN_ONLY_VOCABULARY = frozenset(
         "as_seen_title",
         "other_side_prompt",
         "other_side_example",
+        "other_side_add_another",
         "party_roles_plural",
         "subject_status_hint",
         "party_name_ignore_words",
@@ -208,7 +209,7 @@ def _union(earlier: list[Any], later: list[Any]) -> list[Any]:
 
 
 # Words every jurisdiction vocabulary must give (the setup screens use them instead of fixed words).
-JURISDICTION_WORDS = ("other_side_prompt", "other_side_example", "subject_status_hint")
+JURISDICTION_WORDS = ("other_side_prompt", "other_side_example", "other_side_add_another", "subject_status_hint")
 CORE_DOCUMENT_KINDS = ("instructions", "records", "other")
 
 
