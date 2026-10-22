@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 
-from fastapi import Request
+from fastapi import Request, Response
 
 from app.core.http import DbConn
 from app.features.organisations import service
@@ -20,6 +20,7 @@ from app.features.organisations.schemas import (
 
 ViewMembers = org_access("org.view_members")
 SetPolicy = org_access("org.set_policy")
+Close = org_access("org.close")
 
 
 @router.get("/organisations", response_model=OrganisationList)
@@ -41,6 +42,12 @@ async def get_organisation(org_id: uuid.UUID, conn: DbConn, _: ViewMembers) -> O
 @router.put("/organisations/{org_id}/policy", response_model=Organisation, dependencies=STEP_UP_FIRST)
 async def set_policy(org_id: uuid.UUID, body: PolicyUpdate, conn: DbConn, _: SetPolicy) -> Organisation:
     return await service.set_policy(conn, org_id, body)
+
+
+@router.post("/organisations/{org_id}/close", status_code=204, dependencies=STEP_UP_FIRST)
+async def close_organisation(org_id: uuid.UUID, conn: DbConn, _: Close) -> Response:
+    await service.close_organisation(conn, org_id)
+    return Response(status_code=204)
 
 
 @router.patch("/organisations/{org_id}", response_model=Organisation, dependencies=STEP_UP_FIRST)

@@ -105,6 +105,10 @@ async def set_named_expert(conn: AsyncConnection, case_id: uuid.UUID, person_id:
     await conn.execute("update app.cases set named_expert_id = %s where id = %s", (person_id, case_id))
 
 
+async def close_organisation(conn: AsyncConnection, org_id: uuid.UUID) -> None:
+    await conn.execute("select app.close_organisation(%s)", (org_id,))
+
+
 async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[dict[str, Any]]:
     return await rows(conn, "select * from app.organisation_members(%s)", (org_id,))
 

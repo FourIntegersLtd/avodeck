@@ -86,6 +86,12 @@ LAST_OWNER = ApiError("last_owner", "Make someone else an owner first.", 409)
 REFUSALS = {
     "last_owner": LAST_OWNER,
     "personal_membership": ApiError("personal_organisation", "Your own practice stays while your account is open.", 409),
+    "cases_open": ApiError(
+        "cases_open", "Some cases are still open and not yet served. Finish, export or delete them first.", 409
+    ),
+    "personal_organisation": ApiError(
+        "personal_organisation", "Your own practice closes only when you close your account.", 409
+    ),
     "invite_not_found": not_found(),
     "invite_expired": ApiError("invite_expired", "This invitation has expired. Ask for a new one.", 409),
     "invite_closed": ApiError("invite_closed", "This invitation has already been used or cancelled.", 409),
@@ -278,6 +284,11 @@ async def reassign(conn: AsyncConnection, mailer: Mailer, case_id: uuid.UUID, pe
         if emails.get(person):
             await send_mail(mailer, case_reassigned_mail(emails[person], case_id=case_id, side=side))
     return NamedExpert(case_id=case_id, named_expert_id=person_id)
+
+
+async def close_organisation(conn: AsyncConnection, org_id: uuid.UUID) -> None:
+    async with refusals():
+        await repo.close_organisation(conn, org_id)
 
 
 async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> Organisation:
