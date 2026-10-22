@@ -154,6 +154,41 @@ describe("the board", () => {
     expect(within(apart).getByText("p.301")).toBeInTheDocument();
   });
 
+  test("a date worked out or taken from the line above carries a check-the-date mark", async () => {
+    inCase("launch");
+    serve(timeline({ lanes: [{ key: "lane_0", label: "Lane one words", events: [
+      event({ fact_id: FACT_1, date_basis: "printed_century" }),
+      event({ fact_id: FACT_2, date_basis: "line_above", event_date: "2024-06-15", available_at: "2024-06-15" }),
+    ] }] }));
+    renderAt(`/cases/${CASE_A}/timeline`);
+    await screen.findByRole("region", { name: "Lane one words" });
+    expect(screen.getAllByText("Year worked out from the two-digit year on the page, please check").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Date taken from the line above, please check").length).toBeGreaterThan(0);
+  });
+
+  test("entries with a printed date show no mark", async () => {
+    inCase("launch");
+    serve(timeline({ lanes: [{ key: "lane_0", label: "Lane one words", events: [event({ date_basis: "printed" })] }] }));
+    renderAt(`/cases/${CASE_A}/timeline`);
+    await screen.findByRole("region", { name: "Lane one words" });
+    expect(screen.queryByText(/please check$/)).toBeNull();
+  });
+
+  test("the unplaced list runs by page and then by word order, nulls last", async () => {
+    inCase("launch");
+    const ids = ["a", "b", "c", "d"].map((c) => c.repeat(8) + "-0000-4000-8000-000000000000");
+    serve(timeline({ unplaced: [
+      event({ fact_id: ids[0]!, event_date: null, available_at: null, page_no: 5, first_word_n: null, summary: "S-null" }),
+      event({ fact_id: ids[1]!, event_date: null, available_at: null, page_no: 5, first_word_n: 9, summary: "S-nine" }),
+      event({ fact_id: ids[2]!, event_date: null, available_at: null, page_no: 5, first_word_n: 2, summary: "S-two" }),
+      event({ fact_id: ids[3]!, event_date: null, available_at: null, page_no: 3, first_word_n: 50, summary: "S-early" }),
+    ] }));
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const apart = await screen.findByRole("region", { name: "Not on a line yet" });
+    const order = within(apart).getAllByRole("button").map((b) => b.textContent);
+    expect(order).toEqual(["S-early", "S-two", "S-nine", "S-null"]);
+  });
+
   test("ends with the way on to the things we found, and not when there are none", async () => {
     inCase("launch");
     serve();
