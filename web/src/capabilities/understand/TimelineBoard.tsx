@@ -249,8 +249,10 @@ export function TimelineBoard({
   const busy = byDay.filter((g) => g.groups.length > 0).length;
   const rows = level === "years" ? 1 : level === "days" || busy < 7 ? 3 : 2;
   const laid = useMemo(() => byDay.map((g) => ({ ...g, layout: layoutFor(g.groups, level, rows, track, toX) })), [byDay, level, rows, track, toX]);
-  const total = all.reduce((n, g) => n + g.events.length, 0);
-  const shown = laid.reduce((n, l) => n + l.layout.cards.reduce((s, c) => s + c.group.events.length, 0), 0);
+  // Entries on a series bar are on screen too, so they count as shown and in the total.
+  const onBars = lanes.reduce((n, lane) => n + seriesFacts(lane).size, 0);
+  const total = all.reduce((n, g) => n + g.events.length, 0) + onBars;
+  const shown = laid.reduce((n, l) => n + l.layout.cards.reduce((s, c) => s + c.group.events.length, 0), 0) + onBars;
   const marks = domain ? axisMarks(domain.start, domain.end, level) : [];
   const density = useMemo(() => (domain && level === "years" ? monthlyCounts(lanes, domain.first, domain.last) : null), [domain?.first, domain?.last, level, lanes]); // eslint-disable-line react-hooks/exhaustive-deps
   const found = data.counts?.things_to_look ?? 0;
