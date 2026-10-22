@@ -98,7 +98,7 @@ describe("on the board", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("button", { name: /^Words one 210 mg/ })).toBeInTheDocument();
-    const shown = [...container.querySelectorAll<HTMLElement>("[data-facts]")].flatMap((c) => c.dataset.facts!.split(" "));
+    const shown = [...container.querySelectorAll<HTMLElement>(".av-story-card[data-facts]")].flatMap((c) => c.dataset.facts!.split(" "));
     expect(shown).toEqual([id(2)]);
     for (const card of container.querySelectorAll<HTMLElement>(".av-story-card")) {
       expect(parseFloat(card.style.top)).toBeGreaterThanOrEqual(ROW * seriesRows(lane));
