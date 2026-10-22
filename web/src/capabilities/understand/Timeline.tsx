@@ -83,7 +83,10 @@ export function Timeline() {
     }
   };
 
-  const data = found.data;
+  // Until the instruction period is applied, the board would draw the record's own span and then jump.
+  const windowReady =
+    windowPreset !== "period" || periodSeeded || (!caseRow.loading && periodDefaultDates(caseRow.data, recordRange) === null);
+  const data = windowReady ? found.data : undefined;
   const order = useMemo(() => (data ? chronologyEntries(splitForTrack(data).lanes, splitForTrack(data).unplaced) : []), [data]);
   const entryId = params.get("entry");
   const current = entryId ? order.find((e) => e.fact_id === entryId) ?? null : null;

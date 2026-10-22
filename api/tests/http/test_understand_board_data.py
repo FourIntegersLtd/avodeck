@@ -56,7 +56,8 @@ async def test_a_consultation_carries_its_author_line_and_the_pack_s_card_titles
 ) -> None:
     case = Case(seed, BOTH[0])
     kind = next(k for k in case.pack.fact_kinds() if k.get("author_field"))
-    visit = case.fact(kind["key"], date(2024, 5, 15), **{kind["author_field"]: "Dr Q"})
+    author: dict[str, Any] = {kind["author_field"]: "Dr Q"}
+    visit = case.fact(kind["key"], date(2024, 5, 15), **author)
     body = (await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/consultations/{visit}")).json()
     mode = case.pack.vocabulary["visit_modes"][kind["key"]]
     assert body["entry"]["author_line"] == f"Dr Q · {mode}"
