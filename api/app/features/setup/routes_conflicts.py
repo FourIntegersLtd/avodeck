@@ -55,11 +55,18 @@ class Coverage(BaseModel):
     period_end: str | None
 
 
+class OtherCases(BaseModel):
+    checked: int = Field(description="Your other cases compared by the patient's identifier; 0 if this case has none yet.")
+    matches: int = Field(description="How many of them are about the same patient. Never named here.")
+    organisations: list[str] = Field(description="Where the checked cases sit, by organisation name.")
+
+
 class Conflicts(BaseModel):
     questions: list[ConflictQuestion]
     complete: bool
     paragraph: str | None = Field(description="The conflicts paragraph of the report, once every question is answered.")
     coverage: Coverage
+    other_cases: OtherCases
     coverage_question: str | None = Field(default=None, description="The specialty's role-coverage question.")
     warnings: list[str] = Field(description="i18n keys.")
     declared_at: datetime | None
@@ -127,6 +134,21 @@ async def _coverage(conn: DbConn, pack: MergedPack, case_id: uuid.UUID) -> Cover
     return Coverage(status=row[0] or "unknown", period_start=row[1], period_end=row[2])
 
 
+async def _other_cases(conn: DbConn, case_id: uuid.UUID) -> OtherCases:
+    cur = await conn.execute(
+        "select o.name, k.key_hash = mine.key_hash from app.case_subject_keys mine"
+        " join app.case_subject_keys k on k.case_id <> mine.case_id"
+        " join app.cases c on c.id = k.case_id join app.organisations o on o.id = c.organisation_id"
+        " where mine.case_id = %s and c.named_expert_id = app.current_person_id() and c.status <> 'deleted'"
+        " order by o.name",
+        (case_id,),
+    )
+    rows = await cur.fetchall()
+    return OtherCases(
+        checked=len(rows), matches=sum(1 for r in rows if r[1]), organisations=sorted({str(r[0]) for r in rows})
+    )
+
+
 async def _state(request: Request, conn: DbConn, crypto: Any, case_id: uuid.UUID) -> Conflicts:
     pack = await _pack(request, conn, case_id)
     given = await _answers(conn, crypto, case_id)
@@ -157,6 +179,7 @@ async def _state(request: Request, conn: DbConn, crypto: Any, case_id: uuid.UUID
         complete=all(q.answer is not None for q in questions),
         paragraph=_paragraph(pack, questions),
         coverage=coverage,
+        other_cases=await _other_cases(conn, case_id),
         coverage_question=_fill(pack, str(pack.vocabulary["coverage_question"]))
         if isinstance(pack.vocabulary.get("coverage_question"), str)
         else None,
