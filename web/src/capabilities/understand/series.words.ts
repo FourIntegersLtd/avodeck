@@ -9,6 +9,9 @@ const WORDS = {
 
 registerMessages(Object.fromEntries(Object.entries(WORDS).map(([key, value]) => [`understand.${key}`, value])));
 
+/** A word from this file (`understand.` keys are registered above, not in the base language file). */
+const word = (key: keyof typeof WORDS extends `${infer B}_${"one" | "other"}` ? B : never, params: Record<string, string | number>) => t(`understand.${key}`, params);
+
 export function seriesIssues(count: number, first: string, last: string): string {
-  return t("understand.series.issues", { count, first, last });
+  return word("series.issues", { count, first, last });
 }
