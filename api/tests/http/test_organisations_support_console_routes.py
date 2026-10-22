@@ -69,7 +69,8 @@ async def test_one_case_with_its_grants_and_every_look_audited(
     assert [g["id"] for g in body["grants"]] == [str(gid)]
     assert set(body["grants"][0]) == {"id", "granted_to", "reason", "granted_at", "expires_at", "revoked_at", "active"}
     assert admin.execute(
-        "select count(*) from app.audit_log where case_id = %s and action = 'support.case_looked_up' and person_id = %s",
+        "select count(*) from app.audit_log where case_id = %s and action = 'support.case_looked_up'"
+        " and person_id = %s",
         (case, staff),
     ).fetchone() == (2,)
     assert (await client.get(f"/v1/support/cases/{uuid.uuid4()}")).status_code == 404

@@ -57,7 +57,9 @@ async def test_clearing_the_custodian(client_for: ClientFor, world: World, admin
         {"name": "Dr P", "email": "p@example.test", "other": 1},
     ],
 )
-async def test_a_custodian_has_a_name_and_an_email(client_for: ClientFor, world: World, body: dict[str, object]) -> None:
+async def test_a_custodian_has_a_name_and_an_email(
+    client_for: ClientFor, world: World, body: dict[str, object]
+) -> None:
     resp = await (await client_for(world["dr_k"])).put(URL, json=body)
     assert resp.status_code == 422
 

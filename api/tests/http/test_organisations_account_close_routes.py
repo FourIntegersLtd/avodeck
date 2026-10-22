@@ -108,7 +108,9 @@ async def test_s15_closing_deletes_unserved_cases_keeps_served_ones_read_only(
     assert again.status_code == 404
 
 
-async def test_the_last_owner_of_a_team_cannot_close(client_for: ClientFor, world: World, admin: psycopg.Connection) -> None:
+async def test_the_last_owner_of_a_team_cannot_close(
+    client_for: ClientFor, world: World, admin: psycopg.Connection
+) -> None:
     resp = await (await client_for(world["owner"])).post(URL)
     assert resp.status_code == 409
     assert resp.json()["error"] == {"code": "last_owner", "message": "Make someone else an owner first."}
