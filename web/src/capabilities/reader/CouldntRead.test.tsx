@@ -1,7 +1,7 @@
 // Screen 10, Pages we couldn't read: type out each page, say if it matters, move on. Both pack sets.
 import { screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import { forgetPages } from "./pageImage";
+import { forgetPages } from "./pageImageCache";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
@@ -60,12 +60,15 @@ describe.each([
     expect(await screen.findByRole("button", { name: "Save and next page" })).toBeDisabled();
   });
 
-  test("Ask for a clearer copy marks the page", async () => {
-    const api = mockReader(pack);
+  test("Ask for a clearer copy marks the page and moves to the next one without typing", async () => {
+    const api = mockReader(pack, { queue: [queuePage(612), queuePage(640), queuePage(655)] });
     const { user } = renderAt(PATH);
     await user.click(await screen.findByRole("button", { name: "I can't read it either: ask for a clearer copy" }));
     await waitFor(() => expect(api.patches).toEqual([{ page: 612, body: { needs_clearer_copy: true } }]));
+    expect(api.puts).toHaveLength(0);
+    expect(await screen.findByRole("img", { name: "Page 640" })).toBeVisible();
     expect(await screen.findByText(/clearer copy is on your list/)).toBeVisible();
+    expect(await screen.findByText("1 of 3 done")).toBeVisible();
   });
 
   test("when re-reading is not ready (503) it says the typing is not saved yet", async () => {

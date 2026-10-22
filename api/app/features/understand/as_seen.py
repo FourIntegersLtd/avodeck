@@ -1,7 +1,8 @@
 """One consultation as the clinician saw it (S12): what was available on the day.
 
 Visible: available on or before the day. Later ones are kept apart ("What came later"). Ones with no
-known arrival are listed as unknown and never placed before the day. Rejected facts are left out.
+known arrival are listed as unknown when undated or on or before the day; later-dated ones are omitted.
+Rejected facts are left out.
 """
 
 from __future__ import annotations
@@ -17,6 +18,7 @@ class SeenItem:
     fact_id: uuid.UUID
     available_at: date | None
     status: str
+    event_date: date | None = None
 
 
 @dataclass
@@ -32,6 +34,8 @@ def as_seen(on: date, items: Iterable[SeenItem], *, exclude: uuid.UUID | None) -
         if item.status == "rejected" or item.fact_id == exclude:
             continue
         if item.available_at is None:
+            if item.event_date is not None and item.event_date > on:
+                continue
             view.unknown.append(item)
         elif item.available_at <= on:
             view.visible.append(item)

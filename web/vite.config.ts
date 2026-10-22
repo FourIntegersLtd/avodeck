@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [react(), cspPlugin(), devMfaPlugin()],
   server: {
+    host: true,
     port: 5173,
     strictPort: true,
     proxy: { "/v1": { target: API_DEV, ws: true } },

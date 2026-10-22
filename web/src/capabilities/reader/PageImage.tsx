@@ -1,6 +1,6 @@
 // The page's picture, with anything drawn over it placed in page fractions.
 import { useEffect, useState, type ReactNode } from "react";
-import { pageImage } from "./pageImage";
+import { pageImage } from "./pageImageCache";
 import { w } from "./words";
 
 export function PageImage({ caseId, pageNo, zoom = 100, children }: { caseId: string; pageNo: number; zoom?: number; children?: ReactNode }) {

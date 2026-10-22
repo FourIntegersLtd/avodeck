@@ -15,6 +15,16 @@ def invalid(*fields: str, message: str = "Check the highlighted fields.") -> Api
     return ApiError("invalid", message, 422, fields=list(fields))
 
 
+def undated_entry(page_no: int) -> ApiError:
+    return ApiError(
+        "undated_entry",
+        "This entry has no visit date yet.",
+        422,
+        fields=["fact_id"],
+        page_no=page_no,
+    )
+
+
 def not_found() -> ApiError:
     return ApiError("not_found", "Not found.", 404)
 

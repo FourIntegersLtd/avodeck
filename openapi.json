@@ -15702,6 +15702,10 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "undated": {
+            "title": "Undated",
+            "type": "integer"
           }
         },
         "required": [
@@ -15709,6 +15713,7 @@
           "please_check",
           "things_to_look",
           "not_linked",
+          "undated",
           "total"
         ],
         "title": "TimelineCounts",
@@ -27798,6 +27803,60 @@
         "summary": "Reopen",
         "tags": [
           "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/repair-fact-dates": {
+      "post": {
+        "description": "Fills missing fact dates from printed words on each page, without guessing from free text.",
+        "operationId": "repair_fact_dates_route_v1_cases__case_id__repair_fact_dates_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobQueued"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Repair Fact Dates Route",
+        "tags": [
+          "pipeline"
         ]
       }
     },

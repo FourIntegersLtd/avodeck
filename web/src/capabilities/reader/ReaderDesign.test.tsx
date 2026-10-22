@@ -71,19 +71,23 @@ describe.each([
     const related = [{ fact_id: factId(2), kind: "prescription", value: "Anusol HC suppositories", event_date: "2024-05-15", status: "suggested" }];
     mockReader(pack, { alreadyRead: true, facts: [fact(1, { related }), fact(2)] });
     const { user } = renderAt(PATH);
+    await screen.findByRole("article", { name: /Dr P consultation/ });
+    await user.click(screen.getByRole("button", { name: "Next suggestion on this page" }));
     const rx = await screen.findByRole("article", { name: /Anusol HC suppositories/ });
     await user.click(within(rx).getByRole("button", { name: "Correct" }));
-    const visit = screen.getByRole("article", { name: /Dr P consultation/ });
-    expect(await within(visit).findByText(/Anusol HC suppositories · checked by you/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: /Consultation: Dr P consultation/ }));
+    const visit = await screen.findByRole("article", { name: /Dr P consultation/ });
+    await waitFor(() => expect(within(visit).getByText(/Anusol HC suppositories · checked by you/)).toBeVisible());
   });
 
   test("the keyboard hints are C, N and the arrow, and those keys work", async () => {
     const api = mockReader(pack, { alreadyRead: true, lastPage: 119 });
     const { user } = renderAt(PATH);
     await screen.findByRole("article", { name: /Dr P consultation/ });
+    const hints = screen.getByText(/Keyboard, if you like it/).closest(".rd-keys")!;
     for (const [key, what] of [["C", "correct"], ["N", "not right"], ["→", "next page"]] as Array<[string, string]>) {
-      expect(screen.getByText(key)).toBeVisible();
-      expect(screen.getByText(new RegExp(what))).toBeVisible();
+      expect(within(hints as HTMLElement).getByText(key)).toBeVisible();
+      expect(within(hints as HTMLElement).getByText(new RegExp(what))).toBeVisible();
     }
     await user.keyboard("c");
     await waitFor(() => expect(api.verifies[0]).toMatchObject({ id: factId(1), body: { action: "correct" } }));

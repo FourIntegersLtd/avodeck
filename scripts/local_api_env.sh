@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Prints NAME=value lines for running the API against the local Supabase (CI and `make dev`).
 # Local-only values: the seed's role passwords, a throwaway master key, the local Auth keys.
+# Day-to-day cloud-backed dev: put secrets in api/.env; `make -C api start` and `make -C api worker` load it.
 # Usage: scripts/local_api_env.sh >> "$GITHUB_ENV"   or   set -a; eval "$(scripts/local_api_env.sh)"; set +a
 set -euo pipefail
 status=$(supabase status -o env)

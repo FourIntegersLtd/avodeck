@@ -498,6 +498,22 @@ async def test_details_of_the_right_names_and_types_are_kept(
     assert row is not None and row[0] == sent
 
 
+async def test_edit_can_change_fields_without_resending_the_headline(pack_world: dict[str, Any]) -> None:
+    """One wrong detail line: fields alone may be sent; value and word_ids stay as they were."""
+    fact = await the_fact(pack_world)
+    key = next(iter(pack_world["fields"]))
+    kind_type = pack_world["fields"][key]
+    new_line = GOOD[kind_type] if GOOD[kind_type] != (fact.get("fields") or {}).get(key) else "Updated detail"
+    sent = {**(fact.get("fields") or {}), key: new_line}
+    response = await act(pack_world["client"], pack_world, fact, action="edit", fields=sent)
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["status"] == "edited"
+    assert body["value"] == fact["value"]
+    assert body["word_ids"] == fact["word_ids"]
+    assert body["fields"][key] == new_line
+
+
 async def test_a_wrong_date_or_yes_no_is_refused_under_the_launch_packs(
     seed: Seed, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, client_for: Any
 ) -> None:

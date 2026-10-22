@@ -151,10 +151,26 @@ def _replaying(endpoint: Callable[..., Any]) -> Callable[..., Any]:
     return call
 
 
+def _local_dev_origin_alias(origin: str, allowed: str) -> bool:
+    """localhost and 127.0.0.1 are the same dev machine; APP_ORIGIN is usually only one of them."""
+    for scheme in ("http://", "https://"):
+        localhost = f"{scheme}localhost:"
+        loopback = f"{scheme}127.0.0.1:"
+        if allowed.startswith(localhost) and origin == allowed.replace(localhost, loopback, 1):
+            return True
+        if allowed.startswith(loopback) and origin == allowed.replace(loopback, localhost, 1):
+            return True
+    return False
+
+
 def check_origin(request: Request) -> None:
     """A browser sends Origin on state-changing requests; only the web app's own is accepted."""
     origin = request.headers.get("origin")
-    if origin is not None and origin.rstrip("/") != request.app.state.app_origin:
+    if origin is None:
+        return
+    normalised = origin.rstrip("/")
+    allowed = request.app.state.app_origin
+    if normalised != allowed and not _local_dev_origin_alias(normalised, allowed):
         raise ApiError("bad_origin", "Request refused.", 403)
 
 

@@ -112,7 +112,7 @@ export function timeline(over: Partial<Schemas["Timeline"]> = {}): Schemas["Time
     range: { first: "2024-02-19", last: "2024-05-15" },
     as_seen_on: null,
     as_seen_title: "Seen on the day",
-    counts: { checked: 2, please_check: 1, things_to_look: 1, not_linked: 1, total: 3 },
+    counts: { checked: 2, please_check: 1, things_to_look: 1, not_linked: 1, undated: 0, total: 3 },
     ...over,
   };
 }

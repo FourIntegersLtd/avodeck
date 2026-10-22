@@ -1,0 +1,55 @@
+# DigitalOcean App Platform spec (London). Copy env values from .env.example in the dashboard.
+# Docs: https://docs.digitalocean.com/products/app-platform/reference/app-spec/
+#
+# After editing: doctl apps create --spec .do/app.yaml  (or paste in Control Panel → App → Settings → App Spec)
+name: avodeck-uk
+region: lon
+
+services:
+  - name: api
+    dockerfile_path: Dockerfile
+    github:
+      repo: YOUR_GITHUB_ORG/avodeck-starter
+      branch: main
+      deploy_on_push: true
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    health_check:
+      http_path: /openapi.json
+      initial_delay_seconds: 30
+      period_seconds: 10
+    envs:
+      - key: REGION
+        value: uk
+      - key: ALLOWED_PACKS
+        value: gb-eaw/clin-neg-breach/general-practice
+      - key: PACKS_DIR
+        value: /app/packs
+      - key: STORAGE_BUCKET
+        value: case-files
+      - key: KEY_PROVIDER
+        value: local
+      - key: WORKER_CONCURRENCY
+        value: "4"
+      # Set the rest as encrypted secrets in the dashboard (never commit):
+      # APP_ORIGIN, SESSION_SECRET, DATABASE_URL, DATABASE_URL_DIRECT,
+      # SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, LOCAL_MASTER_KEY, …
+
+workers:
+  - name: worker
+    dockerfile_path: Dockerfile
+    github:
+      repo: YOUR_GITHUB_ORG/avodeck-starter
+      branch: main
+      deploy_on_push: true
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    run_command: poetry run python -m app.worker.main
+    envs:
+      - key: REGION
+        value: uk
+      - key: PACKS_DIR
+        value: /app/packs
+      - key: WORKER_CONCURRENCY
+        value: "4"

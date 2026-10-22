@@ -7,9 +7,14 @@ import psycopg
 
 def test_scan_and_reprocess_jobs_need_the_upload_action(admin: psycopg.Connection) -> None:
     rows = admin.execute(
-        "select kind, action from app.job_kind_actions where kind in ('scan_document', 'reprocess_case') order by kind"
+        "select kind, action from app.job_kind_actions"
+        " where kind in ('scan_document', 'reprocess_case', 'repair_fact_dates') order by kind"
     ).fetchall()
-    assert rows == [("reprocess_case", "case.upload"), ("scan_document", "case.upload")]
+    assert rows == [
+        ("repair_fact_dates", "case.upload"),
+        ("reprocess_case", "case.upload"),
+        ("scan_document", "case.upload"),
+    ]
 
 
 def test_uploads_say_whether_they_add_later_records(admin: psycopg.Connection) -> None:

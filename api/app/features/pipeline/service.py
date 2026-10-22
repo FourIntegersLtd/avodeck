@@ -48,13 +48,26 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcrip
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
-from app.features.pipeline import convert, dates, duplicates, extract, gaps, language, missing, paths, quarantine, repo
+from app.features.pipeline import (
+    convert,
+    date_repair,
+    dates,
+    duplicates,
+    extract,
+    gaps,
+    language,
+    missing,
+    paths,
+    quarantine,
+    repo,
+)
 from app.features.pipeline.render import render
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, turned, typed, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
+REPAIR_FACT_DATES = "repair_fact_dates"  # fill event_date from printed words when extraction left it null
 PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
 CONCURRENCY = 3  # pages read or sent to a model at once
 LIMITS = convert.Limits()
@@ -790,6 +803,62 @@ async def reprocess_case(ctx: JobContext) -> None:
     await ctx.progress(40, step="sort")
     await _sort(ctx, services)
     await ctx.progress(100, step="sort")
+
+
+async def repair_fact_dates(ctx: JobContext) -> None:
+    """Sets `event_date` on facts that have none, using the same printed-word rules as extraction."""
+    services = current()
+    async with ctx.transaction() as conn:
+        pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        rows = await repo.undated_facts(conn, ctx.case_id)
+    if not rows:
+        await ctx.progress(100, step="repair")
+        return
+    by_page: dict[uuid.UUID, list[repo.UndatedFact]] = {}
+    for row in rows:
+        by_page.setdefault(row.page_id, []).append(row)
+    done = 0
+    repaired = 0
+    total = len(rows)
+
+    async def one_page(item: tuple[uuid.UUID, list[repo.UndatedFact]]) -> None:
+        nonlocal done, repaired
+        page_id, facts = item
+        async with ctx.transaction() as conn:
+            stored = await repo.words_of(conn, page_id)
+            if not stored:
+                done += len(facts)
+                return
+            texts = {
+                w.word_id: (
+                    await services.crypto.decrypt(
+                        conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                    )
+                ).decode()
+                for w in stored
+            }
+        ordered = [(w.word_id, texts[w.word_id]) for w in stored]
+        struck = {w.word_id for w in stored if w.struck}
+        async with ctx.transaction() as conn:
+            for fact in facts:
+                when, basis = date_repair.resolve_fact_event_date(
+                    fact.kind,
+                    fact.fields,
+                    fact.word_ids,
+                    ordered,
+                    struck,
+                    pack,
+                    allow_century=fact.status in ("verified", "edited"),
+                )
+                if when is not None and basis is not None:
+                    if await repo.set_fact_event_date(conn, ctx.case_id, fact.fact_id, when, basis):
+                        repaired += 1
+        done += len(facts)
+        if done == total or done % 50 == 0:
+            await ctx.progress(min(99, 100 * done // total), step="repair")
+
+    await bounded(list(by_page.items()), one_page, stop=_stop(ctx))
+    await ctx.progress(100, step="repair")
 
 
 async def queue_pages(conn: AsyncConnection, case_id: uuid.UUID, page_ids: Sequence[uuid.UUID]) -> uuid.UUID:

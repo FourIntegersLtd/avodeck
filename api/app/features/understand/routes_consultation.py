@@ -24,7 +24,7 @@ from app.core.http import DbConn
 from app.features.understand import guidelines, repo
 from app.features.understand.as_seen import SeenItem
 from app.features.understand.as_seen import as_seen as seen_on
-from app.features.understand.common import case_pack, invalid, not_found
+from app.features.understand.common import case_pack, not_found, undated_entry
 from app.features.understand.guidelines import in_force
 from app.features.understand.router import router
 
@@ -99,7 +99,7 @@ async def consultation(
         raise not_found()
     on = on or visit.event_date or visit.available_at
     if on is None:
-        raise invalid("fact_id", message="This entry has no date.")
+        raise undated_entry(visit.page_no)
     flagged = await repo.flagged_facts(conn, case_id)
     cur = await conn.execute(
         "select distinct q.number from app.fact_question_links l join app.questions q on q.id = l.question_id"
@@ -107,7 +107,11 @@ async def consultation(
         (case_id, fact_id),
     )
     numbers = [int(r[0]) for r in await cur.fetchall()]
-    view = seen_on(on, (SeenItem(f.fact_id, f.available_at, f.status) for f in facts), exclude=fact_id)
+    view = seen_on(
+        on,
+        (SeenItem(f.fact_id, f.available_at, f.status, f.event_date) for f in facts),
+        exclude=fact_id,
+    )
 
     def pick(items: list[SeenItem]) -> list[Entry]:
         return [_entry(by_id[i.fact_id], flagged) for i in items]
@@ -173,7 +177,7 @@ async def later_notes(
         raise not_found()
     day = on or visit.event_date or visit.available_at
     if day is None:
-        raise invalid("fact_id", message="This entry has no date.")
+        raise undated_entry(visit.page_no)
     later = [
         f
         for f in facts
