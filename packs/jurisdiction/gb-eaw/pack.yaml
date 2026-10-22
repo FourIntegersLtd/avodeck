@@ -5,7 +5,7 @@ cell: uk
 locale: en-GB
 language: en
 timezone: Europe/London
-date_order: DMY            # used by the date normaliser; ambiguous dates are flagged, never guessed
+date_order: DMY            # used by the date normaliser; ambiguous dates are flagged with a visible basis, never silently guessed (ADR 0017)
 currency: GBP
 tax: VAT
 working_week: [1, 2, 3, 4, 5]   # ISO weekdays the court office is open (Monday to Friday)

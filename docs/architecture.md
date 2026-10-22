@@ -135,7 +135,7 @@ packs/
 ### 3.4 Neutral naming
 
 - **i18n from day one:** every interface string uses a translation key; en-GB is the base with small overrides for en-AU, en-NZ and en-CA. The plain-language glossary becomes one file per locale. Dates, numbers and currency use the expert's locale.
-- **Locale-aware dates:** the date normaliser takes the pack's default date order. It flags any ambiguous date (e.g. 03/04/24) as "Please check" instead of guessing.
+- **Locale-aware dates:** the date normaliser takes the pack's default date order. It flags any ambiguous date (e.g. 03/04/24) as "Please check" instead of guessing. Two-digit years and dates on the line above are resolved by a fixed rule and flagged through `date_basis` (ADR 0017).
 - **Dictation language:** the pack sets the speech language (en-GB, en-AU, en-NZ, en-CA) and the phrase list (local drug names, abbreviations).
 - **Identifier stripping:** recognisers come from the pack (NHS number now; Medicare, NHI and provincial health numbers later).
 - **Registration:** an expert profile records the professional registration body (GMC now; AHPRA, CPSO, MCNZ later) instead of a GMC-only field.

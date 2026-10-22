@@ -432,7 +432,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | value | The key value (e.g. "9 ug/L") |
 | word_ids[] | The exact words on the page it came from, the proof |
 | bbox | The box drawn around it on the page |
-| event_date / date_basis | When it happened, and whether that date was printed or worked out |
+| event_date / date_basis | When it happened, and how the date was read. `printed`: a full date printed on the page. `printed_century`: a two-digit year (such as 87) with the century worked out by a fixed rule from the latest clear date in the bundle; please check. `line_above`: no date on the fact itself, so the nearest date on the same line or the line above was used; please check. `please_check`: the date was unclear and none was set (ADR 0017) |
 | available_at / availability_basis | When the clinician could first have seen it, and how we know. Set through `app.set_fact_availability()`, which keeps the fact version |
 | status | Suggested, checked by the expert, not right, or changed |
 | version | Goes up when the fact is changed, so citations know |
