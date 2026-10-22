@@ -72,14 +72,44 @@ async def test_an_open_finding_shows_the_wait_to_the_first_action(
 
 
 @pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
-async def test_nothing_after_runs_to_the_latest_entry(combo: Combo, client_for: ClientFor, seed: Seed) -> None:
+async def test_later_entries_none_of_them_action_say_no_action_after(
+    combo: Combo, client_for: ClientFor, seed: Seed
+) -> None:
     case = Case(seed, combo)
     check = _check(case)
     start = case.fact(_start(check), date(2024, 1, 1))
-    case.fact(_start(check), date(2024, 1, 15))
+    case.fact(_start(check), date(2024, 1, 15))  # later, but not an action kind
     _finding(case, check, start)
     got = (await _gaps(client_for, case))[0]
-    assert (got["to_fact_id"], got["days"], got["label_key"]) == (None, 14, "timeline.gap.none_after")
+    assert (got["to_fact_id"], got["days"], got["label_key"]) == (None, 14, "timeline.gap.no_action_after")
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+async def test_nothing_after_at_all_says_none_after(combo: Combo, client_for: ClientFor, seed: Seed) -> None:
+    case = Case(seed, combo)
+    check = _check(case)
+    start = case.fact(_start(check), date(2024, 1, 1))
+    _finding(case, check, start)
+    got = (await _gaps(client_for, case))[0]
+    assert (got["to_fact_id"], got["days"], got["label_key"]) == (None, 0, "timeline.gap.none_after")
+
+
+@pytest.mark.parametrize("combo", BOTH, ids=lambda c: c.jurisdiction)
+async def test_as_the_record_stood_a_gap_cannot_end_at_an_entry_that_had_not_arrived(
+    combo: Combo, client_for: ClientFor, seed: Seed
+) -> None:
+    case = Case(seed, combo)
+    check = _check(case)
+    start = case.fact(_start(check), date(2024, 1, 1), available=date(2024, 1, 2))
+    done = case.fact(_action(check), date(2024, 2, 1), available=date(2024, 3, 1))
+    finding = _finding(case, check, start)
+    client = await client_for(case.expert)
+    before = (await client.get(f"/v1/cases/{case.id}/timeline", params={"as_seen_on": "2024-02-15"})).json()["gaps"]
+    assert [(g["finding_id"], g["to_fact_id"], g["label_key"]) for g in before] == [
+        (str(finding), None, "timeline.gap.none_after")
+    ]
+    after = (await client.get(f"/v1/cases/{case.id}/timeline", params={"as_seen_on": "2024-03-02"})).json()["gaps"]
+    assert after[0]["to_fact_id"] == str(done)
 
 
 async def test_a_finding_no_longer_open_makes_no_gap(client_for: ClientFor, seed: Seed) -> None:
