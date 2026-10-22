@@ -20,7 +20,8 @@ Agencies, chambers and NHS teams can work in Avodeck together. One person, one s
 - `GET/PUT /v1/organisations/{org_id}/billing-profile`; `GET/PUT /v1/me/billing-profile`
 - `POST /v1/cases/{id}/named-expert` 🔒 (before serving; 409 after)
 - `PUT /v1/me/custodian` 🔒; `POST /v1/me/close` 🔒
-- `POST /v1/cases/{id}/support-access` 🔒; `DELETE /v1/cases/{id}/support-access/{grant_id}`
+- `GET/POST /v1/cases/{id}/support-access` 🔒 (POST); `DELETE /v1/cases/{id}/support-access/{grant_id}` 🔒
+- Support console: `GET /v1/support/cases?q=`, `GET /v1/support/cases/{case_id}` (staff, step-up on every call)
 - `POST /webhooks/stripe`: Avodeck's own subscription (seats per organisation), signature-verified; moved here from the foundation
 
 ## Tables owned
@@ -55,6 +56,8 @@ Items marked **(legal check)** in architecture 10.1 and ADR 0012: named-expert a
 - Built (PR 1, migrations 1000-1005): teams, members, invites, leaving (F31, F32), policy, team billing profile, named-expert reassignment (S3, before serving), organisation closure.
 - Not built: `POST /cases/{case_id}/replacement` (S3 after serving). Creating a case linked `replaces` to another and copying its bundle need contracts that do not exist yet (`docs/decisions/deferred.md`); the 409 `served_use_replacement` already offers the route.
 - Numbering: the policy check took 1003, so the billing policy is 1004 and closure 1005.
+- Built (PR 2, migration 1006): records custodian, account closure (S15), support grants (S17, F38), support console (metadata only).
+- Not built: `POST /v1/support/custody-transfers` (flag `support_custody_transfer`, legal check). Recording a transfer needs a new case table kept after deletion (registered in `core/contracts/case_tables.py`) and giving the custodian or organisation read-only access needs a new branch in `app.case_access()`: both foundation-owned. Requested from foundation.
 
 ## Cross-slice requests
 - O → C: enforce `organisations.policy.required_template_id` (`core/contracts/org_policy.py`) when a case is created for a team.
@@ -63,6 +66,7 @@ Items marked **(legal check)** in architecture 10.1 and ADR 0012: named-expert a
 - O → A: copy a bundle into a replacement case only with the instructing party's recorded consent.
 - O → B / foundation: after a named-expert change, facts the previous expert verified still have status `verified`; `citable_facts()` counts only the current named expert's reads, but not whose verification it was. A fact verified by the outgoing expert becomes citable once the new expert reads its page. Either B returns them to suggested on reassignment (a `case.named_expert_changed` event) or `citable_facts()` requires a verification by the current named expert.
 - O → foundation: a contract to create a case linked `replaces` to another (for the replacement route).
+- O → foundation: custody transfer (10.1 "Death or incapacity"): a kept table for transfers and a read-only `custodian` branch in `app.case_access()` (legal check).
 
 ## Out of scope
 SSO/SAML (deferred, `docs/decisions/deferred.md`), seat billing changes beyond Stripe subscription quantity, cross-cell organisations.

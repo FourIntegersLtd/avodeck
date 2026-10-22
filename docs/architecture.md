@@ -815,6 +815,9 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/me/close` | Close account after export; served cases kept read-only | 🔒 |
 | POST | `/cases/{case_id}/support-access` | Named expert grants support 24-hour access to one case | 🔒; shown on the case |
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |
+| GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
+| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA in the last 10 minutes on every call |
+| GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants; the look is audited on the case | Support staff, as above |
 
 **Case setup (slice C)**
 
