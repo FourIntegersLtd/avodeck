@@ -1,5 +1,10 @@
 # Timeline v2: the five follow-ups
 
+**Status (22 Oct 2026): all five built** on `slice/d-timeline-followups` (seam, then streams A–E merged in).
+Decisions taken: the four gap sentences below as written; a repeat is the same drug and dose, a dose change
+starts a new bar, a pause of more than 120 days ends one, and one issue alone is not a bar. Left out: the
+preview band on the board while the window is dragged (item 3).
+
 Branch `slice/d-timeline-v2` shipped the ribbon, day cards, Board/List and the side panel (screen only).
 This plan builds the five pieces left over. Each is one small pull request, test-first (`tdd-feature`),
 with `verify-slice` and the reviewer checklist before merging.
