@@ -9,6 +9,6 @@ lanes:
     icon: moon
     kinds: [consultation, phone_consultation, home_visit, examination, safety_netting, task]
     when: {setting: out_of_hours}
-  - {key: prescriptions, icon: pill, kinds: [prescription]}
+  - {key: prescriptions, icon: pill, kinds: [prescription], series: {kinds: [prescription], same: [drug, dose], max_gap_days: 120, min_count: 2}}
   - {key: hospital_and_letters, icon: mail, kinds: [letter, referral]}
   - {key: appointments, icon: calendar, kinds: [missed_appointment]}
