@@ -41,7 +41,8 @@ def _start(check: dict[str, Any]) -> str:
 
 def _finding(case: Case, check: dict[str, Any], *facts: uuid.UUID, status: str = "open") -> uuid.UUID:
     row = case.admin.execute(
-        "insert into app.findings (case_id, check_key, rule, evidence_fact_ids, evidence_page_ids, pack_version, status)"
+        "insert into app.findings (case_id, check_key, rule, evidence_fact_ids, evidence_page_ids,"
+        " pack_version, status)"
         " values (%s, %s, %s, %s, %s, 'zz@1', %s) returning id",
         (case.id, check["key"], check["rule"], list(facts), [case.page(1)], status),
     ).fetchone()

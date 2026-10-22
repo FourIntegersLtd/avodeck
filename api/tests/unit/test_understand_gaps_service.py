@@ -31,7 +31,9 @@ def fact(kind: str, on: date | None, *, page: int = 1, source: str | None = None
 
 
 def finding(check_key: str, rule: str, *evidence: repo.SeenFact) -> gaps.Finding:
-    return gaps.Finding(id=uuid.uuid4(), check_key=check_key, rule=rule, evidence_fact_ids=[f.fact_id for f in evidence])
+    return gaps.Finding(
+        id=uuid.uuid4(), check_key=check_key, rule=rule, evidence_fact_ids=[f.fact_id for f in evidence]
+    )
 
 
 async def assemble(
@@ -107,7 +109,11 @@ async def test_a_gap_in_the_source_s_records_turns_it_into_records_quiet() -> No
     done = fact("prescription", date(2024, 3, 1))
     quiet = [record_gaps.RecordGap("zz_source", "zz_kind", date(2024, 1, 10), date(2024, 2, 10))]
     out = await assemble(LAUNCH_PACK, [finding(CHECK, "no_action_within", result)], [result], [result, done], quiet)
-    assert (out[0].kind, out[0].label_key, out[0].to_fact_id) == ("records_quiet", "timeline.gap.records_quiet", done.fact_id)
+    assert (out[0].kind, out[0].label_key, out[0].to_fact_id) == (
+        "records_quiet",
+        "timeline.gap.records_quiet",
+        done.fact_id,
+    )
 
 
 async def test_a_gap_in_a_kind_the_check_counts_as_action_also_means_records_quiet() -> None:

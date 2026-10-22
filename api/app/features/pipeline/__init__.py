@@ -18,7 +18,7 @@ from app.core.contracts.pipeline import (
     register_extract_page_text,
     register_process_pages,
 )
-from app.features.pipeline import date_repair, repo, wiring
+from app.features.pipeline import date_repair, record_gaps_reader, repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
     PURGE_QUARANTINED,
@@ -34,7 +34,7 @@ from app.features.pipeline.service import (
     scan_document,
 )
 
-__all__ = ["mount_on", "pipeline_router", "register", "wiring"]
+__all__ = ["mount_on", "pipeline_router", "record_gaps_reader", "register", "wiring"]
 
 
 def register(registry: jobs.JobRegistry) -> None:

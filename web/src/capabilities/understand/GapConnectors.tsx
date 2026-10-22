@@ -1,18 +1,17 @@
 // S11 gaps: the dashed line from a card an open thing to look at rests on, with how long the wait was.
-// The gaps stream (docs/design/timeline-v2-followups.md, item 4) draws these from the server's `gaps`.
+// Everything comes from the server's `gaps` (which entry, how long, in which words); nothing is guessed here.
 import type { Schemas } from "../../foundation/platform-client";
 import { CARD, ROW } from "./boardGeometry";
-import { daysBetween, nextEntryAfter, type StoryGroup } from "./storyLayout";
-import { w } from "./words";
+import { gapWords } from "./gaps.words";
+import "./gaps.css";
+import type { StoryGroup } from "./storyLayout";
 
 type Gap = Schemas["Gap"];
-
-/** Shorter waits than this are ordinary, so no gap is drawn for them. */
-const GAP_DAYS = 14;
 
 export function GapConnectors({
   cards,
   all,
+  gaps,
   toX,
   rowOffset,
 }: {
@@ -22,20 +21,21 @@ export function GapConnectors({
   toX: (iso: string) => number;
   rowOffset: number;
 }) {
-  const drawn = cards
-    .filter((c) => c.group.state === "look")
-    .map((c) => {
-      const next = nextEntryAfter(all, c.group);
-      if (!next || daysBetween(c.group.date, next.date) < GAP_DAYS) return null;
-      const from = c.x + CARD;
-      return { key: c.group.key, left: from, width: Math.max(0, toX(next.date) - from), top: (rowOffset + c.row) * ROW + 2, days: daysBetween(c.group.date, next.date) };
-    })
-    .filter((g): g is NonNullable<typeof g> => g !== null);
+  const latest = all.reduce<string | null>((best, g) => (best === null || g.date > best ? g.date : best), null);
+  const drawn = gaps.flatMap((gap) => {
+    const card = cards.find((c) => c.group.events.some((e) => e.fact_id === gap.from_fact_id));
+    if (!card) return [];
+    const target = gap.to_fact_id ? all.find((g) => g.events.some((e) => e.fact_id === gap.to_fact_id)) : undefined;
+    const end = target?.date ?? latest;
+    if (end === null) return [];
+    const left = card.x + CARD;
+    return [{ key: gap.finding_id, left, width: Math.max(0, toX(end) - left), top: (rowOffset + card.row) * ROW + 2, text: gapWords(gap.label_key, gap.days) }];
+  });
   return (
     <>
       {drawn.map((g) => (
         <span key={g.key} className="av-story-gap" style={{ left: g.left, width: g.width, top: g.top }}>
-          <span>{w("timeline.gap", { count: g.days })}</span>
+          <span>{g.text}</span>
         </span>
       ))}
     </>
