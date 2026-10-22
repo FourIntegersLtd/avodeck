@@ -171,3 +171,11 @@ async def accept_invite(conn: AsyncConnection, token_hash: str) -> dict[str, Any
 
 async def end_membership(conn: AsyncConnection, membership_id: uuid.UUID) -> None:
     await conn.execute("update app.memberships set ended_at = now() where id = %s", (membership_id,))
+
+
+async def set_custodian(conn: AsyncConnection, name: str | None, email: str | None) -> None:
+    await conn.execute(
+        "update app.people set records_custodian_name = %s, records_custodian_email = %s"
+        " where id = app.current_person_id()",
+        (name, email),
+    )

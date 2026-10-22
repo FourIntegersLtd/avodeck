@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 OrgName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 OrgRole = Literal["owner", "admin", "expert", "assistant", "viewer"]
@@ -129,3 +129,16 @@ class InviteAccepted(BaseModel):
     organisation_id: uuid.UUID
     role: OrgRole
     membership_id: uuid.UUID
+
+
+class Custodian(Strict):
+    """A records custodian: both a name and an email, or neither (cleared)."""
+
+    name: OrgName | None
+    email: Email | None
+
+    @model_validator(mode="after")
+    def _both_or_neither(self) -> Custodian:
+        if (self.name is None) != (self.email is None):
+            raise ValueError("a custodian has a name and an email, or neither")
+        return self
