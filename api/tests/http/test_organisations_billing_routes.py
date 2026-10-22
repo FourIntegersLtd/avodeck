@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """A team's billing profile (architecture 4.2, 10.8; scenario S1; permissions.md `org.billing`).
 
 - `GET /v1/organisations/{org_id}/billing-profile`: owner or admin; `{"profile": null}` until one is saved;
@@ -92,7 +93,9 @@ async def test_a_personal_organisation_uses_the_experts_own_profile(client_for: 
     assert (resp.status_code, resp.json()["error"]["code"]) == (409, "personal_organisation")
 
 
-@pytest.mark.parametrize("body", [{**PROFILE, "currency": "pounds"}, {**PROFILE, "legal_name": ""}, {"legal_name": "X"}])
+@pytest.mark.parametrize(
+    "body", [{**PROFILE, "currency": "pounds"}, {**PROFILE, "legal_name": ""}, {"legal_name": "X"}]
+)
 async def test_details_are_checked(client_for: ClientFor, world: World, body: dict[str, str]) -> None:
     resp = await (await client_for(world["owner"], **{"if-match": '"0"'})).put(url(world), json=body)
     assert resp.status_code == 422

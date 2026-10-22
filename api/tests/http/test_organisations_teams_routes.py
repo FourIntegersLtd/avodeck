@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """Teams (architecture 5.4 "Organisations and accounts", 10.1 "Organisations").
 
 - `GET /v1/organisations`: the organisations I currently belong to, with my role.
@@ -113,7 +114,9 @@ async def test_renaming_needs_step_up_and_hides_from_non_members(client_for: Cli
         f"/v1/organisations/{world.agency}", json={"name": "X"}
     )
     assert (stale.status_code, stale.json()["error"]["code"]) == (403, "step_up_required")
-    outsider = await (await client_for(world["outsider"])).patch(f"/v1/organisations/{world.agency}", json={"name": "X"})
+    outsider = await (await client_for(world["outsider"])).patch(
+        f"/v1/organisations/{world.agency}", json={"name": "X"}
+    )
     assert outsider.status_code == 404
 
 
@@ -137,7 +140,5 @@ async def test_the_team_function_creates_only_for_the_signed_in_person(api_db: D
         cur = await conn.execute("select app.create_team_organisation('Group', 'zz')")
         row = await cur.fetchone()
         assert row is not None
-        cur = await conn.execute(
-            "select person_id, role from app.memberships where organisation_id = %s", (row[0],)
-        )
+        cur = await conn.execute("select person_id, role from app.memberships where organisation_id = %s", (row[0],))
         assert await cur.fetchall() == [(world["dr_m"], "owner")]

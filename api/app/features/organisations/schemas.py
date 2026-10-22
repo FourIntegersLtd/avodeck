@@ -51,7 +51,7 @@ class OrganisationRename(Strict):
     name: OrgName
 
 
-class Member(BaseModel):
+class OrgMember(BaseModel):
     membership_id: uuid.UUID
     person_id: uuid.UUID
     full_name: str | None
@@ -61,8 +61,8 @@ class Member(BaseModel):
     ended_at: datetime | None
 
 
-class MemberList(BaseModel):
-    members: list[Member]
+class OrgMemberList(BaseModel):
+    members: list[OrgMember]
 
 
 class RoleChange(Strict):
@@ -81,7 +81,7 @@ class NamedExpert(BaseModel):
 Money = Annotated[Decimal, Field(ge=0, max_digits=12, decimal_places=2)]
 
 
-class BillingProfileIn(Strict):
+class TeamBillingProfileIn(Strict):
     legal_name: str = Field(min_length=1, max_length=200)
     address: str | None = Field(default=None, max_length=1000)
     tax_number: str | None = Field(default=None, max_length=60)
@@ -91,12 +91,12 @@ class BillingProfileIn(Strict):
     invoice_prefix: str = Field(default="", max_length=20)
 
 
-class BillingProfile(BillingProfileIn):
+class TeamBillingProfile(TeamBillingProfileIn):
     id: uuid.UUID
 
 
-class BillingProfileOut(BaseModel):
-    profile: BillingProfile | None
+class TeamBillingProfileOut(BaseModel):
+    profile: TeamBillingProfile | None
 
 
 Email = Annotated[

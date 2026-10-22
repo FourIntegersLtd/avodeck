@@ -21,10 +21,6 @@ from app.core.http import DbConn
 STEP_UP_FIRST: list[Any] = [Depends(require_step_up)]
 
 
-def org_access(action: str) -> Any:
-    return Annotated[OrgAccess, Depends(require_org_access(action))]
-
-
 class _OrgRole:
     """The organisation access check without the action's own step-up, for a route that asks for step-up
     only for part of a change (a team billing profile: only a new tax number, architecture 5.4)."""
@@ -36,5 +32,8 @@ class _OrgRole:
         return await check_org_access(conn, org_id, self.org_action)
 
 
-def org_role(action: str) -> Any:
-    return Annotated[OrgAccess, Depends(_OrgRole(action))]
+ViewMembers = Annotated[OrgAccess, Depends(require_org_access("org.view_members"))]
+ManageMembers = Annotated[OrgAccess, Depends(require_org_access("org.manage_members"))]
+SetPolicy = Annotated[OrgAccess, Depends(require_org_access("org.set_policy"))]
+Close = Annotated[OrgAccess, Depends(require_org_access("org.close"))]
+Billing = Annotated[OrgAccess, Depends(_OrgRole("org.billing"))]

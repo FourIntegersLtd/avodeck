@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """Organisation policy (architecture 10.1 "What can sit on either"; core/contracts/org_policy.py).
 
 `PUT /v1/organisations/{org_id}/policy` 🔒 (owner or admin, `org.set_policy`) sets the report template the

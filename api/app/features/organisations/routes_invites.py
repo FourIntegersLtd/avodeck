@@ -10,11 +10,10 @@ from fastapi import Path, Request, Response
 from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.features.organisations import service
-from app.features.organisations.deps import STEP_UP_FIRST, org_access
+from app.features.organisations.deps import STEP_UP_FIRST, ManageMembers
 from app.features.organisations.router import router
 from app.features.organisations.schemas import Invite, InviteAccepted, InviteCreate, InviteList
 
-ManageMembers = org_access("org.manage_members")
 Token = Annotated[str, Path(min_length=20, max_length=128, pattern=r"^[A-Za-z0-9_-]+$")]
 
 

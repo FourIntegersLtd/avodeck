@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """Members (architecture 5.4, 10.1; permissions.md "Organisation actions"; state-machines.md Membership; F32).
 
 - `GET /v1/organisations/{org_id}/members`: every member sees members with role and dates (`org.view_members`).
@@ -115,7 +116,9 @@ async def test_a_membership_of_another_organisation_is_404(client_for: ClientFor
     stranger = world.seed.membership(other, world["outsider"], "viewer")
     resp = await (await client_for(world["owner"])).delete(f"/v1/organisations/{world.agency}/members/{stranger}")
     assert resp.status_code == 404
-    unknown = await (await client_for(world["owner"])).delete(f"/v1/organisations/{world.agency}/members/{uuid.uuid4()}")
+    unknown = await (await client_for(world["owner"])).delete(
+        f"/v1/organisations/{world.agency}/members/{uuid.uuid4()}"
+    )
     assert unknown.status_code == 404
 
 

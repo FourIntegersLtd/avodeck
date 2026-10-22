@@ -35,7 +35,9 @@ class World:
     def email(self, name: str) -> str:
         return f"{self.people[name].hex[:12]}@example.test"
 
-    def team_case(self, named: str = "dr_k", *, status: str = "active", members: dict[str, str] | None = None) -> uuid.UUID:
+    def team_case(
+        self, named: str = "dr_k", *, status: str = "active", members: dict[str, str] | None = None
+    ) -> uuid.UUID:
         return self.seed.case(
             self.agency, self.people[named], status=status,
             members={self.people[p]: r for p, r in (members or {}).items()},

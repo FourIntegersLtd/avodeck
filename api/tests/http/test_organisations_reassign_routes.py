@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """Reassigning a case's named expert (architecture 5.4, 10.1 "Reassignment"; scenario S3; permissions.md).
 
 `POST /v1/cases/{case_id}/named-expert` 🔒 (`case.reassign_named_expert`: an organisation owner or admin):
@@ -148,5 +149,7 @@ async def test_only_owners_and_admins_reassign(client_for: ClientFor, world: Wor
 
 async def test_reassignment_needs_step_up(client_for: ClientFor, world: World) -> None:
     case = world.team_case()
-    resp = await (await client_for(world["owner"], mfa_age=STALE)).post(url(case), json={"person_id": str(world["dr_m"])})
+    resp = await (await client_for(world["owner"], mfa_age=STALE)).post(
+        url(case), json={"person_id": str(world["dr_m"])}
+    )
     assert (resp.status_code, resp.json()["error"]["code"]) == (403, "step_up_required")

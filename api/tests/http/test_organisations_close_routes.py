@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """Closing an organisation (architecture 5.4, 10.1 "Organisation closure"; state-machines.md Membership).
 
 `POST /v1/organisations/{org_id}/close` 🔒, owner only (`org.close`):
@@ -10,8 +11,8 @@
 
 from __future__ import annotations
 
-import pytest
 import psycopg
+import pytest
 
 from app.core.auth.access import check_case_access
 from app.core.db import Database
@@ -57,9 +58,9 @@ async def test_closing_ends_every_membership_and_keeps_served_cases(
     assert admin.execute(
         "select count(*) from app.memberships where organisation_id = %s and ended_at is null", (world.agency,)
     ).fetchone() == (0,)
-    assert admin.execute(
-        "select status from app.invites where organisation_id = %s", (world.agency,)
-    ).fetchall() == [("cancelled",)]
+    assert admin.execute("select status from app.invites where organisation_id = %s", (world.agency,)).fetchall() == [
+        ("cancelled",)
+    ]
     assert admin.execute("select status from app.cases where id = %s", (served,)).fetchone() == ("served",)
     assert admin.execute(
         "select count(*) from app.audit_log where organisation_id = %s and action = 'organisation.closed'",

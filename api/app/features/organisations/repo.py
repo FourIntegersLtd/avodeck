@@ -113,7 +113,9 @@ async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[dict[str, An
     return await rows(conn, "select * from app.organisation_members(%s)", (org_id,))
 
 
-async def current_membership(conn: AsyncConnection, org_id: uuid.UUID, membership_id: uuid.UUID) -> dict[str, Any] | None:
+async def current_membership(
+    conn: AsyncConnection, org_id: uuid.UUID, membership_id: uuid.UUID
+) -> dict[str, Any] | None:
     return await row(
         conn,
         "select id, person_id, role from app.memberships where id = %s and organisation_id = %s and ended_at is null",

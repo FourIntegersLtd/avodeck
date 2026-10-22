@@ -8,23 +8,20 @@ from fastapi import Response
 
 from app.core.http import DbConn
 from app.features.organisations import service
-from app.features.organisations.deps import STEP_UP_FIRST, org_access
+from app.features.organisations.deps import STEP_UP_FIRST, ManageMembers, ViewMembers
 from app.features.organisations.router import router
-from app.features.organisations.schemas import Member, MemberList, RoleChange
-
-ViewMembers = org_access("org.view_members")
-ManageMembers = org_access("org.manage_members")
+from app.features.organisations.schemas import OrgMember, OrgMemberList, RoleChange
 
 
-@router.get("/organisations/{org_id}/members", response_model=MemberList)
-async def list_members(org_id: uuid.UUID, conn: DbConn, _: ViewMembers) -> MemberList:
-    return MemberList(members=await service.members(conn, org_id))
+@router.get("/organisations/{org_id}/members", response_model=OrgMemberList)
+async def list_members(org_id: uuid.UUID, conn: DbConn, _: ViewMembers) -> OrgMemberList:
+    return OrgMemberList(members=await service.members(conn, org_id))
 
 
-@router.patch("/organisations/{org_id}/members/{membership_id}", response_model=Member, dependencies=STEP_UP_FIRST)
+@router.patch("/organisations/{org_id}/members/{membership_id}", response_model=OrgMember, dependencies=STEP_UP_FIRST)
 async def change_member_role(
     org_id: uuid.UUID, membership_id: uuid.UUID, body: RoleChange, conn: DbConn, access: ManageMembers
-) -> Member:
+) -> OrgMember:
     return await service.change_role(conn, access, membership_id, body.role)
 
 

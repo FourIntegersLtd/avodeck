@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """Invites (architecture 5.4, 10.1 "Invites"; state-machines.md Invite).
 
 - `GET/POST /v1/organisations/{org_id}/invites` 🔒: an owner or admin lists and sends invites (an admin

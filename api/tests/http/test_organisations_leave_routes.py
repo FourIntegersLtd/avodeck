@@ -1,3 +1,4 @@
+# ruff: noqa: F811  (pytest fixtures imported from the world module)
 """Leaving an organisation (architecture 10.1 "Leaving", scenario S2, F31, F32; permissions.md "left the organisation").
 
 `POST /v1/organisations/{org_id}/leave` ends the person's own membership (`ended_at`, history kept).
@@ -78,7 +79,9 @@ async def test_f31_s2_named_cases_keep_every_named_expert_action(
     assert from_agency == {str(served), str(unserved)}
 
 
-async def test_s2_the_organisation_keeps_metadata_but_not_content(world: World, api_db: Database, client_for: ClientFor) -> None:
+async def test_s2_the_organisation_keeps_metadata_but_not_content(
+    world: World, api_db: Database, client_for: ClientFor
+) -> None:
     case = world.team_case(status="served")
     assert (await (await client_for(world["dr_k"])).post(leave_url(world))).status_code == 204
     async with api_db.request(scope_for(world["owner"])) as conn:

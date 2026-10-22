@@ -4732,6 +4732,35 @@ export interface components {
         BankOut: {
             bank: components["schemas"]["BankDetails"] | null;
         };
+        /** BillingProfile */
+        BillingProfile: {
+            /** Address */
+            address?: string | null;
+            bank?: components["schemas"]["BankDetails"] | null;
+            /** Currency */
+            currency: string;
+            /** Hourly Rate */
+            hourly_rate?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Invoice Prefix
+             * @default
+             */
+            invoice_prefix: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Tax Number */
+            tax_number?: string | null;
+            /**
+             * Tax Rate
+             * @default 0
+             */
+            tax_rate: string;
+        };
         /** BillingProfileIn */
         BillingProfileIn: {
             /** Address */
@@ -4754,6 +4783,10 @@ export interface components {
              * @default 0
              */
             tax_rate: number | string;
+        };
+        /** BillingProfileOut */
+        BillingProfileOut: {
+            profile: components["schemas"]["BillingProfile"] | null;
         };
         /** Box */
         Box: {
@@ -7457,6 +7490,28 @@ export interface components {
             /** Meetings */
             meetings: components["schemas"]["MeetingSummary"][];
         };
+        /** Member */
+        Member: {
+            /**
+             * Added At
+             * Format: date-time
+             */
+            added_at: string;
+            /** Case Role */
+            case_role: string;
+            /** Display Name */
+            display_name?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+        };
         /** MemberIn */
         MemberIn: {
             /**
@@ -7469,11 +7524,6 @@ export interface components {
              * Format: uuid
              */
             person_id: string;
-        };
-        /** MemberList */
-        MemberList: {
-            /** Members */
-            members: components["schemas"]["app__features__organisations__schemas__Member"][];
         };
         /** Membership */
         Membership: {
@@ -8134,6 +8184,40 @@ export interface components {
             text?: string | null;
             /** Transcript Id */
             transcript_id?: string | null;
+        };
+        /** OrgMember */
+        OrgMember: {
+            /** Email */
+            email: string;
+            /** Ended At */
+            ended_at: string | null;
+            /** Full Name */
+            full_name: string | null;
+            /**
+             * Membership Id
+             * Format: uuid
+             */
+            membership_id: string;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "expert" | "assistant" | "viewer";
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
+        /** OrgMemberList */
+        OrgMemberList: {
+            /** Members */
+            members: components["schemas"]["OrgMember"][];
         };
         /** Organisation */
         Organisation: {
@@ -10258,6 +10342,61 @@ export interface components {
             /** Task Id */
             task_id: string;
         };
+        /** TeamBillingProfile */
+        TeamBillingProfile: {
+            /** Address */
+            address?: string | null;
+            /** Currency */
+            currency: string;
+            /** Hourly Rate */
+            hourly_rate?: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Invoice Prefix
+             * @default
+             */
+            invoice_prefix: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Tax Number */
+            tax_number?: string | null;
+            /**
+             * Tax Rate
+             * @default 0
+             */
+            tax_rate: string;
+        };
+        /** TeamBillingProfileIn */
+        TeamBillingProfileIn: {
+            /** Address */
+            address?: string | null;
+            /** Currency */
+            currency: string;
+            /** Hourly Rate */
+            hourly_rate?: number | string | null;
+            /**
+             * Invoice Prefix
+             * @default
+             */
+            invoice_prefix: string;
+            /** Legal Name */
+            legal_name: string;
+            /** Tax Number */
+            tax_number?: string | null;
+            /**
+             * Tax Rate
+             * @default 0
+             */
+            tax_rate: number | string;
+        };
+        /** TeamBillingProfileOut */
+        TeamBillingProfileOut: {
+            profile: components["schemas"]["TeamBillingProfile"] | null;
+        };
         /** Template */
         Template: {
             /**
@@ -10829,100 +10968,6 @@ export interface components {
             /** Until */
             until: string | null;
         };
-        /** BillingProfile */
-        app__features__organisations__schemas__BillingProfile: {
-            /** Address */
-            address?: string | null;
-            /** Currency */
-            currency: string;
-            /** Hourly Rate */
-            hourly_rate?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Invoice Prefix
-             * @default
-             */
-            invoice_prefix: string;
-            /** Legal Name */
-            legal_name: string;
-            /** Tax Number */
-            tax_number?: string | null;
-            /**
-             * Tax Rate
-             * @default 0
-             */
-            tax_rate: string;
-        };
-        /** BillingProfileOut */
-        app__features__organisations__schemas__BillingProfileOut: {
-            profile: components["schemas"]["app__features__organisations__schemas__BillingProfile"] | null;
-        };
-        /** Member */
-        app__features__organisations__schemas__Member: {
-            /** Email */
-            email: string;
-            /** Ended At */
-            ended_at: string | null;
-            /** Full Name */
-            full_name: string | null;
-            /**
-             * Membership Id
-             * Format: uuid
-             */
-            membership_id: string;
-            /**
-             * Person Id
-             * Format: uuid
-             */
-            person_id: string;
-            /**
-             * Role
-             * @enum {string}
-             */
-            role: "owner" | "admin" | "expert" | "assistant" | "viewer";
-            /**
-             * Started At
-             * Format: date-time
-             */
-            started_at: string;
-        };
-        /** BillingProfile */
-        app__features__report__routes_invoices__BillingProfile: {
-            /** Address */
-            address?: string | null;
-            bank?: components["schemas"]["BankDetails"] | null;
-            /** Currency */
-            currency: string;
-            /** Hourly Rate */
-            hourly_rate?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Invoice Prefix
-             * @default
-             */
-            invoice_prefix: string;
-            /** Legal Name */
-            legal_name: string;
-            /** Tax Number */
-            tax_number?: string | null;
-            /**
-             * Tax Rate
-             * @default 0
-             */
-            tax_rate: string;
-        };
-        /** BillingProfileOut */
-        app__features__report__routes_invoices__BillingProfileOut: {
-            profile: components["schemas"]["app__features__report__routes_invoices__BillingProfile"] | null;
-        };
         /** WithdrawIn */
         app__features__report__routes_serve__WithdrawIn: {
             /** Reason */
@@ -10940,28 +10985,6 @@ export interface components {
         app__features__setup__routes_case__Hold: {
             /** On Hold */
             on_hold: boolean;
-        };
-        /** Member */
-        app__features__setup__routes_case__Member: {
-            /**
-             * Added At
-             * Format: date-time
-             */
-            added_at: string;
-            /** Case Role */
-            case_role: string;
-            /** Display Name */
-            display_name?: string | null;
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /**
-             * Person Id
-             * Format: uuid
-             */
-            person_id: string;
         };
         /** WithdrawIn */
         app__features__setup__routes_conflicts__WithdrawIn: {
@@ -15331,7 +15354,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__setup__routes_case__Member"][];
+                    "application/json": components["schemas"]["Member"][];
                 };
             };
             /** @description Validation Error */
@@ -15375,7 +15398,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__setup__routes_case__Member"];
+                    "application/json": components["schemas"]["Member"];
                 };
             };
             /** @description Validation Error */
@@ -21072,7 +21095,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__report__routes_invoices__BillingProfileOut"];
+                    "application/json": components["schemas"]["BillingProfileOut"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
@@ -21107,7 +21130,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__report__routes_invoices__BillingProfileOut"];
+                    "application/json": components["schemas"]["BillingProfileOut"];
                 };
             };
             /** @description Validation Error */
@@ -21151,7 +21174,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__report__routes_invoices__BillingProfile"];
+                    "application/json": components["schemas"]["BillingProfile"];
                 };
             };
             /** @description Validation Error */
@@ -22496,7 +22519,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__organisations__schemas__BillingProfileOut"];
+                    "application/json": components["schemas"]["TeamBillingProfileOut"];
                 };
             };
             /** @description Validation Error */
@@ -22532,7 +22555,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["BillingProfileIn"];
+                "application/json": components["schemas"]["TeamBillingProfileIn"];
             };
         };
         responses: {
@@ -22542,7 +22565,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__organisations__schemas__BillingProfileOut"];
+                    "application/json": components["schemas"]["TeamBillingProfileOut"];
                 };
             };
             /** @description Validation Error */
@@ -22867,7 +22890,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MemberList"];
+                    "application/json": components["schemas"]["OrgMemberList"];
                 };
             };
             /** @description Validation Error */
@@ -22951,7 +22974,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["app__features__organisations__schemas__Member"];
+                    "application/json": components["schemas"]["OrgMember"];
                 };
             };
             /** @description Validation Error */

@@ -25,15 +25,15 @@ from app.core.http import stale
 from app.core.notifications import notify, send_mail
 from app.features.organisations import repo
 from app.features.organisations.schemas import (
-    BillingProfile,
-    BillingProfileIn,
     Invite,
     InviteAccepted,
-    Member,
     NamedExpert,
     Organisation,
+    OrgMember,
     Policy,
     PolicyUpdate,
+    TeamBillingProfile,
+    TeamBillingProfileIn,
 )
 
 
@@ -85,7 +85,9 @@ async def refusals() -> AsyncIterator[None]:
 LAST_OWNER = ApiError("last_owner", "Make someone else an owner first.", 409)
 REFUSALS = {
     "last_owner": LAST_OWNER,
-    "personal_membership": ApiError("personal_organisation", "Your own practice stays while your account is open.", 409),
+    "personal_membership": ApiError(
+        "personal_organisation", "Your own practice stays while your account is open.", 409
+    ),
     "cases_open": ApiError(
         "cases_open", "Some cases are still open and not yet served. Finish, export or delete them first.", 409
     ),
@@ -154,11 +156,13 @@ def forbidden() -> ApiError:
     return ApiError("forbidden", "You cannot do that for this organisation.", 403)
 
 
-async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[Member]:
-    return [Member(**r) for r in await repo.members(conn, org_id)]
+async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[OrgMember]:
+    return [OrgMember(**r) for r in await repo.members(conn, org_id)]
 
 
-async def _target(conn: AsyncConnection, access: OrgAccess, membership_id: uuid.UUID, new_role: str | None) -> dict[str, Any]:
+async def _target(
+    conn: AsyncConnection, access: OrgAccess, membership_id: uuid.UUID, new_role: str | None
+) -> dict[str, Any]:
     target = await repo.current_membership(conn, access.org_id, membership_id)
     if target is None:
         raise not_found()
@@ -167,7 +171,7 @@ async def _target(conn: AsyncConnection, access: OrgAccess, membership_id: uuid.
     return target
 
 
-async def change_role(conn: AsyncConnection, access: OrgAccess, membership_id: uuid.UUID, role: str) -> Member:
+async def change_role(conn: AsyncConnection, access: OrgAccess, membership_id: uuid.UUID, role: str) -> OrgMember:
     await _target(conn, access, membership_id, role)
     async with refusals():
         await repo.set_role(conn, membership_id, role)
@@ -182,7 +186,9 @@ async def end_membership(conn: AsyncConnection, access: OrgAccess, membership_id
     await _target(conn, access, membership_id, None)
     async with refusals():
         await repo.end_membership(conn, membership_id)
-    await audit.record(conn, action="membership.ended", target=f"membership:{membership_id}", organisation_id=access.org_id)
+    await audit.record(
+        conn, action="membership.ended", target=f"membership:{membership_id}", organisation_id=access.org_id
+    )
 
 
 async def leave(conn: AsyncConnection, org_id: uuid.UUID) -> None:
@@ -211,18 +217,18 @@ def _team_only(access: OrgAccess) -> None:
         raise ApiError("personal_organisation", "Your own practice uses your own billing details.", 409)
 
 
-async def billing_profile(conn: AsyncConnection, access: OrgAccess) -> tuple[BillingProfile | None, int]:
+async def billing_profile(conn: AsyncConnection, access: OrgAccess) -> tuple[TeamBillingProfile | None, int]:
     _team_only(access)
     found = await repo.org_billing_profile(conn, access.org_id)
     if found is None:
         return None, 0
     version = int(found.pop("version"))
-    return BillingProfile(**found), version
+    return TeamBillingProfile(**found), version
 
 
 async def save_billing_profile(
-    conn: AsyncConnection, access: OrgAccess, body: BillingProfileIn, if_match: int, session: Session
-) -> tuple[BillingProfile | None, int]:
+    conn: AsyncConnection, access: OrgAccess, body: TeamBillingProfileIn, if_match: int, session: Session
+) -> tuple[TeamBillingProfile | None, int]:
     current, version = await billing_profile(conn, access)
     if version != if_match:
         raise stale()

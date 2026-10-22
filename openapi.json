@@ -728,6 +728,90 @@
         "title": "BankOut",
         "type": "object"
       },
+      "BillingProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "bank": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BankDetails"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "hourly_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hourly Rate"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "invoice_prefix": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Invoice Prefix",
+            "type": "string"
+          },
+          "legal_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Legal Name",
+            "type": "string"
+          },
+          "tax_number": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Number"
+          },
+          "tax_rate": {
+            "default": "0",
+            "title": "Tax Rate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "legal_name",
+          "currency",
+          "id"
+        ],
+        "title": "BillingProfile",
+        "type": "object"
+      },
       "BillingProfileIn": {
         "additionalProperties": false,
         "properties": {
@@ -807,6 +891,25 @@
           "currency"
         ],
         "title": "BillingProfileIn",
+        "type": "object"
+      },
+      "BillingProfileOut": {
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BillingProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "BillingProfileOut",
         "type": "object"
       },
       "Box": {
@@ -8447,6 +8550,48 @@
         "title": "MeetingsOut",
         "type": "object"
       },
+      "Member": {
+        "properties": {
+          "added_at": {
+            "format": "date-time",
+            "title": "Added At",
+            "type": "string"
+          },
+          "case_role": {
+            "title": "Case Role",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "case_role",
+          "added_at"
+        ],
+        "title": "Member",
+        "type": "object"
+      },
       "MemberIn": {
         "additionalProperties": false,
         "properties": {
@@ -8471,22 +8616,6 @@
           "case_role"
         ],
         "title": "MemberIn",
-        "type": "object"
-      },
-      "MemberList": {
-        "properties": {
-          "members": {
-            "items": {
-              "$ref": "#/components/schemas/app__features__organisations__schemas__Member"
-            },
-            "title": "Members",
-            "type": "array"
-          }
-        },
-        "required": [
-          "members"
-        ],
-        "title": "MemberList",
         "type": "object"
       },
       "Membership": {
@@ -10330,6 +10459,90 @@
           "received_on"
         ],
         "title": "OralInstructionIn",
+        "type": "object"
+      },
+      "OrgMember": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "membership_id": {
+            "format": "uuid",
+            "title": "Membership Id",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "expert",
+              "assistant",
+              "viewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "started_at": {
+            "format": "date-time",
+            "title": "Started At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "membership_id",
+          "person_id",
+          "full_name",
+          "email",
+          "role",
+          "started_at",
+          "ended_at"
+        ],
+        "title": "OrgMember",
+        "type": "object"
+      },
+      "OrgMemberList": {
+        "properties": {
+          "members": {
+            "items": {
+              "$ref": "#/components/schemas/OrgMember"
+            },
+            "title": "Members",
+            "type": "array"
+          }
+        },
+        "required": [
+          "members"
+        ],
+        "title": "OrgMemberList",
         "type": "object"
       },
       "Organisation": {
@@ -16417,6 +16630,180 @@
         "title": "TaskOut",
         "type": "object"
       },
+      "TeamBillingProfile": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "hourly_rate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hourly Rate"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "invoice_prefix": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Invoice Prefix",
+            "type": "string"
+          },
+          "legal_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Legal Name",
+            "type": "string"
+          },
+          "tax_number": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Number"
+          },
+          "tax_rate": {
+            "default": "0",
+            "title": "Tax Rate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "legal_name",
+          "currency",
+          "id"
+        ],
+        "title": "TeamBillingProfile",
+        "type": "object"
+      },
+      "TeamBillingProfileIn": {
+        "additionalProperties": false,
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address"
+          },
+          "currency": {
+            "pattern": "^[A-Z]{3}$",
+            "title": "Currency",
+            "type": "string"
+          },
+          "hourly_rate": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hourly Rate"
+          },
+          "invoice_prefix": {
+            "default": "",
+            "maxLength": 20,
+            "title": "Invoice Prefix",
+            "type": "string"
+          },
+          "legal_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Legal Name",
+            "type": "string"
+          },
+          "tax_number": {
+            "anyOf": [
+              {
+                "maxLength": 60,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Number"
+          },
+          "tax_rate": {
+            "anyOf": [
+              {
+                "maximum": 100.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "default": "0",
+            "title": "Tax Rate"
+          }
+        },
+        "required": [
+          "legal_name",
+          "currency"
+        ],
+        "title": "TeamBillingProfileIn",
+        "type": "object"
+      },
+      "TeamBillingProfileOut": {
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamBillingProfile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "profile"
+        ],
+        "title": "TeamBillingProfileOut",
+        "type": "object"
+      },
       "Template": {
         "properties": {
           "created_at": {
@@ -18089,270 +18476,6 @@
         "title": "Hold",
         "type": "object"
       },
-      "app__features__organisations__schemas__BillingProfile": {
-        "additionalProperties": false,
-        "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "maxLength": 1000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "currency": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Currency",
-            "type": "string"
-          },
-          "hourly_rate": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hourly Rate"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "invoice_prefix": {
-            "default": "",
-            "maxLength": 20,
-            "title": "Invoice Prefix",
-            "type": "string"
-          },
-          "legal_name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Legal Name",
-            "type": "string"
-          },
-          "tax_number": {
-            "anyOf": [
-              {
-                "maxLength": 60,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tax Number"
-          },
-          "tax_rate": {
-            "default": "0",
-            "title": "Tax Rate",
-            "type": "string"
-          }
-        },
-        "required": [
-          "legal_name",
-          "currency",
-          "id"
-        ],
-        "title": "BillingProfile",
-        "type": "object"
-      },
-      "app__features__organisations__schemas__BillingProfileOut": {
-        "properties": {
-          "profile": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/app__features__organisations__schemas__BillingProfile"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "profile"
-        ],
-        "title": "BillingProfileOut",
-        "type": "object"
-      },
-      "app__features__organisations__schemas__Member": {
-        "properties": {
-          "email": {
-            "title": "Email",
-            "type": "string"
-          },
-          "ended_at": {
-            "anyOf": [
-              {
-                "format": "date-time",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Ended At"
-          },
-          "full_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Full Name"
-          },
-          "membership_id": {
-            "format": "uuid",
-            "title": "Membership Id",
-            "type": "string"
-          },
-          "person_id": {
-            "format": "uuid",
-            "title": "Person Id",
-            "type": "string"
-          },
-          "role": {
-            "enum": [
-              "owner",
-              "admin",
-              "expert",
-              "assistant",
-              "viewer"
-            ],
-            "title": "Role",
-            "type": "string"
-          },
-          "started_at": {
-            "format": "date-time",
-            "title": "Started At",
-            "type": "string"
-          }
-        },
-        "required": [
-          "membership_id",
-          "person_id",
-          "full_name",
-          "email",
-          "role",
-          "started_at",
-          "ended_at"
-        ],
-        "title": "Member",
-        "type": "object"
-      },
-      "app__features__report__routes_invoices__BillingProfile": {
-        "additionalProperties": false,
-        "properties": {
-          "address": {
-            "anyOf": [
-              {
-                "maxLength": 1000,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Address"
-          },
-          "bank": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/BankDetails"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "currency": {
-            "pattern": "^[A-Z]{3}$",
-            "title": "Currency",
-            "type": "string"
-          },
-          "hourly_rate": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Hourly Rate"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "invoice_prefix": {
-            "default": "",
-            "maxLength": 20,
-            "title": "Invoice Prefix",
-            "type": "string"
-          },
-          "legal_name": {
-            "maxLength": 200,
-            "minLength": 1,
-            "title": "Legal Name",
-            "type": "string"
-          },
-          "tax_number": {
-            "anyOf": [
-              {
-                "maxLength": 60,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tax Number"
-          },
-          "tax_rate": {
-            "default": "0",
-            "title": "Tax Rate",
-            "type": "string"
-          }
-        },
-        "required": [
-          "legal_name",
-          "currency",
-          "id"
-        ],
-        "title": "BillingProfile",
-        "type": "object"
-      },
-      "app__features__report__routes_invoices__BillingProfileOut": {
-        "properties": {
-          "profile": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/app__features__report__routes_invoices__BillingProfile"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          }
-        },
-        "required": [
-          "profile"
-        ],
-        "title": "BillingProfileOut",
-        "type": "object"
-      },
       "app__features__report__routes_serve__WithdrawIn": {
         "additionalProperties": false,
         "properties": {
@@ -18394,48 +18517,6 @@
           "on_hold"
         ],
         "title": "Hold",
-        "type": "object"
-      },
-      "app__features__setup__routes_case__Member": {
-        "properties": {
-          "added_at": {
-            "format": "date-time",
-            "title": "Added At",
-            "type": "string"
-          },
-          "case_role": {
-            "title": "Case Role",
-            "type": "string"
-          },
-          "display_name": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Display Name"
-          },
-          "id": {
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "person_id": {
-            "format": "uuid",
-            "title": "Person Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "person_id",
-          "case_role",
-          "added_at"
-        ],
-        "title": "Member",
         "type": "object"
       },
       "app__features__setup__routes_conflicts__WithdrawIn": {
@@ -25027,7 +25108,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/app__features__setup__routes_case__Member"
+                    "$ref": "#/components/schemas/Member"
                   },
                   "title": "Response List Members V1 Cases  Case Id  Members Get",
                   "type": "array"
@@ -25091,7 +25172,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__setup__routes_case__Member"
+                  "$ref": "#/components/schemas/Member"
                 }
               }
             },
@@ -33725,7 +33806,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__report__routes_invoices__BillingProfileOut"
+                  "$ref": "#/components/schemas/BillingProfileOut"
                 }
               }
             },
@@ -33782,7 +33863,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__report__routes_invoices__BillingProfileOut"
+                  "$ref": "#/components/schemas/BillingProfileOut"
                 }
               }
             },
@@ -33851,7 +33932,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__report__routes_invoices__BillingProfile"
+                  "$ref": "#/components/schemas/BillingProfile"
                 }
               }
             },
@@ -35582,7 +35663,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__organisations__schemas__BillingProfileOut"
+                  "$ref": "#/components/schemas/TeamBillingProfileOut"
                 }
               }
             },
@@ -35648,7 +35729,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BillingProfileIn"
+                "$ref": "#/components/schemas/TeamBillingProfileIn"
               }
             }
           },
@@ -35659,7 +35740,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__organisations__schemas__BillingProfileOut"
+                  "$ref": "#/components/schemas/TeamBillingProfileOut"
                 }
               }
             },
@@ -36104,7 +36185,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MemberList"
+                  "$ref": "#/components/schemas/OrgMemberList"
                 }
               }
             },
@@ -36231,7 +36312,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/app__features__organisations__schemas__Member"
+                  "$ref": "#/components/schemas/OrgMember"
                 }
               }
             },

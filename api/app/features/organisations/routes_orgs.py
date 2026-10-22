@@ -8,7 +8,7 @@ from fastapi import Request, Response
 
 from app.core.http import DbConn
 from app.features.organisations import service
-from app.features.organisations.deps import STEP_UP_FIRST, org_access
+from app.features.organisations.deps import STEP_UP_FIRST, Close, SetPolicy, ViewMembers
 from app.features.organisations.router import router
 from app.features.organisations.schemas import (
     Organisation,
@@ -17,10 +17,6 @@ from app.features.organisations.schemas import (
     OrganisationRename,
     PolicyUpdate,
 )
-
-ViewMembers = org_access("org.view_members")
-SetPolicy = org_access("org.set_policy")
-Close = org_access("org.close")
 
 
 @router.get("/organisations", response_model=OrganisationList)
