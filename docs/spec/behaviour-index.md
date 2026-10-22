@@ -19,7 +19,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `email_changes` | Foundation | The person (step-up) | One pending per person; a new request cancels the old | Waiting → completed when both addresses confirm; links expire after a day | Deleted on closure |
 | `organisations` | Foundation (O for teams) | Owner/admin | Personal: one per person; teams: any | Closure only when no open cases | Served cases outlive closure until retention |
 | `memberships` | Foundation (O) | Owner/admin; the person can leave | Many per person; one active per person per org | active → ended; never deleted | Ending removes org access except named cases |
-| `invites` | O | Owner/admin | Many | pending → accepted/cancelled/expired | Expire after 7 days |
+| `invites` | O | Owner/admin (step-up); only an owner invites an owner; accepted by the invited email only | Many | pending → accepted/cancelled/expired; used once | Expire after 7 days; pending ones cancelled when the organisation closes |
 | `billing_profiles` | O (personal ones in F) | Person or org owner | One per issuer | Number sequence never skips; edits don't touch sent invoices | Kept with sent invoices for tax |
 | `notification_preferences` | Foundation | The person | One per person per org | Edit freely | Deleted with the membership |
 | `support_access_grants` | O (table created by foundation, migration 0030) | Named expert grants or revokes; only `revoked_at` changes | Any; one active per case (O's route) | Expire after 24 hours, checked on every read; a revocation is final | Kept after case deletion (record of consent, ids and a code only); opens nothing on a deleted case |

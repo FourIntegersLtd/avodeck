@@ -209,11 +209,11 @@ Waiting → one address confirmed → completed (both confirmed). Waiting or hal
 
 ## Membership (`memberships`)
 
-active (`started_at`) → ended (`ended_at`, by leaving, removal or organisation closure); terminal. Role changes are audited updates on an active membership. Guards: an organisation always keeps at least one owner (the last owner cannot leave or be removed); a person's membership of their personal organisation never ends while the account is open.
+active (`started_at`) → ended (`ended_at`, by leaving, removal or organisation closure); terminal. Role changes are audited updates on an active membership. Guards: an organisation always keeps at least one owner (the last owner cannot leave or be removed); a person's membership of their personal organisation never ends while the account is open. The running app refuses these with 409 `last_owner` ("Make someone else an owner first.", F32) and 409 `personal_organisation` (`memberships_actor`, migration 1001). Closing a team organisation ends every membership, owners included (migration 1005). Only an owner changes an owner's role or makes someone an owner.
 
 ## Invite (`invites`)
 
-pending → accepted (by the invited email, before `expires_at`) / cancelled (owner or admin) / expired (7 days). All three outcomes are terminal; a new invite is a new row.
+pending → accepted (by the invited email, before `expires_at`) / cancelled (owner or admin) / expired (7 days). All three outcomes are terminal; a new invite is a new row. A pending invite whose `expires_at` has passed reads as expired and can no longer be accepted (409 `invite_expired`); an accepted or cancelled one answers 409 `invite_closed`. `invites_guard` (migration 1002) allows only these moves.
 
 ## Hearing (`hearings.status`)
 
