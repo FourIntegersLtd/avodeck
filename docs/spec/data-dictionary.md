@@ -21,6 +21,9 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | records_custodian | Someone they nominate to look after their served cases if they die or can't work |
 | closed_at | When they closed their account (empty if active) |
 | email_bounced_at | When an email to them bounced; no more emails until the address changes |
+| (shown, not stored) greeting_name | The short form Today greets them with ("Dr Morgan"): the title their jurisdiction's pack gives their profession plus their surname; empty when the pack has no title |
+| (shown, not stored) password_changed_at | When they last reset their password, read from the audit log; empty if they never have. Account and security says "Changed 3 months ago" |
+| (shown, not stored) member_count | On each of their memberships: how many people currently belong to that organisation (1 reads "just you") |
 
 ### experts (the professional side of a person who gives evidence)
 | Field | In plain words |
