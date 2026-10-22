@@ -115,3 +115,13 @@
 .rd-card .av-button--quiet { align-self: flex-start; padding-left: 0; }
 .rd-side__head h2 { font-size: 22px; }
 .rd-head .rd-progress { flex: 0 1 280px; }
+
+/* Screen 09 fits the screen: the bar, banner, page and "I've read this page" are all on view at once,
+   and only the page and the suggestions scroll. Narrow screens stack and scroll the usual way. */
+@media (min-width: 901px) {
+  main:has(> .rd > .rd-work) { display: flex; flex-direction: column; height: 100dvh; min-height: 0; overflow: hidden; }
+  main:has(> .rd > .rd-work) > .av-case-bar { flex: none; }
+  .rd:has(> .rd-work) { flex: 1 1 auto; min-height: 0; height: auto; overflow: hidden; }
+  .rd:has(> .rd-work) > .rd-banner, .rd:has(> .rd-work) > .rd-foot, .rd-pane > .rd-bar { flex: none; }
+  .rd-pane > .rd-paper { flex: 1 1 0; min-height: 0; }
+}

@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping, Sequence
+from typing import Any
 
 import psycopg
 import pytest
 
 from app.core.db import Database
-from app.core.packs import default_library
+from app.core.packs import MergedPack, default_library
 from app.core.storage import SupabaseStorage
 from app.features.pipeline import date_repair, dates
 from tests.repository.test_pipeline_support import harness
@@ -107,7 +108,14 @@ def _page(*lines: str) -> tuple[list[tuple[str, str]], dict[str, int]]:
     return ordered, line_of
 
 
-def _above(pack, ordered, line_of, cite, fields=None, anchor=dt.date(2000, 1, 1)):  # type: ignore[no-untyped-def]
+def _above(
+    pack: MergedPack,
+    ordered: Sequence[tuple[str, str]],
+    line_of: Mapping[str, int],
+    cite: Sequence[str],
+    fields: Mapping[str, Any] | None = None,
+    anchor: dt.date = dt.date(2000, 1, 1),
+) -> tuple[dt.date | None, str | None, list[str]]:
     return date_repair.line_above_date("result", fields or {}, cite, ordered, set(), line_of, pack, anchor=anchor)
 
 
