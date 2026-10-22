@@ -9,7 +9,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
-import { suggestTimelineDate } from "./timelineDate";
+import { dateFieldKey, suggestTimelineDate } from "./timelineDate";
 import { allowed, editableFields, FactCard } from "./FactCard";
 import { FactSwitcher } from "./FactSwitcher";
 import { loadSplitPct, saveSplitPct } from "./splitPane";
@@ -22,7 +22,7 @@ import { w } from "./words";
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
-type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string> };
+type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean };
 const ZOOMS = [75, 100, 125, 150, 200, 250];
 
 function fieldDraft(fact: Fact): Record<string, string> {
@@ -134,7 +134,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // "Change a detail": the cited words start chosen, except on a "Please check" fact, whose words must be
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact) });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -143,6 +143,9 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       setNotice(errorMessage(error));
     }
   }
+
+  const hasDate = (f: Fact) => dateFieldKey(pack, f.kind) !== null;
+  const eventDateChanged = (f: Fact) => !!editing?.eventDate && editing.eventDate !== (f.event_date ?? "").slice(0, 10);
 
   const toggleWord = (id: string) =>
     setEditing((e) => e && { ...e, words: e.words.includes(id) ? e.words.filter((x) => x !== id) : [...e.words, id] });
@@ -196,15 +199,17 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     const valueChanged = headline !== (f.value ?? "").trim();
     const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
-    if (!valueChanged && !fieldsChanged && !wordsChanged) return;
+    const dayChanged = eventDateChanged(f);
+    if (!valueChanged && !fieldsChanged && !wordsChanged && !dayChanged) return;
     if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return;
-    const body: { new_value?: string; word_ids?: string[]; fields?: Record<string, unknown> } = {};
+    const body: { new_value?: string; word_ids?: string[]; fields?: Record<string, unknown>; event_date?: string } = {};
     if (valueChanged) {
       if (!headline) return;
       body.new_value = headline;
       body.word_ids = orderedWords(editing.words);
     } else if (wordsChanged) body.word_ids = orderedWords(editing.words);
     if (fieldsChanged) body.fields = { ...(f.fields ?? {}), ...editing.fields };
+    if (dayChanged && editing.eventDate) body.event_date = editing.eventDate;
     void act(f, "edit", body);
   };
 
@@ -213,7 +218,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     const valueChanged = editing.text.trim() !== (f.value ?? "").trim();
     const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
-    if (!valueChanged && !fieldsChanged && !wordsChanged) return false;
+    if (!valueChanged && !fieldsChanged && !wordsChanged && !eventDateChanged(f)) return false;
     if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return false;
     if (valueChanged && !editing.text.trim()) return false;
     return true;
@@ -381,7 +386,16 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               onNotRight={() => notRight(focusedFact)}
               onStartEdit={() => void startEdit(focusedFact)}
               onEditText={(text) => setEditing((e) => e && { ...e, text })}
-              onEditField={(key, value) => setEditing((e) => e && { ...e, fields: { ...e.fields, [key]: value } })}
+              onEditField={(key, value) =>
+                setEditing((e) => {
+                  if (!e) return e;
+                  const fields = { ...e.fields, [key]: value };
+                  const follow = e.eventDate !== null && !e.eventDateByHand && key === dateFieldKey(pack, focusedFact.kind);
+                  return { ...e, fields, eventDate: follow ? suggestTimelineDate({ ...focusedFact, event_date: null, fields: { ...(focusedFact.fields ?? {}), ...fields } }, pack) : e.eventDate };
+                })
+              }
+              editEventDate={editing?.id === focusedFact.id ? editing.eventDate : null}
+              onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value, eventDateByHand: true })}
               onSaveEdit={() => saveEdit(focusedFact)}
               onCancelEdit={() => setEditing(null)}
               onFlag={() => toggleFlag(focusedFact)}
