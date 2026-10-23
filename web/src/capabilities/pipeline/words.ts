@@ -37,6 +37,8 @@ const WORDS = {
   "preparing.stopped": "Preparing has stopped. Your files are kept.",
   "preparing.start": "Start preparing",
   "preparing.nothing": "Nothing is being prepared yet. When the records are in, start preparing them here.",
+  "preparing.err.paused": "Preparing is paused for the moment. Your files and work are safe. Please try again in a little while.",
+  "preparing.err.conflict": "Your bundle can't be prepared in its current state. Reload this page to see where it stands.",
   "preparing.failed": "Something went wrong while preparing your bundle. Your files are kept.",
   "preparing.again": "Try again",
   "preparing.meanwhile": "Meanwhile, check what you've been asked",
@@ -108,6 +110,8 @@ const WORDS = {
   "copies.status.confirmed": "Set aside",
   "copies.status.kept": "Kept in the bundle",
   "copies.none": "No copies were found.",
+  "copies.err.conflict": "This page is no longer set aside as a copy, so it can't be changed here. Reload the list to see where it stands.",
+  "copies.err.not_found": "We couldn't find that page. Reload the list to see where it stands.",
   "copies.changed": "Someone else changed this page. Here is the latest. Please choose again if you need to.",
 
   "ask.title": "{{label}} for what's missing",
@@ -135,6 +139,8 @@ const WORDS = {
   "ask.copied": "Copied.",
   "ask.send": "Send from my email",
   "ask.sent": "Your email is open, ready to send. We've noted the request in your case record.",
+  "ask.err.not_found": "One of the pages or items in this note is no longer in your bundle. Go back to your bundle and write the note again.",
+  "ask.err.conflict": "That can't be done in the bundle's current state. Reload your bundle and try again.",
   "ask.check": "Please check the email address and the message.",
 
   "quarantine.title": "These pages may belong to someone else",
@@ -162,6 +168,8 @@ const WORDS = {
   "quarantine.submit_other": "Set aside {{n}} pages and draft the note",
   "quarantine.save": "Save my choices",
   "quarantine.only_expert": "Only the named expert can decide about these pages.",
+  "quarantine.page_missing": "We couldn't find page {{page}}.",
+  "quarantine.page_not_waiting": "Page {{page}} is not waiting to be checked.",
   "quarantine.none": "No pages are waiting to be checked.",
 } as const;
 

@@ -93,3 +93,13 @@ describe.each([
     expect(await screen.findByText("No copies were found.")).toBeVisible();
   });
 });
+
+describe("Copies, the reasons the API gives", () => {
+  test("a copy that is no longer set aside says so in plain words", async () => {
+    mock(launchPack, [duplicate()]);
+    server.use(http.patch(`/v1/cases/${CASE_ID}/pages/${pageId(20)}/duplicate`, () => apiError(409, "conflict")));
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Yes, it's a copy" }));
+    expect(await screen.findByText("This page is no longer set aside as a copy, so it can't be changed here. Reload the list to see where it stands.")).toBeVisible();
+  });
+});
