@@ -171,7 +171,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | case_id | The served case whose records pass on |
 | from_person_id | The named expert who can no longer act (set by the database from the case) |
-| to_person_id / to_organisation_id | Who now holds the records: one person, or an organisation whose current owners and admins hold them (exactly one of the two) |
+| to_person_id / to_organisation_id | Who now holds the records: the records custodian the expert named, or the case's own organisation, whose current owners and admins hold them (exactly one of the two; never a support staff member) |
 | evidence_note | A short note of the evidence support saw (at most 200 characters, about the expert, never the patient) |
 | transferred_by / transferred_at | The support staff member who recorded it, and when (set by the database) |
 | revoked_at | When support undid a mistaken transfer. Never undone; the custodian then sees nothing |

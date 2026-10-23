@@ -99,7 +99,7 @@ begin
 end
 $$;
 
-revoke execute on function app.create_replacement_case(uuid, uuid, text, boolean) from public;
+revoke execute on function app.create_replacement_case(uuid, uuid, text, boolean) from public, app_worker;
 grant execute on function app.create_replacement_case(uuid, uuid, text, boolean) to app_api;
 
 reset role;
