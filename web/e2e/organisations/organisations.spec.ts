@@ -15,8 +15,9 @@ const BASE = "http://localhost:4173";
 type World = { team: string; team_name: string; team_case: string; leaver_case: string; own_case: string; sessions: Record<string, { token: string; csrf: string; person: string }> };
 
 test.skip(!ADMIN_DB, "needs the live local API and database (E2E_LIVE_ADMIN_DB)");
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: "serial", timeout: 90_000 });
 test.use({ baseURL: BASE });
+// Today can take several seconds where the file store is unreachable, so the Leave page (which lists named cases from it) gets longer.
 
 let world: World;
 test.beforeAll(() => {
@@ -92,7 +93,7 @@ test("S27: a team's closing refuses while a case is open", async ({ page, contex
 test("Leave: lists the named cases the person keeps, then leaves", async ({ page, context }) => {
   await signInAs(context, "leaver");
   await page.goto(`/organisations/${world.team}/leave`);
-  await expect(page.getByRole("heading", { level: 1, name: `Leave ${world.team_name}?` })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: `Leave ${world.team_name}?` })).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("Case Z")).toBeVisible();
   await accessible(page);
   await page.getByRole("button", { name: `Leave ${world.team_name}` }).click();
