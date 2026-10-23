@@ -4227,6 +4227,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/new-case/template": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** New Case Template */
+        get: operations["new_case_template_v1_new_case_template_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/notifications": {
         parameters: {
             query?: never;
@@ -7973,6 +7990,24 @@ export interface components {
              * @description Canvas board the action opens, e.g. S09.
              */
             screen: string;
+        };
+        /** NewCaseTemplate */
+        NewCaseTemplate: {
+            /**
+             * Locked
+             * @description True when the organisation requires a template: used automatically, no choice.
+             */
+            locked: boolean;
+            /**
+             * Organisation Id
+             * Format: uuid
+             */
+            organisation_id: string;
+            /**
+             * Required Template Id
+             * @description The organisation's required report template, if any.
+             */
+            required_template_id: string | null;
         };
         /** NewChange */
         NewChange: {
@@ -23006,6 +23041,46 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    new_case_template_v1_new_case_template_get: {
+        parameters: {
+            query: {
+                organisation_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewCaseTemplate"];
+                };
             };
             /** @description Validation Error */
             422: {

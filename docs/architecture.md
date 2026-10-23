@@ -457,6 +457,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/me/template/file` | Upload the .docx through the API (multipart) | |
 | POST | `/me/template` | Register uploaded template → parse styles; optional T-02 mapping | Returns heading map to confirm |
 | PATCH | `/me/template/mapping` | Expert confirms heading map | |
+| GET | `/new-case/template` | Report template an organisation requires for a new case (`org_policy`), shown locked on S04 | |
 | GET / PUT | `/me/declaration` | Declaration text | Locked after first case is served |
 | GET | `/jurisdictions` | Jurisdictions available in this region (UK cell: GB-EAW) | |
 | GET | `/jurisdictions/{code}` | Pack summary: vocabulary, declarations and statement-of-truth wording, compliance checklist, deadline rules, legal-test text | Read-only; replaces `/statement-of-truth` |

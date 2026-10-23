@@ -15,6 +15,7 @@ The expert sets up their profile once, then for each case enters the details, de
 ## Endpoints (architecture 5.2)
 - Profile: `GET/PATCH /v1/me/profile`; `GET/POST /v1/me/roles`, `PATCH/DELETE /v1/me/roles/{id}`; `GET/POST/DELETE /v1/me/training[/{id}]`
 - Template: `POST /v1/me/template/file`; `PATCH /v1/me/template/mapping`
+- `GET /v1/new-case/template?organisation_id=` (S04): `{required_template_id, locked}` from `org_policy()`; members only, else 404
 - `GET/PUT /v1/me/declaration`; `GET /v1/jurisdictions/{code}` (fixed wording from the pack, foundation-owned)
 - Signature: `POST /v1/me/signature`; `GET /v1/me/signature/image`
 - `GET /v1/me/stats/balance?months=12`
@@ -136,3 +137,5 @@ Root checklist, plus: a test expert can complete the profile and reach confirmed
 - `questions.short_title` (migration 0395, 1 to 40 chars) comes from the T-06 `short_title` label or the question's first clause, and is on `QuestionOut` for S14 tabs. Foundation could expose it on `core/contracts/questions.py`.
 
 - Data for boards (October 2026): `GET /me/template` and the upload answer gain `style_details` (read from the sealed file, not stored; S02 tiles show "Bold 14 pt"). `GET /cases/{id}/conflicts` gains `other_cases` (`checked`, `matches`, `organisations`): the named expert's other non-deleted cases compared by the patient identifier key, never named; S05 says how many were checked and that none matched. Party names are encrypted per case, so the check does not compare them (no spec yet). The jurisdiction vocabulary gains the required word `other_side_add_another` (S04 "Add another (e.g. a hospital trust)"); the patient options already follow the case-type pack order.
+
+- **Decision, organisation's required template (O to C request, October 2026):** a case has no template field (`POST /v1/cases` is foundation's and the report builds into the template of the person the case is named to, or the organisation's required one in F), so a required template is chosen automatically and never refused: nothing in S04 can pick a different one. `GET /v1/new-case/template` says which applies; S04 shows `setup.new_case.template_locked` ("{name}'s report template is used for this case. You can't change it here.") when `locked`. Building with the required template is F's part (`app.case_report_template` is foundation's SQL and still reads the person's template).

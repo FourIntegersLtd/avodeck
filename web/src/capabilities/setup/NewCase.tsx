@@ -171,6 +171,20 @@ function NewCaseForm({
   const [organisation, setOrganisation] = useState(
     personal?.organisation_id ?? "",
   );
+  const team = memberships.find(
+    (m) => m.organisation_id === organisation && m.kind !== "personal",
+  );
+  const required = useResource(
+    async () =>
+      team
+        ? unwrap(
+            api.GET("/v1/new-case/template", {
+              params: { query: { organisation_id: team.organisation_id } },
+            }),
+          )
+        : null,
+    [team?.organisation_id],
+  );
   const [combo, setCombo] = useState(0);
   const [label, setLabel] = useState("");
   const [side, setSide] = useState<string | null>(null);
@@ -470,6 +484,11 @@ function NewCaseForm({
                     : m.name,
               }))}
             />
+          )}
+          {team && required.data?.locked && (
+            <p className="av-hint" role="note">
+              {t("setup.new_case.template_locked", { name: team.name })}
+            </p>
           )}
           {packs.length > 1 && (
             <Choice

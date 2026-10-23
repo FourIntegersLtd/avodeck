@@ -353,6 +353,7 @@
   "setup.new_case.prepare": "Prepare my bundle",
   "setup.new_case.who_for": "Who is this case for?",
   "setup.new_case.who_for_hint": "It decides who invoices, which template is used and who else can help. You're the expert either way, and only you sign.",
+  "setup.new_case.template_locked": "{{name}}'s report template is used for this case. You can't change it here.",
   "setup.new_case.own_practice": "My own practice",
   "setup.new_case.kind": "What kind of case is this?",
   "setup.new_case.kind_option": "{{case_type}}, {{specialty}}",
