@@ -30043,7 +30043,7 @@
     },
     "/v1/cases/{case_id}/replacement": {
       "post": {
-        "description": "After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded.",
+        "description": "After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded.\nAsking again returns the replacement already made, with 200.",
         "operationId": "create_replacement_v1_cases__case_id__replacement_post",
         "parameters": [
           {
@@ -30068,6 +30068,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplacementCase"
+                }
+              }
+            },
+            "description": "The replacement already made for this case"
+          },
           "201": {
             "content": {
               "application/json": {
