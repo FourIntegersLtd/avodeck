@@ -19,12 +19,15 @@ import {
   LoadError,
   Loading,
   Notice,
+  TextLink,
 } from "../../foundation/ui";
 import { casePath } from "./data";
 import { formatDate, formatNumber } from "./format";
 import { TickIcon } from "./icons";
 import { mail } from "./mail";
 import { w, wn } from "./words";
+
+const OWN = { not_found: "pipeline.ask.err.not_found", conflict: "pipeline.ask.err.conflict" };
 
 export function AskInstructingParty() {
   const { item, pack } = useCaseFrame();
@@ -107,7 +110,7 @@ export function AskInstructingParty() {
       const text =
         error instanceof ApiError && error.status === 422
           ? w("ask.check")
-          : errorMessage(error);
+          : errorMessage(error, OWN);
       setNotice({ tone: "error", text });
     } finally {
       setBusy(false);
@@ -126,7 +129,7 @@ export function AskInstructingParty() {
       setBody(again.body);
       setMore(on);
     } catch (error) {
-      setNotice({ tone: "error", text: errorMessage(error) });
+      setNotice({ tone: "error", text: errorMessage(error, OWN) });
     }
   }
 
@@ -135,7 +138,7 @@ export function AskInstructingParty() {
       await navigator.clipboard.writeText(`${subject}\n\n${body}`);
       setNotice({ tone: "success", text: w("ask.copied") });
     } catch (error) {
-      setNotice({ tone: "error", text: errorMessage(error) });
+      setNotice({ tone: "error", text: errorMessage(error, OWN) });
     }
   }
 
@@ -252,6 +255,7 @@ export function AskInstructingParty() {
       {notice && (
         <Notice tone={notice.tone}>
           <p>{notice.text}</p>
+          {notice.tone === "error" && <TextLink to={`/cases/${caseId}/bundle`}>{w("back")}</TextLink>}
         </Notice>
       )}
       <div className="pl-actions">

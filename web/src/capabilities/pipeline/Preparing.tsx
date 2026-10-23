@@ -24,6 +24,8 @@ type Update = Partial<Pick<Job, "status" | "step" | "pct" | "eta_seconds" | "err
 
 const finished = (status: string | undefined) => status === "done" || status === "failed" || status === "cancelled";
 
+const OWN = { processing_paused: "pipeline.preparing.err.paused", conflict: "pipeline.preparing.err.conflict" };
+
 export function Preparing() {
   const { item, pack } = useCaseFrame();
   const caseId = item.id;
@@ -97,7 +99,7 @@ export function Preparing() {
       setStopped(false);
       follow({ id: job_id, kind: "process_bundle", status: "queued", step: null, pct: 0, eta_seconds: null, error_code: null });
     } catch (error) {
-      setActionError(errorMessage(error));
+      setActionError(errorMessage(error, OWN));
     } finally {
       setBusy(false);
     }
@@ -112,7 +114,7 @@ export function Preparing() {
       setStopped(true);
       setJob(null);
     } catch (error) {
-      setActionError(errorMessage(error));
+      setActionError(errorMessage(error, OWN));
     } finally {
       setBusy(false);
     }

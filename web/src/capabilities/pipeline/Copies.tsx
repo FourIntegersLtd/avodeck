@@ -11,6 +11,8 @@ import { formatNumber } from "./format";
 import { Thumbnail } from "./Thumbnail";
 import { w } from "./words";
 
+const OWN = { conflict: "pipeline.copies.err.conflict", not_found: "pipeline.copies.err.not_found" };
+
 type Copy = Schemas["DuplicatePage"];
 type Status = "suggested" | "confirmed" | "kept";
 
@@ -45,7 +47,7 @@ export function Copies() {
         setNotice({ tone: "info", text: w("copies.changed") });
         list.reload();
       } else {
-        setNotice({ tone: "error", text: errorMessage(error) });
+        setNotice({ tone: "error", text: errorMessage(error, OWN) });
       }
     } finally {
       setBusy(null);

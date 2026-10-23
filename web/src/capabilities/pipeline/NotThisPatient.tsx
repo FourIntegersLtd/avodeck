@@ -29,6 +29,7 @@ export function NotThisPatient() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lookup, setLookup] = useState<string | null>(null);
   const decides = can(item, "fact.verify");
   const name = item.label;
   const num = (n: number) => formatNumber(n, pack.locale);
@@ -39,15 +40,20 @@ export function NotThisPatient() {
     const s = found.data;
     const listed = [...(s.quarantine_suggestions ?? []).filter((q) => q.status === "suggested"), ...(s.quarantined ?? []).filter((q) => SHOWN.has(q.status))];
     setPages(listed);
-    if (!Number.isInteger(asked) || asked < 1 || listed.some((q) => q.page_no === asked)) return;
+    setLookup(null);
+    if (!search.has("page") || listed.some((q) => q.page_no === asked)) return;
+    if (!Number.isInteger(asked) || asked < 1) {
+      setLookup(w("quarantine.page_missing", { page: String(search.get("page")) }));
+      return;
+    }
     let current = true;
     unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: asked } } }))
       .then((p) => current && setPages([...listed, { page_id: p.page_id, page_no: p.page_no, status: "suggested", reason: "", job_id: null }]))
-      .catch(() => undefined);
+      .catch((e) => current && setLookup(e instanceof ApiError && e.status === 404 ? w("quarantine.page_missing", { page: num(asked) }) : errorMessage(e)));
     return () => {
       current = false;
     };
-  }, [found.data, asked, caseId]);
+  }, [found.data, asked, caseId, search]);
 
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!pages) return <div className="av-page"><Loading /></div>;
@@ -96,8 +102,9 @@ export function NotThisPatient() {
       </header>
       {!decides && <Notice><p>{w("quarantine.only_expert")}</p></Notice>}
       {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {lookup && <Notice tone="error"><p role="alert">{lookup}</p></Notice>}
       {pages.length === 0 ? (
-        <p>{w("quarantine.none")}</p>
+        <p>{lookup && search.has("page") ? w("quarantine.page_not_waiting", { page: num(asked) }) : w("quarantine.none")}</p>
       ) : (
         <>
           <ul className="pl-plain pl-grid">
