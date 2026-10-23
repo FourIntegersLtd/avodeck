@@ -3,8 +3,10 @@
 // colleague spot-check behind one link.
 import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { humanise, t } from "../../foundation/i18n";
-import { errorMessage } from "../../foundation/lib/errors";
+import { t } from "../../foundation/i18n";
+import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
+import { kindWord } from "../../foundation/lib/packWords";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -17,7 +19,12 @@ type Result = Schemas["CheckResult"];
 const WARNING_TYPES = ["uncited_fact", "loaded_language", "outside_expertise"] as const;
 const SHOWN = 8;
 const ERRORS = { not_built: "report.check.no_build" };
-const nameOf = (r: Result) => r.text ?? humanise(r.key);
+
+/** A check's name: the pack's text, else the pack's word for a fact kind of that name, else the key in plain words. */
+function useResultName() {
+  const { pack } = useCaseFrame();
+  return (r: Result) => r.text ?? kindWord(pack, r.key);
+}
 const UNITS = ["fact", "quote", "page", "question", "guideline"] as const;
 /** The pack's own line for a check, else the screen's line for a core check (none for a check it does not know). */
 const explanation = (r: Result) => r.explain ?? t(`report.check.explain.${r.key}`, {}, "");
@@ -53,18 +60,22 @@ export function FinalCheck() {
   const { caseId = "" } = useParams();
   const found = useResource(() => latest(caseId), [caseId]);
   const wait = useWaiting(found.reload, found.data?.id ?? null);
+  const nameOf = useResultName();
   const [error, setError] = useState<string | null>(null);
+  const [action, setAction] = useState<ErrorAction | null>(null);
   const [all, setAll] = useState(false);
   const [spotOpen, setSpotOpen] = useState(false);
   const locale = useLocale();
 
   const run = async () => {
     setError(null);
+    setAction(null);
     try {
       await unwrap(api.POST("/v1/cases/{case_id}/report/final-check", { params: { path: { case_id: caseId } } }));
       wait.start();
     } catch (err) {
       setError(errorMessage(err, ERRORS));
+      setAction(errorAction(err, caseId));
     }
   };
 
@@ -93,7 +104,7 @@ export function FinalCheck() {
           <p className="rp-lead">{w("check.intro")}</p>
         </div>
       </div>
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {error && <Notice tone="error"><p>{error}</p>{action && <LinkButton to={action.to}>{action.label}</LinkButton>}</Notice>}
       {wait.waiting && <Notice><p>{w("check.running")}</p></Notice>}
       {!check && !wait.waiting && <Notice><p>{w("check.none")}</p></Notice>}
       {check && !check.current && <Notice tone="warning"><p>{w("check.out_of_date")}</p></Notice>}
@@ -157,6 +168,7 @@ export function FinalCheck() {
 }
 
 function Failed({ caseId, result }: { caseId: string; result: Result }) {
+  const nameOf = useResultName();
   const fix = result.fixes[0] ?? result.fix;
   const to = fix ? (screenPath(fix.screen, { caseId, params: { item: fix.item } }) ?? `/cases/${caseId}`) : null;
   return (
@@ -171,6 +183,7 @@ function Failed({ caseId, result }: { caseId: string; result: Result }) {
 
 function Warnings({ warnings }: { warnings: Schemas["Warning"][] }) {
   const nameOf = useSectionName();
+  const { pack } = useCaseFrame();
   return (
     <section className="av-card av-stack" aria-labelledby="warn-title">
       <h3 id="warn-title">{w("check.warnings")}</h3>
@@ -180,7 +193,7 @@ function Warnings({ warnings }: { warnings: Schemas["Warning"][] }) {
           const known = (WARNING_TYPES as readonly string[]).includes(warning.type);
           return (
             <li key={`${warning.paragraph_id}-${warning.type}-${warning.words}`} className="av-report-item">
-              <p><strong>{known ? w(`check.warning.${warning.type as (typeof WARNING_TYPES)[number]}`) : humanise(warning.type)}</strong></p>
+              <p><strong>{known ? w(`check.warning.${warning.type as (typeof WARNING_TYPES)[number]}`) : kindWord(pack, warning.type)}</strong></p>
               <p className="av-muted">{w("check.warning.where", { section: nameOf(warning.section), para: warning.para_no })}</p>
               <p className="av-report-words">{warning.words}</p>
             </li>
@@ -197,21 +210,24 @@ function SpotCheck({ caseId }: { caseId: string }) {
   const [email, setEmail] = useState("");
   const [started, setStarted] = useState<Schemas["SpotCheckStarted"] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [action, setAction] = useState<ErrorAction | null>(null);
   const send = async () => {
     setError(null);
+    setAction(null);
     try {
       setStarted(await unwrap(api.POST("/v1/cases/{case_id}/spot-checks", { params: { path: { case_id: caseId } }, body: { reviewer_email: email } })));
       setEmail("");
       list.reload();
     } catch (err) {
       setError(errorMessage(err));
+      setAction(errorAction(err, caseId));
     }
   };
   return (
     <section id="spot-check" className="av-card av-stack" aria-labelledby="spot-title">
       <h3 id="spot-title">{w("check.spot")}</h3>
       <p>{w("check.spot_intro")}</p>
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {error && <Notice tone="error"><p>{error}</p>{action && <LinkButton to={action.to}>{action.label}</LinkButton>}</Notice>}
       {started && (
         <Notice tone="success">
           <p>{w("check.spot_sent")}</p>
