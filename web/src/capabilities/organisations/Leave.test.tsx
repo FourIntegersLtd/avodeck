@@ -60,7 +60,7 @@ test("leaving sends the request and goes back to the account", async () => {
 test("the last owner is told why they cannot leave", async () => {
   teamWorld();
   cases();
-  server.use(http.post(`/v1/organisations/${TEAM_ORG}/leave`, () => apiError(409, "conflict")));
+  server.use(http.post(`/v1/organisations/${TEAM_ORG}/leave`, () => apiError(409, "last_owner")));
   const { user } = renderAt(AT);
   await user.click(await screen.findByRole("button", { name: "Leave Northgate Medico-Legal" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Every organisation keeps at least one owner.");

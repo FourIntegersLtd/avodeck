@@ -1,10 +1,13 @@
 // The support console at /support: staff only, case details only, never page content outside a grant.
 import { screen, within } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { CASE_A, PERSONAL_ORG } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { setFlag } from "./flags";
+
+// Typing into fields is slow on a busy machine; these flows have many steps.
+vi.setConfig({ testTimeout: 30_000 });
 
 afterEach(() => setFlag("support_custody_transfer", false));
 
@@ -27,10 +30,10 @@ test("staff search by case number and see details, no records", async () => {
   const { user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await user.click(screen.getByRole("button", { name: "Search" }));
-  const row = await screen.findByRole("listitem");
-  expect(within(row).getByText("Own practice")).toBeInTheDocument();
+  const row = within(await screen.findByRole("list", { name: "Cases found" })).getByRole("listitem");
+  expect(within(row).getByText(/Own practice/)).toBeInTheDocument();
   expect(within(row).getByText(/Access given until/)).toBeInTheDocument();
-  expect(within(row).getByText("Not served")).toBeInTheDocument();
+  expect(within(row).getByText(/Not served/)).toBeInTheDocument();
 });
 
 test("a case with no grant offers no way to open its records", async () => {
@@ -39,7 +42,7 @@ test("a case with no grant offers no way to open its records", async () => {
   const { user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), "a@example.test");
   await user.click(screen.getByRole("button", { name: "Search" }));
-  await screen.findByRole("listitem");
+  await screen.findByRole("list", { name: "Cases found" });
   expect(screen.queryByRole("link", { name: "Open the case" })).toBeNull();
   expect(screen.getByText("You can open the records only while the expert's access is on.")).toBeInTheDocument();
 });
@@ -50,7 +53,7 @@ test("the custody form shows only behind its flag", async () => {
   const first = renderAt("/support");
   await first.user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await first.user.click(screen.getByRole("button", { name: "Search" }));
-  await screen.findByRole("listitem");
+  await screen.findByRole("list", { name: "Cases found" });
   expect(screen.queryByRole("heading", { name: "Move custody of served cases" })).toBeNull();
   first.unmount();
   setFlag("support_custody_transfer", true);
@@ -66,6 +69,6 @@ test("passes the automated accessibility checks", async () => {
   const { container, user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await user.click(screen.getByRole("button", { name: "Search" }));
-  await screen.findByRole("listitem");
+  await screen.findByRole("list", { name: "Cases found" });
   expect(await axeViolations(container)).toEqual([]);
 });

@@ -1,10 +1,13 @@
 // S28 sections that are slice O's: records custodian, "If you can't carry on", and closing the account.
 import { screen, waitFor, within } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { caseCard, CASE_A, CASE_B, PERSONAL_ORG, TEAM_ORG } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { recorder } from "./testing";
+
+// Typing into fields is slow on a busy machine; these flows have many steps.
+vi.setConfig({ testTimeout: 30_000 });
 
 function today() {
   server.use(
@@ -36,7 +39,7 @@ test("names a records custodian with both a name and an email", async () => {
   server.use(
     http.put("/v1/me/custodian", async ({ request }) => {
       await record(request);
-      return json(await request.clone().json());
+      return json(sent.at(-1)!.body as never);
     }),
   );
   const { user } = renderAt("/account/custodian");

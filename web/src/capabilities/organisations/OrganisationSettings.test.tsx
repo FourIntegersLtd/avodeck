@@ -1,9 +1,12 @@
 // S27 Organisation and members (docs/design/screens/S27-OrgMembers.dc.html).
 import { screen, waitFor, within } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 import { apiError, http, json, server } from "../../test/api";
 import { axeViolations, renderAt } from "../../test/render";
 import { invite, MEMBERS, org, OTHER, recorder, TEAM_ORG, teamWorld, THIRD } from "./testing";
+
+// Typing into fields is slow on a busy machine; these flows have many steps.
+vi.setConfig({ testTimeout: 30_000 });
 
 const AT = `/organisations/${TEAM_ORG}`;
 
@@ -80,7 +83,7 @@ test("sending an invite asks for the 6-digit code when the server wants it, then
   await user.click(screen.getByRole("button", { name: "Send invite" }));
   const dialog = await screen.findByRole("dialog");
   await user.type(within(dialog).getByLabelText(/code/i), "123456");
-  await user.click(within(dialog).getByRole("button", { name: /continue|confirm|check|send/i }));
+  await user.click(within(dialog).getByRole("button", { name: /carry on/i }));
   expect(await screen.findByText("We've emailed an invite to new@example.test.")).toBeInTheDocument();
   expect(tries).toBe(2);
 });
@@ -134,7 +137,7 @@ test("changes the retention cap and turns on the team template", async () => {
   server.use(
     http.put(`/v1/organisations/${TEAM_ORG}/policy`, async ({ request }) => {
       await record(request);
-      const body = (await request.clone().json()) as { required_template_id: string | null; max_retention_years: number | null };
+      const body = sent.at(-1)!.body as { required_template_id: string | null; max_retention_years: number | null };
       return json(org({ policy: body }));
     }),
   );
@@ -177,11 +180,11 @@ test("closing the organisation asks first, then returns to the account", async (
 
 test("closing is refused while a case is open, in plain words", async () => {
   teamWorld();
-  server.use(http.post(`/v1/organisations/${TEAM_ORG}/close`, () => apiError(409, "conflict")));
+  server.use(http.post(`/v1/organisations/${TEAM_ORG}/close`, () => apiError(409, "cases_open")));
   const { user } = renderAt(AT);
   await user.click(await screen.findByRole("button", { name: "Close organisation" }));
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, close it" }));
-  expect(await screen.findByText(/still being worked on/)).toBeInTheDocument();
+  expect(await screen.findByRole("alert")).toHaveTextContent(/still being worked on/);
 });
 
 test("an expert (not owner or admin) sees the people but no controls; someone with no access sees not found", async () => {

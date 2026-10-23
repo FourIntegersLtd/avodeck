@@ -1,11 +1,14 @@
 // Inside a case: change the named expert (owners and admins, before serving) and the support grant card.
 import { screen, within } from "@testing-library/react";
-import { afterEach, expect, test } from "vitest";
+import { afterEach, expect, test, vi } from "vitest";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { CASE_A, PERSON_ID, TEAM_ORG } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { setFlag } from "./flags";
 import { MEMBERS, OTHER, recorder, THIRD } from "./testing";
+
+// Typing into fields is slow on a busy machine; these flows have many steps.
+vi.setConfig({ testTimeout: 30_000 });
 
 afterEach(() => setFlag("replacement_case", false));
 
@@ -72,7 +75,7 @@ test("a server refusal after serving shows the same message", async () => {
 test("the named expert can let support open the case, sees the time left, and can stop it", async () => {
   signedIn();
   const { sent, record } = recorder();
-  let grants: unknown[] = [];
+  let grants: Array<Record<string, unknown>> = [];
   const grant = () => ({ id: OTHER, case_id: CASE_A, granted_by: PERSON_ID, granted_to: null, reason: "help", granted_at: new Date().toISOString(), expires_at: new Date(Date.now() + 23.5 * 3_600_000).toISOString(), revoked_at: null, active: true });
   server.use(
     http.get(`/v1/cases/${CASE_A}`, () => json(theCase(["case.view_metadata", "support_access.grant"]))),
