@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
-import { errorMessage } from "../../foundation/lib/errors";
+import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
@@ -25,9 +25,11 @@ type Action = "correct" | "not_right" | "edit";
 type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean; misreadText: string };
 const ZOOMS = [75, 100, 125, 150, 200, 250];
 
-function fieldDraft(fact: Fact): Record<string, string> {
+type MoveDraft = { id: string; page: number; words: PageWord[] | null; chosen: string[]; problem: string | null; readFirst: boolean };
+
+function fieldDraft(fact: Fact, pack: Schemas["CasePack"]): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const row of editableFields(fact)) out[row.key] = row.value;
+  for (const row of editableFields(fact, pack)) out[row.key] = row.value;
   return out;
 }
 
@@ -111,7 +113,9 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   }, [detail.data, loadFacts]);
 
   // An error for the form the expert is filling in, shown under its Save button (not at the top of the panel).
-  const [formError, setFormError] = useState<{ text: string; typeOut: boolean; tick?: boolean } | null>(null);
+  const [formError, setFormError] = useState<{ text: string; typeOut: boolean; tick?: boolean; action?: ErrorAction | null } | null>(null);
+  // "Move to the clearer copy": the copy's words (once read) to choose from, and what stops the move.
+  const [moving, setMoving] = useState<MoveDraft | null>(null);
 
   async function markRead() {
     if (busy || read) return;
@@ -138,7 +142,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
     setFormError(null);
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false, misreadText: "" });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false, misreadText: "" });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -192,7 +196,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         const text = refused
           ? w(error.code === "words_needed" ? "read.error.words_needed" : error.code === "invalid_fields" ? "read.error.invalid_fields" : "read.error.not_in_page")
           : errorMessage(error, {});
-        if (inForm) setFormError({ text, typeOut: notOnPage, tick: notOnPage && editing?.id === fact.id });
+        if (inForm) setFormError({ text, typeOut: notOnPage, tick: notOnPage && editing?.id === fact.id, action: errorAction(error, caseId) });
         else setNotice(text);
       }
     } finally {
@@ -207,7 +211,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     if (!editing || editing.id !== f.id) return;
     const headline = editing.text.trim();
     const valueChanged = headline !== (f.value ?? "").trim();
-    const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
+    const fieldsChanged = editableFields(f, pack).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
     const dayChanged = eventDateChanged(f);
     const misread = editing.misread && editing.words.length > 0 ? editing.misreadText.trim() : null;
@@ -232,6 +236,57 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     if (dayChanged && editing.eventDate) body.event_date = editing.eventDate;
     void act(f, "edit", body);
   };
+
+  async function startMove(fact: Fact, to: number) {
+    setEditing(null);
+    setTimelineDraft(null);
+    setFormError(null);
+    setMoving({ id: fact.id, page: to, words: null, chosen: [], problem: null, readFirst: false });
+    try {
+      const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(to) } } }));
+      setMoving((m) => !m || m.id !== fact.id ? m : { ...m, words });
+    } catch (error) {
+      const blind = error instanceof ApiError && error.status === 423;
+      setMoving((m) => !m || m.id !== fact.id ? m : { ...m, readFirst: blind, problem: blind ? w("fact.move_read_first", { page: to }) : errorMessage(error) });
+    }
+  }
+
+  async function saveMove(fact: Fact) {
+    if (!moving || moving.id !== fact.id || busy) return;
+    if (moving.chosen.length === 0) {
+      setMoving({ ...moving, problem: w("fact.move_no_words") });
+      return;
+    }
+    setBusy(true);
+    setNotice(null);
+    try {
+      await unwrap(
+        api.POST("/v1/cases/{case_id}/facts/{fact_id}/move", {
+          params: { path: { case_id: caseId, fact_id: fact.id } },
+          headers: ifMatch(`"${fact.version}"`),
+          body: { to_page_no: moving.page, word_ids: moving.words ? inPageOrder(moving.chosen, moving.words) : moving.chosen },
+        }),
+      );
+      const list = (facts ?? []).filter((f) => f.id !== fact.id);
+      setFacts(list);
+      setMoving(null);
+      setInfo(w("read.moved", { page: moving.page }));
+      setFocus(list.find((f) => f.status === "suggested")?.id ?? list[0]?.id ?? null);
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 412) {
+        setMoving(null);
+        setNotice(w("read.error.stale"));
+        await loadFacts();
+      } else {
+        const blind = error instanceof ApiError && error.status === 423;
+        const refused = error instanceof ApiError && error.status === 422;
+        const problem = blind ? w("fact.move_read_first", { page: moving.page }) : refused ? w("read.error.not_in_page") : errorMessage(error);
+        setMoving((m) => m && { ...m, readFirst: blind, problem });
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const editCanSave = (f: Fact) => {
     if (!editing || editing.id !== f.id) return false;
@@ -364,10 +419,20 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               </LinkButton>
             </div>
           </div>
-          <PageImage key={imageKey} caseId={caseId} pageNo={pageNo} zoom={zoom}>
-            <Highlights facts={facts ?? []} focus={focus} />
-            {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
-          </PageImage>
+          {moving?.words ? (
+            <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} zoom={zoom}>
+              <WordToggles
+                words={moving.words}
+                chosen={moving.chosen}
+                onToggle={(id) => setMoving((m) => m && { ...m, problem: null, chosen: m.chosen.includes(id) ? m.chosen.filter((x) => x !== id) : [...m.chosen, id] })}
+              />
+            </PageImage>
+          ) : (
+            <PageImage key={imageKey} caseId={caseId} pageNo={pageNo} zoom={zoom}>
+              <Highlights facts={facts ?? []} focus={focus} />
+              {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
+            </PageImage>
+          )}
         </section>
 
         <SplitDivider workRef={workRef} value={splitPct} onChange={setSplitPct} onCommit={saveSplitPct} />
@@ -381,7 +446,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {info && !notice && <Notice tone="success">{info}</Notice>}
           {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
           {facts?.length === 0 && <p className="rd-note">{w("read.none_found")}</p>}
-          {facts && facts.length > 0 && <FactSwitcher facts={facts} focus={focus} onFocus={setFocus} />}
+          {facts && facts.length > 0 && <FactSwitcher pack={pack} facts={facts} focus={focus} onFocus={setFocus} />}
           {focusedFact && (
             <FactCard
               key={focusedFact.id}
@@ -395,6 +460,12 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               canSave={editCanSave(focusedFact)}
               formError={formError?.text ?? null}
               tickHint={formError?.tick === true}
+              formAction={formError?.action ?? null}
+              clearerPage={page.superseded_by_page_no ?? null}
+              moving={moving?.id === focusedFact.id ? { page: moving.page, pageHref: `/cases/${caseId}/read/${moving.page}`, problem: moving.problem, readFirst: moving.readFirst } : null}
+              onStartMove={page.superseded_by_page_no ? () => void startMove(focusedFact, page.superseded_by_page_no!) : undefined}
+              onSaveMove={() => void saveMove(focusedFact)}
+              onCancelMove={() => setMoving(null)}
               misread={editing?.id === focusedFact.id && editing.words.length > 0 ? { ticked: editing.misread, text: editing.misreadText } : null}
               onMisread={(ticked) => setEditing((e) => e && { ...e, misread: ticked })}
               onMisreadText={(text) => setEditing((e) => e && { ...e, misreadText: text })}
@@ -405,7 +476,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               onReason={(text) => setReasons((r) => ({ ...r, [focusedFact.id]: text }))}
               onCorrect={() => act(focusedFact, "correct")}
               onNotRight={() => notRight(focusedFact)}
-              onStartEdit={() => void startEdit(focusedFact)}
+              onStartEdit={() => { setMoving(null); void startEdit(focusedFact); }}
               onEditText={(text) => setEditing((e) => e && { ...e, text })}
               onEditField={(key, value) =>
                 setEditing((e) => {

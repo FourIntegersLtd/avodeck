@@ -6,8 +6,8 @@ import { w } from "./words";
 
 type Fact = Schemas["FactOut"];
 
-function summary(fact: Fact): string {
-  const kind = kindLabel(fact.kind);
+function summary(pack: Schemas["CasePack"], fact: Fact): string {
+  const kind = kindLabel(pack, fact.kind);
   const value = fact.value?.trim() ?? "";
   return value.length > 48 ? `${kind}: ${value.slice(0, 45)}…` : `${kind}: ${value}`;
 }
@@ -17,10 +17,12 @@ function actionable(list: Fact[]): Fact[] {
 }
 
 export function FactSwitcher({
+  pack,
   facts,
   focus,
   onFocus,
 }: {
+  pack: Schemas["CasePack"];
   facts: Fact[];
   focus: string | null;
   onFocus: (id: string) => void;
@@ -55,7 +57,7 @@ export function FactSwitcher({
           {queue.map((f) => (
             <li key={f.id}>
               <button type="button" className={f.id === current?.id ? "rd-switcher__item rd-switcher__item--on" : "rd-switcher__item"} aria-current={f.id === focus} onClick={() => onFocus(f.id)}>
-                {summary(f)}
+                {summary(pack, f)}
               </button>
             </li>
           ))}
@@ -68,7 +70,7 @@ export function FactSwitcher({
             {[...done, ...rejected].map((f) => (
               <li key={f.id}>
                 <button type="button" className="rd-switcher__item rd-switcher__item--quiet" onClick={() => onFocus(f.id)}>
-                  {summary(f)}
+                  {summary(pack, f)}
                 </button>
               </li>
             ))}

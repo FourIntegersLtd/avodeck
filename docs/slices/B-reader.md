@@ -16,7 +16,7 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `GET /v1/cases/{id}/pages/{page_no}/image?zoom=`: streamed, `Cache-Control: private, no-store` (thumbnails are slice A's)
 - `POST /v1/cases/{id}/pages/{page_no}/read` `{dwell_seconds}`
 - `GET /v1/cases/{id}/pages/{page_no}/facts`: **423 `blind_read`** until read
-- `GET /v1/cases/{id}/pages/{page_no}/words`: the page's words with boxes (null for typed words), for re-citing a changed fact; **423 `blind_read`** until read, `private, no-store`
+- `GET /v1/cases/{id}/pages/{page_no}/words`: the page's words with boxes (null for typed words), for re-citing a changed fact, and `reading` (corrections in place) to prefill the type-out on S10; **423 `blind_read`** until read, `private, no-store`
 - `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, word_ids?, reason?, fields?, event_date?, corrected_words?}` (If-Match; `fields` checked against the pack kind: 422 `invalid_fields`; `corrected_words {word_ids, text}`: the expert's reading of misread cited words, decision 0018; facts carry `cites_correction`)
 - `POST` / `DELETE /v1/cases/{id}/facts/{fact_id}/flag-point`: marks a checked fact for screen 14, or takes it back (E reads the flags through `core/contracts/fact_flags.py`)
 - `GET /v1/cases/{id}/progress`
@@ -94,6 +94,10 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] The fact card offers, by button and key, only what the state machine allows (Change only on suggestions; Correct on a checked fact only when it says "Please check")
 - [x] "Change a detail" updates `fields`, `event_date` and the box from the chosen words, and logs the real old and new details
 - [x] "Please check" (`recheck`) flags show as "Please check", never as "In Points against"; "Take out" removes only the points flag; checking the fact again removes the recheck flag
+- [x] A checked fact can still be changed ("Change a detail", "Set date on timeline"); 409 `served_use_supplementary` when a served report cites it, with a link to the supplementary report; an opinion citing it shows the citation changed since cited
+- [x] "Move to the clearer copy" on a fact whose page was replaced: choose the words on the copy (`POST …/facts/{id}/move`); the copy must be read first
+- [x] S10 starts the type-out from the page's current reading; Save says why it cannot save yet instead of greying out
+- [x] Kinds and details use the pack's words (`kindWord`, `fieldWord`)
 - [x] "Change a detail" lets the expert choose the cited words over the page (`GET …/words`, toggles by mouse or keyboard); a "Please check" fact saves only with words chosen (422 `words_needed` otherwise)
 - [x] Changed `fields` must be fields of the fact's kind in the case pack, with values of their types (422 `invalid_fields`), under the launch and fixture packs
 - [x] A re-read re-maps a checked fact only when its words match under rule 2's normaliser ("1.5 mg" is not "15 mg"); each re-map appends a `remapped` verification row; typed words give no box

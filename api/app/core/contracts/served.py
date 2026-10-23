@@ -66,3 +66,15 @@ async def latest_served(conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid
         text = await crypto.decrypt(conn, case_id, bytes(sealed), purpose=PARAGRAPH_PURPOSE)
         paragraphs.append(ServedParagraph(pid, int(para_no), str(section), text.decode(), tuple(cited.get(pid, []))))
     return ServedReport(version_id, int(version_no), served_on, tuple(paragraphs))
+
+
+async def cited_in_served(conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID) -> bool:
+    """Whether a served (or later withdrawn) report version cites the fact; such a fact changes only
+    through a supplementary report (rule 8). Runs on the caller's connection."""
+    cur = await conn.execute(
+        "select exists (select 1 from app.citations c join app.report_versions v on v.id = c.report_version_id"
+        " where c.case_id = %s and c.fact_id = %s and v.status in ('served', 'withdrawn'))",
+        (case_id, fact_id),
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])

@@ -8265,6 +8265,11 @@ export interface components {
          * @description The page's words in reading order, for choosing the words a changed fact cites.
          */
         PageWords: {
+            /**
+             * Reading
+             * @description The page's current reading as one text (the expert's corrections in place), to start a type-out from.
+             */
+            reading: string;
             /** Words */
             words: components["schemas"]["PageWord"][];
         };
