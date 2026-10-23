@@ -265,6 +265,11 @@ def _fact_not_found() -> ApiError:
     return ApiError("not_found", "We couldn't find that fact.", 404)
 
 
+def _served() -> ApiError:
+    # Rule 8: a fact a served report cites changes only through a supplementary report (screen 21b).
+    return ApiError("served_use_supplementary", "This is in your served report. Use a supplementary report.", 409)
+
+
 def _invalid() -> ApiError:
     return ApiError("invalid", "The words you chose do not show that.", 422)
 
@@ -346,9 +351,7 @@ async def verify_fact(
         if not provenance.supported(value, word_ids, words):
             raise _invalid()
     if body.action == "edit" and before["status"] in _CHECKED and await served.cited_in_served(conn, case_id, fact_id):
-        raise ApiError(
-            "served_use_supplementary", "This is in your served report. Use a supplementary report to change it.", 409
-        )
+        raise _served()
     if rechecking and body.action == "edit" and not body.word_ids:
         raise ApiError("words_needed", "Choose the words on the page that show this.", 422)
     if body.action == "edit":
@@ -451,6 +454,8 @@ async def move_fact(
 ) -> FactOut:
     """Move a fact to the clearer copy of its page, citing that page's words. History is kept."""
     before = await _checkable(conn, case_id, fact_id, version, scope)
+    if await served.cited_in_served(conn, case_id, fact_id):
+        raise _served()
     target = await repo.page_id_by_no(conn, case_id, body.to_page_no)
     if target is None:
         raise _not_found()
