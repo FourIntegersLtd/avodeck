@@ -178,7 +178,7 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
     e.preventDefault();
     void send(saved);
   };
-  const useSaved = (latest: Tagged<Schemas["Profile"]>) => {
+  const takeSaved = (latest: Tagged<Schemas["Profile"]>) => {
     setSaved(latest);
     setForm(latest.data);
     onSaved(latest.data);
