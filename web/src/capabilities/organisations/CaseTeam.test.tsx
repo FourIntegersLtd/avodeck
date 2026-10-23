@@ -20,11 +20,13 @@ function theCase(actions: string[], status = "active") {
   };
 }
 
-function world(actions: string[], status?: string) {
+const CANDIDATES = MEMBERS.filter((m) => m.role !== "assistant" && m.person_id !== PERSON_ID).map((m) => ({ person_id: m.person_id, full_name: m.full_name, email: m.email, role: m.role }));
+
+function world(actions: string[], served = false) {
   signedIn();
   server.use(
-    http.get(`/v1/cases/${CASE_A}`, () => json(theCase(actions, status))),
-    http.get(`/v1/organisations/${TEAM_ORG}/members`, () => json({ members: MEMBERS })),
+    http.get(`/v1/cases/${CASE_A}`, () => json(theCase(actions))),
+    http.get(`/v1/cases/${CASE_A}/named-expert/candidates`, () => json({ served, candidates: CANDIDATES })),
     http.get(`/v1/cases/${CASE_A}/support-access`, () => json({ grants: [] })),
   );
 }
@@ -36,7 +38,7 @@ test("an admin can move the case to another expert, and the request names the pe
   const { user } = renderAt(`/cases/${CASE_A}/team`);
   await user.click(await screen.findByRole("button", { name: "Change named expert" }));
   const choose = screen.getByLabelText("New named expert");
-  expect(within(choose).queryByRole("option", { name: /Jane Morgan/ })).toBeNull(); // the current named expert
+  expect(within(choose).queryByRole("option", { name: /Jane Morgan/ })).toBeNull(); // the server leaves the current one out
   await user.selectOptions(choose, THIRD);
   await user.click(screen.getByRole("button", { name: "Move the case" }));
   expect(await screen.findByText("The case now belongs to Lena Hart.")).toBeInTheDocument();
@@ -52,7 +54,7 @@ test("without the action there is no change button and no support card", async (
 });
 
 test("after serving the change is refused in words, and a replacement is offered only when the flag is on", async () => {
-  world(["case.view_metadata", "case.reassign_named_expert"], "served");
+  world(["case.view_metadata", "case.reassign_named_expert"], true);
   const first = renderAt(`/cases/${CASE_A}/team`);
   expect(await screen.findByText("A report has been served on this case, so its expert can't change.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Create a replacement case" })).toBeNull();

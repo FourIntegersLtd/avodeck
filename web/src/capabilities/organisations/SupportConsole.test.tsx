@@ -36,6 +36,17 @@ test("staff search by case number and see details, no records", async () => {
   expect(within(row).getByText(/Not served/)).toBeInTheDocument();
 });
 
+test("the status is shown in plain words, never the raw code", async () => {
+  signedIn();
+  server.use(http.get("/v1/support/cases", () => json({ cases: [found({ status: "served", served: true })] })));
+  const { user } = renderAt("/support");
+  await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
+  await user.click(screen.getByRole("button", { name: "Search" }));
+  const row = within(await screen.findByRole("list", { name: "Cases found" })).getByRole("listitem");
+  expect(row).toHaveTextContent("Report sent");
+  expect(row).not.toHaveTextContent("served ·");
+});
+
 test("a case with no grant offers no way to open its records", async () => {
   signedIn();
   server.use(http.get("/v1/support/cases", () => json({ cases: [found()] })));
@@ -71,4 +82,23 @@ test("passes the automated accessibility checks", async () => {
   await user.click(screen.getByRole("button", { name: "Search" }));
   await screen.findByRole("list", { name: "Cases found" });
   expect(await axeViolations(container)).toEqual([]);
+});
+
+test("staff choose which served case to move", async () => {
+  setFlag("support_custody_transfer", true);
+  signedIn();
+  const SECOND = "99999999-9999-4999-8999-999999999999";
+  const sent: string[] = [];
+  server.use(
+    http.get("/v1/support/cases", () => json({ cases: [found({ served: true }), found({ case_id: SECOND, served: true })] })),
+    http.post(`/v1/support/cases/${SECOND}/custody`, () => (sent.push(SECOND), json({}))),
+  );
+  const { user } = renderAt("/support");
+  await user.type(await screen.findByLabelText("Case number or email"), "a@example.test");
+  await user.click(screen.getByRole("button", { name: "Search" }));
+  await user.selectOptions(await screen.findByLabelText("Case to move"), SECOND);
+  await user.type(screen.getByLabelText("Where the evidence is kept (a reference code)"), "REF1");
+  await user.click(screen.getByRole("button", { name: "Move custody" }));
+  expect(await screen.findByText("Custody has moved.")).toBeInTheDocument();
+  expect(sent).toEqual([SECOND]);
 });

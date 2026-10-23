@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { apiError, http, json, server } from "../../test/api";
 import { axeViolations, renderAt } from "../../test/render";
-import { invite, MEMBERS, org, OTHER, recorder, TEAM_ORG, teamWorld, THIRD } from "./testing";
+import { ADMIN_ACTIONS, invite, MEMBERS, org, OTHER, recorder, TEAM_ORG, teamWorld, THIRD } from "./testing";
 
 // Typing into fields is slow on a busy machine; these flows have many steps.
 vi.setConfig({ testTimeout: 30_000 });
@@ -26,10 +26,10 @@ test("has the role and leaving panels, the rules card and the closing card", asy
   renderAt(AT);
   expect(await screen.findByRole("heading", { name: "What each role can do" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "When someone leaves" })).toBeInTheDocument();
-  expect(screen.getByText("Every organisation keeps at least one owner.")).toBeInTheDocument();
+  expect(screen.getByText("Every team keeps at least one owner.")).toBeInTheDocument();
   expect(await screen.findByRole("heading", { name: "Rules for Northgate Medico-Legal cases" })).toBeInTheDocument();
   expect(screen.getByText("6 years")).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Close organisation" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Close this team" })).toBeInTheDocument();
 });
 
 test("pending invites list with Cancel, and cancelling removes the invite", async () => {
@@ -43,6 +43,7 @@ test("pending invites list with Cancel, and cancelling removes the invite", asyn
     }),
   );
   const { user } = renderAt(AT);
+  await user.click(await screen.findByRole("button", { name: "Show waiting invites" }));
   expect(await screen.findByText("k.shah@example.test")).toBeInTheDocument();
   expect(screen.getByText(/link works for 5 more days/)).toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Cancel the invite to k.shah@example.test" }));
@@ -171,7 +172,7 @@ test("closing the organisation asks first, then returns to the account", async (
     http.get("/v1/me/sessions", () => json([])),
   );
   const { user, router } = renderAt(AT);
-  await user.click(await screen.findByRole("button", { name: "Close organisation" }));
+  await user.click(await screen.findByRole("button", { name: "Close this team" }));
   expect(sent).toHaveLength(0);
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, close it" }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/account"));
@@ -182,16 +183,16 @@ test("closing is refused while a case is open, in plain words", async () => {
   teamWorld();
   server.use(http.post(`/v1/organisations/${TEAM_ORG}/close`, () => apiError(409, "cases_open")));
   const { user } = renderAt(AT);
-  await user.click(await screen.findByRole("button", { name: "Close organisation" }));
+  await user.click(await screen.findByRole("button", { name: "Close this team" }));
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, close it" }));
   expect(await screen.findByRole("alert")).toHaveTextContent(/still being worked on/);
 });
 
 test("an expert (not owner or admin) sees the people but no controls; someone with no access sees not found", async () => {
-  teamWorld({ org: org({ role: "expert" }) });
+  teamWorld({ org: org({ role: "expert", allowed_actions: ["org.view_members"], assignable_roles: [] }) });
   renderAt(AT);
   await screen.findByRole("heading", { level: 1, name: "Northgate Medico-Legal" });
-  expect(screen.queryByRole("button", { name: "Close organisation" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Close this team" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Send invite" })).toBeNull();
 });
 
@@ -204,7 +205,45 @@ test("a 404 shows the not found page", async () => {
 
 test("passes the automated accessibility checks", async () => {
   teamWorld();
-  const { container } = renderAt(AT);
+  const { container, user } = renderAt(AT);
+  await user.click(await screen.findByRole("button", { name: "Show waiting invites" }));
   await screen.findByText("k.shah@example.test");
   expect(await axeViolations(container)).toEqual([]);
+});
+
+test("the page asks for no code and no invites on arrival", async () => {
+  teamWorld();
+  let asked = 0;
+  server.use(http.get(`/v1/organisations/${TEAM_ORG}/invites`, () => (asked += 1, json({ invites: [] }))));
+  renderAt(AT);
+  await screen.findByRole("button", { name: "Show waiting invites" });
+  expect(asked).toBe(0);
+});
+
+test("controls follow what the server says the person may do, not their role", async () => {
+  teamWorld({ org: org({ role: "owner", allowed_actions: ["org.view_members"], assignable_roles: [] }) });
+  renderAt(AT);
+  await screen.findByRole("heading", { level: 1, name: "Northgate Medico-Legal" });
+  expect(screen.queryByRole("button", { name: "Send invite" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Change role for Lena Hart" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Close this team" })).toBeNull();
+});
+
+test("an admin is not offered the owner role, and cannot close the team", async () => {
+  teamWorld({ org: org({ role: "admin", allowed_actions: ADMIN_ACTIONS, assignable_roles: ["admin", "expert", "assistant", "viewer"] }) });
+  const { user } = renderAt(AT);
+  await user.click(await screen.findByRole("button", { name: "Change role for Lena Hart" }));
+  const roles = within(screen.getByLabelText("New role for Lena Hart")).getAllByRole("option").map((o) => o.textContent);
+  expect(roles).toEqual(["Admin", "Expert", "Assistant", "Viewer"]);
+  expect(screen.queryByRole("button", { name: "Close this team" })).toBeNull();
+  expect(screen.getByLabelText("Their role")).not.toHaveTextContent("Owner");
+});
+
+test("the invoice card links to the bank details screen once one is registered", async () => {
+  teamWorld();
+  const { registerScreen, resetScreens } = await import("../../foundation/lib/screens");
+  registerScreen("billing_profile", () => "/billing-profile");
+  renderAt(AT);
+  expect(await screen.findByRole("link", { name: "Bank details" })).toHaveAttribute("href", "/billing-profile");
+  resetScreens();
 });

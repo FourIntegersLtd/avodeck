@@ -6,8 +6,11 @@ export { PERSON_ID, TEAM_ORG };
 export const OTHER = "66666666-6666-4666-8666-666666666666";
 export const THIRD = "77777777-7777-4777-8777-777777777777";
 
+export const OWNER_ACTIONS = ["org.billing", "org.close", "org.create_case", "org.export", "org.manage_members", "org.set_policy", "org.view_all_cases", "org.view_members"];
+export const ADMIN_ACTIONS = OWNER_ACTIONS.filter((a) => a !== "org.close" && a !== "org.export");
+
 export function org(over: Partial<Schemas["Organisation"]> = {}): Schemas["Organisation"] {
-  return { id: TEAM_ORG, name: "Northgate Medico-Legal", kind: "team", region: "uk", role: "owner", policy: { required_template_id: null, max_retention_years: 6 }, created_at: "2026-02-01T09:00:00Z", ...over };
+  return { id: TEAM_ORG, name: "Northgate Medico-Legal", kind: "team", region: "uk", role: "owner", allowed_actions: OWNER_ACTIONS, assignable_roles: ["owner", "admin", "expert", "assistant", "viewer"], policy: { required_template_id: null, max_retention_years: 6 }, created_at: "2026-02-01T09:00:00Z", ...over };
 }
 
 export function member(id: string, name: string, role: Schemas["OrgMember"]["role"], over: Partial<Schemas["OrgMember"]> = {}): Schemas["OrgMember"] {

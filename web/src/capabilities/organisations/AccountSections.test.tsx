@@ -2,27 +2,15 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 import { apiError, http, json, server, signedIn } from "../../test/api";
-import { caseCard, CASE_A, CASE_B, PERSONAL_ORG, TEAM_ORG } from "../../test/fixtures";
+import { CASE_A, CASE_B } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { recorder } from "./testing";
 
 // Typing into fields is slow on a busy machine; these flows have many steps.
 vi.setConfig({ testTimeout: 30_000 });
 
-function today() {
-  server.use(
-    http.get("/v1/today", () =>
-      json({
-        cases: [
-          caseCard({ case_id: CASE_A, label: "Mrs A", organisation_id: PERSONAL_ORG, organisation_kind: "personal", status: "active", your_role: "named_expert" }),
-          caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_kind: "team", status: "active", your_role: "named_expert" }),
-        ],
-        needs_you: [],
-        organisations: [],
-        closed_count: 0,
-      }),
-    ),
-  );
+function today(over: Array<{ case_id: string; label: string; exported: boolean }> = [{ case_id: CASE_A, label: "Mrs A", exported: false }]) {
+  server.use(http.get("/v1/me/close", () => json({ cases: over })));
 }
 
 test("the account page links to both sections once they are registered", async () => {
@@ -71,14 +59,17 @@ test("removes the custodian", async () => {
   expect(sent[0]!.body).toEqual({ name: null, email: null });
 });
 
-test("close account lists only own-practice unserved cases, each with an Export link", async () => {
+test("close account lists the cases the server says would be deleted, each with an Export link", async () => {
   signedIn();
-  today();
+  today([{ case_id: CASE_A, label: "Mrs A", exported: false }, { case_id: CASE_B, label: "Ms C", exported: true }]);
   renderAt("/account/close");
   expect(await screen.findByRole("heading", { level: 1, name: "Close your account" })).toBeInTheDocument();
   const list = await screen.findByRole("list", { name: "Cases in your own practice that will be deleted" });
-  expect(within(list).getByText("Mrs A")).toBeInTheDocument();
-  expect(within(list).queryByText("Ms C")).toBeNull();
+  const [first, second] = within(list).getAllByRole("listitem");
+  expect(first).toHaveTextContent("Mrs A");
+  expect(first).toHaveTextContent("Not exported yet");
+  expect(second).toHaveTextContent("Ms C");
+  expect(second).toHaveTextContent("Exported");
 });
 
 test("when the server says export first, the named cases are marked", async () => {
@@ -88,8 +79,8 @@ test("when the server says export first, the named cases are marked", async () =
   const { user } = renderAt("/account/close");
   await user.click(await screen.findByRole("button", { name: "Close account" }));
   await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Yes, close my account" }));
-  expect(await screen.findByText("Not exported yet")).toBeInTheDocument();
-  expect(screen.getByRole("alert")).toHaveTextContent("Export the cases marked below");
+  expect(await screen.findByRole("alert")).toHaveTextContent("Export the cases marked below");
+  expect(screen.getByText("Not exported yet")).toBeInTheDocument();
 });
 
 test("closing the account works and says served reports stay", async () => {

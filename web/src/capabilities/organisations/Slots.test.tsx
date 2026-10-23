@@ -17,7 +17,7 @@ const ctx = (over: Partial<CaseActionContext> = {}): CaseActionContext => ({
 test("the account page shows the custodian and closing sections through the slots", async () => {
   expect(accountSections().map((s) => s.key)).toEqual(expect.arrayContaining(["organisations.custodian", "organisations.close"]));
   signedIn();
-  server.use(http.get("/v1/me/sessions", () => json([])));
+  server.use(http.get("/v1/me/sessions", () => json([])), http.get("/v1/me/close", () => json({ cases: [] })));
   const { container } = renderAt("/account");
   expect(await screen.findByRole("heading", { name: "If you can't carry on" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Close your account" })).toBeInTheDocument();
@@ -53,4 +53,13 @@ test("the people table has a cases column", async () => {
   expect(within(people).getByText("6 cases")).toBeInTheDocument();
   expect(within(people).getByText("1 case")).toBeInTheDocument();
   expect(within(people).getByText("—")).toBeInTheDocument();
+});
+
+test("a member who may not see counts gets no cases text at all", async () => {
+  teamWorld({ members: MEMBERS.map((m) => ({ ...m, case_count: null })) });
+  renderAt(`/organisations/${TEAM_ORG}`);
+  const people = await screen.findByRole("region", { name: /^People/ });
+  await within(people).findByText("Dr Jane Morgan (you)");
+  expect(within(people).queryByText("—")).toBeNull();
+  expect(within(people).queryByText(/cases?$/)).toBeNull();
 });

@@ -56,6 +56,7 @@ test("S27: an owner sees the people, invites someone, cancels the invite and cha
   await expect(page.getByText("Eve Expert")).toBeVisible();
 
   await page.getByLabel("Invite someone by email").fill("new.person@example.test");
+  await page.getByRole("button", { name: "Show waiting invites" }).click();
   await page.getByLabel("Their role").selectOption("assistant");
   await page.getByRole("button", { name: "Send invite" }).click();
   await expect(page.getByText("We've emailed an invite to new.person@example.test.")).toBeVisible();
@@ -83,7 +84,7 @@ test("S27: an owner sees the people, invites someone, cancels the invite and cha
 test("S27: a team's closing refuses while a case is open", async ({ page, context }) => {
   await signInAs(context, "owner");
   await page.goto(`/organisations/${world.team}`);
-  await page.getByRole("button", { name: "Close organisation" }).click();
+  await page.getByRole("button", { name: "Close this team" }).click();
   await page.getByRole("button", { name: "Yes, close it" }).click();
   await expect(page.getByRole("alert")).toContainText("still being worked on");
 });
