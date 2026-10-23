@@ -1,11 +1,11 @@
-// Screen 09 as the design canvas shows it: the toolbar (Turn page, Clearer copy, Not this patient), "Why we do
+// Screen 09 as the design canvas shows it: the toolbar (Turn right, Clearer copy, Not this patient), "Why we do
 // this", the related record, the progress bar and the keyboard hints. Runs under both pack sets.
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { CASE_ID, fact, factId, pageId } from "./testData";
+import { CASE_ID, fact, factId } from "./testData";
 import { mockReader } from "./testing";
 import "./index";
 
@@ -28,12 +28,15 @@ describe.each([
     expect(screen.queryByText(/ to .* 20\d\d/)).not.toBeInTheDocument();
   });
 
-  test("Turn page turns the page a quarter and reads it again", async () => {
+  // Approved 2026-10-23 (page viewer item 1): turning is instant and only changes how the page is shown;
+  // the page is no longer read again.
+  test("Turn right turns the page a quarter at once, without reading it again", async () => {
     const api = mockReader(pack);
     const { user } = renderAt(PATH);
-    await user.click(await screen.findByRole("button", { name: "Turn page" }));
-    await waitFor(() => expect(api.rotations).toEqual([{ pageId: pageId(118), body: { degrees: 90 } }]));
-    expect(await screen.findByText(/We're reading the page again/)).toBeVisible();
+    await user.click(await screen.findByRole("button", { name: "Turn right" }));
+    await waitFor(() => expect(api.turns).toEqual([{ page: 118, body: { degrees: 90 } }]));
+    expect(api.rotations).toEqual([]);
+    expect(screen.queryByText(/We're reading the page again/)).not.toBeInTheDocument();
   });
 
   test("Clearer copy puts the page on the list for a clearer copy", async () => {
