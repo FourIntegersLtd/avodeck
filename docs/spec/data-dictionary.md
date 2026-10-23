@@ -137,7 +137,10 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | email | Who was invited |
 | role | The role they'll have when they accept |
 | invited_by | Who sent it |
-| expires_at / accepted_at | When it stops working; when it was accepted |
+| token_hash | A scrambled copy of the secret in the email's link; the link itself is never kept |
+| status | Waiting, accepted, cancelled or expired (a waiting invite past its expiry date reads as expired) |
+| expires_at / accepted_at / accepted_by | When it stops working (7 days after sending); when it was accepted, and by whom |
+| cancelled_at | When an owner or admin cancelled it |
 
 ### billing_profiles
 | Field | In plain words |
