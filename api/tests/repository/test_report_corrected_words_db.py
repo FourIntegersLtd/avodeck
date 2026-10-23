@@ -27,3 +27,22 @@ async def test_the_spot_check_page_words_read_as_the_experts_correction(
     assert polygons[w.first] and polygons[w.second]  # the crop still finds the cited words' boxes
     others = [k for k in w.original if k not in (w.first, w.second)]
     assert all(text[k] == w.original[k] for k in others)
+
+
+async def test_a_name_in_a_folded_word_is_still_blacked_out(seed: Seed, admin_dsn: str, api_db: Database) -> None:
+    from app.features.report.spot_checks import hidden_words
+
+    w = await corrected_world(seed, admin_dsn, api_db)
+    name = w.original[w.second]  # the party name, misread across the run, sits in its non-first word
+    async with api_db.request(scope_for(w.expert)) as conn:
+        hidden = await hidden_words(conn, CRYPTO, w.case, w.page_id, [name], lambda line: [])
+    assert {w.first, w.second} <= hidden  # never looser than before the correction: the whole run is hidden
+
+
+async def test_a_name_in_the_corrected_text_hides_the_whole_run(seed: Seed, admin_dsn: str, api_db: Database) -> None:
+    from app.features.report.spot_checks import hidden_words
+
+    w = await corrected_world(seed, admin_dsn, api_db)
+    async with api_db.request(scope_for(w.expert)) as conn:
+        hidden = await hidden_words(conn, CRYPTO, w.case, w.page_id, [READING], lambda line: [])
+    assert {w.first, w.second} <= hidden
