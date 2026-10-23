@@ -81,3 +81,9 @@ Producing the content being exported (other slices), invoice generation (F).
 
 ## Definition of done
 Root checklist, plus: a synthetic case can be exported and fully deleted on staging with a certificate produced.
+
+## Organisation retention limit (cross-slice request O to H)
+- `GET /cases/{id}/close` carries `max_retention_years` (the organisation's `policy.max_retention_years`, read with `core/contracts/org_policy.py`; null when none).
+- `PUT /retention` with `keep_default` is refused (422 `retention_exceeds_org_policy`) when the pack's years are longer than the limit. `return_then_delete` and `delete_now` are never longer. Settling, archiving and the daily dating run never date a case later than the limit.
+- S26 turns the `keep_default` choice off and says why (`close.keep.limited`).
+- Account closure: `core/contracts/close.py` `request_case_deletion` queues H's `delete_case`; `test_account_closure_deletion_reaches_the_delete_case_job_end_to_end` runs that job and checks the rows are gone and the certificate written.
