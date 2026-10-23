@@ -119,3 +119,30 @@ async def test_a_person_cannot_write_audit_rows_in_someone_elses_name(
             await conn.execute(
                 "insert into app.audit_log (person_id, action, target) values (%s, 'x', 'y')", (uuid.uuid4(),)
             )
+
+
+class _Refused(Exception):
+    pass
+
+
+@pytest.mark.anyio
+async def test_a_detached_row_stays_when_the_requests_transaction_rolls_back(
+    api_db: Database, case_world: tuple[uuid.UUID, uuid.UUID, uuid.UUID], admin: psycopg.Connection
+) -> None:
+    expert, org, case = case_world
+    scope = scope_for(expert)
+    with pytest.raises(_Refused):
+        async with audit.detached(api_db, scope), api_db.request(scope) as conn:
+            await audit.record(conn, action="case.updated", target=f"case:{case}", case_id=case)
+            audit.record_detached(action="case.update_refused", target="refused:busy", case_id=case, organisation_id=org)
+            raise _Refused
+    found = admin.execute(
+        "select person_id, organisation_id, case_id, action, target from app.audit_log where case_id = %s", (case,)
+    ).fetchall()
+    assert found == [(expert, org, case, "case.update_refused", "refused:busy")]
+    assert audit.find_breaks(all_rows(admin)) == []
+
+
+def test_a_detached_row_needs_a_request() -> None:
+    with pytest.raises(RuntimeError):
+        audit.record_detached(action="case.update_refused", target="refused:busy")
