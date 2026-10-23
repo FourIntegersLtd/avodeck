@@ -193,6 +193,20 @@ class SupportCaseDetail(BaseModel):
     content_access: bool
 
 
+class CustodyTransferCreate(Strict):
+    case_id: uuid.UUID
+    to: Literal["custodian", "organisation"]
+    evidence_note: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+
+
+class CustodyTransfer(BaseModel):
+    id: uuid.UUID
+    case_id: uuid.UUID
+    to_person_id: uuid.UUID | None
+    to_organisation_id: uuid.UUID | None
+    transferred_at: datetime
+
+
 class AccountClosed(BaseModel):
     closed_at: datetime
     deletion_job_ids: list[uuid.UUID]
