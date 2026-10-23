@@ -1,4 +1,4 @@
--- Undo 0209: facts_guard as in 0208; no `reset` action (reset rows must be gone first).
+-- Undo 0212: facts_guard as in 0210; no `reset` action (reset rows must be gone first).
 set role app_migrator;
 
 alter table app.fact_verifications drop constraint fact_verifications_person;
@@ -34,11 +34,7 @@ begin
   end if;
   if new.status is distinct from old.status and (old.status, new.status) not in (
     ('suggested', 'verified'), ('suggested', 'edited'), ('suggested', 'rejected'),
-    ('verified', 'rejected'), ('edited', 'rejected'), ('rejected', 'verified')
-  ) and not (
-    -- "Please check" after a re-read: the expert changes the fact to cite the words there now.
-    (old.status, new.status) = ('verified', 'edited')
-    and exists (select 1 from app.fact_flags g where g.fact_id = new.id and g.flagged_for = 'recheck')
+    ('verified', 'rejected'), ('edited', 'rejected'), ('rejected', 'verified'), ('verified', 'edited')
   ) then
     perform app.refuse(format('fact status cannot change from %s to %s', old.status, new.status));
   end if;

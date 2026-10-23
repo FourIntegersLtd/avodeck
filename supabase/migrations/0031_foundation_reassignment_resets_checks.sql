@@ -9,16 +9,16 @@
 --   fields and cited words from that `fact_verifications` row, and the box around those words), unless
 --   its page was read again (`remapped`) or it moved to a clearer copy (`move`) since then: the old
 --   words may be gone, so it keeps the words it cites now;
--- * one `fact_verifications` row per fact, action `reset`, no person (allowed by 0209), so the log and
+-- * one `fact_verifications` row per fact, action `reset`, no person (allowed by 0212), so the log and
 --   its hash chain stay whole; the version rises, so an ETag from before is stale;
 -- * the fact's "Please check" flag (`fact_flags.flagged_for = 'recheck'`) goes with the check it asked
 --   about.
--- `facts_guard` (redefined in 0209, after slice B's 0208) lets checked -> suggested through only from
+-- `facts_guard` (redefined in 0212, after slice B's 0210) lets checked -> suggested through only from
 -- inside this trigger: the marker `app.fact_checks_reset` names the case and the trigger depth is > 1,
 -- so setting the marker by hand opens nothing.
 -- The trigger refuses (AV409) a case that has ever been served, whoever changes it: `cases_actor`
 -- checks only the running app. A check in flight and a reassignment wait for each other: `facts_guard`
--- (0209) holds the case row `for share` while a fact is checked, which the reassignment's row update waits
+-- (0212) holds the case row `for share` while a fact is checked, which the reassignment's row update waits
 -- for, and refuses the check if the case's named expert changed meanwhile.
 -- app.word_box(page, word_ids)   the words' box as a share of the page, as `document_words.box()` and
 --                                slice B's `repo.word_box()` draw it; null when no word has a place on

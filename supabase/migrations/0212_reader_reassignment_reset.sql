@@ -1,7 +1,8 @@
--- 0209 reader [foundation change in slice B's range, scenario S3; founder-approved, docs/slices/0-foundation.md]:
+-- 0212 reader [foundation change in slice B's range, scenario S3; founder-approved, docs/slices/0-foundation.md]:
 -- a new named expert starts with every fact a suggestion (migration 0031, `cases_named_expert_reset`).
--- It must run after 0203 and 0208, which it changes, so it is numbered here:
--- * `facts_guard` [foundation path; whole body from 0208, unchanged but for one exception]: checked ->
+-- It must run after 0203, 0207 and 0210, which it changes, so it is numbered here:
+-- * `facts_guard` [foundation path; whole body from 0210 (verified -> edited always), unchanged but for
+--   the exception and the lock below]: checked ->
 --   suggested only from inside `cases_named_expert_reset` (the marker `app.fact_checks_reset` names the
 --   fact's case and the trigger depth is > 1); the version rises.
 -- * `facts_guard` also holds the case row `for share` whenever a fact's status changes to a checked one,
@@ -61,11 +62,7 @@ begin
   end if;
   if new.status is distinct from old.status and (old.status, new.status) not in (
     ('suggested', 'verified'), ('suggested', 'edited'), ('suggested', 'rejected'),
-    ('verified', 'rejected'), ('edited', 'rejected'), ('rejected', 'verified')
-  ) and not (
-    -- "Please check" after a re-read: the expert changes the fact to cite the words there now.
-    (old.status, new.status) = ('verified', 'edited')
-    and exists (select 1 from app.fact_flags g where g.fact_id = new.id and g.flagged_for = 'recheck')
+    ('verified', 'rejected'), ('edited', 'rejected'), ('rejected', 'verified'), ('verified', 'edited')
   ) then
     perform app.refuse(format('fact status cannot change from %s to %s', old.status, new.status));
   end if;
