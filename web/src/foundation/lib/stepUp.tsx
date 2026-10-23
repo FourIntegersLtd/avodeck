@@ -1,5 +1,6 @@
 // Rule 10: risky actions need the code entered in the last 10 minutes. When the API answers
-// step_up_required, this asks for the code (POST /v1/auth/mfa/verify) and then tries again.
+// step_up_required, this asks for the code (POST /v1/auth/mfa/verify) and then tries again. If the
+// person cancels, or the code is still asked for after it was given, it says that nothing was changed.
 import { createContext, useCallback, useContext, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { t } from "../i18n";
 import { api, ApiError, unwrap } from "../platform-client";
@@ -13,6 +14,7 @@ const StepUpContext = createContext<Run | null>(null);
 
 export function StepUpProvider({ children }: { children: ReactNode }) {
   const [asking, setAsking] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
   const answer = useRef<((ok: boolean) => void) | null>(null);
 
   const ask = () =>
@@ -28,22 +30,45 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
   };
 
   const run = useCallback<Run>(async (action) => {
+    setCancelled(false);
     try {
       return await action();
     } catch (error) {
-      if (!(error instanceof ApiError && error.code === "step_up_required")) throw error;
-      if (!(await ask())) return undefined;
-      return action();
+      if (!needsCode(error)) throw error;
+      if (!(await ask())) return nothingChanged();
+      try {
+        return await action();
+      } catch (again) {
+        if (!needsCode(again)) throw again;
+        return nothingChanged();
+      }
     }
   }, []);
+
+  const nothingChanged = () => {
+    setCancelled(true);
+    return undefined;
+  };
 
   return (
     <StepUpContext.Provider value={run}>
       {children}
+      {cancelled && (
+        <div className="av-stepup-notice">
+          <Notice tone="warning">
+            <p>{t("step_up.cancelled")}</p>
+            <Button variant="secondary" onClick={() => setCancelled(false)}>
+              {t("step_up.cancelled_ok")}
+            </Button>
+          </Notice>
+        </div>
+      )}
       {asking && <StepUpDialog onDone={done} />}
     </StepUpContext.Provider>
   );
 }
+
+const needsCode = (error: unknown) => error instanceof ApiError && error.code === "step_up_required";
 
 function StepUpDialog({ onDone }: { onDone: (ok: boolean) => void }) {
   const [code, setCode] = useState("");

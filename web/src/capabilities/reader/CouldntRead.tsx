@@ -1,6 +1,7 @@
 // Screen 10, Pages we couldn't read. The expert types out each page the machine could not read, says
 // whether it matters, and moves on. The server stores the typing and decides what follows.
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -21,11 +22,18 @@ export function CouldntRead() {
   const [failed, setFailed] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [text, setText] = useState("");
+  // The page's current reading, as loaded into the box (only once the page is read: the words endpoint is behind rule 3).
+  const [prefill, setPrefill] = useState("");
+  const [why, setWhy] = useState<string | null>(null);
+  const chosen = useRef<number | null>(null);
+  const whyId = useId();
   const [relevance, setRelevance] = useState<Relevance | null>(null);
   const [busy, setBusy] = useState(false);
   const [copying, setCopying] = useState(false);
   const [copyOf, setCopyOf] = useState("");
   const fileId = useId();
+  const [params] = useSearchParams();
+  const wanted = Number(params.get("page")) || null;
   const [notice, setNotice] = useState<{ tone: "error" | "success"; text: string } | null>(null);
 
   const fetchQueue = () => unwrap(api.GET("/v1/cases/{case_id}/pages/unreadable", casePath(caseId)));
@@ -33,19 +41,49 @@ export function CouldntRead() {
   function choose(page: Schemas["UnreadablePage"] | undefined) {
     setSelected(page?.page_no ?? null);
     setText("");
+    setPrefill("");
+    setWhy(null);
+    chosen.current = page?.page_no ?? null;
+    if (page) void startFrom(page.page_no);
     setRelevance((page?.relevance as Relevance | null) ?? null);
     setNotice(null);
     setCopying(false);
     setCopyOf("");
   }
 
+  // Starts the type-out from the page's current reading, with the expert's corrections in place.
+  async function startFrom(pageNo: number) {
+    try {
+      const { reading } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
+      if (chosen.current !== pageNo || !reading?.trim()) return;
+      setPrefill(reading);
+      setText((t) => (t === "" ? reading : t));
+    } catch {
+      /* not read yet, or no words: start empty */
+    }
+  }
+
   useEffect(() => {
     let live = true;
     fetchQueue().then(
-      (q) => {
+      async (q) => {
+        if (!live) return;
+        // Asked for one page (a badly read page still has words, so it isn't in the list): add it to the front.
+        if (wanted !== null && !q.pages.some((p) => p.page_no === wanted)) {
+          try {
+            const d = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: wanted } } }));
+            q = {
+              ...q,
+              total: q.total + 1,
+              pages: [{ page_no: d.page_no, page_id: d.page_id, source_type: d.source_type, handwriting: d.handwriting, relevance: d.relevance, has_transcription: d.has_transcription, needs_clearer_copy: d.needs_clearer_copy, is_copy: false, has_clearer_copy: false, done: false }, ...q.pages],
+            };
+          } catch {
+            /* fall back to the list as it is */
+          }
+        }
         if (!live) return;
         setQueue(q);
-        choose(q.pages.find((p) => !p.done));
+        choose(q.pages.find((p) => p.page_no === wanted) ?? q.pages.find((p) => !p.done));
       },
       () => live && setFailed(true),
     );
@@ -60,7 +98,10 @@ export function CouldntRead() {
   const current = queue.pages.find((p) => p.page_no === selected);
 
   async function saveAndNext() {
-    if (!current || busy || !text.trim()) return;
+    if (!current || busy) return;
+    if (!text.trim()) return setWhy(w("unreadable.reason.type_first"));
+    if (prefill.trim() && text.trim() === prefill.trim()) return setWhy(w("unreadable.reason.nothing_changed"));
+    setWhy(null);
     setBusy(true);
     setNotice(null);
     try {
@@ -218,9 +259,14 @@ export function CouldntRead() {
                 </Button>
               </div>
             )}
-            <Button wide arrow disabled={busy || !text.trim()} onClick={() => void saveAndNext()}>
+            <Button wide arrow disabled={busy} aria-describedby={why ? whyId : undefined} onClick={() => void saveAndNext()}>
               {w("unreadable.save_next")}
             </Button>
+            {why && (
+              <p id={whyId} role="alert" className="rd-form-error__text">
+                {why}
+              </p>
+            )}
           </section>
         </div>
       )}

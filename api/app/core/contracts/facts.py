@@ -45,6 +45,7 @@ class Fact(BaseModel):
     prompt_version: str | None = None
     created_at: datetime
     updated_at: datetime
+    cites_correction: bool = False  # cites words the expert read differently from the computer (decision 0018)
 
 
 async def citable_facts(conn: AsyncConnection, case_id: uuid.UUID, reads: PageReadLog | None) -> list[Fact]:
@@ -60,7 +61,9 @@ async def citable_facts(conn: AsyncConnection, case_id: uuid.UUID, reads: PageRe
         return []
     async with conn.cursor(row_factory=dict_row) as rows:
         await rows.execute(
-            "select * from app.facts f where f.case_id = %s and f.status = any(%s) and f.page_id = any(%s)"
+            "select f.*, exists (select 1 from app.word_corrections c where c.page_id = f.page_id"
+            " and c.superseded_at is null and c.word_ids && f.word_ids) as cites_correction"
+            " from app.facts f where f.case_id = %s and f.status = any(%s) and f.page_id = any(%s)"
             " and not exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %s)"
             " order by f.created_at, f.id",
             (case_id, sorted(CITABLE_STATUSES), list(read), RECHECK),

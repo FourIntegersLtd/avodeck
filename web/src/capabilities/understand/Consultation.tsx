@@ -10,7 +10,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, StatusBadge, ToggleSwitch } from "../../foundation/ui";
 import { Comments } from "./Comments";
-import { GuidanceChanged, kindWord, longDate, statusOf, TextArea, useCan } from "./shared";
+import { GuidanceChanged, longDate, statusOf, TextArea, useCan, useKindWord } from "./shared";
 import { w } from "./words";
 import { groupByPage, splitByVisitPage } from "./consultationEntries";
 import { pageImage } from "./pageImage";
@@ -30,13 +30,14 @@ function StateDot({ entry }: { entry: Entry }) {
 }
 
 function EntryRow({ entry, variant, onChange }: { entry: Entry; variant: EntryVariant; onChange?: (e: Entry) => void }) {
+  const word = useKindWord();
   return (
     <li className="av-understand-entry av-understand-entry--compact">
       <StateDot entry={entry} />
       <div className="av-understand-entry__line">
         <span>
           <strong>
-            {kindWord(entry.kind)}, {longDate(entry.event_date)}.
+            {word(entry.kind)}, {longDate(entry.event_date)}.
           </strong>{" "}
           <span className="av-understand-entry__summary">{entry.summary}</span>
         </span>
@@ -235,6 +236,7 @@ function PagePanel({ caseId, pageNo, marks }: { caseId: string; pageNo: number; 
 }
 
 function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
+  const word = useKindWord();
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/consultations/{fact_id}/later-notes", { params: { path: { case_id: caseId, fact_id: factId } } })), [caseId, factId]);
   return (
     <section aria-labelledby="consult-later-notes" className="av-card av-stack av-understand-card">
@@ -252,7 +254,7 @@ function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
             <li key={n.fact_id} className="av-understand-entry av-understand-entry--plain">
               <span className="av-understand-entry__words">
                 <span>
-                  {longDate(n.event_date)} · {kindWord(n.kind)}
+                  {longDate(n.event_date)} · {word(n.kind)}
                 </span>
                 {n.has_note && <span className="av-muted">{w("consultation.later_notes_mine")}</span>}
               </span>
@@ -267,6 +269,7 @@ function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
 
 export function Consultation() {
   const { caseId = "", factId = "" } = useParams();
+  const word = useKindWord();
   const [changing, setChanging] = useState<Entry | null>(null);
   const [on, setOn] = useState<string | null>(null);
   const [typed, setTyped] = useState<string | null>(null);
@@ -311,7 +314,7 @@ export function Consultation() {
       <div className="av-understand-top">
         <div>
           <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
-          <h2>{w("consultation.heading", { kind: kindWord(c.entry.kind), date: longDate(day) })}</h2>
+          <h2>{w("consultation.heading", { kind: word(c.entry.kind), date: longDate(day) })}</h2>
           {c.entry.author_line && <p className="av-understand-author">{c.entry.author_line}</p>}
           {c.question_numbers.length > 0 ? (
             <div role="group" aria-label={w("consultation.linked_to")} className="av-understand-chips av-understand-linked">

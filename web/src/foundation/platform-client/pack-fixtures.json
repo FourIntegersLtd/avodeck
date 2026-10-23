@@ -108,20 +108,31 @@
       ],
       "fact_kinds": [
         {
+          "field_labels": {
+            "duration_minutes": "zz length in minutes"
+          },
           "fields": {
             "duration_minutes": "integer"
           },
-          "key": "session"
+          "key": "session",
+          "label": "zz session"
         },
         {
           "arrives": true,
+          "field_labels": {
+            "name": "zz name",
+            "unit": "zz unit",
+            "value": "zz value",
+            "via": "zz via"
+          },
           "fields": {
             "name": "string",
             "unit": "string",
             "value": "string",
             "via": "string"
           },
-          "key": "measurement"
+          "key": "measurement",
+          "label": "zz measurement"
         }
       ],
       "final_checks": [],
@@ -782,6 +793,16 @@
       "fact_kinds": [
         {
           "author_field": "clinician_name",
+          "field_labels": {
+            "clinician_name": "Seen by",
+            "date": "Date",
+            "examination": "Examination",
+            "history": "History",
+            "plan": "Plan",
+            "reason": "Reason",
+            "safety_netting": "Safety-netting advice",
+            "setting": "Setting"
+          },
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -792,10 +813,20 @@
             "safety_netting": "string",
             "setting": "string"
           },
-          "key": "consultation"
+          "key": "consultation",
+          "label": "Consultation"
         },
         {
           "author_field": "clinician_name",
+          "field_labels": {
+            "clinician_name": "Seen by",
+            "date": "Date",
+            "history": "History",
+            "plan": "Plan",
+            "reason": "Reason",
+            "safety_netting": "Safety-netting advice",
+            "setting": "Setting"
+          },
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -805,10 +836,21 @@
             "safety_netting": "string",
             "setting": "string"
           },
-          "key": "phone_consultation"
+          "key": "phone_consultation",
+          "label": "Phone consultation"
         },
         {
           "author_field": "clinician_name",
+          "field_labels": {
+            "clinician_name": "Seen by",
+            "date": "Date",
+            "examination": "Examination",
+            "history": "History",
+            "plan": "Plan",
+            "reason": "Reason",
+            "safety_netting": "Safety-netting advice",
+            "setting": "Setting"
+          },
           "fields": {
             "clinician_name": "string",
             "date": "date",
@@ -819,10 +861,21 @@
             "safety_netting": "string",
             "setting": "string"
           },
-          "key": "home_visit"
+          "key": "home_visit",
+          "label": "Home visit"
         },
         {
           "arrives": true,
+          "field_labels": {
+            "actioned_on": "Acted on",
+            "date": "Date",
+            "flag": "Flag",
+            "received_on": "Received on",
+            "reference_range": "Normal range",
+            "test": "Test",
+            "unit": "Unit",
+            "value": "Result"
+          },
           "fields": {
             "actioned_on": "date",
             "date": "date",
@@ -833,9 +886,17 @@
             "unit": "string",
             "value": "string"
           },
-          "key": "result"
+          "key": "result",
+          "label": "Result"
         },
         {
+          "field_labels": {
+            "date": "Date",
+            "dose": "Dose",
+            "drug": "Medicine",
+            "quantity": "Quantity",
+            "repeat": "Repeat prescription"
+          },
           "fields": {
             "date": "date",
             "dose": "string",
@@ -843,9 +904,17 @@
             "quantity": "string",
             "repeat": "boolean"
           },
-          "key": "prescription"
+          "key": "prescription",
+          "label": "Prescription"
         },
         {
+          "field_labels": {
+            "acknowledged_on": "Acknowledged on",
+            "date": "Date",
+            "reason": "Reason",
+            "to": "To",
+            "urgency": "Urgency"
+          },
           "fields": {
             "acknowledged_on": "date",
             "date": "date",
@@ -853,10 +922,19 @@
             "to": "string",
             "urgency": "string"
           },
-          "key": "referral"
+          "key": "referral",
+          "label": "Referral"
         },
         {
           "arrives": true,
+          "field_labels": {
+            "acknowledges_referral_dated": "Replies to referral dated",
+            "actions_requested": "Actions asked for",
+            "date": "Date",
+            "from": "From",
+            "received_on": "Received on",
+            "to": "To"
+          },
           "fields": {
             "acknowledges_referral_dated": "date",
             "actions_requested": "string",
@@ -865,38 +943,62 @@
             "received_on": "date",
             "to": "string"
           },
-          "key": "letter"
+          "key": "letter",
+          "label": "Letter"
         },
         {
+          "field_labels": {
+            "date": "Date",
+            "finding": "Finding",
+            "unit": "Unit",
+            "value": "Result"
+          },
           "fields": {
             "date": "date",
             "finding": "string",
             "unit": "string",
             "value": "string"
           },
-          "key": "examination"
+          "key": "examination",
+          "label": "Examination"
         },
         {
+          "field_labels": {
+            "advice": "Advice",
+            "date": "Date"
+          },
           "fields": {
             "advice": "string",
             "date": "date"
           },
-          "key": "safety_netting"
+          "key": "safety_netting",
+          "label": "Safety-netting advice"
         },
         {
+          "field_labels": {
+            "appointment_type": "Appointment type",
+            "date": "Date"
+          },
           "fields": {
             "appointment_type": "string",
             "date": "date"
           },
-          "key": "missed_appointment"
+          "key": "missed_appointment",
+          "label": "Missed appointment"
         },
         {
+          "field_labels": {
+            "date": "Date",
+            "description": "Description",
+            "done_on": "Done on"
+          },
           "fields": {
             "date": "date",
             "description": "string",
             "done_on": "date"
           },
-          "key": "task"
+          "key": "task",
+          "label": "Task"
         }
       ],
       "final_checks": [

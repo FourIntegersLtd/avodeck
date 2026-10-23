@@ -57,6 +57,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `fact_verifications` | B | Named expert (append only); the reading job adds `remapped` rows with no person (0207) | Many per fact | Append only | Case deletion; chain head on certificate |
 | `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
 | `fact_flags` | B | Named expert (`points`); the reading job adds `recheck` with no person (0205), removed when the expert checks the fact again | Many | Add or remove | Case deletion |
+| `word_corrections` | B | Named expert only (`fact.verify`), while changing a fact | Many per page; one current per word | Never deleted by the app; a later reading of the same words, or new words for the page (slice A's reading job, 0211), sets `superseded_at`; other checked facts on the words of either reading that it no longer shows are flagged `recheck`; refused (409) on words a served fact cites | Goes with its page on case deletion (no case_id, decision 0018); deleted by `purge_quarantined_page` (0211) |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |

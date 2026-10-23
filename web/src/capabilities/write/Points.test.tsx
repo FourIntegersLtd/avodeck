@@ -2,7 +2,7 @@
 // suggestions, accounts that differ, the range note and the way on to S15.
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import { http, json, server } from "../../test/api";
+import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
@@ -179,4 +179,23 @@ test("a relevant fact the draft has not used links to the page as the clinician 
   serve("launch", { points: pointsBody("launch", { relevant: [{ id: "d1111111-1111-4111-8111-111111111111", status: "suggested", why_relevant: "Mentions pain", version: 1, fact: pointFact({ id: FACT_2, value: "Out-of-hours call" }) }] }), progress: progress() });
   renderAt(`${url}?q=${Q1}`);
   expect(await screen.findByRole("link", { name: M["write.points.relevant_look"]! })).toHaveAttribute("href", `/cases/${CASE_A}/consultation/${FACT_2}`);
+});
+
+test("adding a fact that is already a point says so in plain words and shows that point", async () => {
+  serve("launch");
+  const existing = pointOut({ id: "b3333333-3333-4333-8333-333333333333", side: "supports_clinician", fact: pointFact({ id: FACT_2, value: "Iron deficiency on file" }) });
+  let posted = false;
+  server.use(
+    http.post("/v1/cases/:caseId/questions/:q/points", () => ((posted = true), apiError(409, "conflict"))),
+    http.get("/v1/cases/:caseId/questions/:q/points", () => json(pointsBody("launch", posted ? { points: [pointOut(), existing], unused: [] } : {}))),
+  );
+  const { user } = renderAt(`${url}?q=${Q1}`);
+  await screen.findByRole("heading", { name: sides("launch")[1]!.label });
+  await user.click((await screen.findAllByRole("button", { name: M["write.points.add_row_button"]! }))[1]!);
+  const unused = await screen.findByRole("region", { name: M["write.points.unused"] });
+  await user.click(within(unused).getByRole("button", { name: `Add to ${sides("launch")[1]!.label}` }));
+  expect(await screen.findByText(M["write.points.exists"]!)).toBeInTheDocument();
+  expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: M["write.points.exists_show"]! }));
+  expect(document.getElementById(`point-${existing.id}`)).toHaveFocus();
 });

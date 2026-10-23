@@ -13,7 +13,7 @@ import { QuestionChip } from "./QuestionChip";
 import { SeriesBars, seriesFacts, seriesRows } from "./SeriesBars";
 import { useCardMotion } from "./useCardMotion";
 import { DateMarkIcon, LaneIcon } from "./laneIcons";
-import { axisIso, kindWord, longDate } from "./shared";
+import { axisIso, kindWord, longDate, useKindWord } from "./shared";
 import { axisMarks, dayMs, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, type Level, type StoryGroup } from "./storyLayout";
 import { w, type WordKey } from "./words";
 
@@ -30,11 +30,11 @@ const NUMBER = new Intl.NumberFormat("en-GB");
 const shortDay = (iso: string) => SHORT_DAY.format(new Date(`${iso}T00:00:00Z`));
 
 /** "Result · 19 February 2024": what an entry is called everywhere on this screen. */
-export const entryLabel = (e: Event) => w("timeline.card_label", { kind: kindWord(e.kind), date: longDate(axisIso(e)) });
+export const entryLabel = (e: Event, word: (kind: string) => string = kindWord) => w("timeline.card_label", { kind: word(e.kind), date: longDate(axisIso(e)) });
 const DATE_MARKS: Record<string, WordKey> = { printed_century: "timeline.date_assumed_century", line_above: "timeline.date_from_line_above" };
 const dateMark = (events: Event[]) => events.map((e) => (e.date_basis ? DATE_MARKS[e.date_basis] : undefined)).find((k) => k);
 
-export const entryName = (e: Event) => (e.summary ? w("timeline.card_name", { label: entryLabel(e), words: e.summary }) : entryLabel(e));
+export const entryName = (e: Event, word: (kind: string) => string = kindWord) => (e.summary ? w("timeline.card_name", { label: entryLabel(e, word), words: e.summary }) : entryLabel(e, word));
 
 /** Splits lane entries without a date for the axis out to the "not on a line yet" list. */
 export function splitForTrack(data: { lanes: Lane[]; unplaced: Event[] }) {
@@ -82,6 +82,7 @@ function useWidth(ref: React.RefObject<HTMLElement>) {
 }
 
 function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryGroup; x: number; row: number; numbers?: Record<string, number>; selected: boolean; onOpen: (events: Event[], at?: string) => void }) {
+  const word = useKindWord();
   const lead = group.events[0]!;
   const many = group.events.length;
   const mark = dateMark(group.events);
@@ -98,7 +99,7 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
       {...highlight}
       onClick={() => onOpen(group.events, lead.fact_id)}
     >
-      <span className="av-visually-hidden">{`${entryLabel(lead)}: `}</span>
+      <span className="av-visually-hidden">{`${entryLabel(lead, word)}: `}</span>
       <span className="av-story-card__dot" data-state={group.state} aria-hidden="true" />
       <span className="av-story-card__words">
         <span className="av-story-card__top">
@@ -116,7 +117,7 @@ function GroupCard({ group, x, row, numbers, selected, onOpen }: { group: StoryG
         <small>
           {many > 1 && <span>{w("timeline.lane_count", { count: many })}</span>}
           {many > 1 && lead.summary && " · "}
-          {(lead.summary || many === 1) && <span>{lead.summary || kindWord(lead.kind)}</span>}
+          {(lead.summary || many === 1) && <span>{lead.summary || word(lead.kind)}</span>}
         </small>
       </span>
     </button>
@@ -227,6 +228,7 @@ export function TimelineBoard({
   onOpen: (events: Event[], at?: string) => void;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
+  const word = useKindWord();
   const width = useWidth(boardRef);
   const track = Math.max(320, width - (width <= 720 ? 140 : HEAD) - 24);
   const { lanes, unplaced } = useMemo(() => splitForTrack(data), [data]);
@@ -305,8 +307,8 @@ export function TimelineBoard({
               .sort((a, b) => a.page_no - b.page_no || (a.first_word_n ?? Infinity) - (b.first_word_n ?? Infinity) || 0)
               .map((e) => (
                 <li key={e.fact_id} className="av-story-unplaced__row">
-                  <button type="button" className="av-story-unplaced__open" data-facts={e.fact_id} aria-label={entryName(e)} onClick={() => onOpen([e], e.fact_id)}>
-                    {e.summary || kindWord(e.kind)}
+                  <button type="button" className="av-story-unplaced__open" data-facts={e.fact_id} aria-label={entryName(e, word)} onClick={() => onOpen([e], e.fact_id)}>
+                    {e.summary || word(e.kind)}
                   </button>
                   <PageRef page={e.page_no} />
                 </li>

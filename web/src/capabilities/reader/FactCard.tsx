@@ -2,8 +2,9 @@
 import { useId, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { t } from "../../foundation/i18n";
-import { Button, IconTile, StatusBadge } from "../../foundation/ui";
-import { humanise, kindLabel, longDate } from "./data";
+import { Button, Checkbox, IconTile, LinkButton, StatusBadge } from "../../foundation/ui";
+import { fieldWord } from "../../foundation/lib/packWords";
+import { kindLabel, longDate } from "./data";
 import { w } from "./words";
 
 export interface FactCardProps {
@@ -19,6 +20,25 @@ export interface FactCardProps {
   canSave?: boolean;
   /** While changing: toggles for typed words that have no place on the picture. */
   typedWords?: ReactNode;
+  /** An error from this form's Save, shown right under the buttons. */
+  formError?: string | null;
+  /** A next step for this form's error (e.g. the supplementary report for a served fact), as a link. */
+  formAction?: { label: string; to: string } | null;
+  /** The clearer copy that replaced this page, if any: the fact may be moved there. */
+  clearerPage?: number | null;
+  /** While moving to the clearer copy: its page, and what stops the move (with a link when it must be read first). */
+  moving?: { page: number; pageHref: string; problem: string | null; readFirst: boolean } | null;
+  onStartMove?: () => void;
+  onSaveMove?: () => void;
+  onCancelMove?: () => void;
+  /** When the words weren't on the page: where to type the page out instead. */
+  typeOutHref?: string;
+  /** When the words weren't on the page: first suggest ticking "These words were read wrongly". */
+  tickHint?: boolean;
+  /** While changing with words chosen: the "read wrongly" tick and what the expert says the words are. */
+  misread?: { ticked: boolean; text: string } | null;
+  onMisread?: (ticked: boolean) => void;
+  onMisreadText?: (text: string) => void;
   reason: string;
   onFocus: () => void;
   onReason: (text: string) => void;
@@ -41,36 +61,54 @@ export interface FactCardProps {
 }
 
 /** What the server's state machine lets the expert do with this fact (docs/spec/state-machines.md "Fact").
- * A checked fact flagged "Please check" may be confirmed again, or changed to cite words chosen again. */
+ * A checked fact may still be changed (the server refuses one in a served report); one flagged "Please
+ * check" may also be confirmed again. */
 export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight: boolean; edit: boolean; timelineDate: boolean } {
   const checked = fact.status === "verified" || fact.status === "edited";
   return {
     correct: fact.status === "suggested" || fact.status === "rejected" || (checked && fact.needs_recheck === true),
     notRight: fact.status === "suggested" || checked,
-    edit: fact.status === "suggested" || (checked && fact.needs_recheck === true),
+    edit: fact.status === "suggested" || checked,
     timelineDate: checked && !fact.event_date,
   };
 }
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
 
-/** Editable detail rows: pack key, label, display value. Dates in fields are omitted (title carries the date). */
-export function editableFields(fact: Schemas["FactOut"]): Array<{ key: string; label: string; value: string }> {
+/** Editable detail rows: pack key, the pack's label, display value. Dates in fields are omitted (title carries the date). */
+export function editableFields(fact: Schemas["FactOut"], pack: Schemas["CasePack"]): Array<{ key: string; label: string; value: string }> {
   return Object.entries(fact.fields ?? {}).flatMap(([key, value]) =>
     (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value))
-      ? [{ key, label: humanise(key), value: String(value) }]
+      ? [{ key, label: fieldWord(pack, fact.kind, key), value: String(value) }]
       : [],
   );
 }
 
 export function FactCard(p: FactCardProps) {
   const { fact } = p;
+  const fields = editableFields(fact, p.pack);
   const id = useId();
   const can = allowed(fact);
   const checked = fact.status === "verified" || fact.status === "edited";
   const rejected = fact.status === "rejected";
   const recheck = checked && fact.needs_recheck === true;
   const cls = ["rd-card", p.focused && "rd-card--focus", checked && "rd-card--checked", rejected && "rd-card--rejected"].filter(Boolean).join(" ");
+  const formProblem = p.formError ? (
+    <div className="rd-form-error">
+      <p role="alert" className="rd-form-error__text">{p.formError}</p>
+      {p.tickHint && <p className="rd-hint">{w("fact.misread_hint")}</p>}
+      {p.formAction && (
+        <LinkButton variant="secondary" to={p.formAction.to}>
+          {p.formAction.label}
+        </LinkButton>
+      )}
+      {p.typeOutHref && (
+        <LinkButton variant="secondary" to={p.typeOutHref}>
+          {w("fact.type_out_page")}
+        </LinkButton>
+      )}
+    </div>
+  ) : null;
   return (
     <article className={cls} aria-labelledby={`${id}-t`} onFocusCapture={p.onFocus} onClick={p.onFocus}>
       {checked && !recheck ? (
@@ -83,13 +121,13 @@ export function FactCard(p: FactCardProps) {
       ) : (
         <p className="rd-state">{t("ui.status.please_check")}</p>
       )}
-      <p className="rd-kind">{kindLabel(fact.kind)}</p>
+      <p className="rd-kind">{kindLabel(p.pack, fact.kind)}</p>
       <h3 id={`${id}-t`} className="rd-value">
         {fact.value}
       </h3>
-      {editableFields(fact).length > 0 && p.editing === null && (
+      {fields.length > 0 && p.editing === null && (
         <dl className="rd-rows">
-          {editableFields(fact).map(({ label, value }) => (
+          {fields.map(({ label, value }) => (
             <div key={label}>
               <dt>{label}</dt>
               <dd>{value}</dd>
@@ -104,13 +142,14 @@ export function FactCard(p: FactCardProps) {
           <p key={r.fact_id} className="rd-related">
             <IconTile tone={done ? "mint" : "amber"}>{done ? "✓" : "•"}</IconTile>
             <span>
-              {w("read.related", { kind: kindLabel(r.kind), date: longDate(r.event_date) })}
+              {w("read.related", { kind: kindLabel(p.pack, r.kind), date: longDate(r.event_date) })}
               <br />
               {w(done ? "read.related_checked" : "read.related_open", { value: r.value ?? "" })}
             </span>
           </p>
         );
       })}
+      {fact.cites_correction && <p className="rd-read-by-you">{w("fact.read_by_you")}</p>}
       {recheck && <p className="rd-note">{w("fact.recheck")}</p>}
       {fact.flagged && (
         <p className="rd-cuts">
@@ -124,6 +163,28 @@ export function FactCard(p: FactCardProps) {
           <Button variant="secondary" disabled={p.busy} onClick={p.onCorrect}>
             {w("fact.undo")}
           </Button>
+        </div>
+      ) : p.moving ? (
+        <div className="rd-edit">
+          <p className="rd-note">{w("fact.move_choose", { page: p.moving.page })}</p>
+          <div className="rd-actions">
+            <Button disabled={p.busy || p.moving.readFirst} onClick={p.onSaveMove}>
+              {w("fact.move_here")}
+            </Button>
+            <Button variant="secondary" onClick={p.onCancelMove}>
+              {w("fact.cancel")}
+            </Button>
+          </div>
+          {p.moving.problem && (
+            <div className="rd-form-error">
+              <p role="alert" className="rd-form-error__text">{p.moving.problem}</p>
+              {p.moving.readFirst && (
+                <LinkButton variant="secondary" to={p.moving.pageHref}>
+                  {w("fact.move_open_page", { page: p.moving.page })}
+                </LinkButton>
+              )}
+            </div>
+          )}
         </div>
       ) : p.timelineDraft !== null && p.timelineDraft !== undefined ? (
         <div className="rd-edit">
@@ -139,6 +200,7 @@ export function FactCard(p: FactCardProps) {
               {w("fact.cancel")}
             </Button>
           </div>
+          {formProblem}
         </div>
       ) : p.editing !== null && p.editingFields !== null ? (
         <div className="rd-edit">
@@ -153,9 +215,10 @@ export function FactCard(p: FactCardProps) {
             onChange={(e) => p.onEditText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Escape") p.onCancelEdit();
+              if (e.key === "Enter" && !p.busy) p.onSaveEdit();
             }}
           />
-          {editableFields(fact).map(({ key, label }) => (
+          {fields.map(({ key, label }) => (
             <div key={key} className="rd-edit__row">
               <label htmlFor={`${id}-f-${key}`} className="rd-label rd-label--small">{label}</label>
               <input
@@ -174,6 +237,17 @@ export function FactCard(p: FactCardProps) {
           )}
           <p className="rd-note">{w("fact.choose_words")}</p>
           {p.typedWords}
+          {p.misread && (
+            <div className="rd-misread">
+              <Checkbox label={w("fact.misread_tick")} checked={p.misread.ticked} onChange={(e) => p.onMisread?.(e.target.checked)} />
+              {p.misread.ticked && (
+                <div className="rd-edit__row">
+                  <label htmlFor={`${id}-m`} className="rd-label rd-label--small">{w("fact.misread_label")}</label>
+                  <input id={`${id}-m`} className="av-input" maxLength={500} value={p.misread.text} onChange={(e) => p.onMisreadText?.(e.target.value)} />
+                </div>
+              )}
+            </div>
+          )}
           <div className="rd-actions">
             <Button disabled={p.busy || p.canSave === false} onClick={p.onSaveEdit}>
               {w("fact.save_change")}
@@ -182,6 +256,7 @@ export function FactCard(p: FactCardProps) {
               {w("fact.cancel")}
             </Button>
           </div>
+          {formProblem}
         </div>
       ) : (
         <>
@@ -216,6 +291,11 @@ export function FactCard(p: FactCardProps) {
                 <input className="av-input" value={p.reason} maxLength={200} onChange={(e) => p.onReason(e.target.value)} />
               </label>
             </details>
+          )}
+          {p.clearerPage && p.onStartMove && (
+            <Button variant="secondary" disabled={p.busy} onClick={p.onStartMove}>
+              {w("fact.move_clearer")}
+            </Button>
           )}
           {checked && (
             <Button variant="secondary" disabled={p.busy} onClick={p.onFlag}>

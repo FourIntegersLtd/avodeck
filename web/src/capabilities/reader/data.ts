@@ -1,4 +1,5 @@
 // What slice B's screens read from the API and the pack, beyond the generated types.
+import { kindWord } from "../../foundation/lib/packWords";
 import { type Schemas } from "../../foundation/platform-client";
 import { w } from "./words";
 
@@ -17,8 +18,8 @@ export function sourceLabel(pack: Schemas["CasePack"], key: string | null | unde
   return words?.[key] ?? humanise(key);
 }
 
-/** A fact kind in plain form (the pack names the kind; it gives no separate label). */
-export const kindLabel = (kind: string) => humanise(kind);
+/** A fact kind in the pack's words (rule 11), else its name in plain form. */
+export const kindLabel = (pack: Schemas["CasePack"] | null | undefined, kind: string) => kindWord(pack, kind);
 
 /** A box edge as a CSS percentage of the page (bbox values are fractions of the page). */
 export const pct = (fraction: number) => `${+(fraction * 100).toFixed(3)}%`;

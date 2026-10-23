@@ -3646,6 +3646,32 @@
         "title": "Consultation",
         "type": "object"
       },
+      "CorrectedWordsIn": {
+        "description": "What some of the cited words really say, when the computer misread them (decision 0018).",
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "word_ids",
+          "text"
+        ],
+        "title": "CorrectedWordsIn",
+        "type": "object"
+      },
       "Counts": {
         "properties": {
           "matched": {
@@ -5415,6 +5441,12 @@
               }
             ],
             "title": "Bbox"
+          },
+          "cites_correction": {
+            "default": false,
+            "description": "Cites words the expert read differently from the computer ('Read by you').",
+            "title": "Cites Correction",
+            "type": "boolean"
           },
           "event_date": {
             "anyOf": [
@@ -11680,6 +11712,11 @@
       "PageWords": {
         "description": "The page's words in reading order, for choosing the words a changed fact cites.",
         "properties": {
+          "reading": {
+            "description": "The page's current reading as one text (the expert's corrections in place), to start a type-out from.",
+            "title": "Reading",
+            "type": "string"
+          },
           "words": {
             "items": {
               "$ref": "#/components/schemas/PageWord"
@@ -11689,7 +11726,8 @@
           }
         },
         "required": [
-          "words"
+          "words",
+          "reading"
         ],
         "title": "PageWords",
         "type": "object"
@@ -18106,6 +18144,16 @@
             ],
             "title": "Action",
             "type": "string"
+          },
+          "corrected_words": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrectedWordsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "event_date": {
             "anyOf": [

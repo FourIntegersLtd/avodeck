@@ -5,7 +5,8 @@
   value is found in the cited words, or in newly chosen words on the same page; otherwise 422.
   Only the named expert checks (403 for anyone else on the case); 423 `blind_read` until the expert has
   read the page. Every check appends a `fact_verifications` row and the fact's version goes up.
-  A change the fact's state does not allow is 409.
+  A change the fact's state does not allow is 409 (a checked fact may be changed: see
+  `test_reader_edit_checked_routes.py`).
 - `POST /v1/cases/{id}/facts/{fact_id}/flag-point` / `DELETE` the same: send a checked fact to Points
   against, or take it back. Unchecked facts cannot be sent (409). Slice E reads the flags through
   `app.core.contracts.fact_flags.flagged_fact_ids`.
@@ -186,7 +187,6 @@ async def test_a_change_the_state_does_not_allow_is_409(world: dict[str, Any]) -
     fact = (await facts(client, world))[0]
     verified = (await act(client, world, fact, action="correct")).json()
     assert (await act(client, world, verified, action="correct")).status_code == 409
-    assert (await act(client, world, verified, action="edit", new_value=fact["value"])).status_code == 409
 
 
 async def test_only_the_named_expert_checks_and_versions_must_match(client_for: Any, world: dict[str, Any]) -> None:

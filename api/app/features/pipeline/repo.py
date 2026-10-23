@@ -341,6 +341,12 @@ async def store_words(
     size: tuple[float, float] | None = None,
 ) -> None:
     await conn.execute("delete from app.ocr_words where page_id = %s", (page_id,))
+    # Word ids are places on the page: the expert's readings of the old words (slice B, decision 0018)
+    # would sit on the new ones, so each is marked replaced with the words, in the same transaction.
+    await conn.execute(
+        "update app.word_corrections set superseded_at = now() where page_id = %s and superseded_at is null",
+        (page_id,),
+    )
     async with conn.cursor() as cur:
         await cur.executemany(
             "insert into app.ocr_words"

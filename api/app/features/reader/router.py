@@ -13,6 +13,8 @@ from fastapi import Depends, Query, Request, Response
 
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts import served
+from app.core.contracts.document_words import Correction, apply_corrections
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, process_pages
 from app.core.contracts.reading import blind_read, require_page_read
@@ -57,6 +59,8 @@ _CHECKS = {
     ("suggested", "correct"): "verified",
     ("rejected", "correct"): "verified",
     ("suggested", "edit"): "edited",
+    ("verified", "edit"): "edited",
+    ("edited", "edit"): "edited",
     ("suggested", "not_right"): "rejected",
     ("verified", "not_right"): "rejected",
     ("edited", "not_right"): "rejected",
@@ -191,7 +195,9 @@ async def page_words(
     r = await _page(conn, case_id, page_no, scope)
     response.headers["cache-control"] = "private, no-store"
     words = await repo.page_word_boxes(conn, _crypto(request), case_id, r["id"])
-    return PageWords(words=[PageWord(**w) for w in words])
+    read_now = await repo.page_words(conn, _crypto(request), case_id, r["id"])
+    reading = " ".join(t for t in read_now.values() if t)
+    return PageWords(words=[PageWord(**w) for w in words], reading=reading)
 
 
 @router.put("/pages/{page_no}/transcription", response_model=JobOut, status_code=202)
@@ -259,6 +265,11 @@ def _fact_not_found() -> ApiError:
     return ApiError("not_found", "We couldn't find that fact.", 404)
 
 
+def _served() -> ApiError:
+    # Rule 8: a fact a served report cites changes only through a supplementary report (screen 21b).
+    return ApiError("served_use_supplementary", "This is in your served report. Use a supplementary report.", 409)
+
+
 def _invalid() -> ApiError:
     return ApiError("invalid", "The words you chose do not show that.", 422)
 
@@ -300,6 +311,40 @@ def _changed(response: Response, after: dict | None) -> FactOut:  # type: ignore
     return FactOut(**after)
 
 
+def _run(words: dict[str, str], cited: list[str], corrected: list[str]) -> list[str]:
+    """The corrected words in reading order: 422 unless they are among the cited ones and one unbroken run
+    on the page (decision 0018, rule 2)."""
+    order = {w: i for i, w in enumerate(words)}
+    if not set(corrected) <= set(cited) or any(w not in order for w in corrected):
+        raise _invalid()
+    run = sorted(set(corrected), key=order.__getitem__)
+    if order[run[-1]] - order[run[0]] != len(run) - 1:
+        raise _invalid()
+    return run
+
+
+async def _shows(
+    request: Request,
+    conn: DbConn,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    value: str,
+    word_ids: list[str],
+    *,
+    corrected: tuple[list[str], str] | None = None,
+) -> Correction | None:
+    """422 unless the cited words show the value (rule 2), read as `cited_words` reads them, with a new
+    reading of `corrected` replacing any it overlaps. Returns that new reading, its words in reading order."""
+    words, corrections = await repo.page_reading(conn, _crypto(request), case_id, page_id)
+    new: Correction | None = None
+    if corrected is not None:
+        new = (_run(words, word_ids, corrected[0]), corrected[1])
+        corrections = repo.replacing(corrections, new)
+    if not provenance.supported(value, word_ids, apply_corrections(words, corrections, cited=word_ids)):
+        raise _invalid()
+    return new
+
+
 @router.post("/facts/{fact_id}/verify", response_model=FactOut)
 async def verify_fact(
     case_id: uuid.UUID,
@@ -324,28 +369,40 @@ async def verify_fact(
     fields, event_date = before["fields"], before["event_date"]
     if rechecking and body.action == "correct":
         # Rule 2: the page's words were replaced, so the old word ids must still show the value.
-        words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
-        if not provenance.supported(value, word_ids, words):
-            raise _invalid()
+        await _shows(request, conn, case_id, before["page_id"], value, word_ids)
+    if (
+        body.action in ("edit", "not_right")
+        and before["status"] in _CHECKED
+        and await served.cited_in_served(conn, case_id, fact_id)
+    ):
+        raise _served()
+    new_reading: Correction | None = None
     if rechecking and body.action == "edit" and not body.word_ids:
         raise ApiError("words_needed", "Choose the words on the page that show this.", 422)
     if body.action == "edit":
         if body.new_value is None and body.fields is None and "event_date" not in body.model_fields_set:
             raise _invalid()
+        if body.corrected_words is not None and body.new_value is None:
+            raise _invalid()
         if body.new_value is not None:
             if not body.new_value.strip():
                 raise _invalid()
             value, word_ids = body.new_value, body.word_ids or before["word_ids"]
-            words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
-            if not provenance.supported(value, word_ids, words):
-                raise _invalid()
+            corrected = body.corrected_words
+            new_reading = await _shows(
+                request,
+                conn,
+                case_id,
+                before["page_id"],
+                value,
+                word_ids,
+                corrected=None if corrected is None else (corrected.word_ids, corrected.text),
+            )
             if body.word_ids or value != before["value"] or word_ids != before["word_ids"]:
                 bbox = await repo.word_box(conn, before["page_id"], word_ids)
         elif body.word_ids is not None:
             word_ids = body.word_ids
-            words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
-            if not provenance.supported(value, word_ids, words):
-                raise _invalid()
+            await _shows(request, conn, case_id, before["page_id"], value, word_ids)
             bbox = await repo.word_box(conn, before["page_id"], word_ids)
         if body.fields is not None:
             await _check_fields(request, conn, case_id, before["kind"], body.fields)
@@ -372,6 +429,16 @@ async def verify_fact(
         from app.core.contracts.fact_dates import DATE_BASIS_PRINTED
 
         date_basis = DATE_BASIS_PRINTED
+    correction_id, touched = None, []
+    if new_reading is not None:
+        # The words whose reading changes: the new run and every reading it replaces. Rule 8: none may be
+        # cited by a fact in a served report. Saved before the change, so the fact shows it cites it.
+        touched = await repo.corrected_words_near(conn, before["page_id"], new_reading[0])
+        if await repo.served_fact_cites(conn, case_id, before["page_id"], touched):
+            raise _served()
+        correction_id = await repo.save_correction(
+            conn, _crypto(request), case_id, before["page_id"], new_reading[0], new_reading[1], scope.person_id
+        )
     after = await repo.change_fact(
         conn,
         fact_id,
@@ -387,6 +454,12 @@ async def verify_fact(
     )
     out = _changed(response, after)
     assert after is not None
+    if new_reading is not None:
+        await repo.flag_unsupported(
+            conn, _crypto(request), case_id, before["page_id"], touched, scope.person_id, except_fact=fact_id
+        )
+    elif body.action in ("correct", "edit") and after["value"] is not None:
+        correction_id = await repo.correction_cited(conn, before["page_id"], after["word_ids"])
     if before["needs_recheck"]:  # after the change: facts_guard reads the flag for verified -> edited
         await repo.set_flag(conn, case_id, fact_id, RECHECK, scope.person_id, on=False)
         out = out.model_copy(update={"needs_recheck": False})
@@ -398,6 +471,7 @@ async def verify_fact(
         before,
         after,
         reason=body.reason if body.action == "not_right" else None,
+        correction_id=correction_id,
     )
     return out
 
@@ -416,6 +490,8 @@ async def move_fact(
 ) -> FactOut:
     """Move a fact to the clearer copy of its page, citing that page's words. History is kept."""
     before = await _checkable(conn, case_id, fact_id, version, scope)
+    if await served.cited_in_served(conn, case_id, fact_id):
+        raise _served()
     target = await repo.page_id_by_no(conn, case_id, body.to_page_no)
     if target is None:
         raise _not_found()

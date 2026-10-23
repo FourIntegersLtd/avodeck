@@ -2,12 +2,12 @@
 // running the check, and the colleague spot-check (link once, the code by email).
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
-import { humanise } from "../../foundation/i18n";
+import { humanise, t } from "../../foundation/i18n";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { checkResult, failedCheck, finalCheck, PARA, sectionLabel, serve, spotOut, type PackRun } from "./testing";
+import { casePack, checkResult, failedCheck, finalCheck, PARA, sectionLabel, serve, spotOut, type PackRun } from "./testing";
 import { REPORT_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/final-check`;
@@ -134,4 +134,19 @@ test("passed checks are status rows with their counts, and the rest sit behind S
   await user.click(screen.getByRole("button", { name: "See all 9 checks" }));
   expect(screen.getByText("Passed check 8")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /See all/ })).toBeNull();
+});
+
+test("a served report refused by the final check points to the supplementary report", async () => {
+  serve("launch", { check: null });
+  server.use(http.post("/v1/cases/:caseId/report/final-check", () => apiError(409, "served_use_supplementary")));
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: M["report.check.run"]! }));
+  expect(await screen.findByRole("link", { name: t("errors.served_use_supplementary_action") })).toHaveAttribute("href", `/cases/${CASE_A}/correct-report`);
+});
+
+test("a check or warning named after a fact kind uses the pack's word for it", async () => {
+  const kind = (casePack("launch").fact_kinds as Array<{ key: string; label: string }>)[0]!;
+  serve("launch", { check: finalCheck({ passed: false, results: [checkResult({ key: kind.key, outcome: "failed", text: null, count: 1 })] }) });
+  renderAt(url);
+  expect(await screen.findByText(kind.label)).toBeInTheDocument();
 });

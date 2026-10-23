@@ -1,32 +1,54 @@
 # Fact kinds this specialty adds, with the fields extracted for each (values are copied words from
 # the page, never prose). Field types: string, integer, number, date, boolean.
 # arrives: true marks a kind that comes from outside the clinician (it is never treated as available
-# on its own event date). `author_field` names the field holding who saw the patient (screen 12). `setting` is optional (e.g. out_of_hours) and chooses a conditional lane.
+# on its own event date). `label` and `field_labels` name the kind and each field on screen. `author_field` names the field holding who saw the patient (screen 12). `setting` is optional (e.g. out_of_hours) and chooses a conditional lane.
 fact_kinds:
   - key: consultation
+    label: Consultation
     author_field: clinician_name
     fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
+    field_labels: {date: Date, setting: Setting, clinician_name: Seen by, reason: Reason, history: History, examination: Examination, plan: Plan, safety_netting: Safety-netting advice}
   - key: phone_consultation
+    label: Phone consultation
     author_field: clinician_name
     fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, plan: string, safety_netting: string}
+    field_labels: {date: Date, setting: Setting, clinician_name: Seen by, reason: Reason, history: History, plan: Plan, safety_netting: Safety-netting advice}
   - key: home_visit
+    label: Home visit
     author_field: clinician_name
     fields: {date: date, setting: string, clinician_name: string, reason: string, history: string, examination: string, plan: string, safety_netting: string}
+    field_labels: {date: Date, setting: Setting, clinician_name: Seen by, reason: Reason, history: History, examination: Examination, plan: Plan, safety_netting: Safety-netting advice}
   - key: result
+    label: Result
     arrives: true
     fields: {date: date, test: string, value: string, unit: string, reference_range: string, flag: string, received_on: date, actioned_on: date}
+    field_labels: {date: Date, test: Test, value: Result, unit: Unit, reference_range: Normal range, flag: Flag, received_on: Received on, actioned_on: Acted on}
   - key: prescription
+    label: Prescription
     fields: {date: date, drug: string, dose: string, quantity: string, repeat: boolean}
+    field_labels: {date: Date, drug: Medicine, dose: Dose, quantity: Quantity, repeat: Repeat prescription}
   - key: referral
+    label: Referral
     fields: {date: date, to: string, reason: string, urgency: string, acknowledged_on: date}
+    field_labels: {date: Date, to: To, reason: Reason, urgency: Urgency, acknowledged_on: Acknowledged on}
   - key: letter
+    label: Letter
     arrives: true
     fields: {date: date, from: string, to: string, received_on: date, actions_requested: string, acknowledges_referral_dated: date}
+    field_labels: {date: Date, from: From, to: To, received_on: Received on, actions_requested: Actions asked for, acknowledges_referral_dated: Replies to referral dated}
   - key: examination
+    label: Examination
     fields: {date: date, finding: string, value: string, unit: string}
+    field_labels: {date: Date, finding: Finding, value: Result, unit: Unit}
   - key: safety_netting
+    label: Safety-netting advice
     fields: {date: date, advice: string}
+    field_labels: {date: Date, advice: Advice}
   - key: missed_appointment
+    label: Missed appointment
     fields: {date: date, appointment_type: string}
+    field_labels: {date: Date, appointment_type: Appointment type}
   - key: task
+    label: Task
     fields: {date: date, description: string, done_on: date}
+    field_labels: {date: Date, description: Description, done_on: Done on}

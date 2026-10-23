@@ -1,3 +1,3 @@
 fact_kinds:
-  - {key: session, fields: {duration_minutes: integer}}
-  - {key: measurement, arrives: true, fields: {name: string, value: string, unit: string, via: string}}
+  - {key: session, label: zz session, fields: {duration_minutes: integer}, field_labels: {duration_minutes: zz length in minutes}}
+  - {key: measurement, label: zz measurement, arrives: true, fields: {name: string, value: string, unit: string, via: string}, field_labels: {name: zz name, value: zz value, unit: zz unit, via: zz via}}
