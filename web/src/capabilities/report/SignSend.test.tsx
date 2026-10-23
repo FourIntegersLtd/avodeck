@@ -2,6 +2,7 @@
 // downloads, and a served report shown locked and read-only with its servings.
 import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
+import { t } from "../../foundation/i18n";
 import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
@@ -163,4 +164,13 @@ test("the signature line leaves out what the profile does not have", async () =>
   renderAt(url);
   const signature = await screen.findByRole("region", { name: M["report.sign.signature"]! });
   expect(await within(signature).findByText("Jane Morgan")).toBeInTheDocument();
+});
+
+test("a served report refused at signing points to the supplementary report", async () => {
+  serve("launch", { check: finalCheck() });
+  server.use(http.post("/v1/cases/:caseId/report/sign", () => apiError(409, "served_use_supplementary")));
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("checkbox", { name: CONFIRM }));
+  await user.click(screen.getByRole("button", { name: SUBMIT }));
+  expect(await screen.findByRole("link", { name: t("errors.served_use_supplementary_action") })).toHaveAttribute("href", `/cases/${CASE_A}/correct-report`);
 });
