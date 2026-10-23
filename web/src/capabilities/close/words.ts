@@ -50,6 +50,7 @@ const WORDS = {
   "keep.delete_now_held": "Not available while deletion is paused.",
   "keep.keep_default": "Keep for {{years}} years",
   "keep.usual": "Your usual setting",
+  "keep.limited": "Your organisation allows at most {{years}} years.",
   "keep.return_then_delete": "Return to the {{party}}, then delete",
   "keep.return_then_delete_plain": "Return the records to whoever sent them, then delete",
   "keep.save": "Save this choice",

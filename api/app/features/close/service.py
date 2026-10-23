@@ -22,6 +22,7 @@ from psycopg import AsyncConnection
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access
+from app.core.contracts.org_policy import org_policy
 from app.core.contracts.invoices import case_invoice_rows
 from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto
@@ -53,8 +54,20 @@ def plus_years(day: date, years: int) -> date:
         return day.replace(year=day.year + years, day=28)
 
 
-def retention_years(library: PackLibrary, case: dict[str, Any]) -> int:
+def pack_years(library: PackLibrary, case: dict[str, Any]) -> int:
     return int(library.combine(case["jurisdiction"], case["case_type"], case["specialty"]).retention_years)
+
+
+async def max_years(conn: AsyncConnection, case: dict[str, Any]) -> int | None:
+    """The organisation's retention limit in years (`policy.max_retention_years`), None when not set."""
+    return (await org_policy(conn, case["organisation_id"])).max_retention_years
+
+
+async def retention_years(conn: AsyncConnection, library: PackLibrary, case: dict[str, Any]) -> int:
+    """Years a case is kept under `keep_default`: the pack's, never more than the organisation's limit."""
+    limit = await max_years(conn, case)
+    years = pack_years(library, case)
+    return years if limit is None else min(years, limit)
 
 
 def delete_after(policy: str | None, status: str, base: date | None, today: date, years: int) -> date | None:
@@ -83,7 +96,8 @@ async def summary(
         settled_at=case["settled_at"],
         retention_policy=case["retention_policy"],
         delete_after=case["delete_after"],
-        retention_years=retention_years(library, case),
+        retention_years=pack_years(library, case),
+        max_retention_years=await max_years(conn, case),
         ever_served=case["ever_served"],
         holds=[Hold(**h) for h in holds],
         held=_held(holds, await repo.today(conn)),
@@ -118,7 +132,7 @@ async def settle(conn: AsyncConnection, library: PackLibrary, case_id: uuid.UUID
         raise conflict()
     today = await repo.today(conn)
     policy = case["retention_policy"] or DEFAULT_POLICY
-    due = delete_after(policy, "settled", today, today, retention_years(library, case))
+    due = delete_after(policy, "settled", today, today, await retention_years(conn, library, case))
     await repo.update_case(conn, case_id, status="settled", retention_policy=policy, delete_after=due)
     await _record(conn, case_id, "case.settled")
 
@@ -129,7 +143,7 @@ async def archive(conn: AsyncConnection, library: PackLibrary, case_id: uuid.UUI
         raise conflict()
     policy = case["retention_policy"] or DEFAULT_POLICY
     today = await repo.today(conn)
-    due = delete_after(policy, "archived", _base(case), today, retention_years(library, case))
+    due = delete_after(policy, "archived", _base(case), today, await retention_years(conn, library, case))
     await repo.update_case(conn, case_id, status="archived", retention_policy=policy, delete_after=due)
     await _record(conn, case_id, "case.archived")
 
@@ -154,7 +168,10 @@ async def change_retention(
     today = await repo.today(conn)
     if policy == "delete_now" and (case["ever_served"] or _held(await repo.active_holds(conn, case_id), today)):
         raise conflict()
-    due = delete_after(policy, case["status"], _base(case), today, retention_years(library, case))
+    limit = await max_years(conn, case)
+    if policy == "keep_default" and limit is not None and pack_years(library, case) > limit:
+        raise ApiError("retention_exceeds_org_policy", "Your organisation does not allow keeping records this long.", 422)
+    due = delete_after(policy, case["status"], _base(case), today, await retention_years(conn, library, case))
     await repo.update_case(conn, case_id, retention_policy=policy, delete_after=due)
     await _record(conn, case_id, "case.retention_changed", f"retention:{policy}")
     if policy == "delete_now":

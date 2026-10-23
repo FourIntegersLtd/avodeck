@@ -30,6 +30,7 @@ class CloseSummary(BaseModel):
     retention_policy: str | None
     delete_after: date | None
     retention_years: int
+    max_retention_years: int | None = None  # the organisation's limit, when it sets one
     ever_served: bool
     holds: list[Hold]
     held: bool
