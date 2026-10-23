@@ -456,6 +456,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | old_word_ids / new_word_ids | The words it pointed to before and after a change |
 | old_page_id / new_page_id | The page it was on before and after a move to a clearer copy |
 | at | When the check was made |
+| correction_id | The expert's reading of misread words (`word_corrections`) the check relied on, if any (0211) |
 | prev_hash / hash | Links to the previous check so any tampering is obvious |
 
 ### page_reads
@@ -481,7 +482,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | word_ids | The run of words the computer misread, among the words a fact cites |
 | text | What the named expert says those words really say; sealed with the case key, never logged |
 | person_id | The named expert who typed it |
-| created_at / superseded_at | When it was typed, and when a later reading of any of the same words replaced it (set once) |
+| created_at / superseded_at | When it was typed, and when a later reading of any of the same words, or new words for the page (turned, read again, typed out), replaced it (set once; 0211) |
 
 ### missing_items
 | Field | In plain words |
