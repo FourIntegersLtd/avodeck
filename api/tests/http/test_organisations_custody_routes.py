@@ -8,7 +8,8 @@ read-only (migration 0032's `custodian` role), either
 - to `custodian`: the person the named expert recorded as records custodian (`PUT /v1/me/custodian`), who
   must have an open account and be neither support staff nor the person recording it; or
 - to `organisation`: the case's own team organisation (its current owners and admins hold the records).
-A case never served is 409 `not_served`. Each transfer is in the case's audit trail.
+A case never served is 409 `not_served`. While a transfer is in force a second one is 409
+`custody_already_transferred` (one holder at a time). Each transfer is in the case's audit trail.
 """
 
 from __future__ import annotations
@@ -154,6 +155,28 @@ async def test_with_the_flag_off_the_route_is_not_there(client_for: ClientFor, w
     person = world.seed.person()
     world.seed.support_staff(person)
     resp = await (await client_for(person)).post(URL, json=body(world.solo_case(status="served")))
+    assert resp.status_code == 404
+
+
+@pytest.mark.parametrize("second", ["custodian", "organisation"])
+async def test_one_holder_at_a_time(
+    client_for: ClientFor, world: World, staff: uuid.UUID, admin: psycopg.Connection, second: str
+) -> None:
+    case = world.team_case(status="served")
+    name_custodian(world, world.seed.person())
+    client = await client_for(staff)
+    assert (await client.post(URL, json=body(case))).status_code == 201
+    resp = await client.post(URL, json=body(case, second))
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "custody_already_transferred")
+    assert admin.execute(
+        "select count(*) from app.custody_transfers where case_id = %s and revoked_at is null", (case,)
+    ).fetchone() == (1,)
+
+
+async def test_with_the_flag_off_stale_mfa_still_finds_nothing(client_for: ClientFor, world: World) -> None:
+    person = world.seed.person()
+    world.seed.support_staff(person)
+    resp = await (await client_for(person, mfa_age=STALE)).post(URL, json=body(world.solo_case(status="served")))
     assert resp.status_code == 404
 
 

@@ -70,7 +70,7 @@ async def test_an_unserved_case_changes_its_expert_instead(client_for: ClientFor
     assert (resp.status_code, resp.json()["error"]["code"]) == (409, "not_served")
 
 
-@pytest.mark.parametrize("who", ["assistant", "outsider"])
+@pytest.mark.parametrize("who", ["assistant", "outsider", "dr_k"])
 async def test_the_new_expert_must_be_able_to_take_it(client_for: ClientFor, world: World, who: str) -> None:
     served = world.team_case(status="served")
     resp = await (await client_for(world["owner"])).post(
