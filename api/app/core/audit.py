@@ -15,6 +15,7 @@ alongside, means it never waits on the chain lock the request may hold.
 from __future__ import annotations
 
 import hashlib
+import logging
 import uuid
 from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
@@ -27,6 +28,8 @@ from psycopg import AsyncConnection
 
 if TYPE_CHECKING:
     from app.core.db import Database, RequestScope
+
+_log = logging.getLogger(__name__)
 
 GENESIS = "0" * 64
 _EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
@@ -124,9 +127,17 @@ async def detached(database: Database, scope: RequestScope) -> AsyncIterator[Non
     finally:
         _DETACHED.reset(token)
         if pending:
-            async with database.request(scope) as conn:
-                for row in pending:
-                    await record(
-                        conn, action=row.action, target=row.target, case_id=row.case_id,
-                        organisation_id=row.organisation_id,
-                    )  # fmt: skip
+            # The request's own answer stands whatever happens here (its transaction has already ended), so
+            # a failed write is logged, by action code and error type only, never raised over it.
+            try:
+                async with database.request(scope) as conn:
+                    for row in pending:
+                        await record(
+                            conn, action=row.action, target=row.target, case_id=row.case_id,
+                            organisation_id=row.organisation_id,
+                        )  # fmt: skip
+            except Exception as exc:  # noqa: BLE001
+                _log.error(
+                    "detached audit write failed",
+                    extra={"actions": [r.action for r in pending], "error": type(exc).__name__},
+                )

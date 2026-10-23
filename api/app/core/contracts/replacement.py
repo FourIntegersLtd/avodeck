@@ -7,8 +7,9 @@ After serving, a case's named expert never changes: a replacement expert gets a 
 0033). The new case is a draft in the same organisation, under the same packs and label, named to the
 new expert; the caller does not join it. Whether the instructing party consented to the bundle being
 copied is recorded (`case_replacements`); nothing is copied here (slice A's, only with consent).
-A served case gets one replacement: asking again returns the one already made (migration 0034), with
-`created` false, and records nothing new.
+A served case gets one replacement: asking again for the same expert and consent returns the one already
+made (migration 0034), with `created` false, and records nothing new; asking for anything else then is 409
+`replacement_exists`.
 """
 
 from __future__ import annotations
@@ -41,6 +42,12 @@ class ReplacementCase(BaseModel):
         return self._created
 
 
+def replacement_exists() -> ApiError:
+    return ApiError(
+        "replacement_exists", "This case already has a replacement, with another expert or consent.", 409
+    )
+
+
 def not_served() -> ApiError:
     return ApiError(
         "not_served", "This case has not been served, so its expert can be changed instead.", 409
@@ -57,7 +64,8 @@ async def create_replacement_case(
 ) -> ReplacementCase:
     """Create the replacement in the request's transaction, or return the one already made for this case (its
     own expert and consent; `created` false). 404 without the right to replace (as for a case you cannot see),
-    409 `not_served`, 422 `invalid` (`named_expert_id`) for an expert who cannot take it."""
+    409 `not_served`, 409 `replacement_exists` when one exists for another expert or consent, 422 `invalid`
+    (`named_expert_id`) for an expert who cannot take it."""
     try:
         async with conn.transaction():
             cur = await conn.execute(
@@ -89,6 +97,8 @@ async def create_replacement_case(
     )
     replacement._created = created
     if not created:
+        if (expert, consented) != (named_expert_id, instructing_party_consented):
+            raise replacement_exists()
         return replacement
     await audit.record(
         conn, action=CASE_CREATED, target=f"case:{made}", case_id=made, organisation_id=organisation_id
