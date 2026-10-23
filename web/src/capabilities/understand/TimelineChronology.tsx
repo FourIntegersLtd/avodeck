@@ -5,7 +5,7 @@ import { PageRef, StatusBadge } from "../../foundation/ui";
 import { HighlightRow, QuestionChip } from "./QuestionChip";
 import { LaneIcon } from "./laneIcons";
 import type { ChronologyEntry } from "./chronologyEntries";
-import { axisIso, kindWord, statusOf } from "./shared";
+import { axisIso, statusOf, useKindWord } from "./shared";
 import { entryName } from "./TimelineBoard";
 import { w } from "./words";
 
@@ -40,6 +40,7 @@ export function TimelineChronology({
   selectedId?: string | null;
   onOpen: (events: Event[], at?: string) => void;
 }) {
+  const word = useKindWord();
   if (entries.length === 0) return <p className="av-muted">{w("timeline.nothing")}</p>;
   return (
     <section className="av-understand-chronology" data-testid="timeline-chronology" aria-label={w("timeline.view.list")}>
@@ -69,8 +70,8 @@ export function TimelineChronology({
                       <span className="av-muted">{w("timeline.unplaced")}</span>
                     )}
                     <p className="av-understand-chronology__summary">
-                      <button type="button" className="av-story-list__open" data-facts={event.fact_id} aria-label={w("timeline.list.open", { name: entryName(event) })} onClick={() => onOpen([event], event.fact_id)}>
-                        {event.summary || kindWord(event.kind)}
+                      <button type="button" className="av-story-list__open" data-facts={event.fact_id} aria-label={w("timeline.list.open", { name: entryName(event, word) })} onClick={() => onOpen([event], event.fact_id)}>
+                        {event.summary || word(event.kind)}
                       </button>
                     </p>
                     <div className="av-understand-chronology__meta">

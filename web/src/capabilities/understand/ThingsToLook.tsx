@@ -11,7 +11,7 @@ import { Button, ChoicePills, DictationBox, Dialog, IconTile, LinkButton, LoadEr
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
 import { hasIcon, LineIcon } from "./laneIcons";
-import { casePath, kindWord, longDate, shortDay, useCan } from "./shared";
+import { casePath, longDate, shortDay, useCan, useKindWord } from "./shared";
 import { w } from "./words";
 
 type Finding = Schemas["FindingOut"];
@@ -28,6 +28,7 @@ export function findingTitle(f: Finding): string {
 }
 
 function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string; finding: Finding; canDecide: boolean; onDecided: (f: Finding) => void }) {
+  const word = useKindWord();
   const [decision, setDecision] = useState<string | null>(finding.decision);
   const [reason, setReason] = useState(finding.reason ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -77,7 +78,7 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
         <ul className="av-understand-list av-understand-finding__evidence">
           {finding.evidence.map((e) => (
             <li key={e.fact_id} className="av-understand-event">
-              <span className="av-muted">{e.summary ? w("things.evidence", { date: longDate(e.event_date), summary: e.summary }) : `${kindWord(e.kind)} · ${longDate(e.event_date)}`}</span>
+              <span className="av-muted">{e.summary ? w("things.evidence", { date: longDate(e.event_date), summary: e.summary }) : `${word(e.kind)} · ${longDate(e.event_date)}`}</span>
               <PageRef page={e.page_no} to={`/cases/${caseId}/read/${e.page_no}`} />
             </li>
           ))}
@@ -137,6 +138,7 @@ function FoldedFinding({ caseId, finding, canDecide, onDecided }: { caseId: stri
 }
 
 function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () => void; onAdded: () => void }) {
+  const word = useKindWord();
   const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId]);
   const kinds = ((pack.data?.fact_kinds ?? []) as Array<{ key: string }>).map((k) => k.key);
   const [label, setLabel] = useState("");
@@ -159,7 +161,7 @@ function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () =>
     <>
       <option value="">{w("things.own.choose")}</option>
       {kinds.map((k) => (
-        <option key={k} value={k}>{kindWord(k)}</option>
+        <option key={k} value={k}>{word(k)}</option>
       ))}
     </>
   );

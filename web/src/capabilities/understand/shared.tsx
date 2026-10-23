@@ -1,8 +1,10 @@
 // Parts shared by slice D's screens: labelled boxes, dates and the status badge for a fact.
-import { useId, type TextareaHTMLAttributes } from "react";
+import { createContext, useContext, useId, type ReactNode, type TextareaHTMLAttributes } from "react";
+import { useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap } from "../../foundation/platform-client";
+import { kindWord as packKindWord } from "../../foundation/lib/packWords";
+import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Notice } from "../../foundation/ui";
 import type { Status } from "../../foundation/ui/StatusBadge";
 import { w } from "./words";
@@ -24,6 +26,21 @@ export const statusOf = (status: string): Status => (status === "verified" || st
 
 /** The pack names fact kinds by key; with no words for one we show the key in plain letters. */
 export const kindWord = (kind: string) => humanise(kind);
+
+const PackContext = createContext<Schemas["CasePack"] | null>(null);
+
+/** Gives a screen the case's pack, so fact kinds show in the pack's own words (rule 11). */
+export function PackScope({ children }: { children: ReactNode }) {
+  const { caseId = "" } = useParams();
+  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId]);
+  return <PackContext.Provider value={pack.data ?? null}>{children}</PackContext.Provider>;
+}
+
+/** The pack's word for a fact kind, else the plain-letters fallback while the pack loads. */
+export function useKindWord(): (kind: string) => string {
+  const pack = useContext(PackContext);
+  return (kind) => packKindWord(pack, kind);
+}
 
 /** "2024-05-15" -> "15 May" (the year is left out; the screens that use it sit inside one record). */
 export const shortDay = (iso: string | null | undefined): string => (iso ? SHORT_DAY.format(new Date(`${iso}T00:00:00Z`)) : w("common.no_date"));

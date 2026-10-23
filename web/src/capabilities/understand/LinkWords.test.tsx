@@ -50,7 +50,7 @@ test("entries in the links use the pack's word for the fact kind", async () => {
   serve();
   renderAt(`/cases/${CASE_A}/things-to-look-at`);
   const links = await screen.findByRole("region", { name: "Links to the questions" });
-  expect(await within(links).findByText("Zz lab result · 19 February 2024 · p.214")).toBeInTheDocument();
+  expect((await within(links).findAllByText("Zz lab result · 19 February 2024 · p.214")).length).toBeGreaterThan(0);
 });
 
 test("the timeline list uses the pack's word for the fact kind", async () => {

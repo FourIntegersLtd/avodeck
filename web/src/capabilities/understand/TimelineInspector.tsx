@@ -5,7 +5,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { LinkButton, PageRef, StatusBadge } from "../../foundation/ui";
 import { useHighlight } from "./highlight";
 import { QuestionToggle } from "./QuestionChip";
-import { axisIso, entryHref, kindWord, statusOf } from "./shared";
+import { axisIso, entryHref, statusOf, useKindWord } from "./shared";
 import { pageImage } from "./pageImage";
 import { entryLabel, entryName } from "./TimelineBoard";
 import { w } from "./words";
@@ -50,6 +50,7 @@ export function TimelineInspector({
   onSelect: (event: Event) => void;
   onClose: () => void;
 }) {
+  const word = useKindWord();
   const heading = useRef<HTMLHeadingElement>(null);
   const at = order.findIndex((e) => e.fact_id === current.fact_id);
   const earlier = at > 0 ? order[at - 1] : undefined;
@@ -87,7 +88,7 @@ export function TimelineInspector({
         </span>
       </div>
       <div className="av-story-panel__body">
-        <h3 ref={heading} tabIndex={-1}>{entryLabel(current)}</h3>
+        <h3 ref={heading} tabIndex={-1}>{entryLabel(current, word)}</h3>
         {current.summary && <p className="av-story-panel__summary">{current.summary}</p>}
         <div className="av-story-panel__badges">
           <StatusBadge status={statusOf(current.status)} />
@@ -121,11 +122,11 @@ export function TimelineInspector({
                     type="button"
                     className="av-story-panel__entry"
                     aria-current={e.fact_id === current.fact_id ? "true" : undefined}
-                    aria-label={w("timeline.inspector.open_entry", { name: entryName(e) })}
+                    aria-label={w("timeline.inspector.open_entry", { name: entryName(e, word) })}
                     onClick={() => onSelect(e)}
                   >
                     <span className="av-story-card__dot" data-state={e.has_finding ? "look" : statusOf(e.status)} aria-hidden="true" />
-                    <span>{`${axisIso(e) ? SHORT_DAY.format(new Date(`${axisIso(e)}T00:00:00Z`)) : w("common.no_date")} · ${e.summary || kindWord(e.kind)}`}</span>
+                    <span>{`${axisIso(e) ? SHORT_DAY.format(new Date(`${axisIso(e)}T00:00:00Z`)) : w("common.no_date")} · ${e.summary || word(e.kind)}`}</span>
                   </button>
                 </li>
               ))}
