@@ -4,21 +4,23 @@
 import { useEffect, useState } from "react";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Notice } from "../../foundation/ui";
-import { casePath, kindWord, longDate, pageLabel } from "./shared";
+import { ApiError, api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
+import { screenPath } from "../../foundation/lib/screens";
+import { Button, LinkButton, Notice } from "../../foundation/ui";
+import { casePath, longDate, pageLabel, useKindWord } from "./shared";
 import { w } from "./words";
 
 type Link = Schemas["LinkOut"];
 
-const entryWords = (kind: string, date: string | null | undefined, page: number) => `${kindWord(kind)} · ${longDate(date)} · ${pageLabel(page)}`;
+const entryWords = (word: (kind: string) => string, kind: string, date: string | null | undefined, page: number) => `${word(kind)} · ${longDate(date)} · ${pageLabel(page)}`;
 
 function LinkRow({ link, question, canDecide, onDecide }: { link: Link; question: string; canDecide: boolean; onDecide: (status: "confirmed" | "rejected") => void }) {
+  const word = useKindWord();
   const nameId = `link-${link.id}`;
   return (
     <li aria-labelledby={nameId} className="av-understand-event">
       <strong id={nameId}>{question}</strong>
-      <span>{entryWords(link.kind, link.event_date, link.page_no)}</span>
+      <span>{entryWords(word, link.kind, link.event_date, link.page_no)}</span>
       {link.reason && <span className="av-muted">{link.reason}</span>}
       <span className="av-muted">{w(`links.status.${link.status as "suggested" | "confirmed" | "rejected" | "stale"}`)}</span>
       {canDecide && link.status === "suggested" && (
@@ -33,6 +35,7 @@ function LinkRow({ link, question, canDecide, onDecide }: { link: Link; question
 
 function AddLink({ caseId, questions, onAdded }: { caseId: string; questions: Schemas["Questions"]["questions"]; onAdded: (l: Link) => void }) {
   const checked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: { status: "verified" } } })), [caseId]);
+  const word = useKindWord();
   const [factId, setFactId] = useState("");
   const [questionId, setQuestionId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -56,7 +59,7 @@ function AddLink({ caseId, questions, onAdded }: { caseId: string; questions: Sc
         <select id="link-entry" className="av-input" value={factId} onChange={(e) => setFactId(e.target.value)}>
           <option value="">{w("links.choose")}</option>
           {entries.map((e) => (
-            <option key={e.fact_id} value={e.fact_id}>{entryWords(e.kind, e.event_date, e.page_no)}</option>
+            <option key={e.fact_id} value={e.fact_id}>{entryWords(word, e.kind, e.event_date, e.page_no)}</option>
           ))}
         </select>
       </div>
@@ -84,6 +87,7 @@ export function LinkReview({ caseId, can }: { caseId: string; can: (action: stri
   const [added, setAdded] = useState<Link[]>([]);
   const [started, setStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [recheck, setRecheck] = useState<Link | null>(null);
   useEffect(() => {
     setChanged({});
     setAdded([]);
@@ -96,6 +100,7 @@ export function LinkReview({ caseId, can }: { caseId: string; can: (action: stri
   const stale = links.filter((l) => l.status === "stale");
   const decide = async (link: Link, status: "confirmed" | "rejected") => {
     setError(null);
+    setRecheck(null);
     try {
       const out = await unwrap(
         api.PATCH("/v1/cases/{case_id}/fact-links/{link_id}", {
@@ -107,6 +112,7 @@ export function LinkReview({ caseId, can }: { caseId: string; can: (action: stri
       setChanged((c) => ({ ...c, [out.id]: out }));
     } catch (err) {
       setError(errorMessage(err));
+      if (err instanceof ApiError && err.code === "not_checked") setRecheck(link);
     }
   };
   const suggest = async () => {
@@ -139,7 +145,12 @@ export function LinkReview({ caseId, can }: { caseId: string; can: (action: stri
         </div>
       )}
       {started && <Notice><p>{w("links.suggest_started")}</p></Notice>}
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
+      {error && (
+        <Notice tone="error">
+          <p>{error}</p>
+          {recheck && <LinkButton to={`${screenPath("reader", { caseId, params: { page: recheck.page_no } }) ?? `/cases/${caseId}/read/${recheck.page_no}`}?fact=${recheck.fact_id}`}>{w("links.recheck")}</LinkButton>}
+        </Notice>
+      )}
       {stale.length > 0 && (
         <div className="av-stack">
           <h3>{w("links.stale_title")}</h3>

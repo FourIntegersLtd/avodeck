@@ -212,6 +212,7 @@ const WORDS = {
   "links.question": "Question",
   "links.choose": "Choose",
   "links.add": "Add link",
+  "links.recheck": "Check this entry again",
   "rule.gentle_default": "You may want to look at this entry again",
   "rule.no_action_within": "Nothing in the record shows what followed this entry",
   "rule.no_action_within.gentle": "You may want to check what followed this entry",
