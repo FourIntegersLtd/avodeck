@@ -36,6 +36,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.routing import APIRoute
 from psycopg import AsyncConnection
 
+from app.core import audit
 from app.core.auth import session as sessions
 from app.core.auth.identity import Identity
 from app.core.crypto import cell_secret_box
@@ -217,7 +218,7 @@ class SessionRoute(APIRoute):
             key = request.headers.get("idempotency-key") if request.method not in SAFE_METHODS else None
             fingerprint = await _fingerprint(request) if key else ""
             try:
-                async with database.request(scope) as conn:
+                async with audit.detached(database, scope), database.request(scope) as conn:
                     request.state.conn = conn
                     request.state.scope = scope  # for streamed bodies, which run after this transaction
                     request.state.identity = identity
