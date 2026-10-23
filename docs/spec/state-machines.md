@@ -250,7 +250,7 @@ active (support records it for a served case, migration 0032) → revoked (`revo
 
 ## Case replacement (`case_replacements`)
 
-Created once with its case (`app.create_replacement_case()`, migration 0033), only for a case that has been served; never changes. A served case has at most one replacement that is not deleted: asking again returns it (migration 0034). The new case starts as a draft like any other.
+Created once with its case (`app.create_replacement_case()`, migration 0033), only for a case that has been served; never changes. A served case has at most one replacement that is not deleted: asking again for the same expert and consent returns it, for anything else 409 `replacement_exists` (migration 0034). The new case starts as a draft like any other.
 
 ## Trial pack and offline package freshness
 
