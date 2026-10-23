@@ -51,9 +51,8 @@ async def set_custodian(conn: AsyncConnection, person_id: uuid.UUID, custodian: 
 
 async def close_preview(conn: AsyncConnection, person_id: uuid.UUID) -> CloseAccountPreview:
     found = await repo.unserved_personal_case_labels(conn)
-    return CloseAccountPreview(
-        cases=[
-            CloseAccountCase(case_id=c["id"], label=c["label"], exported=await case_export_done(conn, c["id"], person_id))
-            for c in found
-        ]
-    )
+    cases = [
+        CloseAccountCase(case_id=c["id"], label=c["label"], exported=await case_export_done(conn, c["id"], person_id))
+        for c in found
+    ]
+    return CloseAccountPreview(cases=cases)

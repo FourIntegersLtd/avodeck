@@ -33,6 +33,7 @@ from app.features.organisations.schemas import (
     NamedExpertCandidates,
     Organisation,
     OrgMember,
+    OrgRole,
     Policy,
     PolicyUpdate,
     TeamBillingProfile,
@@ -45,7 +46,7 @@ def to_policy(raw: Any) -> Policy:
     return Policy(required_template_id=policy.required_template_id, max_retention_years=policy.max_retention_years)
 
 
-ASSIGNABLE = {
+ASSIGNABLE: dict[str, list[OrgRole]] = {
     "owner": ["owner", "admin", "expert", "assistant", "viewer"],
     "admin": ["admin", "expert", "assistant", "viewer"],  # only an owner makes an owner
 }
