@@ -210,7 +210,7 @@ const WORDS = {
 
   // Support console
   "console.title": "Support",
-  "console.intro": "Find a case by its number or by the expert's email. You see details about the case, never what is in the records.",
+  "console.intro": "You can search every case by its details: its number or the expert's email. You see a case's pages only while its named expert has let support open it, for up to 24 hours. Every look is written down.",
   "console.query": "Case number or email",
   "console.search": "Search",
   "console.results": "Cases found",

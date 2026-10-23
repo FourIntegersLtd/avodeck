@@ -11,6 +11,8 @@ export interface AppShellProps {
   children: ReactNode;
   /** The signed-in person's name, for the initials that open their account. */
   name?: string | null;
+  /** Support staff get the console in the main places; the server still decides access. */
+  support?: boolean;
 }
 
 /**
@@ -32,7 +34,7 @@ function currentPlace(nav: Array<readonly [string, string]>, at: { pathname: str
 }
 
 /** The signed-in frame (S03 header): skip link, logo, main places, the bell, the person, and the page. */
-export function AppShell({ children, name }: AppShellProps) {
+export function AppShell({ children, name, support }: AppShellProps) {
   const messages = useMessages();
   const unread = messages?.unread ?? 0;
   // Places slices register (screen keys "cases", "profile", "help"); hidden until a slice provides them.
@@ -41,7 +43,8 @@ export function AppShell({ children, name }: AppShellProps) {
     return to ? [[key, to] as const] : [];
   });
   const help = screenPath("help");
-  const nav: Array<readonly [string, string]> = [["today", "/today"], ...places];
+  const consolePath = support ? screenPath("support_console") : null;
+  const nav: Array<readonly [string, string]> = [["today", "/today"], ...places, ...(consolePath ? [["support", consolePath] as const] : [])];
   const current = currentPlace(nav, useLocation());
   // A case screen has its own single bar (logo, case, steps, avatar) from the case frame.
   const inCase = useMatch("/cases/:caseId/*") !== null;

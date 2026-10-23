@@ -22,3 +22,8 @@
 .av-org-search { align-items: flex-end; }
 .av-org-search .av-field { flex: 1 1 320px; }
 .av-org-cases { flex: 0 0 90px; font-family: var(--font-mono); }
+.av-org-results { gap: var(--space-4); margin-top: var(--space-4); }
+.av-org-result { padding: var(--space-5); align-items: center; gap: var(--space-4); }
+@media (max-width: 640px) {
+  .av-org-result .av-button { width: 100%; }
+}
