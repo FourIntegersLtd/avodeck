@@ -91,9 +91,7 @@ async def turn(client: httpx.AsyncClient, w: dict[str, Any], degrees: Any, n: in
 
 def record(admin: psycopg.Connection, w: dict[str, Any]) -> dict[str, Any]:
     """Everything the turn must leave alone: the page row, its words and boxes, its facts, the case's jobs."""
-    page = admin.execute(
-        "select rotation, image_path from app.pages where id = %s", (w["page_id"],)
-    ).fetchone()
+    page = admin.execute("select rotation, image_path from app.pages where id = %s", (w["page_id"],)).fetchone()
     words = admin.execute(
         "select word_id, polygon, text from app.ocr_words where page_id = %s order by n", (w["page_id"],)
     ).fetchall()
@@ -162,7 +160,10 @@ async def test_after_a_turn_a_fact_is_still_checked_against_the_words_it_cites(
         headers={"If-Match": f'"{fact["version"]}"'},
     )
     assert right.status_code == 200
-    assert right.json()["word_ids"] == fact["word_ids"] and right.json()["bbox"] == fact["bbox"]
+    # The same box: a re-cited box is worked out again from its words and kept to 5 decimals
+    # (core/contracts/document_words.py), so it matches to that precision, not digit for digit.
+    assert right.json()["word_ids"] == fact["word_ids"]
+    assert right.json()["bbox"] == pytest.approx(fact["bbox"], abs=1e-5)
 
 
 async def test_turning_is_not_reading(client_for: Any, world: dict[str, Any]) -> None:
