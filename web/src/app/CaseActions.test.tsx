@@ -31,19 +31,19 @@ const theCase = {
 function open(over: Partial<Schemas["Case"]> = {}) {
   signedIn();
   server.use(http.get(`/v1/cases/${CASE_A}`, () => json({ ...theCase, ...over })));
-  return renderAt(`/cases/${CASE_A}/nowhere`);
+  return renderAt(`/cases/${CASE_A}`);
 }
 
 test("a registered action shows in the case header as a link when its predicate allows", async () => {
   registerCaseAction({
     key: "change_expert",
     order: 1,
-    labelKey: "app.case.back",
+    labelKey: "app.nav.profile",
     to: ({ caseId }) => `/cases/${caseId}/change-expert`,
     visible: (c) => c.isNamedExpert && !c.served && c.orgRole === "owner",
   });
   open();
-  const link = await screen.findByRole("link", { name: "Back to Today" });
+  const link = await screen.findByRole("link", { name: "Your profile" });
   expect(link).toHaveAttribute("href", `/cases/${CASE_A}/change-expert`);
 });
 
