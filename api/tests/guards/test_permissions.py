@@ -258,6 +258,7 @@ async def test_the_custodian_column_end_to_end(api_db: Database, seed: Seed) -> 
     expert, staff, custodian = seed.person(), seed.person(), seed.person()
     case = seed.case(seed.org(kind="team", members={expert: "expert"}), expert, status="served")
     seed.support_staff(staff)
+    seed.records_custodian(expert, custodian)
     seed.custody_transfer(case, staff, to_person=custodian)
     for action in sorted(DOC):
         want = expected(action, CUSTODIAN_ROLE, None, "team")

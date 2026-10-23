@@ -16,9 +16,13 @@
 -- `facts_guard` (redefined in 0209, after slice B's 0208) lets checked -> suggested through only from
 -- inside this trigger: the marker `app.fact_checks_reset` names the case and the trigger depth is > 1,
 -- so setting the marker by hand opens nothing.
+-- The trigger refuses (AV409) a case that has ever been served, whoever changes it: `cases_actor`
+-- checks only the running app. A check in flight and a reassignment wait for each other: `facts_guard`
+-- (0209) holds the case row `for share` while a fact is checked, which the reassignment's row update waits
+-- for, and refuses the check if the case's named expert changed meanwhile.
 -- app.word_box(page, word_ids)   the words' box as a share of the page, as `document_words.box()` and
 --                                slice B's `repo.word_box()` draw it; null when no word has a place on
---                                the picture.
+--                                the picture. Only the reset (its owner) calls it; no runtime role may.
 -- Function bodies are plpgsql: the tables they read (`fact_verifications`, `fact_flags`, `ocr_words`,
 -- `page_analysis`) are created by slices A and B in later migrations.
 
@@ -76,6 +80,9 @@ declare
   s_fields jsonb;
   s_words text[];
 begin
+  if app.case_ever_served(new.id) then
+    perform app.refuse('the named expert cannot change after serving');
+  end if;
   perform set_config('app.fact_checks_reset', new.id::text, true);
   for f in select * from app.facts where case_id = new.id and status <> 'suggested' order by created_at, id
   loop
@@ -114,7 +121,7 @@ create trigger cases_named_expert_reset after update of named_expert_id on app.c
   for each row when (old.named_expert_id is distinct from new.named_expert_id)
   execute function app.cases_named_expert_reset();
 
-revoke execute on function app.word_box(uuid, text[]), app.cases_named_expert_reset() from public;
-grant execute on function app.word_box(uuid, text[]) to app_api, app_worker;
+revoke execute on function app.word_box(uuid, text[]), app.cases_named_expert_reset()
+  from public, app_api, app_worker;
 
 reset role;

@@ -8,7 +8,11 @@
 --                                   note about the evidence seen (about the expert, never the patient). The
 --                                   running app records one only as current staff, in their own name, now,
 --                                   from the case's current named expert; only `revoked_at` changes, once.
---                                   A case never served is refused (AV409). Not in the purge order (a
+--                                   A case never served is refused (AV409). The recipient is the records
+--                                   custodian the expert named (`people.records_custodian_email` is their
+--                                   sign-in email) or the case's own organisation; never a support staff
+--                                   member or the person recording it (AV409), so nobody in support can
+--                                   hand a case to themselves. Not in the purge order (a
 --                                   table in the foundation range cannot join it on a fresh database).
 -- app.case_role_allowed(...)        redefined from 0030: the case role `custodian` may take only
 --                                   case.view_metadata, case.view_content, case.view_audit and
@@ -45,15 +49,35 @@ create function app.custody_transfers_guard() returns trigger
   security definer
   set search_path = ''
 as $$
+declare
+  case_org uuid;
+  expert uuid;
 begin
   if tg_op = 'INSERT' then
     if not app.case_ever_served(new.case_id) then
       perform app.refuse('only the records of a served case pass to a custodian');
     end if;
+    select c.organisation_id, c.named_expert_id into case_org, expert from app.cases c where c.id = new.case_id;
     if session_user = 'app_api' then  -- the running app (this function runs as its owner)
       new.transferred_at := now();
       new.revoked_at := null;
-      select c.named_expert_id into new.from_person_id from app.cases c where c.id = new.case_id;
+      new.from_person_id := expert;
+    end if;
+    if new.to_organisation_id is not null and new.to_organisation_id is distinct from case_org then
+      perform app.refuse('custody passes only to the case''s own organisation');
+    end if;
+    if new.to_person_id is not null then
+      -- Recording is for current staff only (row-level security refuses anyone else, 42501), so a recipient
+      -- who records their own transfer is staff too.
+      if app.is_support_staff(new.to_person_id)
+         or (new.to_person_id = new.transferred_by and app.is_support_staff(new.transferred_by)) then
+        perform app.refuse('support staff never receive custody');
+      end if;
+      if not exists (select 1 from app.people e join app.people r on r.id = new.to_person_id
+                     where e.id = expert and e.records_custodian_email is not null
+                       and lower(r.email) = lower(e.records_custodian_email)) then
+        perform app.refuse('custody passes only to the records custodian the expert named');
+      end if;
     end if;
     return new;
   end if;
