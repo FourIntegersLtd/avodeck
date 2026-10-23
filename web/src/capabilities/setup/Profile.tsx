@@ -6,8 +6,9 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
-import { Balance, FileButton, fileBytes, LinkAction, PartMark, Section, Select, TextArea, withEtag } from "./shared";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, StaleChoice, TextField } from "../../foundation/ui";
+import { sw } from "./words";
+import { Balance, FileButton, fileBytes, LinkAction, PartMark, Section, Select, TextArea, versionTag, withEtag } from "./shared";
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const PARTS = 5;
@@ -144,25 +145,45 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
     value: form[name] ?? "",
     onChange: (e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, [name]: e.target.value }),
   });
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
+  const [stale, setStale] = useState<Tagged<Schemas["Profile"]> | null>(null);
+  const send = async (base: Tagged<Schemas["Profile"]>) => {
     setMessage(null);
     const changes: Schemas["ProfileUpdate"] = {};
     for (const key of ["full_name", "profession", "registration_body", "registration_number"] as const) {
-      if ((form[key] ?? "") !== (saved.data[key] ?? "")) changes[key] = form[key] || null;
+      if ((form[key] ?? "") !== (base.data[key] ?? "")) changes[key] = form[key] || null;
     }
-    if (form.specialties.join() !== saved.data.specialties.join()) changes.specialties = form.specialties;
+    if (form.specialties.join() !== base.data.specialties.join()) changes.specialties = form.specialties;
     try {
-      const next = await withEtag(api.PATCH("/v1/me/profile", { body: changes, headers: ifMatch(saved.etag) }));
+      const next = await withEtag(api.PATCH("/v1/me/profile", { body: changes, headers: ifMatch(base.etag) }));
       const merged = { ...form, ...next.data };
       setSaved({ data: merged, etag: next.etag });
       setForm(merged);
       onSaved(merged);
       setEditing(false);
+      setStale(null);
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
-      setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale" }) });
+      if (err instanceof ApiError && err.code === "stale") {
+        // Fetch what is saved now, so the expert can choose; what they typed stays in the form.
+        try {
+          setStale(await withEtag(api.GET("/v1/me/profile")));
+          return;
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setMessage({ tone: "error", text: errorMessage(err) });
     }
+  };
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    void send(saved);
+  };
+  const takeSaved = (latest: Tagged<Schemas["Profile"]>) => {
+    setSaved(latest);
+    setForm(latest.data);
+    onSaved(latest.data);
+    setStale(null);
   };
   const shown = saved.data;
   const registered = [shown.registration_body, shown.registration_number].filter(Boolean).join(" · ");
@@ -222,6 +243,16 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
           <p>{message.text}</p>
         </Notice>
       )}
+      {stale && (
+        <StaleChoice
+          draft={form}
+          saved={stale.data}
+          onKeepMine={() => void send(stale)}
+          onUseSaved={() => takeSaved(stale)}
+          onClose={() => setStale(null)}
+          show={(p) => [p.full_name, [p.registration_body, p.registration_number].filter(Boolean).join(" · ")].filter(Boolean).join(", ")}
+        />
+      )}
     </Section>
   );
 }
@@ -254,24 +285,48 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
     setEditing(r.id);
     setEdit({ role_title: r.role_title, started_on: r.started_on ?? "", ended_on: r.ended_on ?? "" });
   };
-  const saveEdit = async (e: FormEvent, r: Schemas["Role"]) => {
-    e.preventDefault();
+  const [stale, setStale] = useState<Schemas["Role"] | null>(null);
+  const send = async (r: Schemas["Role"], version: number) => {
     setError(null);
     try {
       const role = await unwrap(
         api.PATCH("/v1/me/roles/{role_id}", {
           params: { path: { role_id: r.id } },
-          headers: ifMatch(`"${r.version}"`),
+          headers: ifMatch(versionTag(version)),
           body: { role_title: edit.role_title, started_on: edit.started_on, ended_on: edit.ended_on || null, setting: r.setting ?? null },
         }),
       );
       setRoles(roles.map((x) => (x.id === r.id ? role : x)));
       onSaved();
       setEditing(null);
+      setStale(null);
     } catch (err) {
-      setError(errorMessage(err, { invalid: "setup.roles.invalid", stale: "setup.roles.stale" }));
+      if (err instanceof ApiError && err.code === "stale") {
+        try {
+          const latest = (await unwrap(api.GET("/v1/me/roles"))).find((x) => x.id === r.id);
+          if (latest) {
+            setStale(latest);
+            return;
+          }
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setError(errorMessage(err, { invalid: "setup.roles.invalid" }));
     }
   };
+  const saveEdit = (e: FormEvent, r: Schemas["Role"]) => {
+    e.preventDefault();
+    void send(r, r.version);
+  };
+  const takeSavedRole = (latest: Schemas["Role"]) => {
+    setRoles(roles.map((x) => (x.id === latest.id ? latest : x)));
+    onSaved();
+    setEditing(null);
+    setStale(null);
+  };
+  const showRole = (r: { role_title: string; started_on?: string | null; ended_on?: string | null }) =>
+    `${r.role_title}, ${year(r.started_on)} – ${year(r.ended_on)}`;
   const remove = async (id: string) => {
     try {
       await unwrap(api.DELETE("/v1/me/roles/{role_id}", { params: { path: { role_id: id } } }));
@@ -346,6 +401,19 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
             {t("setup.roles.add")}
           </LinkAction>
         </div>
+      )}
+      {stale && editing && (
+        <StaleChoice
+          draft={edit}
+          saved={stale}
+          onKeepMine={() => {
+            const mine = roles.find((x) => x.id === editing);
+            if (mine) void send(mine, stale.version);
+          }}
+          onUseSaved={() => takeSavedRole(stale)}
+          onClose={() => setStale(null)}
+          show={showRole}
+        />
       )}
     </Section>
   );
@@ -468,19 +536,31 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
       setBusy(false);
     }
   };
-  const save = async () => {
-    if (!template) return;
+  const [stale, setStale] = useState<Tagged<Template> | null>(null);
+  const send = async (base: Tagged<Template>) => {
     setMessage(null);
     const body = {
-      mapping: template.data.headings.filter((h) => mapping[h.index]).map((h) => ({ index: h.index, section: mapping[h.index]! })),
+      mapping: base.data.headings.filter((h) => mapping[h.index]).map((h) => ({ index: h.index, section: mapping[h.index]! })),
     };
     try {
-      setTemplate(await withEtag(api.PATCH("/v1/me/template/mapping", { body, headers: ifMatch(template.etag) })));
+      setStale(null);
+      setTemplate(await withEtag(api.PATCH("/v1/me/template/mapping", { body, headers: ifMatch(base.etag) })));
       onSaved();
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
-      setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale" }) });
+      if (err instanceof ApiError && err.code === "stale") {
+        try {
+          setStale(await withEtag(api.GET("/v1/me/template")));
+          return;
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setMessage({ tone: "error", text: errorMessage(err) });
     }
+  };
+  const save = () => {
+    if (template) void send(template);
   };
   const sections = template?.data.sections ?? [];
   const options = [{ value: "", label: t("setup.template.unmapped") }, ...sections.map((key) => ({ value: key, label: sectionLabel(key) }))];
@@ -543,6 +623,19 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
           <p>{message.text}</p>
         </Notice>
       )}
+      {stale && (
+        <StaleChoice
+          draft={mapping}
+          saved={Object.fromEntries(stale.data.mapping.map((m) => [m.index, m.section]))}
+          onKeepMine={() => void send(stale)}
+          onUseSaved={() => {
+            setTemplate(stale);
+            setStale(null);
+          }}
+          onClose={() => setStale(null)}
+          show={(m) => sw("template.stale_show", { count: Object.values(m).filter(Boolean).length })}
+        />
+      )}
     </Section>
   );
 }
@@ -554,23 +647,36 @@ function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declar
     Object.fromEntries((declaration?.data.additions ?? []).map((a) => [a.kind, a.text])),
   );
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  const save = async () => {
-    if (!current) return;
+  const [stale, setStale] = useState<Tagged<Schemas["Declaration"]> | null>(null);
+  const send = async (base: Tagged<Schemas["Declaration"]>) => {
     setMessage(null);
     const body = {
-      jurisdiction: current.data.jurisdiction,
+      jurisdiction: base.data.jurisdiction,
       additions: Object.entries(additions)
         .filter(([, text]) => text.trim())
         .map(([kind, text]) => ({ kind, text })),
     };
     try {
-      setCurrent(await withEtag(api.PUT("/v1/me/declaration", { body, headers: ifMatch(current.etag) })));
+      setCurrent(await withEtag(api.PUT("/v1/me/declaration", { body, headers: ifMatch(base.etag) })));
+      setStale(null);
       onSaved();
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
-      setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale", locked: "setup.declaration.locked" }) });
+      if (err instanceof ApiError && err.code === "stale") {
+        try {
+          setStale(await withEtag(api.GET("/v1/me/declaration")));
+          return;
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setMessage({ tone: "error", text: errorMessage(err, { locked: "setup.declaration.locked" }) });
     }
   };
+  const save = () => {
+    if (current) void send(current);
+  };
+  const addedText = (d: Schemas["Declaration"]) => d.additions.map((a) => a.text).join(" / ");
   return (
     <Section id="setup-declaration" title={t("setup.declaration.title")} mark={<PartMark done={signed} number={5} />}>
       {current && current.data.wording.length > 0 && (
@@ -639,6 +745,19 @@ function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declar
         </Notice>
       )}
       <SignaturePad signed={signed} onSigned={onSigned} />
+      {stale && (
+        <StaleChoice
+          draft={Object.values(additions).filter((x) => x.trim()).join(" / ")}
+          saved={addedText(stale.data)}
+          onKeepMine={() => void send(stale)}
+          onUseSaved={() => {
+            setCurrent(stale);
+            setAdditions(Object.fromEntries(stale.data.additions.map((a) => [a.kind, a.text])));
+            setStale(null);
+          }}
+          onClose={() => setStale(null)}
+        />
+      )}
     </Section>
   );
 }

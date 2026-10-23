@@ -3,14 +3,15 @@ import type { RouteObject } from "react-router-dom";
 import { registerScreen } from "../../foundation/lib/screens";
 import { Consultation } from "./Consultation";
 import { ThingsToLook } from "./ThingsToLook";
+import { PackScope } from "./shared";
 import { Timeline } from "./Timeline";
 import "./understand.css";
 import "./words";
 
 export const understandCaseRoutes: RouteObject[] = [
-  { path: "timeline", element: <Timeline />, handle: { screen: "timeline" } },
-  { path: "consultation/:factId", element: <Consultation />, handle: { screen: "as_clinician_saw_it" } },
-  { path: "things-to-look-at", element: <ThingsToLook />, handle: { screen: "things_to_look_at" } },
+  { path: "timeline", element: <PackScope><Timeline /></PackScope>, handle: { screen: "timeline" } },
+  { path: "consultation/:factId", element: <PackScope><Consultation /></PackScope>, handle: { screen: "as_clinician_saw_it" } },
+  { path: "things-to-look-at", element: <PackScope><ThingsToLook /></PackScope>, handle: { screen: "things_to_look_at" } },
 ];
 
 const timeline = ({ caseId }: { caseId: string }) => `/cases/${caseId}/timeline`;

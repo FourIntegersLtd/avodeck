@@ -2,14 +2,14 @@
 // pack's labels), the chosen section as a paper page in the middle, what the court requires and the methodology
 // note at the right. The server decides every change; edits send the version this screen saw.
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { humanise } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { screenPath } from "../../foundation/lib/screens";
-import { errorMessage } from "../../foundation/lib/errors";
+import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, Segmented } from "../../foundation/ui";
+import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, Segmented, StaleChoice } from "../../foundation/ui";
 import { downloadPath, useLocale, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -229,39 +229,119 @@ function SectionEditor({ caseId, sectionKey, onClose, onSaved }: { caseId: strin
   return <SectionForm caseId={caseId} initial={found.data} onClose={onClose} onSaved={onSaved} />;
 }
 
+const MARKER = /\[\[cite:(\d+)\]\]/g;
+const SHOWN_MARKER = /⟦(\d+)⟧/g;
+type Cite = Schemas["Citation"];
+type Saved = { body: string; citations: Cite[]; version: number };
+/** The text as the box shows it: each citation marker is one whole chip token, never raw marker syntax. */
+const toView = (body: string) => body.replace(MARKER, (_, n: string) => `⟦${n}⟧`);
+
+/** Drop citations whose marker is gone from the text and renumber the rest in order (the server wants 1..n). */
+function prune(body: string, refs: Cite[]): { body: string; refs: Cite[] } {
+  const used = new Set([...body.matchAll(MARKER)].map((m) => Number(m[1])));
+  const kept: Cite[] = [];
+  const renumber = new Map<number, number>();
+  refs.forEach((r, i) => {
+    if (used.has(i + 1)) {
+      kept.push(r);
+      renumber.set(i + 1, kept.length);
+    }
+  });
+  if (kept.length === refs.length) return { body, refs };
+  return { body: body.replace(MARKER, (whole, n: string) => (renumber.has(Number(n)) ? `[[cite:${renumber.get(Number(n))}]]` : whole)), refs: kept };
+}
+
+/** What the box now holds, turned back into text with markers; null when typing would break a chip. */
+function fromView(next: string, body: string, refs: Cite[]): { body: string; refs: Cite[] } | null {
+  const tokens = [...next.matchAll(SHOWN_MARKER)].map((m) => Number(m[1]));
+  if (next.replace(SHOWN_MARKER, "").match(/[⟦⟧]/)) return null;
+  const had = new Set([...body.matchAll(MARKER)].map((m) => Number(m[1])));
+  if (new Set(tokens).size !== tokens.length || tokens.some((n) => !had.has(n))) return null;
+  return prune(next.replace(SHOWN_MARKER, (_, n: string) => `[[cite:${n}]]`), refs);
+}
+
 function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; initial: Schemas["SectionText"]; onClose: () => void; onSaved: () => void }) {
   const [body, setBody] = useState(initial.body);
+  const [refs, setRefs] = useState<Cite[]>(initial.citations);
   const [version, setVersion] = useState(initial.version);
-  const [error, setError] = useState<string | null>(null);
+  const [problem, setProblem] = useState<{ message: string; action: ErrorAction | null; cite: number | null } | null>(null);
+  const [stale, setStale] = useState<Saved | null | "unknown">(null);
   const [saved, setSaved] = useState(false);
   const nameOf = useSectionName();
-  const save = async () => {
-    setError(null);
+  const factLink = (n: number) => `/cases/${caseId}/consultation/${refs[n - 1]?.fact_id ?? ""}`;
+  const save = async (at: number = version) => {
+    setProblem(null);
     setSaved(false);
     try {
       const next = await unwrap(
         api.PUT("/v1/cases/{case_id}/report/sections/{key}", {
           params: { path: { case_id: caseId, key: initial.key } },
-          body: { body, citations: initial.citations },
-          headers: ifMatch(versionTag(version)),
+          body: { body, citations: refs },
+          headers: ifMatch(versionTag(at)),
         }),
       );
       setVersion(next.version);
       setSaved(true);
       onSaved();
     } catch (err) {
-      setError(errorMessage(err, ERRORS));
+      if (err instanceof ApiError && err.code === "stale") {
+        const latest = await unwrap(api.GET("/v1/cases/{case_id}/report/sections/{key}", { params: { path: { case_id: caseId, key: initial.key } } })).catch(() => null);
+        setStale(latest ? { body: latest.body, citations: latest.citations, version: latest.version } : "unknown");
+      } else if (err instanceof ApiError && err.code === "not_citable") {
+        const n = Number(err.extra.citation ?? 0);
+        setProblem({ message: n > 0 ? w("report.section.cite_refused", { number: n }) : w("report.section.cite_invalid"), action: null, cite: n > 0 ? n : null });
+      } else if (err instanceof ApiError && err.status === 422) {
+        setProblem({ message: w("report.section.cite_invalid"), action: null, cite: null });
+      } else {
+        setProblem({ message: errorMessage(err, ERRORS), action: errorAction(err, caseId), cite: null });
+      }
     }
+  };
+  const edit = (shown: string) => {
+    const next = fromView(shown, body, refs);
+    if (!next) return;
+    setBody(next.body);
+    setRefs(next.refs);
+    setSaved(false);
   };
   return (
     <div className="av-stack">
-      {error && <Notice tone="error"><p>{error}</p></Notice>}
-      <DictationBox caseId={caseId} context="report_section" label={w("report.section.label", { name: nameOf(initial.key) })} value={body} onChange={(value) => { setBody(value); setSaved(false); }} rows={10} />
+      {problem && (
+        <Notice tone="error">
+          <p>{problem.message}</p>
+          {problem.cite !== null && <Link className="av-text-link" to={factLink(problem.cite)}>{w("report.section.cite_open", { number: problem.cite })}</Link>}
+          {problem.action && <LinkButton to={problem.action.to}>{problem.action.label}</LinkButton>}
+        </Notice>
+      )}
+      <DictationBox caseId={caseId} context="report_section" label={w("report.section.label", { name: nameOf(initial.key) })} value={toView(body)} onChange={edit} rows={10} />
+      {refs.length > 0 && (
+        <ul className="av-stack">
+          {refs.map((r, i) => (
+            <li key={`${r.fact_id}-${i}`}>
+              <Link className="av-text-link" to={factLink(i + 1)} aria-label={w("report.section.cite_open", { number: i + 1 })}>{`⟦${i + 1}⟧ ${r.quote_verbatim}`}</Link>
+            </li>
+          ))}
+        </ul>
+      )}
       <div className="av-row">
         <Button onClick={() => void save()}>{w("report.section.save")}</Button>
         <Button variant="secondary" onClick={onClose}>{w("report.section.close")}</Button>
         {saved && <span role="status">{w("report.section.saved")}</span>}
       </div>
+      {stale && (
+        <StaleChoice
+          draft={toView(body)}
+          saved={stale === "unknown" ? null : toView(stale.body)}
+          savedVersion={stale === "unknown" ? 0 : stale.version}
+          onKeepMine={(v) => { setStale(null); void save(v); }}
+          onUseSaved={(_, v) => {
+            if (stale !== "unknown") { setBody(stale.body); setRefs(stale.citations); setVersion(v); }
+            setStale(null);
+          }}
+          onClose={() => setStale(null)}
+          words={{ title: w("report.section.stale_title"), keepMine: w("report.section.stale_yours"), useSaved: w("report.section.stale_saved") }}
+        />
+      )}
     </div>
   );
 }

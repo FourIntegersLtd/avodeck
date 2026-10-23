@@ -227,3 +227,13 @@ describe.each([
     expect(container.querySelector(".pl-preparing")).not.toBeNull();
   });
 });
+
+describe("Preparing, the reasons the API gives", () => {
+  test("when processing is paused, Start preparing says your work is safe and to try again later", async () => {
+    mockCase(launchPack, { job: null });
+    server.use(http.post(`/v1/cases/${CASE_ID}/process`, () => apiError(503, "processing_paused")));
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Start preparing" }));
+    expect(await screen.findByText("Preparing is paused for the moment. Your files and work are safe. Please try again in a little while.")).toBeVisible();
+  });
+});

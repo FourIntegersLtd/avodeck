@@ -68,6 +68,7 @@ export function fact(n: number, over: Partial<Schemas["FactOut"]> = {}): Schemas
     bbox: n === 1 ? { x0: 0.06, y0: 0.2, x1: 0.56, y1: 0.24 } : { x0: 0.1, y0: 0.4, x1: 0.5, y1: 0.43 },
     event_date: "2024-05-15",
     status: "suggested",
+    cites_correction: false,
     version: 1,
     flagged: false,
     needs_recheck: false,

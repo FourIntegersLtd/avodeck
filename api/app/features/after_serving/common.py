@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts.citations import Citation, quote_within
-from app.core.contracts.document_words import word_purpose
+from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.facts import citable_facts
 from app.core.contracts.reading import PageReadLog
 from app.core.contracts.reports import AFTER_SERVING_TYPES
@@ -197,7 +197,9 @@ async def page_words(conn: Any, crypto: CaseCrypto, case_id: uuid.UUID, page_id:
     for wid, sealed in await cur.fetchall():
         text = await crypto.decrypt(conn, case_id, bytes(sealed), purpose=word_purpose(page_id, str(wid)))
         words.append((str(wid), text.decode()))
-    return words
+    corrections = (await current_corrections(conn, crypto, case_id, [page_id])).get(page_id, [])
+    # the expert's reading of misread words, never the computer's (slice B, 0018)
+    return list(apply_corrections(dict(words), corrections).items()) if corrections else words
 
 
 # --- citations ------------------------------------------------------------------------------------------

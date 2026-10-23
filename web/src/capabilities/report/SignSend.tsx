@@ -4,7 +4,7 @@
 import { useState, type ReactNode } from "react";
 import { useParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
-import { errorMessage } from "../../foundation/lib/errors";
+import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -143,7 +143,7 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
   const { item, pack } = useCaseFrame();
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; code: string } | null>(null);
+  const [error, setError] = useState<{ message: string; code: string; action: ErrorAction | null } | null>(null);
   const [read, setRead] = useState(false);
   const [signed, setSigned] = useState(false);
   const [noPicture, setNoPicture] = useState(false);
@@ -162,7 +162,7 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
         onDone();
       }
     } catch (err) {
-      setError({ message: errorMessage(err, ERRORS), code: err instanceof ApiError ? err.code : "" });
+      setError({ message: errorMessage(err, ERRORS), code: err instanceof ApiError ? err.code : "", action: errorAction(err, caseId) });
     } finally {
       setBusy(false);
     }
@@ -174,7 +174,7 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
       setRead(true);
       setError(null);
     } catch (err) {
-      setError({ message: errorMessage(err, ERRORS), code: "" });
+      setError({ message: errorMessage(err, ERRORS), code: "", action: null });
     }
   };
 
@@ -207,6 +207,7 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
       {error && (
         <Notice tone="error">
           <p>{error.message}</p>
+          {error.action && <LinkButton to={error.action.to}>{error.action.label}</LinkButton>}
           {error.code === "declaration_not_acknowledged" && <Button variant="secondary" onClick={() => void acknowledge()}>{w("sign.acknowledge")}</Button>}
         </Notice>
       )}

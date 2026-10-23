@@ -477,6 +477,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | old_word_ids / new_word_ids | The words it pointed to before and after a change |
 | old_page_id / new_page_id | The page it was on before and after a move to a clearer copy |
 | at | When the check was made |
+| correction_id | The expert's reading of misread words (`word_corrections`) the check relied on, if any (0211) |
 | prev_hash / hash | Links to the previous check so any tampering is obvious |
 
 ### page_reads
@@ -494,6 +495,15 @@ A joint expert is one with two or more current instructing parties; no separate 
 | fact_id / person_id | Which fact, flagged by whom; no person for `recheck` flags, which the reading job writes (0205) |
 | flagged_for | Why it was flagged: `points` (to consider under points against), or `recheck` ("Please check": its page was read again and its words were not found; the flag goes when the expert checks the fact again) (0205) |
 | at | When it was flagged |
+
+### word_corrections
+| Field | In plain words |
+|---|---|
+| page_id | The page the words are on; the correction goes with the page (decision 0018) |
+| word_ids | The run of words the computer misread, among the words a fact cites |
+| text | What the named expert says those words really say; sealed with the case key, never logged |
+| person_id | The named expert who typed it |
+| created_at / superseded_at | When it was typed, and when a later reading of any of the same words, or new words for the page (turned, read again, typed out), replaced it (set once; 0211) |
 
 ### missing_items
 | Field | In plain words |

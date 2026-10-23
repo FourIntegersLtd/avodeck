@@ -30,6 +30,8 @@ export { Notice } from "./Notice";
 export { ProgressBar, ProgressRing, StackedBar } from "./Progress";
 export type { StackedBarSegment } from "./Progress";
 export { Spinner } from "./Spinner";
+export { StaleChoice } from "./StaleChoice";
+export type { StaleChoiceProps, StaleChoiceWords } from "./StaleChoice";
 export { StatusBadge } from "./StatusBadge";
 export type { Status } from "./StatusBadge";
 export { StatusRow } from "./StatusRow";

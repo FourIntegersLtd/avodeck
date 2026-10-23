@@ -7,7 +7,7 @@ import { useParams } from "react-router-dom";
 import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Callout, DictationBar, LinkButton, LoadError, Loading, Notice, PageRef, TextLink } from "../../foundation/ui";
 import { KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
@@ -42,12 +42,15 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   const [adding, setAdding] = useState<string | null>(null);
   const [dictatedOn, setDictatedOn] = useState(initial.range_note.dictated_on);
 
+  const [existing, setExisting] = useState<string | null>(null);
+
   const attempt = async (work: () => Promise<void>) => {
     setError(null);
+    setExisting(null);
     try {
       await work();
     } catch (err) {
-      setError(errorMessage(err, { stale: "write.points.stale" }));
+      setError(errorMessage(err, { stale: "write.points.stale", conflict: "write.points.exists" }));
     }
   };
 
@@ -60,7 +63,18 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
 
   const add = (fact: Schemas["PointFact"], side: string) =>
     attempt(async () => {
-      const point = await unwrap(api.POST("/v1/cases/{case_id}/questions/{question_id}/points", { params: { path: { case_id: caseId, question_id: questionId } }, body: { fact_id: fact.id, side } }));
+      let point: Point;
+      try {
+        point = await unwrap(api.POST("/v1/cases/{case_id}/questions/{question_id}/points", { params: { path: { case_id: caseId, question_id: questionId } }, body: { fact_id: fact.id, side } }));
+      } catch (err) {
+        if (err instanceof ApiError && err.code === "conflict") {
+          // Already a point (another window): load the latest so the existing point can be shown.
+          const latest = await unwrap(api.GET("/v1/cases/{case_id}/questions/{question_id}/points", { params: { path: { case_id: caseId, question_id: questionId } } }));
+          setData(latest);
+          setExisting(latest.points.find((p) => p.fact.id === fact.id)?.id ?? null);
+        }
+        throw err;
+      }
       setData((d) => ({ ...d, points: [...d.points, point], unused: d.unused.filter((f) => f.id !== fact.id), relevant: d.relevant.filter((r) => r.fact.id !== fact.id) }));
     });
 
@@ -99,6 +113,19 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
       {error && (
         <Notice tone="error">
           <p>{error}</p>
+          {existing && (
+            <button
+              type="button"
+              className="av-text-link av-write-linkbutton"
+              onClick={() => {
+                const el = document.getElementById(`point-${existing}`);
+                el?.scrollIntoView?.({ block: "center" });
+                el?.focus();
+              }}
+            >
+              {w("points.exists_show")}
+            </button>
+          )}
         </Notice>
       )}
 
@@ -111,7 +138,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
               {mine.length === 0 && <p className="av-muted">{w("points.side_empty")}</p>}
               <ul className="av-write-list">
                 {mine.map((point) => (
-                  <li key={point.id} className="av-write-item">
+                  <li key={point.id} id={`point-${point.id}`} tabIndex={-1} className="av-write-item">
                     <div className="av-write-item__head">
                       <span>{point.fact.value}</span>
                       <PageRef page={point.fact.page_no} />
