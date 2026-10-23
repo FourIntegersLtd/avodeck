@@ -18,8 +18,8 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | locale | Their language and spelling (e.g. British English) |
 | timezone | Their local time zone, used to show dates and deadlines |
 | home_region | Which country's system they belong to (UK, Australia, Canada) |
-| records_custodian | Someone they nominate to look after their served cases if they die or can't work |
-| closed_at | When they closed their account (empty if active) |
+| records_custodian | Someone they nominate to look after their served cases if they die or can't work (name and email, both or neither; `PUT /me/custodian`, step-up) |
+| closed_at | When they closed their account (empty if active). From then on they can only sign in to read the served cases they are named on |
 | email_bounced_at | When an email to them bounced; no more emails until the address changes |
 | (shown, not stored) greeting_name | The short form Today greets them with ("Dr Morgan"): the title their jurisdiction's pack gives their profession plus their surname; empty when the pack has no title |
 | (shown, not stored) password_changed_at | When they last reset their password, read from the audit log; empty if they never have. Account and security says "Changed 3 months ago" |
@@ -137,7 +137,10 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | email | Who was invited |
 | role | The role they'll have when they accept |
 | invited_by | Who sent it |
-| expires_at / accepted_at | When it stops working; when it was accepted |
+| token_hash | A scrambled copy of the secret in the email's link; the link itself is never kept |
+| status | Waiting, accepted, cancelled or expired (a waiting invite past its expiry date reads as expired) |
+| expires_at / accepted_at / accepted_by | When it stops working (7 days after sending); when it was accepted, and by whom |
+| cancelled_at | When an owner or admin cancelled it |
 
 ### billing_profiles
 | Field | In plain words |

@@ -228,7 +228,7 @@ Who owns cases and pays, who belongs, and how they want to be told about things.
 |---|---|---|
 | `organisations` | The account that owns cases and pays: a person's own practice or a team (agency, chambers, NHS team). Every case belongs to exactly one. | name, kind (personal/team), region, billing_profile_id, policy (required template, retention limits), created_at, closed_at |
 | `memberships` | Who belongs to which organisation and in what role. One person can be in several organisations; leaving ends the membership but keeps the history. | organisation_id, person_id, role (owner/admin/expert/assistant/viewer), started_at, ended_at |
-| `invites` | An invitation to join an organisation, sent by email, valid for 7 days. | organisation_id, email, role, invited_by, expires_at, accepted_at |
+| `invites` | An invitation to join an organisation, sent by email, valid for 7 days, used once. Only a scrambled copy of the link's secret is kept. | organisation_id, email, role, invited_by, token_hash, status, expires_at, accepted_at, accepted_by, cancelled_at |
 | `billing_profiles` | Who an invoice is from: name, address and tax number of the organisation or expert issuing it, with their own invoice numbering. | owner_type, owner_id, legal_name, address, tax_number, currency, next_invoice_no |
 | `notification_preferences` | How a person wants to be told about things, per organisation (in-app, email, daily digest). | person_id, organisation_id, channel, enabled, digest, muted_kinds[] |
 | `support_access_grants` | A time-limited permission the named expert gives Avodeck support to look at one case (at most 24 hours). Created by foundation (migration 0030); slice O builds the routes. Kept after the case is deleted as the record of consent. | case_id, granted_by, granted_to (empty: any staff member), reason (short code), granted_at, expires_at, revoked_at |
@@ -817,6 +817,9 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/me/close` | Close account after export; served cases kept read-only | 🔒 |
 | POST | `/cases/{case_id}/support-access` | Named expert grants support 24-hour access to one case | 🔒; shown on the case |
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |
+| GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
+| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA in the last 10 minutes on every call |
+| GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants; the look is audited on the case | Support staff, as above |
 
 **Case setup (slice C)**
 
