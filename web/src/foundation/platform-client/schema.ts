@@ -5548,6 +5548,16 @@ export interface components {
             /** Visible */
             visible: components["schemas"]["Entry"][];
         };
+        /**
+         * CorrectedWordsIn
+         * @description What some of the cited words really say, when the computer misread them (decision 0018).
+         */
+        CorrectedWordsIn: {
+            /** Text */
+            text: string;
+            /** Word Ids */
+            word_ids: string[];
+        };
         /** Counts */
         Counts: {
             /**
@@ -6163,6 +6173,12 @@ export interface components {
             bbox: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Cites Correction
+             * @description Cites words the expert read differently from the computer ('Read by you').
+             * @default false
+             */
+            cites_correction: boolean;
             /** Event Date */
             event_date: string | null;
             /** Fields */
@@ -10276,6 +10292,7 @@ export interface components {
              * @enum {string}
              */
             action: "correct" | "not_right" | "edit";
+            corrected_words?: components["schemas"]["CorrectedWordsIn"] | null;
             /** Event Date */
             event_date?: string | null;
             /** Fields */

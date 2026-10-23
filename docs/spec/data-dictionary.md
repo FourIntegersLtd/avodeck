@@ -474,6 +474,15 @@ A joint expert is one with two or more current instructing parties; no separate 
 | flagged_for | Why it was flagged: `points` (to consider under points against), or `recheck` ("Please check": its page was read again and its words were not found; the flag goes when the expert checks the fact again) (0205) |
 | at | When it was flagged |
 
+### word_corrections
+| Field | In plain words |
+|---|---|
+| page_id | The page the words are on; the correction goes with the page (decision 0018) |
+| word_ids | The run of words the computer misread, among the words a fact cites |
+| text | What the named expert says those words really say; sealed with the case key, never logged |
+| person_id | The named expert who typed it |
+| created_at / superseded_at | When it was typed, and when a later reading of any of the same words replaced it (set once) |
+
 ### missing_items
 | Field | In plain words |
 |---|---|

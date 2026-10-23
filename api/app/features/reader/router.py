@@ -13,6 +13,7 @@ from fastapi import Depends, Query, Request, Response
 
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts.document_words import apply_corrections
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, process_pages
 from app.core.contracts.reading import blind_read, require_page_read
@@ -300,6 +301,18 @@ def _changed(response: Response, after: dict | None) -> FactOut:  # type: ignore
     return FactOut(**after)
 
 
+def _with_reading(words: dict[str, str], cited: list[str], corrected: list[str], text: str) -> dict[str, str]:
+    """The page's words with the expert's reading of `corrected` in place: 422 unless those words are among
+    the cited ones and one unbroken run on the page (decision 0018, rule 2)."""
+    order = {w: i for i, w in enumerate(words)}
+    if not set(corrected) <= set(cited) or any(w not in order for w in corrected):
+        raise _invalid()
+    places = sorted({order[w] for w in corrected})
+    if places[-1] - places[0] != len(places) - 1:
+        raise _invalid()
+    return apply_corrections(words, [(corrected, text)])
+
+
 @router.post("/facts/{fact_id}/verify", response_model=FactOut)
 async def verify_fact(
     case_id: uuid.UUID,
@@ -332,11 +345,15 @@ async def verify_fact(
     if body.action == "edit":
         if body.new_value is None and body.fields is None and "event_date" not in body.model_fields_set:
             raise _invalid()
+        if body.corrected_words is not None and body.new_value is None:
+            raise _invalid()
         if body.new_value is not None:
             if not body.new_value.strip():
                 raise _invalid()
             value, word_ids = body.new_value, body.word_ids or before["word_ids"]
             words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
+            if body.corrected_words is not None:
+                words = _with_reading(words, word_ids, body.corrected_words.word_ids, body.corrected_words.text)
             if not provenance.supported(value, word_ids, words):
                 raise _invalid()
             if body.word_ids or value != before["value"] or word_ids != before["word_ids"]:
@@ -372,6 +389,11 @@ async def verify_fact(
         from app.core.contracts.fact_dates import DATE_BASIS_PRINTED
 
         date_basis = DATE_BASIS_PRINTED
+    corrected = body.corrected_words if body.action == "edit" else None
+    if corrected is not None:  # before the change, so the changed fact shows it cites the expert's reading
+        await repo.save_correction(
+            conn, _crypto(request), case_id, before["page_id"], corrected.word_ids, corrected.text, scope.person_id
+        )
     after = await repo.change_fact(
         conn,
         fact_id,
@@ -387,6 +409,10 @@ async def verify_fact(
     )
     out = _changed(response, after)
     assert after is not None
+    if corrected is not None:
+        await repo.flag_unsupported(
+            conn, _crypto(request), case_id, before["page_id"], corrected.word_ids, scope.person_id, except_fact=fact_id
+        )
     if before["needs_recheck"]:  # after the change: facts_guard reads the flag for verified -> edited
         await repo.set_flag(conn, case_id, fact_id, RECHECK, scope.person_id, on=False)
         out = out.model_copy(update={"needs_recheck": False})

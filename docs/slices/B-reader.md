@@ -17,7 +17,7 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `POST /v1/cases/{id}/pages/{page_no}/read` `{dwell_seconds}`
 - `GET /v1/cases/{id}/pages/{page_no}/facts`: **423 `blind_read`** until read
 - `GET /v1/cases/{id}/pages/{page_no}/words`: the page's words with boxes (null for typed words), for re-citing a changed fact; **423 `blind_read`** until read, `private, no-store`
-- `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, word_ids?, reason?, fields?, event_date?}` (If-Match; `fields` checked against the pack kind: 422 `invalid_fields`)
+- `POST /v1/cases/{id}/facts/{fact_id}/verify` `{action: correct|not_right|edit, new_value?, word_ids?, reason?, fields?, event_date?, corrected_words?}` (If-Match; `fields` checked against the pack kind: 422 `invalid_fields`; `corrected_words {word_ids, text}`: the expert's reading of misread cited words, decision 0018; facts carry `cites_correction`)
 - `POST` / `DELETE /v1/cases/{id}/facts/{fact_id}/flag-point`: marks a checked fact for screen 14, or takes it back (E reads the flags through `core/contracts/fact_flags.py`)
 - `GET /v1/cases/{id}/progress`
 - `GET /v1/cases/{id}/pages/{n}` also carries `period_start` / `period_end` (the case's period of interest, read from `cases`), so the S09 banner can say "(Feb 2024 to Aug 2024)"
@@ -27,7 +27,7 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance? (relevant | background | nothing), needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned
-`page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at).
+`page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209).
 
 Writes on contract tables: `facts.status` and `facts.value` / `fields` on edit (the original stays in `fact_verifications.old_value`); `pages.relevance`, `pages.transcribed_by_expert_text`, `pages.needs_clearer_copy`. Reads `pages`, `facts`, `ocr_words` (A).
 

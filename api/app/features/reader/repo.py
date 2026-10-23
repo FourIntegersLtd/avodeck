@@ -11,7 +11,14 @@ from typing import Any
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
-from app.core.contracts.document_words import box, word_purpose
+from app.core.ai import provenance
+from app.core.contracts.document_words import (
+    apply_corrections,
+    box,
+    correction_purpose,
+    current_corrections,
+    word_purpose,
+)
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import transcription_purpose
 from app.core.crypto import CaseCrypto
@@ -168,7 +175,9 @@ def _row(cur: Any, row: tuple[Any, ...]) -> dict[str, Any]:
 # `flagged` is the Points against flag only; `needs_recheck` is "Please check" after a page is read again.
 _FACT_COLUMNS = """f.id, f.kind, f.fields, f.value, f.word_ids, f.bbox, f.event_date, f.status, f.version,
     exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(points)s) as flagged,
-    exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(recheck)s) as needs_recheck"""
+    exists (select 1 from app.fact_flags g where g.fact_id = f.id and g.flagged_for = %(recheck)s) as needs_recheck,
+    exists (select 1 from app.word_corrections c where c.page_id = f.page_id and c.superseded_at is null
+            and c.word_ids && f.word_ids) as cites_correction"""
 _FLAGS = {"points": POINTS, "recheck": RECHECK}
 
 
@@ -187,12 +196,66 @@ async def fact(conn: AsyncConnection, case_id: uuid.UUID, fact_id: uuid.UUID) ->
 async def page_words(
     conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID, page_id: uuid.UUID
 ) -> dict[str, str]:
-    """The page's words in reading order, unsealed (kept in memory only, never logged)."""
+    """The page's words in reading order, unsealed (kept in memory only, never logged), with the expert's
+    current readings of misread words in place (decision 0018)."""
     cur = await conn.execute("select word_id, text from app.ocr_words where page_id = %s order by n", (page_id,))
-    return {
+    words = {
         w: (await crypto.decrypt(conn, case_id, bytes(t), purpose=word_purpose(page_id, w))).decode()
         for w, t in await cur.fetchall()
     }
+    corrections = await current_corrections(conn, crypto, case_id, [page_id])
+    return apply_corrections(words, corrections.get(page_id, []))
+
+
+async def save_correction(
+    conn: AsyncConnection,
+    crypto: CaseCrypto,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    word_ids: list[str],
+    text: str,
+    person_id: uuid.UUID,
+) -> uuid.UUID:
+    """Keep the expert's reading of the words, sealed with the case key; it replaces any current reading of
+    any of the same words. The computer's reading in `ocr_words` is left as it is."""
+    await conn.execute(
+        "update app.word_corrections set superseded_at = now()"
+        " where page_id = %s and superseded_at is null and word_ids && %s",
+        (page_id, word_ids),
+    )
+    correction_id = uuid.uuid4()
+    sealed = await crypto.encrypt(conn, case_id, text.encode(), purpose=correction_purpose(page_id, correction_id))
+    await conn.execute(
+        "insert into app.word_corrections (id, page_id, word_ids, text, person_id) values (%s, %s, %s, %s, %s)",
+        (correction_id, page_id, word_ids, sealed, person_id),
+    )
+    return correction_id
+
+
+async def flag_unsupported(
+    conn: AsyncConnection,
+    crypto: CaseCrypto,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    word_ids: list[str],
+    person_id: uuid.UUID,
+    *,
+    except_fact: uuid.UUID,
+) -> None:
+    """After a new reading of some words, flag "Please check" on every other checked fact citing them whose
+    value those words no longer show (rule 2)."""
+    cur = await conn.execute(
+        "select id, value, word_ids from app.facts where case_id = %s and page_id = %s and id <> %s"
+        " and status in ('verified', 'edited') and value is not null and word_ids && %s",
+        (case_id, page_id, except_fact, word_ids),
+    )
+    rows = await cur.fetchall()
+    if not rows:
+        return
+    words = await page_words(conn, crypto, case_id, page_id)
+    for fact_id, value, cited in rows:
+        if not provenance.supported(value, cited, words):
+            await set_flag(conn, case_id, fact_id, RECHECK, person_id, on=True)
 
 
 async def change_fact(

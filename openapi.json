@@ -3623,6 +3623,32 @@
         "title": "Consultation",
         "type": "object"
       },
+      "CorrectedWordsIn": {
+        "description": "What some of the cited words really say, when the computer misread them (decision 0018).",
+        "properties": {
+          "text": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 50,
+            "minItems": 1,
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "word_ids",
+          "text"
+        ],
+        "title": "CorrectedWordsIn",
+        "type": "object"
+      },
       "Counts": {
         "properties": {
           "matched": {
@@ -5354,6 +5380,12 @@
               }
             ],
             "title": "Bbox"
+          },
+          "cites_correction": {
+            "default": false,
+            "description": "Cites words the expert read differently from the computer ('Read by you').",
+            "title": "Cites Correction",
+            "type": "boolean"
           },
           "event_date": {
             "anyOf": [
@@ -17133,6 +17165,16 @@
             ],
             "title": "Action",
             "type": "string"
+          },
+          "corrected_words": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CorrectedWordsIn"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "event_date": {
             "anyOf": [
