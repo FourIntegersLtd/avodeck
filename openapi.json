@@ -10524,6 +10524,11 @@
       },
       "OrgMember": {
         "properties": {
+          "case_count": {
+            "default": 0,
+            "title": "Case Count",
+            "type": "integer"
+          },
           "email": {
             "title": "Email",
             "type": "string"

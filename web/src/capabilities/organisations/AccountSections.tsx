@@ -10,7 +10,8 @@ import { BackLink, Button, Dialog, LoadError, Loading, TextField, TextLink } fro
 import { MessageNotice, OWN_ERRORS, useAct, type Message } from "./common";
 import { w } from "./words";
 
-export function Custodian() {
+/** The custodian form, as the S28 section and as the page body. */
+export function CustodianBody() {
   const { act, message, setMessage } = useAct();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -32,9 +33,7 @@ export function Custodian() {
     }
   };
   return (
-    <div className="av-page av-page--narrow av-stack">
-      <BackLink to="/account">{w("account.back")}</BackLink>
-      <h1>{w("custodian.title")}</h1>
+    <div className="av-stack">
       <p>{w("custodian.intro")}</p>
       <MessageNotice message={message} />
       <form className="av-stack av-card av-org-card" onSubmit={(e) => void save(e)} noValidate>
@@ -52,9 +51,20 @@ export function Custodian() {
   );
 }
 
+export function Custodian() {
+  return (
+    <div className="av-page av-page--narrow av-stack">
+      <BackLink to="/account">{w("account.back")}</BackLink>
+      <h1>{w("custodian.title")}</h1>
+      <CustodianBody />
+    </div>
+  );
+}
+
 const SERVED_OR_LATER = new Set(["served", "settled", "archived", "withdrawn", "deleted"]);
 
-export function CloseAccount() {
+/** The closing section, as the S28 section and as the page body. */
+export function CloseAccountBody() {
   const stepUp = useStepUp();
   const today = useResource(() => unwrap(api.GET("/v1/today")), []);
   const [asking, setAsking] = useState(false);
@@ -63,18 +73,10 @@ export function CloseAccount() {
   const [closed, setClosed] = useState(false);
 
   if (today.error) {
-    return (
-      <div className="av-page">
-        <LoadError onRetry={today.reload} />
-      </div>
-    );
+    return <LoadError onRetry={today.reload} />;
   }
   if (!today.data) {
-    return (
-      <div className="av-page">
-        <Loading />
-      </div>
-    );
+    return <Loading />;
   }
   const cases = today.data.cases.filter((c) => c.organisation_kind === "personal" && c.your_role === "named_expert" && !SERVED_OR_LATER.has(c.status));
   const close = async () => {
@@ -99,9 +101,7 @@ export function CloseAccount() {
     }
   };
   return (
-    <div className="av-page av-page--narrow av-stack">
-      <BackLink to="/account">{w("account.back")}</BackLink>
-      <h1>{w("close_account.title")}</h1>
+    <div className="av-stack">
       <p>{w("close_account.intro")}</p>
       <MessageNotice message={message} />
       {closed && <p>{w("close_account.leaves")}</p>}
@@ -153,6 +153,16 @@ export function CloseAccount() {
           </div>
         </Dialog>
       )}
+    </div>
+  );
+}
+
+export function CloseAccount() {
+  return (
+    <div className="av-page av-page--narrow av-stack">
+      <BackLink to="/account">{w("account.back")}</BackLink>
+      <h1>{w("close_account.title")}</h1>
+      <CloseAccountBody />
     </div>
   );
 }

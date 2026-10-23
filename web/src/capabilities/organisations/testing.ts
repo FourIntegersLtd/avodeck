@@ -11,7 +11,7 @@ export function org(over: Partial<Schemas["Organisation"]> = {}): Schemas["Organ
 }
 
 export function member(id: string, name: string, role: Schemas["OrgMember"]["role"], over: Partial<Schemas["OrgMember"]> = {}): Schemas["OrgMember"] {
-  return { membership_id: id, person_id: id, full_name: name, email: `${name.split(" ").join(".").toLowerCase()}@example.test`, role, started_at: "2025-03-01T09:00:00Z", ended_at: null, ...over };
+  return { membership_id: id, person_id: id, full_name: name, email: `${name.split(" ").join(".").toLowerCase()}@example.test`, role, started_at: "2025-03-01T09:00:00Z", ended_at: null, case_count: 0, ...over };
 }
 
 export const MEMBERS = [member(PERSON_ID, "Dr Jane Morgan", "owner"), member(OTHER, "Sarah Okafor", "admin"), member(THIRD, "Lena Hart", "expert")];

@@ -6,7 +6,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Dialog, LoadError, Loading, TextField, TextLink, ToggleSwitch } from "../../foundation/ui";
+import { BackLink, Button, Dialog, LoadError, Loading, TextField, ToggleSwitch } from "../../foundation/ui";
 import { MessageNotice, NotFoundPage, useAct } from "./common";
 import { People } from "./People";
 import { w, yearsText, type OrgKey } from "./words";
@@ -76,13 +76,6 @@ export function OrganisationSettings() {
         </section>
       </div>
       <Rules org={{ ...item, policy: policy ?? item.policy }} manage={manage} onPolicy={setPolicy} />
-      {personal && (
-        <section aria-labelledby="more-account" className="av-card av-org-card">
-          <h2 id="more-account">{w("account.sections.title")}</h2>
-          <TextLink to="/account/custodian">{w("account.custodian.link")}</TextLink>
-          <TextLink to="/account/close">{w("account.close.link")}</TextLink>
-        </section>
-      )}
       {manage && !personal && <Billing orgId={item.id} />}
       {manage && !personal && <CloseOrganisation org={item} />}
     </div>

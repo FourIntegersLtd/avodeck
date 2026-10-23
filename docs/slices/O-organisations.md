@@ -70,8 +70,9 @@ Items marked **(legal check)** in architecture 10.1 and ADR 0012: named-expert a
 
 ## Web (Phase 2) as built
 - Routes: `/organisations/:orgId` (S27, screen `organisation_settings`), `/organisations/:orgId/leave` (`organisation_leave`), `/invites/:token` (outside the signed-in guard, sign-in layout classes), `/account/custodian` and `/account/close` (S28 sections as registered screens `account_custodian`, `account_close`), `/cases/:caseId/team` (change named expert, support grant card; screen `case_team`), `/support` (staff only; the server answers anyone else 404).
-- Foundation requests: (1) a section slot on the account page, so S28's custodian and closing sections sit on the page instead of being reached from the personal organisation's page; (2) a case-header action slot for "Change named expert"; (3) move `AuthLayout` into `foundation/ui` so the invite page can use it; (4) a `billing_profile` screen key (F) for the bank-details link; (5) the replacement-case route and the support custody-transfer route, which stay behind the flags `replacement_case` and `support_custody_transfer` (`VITE_FLAG_*=1`) until they exist.
-- The members list does not give case counts, so the board's "cases" column is not drawn.
+- Slots (foundation PR #66): S28 sections "If you can't carry on" and "Close your account" are registered with `registerAccountSection` (the `/account/custodian` and `/account/close` pages stay as full-page views); case header actions "Change named expert", "Avodeck support" and (served, flag) "Create a replacement case" are registered with `registerCaseAction`; the invite page uses `AuthLayout` from `foundation/ui`.
+- Still open: a `billing_profile` screen key (F) for the bank-details link; the replacement-case route and the support custody-transfer route, which stay behind the flags `replacement_case` and `support_custody_transfer` (`VITE_FLAG_*=1`) until they exist.
+- `GET /v1/organisations/{org_id}/members` gains `case_count` (cases the member is named expert on in that organisation; migration 1007), drawn as the board's "cases" column.
 - Playwright against the live API: `web/e2e/organisations/` (`seed.py` arranges people and sessions; set `E2E_LIVE_ADMIN_DB` and `API_DEV_ORIGIN`; the file skips without them).
 
 ## Out of scope

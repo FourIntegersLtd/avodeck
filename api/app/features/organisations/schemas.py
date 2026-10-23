@@ -59,6 +59,7 @@ class OrgMember(BaseModel):
     role: OrgRole
     started_at: datetime
     ended_at: datetime | None
+    case_count: int = 0
 
 
 class OrgMemberList(BaseModel):

@@ -21,3 +21,4 @@
 .av-org-sub { margin: 0; font-size: 28px; }
 .av-org-search { align-items: flex-end; }
 .av-org-search .av-field { flex: 1 1 320px; }
+.av-org-cases { flex: 0 0 90px; font-family: var(--font-mono); }

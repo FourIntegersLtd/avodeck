@@ -4,7 +4,7 @@ import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { Button, Dialog, TextField, initials } from "../../foundation/ui";
 import { MessageNotice, shortDate, useAct } from "./common";
-import { w, type OrgKey } from "./words";
+import { casesText, w, type OrgKey } from "./words";
 
 type Member = Schemas["OrgMember"];
 type Invite = Schemas["Invite"];
@@ -96,6 +96,7 @@ export function People({ orgId, members, manage, me, reload }: Props) {
                     <p className="av-field__label">{roleName(m.role)}</p>
                     <p className="av-muted">{w(`role_does.${m.role}` as OrgKey)}</p>
                   </div>
+                  <span className="av-org-cases">{casesText(m.case_count ?? 0)}</span>
                   <span className="av-muted av-org-joined">{w("people.joined", { year: new Date(m.started_at).getFullYear() })}</span>
                   {manage && (
                     <>

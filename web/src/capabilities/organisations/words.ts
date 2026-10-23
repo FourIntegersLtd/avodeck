@@ -30,7 +30,10 @@ const WORDS = {
   "role_does.viewer": "Reads cases they're added to",
 
   "people.title": "People ({{count}})",
-  "people.columns": "Role · joined",
+  "people.columns": "Role · cases · joined",
+  "people.cases_one": "{{count}} case",
+  "people.cases_other": "{{count}} cases",
+  "people.cases_none": "—",
   "people.you": "{{name}} (you)",
   "people.joined": "Joined {{year}}",
   "people.change": "Change",
@@ -256,6 +259,12 @@ export function w(key: OrgKey, params: Record<string, string | number | null | u
 export function yearsText(count: number): string {
   const key = "organisations.rules.retention_years";
   return t(key, { count });
+}
+
+/** "6 cases", "1 case", or a dash for none. */
+export function casesText(count: number): string {
+  const key = "organisations.people.cases";
+  return count > 0 ? t(key, { count }) : w("people.cases_none");
 }
 
 registerOrganisationMessages();

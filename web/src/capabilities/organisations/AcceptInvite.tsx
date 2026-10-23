@@ -1,11 +1,9 @@
-// Invite accept page. It uses the sign-in layout (S01) classes and Logo; the layout itself lives in the app
-// layer, which a capability may not import (foundation request: move AuthLayout to foundation/ui).
+// Invite accept page, in the sign-in layout (S01).
 // Mounted outside the signed-in guard so there is no app bar; a 401 sends the person to sign in and back here.
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { t } from "../../foundation/i18n";
 import { ApiError, api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Logo, Notice } from "../../foundation/ui";
+import { AuthLayout, Button, Notice } from "../../foundation/ui";
 import { w, type OrgKey } from "./words";
 
 export function AcceptInvite() {
@@ -31,15 +29,7 @@ export function AcceptInvite() {
   };
 
   return (
-    <div className="av-sign-in">
-      <aside className="av-sign-in__brand">
-        <Logo onDark />
-        <div className="av-sign-in__promise">
-          <h2 className="av-sign-in__tagline">{t("sign_in.brand.tagline")}</h2>
-        </div>
-      </aside>
-      <main className="av-sign-in__main" id="main">
-        <div className="av-sign-in__form av-stack">
+    <AuthLayout>
           <h1>{w("accept.title")}</h1>
           {joined ? (
             <>
@@ -68,8 +58,6 @@ export function AcceptInvite() {
               </Button>
             </>
           )}
-        </div>
-      </main>
-    </div>
+    </AuthLayout>
   );
 }

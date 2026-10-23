@@ -8310,6 +8310,11 @@ export interface components {
         };
         /** OrgMember */
         OrgMember: {
+            /**
+             * Case Count
+             * @default 0
+             */
+            case_count: number;
             /** Email */
             email: string;
             /** Ended At */
