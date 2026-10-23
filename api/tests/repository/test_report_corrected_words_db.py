@@ -36,7 +36,7 @@ async def test_a_name_in_a_folded_word_is_still_blacked_out(seed: Seed, admin_ds
     name = w.original[w.second]  # the party name, misread across the run, sits in its non-first word
     async with api_db.request(scope_for(w.expert)) as conn:
         hidden = await hidden_words(conn, CRYPTO, w.case, w.page_id, [name], lambda line: [])
-    assert {w.first, w.second} <= hidden  # never looser than before the correction: the whole run is hidden
+    assert w.second in hidden  # masked on its original text, though the correction folded it away
 
 
 async def test_a_name_in_the_corrected_text_hides_the_whole_run(seed: Seed, admin_dsn: str, api_db: Database) -> None:

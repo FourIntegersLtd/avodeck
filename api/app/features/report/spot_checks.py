@@ -186,6 +186,36 @@ def crop(
     return out.getvalue()
 
 
+async def hidden_words(
+    conn: AsyncConnection,
+    crypto: CaseCrypto,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    names: Iterable[str],
+    recognise: Recognise,
+) -> set[str]:
+    """Ids of the page's words to black out: masked in the computer's reading or in the expert's, and a
+    corrected run is hidden whole when its corrected text is masked. Corrections never loosen the mask."""
+    cur = await conn.execute(
+        "select word_id, text from app.ocr_words where page_id = %s and case_id = %s order by n", (page_id, case_id)
+    )
+    original = [
+        (wid, (await crypto.decrypt(conn, case_id, bytes(sealed), purpose=word_purpose(page_id, wid))).decode())
+        for wid, sealed in await cur.fetchall()
+    ]
+    names = list(names)
+    hidden = masked_words(original, names, recognise)
+    corrections = (await current_corrections(conn, crypto, case_id, [page_id])).get(page_id, [])
+    if corrections:
+        corrected = list(apply_corrections(dict(original), corrections).items())
+        read = masked_words(corrected, names, recognise)
+        hidden |= read
+        for word_ids, _ in corrections:
+            if read & set(word_ids):
+                hidden |= set(word_ids)
+    return hidden
+
+
 async def _page(
     conn: AsyncConnection, crypto: CaseCrypto, storage: SupabaseStorage, case_id: uuid.UUID, page_id: uuid.UUID
 ) -> tuple[bytes | None, tuple[float, float] | None, list[tuple[str, str]], dict[str, list[float]]]:
@@ -252,7 +282,7 @@ async def prepare(
         image, size, words, polygons = pages[page_id]
         picture = None
         if image is not None and size is not None:
-            hidden = masked_words(words, names, recognise)
+            hidden = await hidden_words(conn, crypto, case_id, page_id, names, recognise)
             picture = crop(image, size, polygons, list(word_ids), hidden, label)
         items.append(
             {
