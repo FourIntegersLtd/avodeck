@@ -6,8 +6,8 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, TextField } from "../../foundation/ui";
-import { Balance, FileButton, fileBytes, LinkAction, PartMark, Section, Select, TextArea, withEtag } from "./shared";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, StaleChoice, TextField } from "../../foundation/ui";
+import { Balance, FileButton, fileBytes, LinkAction, PartMark, Section, Select, TextArea, versionTag, withEtag } from "./shared";
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 const PARTS = 5;
@@ -144,25 +144,45 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
     value: form[name] ?? "",
     onChange: (e: ChangeEvent<HTMLInputElement>) => setForm({ ...form, [name]: e.target.value }),
   });
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
+  const [stale, setStale] = useState<Tagged<Schemas["Profile"]> | null>(null);
+  const send = async (base: Tagged<Schemas["Profile"]>) => {
     setMessage(null);
     const changes: Schemas["ProfileUpdate"] = {};
     for (const key of ["full_name", "profession", "registration_body", "registration_number"] as const) {
-      if ((form[key] ?? "") !== (saved.data[key] ?? "")) changes[key] = form[key] || null;
+      if ((form[key] ?? "") !== (base.data[key] ?? "")) changes[key] = form[key] || null;
     }
-    if (form.specialties.join() !== saved.data.specialties.join()) changes.specialties = form.specialties;
+    if (form.specialties.join() !== base.data.specialties.join()) changes.specialties = form.specialties;
     try {
-      const next = await withEtag(api.PATCH("/v1/me/profile", { body: changes, headers: ifMatch(saved.etag) }));
+      const next = await withEtag(api.PATCH("/v1/me/profile", { body: changes, headers: ifMatch(base.etag) }));
       const merged = { ...form, ...next.data };
       setSaved({ data: merged, etag: next.etag });
       setForm(merged);
       onSaved(merged);
       setEditing(false);
+      setStale(null);
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
-      setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale" }) });
+      if (err instanceof ApiError && err.code === "stale") {
+        // Fetch what is saved now, so the expert can choose; what they typed stays in the form.
+        try {
+          setStale(await withEtag(api.GET("/v1/me/profile")));
+          return;
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setMessage({ tone: "error", text: errorMessage(err) });
     }
+  };
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    void send(saved);
+  };
+  const useSaved = (latest: Tagged<Schemas["Profile"]>) => {
+    setSaved(latest);
+    setForm(latest.data);
+    onSaved(latest.data);
+    setStale(null);
   };
   const shown = saved.data;
   const registered = [shown.registration_body, shown.registration_number].filter(Boolean).join(" · ");
@@ -222,6 +242,16 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
           <p>{message.text}</p>
         </Notice>
       )}
+      {stale && (
+        <StaleChoice
+          draft={form}
+          saved={stale.data}
+          onKeepMine={() => void send(stale)}
+          onUseSaved={() => useSaved(stale)}
+          onClose={() => setStale(null)}
+          show={(p) => [p.full_name, [p.registration_body, p.registration_number].filter(Boolean).join(" · ")].filter(Boolean).join(", ")}
+        />
+      )}
     </Section>
   );
 }
@@ -254,24 +284,48 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
     setEditing(r.id);
     setEdit({ role_title: r.role_title, started_on: r.started_on ?? "", ended_on: r.ended_on ?? "" });
   };
-  const saveEdit = async (e: FormEvent, r: Schemas["Role"]) => {
-    e.preventDefault();
+  const [stale, setStale] = useState<Schemas["Role"] | null>(null);
+  const send = async (r: Schemas["Role"], version: number) => {
     setError(null);
     try {
       const role = await unwrap(
         api.PATCH("/v1/me/roles/{role_id}", {
           params: { path: { role_id: r.id } },
-          headers: ifMatch(`"${r.version}"`),
+          headers: ifMatch(versionTag(version)),
           body: { role_title: edit.role_title, started_on: edit.started_on, ended_on: edit.ended_on || null, setting: r.setting ?? null },
         }),
       );
       setRoles(roles.map((x) => (x.id === r.id ? role : x)));
       onSaved();
       setEditing(null);
+      setStale(null);
     } catch (err) {
-      setError(errorMessage(err, { invalid: "setup.roles.invalid", stale: "setup.roles.stale" }));
+      if (err instanceof ApiError && err.code === "stale") {
+        try {
+          const latest = (await unwrap(api.GET("/v1/me/roles"))).find((x) => x.id === r.id);
+          if (latest) {
+            setStale(latest);
+            return;
+          }
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setError(errorMessage(err, { invalid: "setup.roles.invalid" }));
     }
   };
+  const saveEdit = (e: FormEvent, r: Schemas["Role"]) => {
+    e.preventDefault();
+    void send(r, r.version);
+  };
+  const takeSavedRole = (latest: Schemas["Role"]) => {
+    setRoles(roles.map((x) => (x.id === latest.id ? latest : x)));
+    onSaved();
+    setEditing(null);
+    setStale(null);
+  };
+  const showRole = (r: { role_title: string; started_on?: string | null; ended_on?: string | null }) =>
+    `${r.role_title}, ${year(r.started_on)} – ${year(r.ended_on)}`;
   const remove = async (id: string) => {
     try {
       await unwrap(api.DELETE("/v1/me/roles/{role_id}", { params: { path: { role_id: id } } }));
@@ -346,6 +400,19 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
             {t("setup.roles.add")}
           </LinkAction>
         </div>
+      )}
+      {stale && editing && (
+        <StaleChoice
+          draft={edit}
+          saved={stale}
+          onKeepMine={() => {
+            const mine = roles.find((x) => x.id === editing);
+            if (mine) void send(mine, stale.version);
+          }}
+          onUseSaved={() => takeSavedRole(stale)}
+          onClose={() => setStale(null)}
+          show={showRole}
+        />
       )}
     </Section>
   );

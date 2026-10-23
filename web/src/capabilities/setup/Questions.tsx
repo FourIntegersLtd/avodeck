@@ -6,8 +6,8 @@ import { useParams } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, TextLink } from "../../foundation/ui";
+import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, StaleChoice, TextLink } from "../../foundation/ui";
 import { NoteView, Select, TextArea, versionTag, type Option } from "./shared";
 
 type QuestionItem = Schemas["QuestionOut"];
@@ -53,7 +53,8 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
       await unwrap(api.POST("/v1/cases/{case_id}/questions/confirm-all", path));
       reload();
     } catch (err) {
-      setError(errorMessage(err, { stale: "setup.stale", letter_not_read: "setup.questions.letter_not_read" }));
+      if (err instanceof ApiError && err.code === "stale") reload();
+      setError(errorMessage(err, { stale: "setup.questions.changed", letter_not_read: "setup.questions.letter_not_read" }));
     }
   };
   const readAgain = async () => {
@@ -198,10 +199,13 @@ function ItemCard({
   const [error, setError] = useState<string | null>(null);
   const headingId = `setup-${kind}-${item.id}`;
 
-  const save = async (change: Change) => {
+  const [pending, setPending] = useState<Change>({});
+  const [stale, setStale] = useState<QuestionItem | AssumptionItem | null>(null);
+  const wordsOf = (i: QuestionItem | AssumptionItem) => i.confirmed_text ?? i.text_verbatim;
+  const save = async (change: Change, version = item.version) => {
     setError(null);
     try {
-      const headers = ifMatch(versionTag(item.version));
+      const headers = ifMatch(versionTag(version));
       const next =
         kind === "question"
           ? await unwrap(api.PATCH("/v1/cases/{case_id}/questions/{question_id}", { params: { path: { case_id: caseId, question_id: item.id } }, body: change, headers }))
@@ -214,8 +218,23 @@ function ItemCard({
             );
       onChange(next);
       setEditing(false);
+      setStale(null);
     } catch (err) {
-      setError(errorMessage(err, { stale: "setup.stale", locked: "setup.questions.locked" }));
+      if (err instanceof ApiError && err.code === "stale") {
+        // Fetch what is saved now, so the expert can choose; their wording stays in the box.
+        try {
+          const latest = await unwrap(api.GET("/v1/cases/{case_id}/questions", { params: { path: { case_id: caseId } } }));
+          const found = [...latest.questions, ...latest.assumptions].find((x) => x.id === item.id);
+          if (found) {
+            setPending(change);
+            setStale(found);
+            return;
+          }
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setError(errorMessage(err, { locked: "setup.questions.locked" }));
     }
   };
   const reworded = item.confirmed_text && item.confirmed_text !== item.text_verbatim;
@@ -291,6 +310,20 @@ function ItemCard({
             {t("setup.questions.change_wording")}
           </Button>
         </div>
+      )}
+      {stale && (
+        <StaleChoice
+          draft={pending.text ?? (pending.confirm ? t("setup.questions.confirm") : pending.kind ? humanise(pending.kind) : wordsOf(item))}
+          saved={wordsOf(stale)}
+          savedVersion={stale.version}
+          onKeepMine={(version) => void save(pending, version)}
+          onUseSaved={() => {
+            onChange(stale);
+            setEditing(false);
+            setStale(null);
+          }}
+          onClose={() => setStale(null)}
+        />
       )}
     </article>
   );

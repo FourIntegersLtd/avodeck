@@ -16,6 +16,7 @@ import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import {
   api,
+  ApiError,
   ifMatch,
   unwrap,
   type Schemas,
@@ -30,6 +31,7 @@ import {
   Loading,
   Notice,
   Spinner,
+  StaleChoice,
   TextField,
 } from "../../foundation/ui";
 import {
@@ -42,6 +44,8 @@ import {
   Select,
   TextArea,
   uploadFile,
+  uploadFiles,
+  uploadSummary,
   withEtag,
   type Option,
 } from "./shared";
@@ -302,29 +306,25 @@ function NewCaseForm({
   const drop = (kind: "letter" | "records" | "other") => (files: File[]) =>
     void guard(async () => {
       const id = await ensureCase();
-      for (const file of files) {
-        const path = { params: { path: { case_id: id } } };
+      const path = { params: { path: { case_id: id } } };
+      let letters = added.letters.length;
+      const out = await uploadFiles(id, files, kind === "letter" ? "instructions" : kind, async (file, document_id) => {
         if (kind === "letter") {
-          const document_id = await uploadFile(id, file, "instructions");
           await unwrap(
             api.POST("/v1/cases/{case_id}/instructions", {
               ...path,
-              body: {
-                kind: added.letters.length > 0 ? "supplementary" : "letter",
-                document_id,
-              },
+              body: { kind: letters > 0 ? "supplementary" : "letter", document_id },
             }),
           );
+          letters += 1;
           await unwrap(api.POST("/v1/cases/{case_id}/prefill", path));
-          setAdded((a) => ({
-            ...a,
-            letters: [...a.letters, { name: file.name, id: document_id }],
-          }));
+          setAdded((a) => ({ ...a, letters: [...a.letters, { name: file.name, id: document_id }] }));
         } else {
-          const document_id = await uploadFile(id, file, kind);
           setAdded((a) => ({ ...a, [kind]: [...a[kind], document_id] }));
         }
-      }
+      });
+      const summary = uploadSummary(out);
+      if (summary) setError(summary);
       await countPages(id);
     });
   /** The page counts of the files dropped so far (read from each PDF's page tree; a failure just shows no count). */
@@ -770,8 +770,8 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
     else setForm((f) => ({ ...f, [s.field]: s.value }));
   };
 
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
+  const [stale, setStale] = useState<{ data: Schemas["Case"]; etag: string } | null>(null);
+  const send = async (etag: string) => {
     setMessage(null);
     const body: Schemas["CaseUpdate"] = {
       ...form,
@@ -783,20 +783,31 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
         api.PATCH("/v1/cases/{case_id}", {
           params: { path: { case_id: caseId } },
           body,
-          headers: ifMatch(saved.etag),
+          headers: ifMatch(etag),
         }),
       );
       setSaved(next);
+      setStale(null);
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
+      if (err instanceof ApiError && err.code === "stale") {
+        // Fetch what is saved now so the expert can choose; their typing stays in the form.
+        try {
+          setStale(await withEtag(api.GET("/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })));
+          return;
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
       setMessage({
         tone: "error",
-        text: errorMessage(err, {
-          stale: "setup.stale",
-          invalid: "setup.case.invalid",
-        }),
+        text: errorMessage(err, { invalid: "setup.case.invalid" }),
       });
     }
+  };
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    void send(saved.etag);
   };
 
   return (
@@ -871,6 +882,20 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
       />
       <SamePerson caseId={caseId} jurisdiction={saved.data.jurisdiction} />
       <OralInstructions caseId={caseId} />
+      {stale && (
+        <StaleChoice
+          draft={form}
+          saved={formOf(stale.data)}
+          onKeepMine={() => void send(stale.etag)}
+          onUseSaved={() => {
+            setSaved(stale);
+            setForm(formOf(stale.data));
+            setStale(null);
+          }}
+          onClose={() => setStale(null)}
+          show={(f) => f.label}
+        />
+      )}
       <div className="av-row av-setup-actions">
         <LinkButton arrow to={`/cases/${caseId}/conflicts`}>
           {t("setup.details.next")}
