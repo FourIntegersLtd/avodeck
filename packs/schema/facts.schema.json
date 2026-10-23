@@ -32,6 +32,23 @@
               ]
             }
           },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "description": "The kind's name on screen, in the pack's words."
+          },
+          "field_labels": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$"
+            },
+            "additionalProperties": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "Each field's name on screen, in the pack's words; one per field."
+          },
           "author_field": {
             "type": "string",
             "pattern": "^[a-z][a-z0-9_]*$",

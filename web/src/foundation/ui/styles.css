@@ -90,6 +90,9 @@ a.av-step__hit:hover .av-step__pill { border-color: var(--green); }
 /* Dialog */
 .av-dialog-backdrop { position: fixed; inset: 0; background: rgba(22, 32, 27, 0.55); display: flex; align-items: center; justify-content: center; padding: var(--space-4); z-index: 10; }
 .av-dialog { background: var(--surface); border-radius: var(--radius-large); padding: var(--space-6); max-width: 520px; width: 100%; }
+.av-stepup-notice { position: fixed; left: var(--space-4); right: var(--space-4); bottom: var(--space-4); max-width: 560px; margin: 0 auto; z-index: 9; box-shadow: 0 6px 24px rgba(22, 32, 27, 0.18); }
+.av-stepup-notice .av-notice { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; justify-content: space-between; }
+.av-stale-value { white-space: pre-wrap; border-left: 4px solid var(--line); padding-left: var(--space-3); }
 
 /* Dictation */
 .av-dictation__bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3); }

@@ -18,7 +18,7 @@ import {
 import {
   Button,
   Checkbox,
-  Dialog,
+  StaleChoice,
   ChoicePills,
   DictationBar,
   LinkButton,
@@ -726,18 +726,19 @@ function Editor({
         />
       )}
       {stale && (
-        <Dialog title={w("opinion.stale_title")} onClose={() => setStale(null)}>
-          <div className="av-stack">
-            <p className="av-write-excerpt">{latest.current.body}</p>
-            <Button onClick={keepMine}>{w("opinion.stale_yours")}</Button>
-            {stale.saved && (
-              <p className="av-write-excerpt">{stale.saved.body}</p>
-            )}
-            <Button variant="secondary" onClick={keepSaved}>
-              {w("opinion.stale_saved")}
-            </Button>
-          </div>
-        </Dialog>
+        <StaleChoice
+          draft={latest.current.body}
+          saved={stale.saved?.body ?? null}
+          savedVersion={stale.saved?.version}
+          onKeepMine={keepMine}
+          onUseSaved={keepSaved}
+          onClose={() => setStale(null)}
+          words={{
+            title: w("opinion.stale_title"),
+            keepMine: w("opinion.stale_yours"),
+            useSaved: w("opinion.stale_saved"),
+          }}
+        />
       )}
     </div>
   );
