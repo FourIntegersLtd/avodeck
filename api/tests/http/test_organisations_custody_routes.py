@@ -9,7 +9,9 @@ read-only (migration 0032's `custodian` role), either
   must have an open account and be neither support staff nor the person recording it; or
 - to `organisation`: the case's own team organisation (its current owners and admins hold the records).
 A case never served is 409 `not_served`. While a transfer is in force a second one is 409
-`custody_already_transferred` (one holder at a time). Each transfer is in the case's audit trail.
+`custody_already_transferred` (one holder at a time), and a team organisation that has closed cannot hold them
+(409 `organisation_closed`). Each transfer is in the case's audit trail; so is each refused attempt
+(`support.custody_transfer_refused`, target `refused:<code>`), which stays although the request rolls back.
 """
 
 from __future__ import annotations
@@ -202,3 +204,49 @@ async def test_the_request_is_checked(
 async def test_an_unknown_case_is_404(client_for: ClientFor, world: World, staff: uuid.UUID) -> None:
     resp = await (await client_for(staff)).post(URL, json=body(uuid.uuid4()))
     assert resp.status_code == 404
+
+
+async def test_a_closed_organisation_cannot_hold_the_records(
+    client_for: ClientFor, world: World, staff: uuid.UUID, admin: psycopg.Connection
+) -> None:
+    case = world.team_case(status="served")
+    admin.execute("update app.organisations set closed_at = now() where id = %s", (world.agency,))
+    resp = await (await client_for(staff)).post(URL, json=body(case, "organisation"))
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "organisation_closed")
+    assert admin.execute("select count(*) from app.custody_transfers where case_id = %s", (case,)).fetchone() == (0,)
+
+
+async def test_a_refused_attempt_stays_in_the_audit_trail(
+    client_for: ClientFor, world: World, staff: uuid.UUID, admin: psycopg.Connection
+) -> None:
+    client = await client_for(staff)
+    served = world.solo_case(status="served")
+    unserved = world.solo_case()
+    unknown = uuid.uuid4()
+    attempts = [(served, "custodian", "no_custodian"), (served, "organisation", "personal_organisation"),
+                (unserved, "custodian", "not_served"), (unknown, "custodian", "not_found")]  # fmt: skip
+    for case, to, code in attempts:
+        resp = await client.post(URL, json=body(case, to))
+        assert resp.json()["error"]["code"] == code
+    found = admin.execute(
+        "select case_id, target from app.audit_log where action = 'support.custody_transfer_refused'"
+        " and person_id = %s order by seq",
+        (staff,),
+    ).fetchall()
+    assert found == [(case, f"refused:{code}") for case, _, code in attempts]
+    assert admin.execute(
+        "select count(*) from app.audit_log where action = 'support.custody_transferred' and person_id = %s",
+        (staff,),
+    ).fetchone() == (0,)
+
+
+async def test_a_transfer_that_goes_through_records_no_refusal(
+    client_for: ClientFor, world: World, staff: uuid.UUID, admin: psycopg.Connection
+) -> None:
+    case = world.team_case(status="served")
+    resp = await (await client_for(staff)).post(URL, json=body(case, "organisation"))
+    assert resp.status_code == 201, resp.text
+    assert admin.execute(
+        "select count(*) from app.audit_log where action = 'support.custody_transfer_refused' and case_id = %s",
+        (case,),
+    ).fetchone() == (0,)
