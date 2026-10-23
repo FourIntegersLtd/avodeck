@@ -333,3 +333,10 @@ a.av-page-ref { color: var(--green); }
 .av-dropzone__added { display: inline-flex; align-items: center; gap: 6px; color: var(--green); font-weight: 700; }
 .av-dropzone__added svg { color: var(--green-bright); }
 .av-dictation__note { color: var(--ink-soft); }
+
+/* Avatar menu on the case bar (disclosure button, not an ARIA menu). */
+.av-avatar-menu { position: relative; }
+.av-avatar-menu .av-shell__avatar { background: none; border: 0; cursor: pointer; padding: 0; }
+.av-avatar-menu__panel { position: absolute; right: 0; top: 100%; z-index: 20; min-width: 220px; margin: 0; padding: 8px 0; list-style: none; background: #fff; border: 1px solid #ccc; border-radius: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12); }
+.av-avatar-menu__panel a { display: flex; align-items: center; min-height: 52px; padding: 0 16px; font-size: 17px; color: inherit; text-decoration: none; }
+.av-avatar-menu__panel a:hover, .av-avatar-menu__panel a:focus-visible { background: var(--green-tint); }

@@ -176,7 +176,8 @@ const WORDS = {
   "close_account.leaves": "Teams you belong to will no longer include you.",
 
   // Case team and access (inside a case)
-  "case_team.title": "Who can work on this case",
+  "case_team.title": "Case settings",
+  "case_settings": "Case settings",
   "case_team.expert": "Named expert",
   "case_team.expert_hint": "Only the named expert checks facts, writes the opinion and signs.",
   "case_team.change": "Change named expert",
@@ -191,7 +192,7 @@ const WORDS = {
   "case_team.replacement_hint": "A new case linked to this one, with a new named expert, starts from the same records.",
   "case_team.people_error": "We couldn't load the people in this team.",
   "support.card.title": "Avodeck support",
-  "support.card.intro": "If you ask for help, you can let Avodeck support open this one case for up to 24 hours. Every look is written in the case's record.",
+  "support.card.intro": "If something isn't working and you've asked us for help, you can let one Avodeck support person look at this case. They can see its pages and your work, but can't change anything. It ends by itself after 24 hours, or when you stop it. Every time they look is written in the case's record.",
   "support.card.none": "Support can't open this case.",
   "support.card.active": "Support can open this case. Time left: {{left}}.",
   "support.card.reason": "Why do you want help?",
