@@ -205,12 +205,11 @@ describe.each([
     const { user } = renderAt(PATH);
     const checked = await screen.findByRole("article", { name: /Dr P consultation/ });
     expect(within(checked).queryByRole("button", { name: "Correct" })).not.toBeInTheDocument();
-    expect(within(checked).queryByRole("button", { name: "Change a detail" })).not.toBeInTheDocument();
+    // A checked fact can still be changed (the server refuses one in a served report: ReaderEditChecked.test.tsx).
+    expect(within(checked).getByRole("button", { name: "Change a detail" })).toBeVisible();
     expect(within(checked).getByRole("button", { name: "Not right" })).toBeVisible();
     fireEvent.click(checked);
     await user.keyboard("1");
-    await user.keyboard("3");
-    expect(screen.queryByLabelText("The right words")).not.toBeInTheDocument();
     await user.click(await screen.findByText(/Checked on this page \(2\)/));
     await user.click(screen.getByRole("button", { name: /Anusol HC/ }));
     const rejected = await screen.findByRole("article", { name: /Anusol/ });
