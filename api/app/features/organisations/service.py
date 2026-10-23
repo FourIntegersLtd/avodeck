@@ -16,6 +16,7 @@ from psycopg import AsyncConnection
 from app.core import audit
 from app.core.auth.access import not_found
 from app.core.auth.org_access import OrgAccess
+from app.core.auth.permissions import org_allowed_actions
 from app.core.auth.session import Session
 from app.core.auth.step_up import check_step_up
 from app.core.contracts.org_policy import parse
@@ -28,8 +29,11 @@ from app.features.organisations.schemas import (
     Invite,
     InviteAccepted,
     NamedExpert,
+    NamedExpertCandidate,
+    NamedExpertCandidates,
     Organisation,
     OrgMember,
+    OrgRole,
     Policy,
     PolicyUpdate,
     TeamBillingProfile,
@@ -42,10 +46,17 @@ def to_policy(raw: Any) -> Policy:
     return Policy(required_template_id=policy.required_template_id, max_retention_years=policy.max_retention_years)
 
 
+ASSIGNABLE: dict[str, list[OrgRole]] = {
+    "owner": ["owner", "admin", "expert", "assistant", "viewer"],
+    "admin": ["admin", "expert", "assistant", "viewer"],  # only an owner makes an owner
+}
+
+
 def to_organisation(row: dict[str, Any]) -> Organisation:
     return Organisation(
         id=row["id"], name=row["name"], kind=row["kind"], region=row["region"], role=row["role"],
         policy=to_policy(row["policy"]), created_at=row["created_at"],
+        allowed_actions=org_allowed_actions(row["role"]), assignable_roles=ASSIGNABLE.get(row["role"], []),
     )  # fmt: skip
 
 
@@ -301,3 +312,16 @@ async def rename(conn: AsyncConnection, org_id: uuid.UUID, name: str) -> Organis
     await repo.rename(conn, org_id, name)
     await audit.record(conn, action="organisation.renamed", target=f"organisation:{org_id}", organisation_id=org_id)
     return await organisation(conn, org_id)
+
+
+async def named_expert_candidates(conn: AsyncConnection, case_id: uuid.UUID) -> NamedExpertCandidates:
+    case = await repo.case_row(conn, case_id)
+    if case is None:  # pragma: no cover - the access check found it
+        raise not_found()
+    people = await repo.members(conn, case["organisation_id"])
+    found = [
+        NamedExpertCandidate(person_id=m["person_id"], full_name=m["full_name"], email=m["email"], role=m["role"])
+        for m in people
+        if m["ended_at"] is None and m["role"] in EXPERT_ROLES and m["person_id"] != case["named_expert_id"]
+    ]
+    return NamedExpertCandidates(served=bool(case["served"]), candidates=found)

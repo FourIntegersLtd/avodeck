@@ -11,7 +11,7 @@ from app.core.auth.access import not_found
 from app.core.contracts.close import case_export_done, request_case_deletion
 from app.core.errors import ApiError
 from app.features.organisations import repo
-from app.features.organisations.schemas import AccountClosed, Custodian
+from app.features.organisations.schemas import AccountClosed, CloseAccountCase, CloseAccountPreview, Custodian
 from app.features.organisations.service import refusals
 
 
@@ -47,3 +47,12 @@ async def set_custodian(conn: AsyncConnection, person_id: uuid.UUID, custodian: 
     await repo.set_custodian(conn, custodian.name, custodian.email)
     await audit.record(conn, action="person.custodian_changed", target=f"person:{person_id}")
     return custodian
+
+
+async def close_preview(conn: AsyncConnection, person_id: uuid.UUID) -> CloseAccountPreview:
+    found = await repo.unserved_personal_case_labels(conn)
+    cases = [
+        CloseAccountCase(case_id=c["id"], label=c["label"], exported=await case_export_done(conn, c["id"], person_id))
+        for c in found
+    ]
+    return CloseAccountPreview(cases=cases)

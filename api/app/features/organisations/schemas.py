@@ -37,6 +37,8 @@ class Organisation(BaseModel):
     role: OrgRole
     policy: Policy
     created_at: datetime
+    allowed_actions: list[str] = []  # organisation actions this person may do here (permissions.md)
+    assignable_roles: list[OrgRole] = []  # the roles this person may give
 
 
 class OrganisationList(BaseModel):
@@ -59,6 +61,7 @@ class OrgMember(BaseModel):
     role: OrgRole
     started_at: datetime
     ended_at: datetime | None
+    case_count: int | None = None  # owners and admins only; null for everyone else
 
 
 class OrgMemberList(BaseModel):
@@ -223,3 +226,29 @@ class Custodian(Strict):
         if (self.name is None) != (self.email is None):
             raise ValueError("a custodian has a name and an email, or neither")
         return self
+
+
+class NamedExpertCandidate(BaseModel):
+    person_id: uuid.UUID
+    full_name: str | None
+    email: str
+    role: OrgRole
+
+
+class NamedExpertCandidates(BaseModel):
+    """Who may become the case's named expert; `served` says the expert can no longer change."""
+
+    served: bool
+    candidates: list[NamedExpertCandidate]
+
+
+class CloseAccountCase(BaseModel):
+    case_id: uuid.UUID
+    label: str
+    exported: bool
+
+
+class CloseAccountPreview(BaseModel):
+    """The cases closing the account would delete, each with whether its export is done."""
+
+    cases: list[CloseAccountCase]

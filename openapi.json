@@ -2881,6 +2881,47 @@
         "title": "ClaimOut",
         "type": "object"
       },
+      "CloseAccountCase": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "exported": {
+            "title": "Exported",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "label",
+          "exported"
+        ],
+        "title": "CloseAccountCase",
+        "type": "object"
+      },
+      "CloseAccountPreview": {
+        "description": "The cases closing the account would delete, each with whether its export is done.",
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/CloseAccountCase"
+            },
+            "title": "Cases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "title": "CloseAccountPreview",
+        "type": "object"
+      },
       "CloseSummary": {
         "description": "What screen 26 shows: where the case is, when it will be deleted, and what is holding it.",
         "properties": {
@@ -9128,6 +9169,71 @@
         "title": "NamedExpert",
         "type": "object"
       },
+      "NamedExpertCandidate": {
+        "properties": {
+          "email": {
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Full Name"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "expert",
+              "assistant",
+              "viewer"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "person_id",
+          "full_name",
+          "email",
+          "role"
+        ],
+        "title": "NamedExpertCandidate",
+        "type": "object"
+      },
+      "NamedExpertCandidates": {
+        "description": "Who may become the case's named expert; `served` says the expert can no longer change.",
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/NamedExpertCandidate"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "served": {
+            "title": "Served",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "served",
+          "candidates"
+        ],
+        "title": "NamedExpertCandidates",
+        "type": "object"
+      },
       "NamedExpertChange": {
         "additionalProperties": false,
         "properties": {
@@ -10639,6 +10745,17 @@
       },
       "OrgMember": {
         "properties": {
+          "case_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Case Count"
+          },
           "email": {
             "title": "Email",
             "type": "string"
@@ -10723,6 +10840,29 @@
       },
       "Organisation": {
         "properties": {
+          "allowed_actions": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
+          "assignable_roles": {
+            "default": [],
+            "items": {
+              "enum": [
+                "owner",
+                "admin",
+                "expert",
+                "assistant",
+                "viewer"
+              ],
+              "type": "string"
+            },
+            "title": "Assignable Roles",
+            "type": "array"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -25993,6 +26133,60 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/named-expert/candidates": {
+      "get": {
+        "description": "Who may become the named expert. Only those who may reassign see it (no code asked: it only reads).",
+        "operationId": "named_expert_candidates_v1_cases__case_id__named_expert_candidates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NamedExpertCandidates"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Named Expert Candidates",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/new-since-served": {
       "get": {
         "operationId": "new_since_served_v1_cases__case_id__new_since_served_get",
@@ -34896,6 +35090,35 @@
       }
     },
     "/v1/me/close": {
+      "get": {
+        "operationId": "close_account_preview_v1_me_close_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloseAccountPreview"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Close Account Preview",
+        "tags": [
+          "organisations"
+        ]
+      },
       "post": {
         "operationId": "close_account_v1_me_close_post",
         "responses": {

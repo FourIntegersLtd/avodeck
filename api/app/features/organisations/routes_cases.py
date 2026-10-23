@@ -12,11 +12,13 @@ from fastapi import Depends, Request, Response
 
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts.replacement import ReplacementCase, create_replacement_case
+from app.core.errors import ApiError
 from app.core.http import CurrentSession, DbConn
 from app.features.organisations import service, support
 from app.features.organisations.router import router
 from app.features.organisations.schemas import (
     NamedExpert,
+    NamedExpertCandidates,
     NamedExpertChange,
     ReplacementRequest,
     SupportGrant,
@@ -27,6 +29,14 @@ from app.features.organisations.schemas import (
 Reassign = Annotated[CaseAccess, Depends(require_case_access("case.reassign_named_expert"))]
 GrantSupport = Annotated[CaseAccess, Depends(require_case_access("support_access.grant"))]
 ViewCase = Annotated[CaseAccess, Depends(require_case_access("case.view_metadata"))]
+
+
+@router.get("/cases/{case_id}/named-expert/candidates", response_model=NamedExpertCandidates)
+async def named_expert_candidates(case_id: uuid.UUID, conn: DbConn, access: ViewCase) -> NamedExpertCandidates:
+    """Who may become the named expert. Only those who may reassign see it (no code asked: it only reads)."""
+    if "case.reassign_named_expert" not in access.allowed_actions:
+        raise ApiError("forbidden", "You cannot do that for this case.", 403)
+    return await service.named_expert_candidates(conn, case_id)
 
 
 @router.post("/cases/{case_id}/named-expert", response_model=NamedExpert)

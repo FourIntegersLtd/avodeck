@@ -815,7 +815,9 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | PUT, GET / PUT | `/me/billing-profile/bank-details`, `/organisations/{org_id}/billing-profile/bank-details` | Bank details for the invoice's "How to pay" box (organisation: owner or admin only) | 🔒 |
 | POST | `/cases/{case_id}/named-expert` | Change the named expert (before serving only) | Owner/admin, 🔒; 409 after serving |
 | POST | `/cases/{case_id}/replacement` | After serving: a new case for the replacement expert, linked `replaces`, recording whether the instructing party consented to the bundle being copied (nothing is copied yet) | Owner/admin, 🔒; 409 `not_served` before serving |
+| GET | `/cases/{case_id}/named-expert/candidates` | Who may become the named expert, and whether the case was served | Owner/admin |
 | PUT | `/me/custodian` | Name a records custodian | 🔒 |
+| GET | `/me/close` | The cases closing would delete, with their export status | |
 | POST | `/me/close` | Close account after export; served cases kept read-only | 🔒 |
 | POST | `/cases/{case_id}/support-access` | Named expert grants support 24-hour access to one case | 🔒; shown on the case |
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |

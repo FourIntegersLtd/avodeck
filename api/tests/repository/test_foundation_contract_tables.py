@@ -29,6 +29,7 @@ FACT_EDGES = {
     ("verified", "rejected"),
     ("edited", "rejected"),
     ("rejected", "verified"),
+    ("verified", "edited"),  # 0210: change a checked fact (state-machines.md, Fact)
 }
 QUESTION_STATUSES = ("suggested", "confirmed", "edited")
 QUESTION_EDGES = {("suggested", "confirmed"), ("suggested", "edited")}

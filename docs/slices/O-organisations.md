@@ -65,6 +65,13 @@ Items marked **(legal check)** in architecture 10.1 and ADR 0012: named-expert a
 - O → H: cap a case's retention at `max_retention_years`; account closure deletes unserved personal cases through `request_case_deletion` (H's `delete_case`).
 - O → A: copy a bundle into a replacement case only with the instructing party's recorded consent.
 
+## Web (Phase 2) as built
+- Routes: `/organisations/:orgId` (S27, screen `organisation_settings`), `/organisations/:orgId/leave` (`organisation_leave`), `/invites/:token` (outside the signed-in guard, sign-in layout classes), `/account/custodian` and `/account/close` (S28 sections as registered screens `account_custodian`, `account_close`), `/cases/:caseId/team` (change named expert, support grant card; screen `case_team`), `/support` (staff only; the server answers anyone else 404).
+- Slots (foundation PR #66): S28 sections "If you can't carry on" and "Close your account" are registered with `registerAccountSection` (the `/account/custodian` and `/account/close` pages stay as full-page views); case header actions "Change named expert", "Avodeck support" and (served, flag) "Create a replacement case" are registered with `registerCaseAction`; the invite page uses `AuthLayout` from `foundation/ui`.
+- Still open: a `billing_profile` screen key (F) for the bank-details link; the replacement-case route and the support custody-transfer route, which stay behind the flags `replacement_case` and `support_custody_transfer` (`VITE_FLAG_*=1`) until they exist.
+- `GET /v1/organisations/{org_id}/members` gains `case_count` (cases the member is named expert on in that organisation; owners and admins only, null for others; migration 1009), `GET /v1/cases/{case_id}/named-expert/candidates` and `GET /v1/me/close` feed the web screens, and the organisation says its `allowed_actions` and `assignable_roles`, drawn as the board's "cases" column.
+- Playwright against the live API: `web/e2e/organisations/` (`seed.py` arranges people and sessions; set `E2E_LIVE_ADMIN_DB` and `API_DEV_ORIGIN`; the file skips without them).
+
 ## Out of scope
 SSO/SAML (deferred, `docs/decisions/deferred.md`), seat billing changes beyond Stripe subscription quantity, cross-cell organisations.
 

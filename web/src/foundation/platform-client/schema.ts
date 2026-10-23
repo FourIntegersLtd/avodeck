@@ -1649,6 +1649,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/named-expert/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Named Expert Candidates
+         * @description Who may become the named expert. Only those who may reassign see it (no code asked: it only reads).
+         */
+        get: operations["named_expert_candidates_v1_cases__case_id__named_expert_candidates_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/new-since-served": {
         parameters: {
             query?: never;
@@ -3829,7 +3849,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Close Account Preview */
+        get: operations["close_account_preview_v1_me_close_get"];
         put?: never;
         /** Close Account */
         post: operations["close_account_v1_me_close_post"];
@@ -5634,6 +5655,26 @@ export interface components {
             version: number;
             /** Word Ids */
             word_ids: string[];
+        };
+        /** CloseAccountCase */
+        CloseAccountCase: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Exported */
+            exported: boolean;
+            /** Label */
+            label: string;
+        };
+        /**
+         * CloseAccountPreview
+         * @description The cases closing the account would delete, each with whether its export is done.
+         */
+        CloseAccountPreview: {
+            /** Cases */
+            cases: components["schemas"]["CloseAccountCase"][];
         };
         /**
          * CloseSummary
@@ -7861,6 +7902,33 @@ export interface components {
              */
             named_expert_id: string;
         };
+        /** NamedExpertCandidate */
+        NamedExpertCandidate: {
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string | null;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "expert" | "assistant" | "viewer";
+        };
+        /**
+         * NamedExpertCandidates
+         * @description Who may become the case's named expert; `served` says the expert can no longer change.
+         */
+        NamedExpertCandidates: {
+            /** Candidates */
+            candidates: components["schemas"]["NamedExpertCandidate"][];
+            /** Served */
+            served: boolean;
+        };
         /** NamedExpertChange */
         NamedExpertChange: {
             /**
@@ -8403,6 +8471,8 @@ export interface components {
         };
         /** OrgMember */
         OrgMember: {
+            /** Case Count */
+            case_count?: number | null;
             /** Email */
             email: string;
             /** Ended At */
@@ -8437,6 +8507,16 @@ export interface components {
         };
         /** Organisation */
         Organisation: {
+            /**
+             * Allowed Actions
+             * @default []
+             */
+            allowed_actions: string[];
+            /**
+             * Assignable Roles
+             * @default []
+             */
+            assignable_roles: ("owner" | "admin" | "expert" | "assistant" | "viewer")[];
             /**
              * Created At
              * Format: date-time
@@ -15964,6 +16044,46 @@ export interface operations {
             };
         };
     };
+    named_expert_candidates_v1_cases__case_id__named_expert_candidates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NamedExpertCandidates"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     new_since_served_v1_cases__case_id__new_since_served_get: {
         parameters: {
             query?: never;
@@ -21848,6 +21968,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    close_account_preview_v1_me_close_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CloseAccountPreview"];
                 };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
