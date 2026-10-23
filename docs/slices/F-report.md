@@ -132,6 +132,7 @@ Foundation requests:
 - Done: `core/contracts/invoices.case_invoice_rows` (slice H writes `invoices.csv` from it) and `core/contracts/profile.named_expert`.
 - Done: section and appendix labels in the pack (`report_sections.yaml` entries are `{key, label}`; `MergedPack.report_appendices()`; the case pack serves `report_appendices`); screens 16 and 17 show them.
 - Done: the case frame mounts `useTimeHeartbeat` (`foundation/lib/timeHeartbeat.ts`) for every screen a pack step holds; F's routes name pack screen keys (`report`, `final_check`, `sign_send`, `invoice`).
+- Done (0608): a team case builds in the organisation's `policy.required_template_id` template when set (`app.case_report_template`), else the named expert's own; test `test_a_team_case_builds_in_the_organisations_required_template`. Agency and personal invoice numbers run apart without gaps (`test_agency_and_personal_invoice_numbers_run_separately_without_gaps`).
 - Still open: page-limit accessors and T-17 prompt context in packs; a CV snapshot source; email attachments; a per-address rate limit on the public spot-check routes (core has no limiter).
 
 ## Rules that apply
