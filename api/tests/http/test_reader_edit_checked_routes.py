@@ -112,7 +112,9 @@ def cite_in_report(admin: psycopg.Connection, w: dict[str, Any], fact: dict[str,
         (w["case"], version, paragraph[0], fact["id"], fact["version"], b"sealed", b"sealed", w["page_id"]),
     )
     if served:
-        admin.execute("update app.report_versions set status = 'locked', sha256 = %s where id = %s", ("a" * 64, version))
+        admin.execute(
+            "update app.report_versions set status = 'locked', sha256 = %s where id = %s", ("a" * 64, version)
+        )
         admin.execute("update app.report_versions set status = 'served' where id = %s", (version,))
 
 
