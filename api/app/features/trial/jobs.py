@@ -14,7 +14,7 @@ import uuid
 
 from psycopg import AsyncConnection
 
-from app.core.contracts.document_words import word_purpose
+from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.served import latest_served
 from app.core.jobs import JobContext, registry
 from app.core.pdf import embedded_words, split_pages
@@ -89,13 +89,17 @@ async def our_pages(services: TrialServices, conn: AsyncConnection, case_id: uui
         " where p.case_id = %s and p.bundle_page_no is not null order by p.bundle_page_no, w.n",
         (case_id,),
     )
-    texts: dict[uuid.UUID, tuple[int, list[str]]] = {}
+    texts: dict[uuid.UUID, tuple[int, dict[str, str]]] = {}
     for page_id, page_no, word_id, sealed in await cur.fetchall():
-        entry = texts.setdefault(page_id, (int(page_no), []))
+        entry = texts.setdefault(page_id, (int(page_no), {}))
         if sealed is not None:
             opened = await crypto.decrypt(conn, case_id, bytes(sealed), purpose=word_purpose(page_id, word_id))
-            entry[1].append(opened.decode())
-    return [OurPage(pid, no, " ".join(words)) for pid, (no, words) in texts.items()]
+            entry[1][word_id] = opened.decode()
+    corrections = await current_corrections(conn, crypto, case_id, texts)  # the expert's reading (slice B, 0018)
+    return [
+        OurPage(pid, no, " ".join(t for t in apply_corrections(words, corrections.get(pid, [])).values() if t))
+        for pid, (no, words) in texts.items()
+    ]
 
 
 @registry.kind("match_trial_bundle", interactive=True)
