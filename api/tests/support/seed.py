@@ -111,6 +111,28 @@ class Seed:
         )
         return gid
 
+    def custody_transfer(
+        self,
+        case: uuid.UUID,
+        staff: uuid.UUID,
+        *,
+        to_person: uuid.UUID | None = None,
+        to_organisation: uuid.UUID | None = None,
+        revoked: bool = False,
+    ) -> uuid.UUID:
+        """A records custody transfer recorded by support staff (architecture 10.1 "Death or incapacity")."""
+        tid = uuid.uuid4()
+        self.admin.execute(
+            """
+            insert into app.custody_transfers (id, case_id, from_person_id, to_person_id, to_organisation_id,
+                                               evidence_note, transferred_by, revoked_at)
+            select %s, c.id, c.named_expert_id, %s, %s, 'Evidence seen', %s, case when %s then now() end
+            from app.cases c where c.id = %s
+            """,
+            (tid, to_person, to_organisation, staff, revoked, case),
+        )
+        return tid
+
     def case(
         self,
         org: uuid.UUID,

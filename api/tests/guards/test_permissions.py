@@ -9,6 +9,8 @@ Reading a cell:
   service, not the access check); "—" = not allowed;
 - support column: what Avodeck support may do under a live grant from the named expert (the case
   role `support`, never a `case_members` role);
+- custodian column: what a records custodian may do on a served case transferred to them (the case
+  role `custodian`, never a `case_members` role; migration 0031);
 - organisation column: "✓…" = owner and admin, "✓ (team cases)" = owner and admin on team
   organisations only, "owner only…" = owner only, "—" = neither.
 Not allowed but able to see the case = 403; unable to see it at all = 404.
@@ -26,14 +28,23 @@ import psycopg
 import pytest
 
 from app.core.auth.access import check_case_access
-from app.core.auth.permissions import CASE_ACTIONS, CASE_ROLES, ORG_ROLES, SUPPORT_ACTIONS, SUPPORT_ROLE, allowed
+from app.core.auth.permissions import (
+    CASE_ACTIONS,
+    CASE_ROLES,
+    CUSTODIAN_ACTIONS,
+    CUSTODIAN_ROLE,
+    ORG_ROLES,
+    SUPPORT_ACTIONS,
+    SUPPORT_ROLE,
+    allowed,
+)
 from app.core.db import Database
 from app.core.errors import ApiError
 from tests.support.db import scope_for
 from tests.support.seed import Seed
 
 REPO = Path(__file__).resolve().parents[3]
-DOC_COLUMNS = ("named_expert", "co_expert", "supervisor", "assistant", "viewer", "support", "org")
+DOC_COLUMNS = ("named_expert", "co_expert", "supervisor", "assistant", "viewer", "support", "custodian", "org")
 ORG_KINDS = ("personal", "team")
 
 
@@ -96,8 +107,9 @@ def test_code_knows_exactly_the_documented_actions() -> None:
 
 
 def test_case_roles_and_org_roles_are_the_documented_ones() -> None:
-    assert set(CASE_ROLES) == set(DOC_COLUMNS) - {"support", "org"}
+    assert set(CASE_ROLES) == set(DOC_COLUMNS) - {"support", "custodian", "org"}
     assert SUPPORT_ROLE == "support" and SUPPORT_ROLE not in CASE_ROLES  # never a case_members role
+    assert CUSTODIAN_ROLE == "custodian" and CUSTODIAN_ROLE not in CASE_ROLES
     assert set(ORG_ROLES) == {"owner", "admin", "expert", "assistant", "viewer"}
 
 
@@ -106,9 +118,10 @@ def test_step_up_marks_match_the_document(action: str) -> None:
     assert CASE_ACTIONS[action].step_up is DOC[action].step_up
 
 
-COMBOS = list(itertools.product((None, *CASE_ROLES, SUPPORT_ROLE), (None, *ORG_ROLES), ORG_KINDS))
-# `app.case_action_allowed()` knows the case_members roles; `app.case_role_allowed()` adds support to it.
-MEMBER_COMBOS = [c for c in COMBOS if c[0] != SUPPORT_ROLE]
+COMBOS = list(itertools.product((None, *CASE_ROLES, SUPPORT_ROLE, CUSTODIAN_ROLE), (None, *ORG_ROLES), ORG_KINDS))
+# `app.case_action_allowed()` knows the case_members roles; `app.case_role_allowed()` adds support and
+# custodian to it.
+MEMBER_COMBOS = [c for c in COMBOS if c[0] not in (SUPPORT_ROLE, CUSTODIAN_ROLE)]
 
 
 @pytest.mark.parametrize("action", sorted(DOC))
@@ -174,6 +187,12 @@ def test_support_never_writes() -> None:
     assert all(SUPPORT_ROLE not in rule.case_roles for rule in CASE_ACTIONS.values())  # not a case_members role
 
 
+def test_a_custodian_only_reads() -> None:
+    """Architecture 10.1 "Death or incapacity": a records custodian reads a served case, never writes."""
+    assert CUSTODIAN_ACTIONS == {"case.view_metadata", "case.view_content", "case.view_audit", "case.view_certificate"}
+    assert {a for a in CASE_ACTIONS if allowed(a, CUSTODIAN_ROLE, None, "team")} == CUSTODIAN_ACTIONS
+
+
 # --- every cell, end to end against real rows -------------------------------------------------
 
 
@@ -231,6 +250,27 @@ async def test_every_cell_end_to_end(api_db: Database, world: World, who: str) -
                 with pytest.raises(ApiError) as err:
                     await check_case_access(conn, world.case, action)
                 assert err.value.status == (403 if can_see else 404), (who, action)
+
+
+@pytestmark_anyio
+async def test_the_custodian_column_end_to_end(api_db: Database, seed: Seed) -> None:
+    """Custody is only ever of a served case, so the custodian column is checked on one (migration 0031)."""
+    expert, staff, custodian = seed.person(), seed.person(), seed.person()
+    case = seed.case(seed.org(kind="team", members={expert: "expert"}), expert, status="served")
+    seed.support_staff(staff)
+    seed.custody_transfer(case, staff, to_person=custodian)
+    for action in sorted(DOC):
+        want = expected(action, CUSTODIAN_ROLE, None, "team")
+        async with api_db.request(scope_for(custodian)) as conn:
+            cur = await conn.execute("select app.can_access_case(%s, %s)", (case, action))
+            assert (await cur.fetchone()) == (want,), (action, "database")
+            if want:
+                access = await check_case_access(conn, case, action)
+                assert (access.case_role, action in access.allowed_actions) == (CUSTODIAN_ROLE, True)
+            else:
+                with pytest.raises(ApiError) as err:
+                    await check_case_access(conn, case, action)
+                assert err.value.status == 403, action
 
 
 @pytestmark_anyio
