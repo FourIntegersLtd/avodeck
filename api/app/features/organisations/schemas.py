@@ -73,6 +73,11 @@ class NamedExpertChange(Strict):
     person_id: uuid.UUID
 
 
+class ReplacementRequest(Strict):
+    named_expert_id: uuid.UUID
+    instructing_party_consented: bool
+
+
 class NamedExpert(BaseModel):
     case_id: uuid.UUID
     named_expert_id: uuid.UUID

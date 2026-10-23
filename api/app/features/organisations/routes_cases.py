@@ -11,12 +11,14 @@ from typing import Annotated
 from fastapi import Depends, Request, Response
 
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts.replacement import ReplacementCase, create_replacement_case
 from app.core.http import CurrentSession, DbConn
 from app.features.organisations import service, support
 from app.features.organisations.router import router
 from app.features.organisations.schemas import (
     NamedExpert,
     NamedExpertChange,
+    ReplacementRequest,
     SupportGrant,
     SupportGrantCreate,
     SupportGrantList,
@@ -32,6 +34,17 @@ async def change_named_expert(
     case_id: uuid.UUID, body: NamedExpertChange, request: Request, conn: DbConn, _: Reassign
 ) -> NamedExpert:
     return await service.reassign(conn, request.app.state.mailer, case_id, body.person_id)
+
+
+@router.post("/cases/{case_id}/replacement", response_model=ReplacementCase, status_code=201)
+async def create_replacement(
+    case_id: uuid.UUID, body: ReplacementRequest, conn: DbConn, _: Reassign
+) -> ReplacementCase:
+    """After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded."""
+    return await create_replacement_case(
+        conn, case_id, named_expert_id=body.named_expert_id,
+        instructing_party_consented=body.instructing_party_consented,
+    )  # fmt: skip
 
 
 @router.get("/cases/{case_id}/support-access", response_model=SupportGrantList)
