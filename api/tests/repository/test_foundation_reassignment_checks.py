@@ -3,7 +3,7 @@
 Architecture 10.1 "Reassignment": reads and verifications are personal. Reads already are (only the
 named expert's reads count for citing). Checks live on the fact itself (`facts.status`), which every
 slice reads, so when `cases.named_expert_id` changes the database puts every checked fact (verified,
-edited, rejected) back to `suggested` (migration 0031, with `facts_guard` in 0209):
+edited, rejected) back to `suggested` (migration 0031, with `facts_guard` in 0212):
 - an edited fact gets back the suggestion it had before the outgoing expert changed it (value,
   fields, cited words and their box), unless its page was read again or it moved since then;
 - each reset appends a `fact_verifications` row (`reset`, no person), so the history and its hash chain
