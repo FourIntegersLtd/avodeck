@@ -162,3 +162,11 @@ async def test_the_running_app_cannot_write_consent_by_hand(api_dsn: str, agency
 def test_the_record_of_consent_is_kept_after_deletion() -> None:
     assert "case_replacements" in KEPT_AFTER_CASE_DELETION
     assert "case_replacements" not in CASE_TABLES
+
+
+def test_the_worker_cannot_create_a_replacement(admin: psycopg.Connection) -> None:
+    row = admin.execute(
+        "select has_function_privilege('app_worker', 'app.create_replacement_case(uuid, uuid, text, boolean)',"
+        " 'execute')"
+    ).fetchone()
+    assert row == (False,)

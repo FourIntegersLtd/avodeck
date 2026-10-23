@@ -111,6 +111,14 @@ class Seed:
         )
         return gid
 
+    def records_custodian(self, person: uuid.UUID, custodian: uuid.UUID) -> None:
+        """`person` names `custodian` (by their sign-in email) as their records custodian (`PUT /me/custodian`)."""
+        self.admin.execute(
+            "update app.people p set records_custodian_name = 'Named Custodian', records_custodian_email = c.email"
+            " from app.people c where p.id = %s and c.id = %s",
+            (person, custodian),
+        )
+
     def custody_transfer(
         self,
         case: uuid.UUID,

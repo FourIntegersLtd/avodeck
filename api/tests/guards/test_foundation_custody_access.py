@@ -1,8 +1,10 @@
 """Rule 9 and architecture 10.1 "Death or incapacity": a records custodian only reads, and only served cases.
 
 When the named expert can no longer act, Avodeck support records a custody transfer
-(`custody_transfers`, migration 0031; slice O's route sits behind the flag `support_custody_transfer`)
-to a person, or to an organisation whose current owners and admins then hold the records. The case
+(`custody_transfers`, migration 0032; slice O's route sits behind the flag `support_custody_transfer`)
+to the records custodian the expert named (`people.records_custodian_email`), or to the case's own
+organisation, whose current owners and admins then hold the records. Support staff never receive
+custody, so nobody in support can hand a case to themselves. The case
 role `custodian` applies while the transfer is not revoked, the case has been served, and the
 person's account is open; it takes only the read actions (`CUSTODIAN_ACTIONS`), never a write.
 Anyone with a case role of their own keeps it. The database answers the same through
@@ -45,6 +47,7 @@ def estate(seed: Seed) -> Estate:
     expert, staff, custodian = seed.person(), seed.person(), seed.person()
     org = seed.org(kind="team", members={expert: "owner"})
     seed.support_staff(staff)
+    seed.records_custodian(expert, custodian)
     return Estate(
         expert, staff, custodian, org, seed.case(org, expert, status="served"), seed.case(org, expert, status="active")
     )
@@ -114,11 +117,19 @@ async def test_a_transfer_to_an_organisation_opens_the_case_to_its_owners_and_ad
     api_db: Database, seed: Seed, estate: Estate
 ) -> None:
     owner, admin_, expert, former = seed.person(), seed.person(), seed.person(), seed.person()
-    keeper = seed.org(kind="team", members={owner: "owner", admin_: "admin", expert: "expert", former: "admin"})
-    seed.end_membership(keeper, former)
-    seed.custody_transfer(estate.served, estate.staff, to_organisation=keeper)
+    for who, role in ((owner, "owner"), (admin_, "admin"), (expert, "expert"), (former, "admin")):
+        seed.membership(estate.org, who, role)
+    seed.end_membership(estate.org, former)
+    # Owners and admins already have their administrative rights on the organisation's cases; custody adds
+    # reading the content and nothing else.
+    before = {who: await answer(api_db, who, estate.served, "case.view_content") for who in (owner, admin_)}
+    assert before == {owner: (403, False), admin_: (403, False)}
+    seed.custody_transfer(estate.served, estate.staff, to_organisation=estate.org)
     for who in (owner, admin_):
-        await assert_reads_only(api_db, who, estate.served)
+        for action in READS:
+            assert await answer(api_db, who, estate.served, action) == (200, True), action
+        for action in ("fact.verify", "opinion.write", "report.sign", "case.upload", "case.edit_setup"):
+            assert await answer(api_db, who, estate.served, action) == (403, False), action
     for who in (expert, former):
         await assert_sees_nothing(api_db, who, estate.served)
 
@@ -130,11 +141,52 @@ async def test_a_closed_account_holds_no_custody(api_db: Database, seed: Seed, e
 
 
 async def test_someone_on_the_case_keeps_their_own_role(api_db: Database, seed: Seed, estate: Estate) -> None:
-    """The named expert, should custody pass to them, stays the named expert."""
-    seed.custody_transfer(estate.served, estate.staff, to_person=estate.expert)
-    async with api_db.request(scope_for(estate.expert)) as conn:
+    """A case member who is also the named custodian keeps their own case role."""
+    seed.case_member(estate.served, estate.custodian, "viewer", added_by=estate.expert)
+    seed.custody_transfer(estate.served, estate.staff, to_person=estate.custodian)
+    async with api_db.request(scope_for(estate.custodian)) as conn:
         access = await check_case_access(conn, estate.served, "case.view_metadata")
-    assert access.case_role == "named_expert"
+    assert access.case_role == "viewer"
+
+
+# --- who may receive custody ----------------------------------------------------------------------
+
+
+def refused(fn: object) -> str | None:
+    with pytest.raises(psycopg.Error) as err:
+        fn()  # type: ignore[operator]
+    return err.value.sqlstate
+
+
+async def test_support_staff_never_receive_custody(seed: Seed, estate: Estate) -> None:
+    """Even when the expert named a staff member as custodian, and whoever in support records it."""
+    other_staff = seed.person()
+    seed.support_staff(other_staff)
+    seed.records_custodian(estate.expert, estate.staff)
+    assert refused(lambda: seed.custody_transfer(estate.served, estate.staff, to_person=estate.staff)) == "AV409"
+    assert refused(lambda: seed.custody_transfer(estate.served, other_staff, to_person=estate.staff)) == "AV409"
+
+
+async def test_a_person_receives_custody_only_as_the_custodian_the_expert_named(seed: Seed, estate: Estate) -> None:
+    stranger = seed.person()
+    assert refused(lambda: seed.custody_transfer(estate.served, estate.staff, to_person=stranger)) == "AV409"
+
+
+async def test_without_a_named_custodian_custody_passes_only_to_the_organisation(
+    api_db: Database, seed: Seed, admin: psycopg.Connection, estate: Estate
+) -> None:
+    admin.execute(
+        "update app.people set records_custodian_name = null, records_custodian_email = null where id = %s",
+        (estate.expert,),
+    )
+    assert refused(lambda: seed.custody_transfer(estate.served, estate.staff, to_person=estate.custodian)) == "AV409"
+    seed.custody_transfer(estate.served, estate.staff, to_organisation=estate.org)
+
+
+async def test_custody_passes_only_to_the_cases_own_organisation(seed: Seed, estate: Estate) -> None:
+    owner = seed.person()
+    elsewhere = seed.org(kind="team", members={owner: "owner"})
+    assert refused(lambda: seed.custody_transfer(estate.served, estate.staff, to_organisation=elsewhere)) == "AV409"
 
 
 # --- the table ------------------------------------------------------------------------------------

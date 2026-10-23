@@ -14,6 +14,7 @@ The new expert then reads and checks for themselves; only their checks make a fa
 
 from __future__ import annotations
 
+import threading
 import uuid
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -223,3 +224,94 @@ async def test_the_running_app_cannot_put_a_checked_fact_back_by_itself(api_db: 
         with pytest.raises(psycopg.Error) as err:
             await conn.execute("update app.facts set status = 'suggested' where id = %s", (desk.verified,))
     assert err.value.sqlstate == "AV409"
+
+
+# --- review follow-ups: concurrency, serving, grants ------------------------------------------------
+
+
+def _as(api_dsn: str, person: uuid.UUID) -> psycopg.Connection:
+    conn = psycopg.connect(api_dsn)
+    conn.execute("select set_config('app.person_id', %s, true)", (str(person),))
+    return conn
+
+
+def _in_thread(fn: Any) -> tuple[threading.Thread, list[BaseException]]:
+    errors: list[BaseException] = []
+
+    def run() -> None:
+        try:
+            fn()
+        except BaseException as exc:  # noqa: BLE001 - handed back to the test
+            errors.append(exc)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    return thread, errors
+
+
+async def test_a_check_in_flight_holds_the_reassignment_until_it_is_done(
+    api_dsn: str, admin: psycopg.Connection, desk: Desk
+) -> None:
+    """The outgoing expert's check commits first; the reassignment then resets it too."""
+    check_conn = _as(api_dsn, desk.dr_k)
+    try:
+        check_conn.execute("update app.facts set status = 'verified' where id = %s", (desk.suggested,))
+
+        def move() -> None:
+            with _as(api_dsn, desk.owner) as conn:
+                conn.execute("update app.cases set named_expert_id = %s where id = %s", (desk.dr_m, desk.case))
+                conn.commit()
+
+        thread, errors = _in_thread(move)
+        thread.join(1.5)
+        assert thread.is_alive(), "the reassignment waits for the check in flight"
+        check_conn.commit()
+        thread.join(15)
+        assert not thread.is_alive() and errors == []
+    finally:
+        check_conn.close()
+    assert fact_row(admin, desk.suggested)["status"] == "suggested"
+
+
+async def test_a_check_after_the_reassignment_began_is_refused(
+    api_dsn: str, admin: psycopg.Connection, desk: Desk
+) -> None:
+    """The reassignment commits first; the outgoing expert's check, which waited for it, is no longer theirs."""
+    move_conn = _as(api_dsn, desk.owner)
+    try:
+        move_conn.execute("update app.cases set named_expert_id = %s where id = %s", (desk.dr_m, desk.case))
+
+        def late_check() -> None:
+            with _as(api_dsn, desk.dr_k) as conn:
+                conn.execute("update app.facts set status = 'verified' where id = %s", (desk.suggested,))
+                conn.commit()
+
+        thread, errors = _in_thread(late_check)
+        thread.join(1.5)
+        assert thread.is_alive(), "the check waits for the reassignment in flight"
+        move_conn.commit()
+        thread.join(15)
+        assert not thread.is_alive()
+        assert len(errors) == 1 and isinstance(errors[0], psycopg.Error)
+    finally:
+        move_conn.close()
+    assert fact_row(admin, desk.suggested)["status"] == "suggested"
+
+
+async def test_the_reset_refuses_a_served_case_whoever_changes_it(
+    admin: psycopg.Connection, seed: Seed, desk: Desk
+) -> None:
+    """The database refuses it even for a role `cases_actor` lets through (it checks only the running app)."""
+    served = seed.case(seed.org(kind="team", members={desk.dr_k: "expert", desk.dr_m: "expert"}), desk.dr_k,
+                       status="served")  # fmt: skip
+    with pytest.raises(psycopg.Error) as err:
+        admin.execute("update app.cases set named_expert_id = %s where id = %s", (desk.dr_m, served))
+    assert err.value.sqlstate == "AV409"
+
+
+@pytest.mark.parametrize("role", ["app_api", "app_worker"])
+def test_only_the_reset_draws_boxes(admin: psycopg.Connection, role: str) -> None:
+    row = admin.execute(
+        "select has_function_privilege(%s, 'app.word_box(uuid, text[])', 'execute')", (role,)
+    ).fetchone()
+    assert row == (False,)
