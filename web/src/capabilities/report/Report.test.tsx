@@ -93,18 +93,96 @@ test("you can write a section in your own words; it saves with the version you l
   expect(await screen.findByText(M["report.report.section.saved"]!)).toBeInTheDocument();
 });
 
-test("a section changed in another window asks you to reload instead of overwriting", async () => {
+const FACT = "f1111111-1111-4111-8111-111111111111";
+const PAGE = "a1111111-1111-4111-8111-111111111111";
+const cited = (n: number) => `[[cite:${n}]]`;
+const ref = { fact_id: FACT, page_id: PAGE, quote_verbatim: "BP 150/90", fact_version: 1 };
+
+async function openEditor(user: ReturnType<typeof renderAt>["user"], key: string) {
+  await user.click(await screen.findByRole("button", { name: `${M["report.report.section.edit"]} ${sectionLabel("launch", key)}` }));
+  return screen.findByLabelText(`Your words for ${sectionLabel("launch", key)}`);
+}
+
+test("a section changed in another window keeps what you typed and lets you choose", async () => {
   serve("launch");
   const key = sectionKeys("launch")[0]!;
+  let gets = 0;
+  const puts: Array<string | null> = [];
   server.use(
-    http.get("/v1/cases/:caseId/report/sections/:key", () => etagged({ key, body: "Words", citations: [], version: 5 }, 5)),
+    http.get("/v1/cases/:caseId/report/sections/:key", () => (gets++ === 0 ? etagged({ key, body: "Words", citations: [], version: 5 }, 5) : etagged({ key, body: "Their words", citations: [], version: 7 }, 7))),
+    http.put("/v1/cases/:caseId/report/sections/:key", ({ request }) => {
+      puts.push(request.headers.get("if-match"));
+      return puts.length === 1 ? apiError(412, "stale") : etagged({ key, body: "My typed words", citations: [], version: 8 }, 8);
+    }),
+  );
+  const { user } = renderAt(url);
+  const box = await openEditor(user, key);
+  await user.clear(box);
+  await user.type(box, "My typed words");
+  await user.click(screen.getByRole("button", { name: M["report.report.section.save"]! }));
+  const dialog = await screen.findByRole("dialog");
+  expect(within(dialog).getByText("My typed words")).toBeInTheDocument();
+  expect(within(dialog).getByText("Their words")).toBeInTheDocument();
+  await user.click(within(dialog).getByRole("button", { name: M["report.report.section.stale_yours"]! }));
+  await waitFor(() => expect(puts).toEqual(['"5"', '"7"']));
+  expect(await screen.findByText(M["report.report.section.saved"]!)).toBeInTheDocument();
+});
+
+test("choosing the saved words replaces what you typed", async () => {
+  serve("launch");
+  const key = sectionKeys("launch")[0]!;
+  let gets = 0;
+  server.use(
+    http.get("/v1/cases/:caseId/report/sections/:key", () => (gets++ === 0 ? etagged({ key, body: "Words", citations: [], version: 5 }, 5) : etagged({ key, body: "Their words", citations: [], version: 7 }, 7))),
     http.put("/v1/cases/:caseId/report/sections/:key", () => apiError(412, "stale")),
   );
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("button", { name: `${M["report.report.section.edit"]} ${sectionLabel("launch", key)}` }));
-  await screen.findByLabelText(`Your words for ${sectionLabel("launch", key)}`);
+  const box = await openEditor(user, key);
+  await user.type(box, " more");
   await user.click(screen.getByRole("button", { name: M["report.report.section.save"]! }));
-  expect(await screen.findByText(M["report.stale"]!)).toBeInTheDocument();
+  await user.click(await screen.findByRole("button", { name: M["report.report.section.stale_saved"]! }));
+  await waitFor(() => expect(screen.getByLabelText(`Your words for ${sectionLabel("launch", key)}`)).toHaveValue("Their words"));
+});
+
+describe("citations in a section", () => {
+  const body = `Pressure was high ${cited(1)} and again ${cited(2)}.`;
+  const refs = [ref, { ...ref, fact_id: "f2222222-2222-4222-8222-222222222222", quote_verbatim: "BP 160/100" }];
+  const load = (key: string) => server.use(http.get("/v1/cases/:caseId/report/sections/:key", () => etagged({ key, body, citations: refs, version: 5 }, 5)));
+
+  test("each marker is a chip linking to its fact; the text box shows no raw marker", async () => {
+    serve("launch");
+    const key = sectionKeys("launch")[0]!;
+    load(key);
+    const { user } = renderAt(url);
+    const box = await openEditor(user, key);
+    expect(box).not.toHaveValue(expect.stringContaining("[[cite"));
+    const link = await screen.findByRole("link", { name: M["report.report.section.cite_open"]!.replace("{{number}}", "1") });
+    expect(link).toHaveAttribute("href", `/cases/${CASE_A}/consultation/${FACT}`);
+  });
+
+  test("typing around a chip keeps the markers the server needs", async () => {
+    const { sent, record } = serve("launch");
+    const key = sectionKeys("launch")[0]!;
+    load(key);
+    server.use(http.put("/v1/cases/:caseId/report/sections/:key", async ({ request }) => (await record(request), etagged({ key, body, citations: refs, version: 6 }, 6))));
+    const { user } = renderAt(url);
+    const box = await openEditor(user, key);
+    await user.type(box, " Extra");
+    await user.click(screen.getByRole("button", { name: M["report.report.section.save"]! }));
+    await waitFor(() => expect(sent.at(-1)?.body).toEqual({ body: `${body} Extra`, citations: refs }));
+  });
+
+  test("a citation the server will not accept is named, with a link to its fact", async () => {
+    serve("launch");
+    const key = sectionKeys("launch")[0]!;
+    load(key);
+    server.use(http.put("/v1/cases/:caseId/report/sections/:key", () => apiError(409, "not_citable", { citation: 2 })));
+    const { user } = renderAt(url);
+    await openEditor(user, key);
+    await user.click(screen.getByRole("button", { name: M["report.report.section.save"]! }));
+    expect(await screen.findByText(M["report.report.section.cite_refused"]!.replace("{{number}}", "2"))).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: M["report.report.section.cite_open"]!.replace("{{number}}", "2") }).length).toBeGreaterThan(0);
+  });
 });
 
 describe("the preview", () => {
