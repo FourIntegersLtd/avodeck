@@ -106,11 +106,20 @@ CASE_TABLES: frozenset[str] = frozenset(
 )
 
 # Kept after the case is deleted: the append-only audit trail (it holds ids and short codes only, and
-# its hash chain covers every column), the certificate of deletion and the deletion ledger (F29), and
-# the support access grants (ids and a short code only: the record of the named expert's consent; on
-# the tombstone they open nothing).
+# its hash chain covers every column), the certificate of deletion and the deletion ledger (F29), the
+# support access grants (ids and a short code only: the record of the named expert's consent; on the
+# tombstone they open nothing), the records custody transfers (ids, dates and a short note about the
+# expert, never the patient: who holds the records; migration 0032) and the replacement cases' consent
+# records (ids and a yes/no: whether the instructing party consented to the bundle being copied; 0033).
 KEPT_AFTER_CASE_DELETION: frozenset[str] = frozenset(
-    {"audit_log", "deletion_certificates", "deletion_ledger", "support_access_grants"}
+    {
+        "audit_log",
+        "deletion_certificates",
+        "deletion_ledger",
+        "support_access_grants",
+        "custody_transfers",
+        "case_replacements",
+    }
 )
 
 # Registered here before the slice named creates the table in its migration range. Remove the entry

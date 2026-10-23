@@ -111,6 +111,36 @@ class Seed:
         )
         return gid
 
+    def records_custodian(self, person: uuid.UUID, custodian: uuid.UUID) -> None:
+        """`person` names `custodian` (by their sign-in email) as their records custodian (`PUT /me/custodian`)."""
+        self.admin.execute(
+            "update app.people p set records_custodian_name = 'Named Custodian', records_custodian_email = c.email"
+            " from app.people c where p.id = %s and c.id = %s",
+            (person, custodian),
+        )
+
+    def custody_transfer(
+        self,
+        case: uuid.UUID,
+        staff: uuid.UUID,
+        *,
+        to_person: uuid.UUID | None = None,
+        to_organisation: uuid.UUID | None = None,
+        revoked: bool = False,
+    ) -> uuid.UUID:
+        """A records custody transfer recorded by support staff (architecture 10.1 "Death or incapacity")."""
+        tid = uuid.uuid4()
+        self.admin.execute(
+            """
+            insert into app.custody_transfers (id, case_id, from_person_id, to_person_id, to_organisation_id,
+                                               evidence_note, transferred_by, revoked_at)
+            select %s, c.id, c.named_expert_id, %s, %s, 'Evidence seen', %s, case when %s then now() end
+            from app.cases c where c.id = %s
+            """,
+            (tid, to_person, to_organisation, staff, revoked, case),
+        )
+        return tid
+
     def case(
         self,
         org: uuid.UUID,

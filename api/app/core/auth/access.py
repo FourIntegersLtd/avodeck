@@ -6,12 +6,15 @@ all gets 404, exactly as if it did not exist; someone who can see it but may not
 Row-level security repeats the check on every row. A deleted case answers only
 `DELETED_CASE_ACTIONS` (its certificate of deletion); everything else on it is 404.
 
-Two rules on the person (migration 0030):
+Three rules on the person (migrations 0030 and 0032):
 - Avodeck support (`support` role, a live grant from the named expert) only reads; every request
   under it is written to the case's audit trail as `support_access.viewed` and needs MFA in the
   last 10 minutes (`aal2`) on every call.
 - A closed account (S15) takes only `CLOSED_ACCOUNT_ACTIONS`, and only as the named expert of a case
   that has been served; anything else is 404.
+- A records custodian (`custodian` role, a custody transfer recorded by support, migration 0032) only
+  reads (`CUSTODIAN_ACTIONS`), and only a case that has been served; anyone with a case role of their own
+  keeps it. A closed account holds no custody.
 """
 
 from __future__ import annotations

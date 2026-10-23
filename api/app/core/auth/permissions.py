@@ -1,8 +1,8 @@
 """The case permissions matrix from docs/spec/permissions.md, as one table.
 
 `app.case_action_allowed()` (migration 0003, redefined in 0017, 0019, 0021 and 0200) mirrors this table, and
-`app.case_role_allowed()` (migration 0030) adds the `support` role to it; the guard test
-`tests/guards/test_permissions.py` checks both against the document, cell by cell.
+`app.case_role_allowed()` (migration 0030, redefined in 0032) adds the `support` and `custodian` roles to it;
+the guard test `tests/guards/test_permissions.py` checks both against the document, cell by cell.
 
 `ORG_ACTIONS` is the document's "Organisation actions" table, checked by `require_org_access`
 (`core/auth/org_access.py`) and `tests/guards/test_foundation_org_access.py`.
@@ -19,6 +19,11 @@ ORG_KINDS = ("personal", "team")
 # Avodeck support under a live grant from the named expert (permissions.md "Avodeck staff"). Not a
 # `case_members` role: `app.case_access()` gives it only to current staff while the grant lasts.
 SUPPORT_ROLE = "support"
+# A records custodian of a served case transferred to them by support (permissions.md, the "Records
+# custodian" column; architecture 10.1 "Death or incapacity"). Not a `case_members` role either:
+# `app.case_access()` gives it while a `custody_transfers` row that is not revoked names the person (or an
+# organisation they are a current owner or admin of) and the case has been served (migration 0032).
+CUSTODIAN_ROLE = "custodian"
 
 # What an organisation owner or admin who is not on the case may do:
 # none; admin = owner and admin; owner = owner only; team_admin = owner and admin, team organisations only.
@@ -91,6 +96,8 @@ CASE_ACTIONS: dict[str, ActionRule] = {
 # All the support role may do (permissions.md, the "Avodeck support" column): look, never change.
 # The same list is in `app.case_role_allowed()` (migration 0030).
 SUPPORT_ACTIONS = frozenset({"case.view_metadata", "case.view_content", "case.view_audit"})
+# All a records custodian may do: read, never change. The same list is in `app.case_role_allowed()` (0032).
+CUSTODIAN_ACTIONS = frozenset({"case.view_metadata", "case.view_content", "case.view_audit", "case.view_certificate"})
 
 
 def _org_allows(grant: OrgGrant, org_role: str | None, org_kind: str | None) -> bool:
@@ -108,7 +115,11 @@ def allowed(action: str, case_role: str | None, org_role: str | None, org_kind: 
     rule = CASE_ACTIONS.get(action)
     if rule is None:
         return False
-    by_case = case_role in rule.case_roles or (case_role == SUPPORT_ROLE and action in SUPPORT_ACTIONS)
+    by_case = (
+        case_role in rule.case_roles
+        or (case_role == SUPPORT_ROLE and action in SUPPORT_ACTIONS)
+        or (case_role == CUSTODIAN_ROLE and action in CUSTODIAN_ACTIONS)
+    )
     return by_case or _org_allows(rule.org, org_role, org_kind)
 
 

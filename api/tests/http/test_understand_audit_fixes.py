@@ -61,6 +61,18 @@ async def test_after_the_named_expert_changes_each_keeps_their_own_note(client_f
         (case.id, case.expert, case.assistant),
     )
     second = await client_for(case.assistant)
+    # Scenario S3: the change put every checked fact back to `suggested`; the new expert reads the page
+    # and checks the visit again, through the normal API, before the consultation opens for them.
+    assert (await second.post(f"/v1/cases/{case.id}/pages/1/read", json={"dwell_seconds": 30})).status_code == 200
+    facts = (await second.get(f"/v1/cases/{case.id}/pages/1/facts")).json()["facts"]
+    [shown] = [f for f in facts if f["id"] == str(visit)]
+    assert shown["status"] == "suggested"
+    checked = await second.post(
+        f"/v1/cases/{case.id}/facts/{visit}/verify",
+        json={"action": "correct"},
+        headers={"If-Match": f'"{shown["version"]}"'},
+    )
+    assert checked.status_code == 200, checked.text
     assert (await second.get(url)).json()["note"] is None, "the new expert never sees the old note"
     assert (await second.put(f"{url}/note", json={"body": "second expert"})).status_code == 200
     assert (await second.get(url)).json()["note"] == "second expert"
