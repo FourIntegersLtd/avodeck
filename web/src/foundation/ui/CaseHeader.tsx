@@ -20,6 +20,8 @@ export interface CaseHeaderProps {
   progress?: Record<string, { done: number; total: number; percent: number }>;
   /** The signed-in person's name, for the initials. */
   person?: string | null;
+  /** Actions capabilities registered for this case (foundation/lib/slots), already filtered. */
+  actions?: Array<{ key: string; labelKey: string; to: string }>;
 }
 
 /** The step's name: a slice or language file may name it, otherwise the pack key is shown. */
@@ -43,7 +45,7 @@ function stepProgressText({ done, total, percent }: { done: number; total: numbe
   return total >= PERCENT_FROM ? t("ui.case_header.progress", { percent }) : t("ui.case_header.progress_count", { done, total });
 }
 
-export function CaseHeader({ steps, current, title, children, bar, caseId, subtitle, person, progress }: CaseHeaderProps) {
+export function CaseHeader({ steps, current, title, children, bar, caseId, subtitle, person, progress, actions }: CaseHeaderProps) {
   const currentIndex = steps.findIndex((s) => s.key === current);
   const pills = steps.length === 0 ? null : (
     <nav aria-label={t("ui.case_header.steps")} className="av-case-bar__steps">
@@ -97,6 +99,15 @@ export function CaseHeader({ steps, current, title, children, bar, caseId, subti
         {subtitle && <span className="av-case-bar__sub">{subtitle}</span>}
       </div>
       {pills}
+      {actions && actions.length > 0 && (
+        <nav aria-label={t("ui.case_header.actions")} className="av-case-bar__actions">
+          {actions.map((a) => (
+            <Link key={a.key} to={a.to}>
+              {t(a.labelKey)}
+            </Link>
+          ))}
+        </nav>
+      )}
       <Link to="/account" className="av-shell__avatar">
         <span className="av-shell__avatar-disc" aria-hidden="true">
           {initials(person)}
