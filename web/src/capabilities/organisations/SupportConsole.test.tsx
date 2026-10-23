@@ -1,4 +1,6 @@
 // The support console at /support: staff only, case details only, never page content outside a grant.
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { apiError, http, json, server, signedIn } from "../../test/api";
@@ -33,6 +35,20 @@ test("the console explains itself at the top: search, 24-hour access, every look
   expect(intro).toMatch(/named expert/i);
   expect(intro).toMatch(/24 hours/);
   expect(intro).toMatch(/every look is (written down|recorded)/i);
+});
+
+test("a result card is padded inside, spaced from the search and from the next result", async () => {
+  signedIn();
+  server.use(http.get("/v1/support/cases", () => json({ cases: [found({ grant_active: true, grant_expires_at: "2026-10-24T10:00:00Z" })] })));
+  const { user } = renderAt("/support");
+  await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
+  await user.click(screen.getByRole("button", { name: "Search" }));
+  const row = within(await screen.findByRole("list", { name: "Cases found" })).getByRole("listitem");
+  expect(row).toHaveClass("av-org-result");
+  const css = readFileSync(resolve(__dirname, "organisations.css"), "utf8");
+  expect(css).toMatch(/\.av-org-result\s*\{[^}]*padding:\s*var\(--space-5\)/);
+  expect(css).toMatch(/\.av-org-results\s*\{[^}]*gap:\s*var\(--space-4\)[^}]*margin-top:\s*var\(--space-4\)|\.av-org-results\s*\{[^}]*margin-top:\s*var\(--space-4\)[^}]*gap:\s*var\(--space-4\)/);
+  expect(css).toMatch(/\.av-org-result[^{]*\.av-button[^{]*\{[^}]*width:\s*100%/);
 });
 
 test("staff search by case number and see details, no records", async () => {
