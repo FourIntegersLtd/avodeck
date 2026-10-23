@@ -1056,3 +1056,23 @@ async def test_the_file_list_counts_what_each_kind_holds(
         "reads": 2,
         "invoice": 1,
     }
+
+
+# --- account closure (cross-slice request O -> H) ---------------------------------------------------
+
+
+async def test_account_closure_deletion_reaches_the_delete_case_job_end_to_end(
+    run: Run, seed: Seed, admin: psycopg.Connection, api_db: Database
+) -> None:
+    from app.core.contracts.close import request_case_deletion
+    from tests.support.db import scope_for
+
+    expert = seed.person()
+    org = seed.org(kind="personal", members={expert: "owner"})
+    case = seed.case(org, expert, status="active")
+    seed.page(case, seed.document(case), 1)
+    async with api_db.request(scope_for(expert)) as conn:
+        job = await request_case_deletion(conn, case)
+    await run(close_jobs.delete_case, case, "delete_case", job=job)
+    assert rows_of(admin, "pages", case) == 0
+    assert certificate(admin, case)["deleted_at"] is not None  # type: ignore[index]
