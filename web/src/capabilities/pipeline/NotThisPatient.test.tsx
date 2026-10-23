@@ -174,7 +174,7 @@ describe.each([
 });
 
 describe("Not this patient, a page that cannot be opened", () => {
-  const FIND = `/cases/${CASE_ID}/pages/:pageNo`;
+  const FIND = `/v1/cases/${CASE_ID}/pages/:pageNo`;
 
   test("an unknown page number says it could not be found, and the empty state names the page", async () => {
     mock(launchPack, { suggestions: [] });
