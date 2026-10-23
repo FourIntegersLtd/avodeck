@@ -42,8 +42,10 @@ async def corrected_world(seed: Seed, admin_dsn: str, api_db: Database) -> Corre
         loaded = await load_stub_facts(aconn, case, pages=[118], crypto=CRYPTO, verified=True)
         page = loaded[118].page_id
         cur = await aconn.execute("select word_id, text from app.ocr_words where page_id = %s order by n", (page,))
-        original = {w: (await CRYPTO.decrypt(aconn, case, bytes(t), purpose=word_purpose(page, w))).decode()
-                    for w, t in await cur.fetchall()}
+        original = {
+            w: (await CRYPTO.decrypt(aconn, case, bytes(t), purpose=word_purpose(page, w))).decode()
+            for w, t in await cur.fetchall()
+        }
     first, second = list(original)[:2]
     async with api_db.request(scope_for(expert)) as conn:
         await repo.save_correction(conn, CRYPTO, case, page, [first, second], READING, expert)

@@ -35,7 +35,7 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from app.core.contracts.case_names import party_names
-from app.core.contracts.document_words import word_purpose
+from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack
 from app.core.storage import SupabaseStorage, case_prefix
@@ -206,6 +206,9 @@ async def _page(
         words.append((wid, text.decode()))
         if polygon:
             polygons[wid] = [float(v) for v in polygon]
+    corrections = (await current_corrections(conn, crypto, case_id, [page_id])).get(page_id, [])
+    if corrections:  # the expert's reading of misread words, never the computer's (slice B, 0018)
+        words = list(apply_corrections(dict(words), corrections).items())
     if row is None or not row[0]:
         return None, None, words, polygons
     path = str(row[0])
