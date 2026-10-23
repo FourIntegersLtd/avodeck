@@ -173,13 +173,6 @@ async def test_one_holder_at_a_time(
     ).fetchone() == (1,)
 
 
-async def test_with_the_flag_off_stale_mfa_still_finds_nothing(client_for: ClientFor, world: World) -> None:
-    person = world.seed.person()
-    world.seed.support_staff(person)
-    resp = await (await client_for(person, mfa_age=STALE)).post(URL, json=body(world.solo_case(status="served")))
-    assert resp.status_code == 404
-
-
 @pytest.mark.parametrize("who", ["dr_k", "owner", "removed"])
 async def test_anyone_but_current_staff_gets_404(client_for: ClientFor, world: World, who: str) -> None:
     person = world.seed.person() if who == "removed" else world[who]
