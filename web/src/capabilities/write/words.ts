@@ -52,6 +52,8 @@ const WORDS = {
   "points.tab_done": "Points done.",
   "points.done": "Done for question {{number}}. You can now write your opinion.",
   "points.relevant_look": "Look at it",
+  "points.exists": "That fact is already one of your points for this question.",
+  "points.exists_show": "Show me that point",
   "points.stale": "This changed in another window. We've shown you the latest.",
 
   "opinion.title": "Your opinion",
