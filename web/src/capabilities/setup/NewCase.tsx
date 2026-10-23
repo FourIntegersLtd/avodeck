@@ -487,7 +487,7 @@ function NewCaseForm({
           )}
           {team && required.data?.locked && (
             <p className="av-hint" role="note">
-              {t("setup.new_case.template_locked", { name: team.name })}
+              {sw("new_case.template_locked", { name: team.name })}
             </p>
           )}
           {packs.length > 1 && (
