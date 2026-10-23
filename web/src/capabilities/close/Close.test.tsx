@@ -100,6 +100,23 @@ test("a settled case shows the three decisions with the pack's years, and passes
   expect(await axeViolations(container)).toEqual([]);
 });
 
+test("an organisation limit shorter than the pack's years turns the usual choice off and says why", async () => {
+  const limit = launchPack.retention_years - 1;
+  serve({ close: summary({ retention_policy: "return_then_delete", max_retention_years: limit }) });
+  renderClose();
+  const keep = await screen.findByRole("radio", { name: new RegExp(`${launchPack.retention_years}`) });
+  expect(keep).toBeDisabled();
+  expect(screen.getByText(new RegExp(CLOSE_MESSAGES["close.keep.limited"]!.replace("{{years}}", `${limit}`)))).toBeInTheDocument();
+  expect(screen.getByRole("radio", { name: new RegExp(CLOSE_MESSAGES["close.keep.return_then_delete_plain"]!) })).toBeEnabled();
+});
+
+test("an organisation limit that is long enough changes nothing", async () => {
+  serve({ close: summary({ max_retention_years: launchPack.retention_years }) });
+  renderClose();
+  expect(await screen.findByRole("radio", { name: new RegExp(`${launchPack.retention_years}`) })).toBeEnabled();
+  expect(screen.queryByText(/organisation allows/)).not.toBeInTheDocument();
+});
+
 test("inside the app shell's main area it adds no second main landmark", async () => {
   serve();
   const { container } = renderUi(
