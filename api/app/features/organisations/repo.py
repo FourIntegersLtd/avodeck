@@ -230,6 +230,35 @@ async def support_case_grants(conn: AsyncConnection, case_id: uuid.UUID) -> list
     return await rows(conn, "select * from app.support_case_grants(%s)", (case_id,))
 
 
+async def support_case_custodian(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any] | None:
+    return await row(conn, "select * from app.support_case_custodian(%s) limit 1", (case_id,))
+
+
+async def custody_in_force(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    """Waits for any other transfer of this case in flight (transaction lock), then: is one in force?"""
+    await conn.execute("select pg_advisory_xact_lock(hashtextextended('custody:' || %s::text, 0))", (case_id,))
+    return bool(
+        await value(
+            conn, "select exists (select 1 from app.custody_transfers where case_id = %s and revoked_at is null)",
+            (case_id,),
+        )  # fmt: skip
+    )
+
+
+async def add_custody_transfer(
+    conn: AsyncConnection, case_id: uuid.UUID, to_person: uuid.UUID | None, to_org: uuid.UUID | None, note: str
+) -> dict[str, Any]:
+    made = await row(
+        conn,
+        "insert into app.custody_transfers (case_id, to_person_id, to_organisation_id, evidence_note, transferred_by)"
+        " values (%s, %s, %s, %s, app.current_person_id())"
+        " returning id, case_id, to_person_id, to_organisation_id, transferred_at",
+        (case_id, to_person, to_org, note),
+    )
+    assert made is not None
+    return made
+
+
 async def account_closed(conn: AsyncConnection) -> bool:
     return bool(await value(conn, "select closed_at is not null from app.people where id = app.current_person_id()"))
 

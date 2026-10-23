@@ -2567,6 +2567,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/replacement": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Replacement
+         * @description After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded.
+         */
+        post: operations["create_replacement_v1_cases__case_id__replacement_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/report": {
         parameters: {
             query?: never;
@@ -4519,6 +4539,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/support/custody-transfers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record Custody Transfer
+         * @description (legal check) Behind the flag `support_custody_transfer` until the legal review of custody is done.
+         */
+        post: operations["record_custody_transfer_v1_support_custody_transfers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/today": {
         parameters: {
             query?: never;
@@ -5986,6 +6026,43 @@ export interface components {
             email: string | null;
             /** Name */
             name: string | null;
+        };
+        /** CustodyTransfer */
+        CustodyTransfer: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** To Organisation Id */
+            to_organisation_id: string | null;
+            /** To Person Id */
+            to_person_id: string | null;
+            /**
+             * Transferred At
+             * Format: date-time
+             */
+            transferred_at: string;
+        };
+        /** CustodyTransferCreate */
+        CustodyTransferCreate: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Evidence Note */
+            evidence_note: string;
+            /**
+             * To
+             * @enum {string}
+             */
+            to: "custodian" | "organisation";
         };
         /** DeadlineChange */
         DeadlineChange: {
@@ -9572,6 +9649,36 @@ export interface components {
              * Format: uuid
              */
             document_id: string;
+        };
+        /** ReplacementCase */
+        ReplacementCase: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Instructing Party Consented */
+            instructing_party_consented: boolean;
+            /**
+             * Named Expert Id
+             * Format: uuid
+             */
+            named_expert_id: string;
+            /**
+             * Replaces Case Id
+             * Format: uuid
+             */
+            replaces_case_id: string;
+        };
+        /** ReplacementRequest */
+        ReplacementRequest: {
+            /** Instructing Party Consented */
+            instructing_party_consented: boolean;
+            /**
+             * Named Expert Id
+             * Format: uuid
+             */
+            named_expert_id: string;
         };
         /** ReplyIn */
         ReplyIn: {
@@ -18439,6 +18546,50 @@ export interface operations {
             };
         };
     };
+    create_replacement_v1_cases__case_id__replacement_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplacementRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplacementCase"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     report_v1_cases__case_id__report_get: {
         parameters: {
             query?: never;
@@ -23837,6 +23988,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SupportCaseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    record_custody_transfer_v1_support_custody_transfers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CustodyTransferCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustodyTransfer"];
                 };
             };
             /** @description Validation Error */

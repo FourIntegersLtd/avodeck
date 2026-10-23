@@ -54,19 +54,16 @@ Items marked **(legal check)** in architecture 10.1 and ADR 0012: named-expert a
 
 ## Build status (Phase 1, API)
 - Built (PR 1, migrations 1000-1005): teams, members, invites, leaving (F31, F32), policy, team billing profile, named-expert reassignment (S3, before serving), organisation closure.
-- Not built: `POST /cases/{case_id}/replacement` (S3 after serving). Creating a case linked `replaces` to another and copying its bundle need contracts that do not exist yet (`docs/decisions/deferred.md`); the 409 `served_use_replacement` already offers the route.
+- Built (PR 3, on foundation's 0031-0033): `POST /v1/cases/{case_id}/replacement` 🔒 through `core/contracts/replacement.py`; the 409 `served_use_replacement` points at it. The bundle copy waits for slice A (`docs/decisions/deferred.md`).
 - Numbering: the policy check took 1003, so the billing policy is 1004 and closure 1005.
 - Built (PR 2, migration 1006): records custodian, account closure (S15), support grants (S17, F38), support console (metadata only).
-- Not built: `POST /v1/support/custody-transfers` (flag `support_custody_transfer`, legal check). Recording a transfer needs a new case table kept after deletion (registered in `core/contracts/case_tables.py`) and giving the custodian or organisation read-only access needs a new branch in `app.case_access()`: both foundation-owned. Requested from foundation.
+- Built (PR 3, migration 1008): `POST /v1/support/custody-transfers` behind the flag `support_custody_transfer` **(legal check)**: support staff, to the expert's named records custodian (an open account, not support staff, not the recorder) or the case's own team organisation; served cases only; audited as `support.custody_transferred`. One holder at a time (409 `custody_already_transferred`, under a per-case transaction lock). Step-up is checked before the flag (core guard `test_foundation_step_up.py` scans every step-up route with no flag set). Open after review: a refused attempt leaves no audit row (the request's transaction rolls back; needs a foundation audit write outside it); a transfer to a closed organisation is not refused (staff cannot read `organisations`); a repeated replacement POST makes a second draft (needs an idempotency rule in the foundation contract 0033).
 
 ## Cross-slice requests
 - O → C: enforce `organisations.policy.required_template_id` (`core/contracts/org_policy.py`) when a case is created for a team.
 - O → F: team cases invoice from the organisation's billing profile (already so in `app.case_billing_profile`); the report build uses the organisation's required template when set.
 - O → H: cap a case's retention at `max_retention_years`; account closure deletes unserved personal cases through `request_case_deletion` (H's `delete_case`).
 - O → A: copy a bundle into a replacement case only with the instructing party's recorded consent.
-- O → B / foundation: after a named-expert change, facts the previous expert verified still have status `verified`; `citable_facts()` counts only the current named expert's reads, but not whose verification it was. A fact verified by the outgoing expert becomes citable once the new expert reads its page. Either B returns them to suggested on reassignment (a `case.named_expert_changed` event) or `citable_facts()` requires a verification by the current named expert.
-- O → foundation: a contract to create a case linked `replaces` to another (for the replacement route).
-- O → foundation: custody transfer (10.1 "Death or incapacity"): a kept table for transfers and a read-only `custodian` branch in `app.case_access()` (legal check).
 
 ## Web (Phase 2) as built
 - Routes: `/organisations/:orgId` (S27, screen `organisation_settings`), `/organisations/:orgId/leave` (`organisation_leave`), `/invites/:token` (outside the signed-in guard, sign-in layout classes), `/account/custodian` and `/account/close` (S28 sections as registered screens `account_custodian`, `account_close`), `/cases/:caseId/team` (change named expert, support grant card; screen `case_team`), `/support` (staff only; the server answers anyone else 404).
