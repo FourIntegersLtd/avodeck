@@ -54,7 +54,7 @@ export async function stubReader(page: Page, pack: Pack): Promise<Seen> {
     id: CASE_A, organisation_id: ORG, named_expert_id: "11111111-1111-4111-8111-111111111111", jurisdiction: "gb-eaw", case_type: "clin-neg-breach",
     specialty: "general-practice", expert_role: "single", label: "Mrs A", party_role: "other_side", instructing_party_type: "lawyer",
     court_track: null, due_date: "2026-11-30", status: "open", on_hold: false, created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:00:00Z",
-    allowed_actions: ["case.view_metadata", "case.view_content", "fact.verify", "page.read"],
+    allowed_actions: ["case.view_metadata", "case.view_content", "fact.verify", "page.read", "page.rotate"],
   };
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;

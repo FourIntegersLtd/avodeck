@@ -1,12 +1,13 @@
 // Screen 09's page viewer (approved 2026-10-23, items 1 to 4): turning the page at once, fit and zoom
 // that stay as the expert left them, going to a page, the page strip, and "Make it clearer".
-// Runs under both pack sets.
+// The view settings are held for the visit (no browser storage). Runs under both pack sets.
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Schemas } from "../../foundation/platform-client";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { forgetPages } from "./pageImageCache";
+import { forgetView } from "./viewer";
 import { CASE_ID, EXPERT_ACTIONS, theCase } from "./testData";
 import { mockReader } from "./testing";
 import { json, http, server } from "../../test/api";
@@ -14,7 +15,7 @@ import "./index";
 
 beforeEach(() => {
   forgetPages();
-  localStorage.clear();
+  forgetView();
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:page"), revokeObjectURL: vi.fn() }));
 });
 

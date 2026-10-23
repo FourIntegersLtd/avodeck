@@ -1,7 +1,7 @@
 // The page viewer's arithmetic: quarter turns, where a box on the page lands once the page is turned,
 // how big the page is drawn for each fit, the page strip's window, and the per-viewer view settings.
 import { afterEach, describe, expect, test, vi } from "vitest";
-import { clampZoom, drawnSize, loadView, saveView, stripWindow, turnBy, turnedBox, VIEW_DEFAULTS } from "./viewer";
+import { clampZoom, drawnSize, forgetView, loadView, saveView, stripWindow, turnBy, turnedBox, VIEW_DEFAULTS, type View } from "./viewer";
 
 describe("quarter turns", () => {
   test.each([
@@ -59,27 +59,31 @@ describe("the page strip draws only the pages in view", () => {
   });
 });
 
+// Browser storage is off limits in capabilities (the no-restricted-globals guard), so the settings are held in
+// this tab's memory: they survive a page change and leaving and coming back, not a reload.
 describe("view settings belong to this viewer and survive a page change", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    localStorage.clear();
+    forgetView();
   });
   test("saved and loaded", () => {
     saveView({ ...VIEW_DEFAULTS, fit: "zoom", zoom: 175, brightness: 120, contrast: 140 });
     expect(loadView()).toEqual({ fit: "zoom", zoom: 175, brightness: 120, contrast: 140 });
   });
-  test("nonsense in storage falls back to the defaults", () => {
-    localStorage.setItem("avodeck.reader.view", '{"fit":"sideways","zoom":"big"}');
+  test("nonsense is refused and the defaults stay", () => {
+    saveView({ fit: "sideways", zoom: 9000 } as unknown as View);
     expect(loadView()).toEqual(VIEW_DEFAULTS);
   });
-  test("when storage is blocked the settings still hold for this visit", () => {
-    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
-      throw new Error("blocked");
-    });
-    expect(() => saveView({ ...VIEW_DEFAULTS, zoom: 200, fit: "zoom" })).not.toThrow();
-    expect(loadView()).toEqual({ ...VIEW_DEFAULTS, zoom: 200, fit: "zoom" });
+  test("forgetting puts the defaults back", () => {
+    saveView({ ...VIEW_DEFAULTS, zoom: 200, fit: "zoom" });
+    forgetView();
+    expect(loadView()).toEqual(VIEW_DEFAULTS);
+  });
+  test("nothing is written to browser storage", () => {
+    const local = vi.spyOn(Storage.prototype, "setItem");
+    saveView({ ...VIEW_DEFAULTS, zoom: 200, fit: "zoom" });
+    expect(local).not.toHaveBeenCalled();
+    expect(localStorage.length).toBe(0);
+    expect(sessionStorage.length).toBe(0);
   });
 });
