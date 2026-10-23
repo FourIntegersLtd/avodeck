@@ -2579,6 +2579,7 @@ export interface paths {
         /**
          * Create Replacement
          * @description After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded.
+         *     Asking again returns the replacement already made, with 200.
          */
         post: operations["create_replacement_v1_cases__case_id__replacement_post"];
         delete?: never;
@@ -18598,6 +18599,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description The replacement already made for this case */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReplacementCase"];
+                };
+            };
             /** @description Successful Response */
             201: {
                 headers: {

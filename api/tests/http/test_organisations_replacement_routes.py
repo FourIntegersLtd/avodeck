@@ -5,11 +5,14 @@
 calls `core/contracts/replacement.py`: a new draft case in the same organisation, named to the new expert,
 linked `replaces` to the served case, recording whether the instructing party consented to the bundle
 being copied. Nothing is copied here (slice A's, only with consent). An unserved case is 409 `not_served`
-(change its expert instead); an expert who cannot take it 422. The served case does not change.
+(change its expert instead); an expert who cannot take it 422. The served case does not change. Asking again
+(a retry, a double click, two at once) returns the replacement already made, with 200, and makes no other;
+asking for a different expert or consent once one exists is 409 `replacement_exists`.
 """
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 
 import psycopg
@@ -100,3 +103,72 @@ async def test_replacing_needs_step_up(client_for: ClientFor, world: World) -> N
         url(served), json={"named_expert_id": str(world["dr_m"]), "instructing_party_consented": True}
     )
     assert (resp.status_code, resp.json()["error"]["code"]) == (403, "step_up_required")
+
+
+async def test_asking_again_returns_the_replacement_already_made(
+    client_for: ClientFor, world: World, admin: psycopg.Connection
+) -> None:
+    served = world.team_case(status="served")
+    owner = await client_for(world["owner"])
+    payload = {"named_expert_id": str(world["dr_m"]), "instructing_party_consented": True}
+    first = await owner.post(url(served), json=payload)
+    assert first.status_code == 201, first.text
+    again = await owner.post(url(served), json=payload)
+    assert again.status_code == 200, again.text
+    assert again.json() == first.json()
+    assert admin.execute(
+        "select count(*) from app.case_replacements where replaces_case_id = %s", (served,)
+    ).fetchone() == (1,)
+    assert admin.execute(
+        "select count(*) from app.audit_log where action = 'case.replacement_created' and case_id = %s", (served,)
+    ).fetchone() == (1,)
+
+
+async def test_two_at_once_make_one_replacement(client_for: ClientFor, world: World, admin: psycopg.Connection) -> None:
+    served = world.team_case(status="served")
+    owner = await client_for(world["owner"])
+    admin_client = await client_for(world["admin"])
+    payload = {"named_expert_id": str(world["dr_m"]), "instructing_party_consented": False}
+    a, b = await asyncio.gather(owner.post(url(served), json=payload), admin_client.post(url(served), json=payload))
+    assert sorted((a.status_code, b.status_code)) == [200, 201], (a.text, b.text)
+    assert a.json()["case_id"] == b.json()["case_id"]
+    assert admin.execute(
+        "select count(*) from app.case_replacements where replaces_case_id = %s", (served,)
+    ).fetchone() == (1,)
+
+
+async def test_a_deleted_replacement_can_be_made_again(
+    client_for: ClientFor, world: World, admin: psycopg.Connection
+) -> None:
+    served = world.team_case(status="served")
+    owner = await client_for(world["owner"])
+    payload = {"named_expert_id": str(world["dr_m"]), "instructing_party_consented": True}
+    first = await owner.post(url(served), json=payload)
+    admin.execute("update app.cases set status = 'deleted' where id = %s", (first.json()["case_id"],))
+    again = await owner.post(url(served), json=payload)
+    assert again.status_code == 201, again.text
+    assert again.json()["case_id"] != first.json()["case_id"]
+
+
+@pytest.mark.parametrize("change", ["expert", "consent", "unknown_expert"])
+async def test_asking_for_something_else_once_one_exists_is_refused(
+    client_for: ClientFor, world: World, admin: psycopg.Connection, change: str
+) -> None:
+    served = world.team_case(status="served")
+    owner = await client_for(world["owner"])
+    payload = {"named_expert_id": str(world["dr_m"]), "instructing_party_consented": False}
+    assert (await owner.post(url(served), json=payload)).status_code == 201
+    other = world.seed.person()
+    if change == "expert":
+        world.seed.membership(world.agency, other, "expert")
+    second = {
+        "expert": {**payload, "named_expert_id": str(other)},
+        "consent": {**payload, "instructing_party_consented": True},
+        "unknown_expert": {**payload, "named_expert_id": str(uuid.uuid4())},
+    }[change]
+    resp = await owner.post(url(served), json=second)
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "replacement_exists")
+    assert admin.execute(
+        "select count(*), bool_or(instructing_party_consented) from app.case_replacements where replaces_case_id = %s",
+        (served,),
+    ).fetchone() == (1, False)

@@ -5,7 +5,10 @@ Support staff record it, with a short note of the evidence seen (about the exper
 `custody_transfers` (migration 0032, foundation's table and access rule: the recipient gets the read-only
 `custodian` case role). The recipient is either the records custodian the named expert recorded (an open
 account that is neither support staff nor the recorder) or the case's own team organisation.
-One holder at a time: revoke a transfer before recording another.
+One holder at a time: revoke a transfer before recording another. A team organisation that has closed holds
+nothing (its memberships have ended), so it cannot receive one. A refused attempt is audited as
+`support.custody_transfer_refused` (target `refused:<code>`), in a transaction of its own so it stays although
+the request rolls back (`audit.record_detached`).
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from app.features.organisations import repo
 from app.features.organisations.schemas import CustodyTransfer, CustodyTransferCreate
 
 TRANSFERRED = "support.custody_transferred"
+REFUSED = "support.custody_transfer_refused"
 
 
 def _invalid(code: str, message: str) -> ApiError:
@@ -40,6 +44,14 @@ async def _custodian(conn: AsyncConnection, case_id: uuid.UUID, recorder: uuid.U
 
 
 async def transfer(conn: AsyncConnection, recorder: uuid.UUID, body: CustodyTransferCreate) -> CustodyTransfer:
+    try:
+        return await _transfer(conn, recorder, body)
+    except ApiError as refused:
+        audit.record_detached(action=REFUSED, target=f"refused:{refused.code}", case_id=body.case_id)
+        raise
+
+
+async def _transfer(conn: AsyncConnection, recorder: uuid.UUID, body: CustodyTransferCreate) -> CustodyTransfer:
     cases = await repo.support_cases(conn, body.case_id, None)
     if not cases:
         raise not_found()
@@ -54,6 +66,8 @@ async def transfer(conn: AsyncConnection, recorder: uuid.UUID, body: CustodyTran
         to_person = await _custodian(conn, body.case_id, recorder)
     elif case["organisation_kind"] != "team":
         raise _invalid("personal_organisation", "A personal practice has no one else to hold its records.")
+    elif await repo.support_organisation_closed(conn, case["organisation_id"]):
+        raise ApiError("organisation_closed", "This organisation has closed, so it cannot hold the records.", 409)
     else:
         to_org = case["organisation_id"]
     made = await repo.add_custody_transfer(conn, body.case_id, to_person, to_org, body.evidence_note)

@@ -183,7 +183,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | Field | In plain words |
 |---|---|
 | case_id | The new case for the replacement expert |
-| replaces_case_id | The served case it replaces (also linked `replaces` in `case_links`) |
+| replaces_case_id | The served case it replaces (also linked `replaces` in `case_links`). A served case has one replacement at a time; asking again returns it |
 | instructing_party_consented | Whether the instructing party agreed to the bundle being copied into the new case; the bundle is copied only when yes |
 | recorded_by / recorded_at | The owner or admin who created the replacement, and when |
 

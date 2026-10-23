@@ -246,11 +246,11 @@ active (named expert grants, step-up, 24 hours) → expired / revoked. Terminal;
 
 ## Custody transfer (`custody_transfers`)
 
-active (support records it for a served case, migration 0032) → revoked (`revoked_at`, by support; final). While active, the custodian (the person named, or the current owners and admins of the organisation named) reads the case and nothing more. A case never served cannot be transferred (409).
+active (support records it for a served case, migration 0032) → revoked (`revoked_at`, by support; final). While active, the custodian (the person named, or the current owners and admins of the organisation named) reads the case and nothing more. A case never served cannot be transferred (409), nor can a closed organisation receive one (409 `organisation_closed`). Refused attempts are audited (`support.custody_transfer_refused`).
 
 ## Case replacement (`case_replacements`)
 
-Created once with its case (`app.create_replacement_case()`, migration 0033), only for a case that has been served; never changes. The new case starts as a draft like any other.
+Created once with its case (`app.create_replacement_case()`, migration 0033), only for a case that has been served; never changes. A served case has at most one replacement that is not deleted: asking again for the same expert and consent returns it, for anything else 409 `replacement_exists` (migration 0034). The new case starts as a draft like any other.
 
 ## Trial pack and offline package freshness
 

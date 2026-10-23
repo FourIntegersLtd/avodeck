@@ -234,6 +234,10 @@ async def support_case_custodian(conn: AsyncConnection, case_id: uuid.UUID) -> d
     return await row(conn, "select * from app.support_case_custodian(%s) limit 1", (case_id,))
 
 
+async def support_organisation_closed(conn: AsyncConnection, org_id: uuid.UUID) -> bool:
+    return bool(await value(conn, "select app.support_organisation_closed(%s)", (org_id,)))
+
+
 async def custody_in_force(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     """Waits for any other transfer of this case in flight (transaction lock), then: is one in force?"""
     await conn.execute("select pg_advisory_xact_lock(hashtextextended('custody:' || %s::text, 0))", (case_id,))
