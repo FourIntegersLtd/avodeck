@@ -7589,6 +7589,11 @@ export interface components {
         /** Me */
         Me: {
             expert: components["schemas"]["Expert"] | null;
+            /**
+             * Is Support Staff
+             * @default false
+             */
+            is_support_staff: boolean;
             /** Memberships */
             memberships: components["schemas"]["Membership"][];
             /** Mfa Enrolled */

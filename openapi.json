@@ -8267,6 +8267,11 @@
               }
             ]
           },
+          "is_support_staff": {
+            "default": false,
+            "title": "Is Support Staff",
+            "type": "boolean"
+          },
           "memberships": {
             "items": {
               "$ref": "#/components/schemas/Membership"

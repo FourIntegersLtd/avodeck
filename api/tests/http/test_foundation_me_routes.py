@@ -129,3 +129,20 @@ async def test_each_membership_says_how_many_people_are_in_the_organisation(
         )
     counts = {m["kind"]: m["member_count"] for m in (await client.get("/v1/me")).json()["memberships"]}
     assert counts == {"personal": 1, "team": 2}
+
+
+async def test_is_support_staff_is_false_for_an_ordinary_person(client_for: ClientFor) -> None:
+    resp = await (await client_for(uuid.uuid4())).get("/v1/me")
+    assert resp.json()["is_support_staff"] is False
+
+
+async def test_is_support_staff_is_true_for_active_staff_and_false_once_removed(
+    client_for: ClientFor, admin: psycopg.Connection
+) -> None:
+    person = uuid.uuid4()
+    client = await client_for(person)
+    assert (await client.get("/v1/me")).json()["is_support_staff"] is False
+    admin.execute("insert into app.support_staff (person_id) values (%s)", (person,))
+    assert (await client.get("/v1/me")).json()["is_support_staff"] is True
+    admin.execute("update app.support_staff set removed_at = now() where person_id = %s", (person,))
+    assert (await client.get("/v1/me")).json()["is_support_staff"] is False

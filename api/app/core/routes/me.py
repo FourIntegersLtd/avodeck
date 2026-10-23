@@ -49,6 +49,7 @@ class Me(BaseModel):
     expert: Expert | None
     mfa_enrolled: bool
     memberships: list[Membership]
+    is_support_staff: bool = False
 
 
 def _greeting_name(library: PackLibrary, full_name: str | None, expert: dict[str, Any] | None) -> str | None:
@@ -93,6 +94,8 @@ async def get_me(request: Request, identity: CurrentIdentity, conn: DbConn) -> M
             " where person_id = app.current_person_id() and action = 'auth.password_reset'"
         )
         reset = await cur.fetchone()
+        await cur.execute("select app.is_support_staff(app.current_person_id()) as staff")
+        staff = await cur.fetchone()
     assert person is not None
     return Me(
         person=Person(
@@ -103,4 +106,5 @@ async def get_me(request: Request, identity: CurrentIdentity, conn: DbConn) -> M
         expert=Expert(**expert) if expert else None,
         mfa_enrolled=identity.mfa_enrolled,
         memberships=[Membership(**m) for m in memberships],
+        is_support_staff=bool(staff and staff["staff"]),
     )
