@@ -5,6 +5,7 @@
   expert's reading of misread words included), and `fact_verifications` keeps the old value.
 - A fact cited in a served report (rule 8) is refused with 409 `served_use_supplementary`: the change
   goes through the supplementary report (screen 21b). Nothing changes.
+  So is a withdrawn served version, and a move to the clearer copy of its page.
 - A fact cited in an unserved opinion or draft report may change; its version rises, so the opinion's
   citation shows as `changed_since_cited` in `core/contracts/citations.citation_problems` (architecture
   10.4) and the final check fails until the expert reviews it.
@@ -227,3 +228,36 @@ async def test_the_words_give_the_pages_reading_with_the_experts_corrections(wor
     after = (await world["client"].get(f"{base(world)}/pages/118/words")).json()
     assert READING in after["reading"]
     assert READING not in before["reading"]
+
+
+async def test_a_fact_in_a_withdrawn_served_report_still_cannot_change(
+    admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    fact = await checked(world)
+    cite_in_report(admin, world, fact, served=True)
+    admin.execute(
+        "update app.report_versions set status = 'withdrawn', withdrawn_reason = 'mistake', withdrawn_at = now()"
+        " where case_id = %s and status = 'served'",
+        (world["case"],),
+    )
+    refused = await verify(world, fact, action="edit", new_value=fact["value"].upper())
+    assert refused.status_code == 409 and refused.json()["error"]["code"] == "served_use_supplementary"
+
+
+async def test_a_fact_in_a_served_report_does_not_move_to_the_clearer_copy(
+    seed: Seed, admin: psycopg.Connection, world: dict[str, Any]
+) -> None:
+    fact = await checked(world)
+    cite_in_report(admin, world, fact, served=True)
+    doc = admin.execute("select document_id from app.pages where id = %s", (world["page_id"],)).fetchone()
+    assert doc is not None
+    new = seed.page(world["case"], doc[0], 901)
+    admin.execute("update app.pages set superseded_by_page_id = %s where id = %s", (new, world["page_id"]))
+    moved = await world["client"].post(
+        f"{base(world)}/facts/{fact['id']}/move",
+        json={"to_page_no": 901, "word_ids": fact["word_ids"]},
+        headers={"if-match": etag(fact["version"])},
+    )
+    assert moved.status_code == 409 and moved.json()["error"]["code"] == "served_use_supplementary"
+    row = admin.execute("select page_id, version from app.facts where id = %s", (fact["id"],)).fetchone()
+    assert row == (world["page_id"], fact["version"])
