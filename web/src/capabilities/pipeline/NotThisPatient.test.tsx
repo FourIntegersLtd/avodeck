@@ -172,3 +172,22 @@ describe.each([
     expect(within(first).getByRole("button", { name: "It is Mrs A's" })).toHaveClass("pl-choice--is");
   });
 });
+
+describe("Not this patient, a page that cannot be opened", () => {
+  const FIND = `/cases/${CASE_ID}/pages/:pageNo`;
+
+  test("an unknown page number says it could not be found, and the empty state names the page", async () => {
+    mock(launchPack, { suggestions: [] });
+    server.use(http.get(FIND, () => apiError(404, "not_found")));
+    renderAt(`${PATH}?page=999`);
+    expect(await screen.findByText("We couldn't find page 999.")).toBeVisible();
+    expect(screen.getByText("Page 999 is not waiting to be checked.")).toBeVisible();
+  });
+
+  test("a failed lookup shows a real error, not silence", async () => {
+    mock(launchPack, { suggestions: [] });
+    server.use(http.get(FIND, () => apiError(500, "server_error")));
+    renderAt(`${PATH}?page=412`);
+    expect(await screen.findByText("Something went wrong. Please try again.")).toBeVisible();
+  });
+});

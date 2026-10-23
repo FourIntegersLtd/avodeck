@@ -181,3 +181,24 @@ describe.each([
     expect(screen.getByRole("button", { name: "Send from my email" }).querySelector("svg")).not.toBeNull();
   });
 });
+
+describe("Ask the instructing party, the reasons the API gives", () => {
+  test("a page or item that has gone from the bundle says so, with a way back to the bundle", async () => {
+    mock(launchPack);
+    server.use(http.post(`/v1/cases/${CASE_ID}/instructing-party-requests`, () => apiError(404, "not_found")));
+    vi.spyOn(mail, "open").mockImplementation(() => {});
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Send from my email" }));
+    expect(await screen.findByText("One of the pages or items in this note is no longer in your bundle. Go back to your bundle and write the note again.")).toBeVisible();
+    expect(screen.getAllByRole("link", { name: "Your bundle" }).length).toBeGreaterThan(1);
+  });
+
+  test("a request that cannot be drafted because it is not allowed says so", async () => {
+    mock(launchPack);
+    server.use(http.post(`/v1/cases/${CASE_ID}/instructing-party-requests`, () => apiError(409, "conflict")));
+    vi.spyOn(mail, "open").mockImplementation(() => {});
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Send from my email" }));
+    expect(await screen.findByText("That can't be done in the bundle's current state. Reload your bundle and try again.")).toBeVisible();
+  });
+});
