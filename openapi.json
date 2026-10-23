@@ -9361,6 +9361,40 @@
         "title": "NeedsYouItem",
         "type": "object"
       },
+      "NewCaseTemplate": {
+        "properties": {
+          "locked": {
+            "description": "True when the organisation requires a template: used automatically, no choice.",
+            "title": "Locked",
+            "type": "boolean"
+          },
+          "organisation_id": {
+            "format": "uuid",
+            "title": "Organisation Id",
+            "type": "string"
+          },
+          "required_template_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The organisation's required report template, if any.",
+            "title": "Required Template Id"
+          }
+        },
+        "required": [
+          "organisation_id",
+          "required_template_id",
+          "locked"
+        ],
+        "title": "NewCaseTemplate",
+        "type": "object"
+      },
       "NewChange": {
         "properties": {
           "citation_refs": {
@@ -36415,6 +36449,59 @@
           }
         },
         "summary": "Delete Training",
+        "tags": [
+          "setup"
+        ]
+      }
+    },
+    "/v1/new-case/template": {
+      "get": {
+        "operationId": "new_case_template_v1_new_case_template_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "organisation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Organisation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NewCaseTemplate"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "New Case Template",
         "tags": [
           "setup"
         ]
