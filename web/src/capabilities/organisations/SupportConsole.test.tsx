@@ -24,6 +24,17 @@ test("someone who is not staff sees the not found page, not a console", async ()
   expect(await screen.findByRole("heading", { level: 1 })).not.toHaveTextContent("Support");
 });
 
+test("the console explains itself at the top: search, 24-hour access, every look recorded", async () => {
+  signedIn();
+  renderAt("/support");
+  await screen.findByRole("heading", { level: 1, name: "Support" });
+  const intro = document.querySelector("h1 + p")!.textContent!;
+  expect(intro).toMatch(/search every case/i);
+  expect(intro).toMatch(/named expert/i);
+  expect(intro).toMatch(/24 hours/);
+  expect(intro).toMatch(/every look is (written down|recorded)/i);
+});
+
 test("staff search by case number and see details, no records", async () => {
   signedIn();
   server.use(http.get("/v1/support/cases", ({ request }) => (new URL(request.url).searchParams.get("q") === CASE_A ? json({ cases: [found({ grant_active: true, grant_expires_at: "2026-10-24T10:00:00Z" })] }) : json({ cases: [] }))));
