@@ -14,7 +14,6 @@ import { MessageNotice, OWN_ERRORS, useAct, type Message } from "./common";
 import { flag } from "./flags";
 import { w, type OrgKey } from "./words";
 
-const SERVED = new Set(["served", "settled", "archived"]);
 const REASONS = ["help", "fault", "records"] as const;
 
 // The replacement route is not in the generated client yet, so its path is typed as a sibling route's.
@@ -26,24 +25,24 @@ export function CaseTeam() {
   return (
     <div className="av-page av-page--narrow av-stack">
       <h2 className="av-org-sub">{w("case_team.title")}</h2>
-      {can.has("case.reassign_named_expert") && <NamedExpert caseId={item.id} orgId={item.organisation_id} expertId={item.named_expert_id ?? null} served={SERVED.has(item.status)} />}
+      {can.has("case.reassign_named_expert") && <NamedExpert caseId={item.id} />}
       {can.has("support_access.grant") && <SupportCard caseId={item.id} />}
     </div>
   );
 }
 
-function NamedExpert({ caseId, orgId, expertId, served: servedAtLoad }: { caseId: string; orgId: string; expertId: string | null; served: boolean }) {
+function NamedExpert({ caseId }: { caseId: string }) {
   const stepUp = useStepUp();
   const navigate = useNavigate();
-  const members = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}/members", { params: { path: { org_id: orgId } } })), [orgId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/named-expert/candidates", { params: { path: { case_id: caseId } } })), [caseId]);
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState("");
   const [servedNow, setServedNow] = useState(false);
   const [message, setMessage] = useState<Message>(null);
   const [moved, setMoved] = useState(false);
-  const served = servedAtLoad || servedNow;
-  const candidates = (members.data?.members ?? []).filter((m) => !m.ended_at && m.person_id !== expertId && m.role !== "assistant" && m.role !== "viewer");
-  const nameOf = (m: Schemas["OrgMember"]) => m.full_name || m.email;
+  const served = servedNow || (found.data?.served ?? false);
+  const candidates = found.data?.candidates ?? [];
+  const nameOf = (m: Schemas["NamedExpertCandidate"]) => m.full_name || m.email;
 
   const move = async () => {
     setMessage(null);
@@ -62,7 +61,7 @@ function NamedExpert({ caseId, orgId, expertId, served: servedAtLoad }: { caseId
   const replace = async () => {
     setMessage(null);
     try {
-      const created = await stepUp(() => unwrap(api.POST(REPLACEMENT, { params: { path: { case_id: caseId } }, body: { person_id: chosen || (expertId ?? "") } })));
+      const created = await stepUp(() => unwrap(api.POST(REPLACEMENT, { params: { path: { case_id: caseId } }, body: { person_id: chosen || (candidates[0]?.person_id ?? "") } })));
       const next = (created as { case_id?: string } | undefined)?.case_id;
       if (next) navigate(`/cases/${next}`);
     } catch (err) {
@@ -87,8 +86,8 @@ function NamedExpert({ caseId, orgId, expertId, served: servedAtLoad }: { caseId
         </>
       ) : open ? (
         <div className="av-stack">
-          {members.error && <LoadError message={w("case_team.people_error")} onRetry={members.reload} />}
-          {!members.data && !members.error && <Loading />}
+          {found.error && <LoadError message={w("case_team.people_error")} onRetry={found.reload} />}
+          {!found.data && !found.error && <Loading />}
           <div className="av-field">
             <label className="av-field__label" htmlFor="new-expert">
               {w("case_team.choose")}

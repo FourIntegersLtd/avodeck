@@ -6,7 +6,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, Dialog, LoadError, Loading, TextField, ToggleSwitch } from "../../foundation/ui";
+import { BackLink, Button, Dialog, LoadError, Loading, TextField, TextLink, ToggleSwitch } from "../../foundation/ui";
 import { MessageNotice, NotFoundPage, useAct } from "./common";
 import { People } from "./People";
 import { w, yearsText, type OrgKey } from "./words";
@@ -36,7 +36,8 @@ export function OrganisationSettings() {
     );
   }
   const item = org.data;
-  const manage = item.role === "owner" || item.role === "admin";
+  const can = (action: string) => item.allowed_actions.includes(action);
+  const manage = can("org.manage_members");
   const personal = item.kind === "personal";
   return (
     <div className="av-page av-org av-stack">
@@ -49,7 +50,7 @@ export function OrganisationSettings() {
         </div>
         <Switcher current={item.id} memberships={me.memberships} />
       </div>
-      <People orgId={item.id} members={members.data.members} manage={manage} me={{ personId: me.person.id, locale: me.person.locale }} reload={members.reload} />
+      <People orgId={item.id} members={members.data.members} manage={manage} assignable={item.assignable_roles} me={{ personId: me.person.id, locale: me.person.locale }} reload={members.reload} />
       <div className="av-org-panels">
         <section aria-labelledby="roles-panel" className="av-card av-org-card">
           <h2 id="roles-panel">{w("panel.roles.title")}</h2>
@@ -75,9 +76,9 @@ export function OrganisationSettings() {
           <p>{w("panel.leaves.owner")}</p>
         </section>
       </div>
-      <Rules org={{ ...item, policy: policy ?? item.policy }} manage={manage} onPolicy={setPolicy} />
-      {manage && !personal && <Billing orgId={item.id} />}
-      {manage && !personal && <CloseOrganisation org={item} />}
+      <Rules org={{ ...item, policy: policy ?? item.policy }} manage={can("org.set_policy")} onPolicy={setPolicy} />
+      {can("org.billing") && !personal && <Billing orgId={item.id} />}
+      {can("org.close") && !personal && <CloseOrganisation org={item} />}
     </div>
   );
 }
@@ -196,9 +197,7 @@ function Billing({ orgId }: { orgId: string }) {
         <div className="av-row-item">
           <p className="av-row-item__text">{profile ? (profile.invoice_prefix ? w("billing.line", { name: profile.legal_name, prefix: profile.invoice_prefix }) : profile.legal_name) : w("billing.none")}</p>
           {bank ? (
-            <a className="av-text-link" href={bank}>
-              {w("billing.bank")}
-            </a>
+            <TextLink to={bank}>{w("billing.bank")}</TextLink>
           ) : (
             <p className="av-muted av-small">{w("billing.bank_hint")}</p>
           )}

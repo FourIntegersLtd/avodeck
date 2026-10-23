@@ -3,6 +3,7 @@
 // only; records open through the ordinary case screens, and only while the expert's grant is on.
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useStepUp } from "../../foundation/lib/stepUp";
@@ -16,6 +17,10 @@ type Found = Schemas["SupportCase"];
 
 // The custody-transfer route is not in the generated client yet; its path is typed as a sibling POST route's.
 const CUSTODY = "/v1/support/cases/{case_id}/custody" as "/v1/cases/{case_id}/named-expert";
+
+function statusWords(status: string): string {
+  return t(`organisations.console.status.${status}`, {}, humanise(status));
+}
 
 function when(iso: string, locale: string | null | undefined): string {
   try {
@@ -63,7 +68,7 @@ export function SupportConsole() {
             <li key={c.case_id} className="av-row-item av-card">
               <div className="av-row-item__text">
                 <p className="av-field__label">{c.case_id}</p>
-                <p className="av-muted">{`${w("console.status")}: ${c.status} · ${c.organisation_kind === "personal" ? w("console.personal") : w("console.team")} · ${c.served ? w("console.served") : w("console.not_served")}`}</p>
+                <p className="av-muted">{`${w("console.status")}: ${statusWords(c.status)} · ${c.organisation_kind === "personal" ? w("console.personal") : w("console.team")} · ${c.served ? w("console.served") : w("console.not_served")}`}</p>
                 <p>{c.grant_active && c.grant_expires_at ? w("console.grant_active", { when: when(c.grant_expires_at, me.person.locale) }) : w("console.grant_none")}</p>
                 {!c.grant_active && <p className="av-muted av-small">{w("console.records_locked")}</p>}
               </div>
@@ -76,13 +81,14 @@ export function SupportConsole() {
           ))}
         </ul>
       )}
-      {served.length > 0 && flag("support_custody_transfer") && <Custody caseId={served[0]!.case_id} />}
+      {served.length > 0 && flag("support_custody_transfer") && <Custody cases={served.map((c) => c.case_id)} />}
     </div>
   );
 }
 
-function Custody({ caseId }: { caseId: string }) {
+function Custody({ cases }: { cases: string[] }) {
   const stepUp = useStepUp();
+  const [caseId, setCaseId] = useState(cases[0] ?? "");
   const [to, setTo] = useState("custodian");
   const [evidence, setEvidence] = useState("");
   const [message, setMessage] = useState<Message>(null);
@@ -102,6 +108,18 @@ function Custody({ caseId }: { caseId: string }) {
       <p>{w("console.custody.intro")}</p>
       <MessageNotice message={message} />
       <form className="av-stack" onSubmit={(e) => void submit(e)} noValidate>
+        <div className="av-field">
+          <label className="av-field__label" htmlFor="custody-case">
+            {w("console.custody.case")}
+          </label>
+          <select id="custody-case" className="av-input av-org-select" value={caseId} onChange={(e) => setCaseId(e.target.value)}>
+            {cases.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="av-field">
           <label className="av-field__label" htmlFor="custody-to">
             {w("console.custody.to")}

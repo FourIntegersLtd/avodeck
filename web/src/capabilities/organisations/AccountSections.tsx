@@ -61,37 +61,32 @@ export function Custodian() {
   );
 }
 
-const SERVED_OR_LATER = new Set(["served", "settled", "archived", "withdrawn", "deleted"]);
-
 /** The closing section, as the S28 section and as the page body. */
 export function CloseAccountBody() {
   const stepUp = useStepUp();
-  const today = useResource(() => unwrap(api.GET("/v1/today")), []);
+  const preview = useResource(() => unwrap(api.GET("/v1/me/close")), []);
   const [asking, setAsking] = useState(false);
   const [message, setMessage] = useState<Message>(null);
-  const [needExport, setNeedExport] = useState<string[] | null>(null);
   const [closed, setClosed] = useState(false);
 
-  if (today.error) {
-    return <LoadError onRetry={today.reload} />;
+  if (preview.error) {
+    return <LoadError onRetry={preview.reload} />;
   }
-  if (!today.data) {
+  if (!preview.data) {
     return <Loading />;
   }
-  const cases = today.data.cases.filter((c) => c.organisation_kind === "personal" && c.your_role === "named_expert" && !SERVED_OR_LATER.has(c.status));
+  const cases = preview.data.cases;
   const close = async () => {
     setMessage(null);
     try {
       const done = await stepUp(() => unwrap(api.POST("/v1/me/close")));
       if (done) {
         setClosed(true);
-        setNeedExport([]);
         setMessage({ tone: "success", text: w("close_account.done") });
       }
     } catch (err) {
       if (err instanceof ApiError && err.code === "export_first") {
-        const ids = err.extra.case_ids;
-        setNeedExport(Array.isArray(ids) ? ids.map(String) : []);
+        preview.reload(); // the list shows which cases still need their export
         setMessage({ tone: "error", text: w("close_account.export_first") });
       } else {
         setMessage({ tone: "error", text: errorMessage(err, OWN_ERRORS) });
@@ -115,7 +110,7 @@ export function CloseAccountBody() {
               <ul className="av-rows" role="list" aria-label={w("close_account.cases")}>
                 {cases.map((c) => {
                   const to = screenPath("close", { caseId: c.case_id });
-                  const status = needExport === null ? w("close_account.unknown") : needExport.includes(c.case_id) ? w("close_account.needs_export") : w("close_account.exported");
+                  const status = c.exported ? w("close_account.exported") : w("close_account.needs_export");
                   return (
                     <li key={c.case_id} className="av-row-item">
                       <div className="av-row-item__text">

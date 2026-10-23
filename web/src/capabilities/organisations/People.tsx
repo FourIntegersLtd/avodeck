@@ -1,5 +1,5 @@
 // S27: the people table, pending invites and the invite form.
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { Button, Dialog, TextField, initials } from "../../foundation/ui";
@@ -10,7 +10,6 @@ type Member = Schemas["OrgMember"];
 type Invite = Schemas["Invite"];
 type Role = Member["role"];
 
-const ROLES: Role[] = ["owner", "admin", "expert", "assistant", "viewer"];
 const INVITE_ROLES: Role[] = ["expert", "assistant", "admin", "viewer"];
 const DAY = 86_400_000;
 
@@ -20,14 +19,16 @@ interface Props {
   orgId: string;
   members: Member[];
   manage: boolean;
+  /** The roles the server says this person may give. */
+  assignable: Role[];
   me: { personId: string; locale: string | null | undefined };
   reload: () => void;
 }
 
-export function People({ orgId, members, manage, me, reload }: Props) {
+export function People({ orgId, members, manage, assignable, me, reload }: Props) {
   const { act, message } = useAct();
   const [editing, setEditing] = useState<string | null>(null);
-  const [newRole, setNewRole] = useState<Role>("expert");
+  const [newRole, setNewRole] = useState<Role>(assignable[0] ?? "expert");
   const [removing, setRemoving] = useState<Member | null>(null);
   const current = members.filter((m) => !m.ended_at);
   const nameOf = (m: Member) => m.full_name || m.email;
@@ -79,7 +80,7 @@ export function People({ orgId, members, manage, me, reload }: Props) {
                     {w("people.new_role", { name: nameOf(m) })}
                   </label>
                   <select id={`role-${m.membership_id}`} className="av-input av-org-select" value={newRole} onChange={(e) => setNewRole(e.target.value as Role)}>
-                    {ROLES.map((r) => (
+                    {assignable.map((r) => (
                       <option key={r} value={r}>
                         {roleName(r)}
                       </option>
@@ -96,7 +97,7 @@ export function People({ orgId, members, manage, me, reload }: Props) {
                     <p className="av-field__label">{roleName(m.role)}</p>
                     <p className="av-muted">{w(`role_does.${m.role}` as OrgKey)}</p>
                   </div>
-                  <span className="av-org-cases">{casesText(m.case_count ?? 0)}</span>
+                  {m.case_count != null && <span className="av-org-cases">{casesText(m.case_count)}</span>}
                   <span className="av-muted av-org-joined">{w("people.joined", { year: new Date(m.started_at).getFullYear() })}</span>
                   {manage && (
                     <>
@@ -105,7 +106,7 @@ export function People({ orgId, members, manage, me, reload }: Props) {
                         aria-label={w("people.change_for", { name: nameOf(m) })}
                         onClick={() => {
                           setEditing(m.membership_id);
-                          setNewRole(m.role);
+                          setNewRole(assignable.includes(m.role) ? m.role : (assignable[0] ?? m.role));
                         }}
                       >
                         {w("people.change")}
@@ -123,7 +124,7 @@ export function People({ orgId, members, manage, me, reload }: Props) {
           );
         })}
       </ul>
-      {manage && <Invites orgId={orgId} locale={me.locale} />}
+      {manage && <Invites orgId={orgId} locale={me.locale} roles={INVITE_ROLES.filter((r) => assignable.includes(r))} />}
       {removing && (
         <Dialog title={w("people.remove_title", { name: nameOf(removing) })} onClose={() => setRemoving(null)}>
           <p>{w("people.remove_body")}</p>
@@ -141,12 +142,12 @@ export function People({ orgId, members, manage, me, reload }: Props) {
   );
 }
 
-function Invites({ orgId, locale }: { orgId: string; locale: string | null | undefined }) {
+function Invites({ orgId, locale, roles }: { orgId: string; locale: string | null | undefined; roles: Role[] }) {
   const stepUp = useStepUp();
   const { act, message } = useAct();
   const [invites, setInvites] = useState<Invite[] | null>(null);
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<Role>("expert");
+  const [role, setRole] = useState<Role>(roles[0] ?? "expert");
   const [needEmail, setNeedEmail] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -158,11 +159,6 @@ function Invites({ orgId, locale }: { orgId: string; locale: string | null | und
       setInvites(null);
     }
   };
-  useEffect(() => {
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orgId]);
-
   const send = async (e: FormEvent) => {
     e.preventDefault();
     if (!email.trim()) return setNeedEmail(true);
@@ -175,7 +171,7 @@ function Invites({ orgId, locale }: { orgId: string; locale: string | null | und
     setBusy(false);
     if (sent) {
       setEmail("");
-      setInvites((list) => [...(list ?? []), sent]);
+      setInvites((list) => (list === null ? null : [...list, sent]));
     }
   };
   const cancel = async (invite: Invite) => {
@@ -233,7 +229,7 @@ function Invites({ orgId, locale }: { orgId: string; locale: string | null | und
             {w("invites.role")}
           </label>
           <select id="invite-role" className="av-input av-org-select" value={role} onChange={(e) => setRole(e.target.value as Role)}>
-            {INVITE_ROLES.map((r) => (
+            {roles.map((r) => (
               <option key={r} value={r}>
                 {roleName(r)}
               </option>
