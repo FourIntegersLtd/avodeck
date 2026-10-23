@@ -1,5 +1,6 @@
 // The case header's action slot: capabilities register actions, shown when their predicate says so.
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test } from "vitest";
 import { registerCaseAction, resetSlots } from "../foundation/lib/slots";
 import { http, json, server, signedIn } from "../test/api";
@@ -34,17 +35,21 @@ function open(over: Partial<Schemas["Case"]> = {}) {
   return renderAt(`/cases/${CASE_A}`);
 }
 
-test("a registered action shows in the case header as a link when its predicate allows", async () => {
+// Reason: actions are no longer links in the bar; they decide whether the avatar menu offers "Case settings".
+test("a registered action puts one Case settings link in the avatar menu, not in the bar", async () => {
   registerCaseAction({
     key: "change_expert",
     order: 1,
     labelKey: "app.nav.profile",
-    to: ({ caseId }) => `/cases/${caseId}/change-expert`,
+    to: ({ caseId }) => `/cases/${caseId}/team`,
     visible: (c) => c.isNamedExpert && !c.served && c.orgRole === "owner",
   });
   open();
-  const link = await screen.findByRole("link", { name: "Your profile" });
-  expect(link).toHaveAttribute("href", `/cases/${CASE_A}/change-expert`);
+  await screen.findByRole("heading", { level: 1, name: "Mrs A" });
+  expect(screen.queryByRole("link", { name: "Your profile" })).toBeNull();
+  expect(document.querySelector(".av-case-bar__actions")).toBeNull();
+  await userEvent.setup().click(screen.getByRole("button", { name: "Your account" }));
+  expect(screen.getByRole("link", { name: "Case settings" })).toHaveAttribute("href", `/cases/${CASE_A}/team`);
 });
 
 test("the predicate sees whether the case is served", async () => {
