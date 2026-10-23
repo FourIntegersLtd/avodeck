@@ -67,6 +67,7 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 | verified → edited (change during "Please check") | Expert | Only while a recheck flag exists; new `word_ids` required and the value must be in them (else 422); `facts_guard` 0208 allows verified → edited only while the recheck flag exists (the API removes it after the change) | `version` rises; recheck flag removed; append `fact_verifications` (edit) |
 | (page read again) checked fact → same status | Slice A's job after a turn or a typed-out page | Its cited words read the same in the new words under rule 2's normaliser (`provenance.atoms`) and the value still passes the provenance check | `word_ids` and `bbox` (null for typed words) re-mapped; append `fact_verifications` (`remapped`, no person). Otherwise flagged `recheck` |
 | (page) old → clearer copy | Expert moves a fact (`POST …/facts/{id}/move`) | Only to the page that supersedes its own (`superseded_by_page_id`); status kept | `version` rises; append `fact_verifications` (move, old and new page) |
+| verified/edited/rejected → suggested | The case's named expert changes (reassignment before serving, S3) | Only from inside `cases_named_expert_reset` (migration 0031; `facts_guard` 0209) | An edited fact gets back the suggestion it had before the latest expert's first change (value, fields, words, box) unless its page was read again or it moved since; `version` rises; recheck flag removed; append `fact_verifications` (`reset`, no person) |
 | any → (deleted) | Never | — | Facts are only rejected, never deleted (except case deletion) |
 
 `citable_facts()` = status in (verified, edited) **and** the page has been read.
@@ -242,6 +243,14 @@ A serving row is created once per recipient and never edited. A mistaken serving
 ## Support access grant
 
 active (named expert grants, step-up, 24 hours) → expired / revoked. Terminal; every view during the grant is in the audit log.
+
+## Custody transfer (`custody_transfers`)
+
+active (support records it for a served case, migration 0032) → revoked (`revoked_at`, by support; final). While active, the custodian (the person named, or the current owners and admins of the organisation named) reads the case and nothing more. A case never served cannot be transferred (409).
+
+## Case replacement (`case_replacements`)
+
+Created once with its case (`app.create_replacement_case()`, migration 0033), only for a case that has been served; never changes. The new case starts as a draft like any other.
 
 ## Trial pack and offline package freshness
 

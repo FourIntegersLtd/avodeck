@@ -13,43 +13,43 @@ A person's rights on a case are the **union** of their case role and the adminis
 
 ✓ = allowed · — = not allowed (404 if they can't see the case at all, 403 if they can see it but not do this)
 
-| Action | Named expert | Co-expert | Supervisor | Assistant | Viewer | Avodeck support (under a grant) | Org owner/admin (not on case) |
-|---|---|---|---|---|---|---|---|
-| `case.view_metadata` (label, dates, status) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `case.view_content` (pages, facts, opinions) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (every view audited) | — |
-| `case.edit_setup` (parties, instructing parties, links (the linked case must also be one the person can see), hearings, directions, prefill suggestions) | ✓ | — | — | ✓ | — | — | — |
-| `case.upload` (records, instructions, exhibits) | ✓ | — | — | ✓ | — | — | — |
-| `case.manage_members` | ✓ | — | — | — | — | — | ✓ |
-| `case.reassign_named_expert` (before serving) 🔒 | — | — | — | — | — | — | ✓ |
-| `case.hold` (put on hold, resume) | ✓ | — | — | ✓ | — | — | — |
-| `case.change_jurisdiction` (jurisdiction, case type, specialty; before serving) 🔒 | ✓ | — | — | — | — | — | — |
-| `conflict.declare` (conflict answers and declarations) | ✓ | — | — | — | — | — | — |
-| `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — | — |
-| `page.quarantine`, `page.replace`, `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — | — |
-| `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — | — |
-| `page.transcribe` (type out a page we couldn't read, ask for a second reading, mark relevance or ask for a clearer copy) | ✓ | — | — | ✓ | — | — | — |
-| `fact.verify` (also flag a fact for points against, move it to a clearer copy) | ✓ | — | — | — | — | — | — |
-| `link.suggest` (ask for suggested links between entries and the questions) | ✓ | ✓ | ✓ | ✓ | — | — | — |
-| `link.decide` (accept or reject a suggested link), `finding.decide` (keep or dismiss a thing to look at; run the checks again), `availability.override` (correct when an entry reached the clinician), `consultation.note` (private notes on one consultation) | ✓ | — | — | — | — | — | — |
-| `question.confirm` | ✓ | — | — | — | — | — | — |
-| `opinion.write` | ✓ | — | — | — | — | — | — |
-| `comment.write` | ✓ | ✓ | ✓ | ✓ | — | — | — |
-| `report.build` | ✓ | — | — | ✓ | — | — | — |
-| `report.sign` 🔒, `report.serve` 🔒, `report.withdraw` 🔒 | ✓ | — | — | — | — | — | — |
-| `request.draft` (instructing-party emails; missing-item status: not available, open again, received) | ✓ | — | — | ✓ | — | — | — |
-| `request.send` 🔒 | ✓ | — | — | — | — | — | — |
-| `invoice.create` (draft) | ✓ | — | — | ✓ (draft only) | — | — | ✓ (team cases) |
-| `invoice.send` 🔒, `credit_note.issue` 🔒 | ✓ | — | — | — | — | — | ✓ (team cases) |
-| `invoice.record_payment` | ✓ | — | — | ✓ | — | — | ✓ |
-| `case.export` 🔒 | ✓ | — | — | — | — | — | ✓ (administrative copy: report versions, invoices, logs; no page images) |
-| `case.retention` 🔒 | ✓ (within org policy) | — | — | — | — | — | ✓ |
-| `legal_hold.set` 🔒, `legal_hold.release` 🔒 | ✓ | — | — | — | — | — | owner only |
-| `case.withdraw` 🔒 | ✓ | — | — | — | — | — | — |
-| `case.settle`, `case.archive`, `case.reopen` | ✓ | — | — | — | — | — | — |
-| `case.view_audit` (the case's audit trail) | ✓ | — | — | — | — | ✓ | ✓ |
-| `case.view_certificate` | ✓ | — | — | — | — | — | ✓ |
-| `support_access.grant` 🔒 | ✓ | — | — | — | — | — | — |
-| `case.delete_now` 🔒 | ✓ (unserved only) | — | — | — | — | — | owner only (unserved only) |
+| Action | Named expert | Co-expert | Supervisor | Assistant | Viewer | Avodeck support (under a grant) | Records custodian (after a transfer) | Org owner/admin (not on case) |
+|---|---|---|---|---|---|---|---|---|
+| `case.view_metadata` (label, dates, status) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `case.view_content` (pages, facts, opinions) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ (every view audited) | ✓ | — |
+| `case.edit_setup` (parties, instructing parties, links (the linked case must also be one the person can see), hearings, directions, prefill suggestions) | ✓ | — | — | ✓ | — | — | — | — |
+| `case.upload` (records, instructions, exhibits) | ✓ | — | — | ✓ | — | — | — | — |
+| `case.manage_members` | ✓ | — | — | — | — | — | — | ✓ |
+| `case.reassign_named_expert` (before serving; after serving, create a replacement case instead) 🔒 | — | — | — | — | — | — | — | ✓ |
+| `case.hold` (put on hold, resume) | ✓ | — | — | ✓ | — | — | — | — |
+| `case.change_jurisdiction` (jurisdiction, case type, specialty; before serving) 🔒 | ✓ | — | — | — | — | — | — | — |
+| `conflict.declare` (conflict answers and declarations) | ✓ | — | — | — | — | — | — | — |
+| `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — | — | — |
+| `page.quarantine`, `page.replace`, `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — | — | — |
+| `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — | — | — |
+| `page.transcribe` (type out a page we couldn't read, ask for a second reading, mark relevance or ask for a clearer copy) | ✓ | — | — | ✓ | — | — | — | — |
+| `fact.verify` (also flag a fact for points against, move it to a clearer copy) | ✓ | — | — | — | — | — | — | — |
+| `link.suggest` (ask for suggested links between entries and the questions) | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
+| `link.decide` (accept or reject a suggested link), `finding.decide` (keep or dismiss a thing to look at; run the checks again), `availability.override` (correct when an entry reached the clinician), `consultation.note` (private notes on one consultation) | ✓ | — | — | — | — | — | — | — |
+| `question.confirm` | ✓ | — | — | — | — | — | — | — |
+| `opinion.write` | ✓ | — | — | — | — | — | — | — |
+| `comment.write` | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
+| `report.build` | ✓ | — | — | ✓ | — | — | — | — |
+| `report.sign` 🔒, `report.serve` 🔒, `report.withdraw` 🔒 | ✓ | — | — | — | — | — | — | — |
+| `request.draft` (instructing-party emails; missing-item status: not available, open again, received) | ✓ | — | — | ✓ | — | — | — | — |
+| `request.send` 🔒 | ✓ | — | — | — | — | — | — | — |
+| `invoice.create` (draft) | ✓ | — | — | ✓ (draft only) | — | — | — | ✓ (team cases) |
+| `invoice.send` 🔒, `credit_note.issue` 🔒 | ✓ | — | — | — | — | — | — | ✓ (team cases) |
+| `invoice.record_payment` | ✓ | — | — | ✓ | — | — | — | ✓ |
+| `case.export` 🔒 | ✓ | — | — | — | — | — | — | ✓ (administrative copy: report versions, invoices, logs; no page images) |
+| `case.retention` 🔒 | ✓ (within org policy) | — | — | — | — | — | — | ✓ |
+| `legal_hold.set` 🔒, `legal_hold.release` 🔒 | ✓ | — | — | — | — | — | — | owner only |
+| `case.withdraw` 🔒 | ✓ | — | — | — | — | — | — | — |
+| `case.settle`, `case.archive`, `case.reopen` | ✓ | — | — | — | — | — | — | — |
+| `case.view_audit` (the case's audit trail) | ✓ | — | — | — | — | ✓ | ✓ | ✓ |
+| `case.view_certificate` | ✓ | — | — | — | — | — | ✓ | ✓ |
+| `support_access.grant` 🔒 | ✓ | — | — | — | — | — | — | — |
+| `case.delete_now` 🔒 | ✓ (unserved only) | — | — | — | — | — | — | owner only (unserved only) |
 
 Slice F uses existing actions: adjusting time and giving the time estimate are `invoice.create`; writing off an invoice also needs `credit_note.issue`; starting and listing colleague spot-checks is `report.build`. Downloading a signed (locked or served) version is `case.view` plus step-up (403 `step_up_required` without MFA in the last 10 minutes), because a signed report leaving Avodeck is an export; drafts download without step-up. Writing off an invoice also needs step-up. Bank details on a billing profile: the expert changes their own, an organisation owner or admin the organisation's (anyone else 404); every change needs step-up. The colleague is not a person: they reach a spot-check only with the link token and the emailed code, through `app.spot_check_unlock` / `app.spot_check_respond` (migration 0604), each attempt audited with no person (`spot_check.opened`, `spot_check.refused`, `spot_check.answered`).
 
@@ -79,6 +79,9 @@ Row-level security lets a person update a row; triggers then check each change a
 - `app.case_member_names()`: `case.view_metadata` (or the case's own job); anyone else gets no names.
 - An export (`export_case`) is downloaded only by the person who asked for it (`jobs.requested_by`); anyone else gets 404.
 - `app.case_access(case_id, action)` and `app.can_access_case()` (migration 0030): the `support` role (current `support_staff`, a live grant from the named expert) and closed accounts, as in "Closed accounts" and "Avodeck staff" below; `app.case_role_allowed()` adds `support` to the matrix.
+- `cases.named_expert_id` changing (before serving only) puts every checked fact of the case back to `suggested` (`cases_named_expert_reset`, migration 0031): verifications are personal, so the new named expert checks for themselves. `facts_guard` (0209) lets that move through only from inside the reset.
+- `app.create_replacement_case()` (migration 0033): `case.reassign_named_expert` on a served case (else 404; a case never served is 409 `not_served`); the new named expert is a current owner, admin or expert member other than the case's own (else 422). The caller does not join the new case. `case_replacements` is written only by that function and never changes.
+- `custody_transfers` (migration 0032): recorded only by current support staff in their own name, for a served case, from its current named expert; only `revoked_at` changes, once, by staff. Seen by staff, the person it names and whoever may see the case's audit trail.
 - `support_access_grants`: given only with `support_access.grant`, in the giver's own name, for at most 24 hours from now; only `revoked_at` changes, with `support_access.grant`, and never back. `support_staff`: the running app only reads its own row.
 - `app.organisation_policy(org_id)`: a current member, someone who can see one of the organisation's cases, or that case's own job; anyone else gets nothing.
 
@@ -111,6 +114,10 @@ A person whose account is closed (`people.closed_at` set, scenario S15) keeps si
 
 Avodeck staff are listed in `app.support_staff` (added and removed by hand in SQL, `docs/ops/support-staff.md`; no API route writes it). No case content: metadata through the support console. The case role `support` applies only while the person is current staff **and** the case has an active `support_access_grants` row (not revoked, `expires_at` in the future, checked on every read; at most 24 hours after it was given) given by the case's named expert, for that staff member or for any staff member when `granted_to` is empty. Under it support may take only `case.view_metadata`, `case.view_content` and `case.view_audit`, never a write. Every request under the support role writes `support_access.viewed` to the case's audit trail, and needs MFA completed in the last 10 minutes (`aal2`) on every call; so do the support console's routes (`require_support_staff`).
 
+## Records custodians
+
+When a named expert dies or can no longer act (architecture 10.1 "Death or incapacity"; legal check, ADR 0012), Avodeck support records a custody transfer of each served case (`custody_transfers`, migration 0032; slice O's `POST /v1/support/custody-transfers` behind the flag `support_custody_transfer`) to a person, or to an organisation whose current owners and admins then hold the records. The case role `custodian` applies while the transfer is not revoked and the case has been served; under it the custodian takes only `case.view_metadata`, `case.view_content`, `case.view_audit` and `case.view_certificate` (`CUSTODIAN_ACTIONS` in `core/auth/permissions.py`), never a write. Someone with a case role of their own keeps it; a closed account holds no custody. `app.case_access(case_id, action)` applies the same rule, so row-level security repeats it.
+
 ## Tests
 
 - Every cell above has a test using the fixture packs and two organisations, so a pass cannot depend on gb-eaw words.
@@ -118,3 +125,4 @@ Avodeck staff are listed in `app.support_staff` (added and removed by hand in SQ
 - A "left the organisation" test: named-expert rights survive, assistant rights don't.
 - A support test: no grant, an expired or revoked grant, a grant for another staff member or someone no longer staff all see nothing (404); every view under a grant is audited.
 - A closed-account test: read-only on served named cases, 404 everywhere else.
+- A custodian test (`tests/guards/test_foundation_custody_access.py`): read-only on the served case transferred to them (or to their organisation, for its owners and admins), 404 without a transfer, after revocation, on any other case or with a closed account.

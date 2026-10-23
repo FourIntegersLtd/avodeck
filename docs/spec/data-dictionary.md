@@ -166,6 +166,24 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | granted_at | When the permission was given (set by the database) |
 | expires_at / revoked_at | When the permission ends by itself (at most 24 hours after it was given, checked every time) or was cancelled. A cancellation is never undone |
 
+### custody_transfers
+| Field | In plain words |
+|---|---|
+| case_id | The served case whose records pass on |
+| from_person_id | The named expert who can no longer act (set by the database from the case) |
+| to_person_id / to_organisation_id | Who now holds the records: one person, or an organisation whose current owners and admins hold them (exactly one of the two) |
+| evidence_note | A short note of the evidence support saw (at most 200 characters, about the expert, never the patient) |
+| transferred_by / transferred_at | The support staff member who recorded it, and when (set by the database) |
+| revoked_at | When support undid a mistaken transfer. Never undone; the custodian then sees nothing |
+
+### case_replacements
+| Field | In plain words |
+|---|---|
+| case_id | The new case for the replacement expert |
+| replaces_case_id | The served case it replaces (also linked `replaces` in `case_links`) |
+| instructing_party_consented | Whether the instructing party agreed to the bundle being copied into the new case; the bundle is copied only when yes |
+| recorded_by / recorded_at | The owner or admin who created the replacement, and when |
+
 ### support_staff
 | Field | In plain words |
 |---|---|

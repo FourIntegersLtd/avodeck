@@ -132,6 +132,12 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 - [x] `require_org_access(action)` for the organisation-action table (non-members 404, members without the right 403, 🔒 step-up)
 - [x] Contracts `org_policy()`, `request_case_deletion()`, `case_export_done()`; mails `org.invite`, `case.reassigned`, `support_access.granted`
 
+### Follow-ups for slice O (2026-10-23, founder-approved)
+
+- [x] S3: a change of named expert puts every checked fact back to a suggestion (`cases_named_expert_reset`, migration 0031; `facts_guard` exception and `fact_verifications.action = 'reset'` in 0209, in slice B's range because it must follow 0208). Chosen over "only checks by the current named expert count" because every slice reads `facts.status` directly; resetting keeps one truth. An edited fact's suggestion is restored from the verification log; its box is drawn again (`app.word_box`).
+- [x] Replacement case contract `core/contracts/replacement.py` `create_replacement_case()` over `app.create_replacement_case()` and `case_replacements` (migration 0033): `case.reassign_named_expert` 🔒 on a served case; a new draft named to another expert member, linked `replaces` (slice C's `case_links`), consent recorded; the caller does not join (`cases_creator_joins` redefined). Bundle copy stays with slice A.
+- [x] Custody transfers: `custody_transfers` (kept after deletion), case role `custodian` (read actions only) in `app.case_access()`, `app.case_role_allowed()` and `require_case_access`, migration 0032; permissions.md custodian column. Slice O builds `POST /v1/support/custody-transfers` behind `support_custody_transfer`.
+
 ## Screens
 - `S28-Account` Account and security (canvas board 33): devices, backup codes, email change, message preferences
 - 01 Sign in (`S01-SignIn`)
