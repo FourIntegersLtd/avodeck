@@ -16,6 +16,7 @@ export interface ReaderApi {
   copies: Array<{ pageId: string; body: Record<string, unknown> }>;
   replaces: Array<{ pageId: string; body: Record<string, unknown> }>;
   appends: Array<Record<string, unknown>>;
+  moves: Array<{ id: string; ifMatch: string | null; body: Record<string, unknown> }>;
   facts: Schemas["FactOut"][];
   read: boolean;
   verifyStatus?: number;
@@ -38,6 +39,10 @@ export interface ReaderOpts {
   words?: PageWord[];
   /** The case's last page number (the page list answers no page after it). */
   lastPage?: number;
+  /** The page's reading as one text (default: its words joined). */
+  reading?: string;
+  /** The page was replaced by a clearer copy: its number, whether the expert read it, and its words. */
+  clearer?: { page: number; read: boolean; words: PageWord[] };
   /** What the progress endpoint says (default 3 of 10, 5 minutes left). */
   progress?: { read: number; total: number; seconds_left: number };
 }
@@ -57,6 +62,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     copies: [],
     replaces: [],
     appends: [],
+    moves: [],
     facts: opts.facts ?? [fact(1), fact(2)],
     read: opts.alreadyRead ?? false,
   };
@@ -81,9 +87,21 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       api.factRequests += 1;
       return api.read ? json({ facts: api.facts }) : apiError(423, "blind_read");
     }),
-    http.get(`${c}/pages/:n/words`, () => {
+    http.get(`${c}/pages/:n/words`, ({ params }) => {
       api.wordRequests += 1;
-      return api.read ? json({ words: opts.words ?? pageWords() }) : apiError(423, "blind_read");
+      const clearer = opts.clearer && Number(params.n) === opts.clearer.page ? opts.clearer : null;
+      if (clearer) return clearer.read ? json({ words: clearer.words, reading: clearer.words.map((x) => x.text).join(" ") }) : apiError(423, "blind_read");
+      const words = opts.words ?? pageWords();
+      return api.read ? json({ words, reading: opts.reading ?? words.map((x) => x.text).join(" ") }) : apiError(423, "blind_read");
+    }),
+    http.post(`${c}/facts/:id/move`, async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      api.moves.push({ id: String(params.id), ifMatch: request.headers.get("If-Match"), body });
+      if (api.verifyStatus) return apiError(api.verifyStatus, api.verifyCode ?? "stale");
+      const current = api.facts.find((f) => f.id === params.id)!;
+      const next = { ...current, version: current.version + 1, word_ids: body.word_ids as string[] };
+      api.facts = api.facts.filter((f) => f.id !== next.id);
+      return json(next, 200);
     }),
     http.post(`${c}/pages/:n/read`, async ({ params, request }) => {
       api.reads.push({ page: Number(params.n), body: (await request.json()) as { dwell_seconds: number } });
@@ -118,7 +136,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       return json({ fact_id: params.id, flagged: false });
     }),
     http.get(`${c}/pages/:n`, ({ params }) =>
-      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null })),
+      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null, superseded_by_page_no: opts.clearer && Number(params.n) === pageNo ? opts.clearer.page : null })),
     ),
     http.put(`${c}/pages/:n/transcription`, async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;

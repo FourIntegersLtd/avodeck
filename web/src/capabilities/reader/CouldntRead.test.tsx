@@ -54,10 +54,12 @@ describe.each([
     expect(screen.getByRole("radio", { name: "No, background only" })).toBeVisible();
   });
 
-  test("Save is not offered with nothing typed", async () => {
-    mockReader(pack);
-    renderAt(PATH);
-    expect(await screen.findByRole("button", { name: "Save and next page" })).toBeDisabled();
+  test("Save with nothing typed says why and sends nothing", async () => {
+    const api = mockReader(pack);
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Save and next page" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Type what the page says first.");
+    expect(api.puts).toHaveLength(0);
   });
 
   test("Ask for a clearer copy marks the page and moves to the next one without typing", async () => {
