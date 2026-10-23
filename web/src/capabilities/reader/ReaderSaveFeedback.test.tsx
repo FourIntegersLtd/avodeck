@@ -45,7 +45,7 @@ test("saving with nothing changed says so", async () => {
 
 test("pressing Enter with no words chosen says to choose words", async () => {
   const { api, user, c } = await openEdit();
-  const words = await within(c).findAllByRole("button", { pressed: true });
+  const words = await screen.findAllByRole("button", { pressed: true });
   for (const b of words) await user.click(b);
   await user.type(within(c).getByLabelText("The right words"), " x{Enter}");
   expect(await within(c).findByRole("alert")).toHaveTextContent("Choose the words on the page that show this.");
@@ -83,7 +83,8 @@ test("a stale version (412) is still told at the top and reloads", async () => {
 test("the type-out screen opens on the page asked for, even one not in the unreadable list", async () => {
   const api = mockReader(launchPack, { queue: [queuePage(612), queuePage(640)] });
   const { user } = renderAt(`/cases/${CASE_ID}/read/couldnt-read?page=118`);
-  expect(await screen.findByRole("img", { name: "Page 118" })).toBeVisible();
+  await screen.findByRole("img", { name: "Page 118" });
+  await vi.waitFor(() => expect(screen.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", expect.stringMatching(/^blob:/)));
   await user.type(screen.getByLabelText("What does this page show?"), "Booster given");
   await user.click(screen.getByRole("button", { name: "Save and next page" }));
   await vi.waitFor(() => expect(api.puts).toHaveLength(1));

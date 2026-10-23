@@ -49,6 +49,8 @@ const WORDS = {
   "read.error.not_in_page": "That isn't in the words on this page.",
   "read.error.generic": "That didn't work. Please try again.",
   "read.error.words_needed": "Choose the words on the page that show this.",
+  "read.error.nothing_changed": "You haven't changed anything.",
+  "read.error.headline_needed": "Write what the page shows.",
   "read.error.invalid_fields": "Those details don't fit this kind of fact.",
 
   "fact.correct": "Correct",
@@ -63,6 +65,7 @@ const WORDS = {
   "fact.right_words": "The right words",
   "fact.save_change": "Save change",
   "fact.choose_words": "Choose the words on the page that show this.",
+  "fact.type_out_page": "Was the page read wrongly? Type out this page",
   "fact.cancel": "Cancel",
   "fact.points_against": "Send to Points against",
   "fact.points_against_off": "Take out of Points against",

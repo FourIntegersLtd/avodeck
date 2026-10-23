@@ -110,6 +110,9 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     if (detail.data.read) void loadFacts();
   }, [detail.data, loadFacts]);
 
+  // An error for the form the expert is filling in, shown under its Save button (not at the top of the panel).
+  const [formError, setFormError] = useState<{ text: string; typeOut: boolean } | null>(null);
+
   async function markRead() {
     if (busy || read) return;
     setBusy(true);
@@ -134,6 +137,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // "Change a detail": the cited words start chosen, except on a "Please check" fact, whose words must be
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
+    setFormError(null);
     setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false });
     if (pageWords !== null) return;
     try {
@@ -163,6 +167,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     if (busy) return;
     setBusy(true);
     setNotice(null);
+    setFormError(null);
     try {
       const next = await unwrap(
         api.POST("/v1/cases/{case_id}/facts/{fact_id}/verify", {
@@ -180,10 +185,15 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       if (error instanceof ApiError && error.status === 412) {
         setNotice(w("read.error.stale"));
         await loadFacts();
-      } else if (error instanceof ApiError && error.status === 422) {
-        setNotice(w(error.code === "words_needed" ? "read.error.words_needed" : error.code === "invalid_fields" ? "read.error.invalid_fields" : "read.error.not_in_page"));
       } else {
-        setNotice(errorMessage(error, {}));
+        const inForm = editing?.id === fact.id || timelineDraft?.id === fact.id;
+        const refused = error instanceof ApiError && error.status === 422;
+        const notOnPage = refused && error.code !== "words_needed" && error.code !== "invalid_fields";
+        const text = refused
+          ? w(error.code === "words_needed" ? "read.error.words_needed" : error.code === "invalid_fields" ? "read.error.invalid_fields" : "read.error.not_in_page")
+          : errorMessage(error, {});
+        if (inForm) setFormError({ text, typeOut: notOnPage });
+        else setNotice(text);
       }
     } finally {
       setBusy(false);
@@ -200,11 +210,13 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
     const dayChanged = eventDateChanged(f);
-    if (!valueChanged && !fieldsChanged && !wordsChanged && !dayChanged) return;
-    if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return;
+    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed") => setFormError({ text: w(key), typeOut: false });
+    if (valueChanged && !headline) return stop("read.error.headline_needed");
+    if (!valueChanged && !fieldsChanged && !wordsChanged && !dayChanged) return stop("read.error.nothing_changed");
+    if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return stop("read.error.words_needed");
+    setFormError(null);
     const body: { new_value?: string; word_ids?: string[]; fields?: Record<string, unknown>; event_date?: string } = {};
     if (valueChanged) {
-      if (!headline) return;
       body.new_value = headline;
       body.word_ids = orderedWords(editing.words);
     } else if (wordsChanged) body.word_ids = orderedWords(editing.words);
@@ -216,12 +228,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const editCanSave = (f: Fact) => {
     if (!editing || editing.id !== f.id) return false;
     const valueChanged = editing.text.trim() !== (f.value ?? "").trim();
-    const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
-    const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
-    if (!valueChanged && !fieldsChanged && !wordsChanged && !eventDateChanged(f)) return false;
-    if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return false;
-    if (valueChanged && !editing.text.trim()) return false;
-    return true;
+    return !(editing.words.length === 0 && (valueChanged || f.needs_recheck) && editing.text.trim() !== "");
   };
 
   async function toggleFlag(fact: Fact) {
@@ -378,6 +385,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               editing={editing?.id === focusedFact.id ? editing.text : null}
               editingFields={editing?.id === focusedFact.id ? editing.fields : null}
               canSave={editCanSave(focusedFact)}
+              formError={formError?.text ?? null}
+              typeOutHref={formError?.typeOut ? `/cases/${caseId}/read/couldnt-read?page=${pageNo}` : undefined}
               typedWords={editing?.id === focusedFact.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
               reason={reasons[focusedFact.id] ?? ""}
               onFocus={() => setFocus(focusedFact.id)}
@@ -397,20 +406,20 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               editEventDate={editing?.id === focusedFact.id ? editing.eventDate : null}
               onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value, eventDateByHand: true })}
               onSaveEdit={() => saveEdit(focusedFact)}
-              onCancelEdit={() => setEditing(null)}
+              onCancelEdit={() => { setEditing(null); setFormError(null); }}
               onFlag={() => toggleFlag(focusedFact)}
               timelineDraft={timelineDraft?.id === focusedFact.id ? timelineDraft.value : null}
               onStartTimelineDate={() => {
                 setEditing(null);
+                setFormError(null);
                 setTimelineDraft({ id: focusedFact.id, value: suggestTimelineDate(focusedFact, pack) });
               }}
               onTimelineDateChange={(value) => setTimelineDraft((d) => d && d.id === focusedFact.id ? { ...d, value } : d)}
               onSaveTimelineDate={() => {
                 if (!timelineDraft || timelineDraft.id !== focusedFact.id || !timelineDraft.value) return;
                 void act(focusedFact, "edit", { event_date: timelineDraft.value });
-                setTimelineDraft(null);
               }}
-              onCancelTimelineDate={() => setTimelineDraft(null)}
+              onCancelTimelineDate={() => { setTimelineDraft(null); setFormError(null); }}
             />
           )}
           {read && (
