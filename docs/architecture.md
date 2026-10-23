@@ -813,6 +813,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET / PUT | `/organisations/{org_id}/billing-profile`, `/me/billing-profile` | Invoice issuer details | 🔒 for tax number |
 | PUT, GET / PUT | `/me/billing-profile/bank-details`, `/organisations/{org_id}/billing-profile/bank-details` | Bank details for the invoice's "How to pay" box (organisation: owner or admin only) | 🔒 |
 | POST | `/cases/{case_id}/named-expert` | Change the named expert (before serving only) | Owner/admin, 🔒; 409 after serving |
+| POST | `/cases/{case_id}/replacement` | After serving: a new case for the replacement expert, linked `replaces`, recording whether the instructing party consented to the bundle being copied (nothing is copied yet) | Owner/admin, 🔒; 409 `not_served` before serving |
 | PUT | `/me/custodian` | Name a records custodian | 🔒 |
 | POST | `/me/close` | Close account after export; served cases kept read-only | 🔒 |
 | POST | `/cases/{case_id}/support-access` | Named expert grants support 24-hour access to one case | 🔒; shown on the case |
@@ -820,6 +821,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
 | GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA in the last 10 minutes on every call |
 | GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants; the look is audited on the case | Support staff, as above |
+| POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
 
 **Case setup (slice C)**
 
