@@ -2,7 +2,7 @@
 import { useId, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { t } from "../../foundation/i18n";
-import { Button, IconTile, LinkButton, StatusBadge } from "../../foundation/ui";
+import { Button, Checkbox, IconTile, LinkButton, StatusBadge } from "../../foundation/ui";
 import { humanise, kindLabel, longDate } from "./data";
 import { w } from "./words";
 
@@ -23,6 +23,12 @@ export interface FactCardProps {
   formError?: string | null;
   /** When the words weren't on the page: where to type the page out instead. */
   typeOutHref?: string;
+  /** When the words weren't on the page: first suggest ticking "These words were read wrongly". */
+  tickHint?: boolean;
+  /** While changing with words chosen: the "read wrongly" tick and what the expert says the words are. */
+  misread?: { ticked: boolean; text: string } | null;
+  onMisread?: (ticked: boolean) => void;
+  onMisreadText?: (text: string) => void;
   reason: string;
   onFocus: () => void;
   onReason: (text: string) => void;
@@ -78,6 +84,7 @@ export function FactCard(p: FactCardProps) {
   const formProblem = p.formError ? (
     <div className="rd-form-error">
       <p role="alert" className="rd-form-error__text">{p.formError}</p>
+      {p.tickHint && <p className="rd-hint">{w("fact.misread_hint")}</p>}
       {p.typeOutHref && (
         <LinkButton variant="secondary" to={p.typeOutHref}>
           {w("fact.type_out_page")}
@@ -125,6 +132,7 @@ export function FactCard(p: FactCardProps) {
           </p>
         );
       })}
+      {fact.cites_correction && <p className="rd-read-by-you">{w("fact.read_by_you")}</p>}
       {recheck && <p className="rd-note">{w("fact.recheck")}</p>}
       {fact.flagged && (
         <p className="rd-cuts">
@@ -190,6 +198,17 @@ export function FactCard(p: FactCardProps) {
           )}
           <p className="rd-note">{w("fact.choose_words")}</p>
           {p.typedWords}
+          {p.misread && (
+            <div className="rd-misread">
+              <Checkbox label={w("fact.misread_tick")} checked={p.misread.ticked} onChange={(e) => p.onMisread?.(e.target.checked)} />
+              {p.misread.ticked && (
+                <div className="rd-edit__row">
+                  <label htmlFor={`${id}-m`} className="rd-label rd-label--small">{w("fact.misread_label")}</label>
+                  <input id={`${id}-m`} className="av-input" maxLength={500} value={p.misread.text} onChange={(e) => p.onMisreadText?.(e.target.value)} />
+                </div>
+              )}
+            </div>
+          )}
           <div className="rd-actions">
             <Button disabled={p.busy || p.canSave === false} onClick={p.onSaveEdit}>
               {w("fact.save_change")}

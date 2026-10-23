@@ -52,6 +52,7 @@ const WORDS = {
   "read.error.nothing_changed": "You haven't changed anything.",
   "read.error.headline_needed": "Write what the page shows.",
   "read.error.invalid_fields": "Those details don't fit this kind of fact.",
+  "read.error.misread_needed": "Type what the words really say.",
 
   "fact.correct": "Correct",
   "fact.not_right": "Not right",
@@ -66,6 +67,10 @@ const WORDS = {
   "fact.save_change": "Save change",
   "fact.choose_words": "Choose the words on the page that show this.",
   "fact.type_out_page": "Was the page read wrongly? Type out this page",
+  "fact.misread_tick": "These words were read wrongly",
+  "fact.misread_label": "What the words really say",
+  "fact.misread_hint": "If the computer read the words wrongly, tick \u201cThese words were read wrongly\u201d and type what they say.",
+  "fact.read_by_you": "Read by you",
   "fact.cancel": "Cancel",
   "fact.points_against": "Send to Points against",
   "fact.points_against_off": "Take out of Points against",

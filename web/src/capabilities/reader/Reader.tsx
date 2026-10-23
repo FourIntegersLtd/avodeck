@@ -22,7 +22,7 @@ import { w } from "./words";
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
-type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean };
+type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean; misreadText: string };
 const ZOOMS = [75, 100, 125, 150, 200, 250];
 
 function fieldDraft(fact: Fact): Record<string, string> {
@@ -111,7 +111,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   }, [detail.data, loadFacts]);
 
   // An error for the form the expert is filling in, shown under its Save button (not at the top of the panel).
-  const [formError, setFormError] = useState<{ text: string; typeOut: boolean } | null>(null);
+  const [formError, setFormError] = useState<{ text: string; typeOut: boolean; tick?: boolean } | null>(null);
 
   async function markRead() {
     if (busy || read) return;
@@ -138,7 +138,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
     setFormError(null);
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false, misreadText: "" });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -162,7 +162,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   async function act(
     fact: Fact,
     action: Action,
-    extra: { new_value?: string; word_ids?: string[]; reason?: string; fields?: Record<string, unknown>; event_date?: string } = {},
+    extra: { new_value?: string; word_ids?: string[]; reason?: string; fields?: Record<string, unknown>; event_date?: string; corrected_words?: { word_ids: string[]; text: string } } = {},
   ) {
     if (busy) return;
     setBusy(true);
@@ -192,7 +192,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         const text = refused
           ? w(error.code === "words_needed" ? "read.error.words_needed" : error.code === "invalid_fields" ? "read.error.invalid_fields" : "read.error.not_in_page")
           : errorMessage(error, {});
-        if (inForm) setFormError({ text, typeOut: notOnPage });
+        if (inForm) setFormError({ text, typeOut: notOnPage, tick: notOnPage && editing?.id === fact.id });
         else setNotice(text);
       }
     } finally {
@@ -210,13 +210,21 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     const fieldsChanged = editableFields(f).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
     const dayChanged = eventDateChanged(f);
-    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed") => setFormError({ text: w(key), typeOut: false });
+    const misread = editing.misread && editing.words.length > 0 ? editing.misreadText.trim() : null;
+    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed" | "read.error.misread_needed") =>
+      setFormError({ text: w(key), typeOut: false });
     if (valueChanged && !headline) return stop("read.error.headline_needed");
-    if (!valueChanged && !fieldsChanged && !wordsChanged && !dayChanged) return stop("read.error.nothing_changed");
+    if (misread === "") return stop("read.error.misread_needed");
+    if (!valueChanged && !misread && !fieldsChanged && !wordsChanged && !dayChanged) return stop("read.error.nothing_changed");
     if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return stop("read.error.words_needed");
     setFormError(null);
-    const body: { new_value?: string; word_ids?: string[]; fields?: Record<string, unknown>; event_date?: string } = {};
-    if (valueChanged) {
+    const body: { new_value?: string; word_ids?: string[]; fields?: Record<string, unknown>; event_date?: string; corrected_words?: { word_ids: string[]; text: string } } = {};
+    if (misread) {
+      // The expert's reading of the chosen words goes with the value it shows (the server checks the value against it).
+      body.new_value = headline;
+      body.word_ids = orderedWords(editing.words);
+      body.corrected_words = { word_ids: body.word_ids, text: misread };
+    } else if (valueChanged) {
       body.new_value = headline;
       body.word_ids = orderedWords(editing.words);
     } else if (wordsChanged) body.word_ids = orderedWords(editing.words);
@@ -386,6 +394,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               editingFields={editing?.id === focusedFact.id ? editing.fields : null}
               canSave={editCanSave(focusedFact)}
               formError={formError?.text ?? null}
+              tickHint={formError?.tick === true}
+              misread={editing?.id === focusedFact.id && editing.words.length > 0 ? { ticked: editing.misread, text: editing.misreadText } : null}
+              onMisread={(ticked) => setEditing((e) => e && { ...e, misread: ticked })}
+              onMisreadText={(text) => setEditing((e) => e && { ...e, misreadText: text })}
               typeOutHref={formError?.typeOut ? `/cases/${caseId}/read/couldnt-read?page=${pageNo}` : undefined}
               typedWords={editing?.id === focusedFact.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
               reason={reasons[focusedFact.id] ?? ""}
