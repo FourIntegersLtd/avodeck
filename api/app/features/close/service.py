@@ -22,8 +22,8 @@ from psycopg import AsyncConnection
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, check_case_access
-from app.core.contracts.org_policy import org_policy
 from app.core.contracts.invoices import case_invoice_rows
+from app.core.contracts.org_policy import org_policy
 from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError, conflict
@@ -170,7 +170,9 @@ async def change_retention(
         raise conflict()
     limit = await max_years(conn, case)
     if policy == "keep_default" and limit is not None and pack_years(library, case) > limit:
-        raise ApiError("retention_exceeds_org_policy", "Your organisation does not allow keeping records this long.", 422)
+        raise ApiError(
+            "retention_exceeds_org_policy", "Your organisation does not allow keeping records this long.", 422
+        )
     due = delete_after(policy, case["status"], _base(case), today, await retention_years(conn, library, case))
     await repo.update_case(conn, case_id, retention_policy=policy, delete_after=due)
     await _record(conn, case_id, "case.retention_changed", f"retention:{policy}")

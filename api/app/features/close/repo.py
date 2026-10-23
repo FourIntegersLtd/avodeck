@@ -13,7 +13,8 @@ from psycopg import AsyncConnection
 from psycopg.rows import dict_row
 
 _CASE = (
-    "select id, organisation_id, status, settled_at, retention_policy, delete_after, jurisdiction, case_type, specialty,"
+    "select id, organisation_id, status, settled_at, retention_policy, delete_after,"
+    " jurisdiction, case_type, specialty,"
     " app.case_ever_served(id) as ever_served, app.close_withdrawn_on(id) as withdrawn_on"
     " from app.cases where id = %s"
 )

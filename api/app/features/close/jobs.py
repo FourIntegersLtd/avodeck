@@ -25,10 +25,10 @@ from psycopg.types.json import Jsonb
 
 from app.core.contracts.instructing_parties import logged_requests
 from app.core.contracts.invoices import case_invoice_rows
+from app.core.contracts.org_policy import org_policy
 from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.email import deletion_certificate_mail
-from app.core.contracts.org_policy import org_policy
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.notifications import notify
 from app.core.packs import PackLibrary, default_library
