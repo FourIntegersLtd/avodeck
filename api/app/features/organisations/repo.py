@@ -174,11 +174,18 @@ async def end_membership(conn: AsyncConnection, membership_id: uuid.UUID) -> Non
     await conn.execute("update app.memberships set ended_at = now() where id = %s", (membership_id,))
 
 
+# A grant counts only while it is live and was given by the case's current named expert (as in
+# `app.case_access()` and `app.support_case_grants()`): after reassignment the old expert's grant is ended.
 _GRANT = """
-select id, case_id, granted_by, granted_to, reason, granted_at, expires_at, revoked_at,
-       revoked_at is null and expires_at > now() as active
-from app.support_access_grants
+select g.id, g.case_id, g.granted_by, g.granted_to, g.reason, g.granted_at, g.expires_at, g.revoked_at,
+       g.revoked_at is null and g.expires_at > now() and g.granted_by = c.named_expert_id as active
+from app.support_access_grants g join app.cases c on c.id = g.case_id
 """
+
+
+async def lock_case(conn: AsyncConnection, case_id: uuid.UUID) -> None:
+    """Serialises grant changes on one case, so two grants given at once cannot both stay active."""
+    await conn.execute("select id from app.cases where id = %s for update", (case_id,))
 
 
 async def is_support_staff(conn: AsyncConnection, person_id: uuid.UUID) -> bool:
@@ -204,11 +211,11 @@ async def add_grant(conn: AsyncConnection, case_id: uuid.UUID, reason: str, gran
 
 
 async def grants(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
-    return await rows(conn, _GRANT + " where case_id = %s order by granted_at, id", (case_id,))
+    return await rows(conn, _GRANT + " where g.case_id = %s order by g.granted_at, g.id", (case_id,))
 
 
 async def grant(conn: AsyncConnection, case_id: uuid.UUID, grant_id: uuid.UUID) -> dict[str, Any] | None:
-    return await row(conn, _GRANT + " where case_id = %s and id = %s", (case_id, grant_id))
+    return await row(conn, _GRANT + " where g.case_id = %s and g.id = %s", (case_id, grant_id))
 
 
 async def revoke_grant(conn: AsyncConnection, grant_id: uuid.UUID) -> None:

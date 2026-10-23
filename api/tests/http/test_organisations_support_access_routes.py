@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
@@ -20,9 +21,12 @@ import psycopg
 import pytest
 from fastapi import FastAPI
 
-from app.core.email import SUPPORT_ACCESS_GRANTED
+from app.core.db import Database
+from app.core.email import SUPPORT_ACCESS_GRANTED, OutboxMailer
+from app.features.organisations import support
+from app.features.organisations.schemas import SupportGrantCreate
 from tests.fixtures.test_organisations_world import STALE, World, world  # noqa: F401
-from tests.support.db import ClientFor
+from tests.support.db import ClientFor, scope_for
 
 pytestmark = pytest.mark.anyio
 
@@ -125,6 +129,52 @@ async def test_f38_an_expired_grant_shows_as_ended_and_opens_nothing(
     listed = (await (await client_for(world["owner"])).get(url(case))).json()["grants"]
     assert [g["active"] for g in listed] == [False]
     assert (await (await client_for(staff)).get(f"/v1/cases/{case}")).status_code == 404
+
+
+async def test_a_grant_from_the_previous_named_expert_shows_as_ended_after_reassignment(
+    client_for: ClientFor, world: World, staff: uuid.UUID
+) -> None:
+    case = world.team_case()
+    given = await (await client_for(world["dr_k"])).post(url(case), json={"reason": "upload_stuck"})
+    assert given.status_code == 201, given.text
+    moved = await (await client_for(world["owner"])).post(
+        f"/v1/cases/{case}/named-expert", json={"person_id": str(world["dr_m"])}
+    )
+    assert moved.status_code == 200, moved.text
+    for who in ("dr_m", "owner"):
+        listed = (await (await client_for(world[who])).get(url(case))).json()["grants"]
+        assert [g["active"] for g in listed] == [False], who
+    assert (await (await client_for(staff)).get(f"/v1/cases/{case}")).status_code == 404
+
+
+async def test_grants_given_at_the_same_time_leave_one_active(
+    api_db: Database, world: World, admin: psycopg.Connection
+) -> None:
+    """The case row is locked before the earlier grant is ended, so two at once cannot both stay active."""
+    for _ in range(5):
+        case = world.team_case()
+
+        async def give(reason: str, case: uuid.UUID = case) -> None:
+            async with api_db.request(scope_for(world["dr_k"])) as conn:
+                await support.give(conn, OutboxMailer(), case, SupportGrantCreate(reason=reason), world.email("dr_k"))
+
+        await asyncio.gather(give("upload_stuck"), give("page_missing"))
+        active = admin.execute(
+            "select count(*) from app.support_access_grants"
+            " where case_id = %s and revoked_at is null and expires_at > now()",
+            (case,),
+        ).fetchone()
+        assert active == (1,)
+
+
+async def test_giving_a_grant_locks_the_case_row(api_db: Database, world: World, admin: psycopg.Connection) -> None:
+    case = world.team_case()
+    async with api_db.request(scope_for(world["dr_k"])) as conn:
+        await support.give(conn, OutboxMailer(), case, SupportGrantCreate(reason="upload_stuck"), world.email("dr_k"))
+        with pytest.raises(psycopg.errors.LockNotAvailable):
+            with psycopg.connect(admin.info.dsn, password="postgres", autocommit=True) as other:
+                other.execute("set lock_timeout = '200ms'")
+                other.execute("select id from app.cases where id = %s for no key update", (case,))
 
 
 @pytest.mark.parametrize(("who", "status"), [("owner", 403), ("assistant", 403), ("outsider", 404)])

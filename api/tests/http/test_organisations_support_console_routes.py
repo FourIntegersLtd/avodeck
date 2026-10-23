@@ -52,6 +52,13 @@ async def test_s17_support_finds_a_case_by_id_or_expert_email_and_sees_metadata_
     assert "Case Z" not in by_id.text and "Dr K" not in by_email.text
     nothing = await client.get("/v1/support/cases", params={"q": "nobody@example.test"})
     assert nothing.json() == {"cases": []}
+    # Every case a search returns is a look at that case: it goes to the case's audit trail.
+    looks = world.admin.execute(
+        "select case_id, count(*) from app.audit_log where action = 'support.case_looked_up' and person_id = %s"
+        " group by case_id",
+        (staff,),
+    ).fetchall()
+    assert dict(looks) == {case: 2, other: 1}
 
 
 async def test_one_case_with_its_grants_and_every_look_audited(
