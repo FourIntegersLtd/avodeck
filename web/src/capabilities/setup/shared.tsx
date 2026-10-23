@@ -3,6 +3,7 @@
 import { useId, type ButtonHTMLAttributes, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
+import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
 import { ApiError, api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { ChoicePills, Segmented, StackedBar } from "../../foundation/ui";
@@ -295,8 +296,8 @@ export async function uploadFiles(
 /** Plain words for an upload outcome that had failures (null when every file was saved). */
 export function uploadSummary(out: UploadOutcome): string | null {
   if (out.failed.length === 0) return null;
-  const parts = [t("setup.upload.not_saved", { files: out.failed.map((f) => `${f.name} (${f.reason})`).join("; ") })];
-  if (out.saved.length > 0) parts.unshift(t("setup.upload.saved", { files: out.saved.map((s) => s.file.name).join(", ") }));
+  const parts = [sw("upload.not_saved", { files: out.failed.map((f) => `${f.name} (${f.reason})`).join("; ") })];
+  if (out.saved.length > 0) parts.unshift(sw("upload.saved", { files: out.saved.map((s) => s.file.name).join(", ") }));
   return parts.join(" ");
 }
 

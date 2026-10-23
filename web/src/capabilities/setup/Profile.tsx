@@ -7,6 +7,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, StaleChoice, TextField } from "../../foundation/ui";
+import { sw } from "./words";
 import { Balance, FileButton, fileBytes, LinkAction, PartMark, Section, Select, TextArea, versionTag, withEtag } from "./shared";
 
 const DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -535,19 +536,31 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
       setBusy(false);
     }
   };
-  const save = async () => {
-    if (!template) return;
+  const [stale, setStale] = useState<Tagged<Template> | null>(null);
+  const send = async (base: Tagged<Template>) => {
     setMessage(null);
     const body = {
-      mapping: template.data.headings.filter((h) => mapping[h.index]).map((h) => ({ index: h.index, section: mapping[h.index]! })),
+      mapping: base.data.headings.filter((h) => mapping[h.index]).map((h) => ({ index: h.index, section: mapping[h.index]! })),
     };
     try {
-      setTemplate(await withEtag(api.PATCH("/v1/me/template/mapping", { body, headers: ifMatch(template.etag) })));
+      setStale(null);
+      setTemplate(await withEtag(api.PATCH("/v1/me/template/mapping", { body, headers: ifMatch(base.etag) })));
       onSaved();
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
-      setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale" }) });
+      if (err instanceof ApiError && err.code === "stale") {
+        try {
+          setStale(await withEtag(api.GET("/v1/me/template")));
+          return;
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setMessage({ tone: "error", text: errorMessage(err) });
     }
+  };
+  const save = () => {
+    if (template) void send(template);
   };
   const sections = template?.data.sections ?? [];
   const options = [{ value: "", label: t("setup.template.unmapped") }, ...sections.map((key) => ({ value: key, label: sectionLabel(key) }))];
@@ -610,6 +623,19 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
           <p>{message.text}</p>
         </Notice>
       )}
+      {stale && (
+        <StaleChoice
+          draft={mapping}
+          saved={Object.fromEntries(stale.data.mapping.map((m) => [m.index, m.section]))}
+          onKeepMine={() => void send(stale)}
+          onUseSaved={() => {
+            setTemplate(stale);
+            setStale(null);
+          }}
+          onClose={() => setStale(null)}
+          show={(m) => sw("template.stale_show", { count: Object.values(m).filter(Boolean).length })}
+        />
+      )}
     </Section>
   );
 }
@@ -621,23 +647,36 @@ function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declar
     Object.fromEntries((declaration?.data.additions ?? []).map((a) => [a.kind, a.text])),
   );
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
-  const save = async () => {
-    if (!current) return;
+  const [stale, setStale] = useState<Tagged<Schemas["Declaration"]> | null>(null);
+  const send = async (base: Tagged<Schemas["Declaration"]>) => {
     setMessage(null);
     const body = {
-      jurisdiction: current.data.jurisdiction,
+      jurisdiction: base.data.jurisdiction,
       additions: Object.entries(additions)
         .filter(([, text]) => text.trim())
         .map(([kind, text]) => ({ kind, text })),
     };
     try {
-      setCurrent(await withEtag(api.PUT("/v1/me/declaration", { body, headers: ifMatch(current.etag) })));
+      setCurrent(await withEtag(api.PUT("/v1/me/declaration", { body, headers: ifMatch(base.etag) })));
+      setStale(null);
       onSaved();
       setMessage({ tone: "success", text: t("setup.saved") });
     } catch (err) {
-      setMessage({ tone: "error", text: errorMessage(err, { stale: "setup.stale", locked: "setup.declaration.locked" }) });
+      if (err instanceof ApiError && err.code === "stale") {
+        try {
+          setStale(await withEtag(api.GET("/v1/me/declaration")));
+          return;
+        } catch {
+          /* fall through to the plain message */
+        }
+      }
+      setMessage({ tone: "error", text: errorMessage(err, { locked: "setup.declaration.locked" }) });
     }
   };
+  const save = () => {
+    if (current) void send(current);
+  };
+  const addedText = (d: Schemas["Declaration"]) => d.additions.map((a) => a.text).join(" / ");
   return (
     <Section id="setup-declaration" title={t("setup.declaration.title")} mark={<PartMark done={signed} number={5} />}>
       {current && current.data.wording.length > 0 && (
@@ -706,6 +745,19 @@ function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declar
         </Notice>
       )}
       <SignaturePad signed={signed} onSigned={onSigned} />
+      {stale && (
+        <StaleChoice
+          draft={Object.values(additions).filter((x) => x.trim()).join(" / ")}
+          saved={addedText(stale.data)}
+          onKeepMine={() => void send(stale)}
+          onUseSaved={() => {
+            setCurrent(stale);
+            setAdditions(Object.fromEntries(stale.data.additions.map((a) => [a.kind, a.text])));
+            setStale(null);
+          }}
+          onClose={() => setStale(null)}
+        />
+      )}
     </Section>
   );
 }
