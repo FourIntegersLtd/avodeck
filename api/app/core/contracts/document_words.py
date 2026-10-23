@@ -5,8 +5,14 @@ patient text: never log it (rule 6) and strip identifiers before any model call 
 caller's connection, so row-level security applies.
 
 Where the named expert corrected the computer's reading of some words (slice B, `word_corrections`,
-decision 0018), the words read as the expert's reading: the first word of the corrected run carries
-the expert's text and the rest of the run is left out. `ocr_words` itself is never changed.
+decision 0018), the words read as the expert's reading: one word of the corrected run (its anchor)
+carries the expert's text and the rest of the run is left out. `ocr_words` itself is never changed.
+
+Where the reading lands (`apply_corrections`): the anchor is the run's real first word on the page. When
+the caller passes only some of the page's words (`cited_words` passes a fact's cited words) and the
+run's real first word is not among them, the anchor is the first passed word of the run. A caller holding
+the whole page but asking what one fact's words say passes `cited=` and gets the same anchor, so the
+reader and `cited_words` agree on what a fact's words say.
 """
 
 from __future__ import annotations
@@ -48,21 +54,31 @@ async def current_corrections(
     return out
 
 
-def apply_corrections(words: Mapping[str, str], corrections: Iterable[Correction]) -> dict[str, str]:
-    """`words` (word id -> text, in reading order) with each correction in place: the first of its words
-    present gets the expert's reading, the rest of its words are kept with empty text."""
+def apply_corrections(
+    words: Mapping[str, str], corrections: Iterable[Correction], *, cited: Iterable[str] | None = None
+) -> dict[str, str]:
+    """`words` (word id -> text, in reading order) with each correction in place: the run's anchor gets the
+    expert's reading, the rest of its words present are kept with empty text.
+
+    The anchor is the run's real first word when it is in `words` (and, with `cited`, among the cited
+    words); otherwise the first word of the run in `words` that is cited (or simply present). Runs are
+    one unbroken stretch of the page, so in reading order their first present word is their real first."""
     out = dict(words)
     order = {w: i for i, w in enumerate(words)}
+    chosen = None if cited is None else set(cited)
     for word_ids, text in corrections:
         present = sorted((w for w in set(word_ids) if w in order), key=order.__getitem__)
-        for i, w in enumerate(present):
-            out[w] = text if i == 0 else ""
+        if not present:
+            continue
+        anchor = present[0]
+        if chosen is not None and anchor not in chosen:
+            anchor = next((w for w in present if w in chosen), anchor)
+        for w in present:
+            out[w] = text if w == anchor else ""
     return out
 
 
-def _read_as_corrected(
-    words: list[tuple[str, str]], corrections: Iterable[Correction]
-) -> list[tuple[str, str]]:
+def _read_as_corrected(words: list[tuple[str, str]], corrections: Iterable[Correction]) -> list[tuple[str, str]]:
     corrections = list(corrections)
     if not corrections:
         return words
