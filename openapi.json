@@ -11280,6 +11280,11 @@
       "PageWords": {
         "description": "The page's words in reading order, for choosing the words a changed fact cites.",
         "properties": {
+          "reading": {
+            "description": "The page's current reading as one text (the expert's corrections in place), to start a type-out from.",
+            "title": "Reading",
+            "type": "string"
+          },
           "words": {
             "items": {
               "$ref": "#/components/schemas/PageWord"
@@ -11289,7 +11294,8 @@
           }
         },
         "required": [
-          "words"
+          "words",
+          "reading"
         ],
         "title": "PageWords",
         "type": "object"

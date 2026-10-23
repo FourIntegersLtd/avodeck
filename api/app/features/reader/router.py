@@ -13,6 +13,7 @@ from fastapi import Depends, Query, Request, Response
 
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts import served
 from app.core.contracts.document_words import apply_corrections
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, process_pages
@@ -58,6 +59,8 @@ _CHECKS = {
     ("suggested", "correct"): "verified",
     ("rejected", "correct"): "verified",
     ("suggested", "edit"): "edited",
+    ("verified", "edit"): "edited",
+    ("edited", "edit"): "edited",
     ("suggested", "not_right"): "rejected",
     ("verified", "not_right"): "rejected",
     ("edited", "not_right"): "rejected",
@@ -192,7 +195,9 @@ async def page_words(
     r = await _page(conn, case_id, page_no, scope)
     response.headers["cache-control"] = "private, no-store"
     words = await repo.page_word_boxes(conn, _crypto(request), case_id, r["id"])
-    return PageWords(words=[PageWord(**w) for w in words])
+    read_now = await repo.page_words(conn, _crypto(request), case_id, r["id"])
+    reading = " ".join(t for t in read_now.values() if t)
+    return PageWords(words=[PageWord(**w) for w in words], reading=reading)
 
 
 @router.put("/pages/{page_no}/transcription", response_model=JobOut, status_code=202)
@@ -258,6 +263,11 @@ async def progress(case_id: uuid.UUID, access: View, conn: DbConn, scope: Curren
 
 def _fact_not_found() -> ApiError:
     return ApiError("not_found", "We couldn't find that fact.", 404)
+
+
+def _served() -> ApiError:
+    # Rule 8: a fact a served report cites changes only through a supplementary report (screen 21b).
+    return ApiError("served_use_supplementary", "This is in your served report. Use a supplementary report.", 409)
 
 
 def _invalid() -> ApiError:
@@ -340,6 +350,8 @@ async def verify_fact(
         words = await repo.page_words(conn, _crypto(request), case_id, before["page_id"])
         if not provenance.supported(value, word_ids, words):
             raise _invalid()
+    if body.action == "edit" and before["status"] in _CHECKED and await served.cited_in_served(conn, case_id, fact_id):
+        raise _served()
     if rechecking and body.action == "edit" and not body.word_ids:
         raise ApiError("words_needed", "Choose the words on the page that show this.", 422)
     if body.action == "edit":
@@ -442,6 +454,8 @@ async def move_fact(
 ) -> FactOut:
     """Move a fact to the clearer copy of its page, citing that page's words. History is kept."""
     before = await _checkable(conn, case_id, fact_id, version, scope)
+    if await served.cited_in_served(conn, case_id, fact_id):
+        raise _served()
     target = await repo.page_id_by_no(conn, case_id, body.to_page_no)
     if target is None:
         raise _not_found()
