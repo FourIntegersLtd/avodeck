@@ -6,7 +6,12 @@ from app.core.http import CurrentScope, DbConn
 from app.features.organisations import account
 from app.features.organisations.deps import STEP_UP_FIRST
 from app.features.organisations.router import router
-from app.features.organisations.schemas import AccountClosed, Custodian
+from app.features.organisations.schemas import AccountClosed, CloseAccountPreview, Custodian
+
+
+@router.get("/me/close", response_model=CloseAccountPreview)
+async def close_account_preview(conn: DbConn, scope: CurrentScope) -> CloseAccountPreview:
+    return await account.close_preview(conn, scope.person_id)
 
 
 @router.post("/me/close", response_model=AccountClosed, dependencies=STEP_UP_FIRST)

@@ -1,0 +1,24 @@
+/* Slice O screens (S27, leave, custodian, closing, case team, support). Built from the design tokens. */
+.av-org { max-width: 1200px; gap: 26px; }
+.av-org-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; flex-wrap: wrap; }
+.av-org-head h1 { margin: 4px 0 8px; font-size: 36px; }
+.av-org-head p { margin: 0; max-width: 62ch; }
+.av-org-eyebrow { margin: 0; text-transform: uppercase; letter-spacing: 0.06em; color: var(--ink-soft); }
+.av-org-switch { display: flex; gap: 8px; flex-wrap: wrap; }
+.av-org-card { display: flex; flex-direction: column; gap: 12px; }
+.av-org-card h2 { margin: 0; font-size: 21px; }
+.av-org-card p { margin: 0; }
+.av-org-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: stretch; }
+.av-org-person { flex-wrap: wrap; }
+.av-org-avatar { width: 44px; height: 44px; border-radius: 50%; background: var(--green-tint); color: var(--green-dark); font-weight: 700; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.av-org-role { flex: 0 1 280px; }
+.av-org-joined { flex: 0 0 auto; }
+.av-org-select { min-height: var(--button-min-height); min-width: 180px; }
+.av-org-invite { display: flex; gap: 16px; align-items: flex-end; flex-wrap: wrap; border-top: 1px solid var(--surface-muted); padding-top: 20px; }
+.av-org-invite .av-field { flex: 1 1 260px; }
+.av-org-years { font-family: var(--font-mono); font-size: var(--text-body); }
+.av-org-actions { justify-content: flex-end; }
+.av-org-sub { margin: 0; font-size: 28px; }
+.av-org-search { align-items: flex-end; }
+.av-org-search .av-field { flex: 1 1 320px; }
+.av-org-cases { flex: 0 0 90px; font-family: var(--font-mono); }

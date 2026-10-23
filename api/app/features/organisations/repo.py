@@ -248,6 +248,19 @@ async def unserved_personal_cases(conn: AsyncConnection) -> list[uuid.UUID]:
     return [r["id"] for r in found]
 
 
+async def unserved_personal_case_labels(conn: AsyncConnection) -> list[dict[str, Any]]:
+    """The same cases as `unserved_personal_cases`, with their labels (a case's label is not patient text)."""
+    return await rows(
+        conn,
+        """
+        select c.id, c.label from app.cases c join app.organisations o on o.id = c.organisation_id
+        where o.kind = 'personal' and c.named_expert_id = app.current_person_id() and c.status <> 'deleted'
+          and c.retention_policy is distinct from 'delete_now' and not app.case_ever_served(c.id)
+        order by c.created_at, c.id
+        """,
+    )
+
+
 async def my_team_memberships(conn: AsyncConnection) -> list[uuid.UUID]:
     found = await rows(
         conn,
