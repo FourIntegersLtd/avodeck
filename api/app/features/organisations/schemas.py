@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 OrgName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
 OrgRole = Literal["owner", "admin", "expert", "assistant", "viewer"]
@@ -129,3 +129,78 @@ class InviteAccepted(BaseModel):
     organisation_id: uuid.UUID
     role: OrgRole
     membership_id: uuid.UUID
+
+
+ReasonCode = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]{0,39}$")]
+
+
+class SupportGrantCreate(Strict):
+    reason: ReasonCode
+    granted_to: uuid.UUID | None = None
+
+
+class SupportGrant(BaseModel):
+    id: uuid.UUID
+    case_id: uuid.UUID
+    granted_by: uuid.UUID
+    granted_to: uuid.UUID | None
+    reason: str
+    granted_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    active: bool
+
+
+class SupportGrantList(BaseModel):
+    grants: list[SupportGrant]
+
+
+class SupportCase(BaseModel):
+    """What the support console shows of a case: metadata only (permissions.md "Avodeck staff")."""
+
+    case_id: uuid.UUID
+    status: str
+    organisation_id: uuid.UUID
+    organisation_kind: Literal["personal", "team"]
+    created_at: datetime
+    served: bool
+    grant_active: bool
+    grant_expires_at: datetime | None
+
+
+class SupportCaseList(BaseModel):
+    cases: list[SupportCase]
+
+
+class SupportCaseGrant(BaseModel):
+    id: uuid.UUID
+    granted_to: uuid.UUID | None
+    reason: str
+    granted_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    active: bool
+
+
+class SupportCaseDetail(BaseModel):
+    case: SupportCase
+    grants: list[SupportCaseGrant]
+    content_access: bool
+
+
+class AccountClosed(BaseModel):
+    closed_at: datetime
+    deletion_job_ids: list[uuid.UUID]
+
+
+class Custodian(Strict):
+    """A records custodian: both a name and an email, or neither (cleared)."""
+
+    name: OrgName | None
+    email: Email | None
+
+    @model_validator(mode="after")
+    def _both_or_neither(self) -> Custodian:
+        if (self.name is None) != (self.email is None):
+            raise ValueError("a custodian has a name and an email, or neither")
+        return self

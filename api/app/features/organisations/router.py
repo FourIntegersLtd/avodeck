@@ -7,11 +7,13 @@ from app.core.http import router as _router
 router = _router(prefix="/v1", tags=["organisations"])
 
 from app.features.organisations import (  # noqa: E402, F401
+    routes_account,
     routes_billing,
     routes_cases,
     routes_invites,
     routes_members,
     routes_orgs,
+    routes_support,
 )
 
 __all__ = ["router"]

@@ -1,6 +1,29 @@
 {
   "components": {
     "schemas": {
+      "AccountClosed": {
+        "properties": {
+          "closed_at": {
+            "format": "date-time",
+            "title": "Closed At",
+            "type": "string"
+          },
+          "deletion_job_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Deletion Job Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "closed_at",
+          "deletion_job_ids"
+        ],
+        "title": "AccountClosed",
+        "type": "object"
+      },
       "Acknowledged": {
         "properties": {
           "acknowledged": {
@@ -3755,6 +3778,44 @@
           "issued_at"
         ],
         "title": "CreditNoteOut",
+        "type": "object"
+      },
+      "Custodian": {
+        "additionalProperties": false,
+        "description": "A records custodian: both a name and an email, or neither (cleared).",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "maxLength": 254,
+                "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ],
+        "title": "Custodian",
         "type": "object"
       },
       "DeadlineChange": {
@@ -16583,6 +16644,290 @@
           "declaration_confirmed"
         ],
         "title": "SupplementarySignIn",
+        "type": "object"
+      },
+      "SupportCase": {
+        "description": "What the support console shows of a case: metadata only (permissions.md \"Avodeck staff\").",
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "grant_active": {
+            "title": "Grant Active",
+            "type": "boolean"
+          },
+          "grant_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grant Expires At"
+          },
+          "organisation_id": {
+            "format": "uuid",
+            "title": "Organisation Id",
+            "type": "string"
+          },
+          "organisation_kind": {
+            "enum": [
+              "personal",
+              "team"
+            ],
+            "title": "Organisation Kind",
+            "type": "string"
+          },
+          "served": {
+            "title": "Served",
+            "type": "boolean"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "status",
+          "organisation_id",
+          "organisation_kind",
+          "created_at",
+          "served",
+          "grant_active",
+          "grant_expires_at"
+        ],
+        "title": "SupportCase",
+        "type": "object"
+      },
+      "SupportCaseDetail": {
+        "properties": {
+          "case": {
+            "$ref": "#/components/schemas/SupportCase"
+          },
+          "content_access": {
+            "title": "Content Access",
+            "type": "boolean"
+          },
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/SupportCaseGrant"
+            },
+            "title": "Grants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "case",
+          "grants",
+          "content_access"
+        ],
+        "title": "SupportCaseDetail",
+        "type": "object"
+      },
+      "SupportCaseGrant": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "granted_at": {
+            "format": "date-time",
+            "title": "Granted At",
+            "type": "string"
+          },
+          "granted_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Granted To"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "id",
+          "granted_to",
+          "reason",
+          "granted_at",
+          "expires_at",
+          "revoked_at",
+          "active"
+        ],
+        "title": "SupportCaseGrant",
+        "type": "object"
+      },
+      "SupportCaseList": {
+        "properties": {
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/SupportCase"
+            },
+            "title": "Cases",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cases"
+        ],
+        "title": "SupportCaseList",
+        "type": "object"
+      },
+      "SupportGrant": {
+        "properties": {
+          "active": {
+            "title": "Active",
+            "type": "boolean"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "title": "Expires At",
+            "type": "string"
+          },
+          "granted_at": {
+            "format": "date-time",
+            "title": "Granted At",
+            "type": "string"
+          },
+          "granted_by": {
+            "format": "uuid",
+            "title": "Granted By",
+            "type": "string"
+          },
+          "granted_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Granted To"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revoked At"
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "granted_by",
+          "granted_to",
+          "reason",
+          "granted_at",
+          "expires_at",
+          "revoked_at",
+          "active"
+        ],
+        "title": "SupportGrant",
+        "type": "object"
+      },
+      "SupportGrantCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "granted_to": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Granted To"
+          },
+          "reason": {
+            "pattern": "^[a-z][a-z0-9_]{0,39}$",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "SupportGrantCreate",
+        "type": "object"
+      },
+      "SupportGrantList": {
+        "properties": {
+          "grants": {
+            "items": {
+              "$ref": "#/components/schemas/SupportGrant"
+            },
+            "title": "Grants",
+            "type": "array"
+          }
+        },
+        "required": [
+          "grants"
+        ],
+        "title": "SupportGrantList",
         "type": "object"
       },
       "TaskOut": {
@@ -31520,6 +31865,176 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/support-access": {
+      "get": {
+        "operationId": "list_support_access_v1_cases__case_id__support_access_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrantList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Support Access",
+        "tags": [
+          "organisations"
+        ]
+      },
+      "post": {
+        "operationId": "grant_support_access_v1_cases__case_id__support_access_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportGrantCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportGrant"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Grant Support Access",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/support-access/{grant_id}": {
+      "delete": {
+        "operationId": "revoke_support_access_v1_cases__case_id__support_access__grant_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "grant_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Grant Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Revoke Support Access",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/time": {
       "get": {
         "operationId": "case_time_v1_cases__case_id__time_get",
@@ -34134,6 +34649,88 @@
         ]
       }
     },
+    "/v1/me/close": {
+      "post": {
+        "operationId": "close_account_v1_me_close_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountClosed"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Close Account",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
+    "/v1/me/custodian": {
+      "put": {
+        "operationId": "set_custodian_v1_me_custodian_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Custodian"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Custodian"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Set Custodian",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
     "/v1/me/declaration": {
       "get": {
         "operationId": "get_declaration_v1_me_declaration_get",
@@ -36574,6 +37171,113 @@
         "summary": "Answer Spot Check",
         "tags": [
           "spot-checks"
+        ]
+      }
+    },
+    "/v1/support/cases": {
+      "get": {
+        "operationId": "search_cases_v1_support_cases_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "maxLength": 320,
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCaseList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Search Cases",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
+    "/v1/support/cases/{case_id}": {
+      "get": {
+        "operationId": "look_up_case_v1_support_cases__case_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportCaseDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Look Up Case",
+        "tags": [
+          "organisations"
         ]
       }
     },

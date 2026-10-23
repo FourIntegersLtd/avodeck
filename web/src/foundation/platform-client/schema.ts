@@ -3078,6 +3078,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/support-access": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Support Access */
+        get: operations["list_support_access_v1_cases__case_id__support_access_get"];
+        put?: never;
+        /** Grant Support Access */
+        post: operations["grant_support_access_v1_cases__case_id__support_access_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/support-access/{grant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke Support Access */
+        delete: operations["revoke_support_access_v1_cases__case_id__support_access__grant_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/time": {
         parameters: {
             query?: never;
@@ -3767,6 +3802,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/me/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Close Account */
+        post: operations["close_account_v1_me_close_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/me/custodian": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Set Custodian */
+        put: operations["set_custodian_v1_me_custodian_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/me/declaration": {
         parameters: {
             query?: never;
@@ -4395,6 +4464,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/support/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search Cases */
+        get: operations["search_cases_v1_support_cases_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Look Up Case */
+        get: operations["look_up_case_v1_support_cases__case_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/today": {
         parameters: {
             query?: never;
@@ -4484,6 +4587,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccountClosed */
+        AccountClosed: {
+            /**
+             * Closed At
+             * Format: date-time
+             */
+            closed_at: string;
+            /** Deletion Job Ids */
+            deletion_job_ids: string[];
+        };
         /** Acknowledged */
         Acknowledged: {
             /** Acknowledged */
@@ -5812,6 +5925,16 @@ export interface components {
             number_text: string | null;
             /** Reason */
             reason: string;
+        };
+        /**
+         * Custodian
+         * @description A records custodian: both a name and an email, or neither (cleared).
+         */
+        Custodian: {
+            /** Email */
+            email: string | null;
+            /** Name */
+            name: string | null;
         };
         /** DeadlineChange */
         DeadlineChange: {
@@ -10318,6 +10441,127 @@ export interface components {
         SupplementarySignIn: {
             /** Declaration Confirmed */
             declaration_confirmed: boolean;
+        };
+        /**
+         * SupportCase
+         * @description What the support console shows of a case: metadata only (permissions.md "Avodeck staff").
+         */
+        SupportCase: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Grant Active */
+            grant_active: boolean;
+            /** Grant Expires At */
+            grant_expires_at: string | null;
+            /**
+             * Organisation Id
+             * Format: uuid
+             */
+            organisation_id: string;
+            /**
+             * Organisation Kind
+             * @enum {string}
+             */
+            organisation_kind: "personal" | "team";
+            /** Served */
+            served: boolean;
+            /** Status */
+            status: string;
+        };
+        /** SupportCaseDetail */
+        SupportCaseDetail: {
+            case: components["schemas"]["SupportCase"];
+            /** Content Access */
+            content_access: boolean;
+            /** Grants */
+            grants: components["schemas"]["SupportCaseGrant"][];
+        };
+        /** SupportCaseGrant */
+        SupportCaseGrant: {
+            /** Active */
+            active: boolean;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /** Granted To */
+            granted_to: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Revoked At */
+            revoked_at: string | null;
+        };
+        /** SupportCaseList */
+        SupportCaseList: {
+            /** Cases */
+            cases: components["schemas"]["SupportCase"][];
+        };
+        /** SupportGrant */
+        SupportGrant: {
+            /** Active */
+            active: boolean;
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Granted At
+             * Format: date-time
+             */
+            granted_at: string;
+            /**
+             * Granted By
+             * Format: uuid
+             */
+            granted_by: string;
+            /** Granted To */
+            granted_to: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Reason */
+            reason: string;
+            /** Revoked At */
+            revoked_at: string | null;
+        };
+        /** SupportGrantCreate */
+        SupportGrantCreate: {
+            /** Granted To */
+            granted_to?: string | null;
+            /** Reason */
+            reason: string;
+        };
+        /** SupportGrantList */
+        SupportGrantList: {
+            /** Grants */
+            grants: components["schemas"]["SupportGrant"][];
         };
         /** TaskOut */
         TaskOut: {
@@ -19562,6 +19806,129 @@ export interface operations {
             };
         };
     };
+    list_support_access_v1_cases__case_id__support_access_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrantList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    grant_support_access_v1_cases__case_id__support_access_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportGrantCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportGrant"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    revoke_support_access_v1_cases__case_id__support_access__grant_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                grant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     case_time_v1_cases__case_id__time_get: {
         parameters: {
             query?: never;
@@ -21299,6 +21666,77 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CaseCheck"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    close_account_v1_me_close_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountClosed"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    set_custodian_v1_me_custodian_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Custodian"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Custodian"];
                 };
             };
             /** @description Validation Error */
@@ -23158,6 +23596,86 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    search_cases_v1_support_cases_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    look_up_case_v1_support_cases__case_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCaseDetail"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
             default: {
