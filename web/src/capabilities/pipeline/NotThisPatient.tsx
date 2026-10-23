@@ -49,11 +49,11 @@ export function NotThisPatient() {
     let current = true;
     unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: asked } } }))
       .then((p) => current && setPages([...listed, { page_id: p.page_id, page_no: p.page_no, status: "suggested", reason: "", job_id: null }]))
-      .catch((e) => current && setLookup(e instanceof ApiError && e.status === 404 ? w("quarantine.page_missing", { page: num(asked) }) : errorMessage(e)));
+      .catch((e) => current && setLookup(e instanceof ApiError && e.status === 404 ? w("quarantine.page_missing", { page: formatNumber(asked, pack.locale) }) : errorMessage(e)));
     return () => {
       current = false;
     };
-  }, [found.data, asked, caseId, search]);
+  }, [found.data, asked, caseId, search, pack.locale]);
 
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!pages) return <div className="av-page"><Loading /></div>;
