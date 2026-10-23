@@ -278,6 +278,30 @@ async def test_sending_numbers_the_invoice_seals_its_pdf_and_mails_no_clinical_c
     assert resp.json()["sent_to"] == "zz-other@example.test"
 
 
+async def test_agency_and_personal_invoice_numbers_run_separately_without_gaps(
+    client_for: ClientFor, seed: Seed, admin: psycopg.Connection, world: World
+) -> None:
+    personal = seed.org(kind="personal", members={world.expert: "owner"})
+    solo = seed.case(personal, world.expert, status="active", packs=world.combo.case_row())
+    admin.execute(
+        "insert into app.billing_profiles (owner_type, owner_id, legal_name, currency, hourly_rate, invoice_prefix)"
+        " values ('person', %s, 'Zz Expert', 'XTS', 100, 'PE-')",
+        (world.expert,),
+    )
+    add_time(admin, solo, world.expert, 3600, first_step(world.combo))
+    add_recipient(admin, solo)
+    await drafted(client_for, admin, world)
+    client = await client_for(world.expert)
+    sent = []
+    for case in (solo, world.case, solo, world.case):
+        draft = await client.post(f"/v1/cases/{case}/invoices", json={"expenses": "0"})
+        assert draft.status_code == 201, draft.text
+        resp = await client.post(f"/v1/cases/{case}/invoices/{draft.json()['id']}/send", json={})
+        assert resp.status_code == 200, resp.text
+        sent.append(resp.json()["number_text"])
+    assert sent == ["PE-1", "ZZ-1", "PE-2", "ZZ-2"]
+
+
 async def test_sending_without_a_recipient_is_refused(
     client_for: ClientFor, admin: psycopg.Connection, world: World
 ) -> None:

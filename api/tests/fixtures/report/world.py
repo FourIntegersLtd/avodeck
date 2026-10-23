@@ -149,22 +149,26 @@ async def save_template(
     mapping: dict[str, int],
     *,
     data: bytes | None = None,
+    owner_type: str = "person",
 ) -> uuid.UUID:
-    """Store a template as slice C does (sealed with the cell's box) with the expert's confirmed mapping."""
+    """Store a template as slice C does (sealed with the cell's box) with the expert's confirmed mapping.
+
+    `expert` is the owner's id: a person, or an organisation when `owner_type` is "organisation"."""
     raw = TEMPLATE.read_bytes()
     headings, styles = template_headings(raw)
     template_id = uuid.uuid4()
-    path = f"people/{expert}/template-{template_id}"
+    path = f"{'people' if owner_type == 'person' else 'organisations'}/{expert}/template-{template_id}"
     box = SecretBox(CRYPTO.provider)
     stored = data if data is not None else raw
     sealed = box.seal(base64.b64encode(stored).decode(), purpose="report_template", subject=f"{expert}:{template_id}")
     await storage.put(path, sealed.encode())
     admin.execute(
         "insert into app.report_templates (id, owner_type, owner_id, filename, storage_path, sha256, size_bytes,"
-        " heading_map, style_map, mapping, version) values (%s, 'person', %s, 'template.docx', %s, %s, %s, %s, %s, %s,"
+        " heading_map, style_map, mapping, version) values (%s, %s, %s, 'template.docx', %s, %s, %s, %s, %s, %s,"
         " (select coalesce(max(version), 0) + 1 from app.report_templates where owner_id = %s))",
         (
             template_id,
+            owner_type,
             expert,
             path,
             "a" * 64,

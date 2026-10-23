@@ -18,6 +18,7 @@ from collections.abc import AsyncIterator, Iterator
 import psycopg
 import pytest
 from fastapi import FastAPI
+from psycopg.types.json import Jsonb
 
 from app.core.db import Database
 from app.core.jobs import JobContext
@@ -278,6 +279,60 @@ async def test_a_template_that_cannot_be_used_falls_back_to_the_standard_layout(
     assert body["version"]["template_fallback"] is True
     styles = {style for style, _, _ in body_paragraphs(await latest_docx(admin, storage, aconn, world))}
     assert "AE Heading" not in styles
+
+
+def require_template(admin: psycopg.Connection, org: uuid.UUID, template: uuid.UUID | None) -> None:
+    policy = {} if template is None else {"required_template_id": str(template)}
+    admin.execute("update app.organisations set policy = %s where id = %s", (Jsonb(policy), org))
+
+
+@pytest.mark.usefixtures("services")
+async def test_a_team_case_builds_in_the_organisations_required_template(
+    client_for: ClientFor,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    aconn: psycopg.AsyncConnection,
+    world: World,
+) -> None:
+    mapping, order = template_mapping(world.combo)
+    await save_template(storage, admin, world.expert, mapping, data=b"the expert's own is not a word document")
+    required = await save_template(storage, admin, world.org, mapping, owner_type="organisation")
+    require_template(admin, world.org, required)
+    await build_now(client_for, worker_db, world)
+    version = (await (await client_for(world.expert)).get(world.url("report"))).json()["version"]
+    assert version["template_fallback"] is False, "the organisation's template was used, not the expert's"
+    sections = [
+        t.split(":", 1)[1]
+        for _, _, t in body_paragraphs(await latest_docx(admin, storage, aconn, world))
+        if t.startswith("section:")
+    ]
+    assert list(dict.fromkeys(sections))[: len(order)] == order
+    used = admin.execute(
+        "select template_id from app.report_builds where case_id = %s order by created_at desc limit 1", (world.case,)
+    ).fetchone()
+    assert used == (required,)
+
+
+@pytest.mark.usefixtures("services")
+async def test_without_a_required_template_the_experts_own_is_used(
+    client_for: ClientFor,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    world: World,
+) -> None:
+    mapping, _ = template_mapping(world.combo)
+    own = await save_template(storage, admin, world.expert, mapping)
+    await save_template(storage, admin, world.org, mapping, data=b"not a word document", owner_type="organisation")
+    require_template(admin, world.org, None)
+    await build_now(client_for, worker_db, world)
+    version = (await (await client_for(world.expert)).get(world.url("report"))).json()["version"]
+    assert version["template_fallback"] is False
+    used = admin.execute(
+        "select template_id from app.report_builds where case_id = %s order by created_at desc limit 1", (world.case,)
+    ).fetchone()
+    assert used == (own,)
 
 
 @pytest.mark.usefixtures("services")
