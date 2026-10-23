@@ -193,6 +193,20 @@ async def test_a_plain_member_changes_nobody_else_directly(api_db: Database, wor
             await _try(conn, "update app.memberships set role = 'owner' where id = %s", (world.memberships["viewer"],))
 
 
+async def test_each_member_comes_with_the_count_of_cases_they_are_named_expert_on_here(
+    client_for: ClientFor, world: World
+) -> None:
+    world.team_case("dr_k")
+    world.team_case("dr_k", status="served")
+    world.team_case("dr_m")
+    world.solo_case()  # another organisation's case: not counted here
+    resp = await (await client_for(world["viewer"])).get(members_url(world))
+    counts = {m["person_id"]: m["case_count"] for m in resp.json()["members"]}
+    assert counts[str(world["dr_k"])] == 2
+    assert counts[str(world["dr_m"])] == 1
+    assert counts[str(world["owner"])] == 0
+
+
 async def test_the_member_list_function_answers_only_members(api_db: Database, world: World) -> None:
     async with api_db.request(scope_for(world["outsider"])) as conn:
         cur = await conn.execute("select count(*) from app.organisation_members(%s)", (world.agency,))
