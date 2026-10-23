@@ -74,7 +74,9 @@ async def test_viewers_read_corrections_and_strangers_see_none(api_db: Database,
     await correct(api_db, world, world["facts"][0]["word_ids"])
     for person, seen in ((world["expert"], 1), (world["assistant"], 1), (world["stranger"], 0)):
         async with api_db.request(scope_for(person)) as conn:
-            cur = await conn.execute("select count(*) from app.word_corrections where page_id = %s", (world["page_id"],))
+            cur = await conn.execute(
+                "select count(*) from app.word_corrections where page_id = %s", (world["page_id"],)
+            )
             row = await cur.fetchone()
         assert row == (seen,), person
 

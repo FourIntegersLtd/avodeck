@@ -72,6 +72,9 @@ class FactOut(BaseModel):
     needs_recheck: bool = Field(
         default=False, description="Flagged 'Please check': its page was read again and its words were not found."
     )
+    cites_correction: bool = Field(
+        default=False, description="Cites words the expert read differently from the computer ('Read by you')."
+    )
     related: list[RelatedFact] = Field(
         default_factory=list,
         description="Other suggestions or checked facts on this page for the same day, of another kind.",
@@ -102,6 +105,19 @@ class Progress(BaseModel):
     seconds_left: int
 
 
+class CorrectedWordsIn(BaseModel):
+    """What some of the cited words really say, when the computer misread them (decision 0018)."""
+
+    word_ids: list[str] = Field(min_length=1, max_length=50)
+    text: str = Field(min_length=1, max_length=500)
+
+    @model_validator(mode="after")
+    def _said(self) -> CorrectedWordsIn:
+        if not self.text.strip():
+            raise ValueError("say what the words say")
+        return self
+
+
 class VerifyIn(BaseModel):
     action: Literal["correct", "not_right", "edit"]
     new_value: str | None = Field(default=None, max_length=2000)
@@ -109,6 +125,7 @@ class VerifyIn(BaseModel):
     reason: str | None = Field(default=None, max_length=500)
     fields: dict[str, Any] | None = Field(default=None, max_length=40)
     event_date: date | None = None
+    corrected_words: CorrectedWordsIn | None = None
 
 
 class MoveIn(BaseModel):

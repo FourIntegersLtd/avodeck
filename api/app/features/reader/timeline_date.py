@@ -9,7 +9,7 @@ from typing import Any
 
 from psycopg import AsyncConnection
 
-from app.core.contracts.document_words import word_purpose
+from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.fact_dates import case_anchor, resolve_fact_event_date
 from app.core.crypto import CaseCrypto
 from app.core.packs import PackLibrary
@@ -41,6 +41,9 @@ async def resolve_for_verify(
         ordered.append((word_id, text))
         if is_struck:
             struck.add(word_id)
+    corrections = await current_corrections(conn, crypto, case_id, [page_id])
+    if corrections:
+        ordered = list(apply_corrections(dict(ordered), corrections[page_id]).items())
     return resolve_fact_event_date(
         kind,
         fields,
