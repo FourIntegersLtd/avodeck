@@ -46,15 +46,24 @@ async def change_named_expert(
     return await service.reassign(conn, request.app.state.mailer, case_id, body.person_id)
 
 
-@router.post("/cases/{case_id}/replacement", response_model=ReplacementCase, status_code=201)
+@router.post(
+    "/cases/{case_id}/replacement",
+    response_model=ReplacementCase,
+    status_code=201,
+    responses={200: {"model": ReplacementCase, "description": "The replacement already made for this case"}},
+)
 async def create_replacement(
-    case_id: uuid.UUID, body: ReplacementRequest, conn: DbConn, _: Reassign
+    case_id: uuid.UUID, body: ReplacementRequest, response: Response, conn: DbConn, _: Reassign
 ) -> ReplacementCase:
-    """After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded."""
-    return await create_replacement_case(
+    """After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded.
+    Asking again returns the replacement already made, with 200."""
+    made = await create_replacement_case(
         conn, case_id, named_expert_id=body.named_expert_id,
         instructing_party_consented=body.instructing_party_consented,
     )  # fmt: skip
+    if not made.created:
+        response.status_code = 200
+    return made
 
 
 @router.get("/cases/{case_id}/support-access", response_model=SupportGrantList)
