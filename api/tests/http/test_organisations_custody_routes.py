@@ -250,3 +250,16 @@ async def test_a_transfer_that_goes_through_records_no_refusal(
         "select count(*) from app.audit_log where action = 'support.custody_transfer_refused' and case_id = %s",
         (case,),
     ).fetchone() == (0,)
+
+
+async def test_only_current_staff_learn_whether_an_organisation_has_closed(
+    world: World, staff: uuid.UUID, api_db: Database, worker_dsn: str, admin: psycopg.Connection
+) -> None:
+    admin.execute("update app.organisations set closed_at = now() where id = %s", (world.agency,))
+    sql = "select app.support_organisation_closed(%s)"
+    async with api_db.request(scope_for(staff)) as conn:
+        assert await (await conn.execute(sql, (world.agency,))).fetchone() == (True,)
+    async with api_db.request(scope_for(world["owner"])) as conn:
+        assert await (await conn.execute(sql, (world.agency,))).fetchone() == (None,)
+    with psycopg.connect(worker_dsn) as worker, pytest.raises(psycopg.errors.InsufficientPrivilege):
+        worker.execute(sql, (world.agency,))
