@@ -3,6 +3,7 @@ import { Navigate, useMatches, useOutlet, useParams } from "react-router-dom";
 import { t } from "../foundation/i18n";
 import { caseSubtitle, stepFor, type CaseFrame, type CaseScreenHandle } from "../foundation/lib/caseFrame";
 import { firstScreenInCase } from "../foundation/lib/screens";
+import { caseActions } from "../foundation/lib/slots";
 import { SessionContext } from "../foundation/lib/session";
 import { useTimeHeartbeat } from "../foundation/lib/timeHeartbeat";
 import { useResource } from "../foundation/lib/useResource";
@@ -59,6 +60,15 @@ export function CaseLayout() {
     (stepProgress.data?.steps ?? []).flatMap((s) => (s.percent === null || s.done === null || s.total === null ? [] : [[s.key, { done: s.done, total: s.total, percent: s.percent }]])),
   );
   const counts = progress.data;
+  const actions = caseActions({
+    caseId,
+    status: item.status,
+    served: item.status === "served",
+    onHold: item.on_hold,
+    allowedActions: item.allowed_actions,
+    isNamedExpert: !!me && me.person.id === item.named_expert_id,
+    orgRole: me?.memberships.find((m) => m.organisation_id === item.organisation_id)?.role ?? null,
+  });
   return (
     <>
       <CaseHeader
@@ -70,6 +80,7 @@ export function CaseLayout() {
         subtitle={caseSubtitle(item, pack)}
         progress={pills}
         person={person}
+        actions={actions}
       />
       {outlet ?? (
         <div className="av-page av-stack">

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { t } from "../../foundation/i18n";
-import { Logo } from "../../foundation/ui";
+import { t } from "../i18n";
+import { Logo } from "./Logo";
 
 // One line icon per promise (stroke paths on a 24px grid).
 const POINTS = [
