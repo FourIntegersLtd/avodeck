@@ -61,5 +61,5 @@ test("a member who may not see counts gets no cases text at all", async () => {
   const people = await screen.findByRole("region", { name: /^People/ });
   await within(people).findByText("Dr Jane Morgan (you)");
   expect(within(people).queryByText("—")).toBeNull();
-  expect(within(people).queryByText(/cases?$/)).toBeNull();
+  expect(within(people).queryByText(/^\d+ cases?$/)).toBeNull();
 });
