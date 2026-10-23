@@ -209,11 +209,11 @@ Waiting → one address confirmed → completed (both confirmed). Waiting or hal
 
 ## Membership (`memberships`)
 
-active (`started_at`) → ended (`ended_at`, by leaving, removal or organisation closure); terminal. Role changes are audited updates on an active membership. Guards: an organisation always keeps at least one owner (the last owner cannot leave or be removed); a person's membership of their personal organisation never ends while the account is open.
+active (`started_at`) → ended (`ended_at`, by leaving, removal or organisation closure); terminal. Role changes are audited updates on an active membership. Guards: an organisation always keeps at least one owner (the last owner cannot leave or be removed); a person's membership of their personal organisation never ends while the account is open. The running app refuses these with 409 `last_owner` ("Make someone else an owner first.", F32) and 409 `personal_organisation` (`memberships_actor`, migration 1001). Closing a team organisation ends every membership, owners included (migration 1005). Only an owner changes an owner's role or makes someone an owner.
 
 ## Invite (`invites`)
 
-pending → accepted (by the invited email, before `expires_at`) / cancelled (owner or admin) / expired (7 days). All three outcomes are terminal; a new invite is a new row.
+pending → accepted (by the invited email, before `expires_at`) / cancelled (owner or admin) / expired (7 days). All three outcomes are terminal; a new invite is a new row. A pending invite whose `expires_at` has passed reads as expired and can no longer be accepted (409 `invite_expired`); an accepted or cancelled one answers 409 `invite_closed`. `invites_guard` (migration 1002) allows only these moves.
 
 ## Hearing (`hearings.status`)
 
@@ -241,7 +241,7 @@ A serving row is created once per recipient and never edited. A mistaken serving
 
 ## Support access grant
 
-active (named expert grants, step-up, 24 hours) → expired / revoked. Terminal; every view during the grant is in the audit log.
+active (named expert grants, step-up, 24 hours) → expired / revoked. Terminal; every view during the grant is in the audit log. A grant counts only while it was given by the case's current named expert; expiry is checked on every read (`app.case_access`). A new grant on the same case revokes the earlier active one, so a case has at most one active grant (slice O's route). Revoking an expired or revoked grant is 409. Grants, revocations, every view under a grant (`support_access.viewed`) and every look from the support console (`support.case_looked_up`) are in the case's audit trail.
 
 ## Trial pack and offline package freshness
 

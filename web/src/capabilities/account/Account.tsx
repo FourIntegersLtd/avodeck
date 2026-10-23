@@ -9,6 +9,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
+import { accountSections } from "../../foundation/lib/slots";
 import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField, TextLink } from "../../foundation/ui";
 
 export function Account() {
@@ -54,6 +55,12 @@ export function Account() {
       />
       <Organisations memberships={me.memberships} />
       <HowWeTellYou />
+      {accountSections().map(({ key, titleKey, component: Section }) => (
+        <section key={key} aria-labelledby={`account-section-${key}`} className="av-card av-account-card">
+          <h2 id={`account-section-${key}`}>{t(titleKey)}</h2>
+          <Section />
+        </section>
+      ))}
     </div>
   );
 }

@@ -8,6 +8,7 @@ import "./styles.css";
 export { AppShell } from "./AppShell";
 export { Button, LinkButton } from "./Button";
 export type { ButtonProps, LinkButtonProps } from "./Button";
+export { AuthLayout } from "./AuthLayout";
 export { Callout, IconTile } from "./Callout";
 export type { CalloutProps } from "./Callout";
 export { CaseHeader, stepLabel } from "./CaseHeader";
