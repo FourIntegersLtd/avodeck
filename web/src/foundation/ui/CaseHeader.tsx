@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { humanise, t } from "../i18n";
 import { firstScreenInCase } from "../lib/screens";
@@ -99,22 +99,66 @@ export function CaseHeader({ steps, current, title, children, bar, caseId, subti
         {subtitle && <span className="av-case-bar__sub">{subtitle}</span>}
       </div>
       {pills}
-      {actions && actions.length > 0 && (
-        <nav aria-label={t("ui.case_header.actions")} className="av-case-bar__actions">
-          {actions.map((a) => (
-            <Link key={a.key} to={a.to}>
-              {t(a.labelKey)}
-            </Link>
-          ))}
-        </nav>
+      {actions && actions.length > 0 && caseId ? (
+        <AvatarMenu person={person} settingsTo={`/cases/${caseId}/team`} />
+      ) : (
+        <Link to="/account" className="av-shell__avatar">
+          <span className="av-shell__avatar-disc" aria-hidden="true">
+            {initials(person)}
+          </span>
+          <span className="av-visually-hidden">{t("app.nav.account")}</span>
+        </Link>
       )}
-      <Link to="/account" className="av-shell__avatar">
+      {children}
+    </header>
+  );
+}
+
+/** The avatar as a disclosure button: "Your account", and "Case settings" when the case has any action to show. */
+function AvatarMenu({ person, settingsTo }: { person?: string | null; settingsTo: string }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      button.current?.focus();
+    };
+    const onDown = (e: MouseEvent) => {
+      if (root.current && !root.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [open]);
+  return (
+    <div className="av-avatar-menu" ref={root}>
+      <button ref={button} type="button" className="av-shell__avatar" aria-expanded={open} aria-controls={panelId} onClick={() => setOpen((o) => !o)}>
         <span className="av-shell__avatar-disc" aria-hidden="true">
           {initials(person)}
         </span>
-        <span className="av-visually-hidden">{t("app.nav.account")}</span>
-      </Link>
-      {children}
-    </header>
+        <span className="av-visually-hidden">{t("ui.case_header.account")}</span>
+      </button>
+      {open && (
+        <ul id={panelId} className="av-avatar-menu__panel" role="list">
+          <li>
+            <Link to="/account" onClick={() => setOpen(false)}>
+              {t("ui.case_header.account")}
+            </Link>
+          </li>
+          <li>
+            <Link to={settingsTo} onClick={() => setOpen(false)}>
+              {t("ui.case_header.settings")}
+            </Link>
+          </li>
+        </ul>
+      )}
+    </div>
   );
 }

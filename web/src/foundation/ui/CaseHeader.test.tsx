@@ -63,6 +63,6 @@ test("the menu opens from the keyboard", async () => {
 
 test("without actions the avatar stays a plain link to the account", () => {
   renderUi(bar());
-  expect(screen.getByRole("link", { name: "Your account" })).toHaveAttribute("href", "/account");
-  expect(screen.queryByRole("button", { name: "Your account" })).toBeNull();
+  expect(screen.getByRole("link", { name: "Account" })).toHaveAttribute("href", "/account");
+  expect(screen.queryByRole("button")).toBeNull();
 });

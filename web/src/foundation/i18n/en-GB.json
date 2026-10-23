@@ -49,6 +49,8 @@
   "errors.retry": "Try again",
   "ui.case_header.steps": "Steps for this case",
   "ui.case_header.actions": "More for this case",
+  "ui.case_header.account": "Your account",
+  "ui.case_header.settings": "Case settings",
   "ui.status.checked": "Checked by you",
   "ui.status.please_check": "Please check",
   "ui.status.not_right": "Not right",
