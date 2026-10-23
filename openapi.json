@@ -3818,6 +3818,89 @@
         "title": "Custodian",
         "type": "object"
       },
+      "CustodyTransfer": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "to_organisation_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Organisation Id"
+          },
+          "to_person_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Person Id"
+          },
+          "transferred_at": {
+            "format": "date-time",
+            "title": "Transferred At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "case_id",
+          "to_person_id",
+          "to_organisation_id",
+          "transferred_at"
+        ],
+        "title": "CustodyTransfer",
+        "type": "object"
+      },
+      "CustodyTransferCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "evidence_note": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Evidence Note",
+            "type": "string"
+          },
+          "to": {
+            "enum": [
+              "custodian",
+              "organisation"
+            ],
+            "title": "To",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "to",
+          "evidence_note"
+        ],
+        "title": "CustodyTransferCreate",
+        "type": "object"
+      },
       "DeadlineChange": {
         "properties": {
           "direction_id": {
@@ -13890,6 +13973,57 @@
           "document_id"
         ],
         "title": "ReplaceAsk",
+        "type": "object"
+      },
+      "ReplacementCase": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "instructing_party_consented": {
+            "title": "Instructing Party Consented",
+            "type": "boolean"
+          },
+          "named_expert_id": {
+            "format": "uuid",
+            "title": "Named Expert Id",
+            "type": "string"
+          },
+          "replaces_case_id": {
+            "format": "uuid",
+            "title": "Replaces Case Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "replaces_case_id",
+          "named_expert_id",
+          "instructing_party_consented"
+        ],
+        "title": "ReplacementCase",
+        "type": "object"
+      },
+      "ReplacementRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "instructing_party_consented": {
+            "title": "Instructing Party Consented",
+            "type": "boolean"
+          },
+          "named_expert_id": {
+            "format": "uuid",
+            "title": "Named Expert Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "named_expert_id",
+          "instructing_party_consented"
+        ],
+        "title": "ReplacementRequest",
         "type": "object"
       },
       "ReplyIn": {
@@ -29665,6 +29799,70 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/replacement": {
+      "post": {
+        "description": "After serving: a new case for the replacement expert, linked `replaces`; consent to copy recorded.",
+        "operationId": "create_replacement_v1_cases__case_id__replacement_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReplacementRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplacementCase"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Create Replacement",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/report": {
       "get": {
         "operationId": "report_v1_cases__case_id__report_get",
@@ -37276,6 +37474,58 @@
           }
         },
         "summary": "Look Up Case",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
+    "/v1/support/custody-transfers": {
+      "post": {
+        "description": "(legal check) Behind the flag `support_custody_transfer` until the legal review of custody is done.",
+        "operationId": "record_custody_transfer_v1_support_custody_transfers_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustodyTransferCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustodyTransfer"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Record Custody Transfer",
         "tags": [
           "organisations"
         ]
