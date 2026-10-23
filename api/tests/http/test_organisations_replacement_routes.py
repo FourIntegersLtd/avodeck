@@ -6,7 +6,8 @@ calls `core/contracts/replacement.py`: a new draft case in the same organisation
 linked `replaces` to the served case, recording whether the instructing party consented to the bundle
 being copied. Nothing is copied here (slice A's, only with consent). An unserved case is 409 `not_served`
 (change its expert instead); an expert who cannot take it 422. The served case does not change. Asking again
-(a retry, a double click, two at once) returns the replacement already made, with 200, and makes no other.
+(a retry, a double click, two at once) returns the replacement already made, with 200, and makes no other;
+asking for a different expert or consent once one exists is 409 `replacement_exists`.
 """
 
 from __future__ import annotations
@@ -147,3 +148,27 @@ async def test_a_deleted_replacement_can_be_made_again(
     again = await owner.post(url(served), json=payload)
     assert again.status_code == 201, again.text
     assert again.json()["case_id"] != first.json()["case_id"]
+
+
+@pytest.mark.parametrize("change", ["expert", "consent", "unknown_expert"])
+async def test_asking_for_something_else_once_one_exists_is_refused(
+    client_for: ClientFor, world: World, admin: psycopg.Connection, change: str
+) -> None:
+    served = world.team_case(status="served")
+    owner = await client_for(world["owner"])
+    payload = {"named_expert_id": str(world["dr_m"]), "instructing_party_consented": False}
+    assert (await owner.post(url(served), json=payload)).status_code == 201
+    other = world.seed.person()
+    if change == "expert":
+        world.seed.membership(world.agency, other, "expert")
+    second = {
+        "expert": {**payload, "named_expert_id": str(other)},
+        "consent": {**payload, "instructing_party_consented": True},
+        "unknown_expert": {**payload, "named_expert_id": str(uuid.uuid4())},
+    }[change]
+    resp = await owner.post(url(served), json=second)
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "replacement_exists")
+    assert admin.execute(
+        "select count(*), bool_or(instructing_party_consented) from app.case_replacements where replaces_case_id = %s",
+        (served,),
+    ).fetchone() == (1, False)
