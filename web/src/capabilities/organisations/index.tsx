@@ -25,7 +25,7 @@ export const organisationsRoutes: RouteObject[] = [
   { path: "support", element: <SupportConsole /> },
 ];
 
-export const organisationsCaseRoutes: RouteObject[] = [{ path: "team", element: <CaseTeam />, handle: { screen: "case_team" } }];
+export const organisationsCaseRoutes: RouteObject[] = [{ path: "team", element: <CaseTeam /> }];
 
 /** The invite link works for someone who is not signed in yet, so it mounts outside the signed-in guard. */
 export const organisationsOfflineRoutes: RouteObject[] = [{ path: "invites/:token", element: <AcceptInvite /> }];
