@@ -211,7 +211,7 @@ async def hidden_words(
         read = masked_words(corrected, names, recognise)
         hidden |= read
         for word_ids, _ in corrections:
-            if read & set(word_ids):
+            if (read | hidden) & set(word_ids):
                 hidden |= set(word_ids)
     return hidden
 
