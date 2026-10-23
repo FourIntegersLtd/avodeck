@@ -53,14 +53,15 @@ test("Edit opens the role as a form, and saving sends the change with the role's
   expect(within(roles).getByText("2011 – 2024")).toBeInTheDocument();
 });
 
-test("a role changed elsewhere says so instead of overwriting it", async () => {
+test("a role changed elsewhere asks which version to keep instead of overwriting it", async () => {
   open(null);
   server.use(http.patch(`/v1/me/roles/${ROLE}`, () => HttpResponse.json({ error: { code: "stale" } }, { status: 412 })));
   const { user } = renderAt("/profile");
   const roles = await screen.findByRole("region", { name: "Where you've practised" });
   await user.click(within(roles).getByRole("button", { name: "Edit Partner" }));
   await user.click(within(roles).getByRole("button", { name: "Save this role" }));
-  expect(await within(roles).findByText(/changed somewhere else/i)).toBeInTheDocument();
+  expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  expect(screen.queryByText(/reload the page/i)).toBeNull();
 });
 
 test("the declaration tile counts the points and Review wording opens the wording", async () => {

@@ -2,8 +2,10 @@
 // file uploads. Words come from keys or from the pack (rule 11); files go only to FastAPI (rule 4).
 import { useId, type ButtonHTMLAttributes, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
+import { errorMessage } from "../../foundation/lib/errors";
+import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { ApiError, api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { ChoicePills, Segmented, StackedBar } from "../../foundation/ui";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
@@ -225,6 +227,22 @@ async function bytesOf(file: Blob): Promise<ArrayBuffer> {
 
 const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
 
+const PART_RETRIES = 3;
+const RETRY_PAUSE_MS = 150;
+
+/** Sends one part again after a short, growing wait, but only for a dropped connection or a 5xx. */
+async function withRetries<D>(send: () => Promise<D>): Promise<D> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await send();
+    } catch (err) {
+      const again = err instanceof ApiError && (err.status === 0 || err.status >= 500);
+      if (!again || attempt > PART_RETRIES) throw err;
+      await new Promise((resolve) => setTimeout(resolve, RETRY_PAUSE_MS * attempt));
+    }
+  }
+}
+
 /** Sends a file to the API in parts and returns the document it became. */
 export async function uploadFile(caseId: string, file: File, kind: string): Promise<string> {
   const bytes = await bytesOf(file);
@@ -235,17 +253,52 @@ export async function uploadFile(caseId: string, file: File, kind: string): Prom
   );
   for (let n = 1; n <= started.chunk_count; n += 1) {
     const part = bytes.slice((n - 1) * started.chunk_size, n * started.chunk_size);
-    await unwrap(
-      api.PUT("/v1/uploads/{upload_id}/chunks/{n}", {
-        params: { path: { upload_id: started.upload_id, n } },
-        body: part as never,
-        bodySerializer: (b: unknown) => b as BodyInit,
-        headers: { "Content-Type": "application/octet-stream" },
-      }),
+    await withRetries(() =>
+      unwrap(
+        api.PUT("/v1/uploads/{upload_id}/chunks/{n}", {
+          params: { path: { upload_id: started.upload_id, n } },
+          body: part as never,
+          bodySerializer: (b: unknown) => b as BodyInit,
+          headers: { "Content-Type": "application/octet-stream" },
+        }),
+      ),
     );
   }
   const done = await unwrap(api.POST("/v1/uploads/{upload_id}/complete", { params: { path: { upload_id: started.upload_id } } }));
   return String(done.document_id);
+}
+
+export interface UploadOutcome {
+  saved: Array<{ file: File; documentId: string }>;
+  failed: Array<{ name: string; reason: string }>;
+}
+
+/** Uploads each file (then runs `after` on it) and carries on past one that fails; says which were saved and which not. */
+export async function uploadFiles(
+  caseId: string,
+  files: File[],
+  kind: string,
+  after?: (file: File, documentId: string) => Promise<void>,
+): Promise<UploadOutcome> {
+  const out: UploadOutcome = { saved: [], failed: [] };
+  for (const file of files) {
+    try {
+      const documentId = await uploadFile(caseId, file, kind);
+      await after?.(file, documentId);
+      out.saved.push({ file, documentId });
+    } catch (err) {
+      out.failed.push({ name: file.name, reason: errorMessage(err) });
+    }
+  }
+  return out;
+}
+
+/** Plain words for an upload outcome that had failures (null when every file was saved). */
+export function uploadSummary(out: UploadOutcome): string | null {
+  if (out.failed.length === 0) return null;
+  const parts = [sw("upload.not_saved", { files: out.failed.map((f) => `${f.name} (${f.reason})`).join("; ") })];
+  if (out.saved.length > 0) parts.unshift(sw("upload.saved", { files: out.saved.map((s) => s.file.name).join(", ") }));
+  return parts.join(" ");
 }
 
 /** A file's bytes, for the raw-body uploads (template, signature). */
