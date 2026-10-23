@@ -7,6 +7,8 @@ After serving, a case's named expert never changes: a replacement expert gets a 
 0033). The new case is a draft in the same organisation, under the same packs and label, named to the
 new expert; the caller does not join it. Whether the instructing party consented to the bundle being
 copied is recorded (`case_replacements`); nothing is copied here (slice A's, only with consent).
+A served case gets one replacement: asking again returns the one already made (migration 0034), with
+`created` false, and records nothing new.
 """
 
 from __future__ import annotations
@@ -15,7 +17,7 @@ import uuid
 
 import psycopg
 from psycopg import AsyncConnection
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, PrivateAttr
 
 from app.core import audit
 from app.core.errors import CONFLICT_SQLSTATE, ApiError
@@ -31,6 +33,12 @@ class ReplacementCase(BaseModel):
     replaces_case_id: uuid.UUID
     named_expert_id: uuid.UUID
     instructing_party_consented: bool
+    _created: bool = PrivateAttr(default=True)
+
+    @property
+    def created(self) -> bool:
+        """False when this is the replacement an earlier request made (not part of the response body)."""
+        return self._created
 
 
 def not_served() -> ApiError:
@@ -47,8 +55,9 @@ async def create_replacement_case(
     instructing_party_consented: bool,
     label: str | None = None,
 ) -> ReplacementCase:
-    """Create the replacement in the request's transaction. 404 without the right to replace (as for a case
-    you cannot see), 409 `not_served`, 422 `invalid` (`named_expert_id`) for an expert who cannot take it."""
+    """Create the replacement in the request's transaction, or return the one already made for this case (its
+    own expert and consent; `created` false). 404 without the right to replace (as for a case you cannot see),
+    409 `not_served`, 422 `invalid` (`named_expert_id`) for an expert who cannot take it."""
     try:
         async with conn.transaction():
             cur = await conn.execute(
@@ -66,18 +75,25 @@ async def create_replacement_case(
         raise
     assert row is not None
     made: uuid.UUID = row[0]
-    cur = await conn.execute("select organisation_id from app.cases where id = %s", (case_id,))
-    org = await cur.fetchone()
-    organisation_id = org[0] if org else None
+    # Made by this transaction exactly when its consent row carries this transaction's now().
+    cur = await conn.execute(
+        "select r.instructing_party_consented, c.named_expert_id, c.organisation_id, r.recorded_at = now()"
+        " from app.case_replacements r join app.cases c on c.id = r.case_id where r.case_id = %s",
+        (made,),
+    )
+    found = await cur.fetchone()
+    assert found is not None
+    consented, expert, organisation_id, created = found
+    replacement = ReplacementCase(
+        case_id=made, replaces_case_id=case_id, named_expert_id=expert, instructing_party_consented=consented
+    )
+    replacement._created = created
+    if not created:
+        return replacement
     await audit.record(
         conn, action=CASE_CREATED, target=f"case:{made}", case_id=made, organisation_id=organisation_id
     )
     await audit.record(
         conn, action=REPLACEMENT_CREATED, target=f"case:{made}", case_id=case_id, organisation_id=organisation_id
     )
-    return ReplacementCase(
-        case_id=made,
-        replaces_case_id=case_id,
-        named_expert_id=named_expert_id,
-        instructing_party_consented=instructing_party_consented,
-    )
+    return replacement

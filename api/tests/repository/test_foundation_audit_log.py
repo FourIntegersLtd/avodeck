@@ -134,7 +134,9 @@ async def test_a_detached_row_stays_when_the_requests_transaction_rolls_back(
     with pytest.raises(_Refused):
         async with audit.detached(api_db, scope), api_db.request(scope) as conn:
             await audit.record(conn, action="case.updated", target=f"case:{case}", case_id=case)
-            audit.record_detached(action="case.update_refused", target="refused:busy", case_id=case, organisation_id=org)
+            audit.record_detached(
+                action="case.update_refused", target="refused:busy", case_id=case, organisation_id=org
+            )
             raise _Refused
     found = admin.execute(
         "select person_id, organisation_id, case_id, action, target from app.audit_log where case_id = %s", (case,)
