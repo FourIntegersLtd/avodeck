@@ -293,6 +293,8 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
   const [choice, setChoice] = useState<string>(saved);
   const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<Message>(null);
+  const limit = summary.max_retention_years ?? null;
+  const tooLong = limit !== null && summary.retention_years > limit; // the organisation keeps records for less
   const deleteNowBlocked = summary.ever_served || summary.held;
   const deleteNowHint = summary.ever_served ? w("keep.delete_now_served") : summary.held ? w("keep.delete_now_held") : w("keep.delete_now_hint");
 
@@ -328,7 +330,7 @@ function Keep(props: { caseId: string; summary: Summary; canDeleteNow: boolean; 
         {props.canDeleteNow && (
           <Option name="policy" value="delete_now" checked={choice === "delete_now"} disabled={deleteNowBlocked} label={w("keep.delete_now")} hint={deleteNowHint} onChange={pick} />
         )}
-        <Option name="policy" value="keep_default" checked={choice === "keep_default"} label={w("keep.keep_default", { years: summary.retention_years })} hint={w("keep.usual")} onChange={pick} />
+        <Option name="policy" value="keep_default" checked={choice === "keep_default"} disabled={tooLong} label={w("keep.keep_default", { years: summary.retention_years })} hint={tooLong ? w("keep.limited", { years: limit }) : w("keep.usual")} onChange={pick} />
         <Option
           name="policy"
           value="return_then_delete"

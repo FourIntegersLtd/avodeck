@@ -25,6 +25,7 @@ from psycopg.types.json import Jsonb
 
 from app.core.contracts.instructing_parties import logged_requests
 from app.core.contracts.invoices import case_invoice_rows
+from app.core.contracts.org_policy import org_policy
 from app.core.contracts.reading import page_read_log, verification_counts
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.email import deletion_certificate_mail
@@ -416,6 +417,10 @@ async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -
             async with conn.transaction():
                 await _as_case(conn, row["case_id"])
                 years = int(library.combine(row["jurisdiction"], row["case_type"], row["specialty"]).retention_years)
+                org = await _one(conn, "select organisation_id from app.cases where id = %s", (row["case_id"],))
+                if org is not None:
+                    limit = (await org_policy(conn, org["organisation_id"])).max_retention_years
+                    years = years if limit is None else min(years, limit)
                 policy = row["retention_policy"] or DEFAULT_POLICY
                 case = await _one(
                     conn,

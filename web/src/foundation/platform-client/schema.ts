@@ -5700,6 +5700,8 @@ export interface components {
             holds: components["schemas"]["app__features__close__schemas__Hold"][];
             /** Job Id */
             job_id?: string | null;
+            /** Max Retention Years */
+            max_retention_years?: number | null;
             /** Retention Policy */
             retention_policy: string | null;
             /** Retention Years */

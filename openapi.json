@@ -2985,6 +2985,17 @@
             ],
             "title": "Job Id"
           },
+          "max_retention_years": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Retention Years"
+          },
           "retention_policy": {
             "anyOf": [
               {
