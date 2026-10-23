@@ -247,7 +247,7 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
           draft={form}
           saved={stale.data}
           onKeepMine={() => void send(stale)}
-          onUseSaved={() => useSaved(stale)}
+          onUseSaved={() => takeSaved(stale)}
           onClose={() => setStale(null)}
           show={(p) => [p.full_name, [p.registration_body, p.registration_number].filter(Boolean).join(" · ")].filter(Boolean).join(", ")}
         />
