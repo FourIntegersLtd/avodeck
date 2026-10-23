@@ -5,6 +5,7 @@ Support staff record it, with a short note of the evidence seen (about the exper
 `custody_transfers` (migration 0032, foundation's table and access rule: the recipient gets the read-only
 `custodian` case role). The recipient is either the records custodian the named expert recorded (an open
 account that is neither support staff nor the recorder) or the case's own team organisation.
+One holder at a time: revoke a transfer before recording another.
 """
 
 from __future__ import annotations
@@ -45,6 +46,8 @@ async def transfer(conn: AsyncConnection, recorder: uuid.UUID, body: CustodyTran
     case = cases[0]
     if not case["served"]:
         raise ApiError("not_served", "Only a served case's records pass to a custodian.", 409)
+    if await repo.custody_in_force(conn, body.case_id):
+        raise ApiError("custody_already_transferred", "This case's records are already held by someone.", 409)
     to_person: uuid.UUID | None = None
     to_org: uuid.UUID | None = None
     if body.to == "custodian":
