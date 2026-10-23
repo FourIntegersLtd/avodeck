@@ -35,6 +35,7 @@ async def give(
 ) -> SupportGrant:
     if body.granted_to is not None and not await repo.is_support_staff(conn, body.granted_to):
         raise ApiError("invalid", "Some details are not valid.", 422, fields=["granted_to"])
+    await repo.lock_case(conn, case_id)
     await repo.end_active_grants(conn, case_id)
     grant_id = await repo.add_grant(conn, case_id, body.reason, body.granted_to)
     given = await repo.grant(conn, case_id, grant_id)
@@ -43,6 +44,9 @@ async def give(
     mail = support_access_granted_mail(expert_email, case_id=case_id, grant_id=grant_id, expires_at=given["expires_at"])
     await send_mail(mailer, mail)
     return SupportGrant(**given)
+
+
+LOOKED_UP = "support.case_looked_up"
 
 
 def _query(q: str) -> tuple[uuid.UUID | None, str | None]:
@@ -56,7 +60,10 @@ async def console_search(conn: AsyncConnection, q: str) -> list[SupportCase]:
     case_id, email = _query(q.strip())
     if case_id is None and email is None:
         return []
-    return [SupportCase(**r) for r in await repo.support_cases(conn, case_id, email)]
+    found = [SupportCase(**r) for r in await repo.support_cases(conn, case_id, email)]
+    for case in found:  # every case a search shows is a look at it (F38): in its audit trail
+        await audit.record(conn, action=LOOKED_UP, target=f"case:{case.case_id}", case_id=case.case_id)
+    return found
 
 
 async def console_case(conn: AsyncConnection, case_id: uuid.UUID) -> SupportCaseDetail:
@@ -64,7 +71,7 @@ async def console_case(conn: AsyncConnection, case_id: uuid.UUID) -> SupportCase
     if not found:
         raise not_found()
     rows = await repo.support_case_grants(conn, case_id)
-    await audit.record(conn, action="support.case_looked_up", target=f"case:{case_id}", case_id=case_id)
+    await audit.record(conn, action=LOOKED_UP, target=f"case:{case_id}", case_id=case_id)
     return SupportCaseDetail(
         case=SupportCase(**found[0]),
         grants=[SupportCaseGrant(**{k: v for k, v in r.items() if k != "mine"}) for r in rows],
