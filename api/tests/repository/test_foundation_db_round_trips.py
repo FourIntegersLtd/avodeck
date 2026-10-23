@@ -4,7 +4,9 @@ A request transaction sends BEGIN and every session setting together (one round 
 handler's queries, then COMMIT. Looking up the session cookie is one round trip in all. The settings
 stay transaction-local (ADR 0013): visible inside, gone from the pooled connection afterwards.
 Round trips are counted by a byte-forwarding proxy between the pool and Postgres: each time the
-client speaks after the server has answered is one more trip.
+client speaks after the server has answered is one more trip. The proxy holds every answer back for
+`LATENCY`, as the network to the cloud database does, so statements the client sends without waiting
+(pipeline mode) are not mistaken for trips just because a local server answers in microseconds.
 """
 
 from __future__ import annotations
@@ -26,28 +28,41 @@ pytestmark = pytest.mark.anyio
 PERSON = uuid.UUID("00000000-0000-4000-8000-0000000000aa")
 ORG = uuid.UUID("00000000-0000-4000-8000-0000000000fa")
 CASE = uuid.UUID("00000000-0000-4000-8000-0000000000ca")
+LATENCY = 0.03  # seconds each server answer is held back
+
+
+# A bare protocol Flush ('H', length 4) asks for nothing new: the client sends it while the server is
+# still answering the batch it already has, so it waits for no extra round trip.
+_FLUSH = b"H\x00\x00\x00\x04"
 
 
 class Turns:
-    """Counts round trips seen by the proxy."""
+    """Counts round trips seen by the proxy: each time the client sends a new request after the
+    server has answered."""
 
     def __init__(self) -> None:
         self.count = 0
         self._server_spoke_last = True
 
-    def client(self) -> None:
+    def client(self, data: bytes) -> None:
+        if not data.replace(_FLUSH, b""):
+            return
         if self._server_spoke_last:
             self.count += 1
         self._server_spoke_last = False
 
-    def server(self) -> None:
+    def server(self, data: bytes) -> None:
         self._server_spoke_last = True
 
 
-async def _pipe(reader: asyncio.StreamReader, writer: asyncio.StreamWriter, seen: Callable[[], None]) -> None:
+async def _pipe(
+    reader: asyncio.StreamReader, writer: asyncio.StreamWriter, seen: Callable[[bytes], None], delay: float = 0
+) -> None:
     try:
         while data := await reader.read(65536):
-            seen()
+            if delay:
+                await asyncio.sleep(delay)
+            seen(data)
             writer.write(data)
             await writer.drain()
     except (ConnectionError, asyncio.CancelledError):
@@ -65,7 +80,7 @@ async def counted(api_dsn: str) -> AsyncIterator[tuple[Callable[..., Database], 
 
     async def handle(client_r: asyncio.StreamReader, client_w: asyncio.StreamWriter) -> None:
         server_r, server_w = await asyncio.open_connection(host, port)
-        for task in (_pipe(client_r, server_w, turns.client), _pipe(server_r, client_w, turns.server)):
+        for task in (_pipe(client_r, server_w, turns.client), _pipe(server_r, client_w, turns.server, LATENCY)):
             tasks.add(asyncio.ensure_future(task))
 
     proxy = await asyncio.start_server(handle, "127.0.0.1", 0)
@@ -179,8 +194,10 @@ async def test_settings_are_visible_inside_and_gone_after_on_the_same_connection
         # max_size=1: the same pooled connection, outside any of our transactions now.
         async with db._pool.connection() as raw:  # noqa: SLF001 - the pool's own connection, unscoped
             cur = await raw.execute(
-                "select nullif(current_setting('app.person_id', true), ''), nullif(current_setting('app.org_ids', true), ''),"
-                " nullif(current_setting('app.request_id', true), ''), nullif(current_setting('app.job_case_id', true), '')"
+                "select nullif(current_setting('app.person_id', true), ''),"
+                " nullif(current_setting('app.org_ids', true), ''),"
+                " nullif(current_setting('app.request_id', true), ''),"
+                " nullif(current_setting('app.job_case_id', true), '')"
             )
             assert await cur.fetchone() == (None, None, None, None)
             await raw.rollback()
