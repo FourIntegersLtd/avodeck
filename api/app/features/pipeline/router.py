@@ -43,6 +43,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import uuid
 from typing import Annotated
 from urllib.parse import quote
@@ -57,7 +58,7 @@ from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
 from app.core.storage import SupabaseStorage
-from app.features.pipeline import missing, paths, repo, wiring
+from app.features.pipeline import missing, paths, repo, split, wiring
 from app.features.pipeline.schemas import (
     Appended,
     AppendRecords,
@@ -92,6 +93,8 @@ from app.features.pipeline.schemas import (
     SortedPage,
     SortedPages,
     SourceCount,
+    Split,
+    SplitAsk,
 )
 from app.features.pipeline.service import REPAIR_FACT_DATES, REPROCESS_CASE, SCAN_DOCUMENT
 
@@ -400,6 +403,7 @@ async def bundle_summary(
         quarantined=[_quarantine(q) for q in held if q.status in ("confirmed", "purged")],
         exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
         foreign_language=[ForeignPage(page_id=p, page_no=n, language=code) for p, n, code in foreign],
+        splits=await repo.split_count(conn, case_id),
     )
 
 
@@ -724,3 +728,46 @@ async def replace_page(
     return PageReplacement(
         page_id=page_id, document_id=body.document_id, new_page_id=new_page_id, new_page_no=new_page_no
     )
+
+
+@pipeline_router.post("/{case_id}/pages/{page_id}/split", response_model=Split, status_code=202)
+async def split_page(
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("page.replace"))],
+    body: SplitAsk,
+    request: Request,
+    conn: DbConn,
+) -> Split:
+    """A two-page scan is cut in two. The halves are added as new pages after the last one (never
+    renumbering); the original stays as it is, with its checked facts."""
+    number = await repo.page_no_of(conn, case_id, page_id)
+    if number is None:
+        raise _not_found()
+    if await repo.split_blocked(conn, page_id):
+        raise ApiError("conflict", "That page has already been split or replaced.", 409)
+    services = wiring.current()
+    crypto = _crypto(request)
+    path = paths.page_pdf_path(case_id, page_id)
+    cut = split.halves(
+        await crypto.decrypt(conn, case_id, await services.storage.get(path), purpose=path),
+        body.axis,
+        body.at,
+        body.first,
+    )
+    document_id = uuid.uuid4()
+    prefix = paths.part_prefix(case_id, document_id)
+    object_path = f"{prefix}/file"
+    await services.storage.put(object_path, await crypto.encrypt(conn, case_id, cut, purpose=object_path))
+    await repo.add_split_document(
+        conn,
+        case_id,
+        page_id,
+        document_id=document_id,
+        filename=f"split-of-page-{number}.pdf",
+        sha256=hashlib.sha256(cut).hexdigest(),
+        storage_path=prefix,
+    )
+    job_id = await wiring.registry().enqueue(conn, case_id, SCAN_DOCUMENT)
+    await audit.record(conn, action="page.split", target=f"page:{page_id}", case_id=case_id)
+    return Split(page_id=page_id, document_id=document_id, job_id=job_id)

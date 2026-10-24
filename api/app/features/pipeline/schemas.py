@@ -6,7 +6,7 @@ import datetime as dt
 import uuid
 from typing import Literal, NotRequired, TypedDict
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class DuplicatePage(BaseModel):
@@ -151,6 +151,7 @@ class BundleSummary(BaseModel):
     quarantined: list[QuarantinePage] = []  # pages the named expert removed; they keep their numbers
     exhibits: list[Exhibit] = []  # files kept but not readable by Avodeck
     foreign_language: list[ForeignPage] = []  # pages not in the pack's language; never translated
+    splits: int = 0  # two-page scans cut into halves (the halves are extra pages)
 
 
 class ProvenanceChange(BaseModel):
@@ -242,6 +243,26 @@ class ProcessingCancelled(BaseModel):
 
 class ReplaceAsk(BaseModel):
     document_id: uuid.UUID  # the clearer copy, uploaded as later records
+
+
+class SplitAsk(BaseModel):
+    """Where to cut a two-page scan: down the page (left and right) or across it (top and bottom)."""
+
+    axis: Literal["vertical", "horizontal"]
+    at: float = Field(default=0.5, gt=0.0, lt=1.0)
+    first: Literal["left", "right", "top", "bottom"]  # the half that takes the lower page number
+
+    @model_validator(mode="after")
+    def _first_fits_axis(self) -> SplitAsk:
+        if self.first not in (("left", "right") if self.axis == "vertical" else ("top", "bottom")):
+            raise ValueError("first does not fit the cut")
+        return self
+
+
+class Split(BaseModel):
+    page_id: uuid.UUID
+    document_id: uuid.UUID
+    job_id: uuid.UUID
 
 
 class PageReplacement(BaseModel):

@@ -180,6 +180,7 @@ async def _split(ctx: JobContext, services: PipelineServices) -> None:
                 if await repo.add_pages(conn, ctx.case_id, doc.id, len(pages)):
                     cache[doc.id] = pages
                 await repo.link_replacements(conn, ctx.case_id)
+                await repo.link_splits(conn, ctx.case_id)
     async with ctx.transaction() as conn:
         waiting = await repo.pages_without_image(conn, ctx.case_id)
     stop = _stop(ctx)
