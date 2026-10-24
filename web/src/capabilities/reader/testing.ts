@@ -24,6 +24,10 @@ export interface ReaderApi {
   appends: Array<Record<string, unknown>>;
   moves: Array<{ id: string; ifMatch: string | null; body: Record<string, unknown> }>;
   facts: Schemas["FactOut"][];
+  /** Every bundle search sent (`POST /search`), as its body. */
+  searches: Array<Record<string, unknown>>;
+  /** Every bookmark or note saved (`PUT /pages/{n}/my-note`), in order. */
+  noteSaves: Array<{ page: number; body: Record<string, unknown> }>;
   read: boolean;
   verifyStatus?: number;
   verifyCode?: string;
@@ -57,6 +61,10 @@ export interface ReaderOpts {
   pageCount?: number;
   /** Pages the list says were read (with `pageCount`). */
   readPages?: number[];
+  /** What a bundle search finds: page number to its hits and boxes (default none). */
+  searchHits?: Record<number, { hits: number; boxes: Array<{ x0: number; y0: number; x1: number; y1: number }> }>;
+  /** The person's own bookmarks and notes when the screen opens (default none). */
+  notes?: Array<{ page_no: number; bookmarked: boolean; note: string }>;
 }
 
 /** Mounts every reader endpoint for a case; returns what it saw. */
@@ -78,11 +86,14 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     replaces: [],
     appends: [],
     moves: [],
+    searches: [],
+    noteSaves: [],
     facts: opts.facts ?? [fact(1), fact(2)],
     read: opts.alreadyRead ?? false,
   };
   let turn = opts.turn ?? 0;
   const listed = (n: number) => ({ page_no: n, page_id: pageId(n), source_type: null, read: (opts.readPages ?? []).includes(n), in_period: null, unreadable: false, duplicate_of_page_no: null, turn: 0 });
+  let notes = (opts.notes ?? []).map((n) => ({ ...n, updated_at: "2026-10-23T10:00:00Z" }));
   let queue = opts.queue ?? [queuePage(612), queuePage(640), queuePage(655)];
   const c = `/v1/cases/${CASE_ID}`;
   signedIn({ pack });
@@ -106,6 +117,22 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
         return json({ pages, next_cursor: null });
       }
       return json({ pages: [{ page_no: pageNo, page_id: "x", source_type: null, read: false, in_period: true, unreadable: false, duplicate_of_page_no: null, turn: 0 }], next_cursor: null });
+    }),
+    http.post(`${c}/search`, async ({ request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      api.searches.push(body);
+      const found = Object.entries(opts.searchHits ?? {}).map(([n, v]) => ({ page_no: Number(n), hits: v.hits, boxes: v.boxes }));
+      return json({ pages: found, total_hits: found.reduce((t, p) => t + p.hits, 0) });
+    }),
+    http.get(`${c}/my-notes`, () => json({ notes: [...notes].sort((a, b) => a.page_no - b.page_no) })),
+    http.put(`${c}/pages/:n/my-note`, async ({ params, request }) => {
+      const body = (await request.json()) as { bookmarked: boolean; note: string };
+      const n = Number(params.n);
+      api.noteSaves.push({ page: n, body });
+      const kept = { page_no: n, bookmarked: body.bookmarked, note: body.note.trim(), updated_at: "2026-10-24T10:00:00Z" };
+      notes = notes.filter((x) => x.page_no !== n);
+      if (kept.bookmarked || kept.note) notes.push(kept);
+      return json(kept);
     }),
     http.get(`${c}/progress`, () => json(opts.progress ?? { read: 3, total: 10, seconds_left: 300 })),
     http.get(`${c}/pages/:n/image`, ({ request }) => {
