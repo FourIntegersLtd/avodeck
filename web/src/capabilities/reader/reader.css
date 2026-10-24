@@ -32,11 +32,11 @@
 /* The page viewer: Go to page, the view bar, "Make it clearer", the page strip and the page. */
 .rd-goto { display: flex; align-items: center; gap: var(--space-2); flex: none; }
 .rd-goto__input { width: 5.5em; min-height: 52px; font-size: 17px; font-family: var(--font-mono); }
-.rd-goto__error { flex: 1 1 100%; margin: 0; color: var(--red, #B42318); font-weight: 600; }
+.rd-goto__error { flex: 1 1 100%; margin: 0; color: var(--red); font-weight: 600; }
 .rd-view { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); flex: 1 1 100%; }
 .rd-view__group { display: inline-flex; align-items: center; gap: var(--space-2); }
 .rd-view .av-button { min-width: 52px; }
-.rd-view .av-button[aria-pressed="true"] { border-color: var(--green); background: var(--mint, #E6F2EC); }
+.rd-view .av-button[aria-pressed="true"] { border-color: var(--green); background: var(--green-tint); }
 .rd-view__level { min-width: 3.5em; text-align: center; }
 .rd-clearer { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-4); flex: 1 1 100%; padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
 .rd-clearer__row { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; }
@@ -44,11 +44,11 @@
 .rd-viewer { display: flex; gap: var(--space-3); flex: 1 1 auto; min-height: 0; }
 .rd-viewer > .rd-paper { flex: 1 1 0; min-width: 0; }
 .rd-strip { flex: 0 0 116px; overflow-y: auto; position: relative; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
-.rd-strip:focus-visible { outline: 3px solid var(--focus, #1D4ED8); outline-offset: 2px; }
+.rd-strip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .rd-strip__track { position: relative; }
 .rd-strip__item { position: absolute; left: 0; right: 0; height: 136px; box-sizing: border-box; padding: 8px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; border: 2px solid transparent; border-radius: 4px; }
-.rd-strip__item--current { border-color: var(--green); background: var(--mint, #E6F2EC); }
-.rd-strip:focus-visible .rd-strip__item--active { outline: 3px solid var(--focus, #1D4ED8); outline-offset: -3px; }
+.rd-strip__item--current { border-color: var(--green); background: var(--green-tint); }
+.rd-strip:focus-visible .rd-strip__item--active { outline: 3px solid var(--focus); outline-offset: -3px; }
 .rd-strip__image { display: block; width: 68px; height: 95px; object-fit: contain; background: #fff; box-shadow: 0 1px 3px rgba(15, 61, 44, 0.2); }
 .rd-strip__image--empty { background: var(--line); }
 .rd-strip__label { display: inline-flex; align-items: center; gap: 4px; font-family: var(--font-mono); font-size: 17px; color: var(--ink); }
@@ -160,3 +160,30 @@
 .rd-misread { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); font-size: 17px; }
 .rd-misread .av-input { min-height: 52px; font-size: 17px; }
 .rd-read-by-you { margin: 0; font-size: 17px; font-weight: 600; color: var(--ink-soft); }
+
+/* Finding words in the bundle (page viewer batch 2) */
+.rd-search { display: flex; flex-direction: column; gap: var(--space-2); flex: 1 1 100%; font-size: 17px; }
+.rd-search__form { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.rd-search__input { min-height: 52px; font-size: 17px; flex: 1 1 14em; max-width: 24em; }
+.rd-search__found p { margin: 0; font-weight: 600; }
+.rd-search__list { list-style: none; display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; max-height: 9.5em; overflow-y: auto; }
+.rd-search__page { display: inline-flex; align-items: center; min-height: 52px; padding: 0 var(--space-3); border: 1px solid var(--line); border-radius: 8px; font-size: 17px; }
+.rd-hit { position: absolute; background: color-mix(in srgb, var(--green-tint) 55%, transparent); outline: 3px solid var(--green); border-radius: 2px; pointer-events: none; }
+
+/* Two pages side by side: each takes half the space */
+.rd-viewer--two > .rd-paper { flex: 1 1 0; min-width: 0; }
+
+/* Full screen: the page view fills the window; the suggestions wait until full screen ends */
+.rd.rd--full { position: fixed; inset: 0; z-index: 50; background: var(--surface); padding: var(--space-3); overflow: auto; }
+.rd--full > .rd-banner, .rd--full .rd-side, .rd--full .rd-split { display: none; }
+.rd--full .rd-pane { flex: 1 1 100%; max-width: none; }
+
+/* The expert's own bookmarks and notes */
+.rd-notes { display: flex; flex-direction: column; gap: var(--space-2); padding-top: var(--space-3); border-top: 1px solid var(--line); font-size: 17px; }
+.rd-notes h3 { margin: 0; font-size: 19px; }
+.rd-notes__text { font-size: 17px; min-height: 52px; resize: vertical; }
+.rd-notes__said { margin: 0; font-weight: 600; color: var(--green); }
+.rd-notes__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.rd-notes__list li { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
+.rd-notes__list a { display: inline-flex; align-items: center; min-height: 52px; font-family: var(--font-mono); }
+.rd-notes__what { color: var(--ink-soft); }

@@ -935,34 +935,6 @@
         "title": "BillingProfileOut",
         "type": "object"
       },
-      "Box": {
-        "properties": {
-          "x0": {
-            "title": "X0",
-            "type": "number"
-          },
-          "x1": {
-            "title": "X1",
-            "type": "number"
-          },
-          "y0": {
-            "title": "Y0",
-            "type": "number"
-          },
-          "y1": {
-            "title": "Y1",
-            "type": "number"
-          }
-        },
-        "required": [
-          "x0",
-          "y0",
-          "x1",
-          "y1"
-        ],
-        "title": "Box",
-        "type": "object"
-      },
       "BuildQueued": {
         "properties": {
           "job_id": {
@@ -9165,6 +9137,76 @@
         "title": "MoveIn",
         "type": "object"
       },
+      "MyNote": {
+        "properties": {
+          "bookmarked": {
+            "title": "Bookmarked",
+            "type": "boolean"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "page_no",
+          "bookmarked",
+          "note",
+          "updated_at"
+        ],
+        "title": "MyNote",
+        "type": "object"
+      },
+      "MyNoteIn": {
+        "description": "The person's own bookmark and private note for a page; both cleared removes them.",
+        "properties": {
+          "bookmarked": {
+            "default": false,
+            "title": "Bookmarked",
+            "type": "boolean"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "title": "MyNoteIn",
+        "type": "object"
+      },
+      "MyNotes": {
+        "properties": {
+          "notes": {
+            "items": {
+              "$ref": "#/components/schemas/MyNote"
+            },
+            "title": "Notes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "notes"
+        ],
+        "title": "MyNotes",
+        "type": "object"
+      },
       "NamedExpert": {
         "properties": {
           "case_id": {
@@ -11820,7 +11862,7 @@
         "description": "Where an entry sits on the visit's page (a share of the page, 0 to 1): the visit, or a later entry to blur.",
         "properties": {
           "box": {
-            "$ref": "#/components/schemas/Box"
+            "$ref": "#/components/schemas/app__features__understand__routes_consultation__Box"
           },
           "fact_id": {
             "format": "uuid",
@@ -15182,6 +15224,69 @@
           "version"
         ],
         "title": "RowOut",
+        "type": "object"
+      },
+      "SearchIn": {
+        "description": "Words to find in the bundle. In the body, never the address, and never logged (rule 6).",
+        "properties": {
+          "q": {
+            "maxLength": 100,
+            "title": "Q",
+            "type": "string"
+          }
+        },
+        "required": [
+          "q"
+        ],
+        "title": "SearchIn",
+        "type": "object"
+      },
+      "SearchOut": {
+        "properties": {
+          "pages": {
+            "items": {
+              "$ref": "#/components/schemas/SearchPage"
+            },
+            "title": "Pages",
+            "type": "array"
+          },
+          "total_hits": {
+            "title": "Total Hits",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "pages",
+          "total_hits"
+        ],
+        "title": "SearchOut",
+        "type": "object"
+      },
+      "SearchPage": {
+        "properties": {
+          "boxes": {
+            "description": "Each hit's place on the page; never the words themselves.",
+            "items": {
+              "$ref": "#/components/schemas/app__features__reader__schemas__Box"
+            },
+            "title": "Boxes",
+            "type": "array"
+          },
+          "hits": {
+            "title": "Hits",
+            "type": "integer"
+          },
+          "page_no": {
+            "title": "Page No",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page_no",
+          "hits",
+          "boxes"
+        ],
+        "title": "SearchPage",
         "type": "object"
       },
       "SectionIn": {
@@ -19225,6 +19330,35 @@
         "title": "Hold",
         "type": "object"
       },
+      "app__features__reader__schemas__Box": {
+        "description": "A place on the page as a share of the page (0 to 1).",
+        "properties": {
+          "x0": {
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "title": "Box",
+        "type": "object"
+      },
       "app__features__report__routes_serve__WithdrawIn": {
         "additionalProperties": false,
         "properties": {
@@ -19330,6 +19464,34 @@
           "decided_at"
         ],
         "title": "NoteOut",
+        "type": "object"
+      },
+      "app__features__understand__routes_consultation__Box": {
+        "properties": {
+          "x0": {
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "title": "Box",
         "type": "object"
       },
       "app__features__understand__routes_consultation__NoteOut": {
@@ -26152,6 +26314,60 @@
         ]
       }
     },
+    "/v1/cases/{case_id}/my-notes": {
+      "get": {
+        "description": "The person's own bookmarks and notes on the case, in page order.",
+        "operationId": "my_notes_v1_cases__case_id__my_notes_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyNotes"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "My Notes",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
     "/v1/cases/{case_id}/named-expert": {
       "post": {
         "operationId": "change_named_expert_v1_cases__case_id__named_expert_post",
@@ -28085,6 +28301,79 @@
           }
         },
         "summary": "Page Image",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/pages/{page_no}/my-note": {
+      "put": {
+        "description": "The person's own bookmark and private note for the page; only they see it. Separate from the\nrecord: not reading, never sent to AI, never logged.",
+        "operationId": "keep_my_note_v1_cases__case_id__pages__page_no__my_note_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_no",
+            "required": true,
+            "schema": {
+              "title": "Page No",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MyNoteIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MyNote"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Keep My Note",
         "tags": [
           "reader"
         ]
@@ -32150,6 +32439,70 @@
         "summary": "Change Retention",
         "tags": [
           "close"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/search": {
+      "post": {
+        "description": "Find words in the bundle: the words read from the pages (with the expert's readings of misread\nwords), never the suggestions, so the blind read stays (rule 3). Not reading. Answers page numbers,\nhit counts and places only; the words are never returned or logged (rule 6).",
+        "operationId": "search_bundle_v1_cases__case_id__search_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Search Bundle",
+        "tags": [
+          "reader"
         ]
       }
     },

@@ -17,7 +17,8 @@ from PIL import Image
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.contracts import served
-from app.core.contracts.document_words import Correction, apply_corrections
+from app.core.contracts.document_words import Correction, apply_corrections, document_words
+from app.core.contracts.document_words import box as word_box
 from app.core.contracts.fact_flags import POINTS, RECHECK
 from app.core.contracts.pipeline import EntryPointMissing, extract_page_text, process_pages
 from app.core.contracts.reading import blind_read, require_page_read
@@ -29,12 +30,17 @@ from app.core.packs import PackLibrary
 from app.core.storage import SupabaseStorage
 from app.features.reader import fields as fact_fields
 from app.features.reader import repo, timeline_date, today  # noqa: F401 (registers the Today providers)
+from app.features.reader import search as bundle_search
 from app.features.reader.schemas import (
+    Box,
     FactList,
     FactOut,
     FlagOut,
     JobOut,
     MoveIn,
+    MyNote,
+    MyNoteIn,
+    MyNotes,
     PageChange,
     PageDetail,
     PageList,
@@ -45,6 +51,9 @@ from app.features.reader.schemas import (
     ReadIn,
     ReadOut,
     RotateIn,
+    SearchIn,
+    SearchOut,
+    SearchPage,
     TranscriptionIn,
     TurnIn,
     UnreadablePage,
@@ -583,6 +592,86 @@ async def unflag_point(
         raise _fact_not_found()
     await repo.set_flag(conn, case_id, fact_id, POINTS, scope.person_id, on=False)
     return FlagOut(fact_id=fact_id, flagged=False)
+
+
+@router.post("/search", response_model=SearchOut)
+async def search_bundle(
+    case_id: uuid.UUID, body: SearchIn, access: View, request: Request, response: Response, conn: DbConn
+) -> SearchOut:
+    """Find words in the bundle: the words read from the pages (with the expert's readings of misread
+    words), never the suggestions, so the blind read stays (rule 3). Not reading. Answers page numbers,
+    hit counts and places only; the words are never returned or logged (rule 6)."""
+    response.headers["cache-control"] = "private, no-store"
+    wanted = bundle_search.terms(body.q)
+    pages = await repo.searchable_pages(conn, case_id)
+    polygons, sizes = await repo.word_places(conn, case_id)
+    crypto = _crypto(request)
+    by_page: dict[uuid.UUID, list[tuple[str, str]]] = {}
+    for document_id in sorted({d for _, d in pages.values()}, key=str):
+        for key, text in await document_words(conn, crypto, case_id, document_id):
+            page_part, word_id = key.split("/", 1)
+            page_id = uuid.UUID(page_part)
+            if page_id in pages:
+                by_page.setdefault(page_id, []).append((word_id, text))
+    found: list[SearchPage] = []
+    for page_id, words in by_page.items():
+        hits = bundle_search.find(words, wanted)
+        if not hits:
+            continue
+        places = polygons.get(page_id, {})
+        width, height = sizes.get(page_id) or _furthest(places)
+        boxes = []
+        for ids in hits:
+            placed = [w for w in ids if any(places.get(w, []))]
+            if placed:
+                boxes.append(Box(**word_box(placed, places, width, height)))
+        found.append(SearchPage(page_no=pages[page_id][0], hits=len(hits), boxes=boxes))
+    found.sort(key=lambda p: p.page_no)
+    return SearchOut(pages=found, total_hits=sum(p.hits for p in found))
+
+
+def _furthest(polygons: dict[str, list[float]]) -> tuple[float, float]:
+    """A page with no analysis: its size from its furthest word (as `repo._size`)."""
+    width = max((x for p in polygons.values() for x in p[0::2]), default=1.0) or 1.0
+    height = max((y for p in polygons.values() for y in p[1::2]), default=1.0) or 1.0
+    return width, height
+
+
+NoteKeeper = Annotated[CaseAccess, Depends(require_case_access("page.read"))]
+
+
+@router.put("/pages/{page_no}/my-note", response_model=MyNote)
+async def keep_my_note(
+    case_id: uuid.UUID,
+    page_no: int,
+    body: MyNoteIn,
+    access: NoteKeeper,
+    request: Request,
+    response: Response,
+    conn: DbConn,
+    scope: CurrentScope,
+) -> MyNote:
+    """The person's own bookmark and private note for the page; only they see it. Separate from the
+    record: not reading, never sent to AI, never logged."""
+    response.headers["cache-control"] = "private, no-store"
+    page_id = await repo.page_id_by_no(conn, case_id, page_no)
+    if page_id is None:
+        raise _not_found()
+    note = body.note.strip()
+    kept = await repo.keep_note(conn, _crypto(request), case_id, page_id, scope.person_id, body.bookmarked, note)
+    if kept is None:
+        return MyNote(page_no=page_no, bookmarked=False, note="", updated_at=None)
+    return MyNote(page_no=page_no, bookmarked=body.bookmarked, note=note, updated_at=kept)
+
+
+@router.get("/my-notes", response_model=MyNotes)
+async def my_notes(
+    case_id: uuid.UUID, access: NoteKeeper, request: Request, response: Response, conn: DbConn, scope: CurrentScope
+) -> MyNotes:
+    """The person's own bookmarks and notes on the case, in page order."""
+    response.headers["cache-control"] = "private, no-store"
+    notes = await repo.my_notes(conn, _crypto(request), case_id, scope.person_id)
+    return MyNotes(notes=[MyNote(**n) for n in notes])
 
 
 def _summary(r: dict) -> dict:  # type: ignore[type-arg]
