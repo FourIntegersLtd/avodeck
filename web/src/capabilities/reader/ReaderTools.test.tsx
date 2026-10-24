@@ -92,7 +92,7 @@ describe.each([
       const { user } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      const two = async () => within(await moreTools(user)).getByRole("button", { name: "Two pages" });
+      const two = async () => within(await moreTools(user)).getByRole("button", { name: "Two pages side by side" });
       expect(await two()).toHaveAttribute("aria-pressed", "false");
       await user.click(await two());
       expect(await two()).toHaveAttribute("aria-pressed", "true");
@@ -113,7 +113,7 @@ describe.each([
       const { user } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages side by side" }));
       expect(await screen.findByRole("img", { name: "Page 1201" })).toBeVisible();
     });
   });
@@ -191,7 +191,7 @@ describe.each([
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest");
       await user.click(screen.getByRole("button", { name: "Find" }));
       await screen.findByText("Found on 2 pages");
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages side by side" }));
       await screen.findByRole("img", { name: "Page 119" });
       await user.click(await screen.findByRole("button", { name: "Add a note" }));
       await user.click(await screen.findByRole("button", { name: "All your notes (1)" }));

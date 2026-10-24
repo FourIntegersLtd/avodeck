@@ -108,7 +108,7 @@ describe.each([
       const { user } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
       expect(within(bar).queryByRole("button", { name: "Turn page" })).not.toBeInTheDocument();
-      expect(within(await moreTools(user)).getByRole("button", { name: "Fit width" })).toBeVisible();
+      expect(within(await moreTools(user)).getByRole("button", { name: "Fit to width" })).toBeVisible();
     });
   });
 
@@ -117,7 +117,7 @@ describe.each([
       mockReader(pack);
       const { user } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
-      const width = async () => within(await moreTools(user)).getByRole("button", { name: "Fit width" });
+      const width = async () => within(await moreTools(user)).getByRole("button", { name: "Fit to width" });
       const whole = async () => within(await moreTools(user)).getByRole("button", { name: "Whole page" });
       expect(await width()).toHaveAttribute("aria-pressed", "true");
       await user.click(await whole());
@@ -240,7 +240,7 @@ describe.each([
       const { user } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
       const img = await screen.findByRole("img", { name: "Page 118" });
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer…" }));
       fireEvent.change(screen.getByRole("slider", { name: "Brightness" }), { target: { value: "130" } });
       fireEvent.change(screen.getByRole("slider", { name: "Contrast" }), { target: { value: "160" } });
       expect(img.style.filter).toBe("brightness(1.3) contrast(1.6)");
@@ -257,7 +257,7 @@ describe.each([
       const { user, container } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
       await within(await screen.findByRole("listbox", { name: "Pages" })).findByRole("option", { name: "Page 118, not read yet" });
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer…" }));
       expect(await axeViolations(container)).toEqual([]);
     });
   });

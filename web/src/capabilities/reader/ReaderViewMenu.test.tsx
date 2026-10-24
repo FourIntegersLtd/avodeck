@@ -117,11 +117,12 @@ describe("The page controls on the bar", () => {
   });
 
   test("a typed page number then Enter goes to that page; there is no separate Go button", async () => {
-    mockReader(launchPack);
+    mockReader(launchPack, { pageCount: 400 });
     const { user } = renderAt(PATH);
     const box = await screen.findByRole("textbox", { name: "Go to page" });
     expect(box).toHaveValue("118");
     expect(screen.queryByRole("button", { name: "Go" })).not.toBeInTheDocument();
+    await user.clear(box);
     await user.type(box, "117{Enter}");
     expect(await screen.findByRole("img", { name: "Page 117" })).toBeVisible();
   });

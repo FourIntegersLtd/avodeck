@@ -72,20 +72,20 @@ describe("the right side", () => {
     expect(within(aside).queryByText("Keyboard, if you like it")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Keyboard shortcuts" })).not.toBeInTheDocument();
     await user.keyboard("?");
-    const panel = screen.getByRole("group", { name: "More tools" });
+    const panel = screen.getByRole("group", { name: "View" });
     const keys = within(panel).getByRole("group", { name: "Keyboard shortcuts" });
     expect(within(keys).getByText("C")).toBeVisible();
     expect(within(keys).getByText(/not right/)).toBeVisible();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("group", { name: "More tools" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
   });
 
   test("Keyboard shortcuts is also an item in the More tools panel", async () => {
     mockReader(launchPack, { alreadyRead: true });
     const { user } = renderAt(PATH);
     await side();
-    await user.click(screen.getByRole("button", { name: "More tools" }));
-    const item = within(screen.getByRole("group", { name: "More tools" })).getByRole("button", { name: "Keyboard shortcuts" });
+    await user.click(screen.getByRole("button", { name: "View" }));
+    const item = within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Keyboard shortcuts" });
     expect(item).toHaveAttribute("aria-expanded", "false");
     await user.click(item);
     expect(screen.getByRole("group", { name: "Keyboard shortcuts" })).toBeVisible();

@@ -38,9 +38,9 @@ async function expectAligned(page: Page, turn: number) {
 
 /** Tools other than Turn page, zoom and Find words sit in the More tools panel, which sits beside the "Page view" bar and closes after a pick. */
 async function moreTool(page: Page, name: string) {
-  const more = page.getByRole("button", { name: "More tools" });
+  const more = page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "View" });
   if ((await more.getAttribute("aria-expanded")) !== "true") await more.click();
-  await page.getByRole("group", { name: "More tools" }).getByRole("button", { name, exact: true }).click();
+  await page.getByRole("group", { name: "View", exact: true }).first().getByRole("button", { name, exact: true }).click();
 }
 
 async function openRead(page: Page) {
@@ -108,7 +108,7 @@ for (const { name, pack } of PACKS) {
       expect(fitted.height).toBeLessThanOrEqual(paper.height + 1);
       expect(fitted.width).toBeLessThanOrEqual(paper.width + 1);
 
-      await moreTool(page, "Fit width");
+      await moreTool(page, "Fit to width");
       await page.locator(".rd-paper").hover();
       await page.keyboard.down("Control");
       await page.mouse.wheel(0, -100);
@@ -126,7 +126,7 @@ for (const { name, pack } of PACKS) {
       await expect(strip.getByRole("option", { name: "Page 118, not read yet" })).toHaveAttribute("aria-selected", "true");
       await expect(strip.getByRole("option", { name: "Page 117, read" })).toBeVisible();
       expect(await strip.getByRole("option").count()).toBeLessThan(60);
-      await moreTool(page, "Make it clearer");
+      await moreTool(page, "Make it clearer…");
       await expect(page.getByRole("slider", { name: "Brightness" })).toBeVisible();
       await checkScreen(page);
 

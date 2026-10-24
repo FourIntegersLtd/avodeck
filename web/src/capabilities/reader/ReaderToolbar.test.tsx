@@ -38,25 +38,25 @@ describe.each([
       "Zoom out",
       "Zoom in",
       "Find words",
-      "More tools",
+      "View",
       "Full screen",
     ]);
-    for (const name of ["Two pages", "Fit width", "Whole page", "Make it clearer", "Clearer copy", "Turn left", "Upside down", "Undo turn"]) {
+    for (const name of ["Two pages side by side", "Fit to width", "Whole page", "Make it clearer…", "Clearer copy", "Turn left", "Upside down", "Undo turn"]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
-    expect(screen.queryByRole("link", { name: "Not this patient" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Not this patient's page…" })).not.toBeInTheDocument();
     expect(screen.queryByRole("searchbox", { name: "Find words in the bundle" })).not.toBeInTheDocument();
 
-    const more = within(bar).getByRole("button", { name: "More tools" });
+    const more = within(bar).getByRole("button", { name: "View" });
     expect(more).toHaveAttribute("aria-expanded", "false");
     await user.click(more);
     expect(more).toHaveAttribute("aria-expanded", "true");
-    const panel = screen.getByRole("group", { name: "More tools" });
+    const panel = screen.getByRole("group", { name: "View" });
     expect(within(panel).getByRole("group", { name: "Turning" })).toBeVisible();
-    for (const name of ["Turn left", "Upside down", "Undo turn", "Fit width", "Whole page", "Make it clearer", "Two pages", "Clearer copy"]) {
+    for (const name of ["Turn left", "Upside down", "Undo turn", "Fit to width", "Whole page", "Make it clearer…", "Two pages side by side", "Clearer copy"]) {
       expect(within(panel).getByRole("button", { name })).toBeVisible();
     }
-    expect(within(panel).getByRole("link", { name: "Not this patient" })).toBeVisible();
+    expect(within(panel).getByRole("link", { name: "Not this patient's page…" })).toBeVisible();
     expect(within(panel).queryByRole("button", { name: "Full screen" })).not.toBeInTheDocument();
     // Go to page stays on show, beside the source.
     expect(screen.getByRole("textbox", { name: "Go to page" })).toBeVisible();
@@ -76,17 +76,17 @@ describe.each([
     mockReader(pack);
     const { user } = renderAt(PATH);
     const bar = await screen.findByRole("toolbar", { name: "Page view" });
-    const more = within(bar).getByRole("button", { name: "More tools" });
+    const more = within(bar).getByRole("button", { name: "View" });
     await user.click(more);
-    expect(screen.getByRole("group", { name: "More tools" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "View" })).toBeVisible();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("group", { name: "More tools" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
     expect(more).toHaveAttribute("aria-expanded", "false");
     expect(more).toHaveFocus();
 
     await user.click(more);
-    await user.click(within(screen.getByRole("group", { name: "More tools" })).getByRole("button", { name: "Two pages" }));
-    expect(screen.queryByRole("group", { name: "More tools" })).not.toBeInTheDocument();
+    await user.click(within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Two pages side by side" }));
+    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
     expect(await screen.findByRole("img", { name: "Page 119" })).toBeVisible();
   });
 
@@ -96,11 +96,11 @@ describe.each([
     const { user } = renderAt(PATH);
     const bar = await screen.findByRole("toolbar", { name: "Page view" });
     expect(within(bar).queryByRole("button", { name: "Turn page" })).not.toBeInTheDocument();
-    await user.click(within(bar).getByRole("button", { name: "More tools" }));
-    const panel = screen.getByRole("group", { name: "More tools" });
+    await user.click(within(bar).getByRole("button", { name: "View" }));
+    const panel = screen.getByRole("group", { name: "View" });
     expect(within(panel).queryByRole("group", { name: "Turning" })).not.toBeInTheDocument();
     expect(within(panel).queryByRole("button", { name: "Turn left" })).not.toBeInTheDocument();
-    expect(within(panel).getByRole("button", { name: "Fit width" })).toBeVisible();
+    expect(within(panel).getByRole("button", { name: "Fit to width" })).toBeVisible();
   });
 
   describe("finding words", () => {
@@ -170,7 +170,7 @@ describe.each([
       await screen.findByRole("img", { name: "Page 118" });
       await search(user, "chest");
       await screen.findByText("Found on 4 pages");
-      await user.click(screen.getByRole("button", { name: "More tools" }));
+      await user.click(screen.getByRole("button", { name: "View" }));
       expect(await axeViolations(container)).toEqual([]);
     });
   });

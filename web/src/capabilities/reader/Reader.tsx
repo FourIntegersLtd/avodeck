@@ -1,7 +1,7 @@
 // Screen 09, Reading. The expert reads the page and marks it read; only then does the server release
 // the suggestions (blind read, rule 3: the page asks for them after the read and shows none on a 423).
 // Every action sends the version it loaded (If-Match). The server decides; this screen shows.
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
@@ -24,6 +24,21 @@ import { loadSearch, loadTools, saveSearch, saveTools, type SearchResult, type T
 import { clampZoom, loadView, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
+import { ChevronIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
+
+/** The browser has the Popover API (the View menu then sits in the top layer, above the bar and the page). */
+const POPOVER = typeof HTMLElement !== "undefined" && "showPopover" in HTMLElement.prototype;
+
+/** One row of the View menu: a plain button, an icon on the left, a tick on the right while it is on. */
+function MenuItem({ icon, on, children, ...rest }: { icon: ReactNode; on?: boolean; children: ReactNode; disabled?: boolean; onClick?: () => void; "aria-expanded"?: boolean; "aria-controls"?: string }) {
+  return (
+    <Button variant="secondary" className="rd-menu__item" {...(on === undefined ? {} : { "aria-pressed": on })} {...rest}>
+      <span className="rd-menu__icon">{icon}</span>
+      <span className="rd-menu__text">{children}</span>
+      <span className="rd-menu__tick">{on ? <TickIcon /> : null}</span>
+    </Button>
+  );
+}
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
@@ -54,6 +69,23 @@ function FirstUnread({ caseId }: { caseId: string }) {
   if (first.error) return <LoadError onRetry={first.reload} />;
   if (!first.data) return <Loading />;
   return <Navigate to={`/cases/${caseId}/read/${first.data.pages[0]?.page_no ?? 1}`} replace />;
+}
+
+/** Where the browser cannot anchor the menu to View: right-aligned under it, up when there is no room below. */
+function placeMenu(el: HTMLElement, button: HTMLElement | null) {
+  if (!button || window.innerWidth <= 900) {
+    el.style.top = el.style.left = el.style.maxHeight = "";
+    return;
+  }
+  const r = button.getBoundingClientRect();
+  const gap = 8;
+  const below = window.innerHeight - r.bottom - gap * 2;
+  const above = r.top - gap * 2;
+  const down = below >= Math.min(el.scrollHeight, 480) || below >= above;
+  el.style.maxHeight = `${Math.max(160, down ? below : above)}px`;
+  const height = Math.min(el.scrollHeight, el.offsetHeight || el.scrollHeight);
+  el.style.top = `${down ? r.bottom + gap : Math.max(gap, r.top - gap - height)}px`;
+  el.style.left = `${Math.min(Math.max(gap, r.right - el.offsetWidth), window.innerWidth - el.offsetWidth - gap)}px`;
 }
 
 const typing = (t: EventTarget | null) => {
@@ -100,7 +132,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const turnLoaded = useRef(false);
   const saving = useRef<Promise<unknown>>(Promise.resolve());
   const pages = useBundlePages(caseId);
-  const [gotoText, setGotoText] = useState("");
+  const [gotoText, setGotoText] = useState(String(pageNo));
   const [gotoError, setGotoError] = useState<string | null>(null);
   const [why, setWhy] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<{ id: string; value: string } | null>(null);
@@ -114,7 +146,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // The toolbar's "More tools" panel and "Find words" (open again on the next page while a search is held).
   const [more, setMore] = useState(false);
   const [keys, setKeys] = useState(false);
-  const moreRef = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const [findOpen, setFindOpen] = useState(found !== null);
   const [focusFind, setFocusFind] = useState(false);
 
@@ -421,21 +453,71 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     setMore(true);
     setKeys(true);
   }
+  function closeClearer() {
+    setClearer(false);
+    document.getElementById("rd-more-button")?.focus();
+  }
   function closeMore() {
     setMore(false);
     setKeys(false);
     document.getElementById("rd-more-button")?.focus();
   }
 
-  // A click outside the More tools button and panel closes the panel (the page stays live; it is not a modal).
+  // Without the Popover API a click outside closes the menu; with it the browser does that (and Escape).
   useEffect(() => {
-    if (!more) return;
+    if (!more || POPOVER) return;
     const away = (e: MouseEvent) => {
-      if (!moreRef.current?.contains(e.target as Node)) setMore(false);
+      const t = e.target as Node;
+      if (!menuRef.current?.contains(t) && !document.getElementById("rd-more-button")?.contains(t)) setMore(false);
     };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
   }, [more]);
+
+  const pageLoaded = detail.data !== undefined;
+  // Keep the browser's popover and the menu's state in step (the browser closes it on Escape or an outside click).
+  useEffect(() => {
+    const el = menuRef.current;
+    if (!el || !POPOVER) return;
+    const sync = (e: Event) => setMore((e as Event & { newState?: string }).newState === "open");
+    el.addEventListener("toggle", sync);
+    return () => el.removeEventListener("toggle", sync);
+  }, [pageLoaded]);
+
+  // Show or hide the popover, place it where CSS anchoring is missing, and put focus on the first item.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    if (POPOVER) {
+      try {
+        const shown = el.matches(":popover-open");
+        if (more && !shown) el.showPopover();
+        if (!more && shown) el.hidePopover();
+      } catch {
+        /* already in the right state */
+      }
+      if (more && typeof CSS !== "undefined" && !CSS.supports("position-anchor: --rd-view")) placeMenu(el, document.getElementById("rd-more-button"));
+    }
+    if (more) el.querySelector<HTMLElement>("button:not(:disabled), a")?.focus();
+  }, [more]);
+
+  function onMenuKey(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeMore();
+    }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLElement>("button:not(:disabled), a"));
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next = e.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length - 1 : at - 1);
+    items[next]?.focus();
+    e.preventDefault();
+  }
+
+  // Opening the sliders from the menu puts the keyboard on them.
+  useEffect(() => {
+    if (clearer) document.querySelector<HTMLElement>("#rd-clearer input")?.focus();
+  }, [clearer]);
 
   const openPage = (n: number) => n !== pageNo && navigate(`/cases/${caseId}/read/${n}`);
   async function goToPage() {
@@ -546,7 +628,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       <div className="rd-work" ref={workRef} style={{ "--rd-split": `${splitPct}%` } as CSSProperties}>
         <section className="rd-pane" aria-label={w("read.page_alt", { page: pageNo })}>
           <div className="rd-bar">
-            <div className="rd-bar__top">
+            <div className="rd-bar__row">
               <p className="rd-source">
                 <strong>{sourceLabel(pack, page.source_type)}</strong>
               </p>
@@ -557,151 +639,96 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                   void goToPage();
                 }}
               >
-                <label htmlFor="rd-goto" className="rd-label">
-                  {w("read.goto")}
+                <Button variant="secondary" className="rd-goto__step" aria-label={w("read.page_before")} disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
+                  <ChevronIcon dir="left" />
+                </Button>
+                <label className="rd-goto__label">
+                  <span aria-hidden="true">{w("read.page_word")}</span>
+                  <input
+                    id="rd-goto"
+                    className="av-input rd-goto__input"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="off"
+                    aria-label={w("read.goto")}
+                    value={gotoText}
+                    aria-describedby={gotoError ? "rd-goto-error" : undefined}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      setGotoText(e.target.value);
+                      setGotoError(null);
+                    }}
+                  />
+                  {progress.data && <span aria-hidden="true">{w("read.page_of", { total: count(progress.data.total, pack.locale) })}</span>}
                 </label>
-                <input
-                  id="rd-goto"
-                  className="av-input rd-goto__input"
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="off"
-                  value={gotoText}
-                  aria-describedby={gotoError ? "rd-goto-error" : undefined}
-                  onChange={(e) => {
-                    setGotoText(e.target.value);
-                    setGotoError(null);
-                  }}
-                />
-                <Button type="submit" variant="secondary">
-                  {w("read.goto_go")}
+                <Button variant="secondary" className="rd-goto__step" aria-label={w("read.page_after")} disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>
+                  <ChevronIcon dir="right" />
                 </Button>
               </form>
+              {/* The few tools used most; everything else waits under View (one main action per screen). */}
+              <div className="rd-view" role="toolbar" aria-label={w("read.view_bar")}>
+                {canTurn && (
+                  <Button variant="secondary" className="rd-view__turn" onClick={() => turnPage(90)}>
+                    <TurnIcon />
+                    {w("read.turn_page")}
+                  </Button>
+                )}
+                <span className="rd-view__group">
+                  <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={view.fit === "zoom" && view.zoom <= ZOOM_MIN} onClick={() => zoomBy(-25)}>
+                    −
+                  </Button>
+                  <span className="rd-ref rd-view__level" aria-live="polite">
+                    {w("read.zoom_level", { percent: view.fit === "zoom" ? view.zoom : (scale ?? 100) })}
+                  </span>
+                  <Button variant="secondary" aria-label={w("read.zoom_in")} disabled={view.fit === "zoom" && view.zoom >= ZOOM_MAX} onClick={() => zoomBy(25)}>
+                    +
+                  </Button>
+                </span>
+                <Button
+                  variant="secondary"
+                  className="rd-view__icon"
+                  aria-expanded={findOpen}
+                  aria-controls="rd-find"
+                  onClick={() => {
+                    setFocusFind(!findOpen);
+                    setFindOpen((o) => !o);
+                  }}
+                >
+                  <FindIcon />
+                  {w("read.find")}
+                </Button>
+                {filter && (
+                  <Button variant="secondary" className="rd-view__chip" aria-expanded={clearer} aria-controls="rd-clearer" onClick={() => setClearer(true)}>
+                    <SlidersIcon />
+                    {w("read.clearer_on")}
+                  </Button>
+                )}
+                <Button
+                  id="rd-more-button"
+                  variant="secondary"
+                  className="rd-view__more"
+                  aria-expanded={more}
+                  aria-controls="rd-more"
+                  {...({ popovertarget: "rd-more" } as object)}
+                  onClick={() => {
+                    if (!POPOVER) setMore((o) => !o);
+                  }}
+                >
+                  <ViewIcon />
+                  {w("read.more_tools")}
+                  <ChevronIcon dir={more ? "up" : "down"} />
+                </Button>
+                <Button variant="secondary" className="rd-view__full" aria-pressed={tools.full} onClick={() => setFull(!tools.full)}>
+                  <FullScreenIcon leave={tools.full} />
+                  {w(tools.full ? "read.leave_full_screen" : "read.full_screen")}
+                </Button>
+              </div>
             </div>
             {gotoError && (
               <p id="rd-goto-error" className="rd-goto__error" role="alert">
                 {gotoError}
               </p>
             )}
-            {/* The few tools used most; everything else waits under More tools (one main action per screen). */}
-            <div className="rd-view" role="toolbar" aria-label={w("read.view_bar")}>
-              {canTurn && (
-                <Button variant="secondary" className="rd-view__turn" onClick={() => turnPage(90)}>
-                  <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12a9 9 0 1 1-3-6.7" />
-                    <path d="M21 3v6h-6" />
-                  </svg>
-                  {w("read.turn_page")}
-                </Button>
-              )}
-              <span className="rd-view__group">
-                <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={view.fit === "zoom" && view.zoom <= ZOOM_MIN} onClick={() => zoomBy(-25)}>
-                  −
-                </Button>
-                <span className="rd-ref rd-view__level" aria-live="polite">
-                  {w("read.zoom_level", { percent: view.fit === "zoom" ? view.zoom : (scale ?? 100) })}
-                </span>
-                <Button variant="secondary" aria-label={w("read.zoom_in")} disabled={view.fit === "zoom" && view.zoom >= ZOOM_MAX} onClick={() => zoomBy(25)}>
-                  +
-                </Button>
-              </span>
-              <Button
-                variant="secondary"
-                aria-expanded={findOpen}
-                aria-controls="rd-find"
-                onClick={() => {
-                  setFocusFind(!findOpen);
-                  setFindOpen((o) => !o);
-                }}
-              >
-                {w("read.find")}
-              </Button>
-              <span className="rd-view__anchor" ref={moreRef}>
-                <Button id="rd-more-button" variant="secondary" className="rd-view__more" aria-expanded={more} aria-controls="rd-more" onClick={() => setMore((o) => !o)}>
-                  {w("read.more_tools")}
-                  <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d={more ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6"} />
-                  </svg>
-                </Button>
-                {more && (
-                  <div id="rd-more" className="rd-more" role="group" aria-label={w("read.more_tools")}>
-                    {canTurn && (
-                      <div className="rd-more__group" role="group" aria-labelledby="rd-more-turning">
-                        <p id="rd-more-turning" className="rd-more__head">{w("read.more.turning")}</p>
-                        <Button variant="secondary" onClick={pick(() => turnPage(-90))}>
-                          {w("read.turn_left")}
-                        </Button>
-                        <Button variant="secondary" onClick={pick(() => turnPage(180))}>
-                          {w("read.upside_down")}
-                        </Button>
-                        <Button variant="secondary" disabled={turnsBefore.length === 0} onClick={pick(undoTurn)}>
-                          {w("read.undo_turn")}
-                        </Button>
-                      </div>
-                    )}
-                    <div className="rd-more__group" role="group" aria-labelledby="rd-more-size">
-                      <p id="rd-more-size" className="rd-more__head">{w("read.more.size")}</p>
-                      <Button variant="secondary" aria-pressed={view.fit === "width"} onClick={pick(() => setView((v) => ({ ...v, fit: "width" })))}>
-                        {w("read.fit_width")}
-                      </Button>
-                      <Button variant="secondary" aria-pressed={view.fit === "page"} onClick={pick(() => setView((v) => ({ ...v, fit: "page" })))}>
-                        {w("read.whole_page")}
-                      </Button>
-                    </div>
-                    <div className="rd-more__group" role="group" aria-labelledby="rd-more-view">
-                      <p id="rd-more-view" className="rd-more__head">{w("read.more.view")}</p>
-                      {/* The sliders stay open beside the page, so this one leaves the panel open too. */}
-                      <Button variant="secondary" aria-expanded={clearer} aria-controls="rd-clearer" onClick={() => setClearer((o) => !o)}>
-                        {w("read.clearer_view")}
-                      </Button>
-                    {clearer && (
-                      <div id="rd-clearer" className="rd-clearer">
-                        {(["brightness", "contrast"] as const).map((k) => (
-                          <label key={k} className="rd-clearer__row">
-                            <span className="rd-label">{w(k === "brightness" ? "read.brightness" : "read.contrast")}</span>
-                            <input type="range" min={50} max={200} step={5} value={view[k]} onChange={(e) => setView((v) => ({ ...v, [k]: Number(e.target.value) }))} />
-                          </label>
-                        ))}
-                        <Button variant="secondary" onClick={() => setView((v) => ({ ...v, brightness: 100, contrast: 100 }))}>
-                          {w("read.back_to_normal")}
-                        </Button>
-                      </div>
-                    )}
-                      <Button variant="secondary" aria-pressed={tools.twoPages} onClick={pick(() => setTools((t) => ({ ...t, twoPages: !t.twoPages })))}>
-                        {w("read.two_pages")}
-                      </Button>
-                    </div>
-                    <div className="rd-more__group">
-                      <Button variant="secondary" aria-expanded={keys} aria-controls="rd-keys" onClick={() => setKeys((o) => !o)}>
-                        {w("read.keys.heading")}
-                      </Button>
-                      {keys && (
-                        <div id="rd-keys" className="rd-keys" role="group" aria-label={w("read.keys.heading")}>
-                          <p className="rd-hints">
-                            <span><kbd>C</kbd> {w("read.keys.correct")}</span>
-                            <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
-                            <span><kbd>→</kbd> {w("read.keys.next")}</span>
-                          </p>
-                          <p>{w("read.keys.more")}</p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="rd-more__group" role="group" aria-labelledby="rd-more-page">
-                      <p id="rd-more-page" className="rd-more__head">{w("read.more.page")}</p>
-                      <Button variant="secondary" disabled={busy} onClick={pick(() => void askClearerCopy())}>
-                        {w("read.clearer")}
-                      </Button>
-                      <LinkButton variant="secondary" to={`/cases/${caseId}/bundle/not-this-patient?page=${pageNo}`}>
-                        {w("read.not_patient")}
-                      </LinkButton>
-                    </div>
-                  </div>
-                )}
-              </span>
-              <Button variant="secondary" className="rd-view__full" aria-pressed={tools.full} onClick={() => setFull(!tools.full)}>
-                {w(tools.full ? "read.leave_full_screen" : "read.full_screen")}
-              </Button>
-            </div>
             {tools.twoPages && besideNo !== null && (
               <form
                 className="rd-goto"
@@ -743,6 +770,22 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             )}
           </div>
           <div className={tools.twoPages ? "rd-viewer rd-viewer--two" : "rd-viewer"}>
+            {clearer && (
+              <div id="rd-clearer" className="rd-clearer rd-clearer--float" role="group" aria-label={w("read.clearer_panel")} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); closeClearer(); } }}>
+                {(["brightness", "contrast"] as const).map((k) => (
+                  <label key={k} className="rd-clearer__row">
+                    <span className="rd-label">{w(k === "brightness" ? "read.brightness" : "read.contrast")}</span>
+                    <input type="range" min={50} max={200} step={5} value={view[k]} onChange={(e) => setView((v) => ({ ...v, [k]: Number(e.target.value) }))} />
+                  </label>
+                ))}
+                <div className="rd-clearer__buttons">
+                  <Button variant="secondary" onClick={() => setView((v) => ({ ...v, brightness: 100, contrast: 100 }))}>
+                    {w("read.back_to_normal")}
+                  </Button>
+                  <Button onClick={closeClearer}>{w("read.done")}</Button>
+                </div>
+              </div>
+            )}
             {pages && <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />}
             {moving?.words ? (
               <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
@@ -847,6 +890,52 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           )}
         </aside>
       </div>
+
+      {/* The View menu: a plain list of buttons in the browser's top layer, so no bar or page can clip or cover it. */}
+      {(POPOVER || more) && <div id="rd-more" ref={menuRef} className="rd-menu" role="group" aria-label={w("read.more_tools")} onKeyDown={onMenuKey} {...({ popover: "auto" } as object)}>
+        {more && (
+          <>
+            {canTurn && (
+              <div className="rd-menu__group" role="group" aria-labelledby="rd-more-turning">
+                <p id="rd-more-turning" className="rd-more__head">{w("read.more.turning")}</p>
+                <MenuItem icon={<TurnIcon />} onClick={pick(() => turnPage(-90))}>{w("read.turn_left")}</MenuItem>
+                <MenuItem icon={<TurnIcon />} onClick={pick(() => turnPage(180))}>{w("read.upside_down")}</MenuItem>
+                <MenuItem icon={<TurnIcon />} disabled={turnsBefore.length === 0} onClick={pick(undoTurn)}>{w("read.undo_turn")}</MenuItem>
+              </div>
+            )}
+            <div className="rd-menu__group" role="group" aria-labelledby="rd-more-size">
+              <p id="rd-more-size" className="rd-more__head">{w("read.more.size")}</p>
+              <MenuItem icon={<ViewIcon />} on={view.fit === "width"} onClick={pick(() => setView((v) => ({ ...v, fit: "width" })))}>{w("read.fit_width")}</MenuItem>
+              <MenuItem icon={<ViewIcon />} on={view.fit === "page"} onClick={pick(() => setView((v) => ({ ...v, fit: "page" })))}>{w("read.whole_page")}</MenuItem>
+            </div>
+            <div className="rd-menu__group" role="group" aria-labelledby="rd-more-view">
+              <p id="rd-more-view" className="rd-more__head">{w("read.more.view")}</p>
+              <MenuItem icon={<ViewIcon />} on={tools.twoPages} onClick={pick(() => setTools((t) => ({ ...t, twoPages: !t.twoPages })))}>{w("read.two_pages")}</MenuItem>
+              <MenuItem icon={<ViewIcon />} disabled={busy} onClick={pick(() => void askClearerCopy())}>{w("read.clearer")}</MenuItem>
+              <MenuItem icon={<SlidersIcon />} onClick={pick(() => setClearer(true))}>{w("read.clearer_view")}</MenuItem>
+            </div>
+            <div className="rd-menu__group" role="group" aria-labelledby="rd-more-page">
+              <p id="rd-more-page" className="rd-more__head">{w("read.more.page")}</p>
+              <LinkButton variant="secondary" className="rd-menu__item" to={`/cases/${caseId}/bundle/not-this-patient?page=${pageNo}`}>
+                <span className="rd-menu__icon"><ChevronIcon dir="right" /></span>
+                <span className="rd-menu__text">{w("read.not_patient")}</span>
+                <span className="rd-menu__tick" />
+              </LinkButton>
+              <MenuItem icon={<ChevronIcon dir={keys ? "up" : "down"} />} aria-expanded={keys} aria-controls="rd-keys" onClick={() => setKeys((o) => !o)}>{w("read.keys.heading")}</MenuItem>
+              {keys && (
+                <div id="rd-keys" className="rd-keys" role="group" aria-label={w("read.keys.heading")}>
+                  <p className="rd-hints">
+                    <span><kbd>C</kbd> {w("read.keys.correct")}</span>
+                    <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
+                    <span><kbd>→</kbd> {w("read.keys.next")}</span>
+                  </p>
+                  <p>{w("read.keys.more")}</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>}
 
       <footer className="rd-foot">
         <Button variant="secondary" arrow="back" disabled={pageNo <= 1} onClick={() => go(pageNo - 1)}>
