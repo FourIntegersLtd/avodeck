@@ -166,7 +166,10 @@ async def test_who_may_split(h: Harness, seed: Seed, client_for: ClientFor) -> N
     path = split_path(h, page(h, SPREAD)["id"])
     assert (await (await client_for(seed.person())).post(path, json=CUT)).status_code == 404
     assert (await (await client_for(viewer)).post(path, json=CUT)).status_code == 403
-    assert (await (await client_for(assistant)).post(path, json=CUT)).status_code == 202
+    # client_for apps have no file storage (503 once access is allowed), so the assistant is shown to pass
+    # the access check by reaching the 409 for a page the expert has already split.
+    assert (await h.client.post(path, json=CUT)).status_code == 202
+    assert (await (await client_for(assistant)).post(path, json=CUT)).status_code == 409
 
 
 async def test_the_bundle_summary_counts_splits(h: Harness) -> None:
