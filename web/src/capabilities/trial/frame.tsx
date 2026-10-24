@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { useSession } from "../../foundation/lib/session";
 import type { Schemas } from "../../foundation/platform-client";
+import { Spinner, useBusy } from "../../foundation/ui";
+import { w } from "./words";
 import "./trial.css";
 
 export interface Frame {
@@ -37,20 +39,26 @@ export function TrialTitle({ title, children }: { title: ReactNode; children?: R
   );
 }
 
-/** Choosing a PDF: the label looks like a button and is the input's name. */
-export function PdfPicker({ label, onFile, disabled, link }: { label: string; onFile: (file: File) => void; disabled?: boolean; link?: boolean }) {
+/** Choosing a PDF: the label looks like a button and is the input's name. While the file is being sent it shows
+ * a spinner and "Sending…", and takes no second file. */
+export function PdfPicker({ label, onFile, disabled, link }: { label: string; onFile: (file: File) => unknown; disabled?: boolean; link?: boolean }) {
+  const { busy, run } = useBusy();
+  const off = disabled || busy;
   return (
-    <label className={`${link ? "av-text-link" : "av-button av-button--secondary"} av-trial-picker${disabled ? " av-trial-picker--disabled" : ""}`}>
+    <label className={`${link ? "av-text-link" : "av-button av-button--secondary"} av-trial-picker${off ? " av-trial-picker--disabled" : ""}`}>
+      {busy && <Spinner />}
       {label}
+      {busy && <span role="status"> {w("picker.sending")}</span>}
       <input
         type="file"
         accept="application/pdf"
         className="av-trial-picker__input"
-        disabled={disabled}
+        disabled={off}
+        aria-busy={busy ? "true" : undefined}
         onChange={(e) => {
           const file = e.target.files?.[0];
           e.target.value = "";
-          if (file) onFile(file);
+          if (file) void run(async () => { await onFile(file); });
         }}
       />
     </label>
