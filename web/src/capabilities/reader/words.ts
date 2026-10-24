@@ -16,6 +16,8 @@ const WORDS = {
   "read.resize_split": "Drag to give more room to the page or to the suggestions",
   "read.not_read_yet": "Mark this page as read to see our suggestions.",
   "read.still_reading": "We're still reading this page. Its suggestions will appear here.",
+  "read.not_read_why": "Suggestions appear once you mark this page as read.",
+  "read.reassigned": "This case has a new named expert. Every suggestion goes back to be checked again by you. Nothing has been lost.",
   "read.none_found": "We found nothing to check on this page.",
   "read.mark_read": "Mark as read",
   "read.next": "Next page",
