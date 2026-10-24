@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes, ReactNode } from "react";
 import type { LinkProps } from "react-router-dom";
 import { SafeLink as Link } from "./SafeLink";
 
-type Variant = "primary" | "secondary" | "quiet" | "danger";
+type Variant = "primary" | "secondary" | "outline" | "quiet" | "link" | "danger";
 
 function classes(variant: Variant, wide?: boolean, extra?: string, arrow?: boolean | "back") {
   return ["av-button", variant !== "primary" && `av-button--${variant}`, wide && "av-button--wide", arrow && "av-button--arrow", arrow === "back" && "av-button--arrow-back", extra].filter(Boolean).join(" ");
