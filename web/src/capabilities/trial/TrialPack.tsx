@@ -25,6 +25,8 @@ const ERRORS = {
   precondition_failed: "trial.pack.error.stale",
   stale: "trial.pack.error.stale",
   already_downloaded: "trial.pack.offline.gone",
+  revoked: "trial.pack.offline.gone_revoked",
+  expired: "trial.pack.offline.gone_expired",
 };
 
 export function TrialPack() {
@@ -563,6 +565,8 @@ function OfflineCopy({ frame }: { frame: Frame }) {
                 <p>{staleReason(copy.stale_reason, frame)}</p>
               </Notice>
             )}
+            <p>{wn("pack.offline.downloads", copy.status === "built" ? 1 : 0)}</p>
+            <p>{w("pack.offline.ends", { date: until })}</p>
             {copy.status === "downloaded" && onDevice && <p>{w("pack.offline.on_device", { date: until })}</p>}
             {copy.status === "downloaded" && !onDevice && <p>{w("pack.offline.gone")}</p>}
             {copy.status === "built" && (
