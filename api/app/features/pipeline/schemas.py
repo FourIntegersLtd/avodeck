@@ -142,6 +142,7 @@ class BundleSummary(BaseModel):
     by_source: list[SourceCount]
     duplicates: int
     unreadable: int
+    straightened: int = 0  # scans stored the right way up by the detected page angle; numbers unchanged
     gaps: int
     missing_items: int
     documents: list[Document]

@@ -10,8 +10,8 @@ export function Leave() {
   const { orgId = "" } = useParams();
   const navigate = useNavigate();
   const { act, message } = useAct({ conflict: "organisations.error.last_owner" });
-  const org = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}", { params: { path: { org_id: orgId } } })), [orgId]);
-  const today = useResource(() => unwrap(api.GET("/v1/today")), []);
+  const org = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}", { params: { path: { org_id: orgId } } })), [orgId], { cache: "organisations/Leave#Leave:org" });
+  const today = useResource(() => unwrap(api.GET("/v1/today")), [], { cache: "organisations/Leave#Leave:today" });
 
   if (org.error?.status === 404) return <NotFoundPage />;
   if (org.error || today.error) {

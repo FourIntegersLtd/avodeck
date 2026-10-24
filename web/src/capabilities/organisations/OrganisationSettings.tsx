@@ -16,8 +16,8 @@ type Org = Schemas["Organisation"];
 export function OrganisationSettings() {
   const { orgId = "" } = useParams();
   const { me } = useSession();
-  const org = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}", { params: { path: { org_id: orgId } } })), [orgId]);
-  const members = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}/members", { params: { path: { org_id: orgId } } })), [orgId]);
+  const org = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}", { params: { path: { org_id: orgId } } })), [orgId], { cache: "organisations/OrganisationSettings#OrganisationSettings:org" });
+  const members = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}/members", { params: { path: { org_id: orgId } } })), [orgId], { cache: "organisations/OrganisationSettings#OrganisationSettings:members" });
   const [policy, setPolicy] = useState<Org["policy"] | null>(null);
 
   if (org.error?.status === 404) return <NotFoundPage />;
@@ -185,14 +185,14 @@ function Rules({ org, manage, onPolicy }: { org: Org; manage: boolean; onPolicy:
 }
 
 function Billing({ orgId }: { orgId: string }) {
-  const found = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}/billing-profile", { params: { path: { org_id: orgId } } })), [orgId]);
+  const found = useResource(() => unwrap(api.GET("/v1/organisations/{org_id}/billing-profile", { params: { path: { org_id: orgId } } })), [orgId], { cache: "organisations/OrganisationSettings#Billing:found" });
   const profile = found.data?.profile;
   const bank = screenPath("billing_profile", { params: { organisation_id: orgId } });
   return (
     <section aria-labelledby="billing-title" className="av-card av-org-card">
       <h2 id="billing-title">{w("billing.title")}</h2>
       {found.error && <LoadError onRetry={found.reload} />}
-      {!found.data && !found.error && <Loading />}
+      {!found.data && !found.error && <Loading inline />}
       {found.data && (
         <div className="av-row-item">
           <p className="av-row-item__text">{profile ? (profile.invoice_prefix ? w("billing.line", { name: profile.legal_name, prefix: profile.invoice_prefix }) : profile.legal_name) : w("billing.none")}</p>

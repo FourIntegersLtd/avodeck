@@ -390,7 +390,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | text_source | Whether its words came from the file itself or from OCR |
 | ocr_confidence | How sure the computer is that it read the page correctly |
 | handwriting | Whether it's handwritten |
-| rotation | How it has been turned for reading |
+| rotation | How it has been turned for reading (by you, or by us when a scan came in sideways or upside down) |
+| straightened | Yes when we turned a scanned page the right way up ourselves when first reading it (the page angle the reading service detected, snapped to a quarter turn; small tilts are left). The page keeps its number and its words keep their places. Counted on "Your bundle is ready" |
 | duplicate_of_page_id | If it's a copy, which page it copies |
 | superseded_by_page_id | If a clearer copy arrived, which page replaces it |
 | split_of_page_id | If this page is one half of a two-page scan, the page it was cut from (that page keeps its number and facts) |

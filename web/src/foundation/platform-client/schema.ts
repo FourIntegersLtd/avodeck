@@ -5118,6 +5118,11 @@ export interface components {
              * @default 0
              */
             splits: number;
+            /**
+             * Straightened
+             * @default 0
+             */
+            straightened: number;
             /** Unreadable */
             unreadable: number;
             /** Versions */

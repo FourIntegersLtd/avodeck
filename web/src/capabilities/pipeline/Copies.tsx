@@ -19,7 +19,7 @@ type Status = "suggested" | "confirmed" | "kept";
 export function Copies() {
   const { item, pack } = useCaseFrame();
   const caseId = item.id;
-  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/duplicates", casePath(caseId))), [caseId]);
+  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/duplicates", casePath(caseId))), [caseId], { cache: "pipeline/Copies#Copies:list" });
   const [copies, setCopies] = useState<Copy[] | null>(null);
   const [notice, setNotice] = useState<{ tone: "info" | "error"; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);

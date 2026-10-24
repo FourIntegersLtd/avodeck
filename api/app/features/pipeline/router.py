@@ -394,6 +394,7 @@ async def bundle_summary(
         by_source=[SourceCount(source_type=k, pages=n) for k, n in sources],
         duplicates=copies,
         unreadable=unreadable,
+        straightened=await repo.straightened_count(conn, case_id),
         gaps=gaps,
         missing_items=open_items,
         documents=[_document(d) for d in docs],

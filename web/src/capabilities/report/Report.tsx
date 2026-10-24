@@ -22,8 +22,8 @@ export function ReportScreen() {
   const { caseId = "" } = useParams();
   const { item, pack } = useCaseFrame();
   const locale = useLocale();
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
-  const settings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/settings", { params: { path: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Report#ReportScreen:found" });
+  const settings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/settings", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Report#ReportScreen:settings" });
   const wait = useWaiting(found.reload, found.data?.version?.id ?? null);
   const [error, setError] = useState<string | null>(null);
   const [style, setStyle] = useState<string | null>(null);
@@ -194,12 +194,12 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
   const nameOf = useSectionName();
   const [editing, setEditing] = useState(false);
   const name = nameOf(section.key);
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })), [caseId, section.key, data.version?.id]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })), [caseId, section.key, data.version?.id], { cache: "report/Report#Paper:found" });
   return (
     <div className="rp-centre">
       <section className="rp-paper" aria-label={w("report.paper")} aria-live="polite">
         <h2 className="rp-paper__heading">{`${number}. ${name}`}</h2>
-        {found.error ? <LoadError onRetry={found.reload} /> : !found.data ? <Loading /> : found.data.paragraphs.length === 0 ? (
+        {found.error ? <LoadError onRetry={found.reload} /> : !found.data ? <Loading inline /> : found.data.paragraphs.length === 0 ? (
           <p className="rp-paper__empty">{w("report.section.empty")}</p>
         ) : (
           found.data.paragraphs.map((p) => (
@@ -225,7 +225,7 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
 function SectionEditor({ caseId, sectionKey, onClose, onSaved }: { caseId: string; sectionKey: string; onClose: () => void; onSaved: () => void }) {
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/sections/{key}", { params: { path: { case_id: caseId, key: sectionKey } } })), [caseId, sectionKey]);
   if (found.error) return <LoadError onRetry={found.reload} />;
-  if (!found.data) return <Loading />;
+  if (!found.data) return <Loading inline />;
   return <SectionForm caseId={caseId} initial={found.data} onClose={onClose} onSaved={onSaved} />;
 }
 
@@ -347,7 +347,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
 }
 
 function Methodology({ caseId, locale }: { caseId: string; locale: string }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/methodology", { params: { path: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/methodology", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Report#Methodology:found" });
   const count = (n: number) => new Intl.NumberFormat(locale).format(n);
   return (
     <section className="rp-card" aria-labelledby="method-title">

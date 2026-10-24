@@ -3,9 +3,11 @@ import { Button } from "./Button";
 import { Notice } from "./Notice";
 import { Spinner } from "./Spinner";
 
-export function Loading() {
+/** The page loader, centred in the content area. `inline` is the compact row for a card or panel.
+ * The words are there at once for screen readers; the picture fades in after 200ms (styles.css). */
+export function Loading({ inline = false }: { inline?: boolean }) {
   return (
-    <p role="status" className="av-muted av-loading">
+    <p role="status" className={inline ? "av-muted av-loading av-loading--inline" : "av-muted av-loading"}>
       <Spinner />
       {t("app.loading")}
     </p>

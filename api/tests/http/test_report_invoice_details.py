@@ -180,7 +180,9 @@ async def test_the_expert_adds_bank_details_with_step_up_and_an_audit_row_withou
     assert cleared.status_code == 200 and cleared.json()["bank"] is None, "every field is optional"
 
     rows = admin.execute(
-        "select to_jsonb(a)::text from app.audit_log a where action = 'billing_profile.bank_details_changed'"
+        # timestamps, hashes and ids are random and can contain the digits by chance
+        "select (to_jsonb(a) - 'at' - 'seq' - 'hash' - 'prev_hash' - 'target' - 'person_id')::text"
+        " from app.audit_log a where action = 'billing_profile.bank_details_changed'"
         " and person_id = %s",
         (world.expert,),
     ).fetchall()

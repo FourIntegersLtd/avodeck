@@ -37,9 +37,9 @@ export function CaseLayout() {
     .filter(Boolean)
     .pop();
   // Pages read so far: shown on the reading step and on the case home. The bar is fine without it.
-  const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/progress", { params: { path: { case_id: caseId } } })), [caseId, screenKey]);
+  const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/progress", { params: { path: { case_id: caseId } } })), [caseId, screenKey], { cache: "app/CaseLayout#CaseLayout:progress" });
   // Per-step progress for every pill, counted by the server from the case's own records.
-  const stepProgress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/steps/progress", { params: { path: { case_id: caseId } } })), [caseId, screenKey]);
+  const stepProgress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/steps/progress", { params: { path: { case_id: caseId } } })), [caseId, screenKey], { cache: "app/CaseLayout#CaseLayout:stepProgress" });
   // Time is kept on every screen a pack step holds; the server decides what counts and which step it is.
   useTimeHeartbeat(caseId, found.data && screenKey && stepFor(found.data.pack, screenKey) ? screenKey : null);
   const me = useContext(SessionContext)?.me;

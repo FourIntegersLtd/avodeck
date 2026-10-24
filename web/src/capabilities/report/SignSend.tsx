@@ -28,9 +28,9 @@ async function latestCheck(caseId: string): Promise<Schemas["FinalCheckOut"] | n
 
 export function SignSend() {
   const { caseId = "" } = useParams();
-  const report = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
+  const report = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/SignSend#SignSend:report" });
   const check = useResource(() => latestCheck(caseId), [caseId]);
-  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", { params: { path: { case_id: caseId } } })), [caseId]);
+  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/SignSend#SignSend:pack" });
   if (report.error || check.error || pack.error) return <div className="av-page"><LoadError onRetry={() => { report.reload(); check.reload(); pack.reload(); }} /></div>;
   if (report.data === undefined || check.data === undefined || !pack.data) return <div className="av-page"><Loading /></div>;
   const version = report.data?.version ?? null;
@@ -147,7 +147,7 @@ function Draft({ caseId, doc, declarations, downloads, onDone }: { caseId: strin
   const [read, setRead] = useState(false);
   const [signed, setSigned] = useState(false);
   const [noPicture, setNoPicture] = useState(false);
-  const me = useResource(() => unwrap(api.GET("/v1/me/profile")), []);
+  const me = useResource(() => unwrap(api.GET("/v1/me/profile")), [], { cache: "report/SignSend#Draft:me" });
   const vocabulary = pack.vocabulary as Record<string, unknown>;
   const declarationName = typeof vocabulary.declaration_name === "string" ? vocabulary.declaration_name : null;
   const party = (pack.instructing_party_types as Array<{ key: string; label?: string }>).find((p) => p.key === item.instructing_party_type)?.label ?? null;
@@ -262,7 +262,7 @@ function Serve({ caseId, versionId, onDone }: { caseId: string; versionId: strin
 
 function Servings({ caseId, versionId }: { caseId: string; versionId: string }) {
   const locale = useLocale();
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/versions/{version_id}/servings", { params: { path: { case_id: caseId, version_id: versionId } } })), [caseId, versionId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/versions/{version_id}/servings", { params: { path: { case_id: caseId, version_id: versionId } } })), [caseId, versionId], { cache: "report/SignSend#Servings:found" });
   if (!found.data || found.data.servings.length === 0) return null;
   return (
     <section className="rp-card av-stack" aria-labelledby="servings-title">

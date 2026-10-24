@@ -136,15 +136,34 @@ class ReadingState:
     typed: bytes | None  # sealed: open with `transcription_purpose(page_id)`
     unreadable: bool
     handwriting: bool
+    straightened: bool = False
 
 
 async def reading_state(conn: AsyncConnection, page_id: uuid.UUID) -> ReadingState:
     cur = await conn.execute(
-        "select rotation, transcribed_by_expert_text, unreadable, handwriting from app.pages where id = %s", (page_id,)
+        "select rotation, transcribed_by_expert_text, unreadable, handwriting, straightened from app.pages"
+        " where id = %s",
+        (page_id,),
     )
     row = await cur.fetchone()
     assert row is not None
-    return ReadingState(int(row[0]), None if row[1] is None else bytes(row[1]), bool(row[2]), bool(row[3]))
+    return ReadingState(
+        int(row[0]), None if row[1] is None else bytes(row[1]), bool(row[2]), bool(row[3]), bool(row[4])
+    )
+
+
+async def set_straightened(conn: AsyncConnection, page_id: uuid.UUID, rotation: int) -> None:
+    """The page is stored `rotation` degrees clockwise because its scan came in turned; it keeps its number."""
+    await conn.execute("update app.pages set rotation = %s, straightened = true where id = %s", (rotation, page_id))
+
+
+async def straightened_count(conn: AsyncConnection, case_id: uuid.UUID) -> int:
+    cur = await conn.execute(
+        "select count(*) from app.pages where case_id = %s and straightened and not quarantined", (case_id,)
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return int(row[0])
 
 
 async def checked_facts(conn: AsyncConnection, page_id: uuid.UUID) -> list[tuple[uuid.UUID, list[str], str | None]]:

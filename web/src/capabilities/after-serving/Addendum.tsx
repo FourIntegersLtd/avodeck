@@ -29,8 +29,8 @@ export function AddendumScreen() {
   const [adding, setAdding] = useState(false);
   const [full, setFull] = useState(false);
   const path = { params: { path: { case_id: caseId } } };
-  const served = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/served", path)), [caseId]);
-  const changes = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report-changes", path)), [caseId]);
+  const served = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/served", path)), [caseId], { cache: "after-serving/Addendum#AddendumScreen:served" });
+  const changes = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report-changes", path)), [caseId], { cache: "after-serving/Addendum#AddendumScreen:changes" });
   const building = useWaiting(() => changes.reload(), changes.data?.supplementary?.id);
   const [error, setError] = useState<string | null>(null);
 

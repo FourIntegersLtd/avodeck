@@ -43,6 +43,7 @@ class OcrPage:
     width: float
     height: float
     words: tuple[OcrWord, ...] = field(repr=False)
+    angle: float = 0.0  # degrees the content is turned clockwise, in (-180, 180]; polygons stay in the scanned frame
 
 
 @dataclass(frozen=True)
@@ -68,6 +69,7 @@ def _result(model: str, data: dict[str, Any]) -> OcrResult:
             number=int(p["number"]),
             width=float(p["width"]),
             height=float(p["height"]),
+            angle=float(p.get("angle", 0.0)),
             words=tuple(
                 OcrWord(
                     id=str(w["id"]),

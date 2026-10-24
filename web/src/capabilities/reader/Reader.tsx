@@ -65,8 +65,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const [searchParams] = useSearchParams();
   const factFromUrl = searchParams.get("fact");
   const opened = useRef(Date.now());
-  const detail = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: pageNo } } })), [caseId, pageNo]);
-  const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/progress", casePath(caseId))), [caseId]);
+  const detail = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: pageNo } } })), [caseId, pageNo], { cache: "reader/Reader#ReadPage:detail" });
+  const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/progress", casePath(caseId))), [caseId], { cache: "reader/Reader#ReadPage:progress" });
   // The next page that exists (none after the last page), so Next and J stop there.
   const following = useResource(
     () => unwrap(api.GET("/v1/cases/{case_id}/pages", { params: { path: { case_id: caseId }, query: { cursor: pageNo, limit: 1 } } })).then((r) => r.pages[0]?.page_no ?? null),

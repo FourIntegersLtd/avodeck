@@ -134,7 +134,7 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
 
 /** "Your records are stored in {place} and never used to train AI": the place comes from the cell (GET /v1/cell); without one, the plain promise. */
 function PrivateNote() {
-  const cell = useResource(() => unwrap(api.GET("/v1/cell")), []);
+  const cell = useResource(() => unwrap(api.GET("/v1/cell")), [], { cache: "app/auth/SignIn#PrivateNote:cell" });
   const place = cell.data?.storage_place;
   return <>{place ? t("sign_in.note.private_in", { place }) : t("sign_in.note.private")}</>;
 }
@@ -187,7 +187,7 @@ function EnrolStep({ onDone }: { onDone: (r: Schemas["Verified"]) => void }) {
       <h1>{t("sign_in.enrol.title")}</h1>
       <p>{t("sign_in.enrol.intro")}</p>
       <ErrorNotice error={error} />
-      {!setup && !error && <Loading />}
+      {!setup && !error && <Loading inline />}
       {setup && (
         <>
           <ol className="av-stack">

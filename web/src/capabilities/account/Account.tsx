@@ -175,7 +175,7 @@ function SigningIn({ email, passwordChangedAt, locale, act }: { email: string; p
 
 function BackupCodes({ act }: { act: Act }) {
   const [codes, setCodes] = useState<string[] | null>(null);
-  const left = useResource(() => unwrap(api.GET("/v1/auth/mfa/recovery-codes")), []);
+  const left = useResource(() => unwrap(api.GET("/v1/auth/mfa/recovery-codes")), [], { cache: "account/Account#BackupCodes:left" });
   return (
     <div className="av-row-item">
       <div className="av-row-item__text">
@@ -219,7 +219,7 @@ function Devices({ act, locale, signOut }: { act: Act; locale: string | null | u
       {t("account.sign_out")}
     </Button>
   );
-  const devices = useResource(() => unwrap(api.GET("/v1/me/sessions")), []);
+  const devices = useResource(() => unwrap(api.GET("/v1/me/sessions")), [], { cache: "account/Account#Devices:devices" });
   const signOutOne = (id: string) =>
     act(async () => {
       await unwrap(api.DELETE("/v1/me/sessions/{session_id}", { params: { path: { session_id: id } } }));
@@ -241,7 +241,7 @@ function Devices({ act, locale, signOut }: { act: Act; locale: string | null | u
         )}
       </div>
       {devices.error && <LoadError onRetry={devices.reload} />}
-      {!devices.data && !devices.error && <Loading />}
+      {!devices.data && !devices.error && <Loading inline />}
       {/* Signing out of this device stays reachable while the list can't be shown. */}
       {(devices.error || devices.data?.every((d) => !d.current)) && <div>{signOutHere}</div>}
       {devices.data && (
@@ -275,7 +275,7 @@ const CHANNELS = [
 ] as const;
 
 function HowWeTellYou() {
-  const found = useResource(() => unwrap(api.GET("/v1/me/notification-preferences")), []);
+  const found = useResource(() => unwrap(api.GET("/v1/me/notification-preferences")), [], { cache: "account/Account#HowWeTellYou:found" });
   const [saved, setSaved] = useState<Record<string, Choice>>({});
   const [failed, setFailed] = useState<string | null>(null);
   const change = async (choice: Choice, channel: (typeof CHANNELS)[number][0], on: boolean) => {
@@ -303,7 +303,7 @@ function HowWeTellYou() {
         </Notice>
       )}
       {found.error && <LoadError onRetry={found.reload} />}
-      {!found.data && !found.error && <Loading />}
+      {!found.data && !found.error && <Loading inline />}
       {found.data?.map((original) => {
         const choice = saved[original.organisation_id] ?? original;
         const name = choice.organisation_kind === "personal" ? t("today.filter.personal") : choice.organisation_name;
