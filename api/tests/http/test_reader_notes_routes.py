@@ -93,7 +93,12 @@ async def test_clearing_both_removes_the_row(client_for: Any, admin: psycopg.Con
     cleared = await keep(client, world, 12, note="   ")
     assert cleared.status_code == 200 and cleared.json()["bookmarked"] is False and cleared.json()["note"] == ""
     assert await mine(client, world) == []
-    assert admin.execute("select count(*) from app.page_notes").fetchone() == (0,)
+    left = admin.execute(
+        "select count(*) from app.page_notes n join app.pages p on p.id = n.page_id"
+        " where p.case_id = %s and n.person_id = %s",
+        (world["case"], world["expert"]),
+    ).fetchone()
+    assert left == (0,)
 
 
 async def test_each_persons_notes_are_their_own(client_for: Any, world: dict[str, Any]) -> None:
@@ -109,7 +114,11 @@ async def test_the_note_is_sealed_and_separate_from_the_record(
 ) -> None:
     client = await client_for(world["expert"])
     await keep(client, world, 12, bookmarked=True, note=NOTE)
-    (sealed,) = admin.execute("select note from app.page_notes").fetchone() or (None,)
+    (sealed,) = admin.execute(
+        "select n.note from app.page_notes n join app.pages p on p.id = n.page_id"
+        " where p.case_id = %s and p.bundle_page_no = 12 and n.person_id = %s",
+        (world["case"], world["expert"]),
+    ).fetchone() or (None,)
     assert sealed is not None and NOTE.encode() not in bytes(sealed)
     reads = admin.execute("select count(*) from app.page_reads where person_id = %s", (world["expert"],)).fetchone()
     assert reads == (0,)

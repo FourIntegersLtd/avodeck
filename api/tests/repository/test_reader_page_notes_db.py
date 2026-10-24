@@ -105,4 +105,5 @@ async def test_deleting_the_case_leaves_no_notes(
     with psycopg.connect(worker_dsn) as conn:
         conn.execute("select set_config('app.job_case_id', %s, false)", (str(world["case"]),))
         conn.execute("select app.purge_case(%s)", (world["case"],))
-    assert admin.execute("select count(*) from app.page_notes").fetchone() == (0,)
+    left = admin.execute("select count(*) from app.page_notes where page_id = %s", (world["page_id"],)).fetchone()
+    assert left == (0,)

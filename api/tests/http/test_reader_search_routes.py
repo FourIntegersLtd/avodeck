@@ -65,7 +65,7 @@ async def add_page(
         await aconn.execute(
             "insert into app.ocr_words (page_id, case_id, n, word_id, text, polygon, confidence, source)"
             " values (%s, %s, %s, %s, %s, %s::real[], 0.99, 'ocr')",
-            (page, case, n, wid, sealed, [x0, 0, x1, 0, x1, 20, x0, 20]),
+            (page, case, n, wid, sealed, [x0, 0.0, x1, 0.0, x1, 20.0, x0, 20.0]),
         )
     return page
 
