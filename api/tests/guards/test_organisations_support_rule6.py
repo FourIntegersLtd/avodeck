@@ -29,7 +29,7 @@ def _free_strings(spec: dict[str, Any], node: dict[str, Any], where: str, seen: 
         return _free_strings(spec, _resolve(spec, node), name, seen)
     found: list[str] = []
     for key in ("anyOf", "oneOf", "allOf"):
-        for i, part in enumerate(node.get(key, [])):
+        for part in node.get(key, []):
             found += _free_strings(spec, part, where, seen)
     if node.get("type") == "string" and not (
         "enum" in node or "const" in node or node.get("format") in SAFE_FORMATS or "pattern" in node

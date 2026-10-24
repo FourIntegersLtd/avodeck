@@ -227,7 +227,7 @@ async def test_questions_to_check_and_a_letter_read(client_for: ClientFor, world
     a = world.admin
     case = world.team_case()
     letter = world.seed.document(case)
-    vid = a.execute(
+    vid = a.execute(  # type: ignore[index]
         "insert into app.instruction_versions (case_id, version_no, kind, document_id, received_on)"
         " values (%s, 1, 'letter', %s, current_date) returning id",
         (case, letter),
