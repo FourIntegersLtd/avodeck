@@ -22,10 +22,10 @@ import { PageImage } from "./PageImage";
 import { PageStrip } from "./PageStrip";
 import { noteRead, useBundlePages } from "./bundlePages";
 import { loadSearch, loadTools, saveSearch, saveTools, type SearchResult, type Tools } from "./search";
-import { clampZoom, loadView, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
+import { clampZoom, loadStripHidden, loadView, saveStripHidden, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
-import { ChevronIcon, EyeIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
+import { ChevronIcon, EyeIcon, SidebarIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
 
 /** The browser has the Popover API (the View menu then sits in the top layer, above the bar and the page). */
 const POPOVER = typeof HTMLElement !== "undefined" && "showPopover" in HTMLElement.prototype;
@@ -194,6 +194,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   // The toolbar's "More tools" panel and "Find words" (open again on the next page while a search is held).
   const [more, setMore] = useState(false);
   const [keys, setKeys] = useState(false);
+  const [stripHidden, setStripHidden] = useState(loadStripHidden);
+  const toggleStrip = useCallback(() => setStripHidden((h) => { saveStripHidden(!h); return !h; }), []);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const loadFacts = useCallback(async () => {
@@ -614,8 +616,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys };
+  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip });
+  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -641,6 +643,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
         if (key === "t") s.turnPage(e.shiftKey ? -90 : 90);
         else s.undoTurn();
       }
+      else if (key === "[") s.toggleStrip();
       else if (key === "f") s.setFull(!s.full);
       else if (key === "escape" && s.full) s.setFull(false);
       else if (key === "j") s.go(s.nextPage ?? 0);
@@ -901,7 +904,19 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
                 </div>
               </div>
             )}
-            {pages && <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />}
+            {pages && !stripHidden && (
+              <div className="rd-strip-col">
+                <Button variant="secondary" className="rd-strip-col__toggle" onClick={toggleStrip}>
+                  <SidebarIcon /> {w("read.strip_hide")}
+                </Button>
+                <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />
+              </div>
+            )}
+            {pages && stripHidden && (
+              <Button variant="secondary" className="rd-strip-show" onClick={toggleStrip}>
+                <SidebarIcon /> {w("read.strip_show")}
+              </Button>
+            )}
             {moving?.words ? (
               <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
                 <WordToggles
