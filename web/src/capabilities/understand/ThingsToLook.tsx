@@ -7,7 +7,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { Button, ChoicePills, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, TextField, ToggleSwitch } from "../../foundation/ui";
+import { Button, DictationBox, Dialog, IconTile, LinkButton, LoadError, Loading, Notice, PageRef, SegmentedControl, TextField, ToggleSwitch } from "../../foundation/ui";
 import { useParams } from "react-router-dom";
 import { LinkReview } from "./LinkReview";
 import { hasIcon, LineIcon } from "./laneIcons";
@@ -94,12 +94,9 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
         finding.decision && <p>{w("things.decision")}: {t(`understand.things.decision.${finding.decision}`)}</p>
       ) : (
         <>
-          <ChoicePills
+          <SegmentedControl
             label={w("things.decision")}
-            hideLabel
-            tone="amber"
-            name={`decision-${finding.id}`}
-            value={decision}
+            value={decision || null}
             onChange={choose}
             options={DECISIONS.map((d) => ({ value: d, label: t(`understand.things.decision.${d}`) }))}
           />

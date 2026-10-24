@@ -7,12 +7,13 @@ import { t } from "../../foundation/i18n";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { ChoicePills, LinkButton, LoadError, Loading, Segmented, ToggleSwitch } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, SegmentedControl } from "../../foundation/ui";
 import { chronologyEntries } from "./chronologyEntries";
 import { casePath, GuidanceChanged } from "./shared";
 import { splitForTrack, TimelineBoard } from "./TimelineBoard";
 import { TimelineChronology } from "./TimelineChronology";
-import { TimelineInspector } from "./TimelineInspector";
+import { TimelineFooter } from "./TimelineFooter";
+import { TimelineInspector, TimelineInspectorEmpty } from "./TimelineInspector";
 import { HighlightProvider } from "./highlight";
 import { useRibbonData } from "./ribbonData";
 import { TimelineRibbon } from "./TimelineRibbon";
@@ -21,6 +22,8 @@ import { w } from "./words";
 
 export { axisIso } from "./shared";
 export { splitForTrack } from "./TimelineBoard";
+
+const MONTH_YEAR = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
 
 type Event = Schemas["Event"];
 type ViewMode = "board" | "list";
@@ -131,6 +134,19 @@ export function Timeline() {
     if (!on) setSeenOn("");
   };
   const split = data ? splitForTrack(data) : null;
+  const statusItems = c
+    ? [
+        { value: "verified", label: t("ui.status.checked"), n: c.checked },
+        { value: "suggested", label: t("ui.status.please_check"), n: c.please_check },
+        { value: "things_to_look", label: t("ui.status.look"), n: c.things_to_look },
+        { value: "not_linked", label: w("timeline.not_linked"), n: c.not_linked },
+      ].filter((it) => it.n > 0 || it.value === status)
+    : [];
+  const statusWord = status === "" ? w("timeline.filter.status.all") : (statusItems.find((it) => it.value === status)?.label ?? "");
+  const questionWord = questionId && numbers[questionId] !== undefined ? t("ui.qchip", { n: numbers[questionId] }) : w("timeline.filter.question.all");
+  const spanFrom = from || recordRange?.first || "";
+  const spanTo = to || recordRange?.last || "";
+  const spanText = spanFrom && spanTo ? `${MONTH_YEAR.format(new Date(`${spanFrom.slice(0, 7)}-01T00:00:00Z`))} – ${MONTH_YEAR.format(new Date(`${spanTo.slice(0, 7)}-01T00:00:00Z`))}` : "";
   const undated = data?.counts?.undated ?? 0;
   const showUndatedBanner = !!split && undated > 0 && !split.lanes.some((l) => l.events.length > 0) && split.unplaced.length > 0;
 
@@ -141,24 +157,33 @@ export function Timeline() {
         <div>
           <h2>{w("timeline.title")}</h2>
           <p className="av-muted">{w("timeline.intro")}</p>
-          <p className="av-muted">{w("timeline.blind_read_hint")}</p>
         </div>
         <div className="av-understand-top__tools">
-          <ToggleSwitch label={w("timeline.as_seen_toggle", { title: seenTitle })} checked={dayOn} onChange={switchDay} />
-          {dayOn && (
-            <div className="av-field">
-              <label className="av-field__label" htmlFor="tl-seen">{w("timeline.as_seen_on", { title: seenTitle })}</label>
-              <input id="tl-seen" className="av-input" type="date" value={seenOn} onChange={(e) => setSeenOn(e.target.value)} />
-            </div>
-          )}
+          <SegmentedControl
+            label={w("timeline.view")}
+            value={view}
+            onChange={(v) => setView(v as ViewMode)}
+            options={[
+              { value: "board", label: w("timeline.view.board") },
+              { value: "list", label: w("timeline.view.list") },
+            ]}
+          />
+          <Button variant="quiet" aria-expanded={dayOn} onClick={() => switchDay(!dayOn)}>
+            {w("timeline.as_seen_toggle", { title: seenTitle })}
+          </Button>
         </div>
       </div>
+      {dayOn && (
+        <div className="av-field">
+          <label className="av-field__label" htmlFor="tl-seen">{w("timeline.as_seen_on", { title: seenTitle })}</label>
+          <input id="tl-seen" className="av-input" type="date" value={seenOn} onChange={(e) => setSeenOn(e.target.value)} />
+        </div>
+      )}
 
-      <div className="av-story-window" aria-label={w("timeline.window")} role="group">
+      <div className="av-calm-card av-story-window" aria-label={w("timeline.window")} role="group">
         <div className="av-story-window__row">
-          <Segmented
+          <SegmentedControl
             label={w("timeline.window")}
-            hideLabel
             value={windowPreset}
             onChange={(v) => choosePreset(v as WindowPreset)}
             options={[
@@ -168,19 +193,41 @@ export function Timeline() {
               { value: "custom", label: w("timeline.window.custom") },
             ]}
           />
-          {windowPreset === "custom" && (
-            <form className="av-understand-time-window__dates" onSubmit={(e) => e.preventDefault()}>
-              <div className="av-field">
-                <label className="av-field__label" htmlFor="tl-from">{w("timeline.filter.from")}</label>
-                <input id="tl-from" className="av-input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
-              </div>
-              <div className="av-field">
-                <label className="av-field__label" htmlFor="tl-to">{w("timeline.filter.to")}</label>
-                <input id="tl-to" className="av-input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
-              </div>
-            </form>
-          )}
+          {spanText && <span className="av-story-window__span">{spanText}</span>}
+          {data && <span className="av-muted">{w("timeline.span_entries", { count: order.length })}</span>}
+          <span className="av-story-window__menus">
+            {c && (
+              <Menu key={`s-${status}`} label={w("timeline.filter.status")} trigger={w("timeline.show_menu") + " " + statusWord}>
+                <MenuSection>
+                  <MenuItem pressed={status === ""} onClick={() => setStatus("")}>{w("timeline.filter.status.all")}</MenuItem>
+                  {statusItems.map((it) => (
+                    <MenuItem key={it.value} pressed={status === it.value} shortcut={String(it.n)} onClick={() => setStatus(it.value)}>{it.label}</MenuItem>
+                  ))}
+                </MenuSection>
+              </Menu>
+            )}
+            <Menu key={`q-${questionId}`} label={w("timeline.filter.question")} trigger={w("timeline.question_menu") + " " + questionWord}>
+              <MenuSection>
+                <MenuItem pressed={questionId === ""} onClick={() => setQuestionId("")}>{w("timeline.filter.question.all")}</MenuItem>
+                {(asked.data?.questions ?? []).map((q) => (
+                  <MenuItem key={q.id} pressed={questionId === q.id} onClick={() => setQuestionId(q.id)}>{t("ui.qchip", { n: q.number })}</MenuItem>
+                ))}
+              </MenuSection>
+            </Menu>
+          </span>
         </div>
+        {windowPreset === "custom" && (
+          <form className="av-understand-time-window__dates" onSubmit={(e) => e.preventDefault()}>
+            <div className="av-field">
+              <label className="av-field__label" htmlFor="tl-from">{w("timeline.filter.from")}</label>
+              <input id="tl-from" className="av-input" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+            </div>
+            <div className="av-field">
+              <label className="av-field__label" htmlFor="tl-to">{w("timeline.filter.to")}</label>
+              <input id="tl-to" className="av-input" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+            </div>
+          </form>
+        )}
         {whole.data && (
           <TimelineRibbon
             data={whole.data}
@@ -193,44 +240,6 @@ export function Timeline() {
             }}
           />
         )}
-      </div>
-
-      <div className="av-story-controls">
-        <Segmented
-          label={w("timeline.view")}
-          hideLabel
-          value={view}
-          onChange={(v) => setView(v as ViewMode)}
-          options={[
-            { value: "board", label: w("timeline.view.board") },
-            { value: "list", label: w("timeline.view.list") },
-          ]}
-        />
-        {c && (
-        <ChoicePills
-          label={w("timeline.filter.status")}
-          hideLabel
-          value={status}
-          onChange={setStatus}
-          options={[
-            { value: "", label: w("timeline.filter.status.all") },
-            { value: "verified", label: w("timeline.count", { label: t("ui.status.checked"), n: c.checked }) },
-            { value: "suggested", label: w("timeline.count", { label: t("ui.status.please_check"), n: c.please_check }) },
-            { value: "things_to_look", label: w("timeline.count", { label: t("ui.status.look"), n: c.things_to_look }) },
-            { value: "not_linked", label: w("timeline.count", { label: w("timeline.not_linked"), n: c.not_linked }) },
-          ]}
-        />
-        )}
-        <ChoicePills
-          label={w("timeline.filter.question")}
-          hideLabel
-          value={questionId}
-          onChange={setQuestionId}
-          options={[
-            { value: "", label: w("timeline.filter.question.all") },
-            ...(asked.data?.questions ?? []).map((q) => ({ value: q.id, label: t("ui.qchip", { n: q.number }) })),
-          ]}
-        />
       </div>
       {questionId && numbers[questionId] !== undefined && (
         <p className="av-understand-onlychip">
@@ -246,7 +255,7 @@ export function Timeline() {
       {found.error ? (
         <LoadError onRetry={found.reload} />
       ) : data && split ? (
-        <div className={`av-story-layout${current ? " av-story-layout--open" : ""}`}>
+        <div className="av-story-layout av-story-layout--open">
           <div className="av-stack av-story-layout__main">
             <GuidanceChanged codes={data.guidance_changed} />
             {showUndatedBanner && (
@@ -260,10 +269,13 @@ export function Timeline() {
             {view === "board" ? (
               <TimelineBoard caseId={caseId} data={data} from={from} to={to} numbers={numbers} selectedId={current?.fact_id} onOpen={open} />
             ) : (
-              <TimelineChronology entries={order} numbers={numbers} selectedId={current?.fact_id} onOpen={open} />
+              <>
+                <TimelineChronology entries={order} numbers={numbers} selectedId={current?.fact_id} onOpen={open} />
+                <TimelineFooter caseId={caseId} shown={order.length} total={order.length} sources={data.sources} found={data.counts?.things_to_look ?? 0} />
+              </>
             )}
           </div>
-          {current && <TimelineInspector caseId={caseId} current={current} here={panelHere} order={order} numbers={numbers} onSelect={select} onClose={close} />}
+          {current ? <TimelineInspector caseId={caseId} current={current} here={panelHere} order={order} numbers={numbers} onSelect={select} onClose={close} /> : <TimelineInspectorEmpty />}
         </div>
       ) : (
         <Loading />
