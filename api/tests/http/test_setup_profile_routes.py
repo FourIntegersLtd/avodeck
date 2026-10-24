@@ -26,6 +26,7 @@ from PIL import Image
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
+from app.core.http import etag
 from app.core.packs import default_library
 from app.core.storage import SupabaseStorage
 from tests.support.db import ClientFor
@@ -118,7 +119,7 @@ async def test_profile_is_not_found_for_support_staff_without_an_expert_row(
     client = await client_for(staff)
     assert (await client.get("/v1/me/profile")).status_code == 404
     assert (
-        await client.patch("/v1/me/profile", json={"profession": "x"}, headers={"if-match": "1"})
+        await client.patch("/v1/me/profile", json={"profession": "x"}, headers={"if-match": etag(1)})
     ).status_code == 404
     assert (await (await client_for(both)).get("/v1/me/profile")).status_code == 200
     assert (await (await client_for(expert)).get("/v1/me/profile")).status_code == 200
