@@ -58,12 +58,6 @@ export function Today() {
           </LinkButton>
         )}
       </div>
-      {me.is_support_staff && today.data && today.data.cases.length === 0 && hasScreen("support_console") && (
-        <section className="av-section av-card" data-testid="today-support">
-          <p>{t("today.support.line")}</p>
-          <LinkButton to={screenPath("support_console")!}>{t("today.support.open")}</LinkButton>
-        </section>
-      )}
       {today.error && <LoadError onRetry={today.reload} />}
       {!today.data && !today.error && <Loading />}
       {today.data && (

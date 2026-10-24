@@ -7,6 +7,9 @@ import { useResource } from "../foundation/lib/useResource";
 import { api, unwrap } from "../foundation/platform-client";
 import { AppShell, LoadError, Loading } from "../foundation/ui";
 
+/** Expert-only places; support staff go to the console instead. A case they were granted stays open. */
+const EXPERT_ONLY = new Set(["/today", "/profile", "/cases", "/cases/new"]);
+
 /** Signed-in screens: no session goes to sign in; a session without the code goes to the code step. */
 export function RequireSession() {
   const location = useLocation();
@@ -38,10 +41,12 @@ export function RequireSession() {
     );
   }
   claimResourceCache(session.data.me.person.id); // a different person empties the screen cache
+  const isSupport = session.data.me.is_support_staff === true;
+  if (isSupport && EXPERT_ONLY.has(location.pathname.replace(/\/$/, ""))) return <Navigate to="/support" replace />;
   return (
-    <SessionContext.Provider value={{ me: session.data.me, status: session.data.status }}>
+    <SessionContext.Provider value={{ me: session.data.me, status: session.data.status, isSupport }}>
       <MessagesProvider>
-        <AppShell name={session.data.me.person.full_name || session.data.me.person.email} support={session.data.me.is_support_staff}>
+        <AppShell name={session.data.me.person.full_name || session.data.me.person.email} support={isSupport}>
           <Outlet />
         </AppShell>
       </MessagesProvider>
