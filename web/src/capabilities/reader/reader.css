@@ -98,6 +98,9 @@
 .rd-value { margin: 0; font-size: 21px; }
 .rd-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); }
 .rd-actions .av-button { flex: 1 1 auto; }
+.rd-actions--quiet .av-button { min-height: 52px; }
+.rd-notes__head { margin: 0; font-size: 17px; }
+.rd-side__foot { padding-top: var(--space-3); border-top: 1px solid var(--line); }
 .rd-reason, .rd-edit { display: flex; flex-direction: column; gap: var(--space-2); }
 .rd-edit__row { display: flex; flex-direction: column; gap: var(--space-1); }
 .rd-hint { margin: 0; padding-top: var(--space-1); font-size: 17px; line-height: 1.45; color: var(--ink-soft); }
