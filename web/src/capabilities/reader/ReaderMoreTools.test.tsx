@@ -37,7 +37,7 @@ describe("The More tools drop-down", () => {
     expect(more).toHaveAttribute("aria-controls", panel.id);
     // The panel sits in a positioned wrapper with the button and is taken out of the flow.
     expect(more.parentElement).toBe(panel.parentElement);
-    const css = readFileSync(new URL("./reader.css", import.meta.url), "utf8");
+    const css = readFileSync("src/capabilities/reader/reader.css", "utf8");
     expect(css).toMatch(/\.rd-more\s*\{[^}]*position:\s*absolute/);
     expect(css).toMatch(/\.rd-more\s*\{[^}]*overflow-y:\s*auto/);
     expect(css).toMatch(/\.rd-more\s*\{[^}]*z-index:/);
@@ -75,7 +75,7 @@ describe("The More tools drop-down", () => {
     fireEvent.change(brightness, { target: { value: "130" } });
     await user.click(brightness);
     expect(screen.getByRole("group", { name: "More tools" })).toBeVisible();
-    expect(screen.getByRole("img", { name: "Page 118" }).style.filter).toBe("brightness(1.3)");
+    expect(screen.getByRole("img", { name: "Page 118" }).style.filter).toBe("brightness(1.3) contrast(1)");
   });
 
   test("Fit width, a one-shot action, closes it", async () => {
