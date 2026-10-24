@@ -185,3 +185,14 @@ test("the bar names the case and each result is coloured by its record source", 
   expect(other).toHaveStyle({ "--av-source": "#4C6E91" });
   expect(within(other).getByText("Zz hospital")).toBeInTheDocument();
 }, SLOW);
+
+test("before the PIN it says when the copy ends and how many tries are left, running down", async () => {
+  await saveCopy(await sealed(), META, PIN);
+  const { user } = renderAt(url);
+  expect(await screen.findByText(fill(k("lookup.ends"), { date: "1 July 2099" }))).toBeInTheDocument();
+  expect(screen.getByText(fill(M["trial.lookup.pin.left_other"]!, { count: 5 }))).toBeInTheDocument();
+  await unlock(user, "000000");
+  expect(await screen.findByText(fill(M["trial.lookup.pin.left_other"]!, { count: 4 }))).toBeInTheDocument();
+  for (let i = 0; i < 3; i++) await unlock(user, "000000");
+  expect(await screen.findByText(fill(M["trial.lookup.pin.left_one"]!, { count: 1 }))).toBeInTheDocument();
+}, SLOW);
