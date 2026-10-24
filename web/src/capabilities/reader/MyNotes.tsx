@@ -1,12 +1,14 @@
 // The expert's own bookmarks and private notes (screen 09). Only the person who keeps them sees them;
 // they are separate from the records, are not reading, and never go to AI. The server keeps them.
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, Checkbox } from "../../foundation/ui";
 import { casePath } from "./data";
+import { PencilIcon } from "./icons";
 import { w } from "./words";
 
 type Note = Schemas["MyNote"];
@@ -14,9 +16,12 @@ type Note = Schemas["MyNote"];
 export function MyNotes({
   caseId,
   pageNo,
+  trailing,
 }: {
   caseId: string;
   pageNo: number;
+  /** Shown at the end of the same quiet line (the link to the pages we couldn't read). */
+  trailing?: ReactNode;
 }) {
   const loaded = useResource(
     () => unwrap(api.GET("/v1/cases/{case_id}/my-notes", casePath(caseId))),
@@ -69,30 +74,34 @@ export function MyNotes({
     }
   }
 
-  if (!notes) return null;
+  if (!notes) return trailing ? <div className="rd-notes"><div className="rd-notes__line">{trailing}</div></div> : null;
   return (
     <section className="rd-notes" aria-labelledby="rd-notes-head">
-      <h3 id="rd-notes-head" className="rd-notes__head">
+      <h3 id="rd-notes-head" className="rd-sr">{w("read.notes.heading")}</h3>
+      <div className="rd-notes__line">
+        <Checkbox
+          label={w("read.notes.bookmark")}
+          checked={bookmarked}
+          disabled={busy}
+          onChange={(e) =>
+            void keep(
+              { bookmarked: e.target.checked, note: mine?.note ?? "" },
+              false,
+            )
+          }
+        />
         <Button
           variant="quiet"
+          className="rd-notes__add"
           aria-expanded={shown}
           aria-controls="rd-notes-body"
           onClick={() => setShown((o) => !o)}
         >
+          <PencilIcon />
           {mine?.note ? w("read.notes.note") : w("read.notes.add")}
         </Button>
-      </h3>
-      <Checkbox
-        label={w("read.notes.bookmark")}
-        checked={bookmarked}
-        disabled={busy}
-        onChange={(e) =>
-          void keep(
-            { bookmarked: e.target.checked, note: mine?.note ?? "" },
-            false,
-          )
-        }
-      />
+        {trailing}
+      </div>
       {shown && (
         <div id="rd-notes-body" className="rd-notes__body">
           <p className="rd-note">{w("read.notes.private")}</p>

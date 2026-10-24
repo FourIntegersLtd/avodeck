@@ -257,12 +257,12 @@ describe.each([
     await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_ID}/read/77`));
   });
 
-  test("with several suggestions, the switcher changes focus and only one full card is shown", async () => {
+  test("with several suggestions, choosing a row changes focus and only one full card is shown", async () => {
     mockReader(pack, { alreadyRead: true });
     const { user } = renderAt(PATH);
     expect(await screen.findByRole("article", { name: /Dr P consultation/ })).toBeVisible();
     expect(screen.queryByRole("article", { name: /Anusol/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Next suggestion on this page" }));
+    await user.click(screen.getAllByRole("button", { name: /Anusol/ }).find((b) => b.classList.contains("rd-row__head"))!);
     expect(await screen.findByRole("article", { name: /Anusol/ })).toBeVisible();
     expect(screen.queryByRole("article", { name: /Dr P consultation/ })).not.toBeInTheDocument();
     expect(screen.getByTestId(`highlight-${factId(2)}`)).toHaveClass("rd-mark--focus");

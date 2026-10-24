@@ -45,13 +45,13 @@ for (const { name, pack } of PACKS) {
 
     test("09 and 10 keep a margin at both sides of the window", async ({ page }) => {
       await stubReader(page, pack);
-      for (const [path, ready] of [["read/118", "I've read this page"], ["read/couldnt-read", "Save and next page"]]) {
+      for (const [path, ready, parts] of [["read/118", "I've read this page", "[role=toolbar] > *, footer > *"], ["read/couldnt-read", "Save and next page", "section, aside, footer > *, h1"]]) {
         await page.goto(`/cases/${CASE_A}/${path}`);
         await expect(page.getByRole("button", { name: ready })).toBeVisible();
-        const edges = await page.locator("main").evaluate((main) => {
-          const boxes = [...main.querySelectorAll("section, aside, footer > *, h1")].map((e) => e.getBoundingClientRect());
+        const edges = await page.locator("main").evaluate((main, parts) => {
+          const boxes = [...main.querySelectorAll(parts)].map((e) => e.getBoundingClientRect());
           return { left: Math.min(...boxes.map((r) => r.left)), right: Math.max(...boxes.map((r) => r.right)), width: window.innerWidth };
-        });
+        }, parts as string);
         expect(edges.left).toBeGreaterThanOrEqual(16);
         expect(edges.width - edges.right).toBeGreaterThanOrEqual(16);
       }

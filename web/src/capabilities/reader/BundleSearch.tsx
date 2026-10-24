@@ -1,15 +1,19 @@
-// Find words in the bundle (screen 09). The server searches only the words read from the pages, never
-// the suggestions, and answers page numbers and places; searching is not reading (rule 3).
-// Shown when the expert opens "Find words" on the page toolbar. A search opens the first page with the
-// words (unless this page has them), and Previous and Next step through the pages found.
+// Find words in the bundle (screen 09): one slim row. The server searches only the words read from the
+// pages, never the suggestions, and answers page numbers and places; searching is not reading (rule 3).
+// It searches as you type (after a short pause), opens the first page with the words (unless this page
+// has them), and Enter, the arrows and "Show all" move between the pages found.
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap } from "../../foundation/platform-client";
 import { Button } from "../../foundation/ui";
 import { pct } from "./data";
+import { ChevronIcon, CloseIcon, FindIcon } from "./icons";
+import { pageImage } from "./pageImageCache";
 import { searchable, type SearchResult } from "./search";
 import { w } from "./words";
+
+const PAUSE_MS = 300;
 
 interface Props {
   caseId: string;
@@ -19,119 +23,164 @@ interface Props {
   onResult: (result: SearchResult | null) => void;
   /** Opens a page of the bundle. */
   onOpen: (pageNo: number) => void;
+  /** Closes the bar. */
+  onDone: () => void;
   /** Put the cursor in the box (the expert has just asked to find words). */
   focus?: boolean;
 }
 
-export function BundleSearch({ caseId, pageNo, result, onResult, onOpen, focus }: Props) {
+export function BundleSearch({ caseId, pageNo, result, onResult, onOpen, onDone, focus }: Props) {
   const [q, setQ] = useState(result?.q ?? "");
   const [problem, setProblem] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [all, setAll] = useState(false);
   const input = useRef<HTMLInputElement>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  // Only the newest question may answer: a slow old answer is dropped.
+  const seq = useRef(0);
+  const here = useRef({ pageNo, onOpen, onResult });
+  here.current = { pageNo, onOpen, onResult };
   useEffect(() => {
     if (focus) input.current?.focus();
   }, [focus]);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
   const found = result?.pages ?? [];
+  const at = found.findIndex((p) => p.page_no === pageNo);
   const previous = [...found].reverse().find((p) => p.page_no < pageNo)?.page_no ?? null;
   const next = found.find((p) => p.page_no > pageNo)?.page_no ?? null;
 
-  async function find() {
-    if (!searchable(q)) return setProblem(w("read.search.too_short"));
+  async function run(text: string) {
+    const mine = ++seq.current;
+    if (text.trim() === "") {
+      setProblem(null);
+      setBusy(false);
+      here.current.onResult(null);
+      return;
+    }
+    if (!searchable(text)) {
+      setBusy(false);
+      here.current.onResult(null);
+      return setProblem(w("read.search.too_short"));
+    }
     setProblem(null);
     setBusy(true);
     try {
-      const out = await unwrap(api.POST("/v1/cases/{case_id}/search", { params: { path: { case_id: caseId } }, body: { q } }));
-      onResult({ q, pages: out.pages, total: out.total_hits });
+      const out = await unwrap(api.POST("/v1/cases/{case_id}/search", { params: { path: { case_id: caseId } }, body: { q: text } }));
+      if (mine !== seq.current) return;
+      here.current.onResult({ q: text, pages: out.pages, total: out.total_hits });
       // Straight to the words: the first page with them, unless they are on this page.
       const first = out.pages[0];
-      if (first && !out.pages.some((p) => p.page_no === pageNo)) onOpen(first.page_no);
+      if (first && !out.pages.some((p) => p.page_no === here.current.pageNo)) {
+        // Fetch the picture first so the page opens with its image, not an empty frame.
+        await pageImage(caseId, first.page_no).catch(() => undefined);
+        if (mine === seq.current) here.current.onOpen(first.page_no);
+      }
     } catch (error) {
-      setProblem(errorMessage(error));
+      if (mine === seq.current) setProblem(errorMessage(error));
     } finally {
-      setBusy(false);
+      if (mine === seq.current) setBusy(false);
     }
   }
 
+  function change(text: string) {
+    setQ(text);
+    setProblem(null);
+    setAll(false);
+    seq.current++;
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => void run(text), PAUSE_MS);
+  }
+
+  function enter() {
+    clearTimeout(timer.current);
+    if (result && result.q === q && !busy) {
+      if (next !== null) onOpen(next);
+    } else void run(q);
+  }
+
+  const status = problem ? null : busy ? w("read.search.finding") : result && found.length === 0 ? w("read.search.none") : null;
   return (
-    <div className="rd-search">
-      <form
-        role="search"
-        aria-label={w("read.search.label")}
-        className="rd-search__form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void find();
-        }}
-      >
-        <label htmlFor="rd-search" className="rd-label">
-          {w("read.search.label")}
-        </label>
+    <div className="rd-find" role="search" aria-label={w("read.search.label")}>
+      <div className="rd-find__field">
+        <FindIcon />
         <input
-          id="rd-search"
           ref={input}
-          className="av-input rd-search__input"
+          className="rd-find__input"
           type="search"
           autoComplete="off"
           maxLength={100}
+          aria-label={w("read.search.label")}
           value={q}
-          aria-describedby={problem ? "rd-search-problem" : undefined}
-          onChange={(e) => {
-            setQ(e.target.value);
-            setProblem(null);
+          onChange={(e) => change(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              enter();
+            }
           }}
         />
-        <Button type="submit" variant="secondary" disabled={busy} aria-busy={busy}>
-          {busy ? w("read.search.finding") : w("read.search.find")}
-        </Button>
-        {result && (
-          <Button
-            variant="secondary"
+        {q !== "" && (
+          <button
+            type="button"
+            className="rd-find__clear"
+            aria-label={w("read.search.clear")}
             onClick={() => {
-              onResult(null);
+              clearTimeout(timer.current);
               setQ("");
+              setAll(false);
+              void run("");
+              input.current?.focus();
             }}
           >
-            {w("read.search.clear")}
-          </Button>
+            <CloseIcon />
+          </button>
         )}
-      </form>
+      </div>
+      <span className="rd-find__count" role="status" aria-live="polite">
+        {status ?? (found.length > 0 && at >= 0 ? w("read.search.position", { n: at + 1, total: found.length }) : "")}
+      </span>
       {problem && (
-        <p id="rd-search-problem" className="rd-goto__error" role="alert">
+        <span className="rd-find__problem" role="alert">
           {problem}
-        </p>
+        </span>
       )}
-      {result && (
-        <section className="rd-search__found" aria-label={w("read.search.list")}>
-          <div className="rd-search__head">
-            <p role="status">{found.length === 0 ? w("read.search.none") : w("read.search.found", { count: found.length })}</p>
-            {found.length > 0 && (
-              <span className="rd-search__steps">
-                <Button variant="secondary" aria-label={w("read.search.previous")} disabled={previous === null} onClick={() => previous !== null && onOpen(previous)}>
-                  {w("read.search.previous_short")}
-                </Button>
-                <Button variant="secondary" aria-label={w("read.search.next")} disabled={next === null} onClick={() => next !== null && onOpen(next)}>
-                  {w("read.search.next_short")}
-                </Button>
-              </span>
+      {found.length > 0 && (
+        <>
+          <span className="rd-find__steps">
+            <button type="button" className="rd-find__step" aria-label={w("read.search.previous")} disabled={previous === null} onClick={() => previous !== null && onOpen(previous)}>
+              <ChevronIcon dir="left" />
+            </button>
+            <button type="button" className="rd-find__step" aria-label={w("read.search.next")} disabled={next === null} onClick={() => next !== null && onOpen(next)}>
+              <ChevronIcon dir="right" />
+            </button>
+          </span>
+          <span className="rd-find__all">
+            <Button variant="quiet" aria-expanded={all} aria-controls="rd-find-all" onClick={() => setAll((o) => !o)}>
+              {w("read.search.show_all")}
+            </Button>
+            {all && (
+              <ul id="rd-find-all" className="rd-find__list" aria-label={w("read.search.list")}>
+                {found.map((p) => (
+                  <li key={p.page_no}>
+                    <Link
+                      className={p.page_no === pageNo ? "rd-find__page rd-find__page--on" : "rd-find__page"}
+                      aria-current={p.page_no === pageNo ? "page" : undefined}
+                      to={`/cases/${caseId}/read/${p.page_no}`}
+                      onClick={() => setAll(false)}
+                    >
+                      {w("read.search.page", { page: p.page_no, count: p.hits })}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             )}
-          </div>
-          {found.length > 0 && (
-            <ul className="rd-search__list" aria-label={w("read.search.list")}>
-              {found.map((p) => (
-                <li key={p.page_no}>
-                  <Link
-                    className={p.page_no === pageNo ? "rd-search__page rd-search__page--on" : "rd-search__page"}
-                    aria-current={p.page_no === pageNo ? "page" : undefined}
-                    to={`/cases/${caseId}/read/${p.page_no}`}
-                  >
-                    {w("read.search.page", { page: p.page_no, count: p.hits })}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+          </span>
+        </>
       )}
+      <Button variant="quiet" className="rd-find__done" onClick={onDone}>
+        {w("read.done")}
+      </Button>
     </div>
   );
 }
