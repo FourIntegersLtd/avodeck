@@ -7,7 +7,9 @@ one ends the earlier. Grants and revocations go to the case's audit trail, with 
 
 from __future__ import annotations
 
+import hashlib
 import uuid
+from typing import Any
 
 from psycopg import AsyncConnection
 
@@ -16,6 +18,7 @@ from app.core.auth.access import not_found
 from app.core.email import Mailer, support_access_granted_mail
 from app.core.errors import ApiError, conflict
 from app.core.notifications import send_mail
+from app.core.packs import MergedPack, PackError, PackLibrary
 from app.features.organisations import repo
 from app.features.organisations.schemas import (
     SupportCase,
@@ -66,16 +69,42 @@ async def console_search(conn: AsyncConnection, q: str) -> list[SupportCase]:
     return found
 
 
-async def console_case(conn: AsyncConnection, case_id: uuid.UUID) -> SupportCaseDetail:
+def declaration_version(pack: MergedPack) -> str:
+    """The fingerprint of the pack's declaration wording that the sign step compares (F34).
+
+    The same sum as slice F's `report.checks.declaration_version`; slices may not import each other, so a
+    test (test_organisations_support_diagnostics_routes.py) holds the two equal.
+    """
+    joined = "\n".join(f"{d['key']}@{d.get('version', '')}\n{d['text']}" for d in pack.declarations())
+    return hashlib.sha256(joined.encode()).hexdigest()[:32]
+
+
+def _correction_pending(library: PackLibrary, packs: dict[str, str], acknowledged: str | None) -> bool:
+    if acknowledged is None:
+        return False
+    try:
+        pack = library.combine(packs["jurisdiction"], packs["case_type"], packs["specialty"])
+    except (PackError, KeyError):
+        return False
+    return acknowledged != declaration_version(pack)
+
+
+async def console_case(conn: AsyncConnection, library: PackLibrary, case_id: uuid.UUID) -> SupportCaseDetail:
     found = await repo.support_cases(conn, case_id, None)
-    if not found:
+    diagnostics = await repo.support_case_diagnostics(conn, case_id)
+    if not found or diagnostics is None:
         raise not_found()
     rows = await repo.support_case_grants(conn, case_id)
     await audit.record(conn, action=LOOKED_UP, target=f"case:{case_id}", case_id=case_id)
+    packs: dict[str, str] = diagnostics.pop("packs")
+    report: dict[str, Any] = diagnostics["report"]
+    acknowledged = report.pop("acknowledged_declaration_version")
+    report["pack_correction_pending"] = _correction_pending(library, packs, acknowledged)
     return SupportCaseDetail(
         case=SupportCase(**found[0]),
         grants=[SupportCaseGrant(**{k: v for k, v in r.items() if k != "mine"}) for r in rows],
         content_access=any(r["mine"] for r in rows),
+        **diagnostics,
     )
 
 

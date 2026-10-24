@@ -4652,7 +4652,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Look Up Case */
+        /**
+         * Look Up Case
+         * @description The case's grants and where it is stuck: counts, codes, statuses, dates and ids only (rule 6).
+         */
         get: operations["look_up_case_v1_support_cases__case_id__get"];
         put?: never;
         post?: never;
@@ -10939,13 +10942,28 @@ export interface components {
             /** Status */
             status: string;
         };
-        /** SupportCaseDetail */
+        /**
+         * SupportCaseDetail
+         * @description One case for the console: its grants, then where it is stuck, in counts, codes and dates only.
+         */
         SupportCaseDetail: {
             case: components["schemas"]["SupportCase"];
+            close: components["schemas"]["SupportClose"];
             /** Content Access */
             content_access: boolean;
+            deadlines: components["schemas"]["SupportDeadlines"];
+            facts: components["schemas"]["SupportFacts"];
             /** Grants */
             grants: components["schemas"]["SupportCaseGrant"][];
+            /** Jobs */
+            jobs: components["schemas"]["SupportJob"][];
+            /** Named Expert History */
+            named_expert_history: components["schemas"]["SupportNamedExpertChange"][];
+            /** Offline Packages */
+            offline_packages: components["schemas"]["SupportOfflinePackage"][];
+            pages: components["schemas"]["SupportPages"];
+            questions: components["schemas"]["SupportQuestions"];
+            report: components["schemas"]["SupportReport"];
         };
         /** SupportCaseGrant */
         SupportCaseGrant: {
@@ -10977,6 +10995,60 @@ export interface components {
         SupportCaseList: {
             /** Cases */
             cases: components["schemas"]["SupportCase"][];
+        };
+        /** SupportClose */
+        SupportClose: {
+            /** Delete After */
+            delete_after: string | null;
+            /** Deletion Started */
+            deletion_started: boolean;
+            export: components["schemas"]["SupportExport"];
+            hold: components["schemas"]["SupportHold"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "draft" | "processing" | "active" | "served" | "settled" | "withdrawn" | "archived" | "deleted";
+        };
+        /** SupportDeadlines */
+        SupportDeadlines: {
+            /** Cancelled */
+            cancelled: number;
+            /** Done */
+            done: number;
+            /** Open */
+            open: number;
+            /** Overdue */
+            overdue: number;
+        };
+        /** SupportExport */
+        SupportExport: {
+            /** Downloaded */
+            downloaded: boolean;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "queued" | "running" | "done" | "failed" | "paused";
+        };
+        /** SupportFacts */
+        SupportFacts: {
+            /** Needs Recheck */
+            needs_recheck: number;
+            /** Suggested */
+            suggested: number;
+            /** Verified */
+            verified: number;
+        };
+        /** SupportFinalCheck */
+        SupportFinalCheck: {
+            /** Item Codes */
+            item_codes: string[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "not_run" | "passed" | "failed";
         };
         /** SupportGrant */
         SupportGrant: {
@@ -11025,6 +11097,132 @@ export interface components {
         SupportGrantList: {
             /** Grants */
             grants: components["schemas"]["SupportGrant"][];
+        };
+        /** SupportHold */
+        SupportHold: {
+            /** Present */
+            present: boolean;
+            /** Reason Code */
+            reason_code: string | null;
+            /** Until */
+            until: string | null;
+        };
+        /** SupportInstructionVersion */
+        SupportInstructionVersion: {
+            /** Job Error Code */
+            job_error_code: string | null;
+            /** N */
+            n: number;
+            /**
+             * Read Status
+             * @enum {string}
+             */
+            read_status: "not_needed" | "reading" | "read" | "failed";
+        };
+        /** SupportJob */
+        SupportJob: {
+            /** Attempts */
+            attempts: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error Code */
+            error_code: string | null;
+            /** Finished At */
+            finished_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string | null;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed" | "paused";
+            /** Step */
+            step: string | null;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** SupportNamedExpertChange */
+        SupportNamedExpertChange: {
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
+        };
+        /** SupportOfflinePackage */
+        SupportOfflinePackage: {
+            /** Downloaded At */
+            downloaded_at: string | null;
+            /** Expires At */
+            expires_at: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Stale Reason */
+            stale_reason: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "built" | "downloaded" | "revoked";
+        };
+        /** SupportPages */
+        SupportPages: {
+            /** Needs Clearer Copy */
+            needs_clearer_copy: number;
+            /** Quarantined */
+            quarantined: number;
+            /** Superseded */
+            superseded: number;
+            /** Total */
+            total: number;
+            /** Unread By Named Expert */
+            unread_by_named_expert: number;
+            /** Unreadable */
+            unreadable: number;
+        };
+        /** SupportQuestions */
+        SupportQuestions: {
+            /** Instruction Versions */
+            instruction_versions: components["schemas"]["SupportInstructionVersion"][];
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "none" | "to_check" | "confirmed";
+        };
+        /** SupportReport */
+        SupportReport: {
+            /** Declaration Acknowledged */
+            declaration_acknowledged: boolean;
+            final_check: components["schemas"]["SupportFinalCheck"];
+            /** Latest Version Status */
+            latest_version_status: ("draft" | "locked" | "served" | "withdrawn") | null;
+            /** Locked At */
+            locked_at: string | null;
+            /** Pack Correction Pending */
+            pack_correction_pending: boolean;
+            /** Served At */
+            served_at: string | null;
+            /** Signature Present */
+            signature_present: boolean;
+            /** Signature Readable */
+            signature_readable: boolean;
         };
         /** TaskOut */
         TaskOut: {
