@@ -59,7 +59,7 @@ test("someone who may not decide sees the findings and links but no decide, chec
   const links = await screen.findByRole("region", { name: "Links to the questions" });
   await within(links).findByText("Question 1");
   expect(screen.queryByRole("button", { name: "Save my decision" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("radio", { name: "Relevant" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Relevant" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Check again" })).not.toBeInTheDocument();
   expect(within(links).queryByRole("button", { name: "Confirm link" })).not.toBeInTheDocument();
   expect(within(links).queryByRole("button", { name: "Add link" })).not.toBeInTheDocument();

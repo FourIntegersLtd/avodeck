@@ -60,7 +60,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const { container } = open();
     const title = run === "launch" ? "As the clinician saw it on 15 May 2024" : "What the assessor had in hand on 15 May 2024";
     expect(await screen.findByRole("heading", { level: 2, name: "Consultation · 15 May 2024" })).toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: new RegExp(`^${title}`) })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: new RegExp(`^${title}`) })).toHaveAttribute("aria-pressed", "true");
     expect(calls[0]!.url.searchParams.get("as_seen")).toBe("true");
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);
@@ -184,12 +184,14 @@ describe("as the design shows it", () => {
     inCase("launch");
     serve();
     const { user } = open();
-    const toggle = await screen.findByRole("switch", { name: /Seen on the day on 15 May 2024/ });
+    const seenOnly = await screen.findByRole("button", { name: /Seen on the day on 15 May 2024/ });
+    const toggle = screen.getByRole("button", { name: "With what came later" });
     expect(screen.getByText("Anything that arrived later is hidden")).toBeInTheDocument();
     const later = screen.getByText("Show what came later (1)").closest("details")!;
     expect(later).not.toHaveAttribute("open");
     await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "false");
+    expect(seenOnly).toHaveAttribute("aria-pressed", "false");
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
     expect(later).toHaveAttribute("open");
   });
 
