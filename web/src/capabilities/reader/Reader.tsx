@@ -11,7 +11,7 @@ import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/p
 import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
 import { dateFieldKey, suggestTimelineDate } from "./timelineDate";
-import { allowed, editableFields, FactCard } from "./FactCard";
+import { allowed, editableFields, FactCard, fieldTypes } from "./FactCard";
 import { FactList } from "./FactList";
 import { loadSplitPct, saveSplitPct } from "./splitPane";
 import { SplitDivider } from "./SplitDivider";
@@ -43,7 +43,7 @@ function MenuItem({ icon, on, children, ...rest }: { icon: ReactNode; on?: boole
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
-type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean };
+type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; misread: boolean };
 
 type MoveDraft = { id: string; page: number; words: PageWord[] | null; chosen: string[]; problem: string | null; readFirst: boolean };
 
@@ -258,7 +258,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
     setFormError(null);
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, misread: false });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -348,10 +348,29 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       body.new_value = headline;
       body.word_ids = orderedWords(editing.words);
     } else if (wordsChanged) body.word_ids = orderedWords(editing.words);
-    if (fieldsChanged) body.fields = { ...(f.fields ?? {}), ...editing.fields };
+    if (fieldsChanged || (dayChanged && hasDate(f))) body.fields = fieldsToSend(f, editing);
     if (dayChanged && editing.eventDate) body.event_date = editing.eventDate;
     void act(f, "edit", body);
   };
+
+  // The server replaces the details and checks each against the pack's types, so send only the kind's own
+  // fields, with numbers as numbers and dates as calendar days (never the date as written, which it refuses).
+  function fieldsToSend(f: Fact, draft: EditDraft): Record<string, unknown> {
+    const types = fieldTypes(pack, f.kind);
+    if (Object.keys(types).length === 0) return { ...(f.fields ?? {}), ...draft.fields };
+    const dayKey = dateFieldKey(pack, f.kind);
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries({ ...(f.fields ?? {}), ...draft.fields })) {
+      const type = types[key];
+      if (type === "date") {
+        const day = key === dayKey && draft.eventDate ? draft.eventDate : typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+        if (day) out[key] = day;
+      } else if ((type === "integer" || type === "number") && typeof value === "string") {
+        out[key] = value.trim() === "" ? null : Number.isFinite(Number(value)) ? Number(value) : value;
+      } else if (type) out[key] = value;
+    }
+    return out;
+  }
 
   async function startMove(fact: Fact, to: number) {
     setEditing(null);
@@ -681,16 +700,9 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       onNotRight={() => notRight(f)}
       onStartEdit={() => { setMoving(null); void startEdit(f); }}
       onEditText={(text) => setEditing((e) => e && { ...e, text })}
-      onEditField={(key, value) =>
-        setEditing((e) => {
-          if (!e) return e;
-          const fields = { ...e.fields, [key]: value };
-          const follow = e.eventDate !== null && !e.eventDateByHand && key === dateFieldKey(pack, f.kind);
-          return { ...e, fields, eventDate: follow ? suggestTimelineDate({ ...f, event_date: null, fields: { ...(f.fields ?? {}), ...fields } }, pack) : e.eventDate };
-        })
-      }
+      onEditField={(key, value) => setEditing((e) => e && { ...e, fields: { ...e.fields, [key]: value } })}
       editEventDate={editing?.id === f.id ? editing.eventDate : null}
-      onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value, eventDateByHand: true })}
+      onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value })}
       onSaveEdit={() => saveEdit(f)}
       onCancelEdit={() => { setEditing(null); setFormError(null); }}
       onFlag={() => toggleFlag(f)}
