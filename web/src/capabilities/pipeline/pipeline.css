@@ -125,3 +125,4 @@
   .pl-letter__head { grid-template-columns: 1fr; }
   .pl-card__below { padding-left: 0; }
 }
+.pl-ref { font-size: 1.5rem; font-weight: 600; margin: 0.25rem 0; }
