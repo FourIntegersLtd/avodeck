@@ -310,7 +310,7 @@ export function Consultation() {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setOn(value);
   };
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-page--full av-stack">
       <div className="av-understand-top">
         <div>
           <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
