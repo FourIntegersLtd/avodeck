@@ -1,13 +1,13 @@
 // S11 The timeline. Lanes, their order and their words come from the API (the case's pack); this screen only
 // draws them. Filters (window, status, question, day) are sent to the server, which does the filtering.
 // The ribbon shows the whole record; the board or the list shows the window; the side panel shows one entry.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { t } from "../../foundation/i18n";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, SegmentedControl } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, SegmentedControl, SplitDivider, Updating } from "../../foundation/ui";
 import { chronologyEntries } from "./chronologyEntries";
 import { casePath, GuidanceChanged } from "./shared";
 import { splitForTrack, TimelineBoard } from "./TimelineBoard";
@@ -22,6 +22,10 @@ import { w } from "./words";
 
 export { axisIso } from "./shared";
 export { splitForTrack } from "./TimelineBoard";
+
+const SPLIT_DEFAULT = 72;
+const SPLIT_MIN = 40;
+const SPLIT_MAX = 85;
 
 const MONTH_YEAR = new Intl.DateTimeFormat("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
 
@@ -42,6 +46,9 @@ export function Timeline() {
   const [dayOn, setDayOn] = useState(false);
   const [view, setView] = useState<ViewMode>("board");
   const [here, setHere] = useState<Event[]>([]);
+  // How much of the surface the board takes; the divider moves it, the entry panel has the rest.
+  const [splitPct, setSplitPct] = useState(SPLIT_DEFAULT);
+  const surfaceRef = useRef<HTMLDivElement>(null);
   const opener = useRef<Element | null>(null);
   const lastCounts = useRef<Schemas["TimelineCounts"] | null>(null);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(seenOn) ? seenOn : "";
@@ -94,6 +101,8 @@ export function Timeline() {
   };
 
   const data = found.data ?? undefined;
+  // A new window or filter is loading behind the lanes already drawn: say so, and dim them until it arrives.
+  const updating = found.loading && !!data;
   const order = useMemo(() => (data ? chronologyEntries(splitForTrack(data).lanes, splitForTrack(data).unplaced) : []), [data]);
   const entryId = params.get("entry");
   const current = entryId ? order.find((e) => e.fact_id === entryId) ?? null : null;
@@ -255,7 +264,14 @@ export function Timeline() {
       {found.error ? (
         <LoadError onRetry={found.reload} />
       ) : data && split ? (
-        <div className="av-story-layout av-story-layout--open">
+        <>
+        {updating && <Updating label={w("timeline.updating")} />}
+        <div
+          className="av-story-layout av-story-layout--open av-story-layout--split av-busy-dim"
+          aria-busy={updating}
+          ref={surfaceRef}
+          style={{ "--tl-split": `${splitPct}%` } as CSSProperties}
+        >
           <div className="av-stack av-story-layout__main">
             <GuidanceChanged codes={data.guidance_changed} />
             {showUndatedBanner && (
@@ -275,8 +291,10 @@ export function Timeline() {
               </>
             )}
           </div>
+          <SplitDivider areaRef={surfaceRef} value={splitPct} min={SPLIT_MIN} max={SPLIT_MAX} label={w("timeline.resize_split")} onChange={setSplitPct} />
           {current ? <TimelineInspector caseId={caseId} current={current} here={panelHere} order={order} numbers={numbers} onSelect={select} onClose={close} /> : <TimelineInspectorEmpty />}
         </div>
+        </>
       ) : (
         <Loading />
       )}
