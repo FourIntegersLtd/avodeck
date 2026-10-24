@@ -23,6 +23,9 @@ FUNCTIONS = {
     "app.support_cases(uuid, text)": True,
     "app.support_case_grants(uuid)": True,
     "app.support_case_diagnostics(uuid)": True,
+    "app.support_person(text, integer, interval)": True,
+    "app.support_organisation(uuid)": True,
+    "app.support_cell_status()": True,
 }
 
 
