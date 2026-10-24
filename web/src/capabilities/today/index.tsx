@@ -1,4 +1,4 @@
-import type { RouteObject } from "react-router-dom";
+import { Navigate, type RouteObject } from "react-router-dom";
 import { registerNeedsYouIcon, type NeedsYouIcon } from "../../foundation/lib/needsYouIcons";
 import { registerScreen } from "../../foundation/lib/screens";
 import { Help } from "./Help";
@@ -7,6 +7,8 @@ import { Today } from "./Today";
 export const todayRoutes: RouteObject[] = [
   { path: "today", element: <Today /> },
   { path: "help", element: <Help /> },
+  // The case list lives on Today; support staff are sent to the console first (RequireSession).
+  { path: "cases", element: <Navigate to="/today#your-cases" replace /> },
 ];
 
 // The header's Cases and Help links (S03 board).

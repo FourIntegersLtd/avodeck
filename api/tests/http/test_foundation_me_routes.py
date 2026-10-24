@@ -146,3 +146,16 @@ async def test_is_support_staff_is_true_for_active_staff_and_false_once_removed(
     assert (await client.get("/v1/me")).json()["is_support_staff"] is True
     admin.execute("update app.support_staff set removed_at = now() where person_id = %s", (person,))
     assert (await client.get("/v1/me")).json()["is_support_staff"] is False
+
+
+async def test_me_never_fails_for_staff_with_no_experts_row(client_for: ClientFor, admin: psycopg.Connection) -> None:
+    person = uuid.uuid4()
+    client = await client_for(person)
+    assert (await client.get("/v1/me")).status_code == 200  # creates the person
+    admin.execute("delete from app.experts where person_id = %s", (person,))
+    admin.execute("insert into app.support_staff (person_id) values (%s)", (person,))
+    resp = await client.get("/v1/me")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["is_support_staff"] is True
+    assert body["expert"] is None
