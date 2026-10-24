@@ -7,7 +7,7 @@ import { t } from "../../foundation/i18n";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, SegmentedControl } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, SegmentedControl, Updating } from "../../foundation/ui";
 import { chronologyEntries } from "./chronologyEntries";
 import { casePath, GuidanceChanged } from "./shared";
 import { splitForTrack, TimelineBoard } from "./TimelineBoard";
@@ -94,6 +94,8 @@ export function Timeline() {
   };
 
   const data = found.data ?? undefined;
+  // A new window or filter is loading behind the lanes already drawn: say so, and dim them until it arrives.
+  const updating = found.loading && !!data;
   const order = useMemo(() => (data ? chronologyEntries(splitForTrack(data).lanes, splitForTrack(data).unplaced) : []), [data]);
   const entryId = params.get("entry");
   const current = entryId ? order.find((e) => e.fact_id === entryId) ?? null : null;
@@ -255,7 +257,9 @@ export function Timeline() {
       {found.error ? (
         <LoadError onRetry={found.reload} />
       ) : data && split ? (
-        <div className="av-story-layout av-story-layout--open">
+        <>
+        {updating && <Updating label={w("timeline.updating")} />}
+        <div className="av-story-layout av-story-layout--open av-busy-dim" aria-busy={updating}>
           <div className="av-stack av-story-layout__main">
             <GuidanceChanged codes={data.guidance_changed} />
             {showUndatedBanner && (
@@ -277,6 +281,7 @@ export function Timeline() {
           </div>
           {current ? <TimelineInspector caseId={caseId} current={current} here={panelHere} order={order} numbers={numbers} onSelect={select} onClose={close} /> : <TimelineInspectorEmpty />}
         </div>
+        </>
       ) : (
         <Loading />
       )}

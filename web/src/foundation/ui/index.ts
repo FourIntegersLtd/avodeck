@@ -24,7 +24,7 @@ export { DictationBar, DictationBox } from "./DictationBox";
 export { DropZone } from "./DropZone";
 export type { DropZoneProps } from "./DropZone";
 export { BackLink, TextLink } from "./Links";
-export { LoadError, Loading } from "./Loading";
+export { LoadError, Loading, Updating } from "./Loading";
 export { Logo } from "./Logo";
 export { Notice } from "./Notice";
 export { ProgressBar, ProgressRing, StackedBar } from "./Progress";
