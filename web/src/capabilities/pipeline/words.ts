@@ -141,6 +141,7 @@ const WORDS = {
   "ask.next_arrive": "When the records arrive, add them to the case. They're numbered after page {{last}}, so nothing you've already read moves.",
   "ask.next_keep": "You can keep reading meanwhile.",
   "ask.more_time": "Need more time?",
+  "ask.updating": "Updating the email…",
   "ask.more_time_due": "Your report is due {{due}}. If the records arrive late, you may need more time.",
   "ask.more_time_add_one": "Add a line asking for {{n}} more day if they arrive after {{after}}",
   "ask.more_time_add_other": "Add a line asking for {{n}} more days if they arrive after {{after}}",

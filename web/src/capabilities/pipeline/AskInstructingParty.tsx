@@ -23,6 +23,7 @@ import {
   MenuSection,
   Notice,
   TextLink,
+  useBusy,
 } from "../../foundation/ui";
 import { casePath } from "./data";
 import { formatDate, formatNumber } from "./format";
@@ -54,6 +55,7 @@ export function AskInstructingParty() {
   const [body, setBody] = useState("");
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
+  const redraft = useBusy();
   const [more, setMore] = useState(false);
   const [notice, setNotice] = useState<{
     tone: "success" | "error";
@@ -248,9 +250,11 @@ export function AskInstructingParty() {
                   },
                 )}
                 checked={more}
-                disabled={editing}
-                onChange={(e) => void askMore(e.target.checked)}
+                disabled={editing || redraft.busy}
+                aria-busy={redraft.busy ? "true" : undefined}
+                onChange={(e) => void redraft.run(() => askMore(e.target.checked))}
               />
+              {redraft.busy && <p role="status">{w("ask.updating")}</p>}
             </section>
           )}
         </aside>
