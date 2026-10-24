@@ -71,6 +71,7 @@ test("a fact on a page with a clearer copy moves there, citing words chosen on t
   const api = mockReader(launchPack, { alreadyRead: true, facts: [checkedFact()], clearer: { page: 900, read: true, words: clearerWords } });
   const { user } = renderAt(PATH);
   const c = await card(/Dr P consultation/);
+  await user.click(within(c).getByRole("button", { name: "More for this fact" }));
   await user.click(within(c).getByRole("button", { name: "Move to the clearer copy" }));
   expect(await screen.findByRole("img", { name: "Page 900" })).toBeInTheDocument();
   await user.click(await screen.findByRole("button", { name: "Dr" }));
@@ -84,6 +85,7 @@ test("moving with no words chosen says what to do and sends nothing", async () =
   const api = mockReader(launchPack, { alreadyRead: true, facts: [checkedFact()], clearer: { page: 900, read: true, words: clearerWords } });
   const { user } = renderAt(PATH);
   const c = await card(/Dr P consultation/);
+  await user.click(within(c).getByRole("button", { name: "More for this fact" }));
   await user.click(within(c).getByRole("button", { name: "Move to the clearer copy" }));
   await screen.findByRole("button", { name: "Dr" });
   await user.click(within(c).getByRole("button", { name: "Move here" }));
@@ -95,6 +97,7 @@ test("a clearer copy not read yet asks to read it first, with a link to it", asy
   const api = mockReader(launchPack, { alreadyRead: true, facts: [checkedFact()], clearer: { page: 900, read: false, words: clearerWords } });
   const { user } = renderAt(PATH);
   const c = await card(/Dr P consultation/);
+  await user.click(within(c).getByRole("button", { name: "More for this fact" }));
   await user.click(within(c).getByRole("button", { name: "Move to the clearer copy" }));
   expect(await within(c).findByRole("alert")).toHaveTextContent("Read page 900 first, then come back to move this.");
   expect(within(c).getByRole("link", { name: "Open page 900" })).toHaveAttribute("href", `/cases/${CASE_ID}/read/900`);
@@ -105,6 +108,7 @@ test("while words are chosen on the clearer copy, the turn keys leave the page u
   const api = mockReader(launchPack, { alreadyRead: true, facts: [checkedFact()], clearer: { page: 900, read: true, words: clearerWords } });
   const { user } = renderAt(PATH);
   const c = await card(/Dr P consultation/);
+  await user.click(within(c).getByRole("button", { name: "More for this fact" }));
   await user.click(within(c).getByRole("button", { name: "Move to the clearer copy" }));
   expect(await screen.findByRole("img", { name: "Page 900" })).toBeInTheDocument();
   await user.keyboard("t");

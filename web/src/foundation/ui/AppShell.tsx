@@ -38,23 +38,34 @@ export function AppShell({ children, name, support }: AppShellProps) {
   const messages = useMessages();
   const unread = messages?.unread ?? 0;
   // Places slices register (screen keys "cases", "profile", "help"); hidden until a slice provides them.
-  const places = (["cases", "profile"] as const).flatMap((key) => {
+  const places = (support ? [] : (["cases", "profile"] as const)).flatMap((key) => {
     const to = screenPath(key);
     return to ? [[key, to] as const] : [];
   });
   const help = screenPath("help");
   const consolePath = support ? screenPath("support_console") : null;
-  const nav: Array<readonly [string, string]> = [["today", "/today"], ...places, ...(consolePath ? [["support", consolePath] as const] : [])];
+  // Support staff get the console only: no expert places (Today, Cases, Your profile), no Messages bell.
+  const nav: Array<readonly [string, string]> = support
+    ? consolePath ? [["support", consolePath] as const] : []
+    : [["today", "/today"], ...places];
   const current = currentPlace(nav, useLocation());
   // A case screen has its own single bar (logo, case, steps, avatar) from the case frame.
   const inCase = useMatch("/cases/:caseId/*") !== null;
+  // Always on for support staff, case screens too, so nobody mistakes this for an expert's account.
+  const band = support ? (
+    <div className="av-shell__support-band" role="note">
+      {t("app.badge.support_account")}
+    </div>
+  ) : null;
   return (
     <>
       <a className="av-skip" href="#main">
         {t("app.skip_to_content")}
       </a>
+      {inCase && band}
       {!inCase && (
       <header className="av-shell__header">
+        {band}
         <div className="av-shell__bar">
           <div className="av-shell__left">
             <Logo />
@@ -71,6 +82,7 @@ export function AppShell({ children, name, support }: AppShellProps) {
             </nav>
           </div>
           <div className="av-shell__right">
+            {!support && (
             <Link to="/messages" className="av-shell__bell" aria-label={unread ? t("app.nav.messages_unread", { count: unread }) : t("app.nav.messages")}>
               <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
@@ -82,6 +94,7 @@ export function AppShell({ children, name, support }: AppShellProps) {
                 </span>
               )}
             </Link>
+            )}
             {help && (
               <Link to={help} className="av-shell__help">
                 {t("app.nav.help")}

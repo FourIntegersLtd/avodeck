@@ -42,7 +42,7 @@ export interface CopyStore {
   remove(caseId: string): Promise<void>;
 }
 
-export type Found = { state: "none" } | { state: "expired" } | { state: "locked"; packageId: string; triesLeft: number };
+export type Found = { state: "none" } | { state: "expired" } | { state: "locked"; packageId: string; triesLeft: number; expiresAt: string; locale: string };
 export type Opened =
   | { state: "none" }
   | { state: "wrong"; triesLeft: number }
@@ -129,7 +129,7 @@ export async function findCopy(caseId: string, now: Date = new Date()): Promise<
     await current().remove(caseId);
     return { state: "expired" };
   }
-  return { state: "locked", packageId: copy.id, triesLeft: PIN_TRIES - copy.failedTries };
+  return { state: "locked", packageId: copy.id, triesLeft: PIN_TRIES - copy.failedTries, expiresAt: copy.meta.expiresAt, locale: copy.meta.locale };
 }
 
 /**

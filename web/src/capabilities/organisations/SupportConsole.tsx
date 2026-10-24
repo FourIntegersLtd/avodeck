@@ -15,9 +15,6 @@ import { w } from "./words";
 
 type Found = Schemas["SupportCase"];
 
-// The custody-transfer route is not in the generated client yet; its path is typed as a sibling POST route's.
-const CUSTODY = "/v1/support/cases/{case_id}/custody" as "/v1/cases/{case_id}/named-expert";
-
 function statusWords(status: string): string {
   return t(`organisations.console.status.${status}`, {}, humanise(status));
 }
@@ -89,14 +86,14 @@ export function SupportConsole() {
 function Custody({ cases }: { cases: string[] }) {
   const stepUp = useStepUp();
   const [caseId, setCaseId] = useState(cases[0] ?? "");
-  const [to, setTo] = useState("custodian");
+  const [to, setTo] = useState<"custodian" | "organisation">("custodian");
   const [evidence, setEvidence] = useState("");
   const [message, setMessage] = useState<Message>(null);
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setMessage(null);
     try {
-      const done = await stepUp(() => unwrap(api.POST(CUSTODY, { params: { path: { case_id: caseId } }, body: { to, evidence } as never })));
+      const done = await stepUp(() => unwrap(api.POST("/v1/support/custody-transfers", { body: { case_id: caseId, to, evidence_note: evidence.trim() } })));
       if (done !== undefined) setMessage({ tone: "success", text: w("console.custody.done") });
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, OWN_ERRORS) });
@@ -124,7 +121,7 @@ function Custody({ cases }: { cases: string[] }) {
           <label className="av-field__label" htmlFor="custody-to">
             {w("console.custody.to")}
           </label>
-          <select id="custody-to" className="av-input av-org-select" value={to} onChange={(e) => setTo(e.target.value)}>
+          <select id="custody-to" className="av-input av-org-select" value={to} onChange={(e) => setTo(e.target.value === "organisation" ? "organisation" : "custodian")}>
             <option value="custodian">{w("console.custody.to_custodian")}</option>
             <option value="organisation">{w("console.custody.to_org")}</option>
           </select>

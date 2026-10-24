@@ -4,6 +4,8 @@ import type { Schemas } from "../platform-client";
 export interface Session {
   me: Schemas["Me"];
   status: Schemas["SessionStatus"];
+  /** Avodeck support staff: the support frame and console instead of an expert's places. */
+  isSupport: boolean;
 }
 
 export const SessionContext = createContext<Session | null>(null);

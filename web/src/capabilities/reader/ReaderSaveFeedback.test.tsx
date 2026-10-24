@@ -64,6 +64,7 @@ test("a refused timeline date shows under its own Save button", async () => {
   const api = mockReader(launchPack, { alreadyRead: true, facts: [fact(1, { status: "verified", event_date: null })] });
   const { user } = renderAt(PATH);
   const c = await screen.findByRole("article", { name: /Dr P consultation/ });
+  await user.click(within(c).getByRole("button", { name: "More for this fact" }));
   await user.click(within(c).getByRole("button", { name: "Set date on timeline" }));
   api.verifyStatus = 422;
   api.verifyCode = "invalid";

@@ -23,13 +23,13 @@ describe.each([
     expect(await screen.findByText(text)).toBeVisible();
   });
 
-  test("the keyboard help is shown only once the page is read", async () => {
+  test("the keyboard help is not on the side; the ? key opens it in More tools", async () => {
     mockReader(pack);
     const { user } = renderAt(PATH);
     await screen.findByRole("button", { name: "Mark as read" });
-    expect(screen.queryByText("Keyboard, if you like it")).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Mark as read" }));
-    expect(await screen.findByText("Keyboard, if you like it")).toBeVisible();
+    expect(screen.queryByText("Keyboard shortcuts")).not.toBeInTheDocument();
+    await user.keyboard("?");
+    expect(await screen.findByRole("group", { name: "Keyboard shortcuts" })).toBeVisible();
   });
 
   test("a suggestion shows its details as rows, without the date already in its title", async () => {

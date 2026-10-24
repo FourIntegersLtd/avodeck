@@ -204,7 +204,12 @@ const WORDS = {
   "pack.offline.pin_hint": "You will need it to open the copy in the witness box. It is not kept anywhere, so it cannot be sent to you if you forget it.",
   "pack.offline.pin_again": "Type the PIN again",
   "pack.offline.pin_mismatch": "The two PINs are not the same.",
-  "pack.offline.gone": "This copy was already put on a device. Remove it and make a new one if you need it again.",
+  "pack.offline.gone": "This copy was already put on a device, and it can be put on a device once only. Remove it and make a new copy while you are online.",
+  "pack.offline.gone_revoked": "This copy was removed, so it can no longer be put on a device. Make a new copy while you are online.",
+  "pack.offline.gone_expired": "This copy has ended, so it can no longer be put on a device. Make a new copy while you are online.",
+  "pack.offline.downloads_one": "{{count}} download left. It can be put on a device once only.",
+  "pack.offline.downloads_other": "{{count}} downloads left. Make a new copy while you are online if you need it on a device again.",
+  "pack.offline.ends": "This copy ends on {{date}}.",
 
   // S25: in the witness box (works with no connection)
   "lookup.title": "In the witness box",
@@ -230,6 +235,9 @@ const WORDS = {
   "lookup.revoked": "This copy has been removed or has ended, so it has been wiped from this device.",
   "lookup.pin.label": "Your PIN for this copy",
   "lookup.pin.open": "Open the copy",
+  "lookup.ends": "This copy ends on {{date}}. After that it is wiped from this device.",
+  "lookup.pin.left_one": "{{count}} PIN try left before this copy is wiped from this device.",
+  "lookup.pin.left_other": "{{count}} PIN tries left before this copy is wiped from this device.",
   "lookup.pin.wrong_one": "That PIN is not right. {{count}} try left before the copy is wiped from this device.",
   "lookup.pin.wrong_other": "That PIN is not right. {{count}} tries left before the copy is wiped from this device.",
   "lookup.pin.wiped": "The PIN was wrong 5 times, so the copy has been wiped from this device. Make a new one from your trial pack while you are online.",

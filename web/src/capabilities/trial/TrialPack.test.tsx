@@ -361,3 +361,37 @@ test("a readiness sheet ends with the case, the pack and its page in the printed
   await user.click(within(preview).getByRole("button", { name: k("pack.preview.next") }));
   expect(within(preview).getByText(fill(k("pack.sheet.footer"), { case: "Mrs A", page: 41, pages: 48 }))).toBeInTheDocument();
 });
+
+test("a copy waiting to be put on a device says one download is left and when it ends", async () => {
+  servePack("launch", { copies: [copyOut()] });
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
+  const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
+  expect(await within(section).findByText(fill(M["trial.pack.offline.downloads_one"]!, { count: 1 }))).toBeInTheDocument();
+  expect(within(section).getByText(fill(k("pack.offline.ends"), { date: "1 July 2099" }))).toBeInTheDocument();
+});
+
+test("a copy already put on a device says no downloads are left", async () => {
+  servePack("launch", { copies: [copyOut({ status: "downloaded", downloaded_at: "2027-06-03T10:00:00Z" })] });
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
+  const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
+  expect(await within(section).findByText(fill(M["trial.pack.offline.downloads_other"]!, { count: 0 }))).toBeInTheDocument();
+});
+
+test.each([
+  ["already_downloaded", "pack.offline.gone"],
+  ["revoked", "pack.offline.gone_revoked"],
+  ["expired", "pack.offline.gone_expired"],
+] as const)("a 410 %s says which case it is and that a new copy made online fixes it", async (code, key) => {
+  servePack("launch", { copies: [copyOut()] });
+  server.use(http.get("/v1/cases/:caseId/offline-packages/:packageId/download", () => apiError(410, code)));
+  const { user } = renderAt(url);
+  await user.click(await screen.findByRole("button", { name: k("pack.offline.show") }));
+  const section = await screen.findByRole("region", { name: k("pack.offline.heading") });
+  await user.type(await within(section).findByLabelText(k("pack.offline.pin")), PIN);
+  await user.type(within(section).getByLabelText(k("pack.offline.pin_again")), PIN);
+  await user.click(within(section).getByRole("button", { name: k("pack.offline.download") }));
+  const text = await within(section).findByText(k(key));
+  expect(text.textContent).toMatch(/online/);
+}, 30_000);

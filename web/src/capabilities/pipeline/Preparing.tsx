@@ -24,6 +24,9 @@ type Update = Partial<Pick<Job, "status" | "step" | "pct" | "eta_seconds" | "err
 
 const finished = (status: string | undefined) => status === "done" || status === "failed" || status === "cancelled";
 
+// A short, readable form of an id to read out on the phone: its first eight characters in two groups.
+const shortRef = (id: string) => id.replace(/-/g, "").slice(0, 8).toUpperCase().replace(/(.{4})(.{4})/, "$1 $2");
+
 const OWN = { processing_paused: "pipeline.preparing.err.paused", conflict: "pipeline.preparing.err.conflict" };
 
 export function Preparing() {
@@ -152,6 +155,14 @@ export function Preparing() {
       {actionError && <Notice tone="error"><p>{actionError}</p></Notice>}
       {stopped && <Notice><p>{w("preparing.stopped")}</p></Notice>}
       {job === null && !stopped && <Notice><p>{w("preparing.nothing")}</p></Notice>}
+      {job?.status === "paused" && (
+        <Notice>
+          <p>{w("preparing.paused")}</p>
+          <p>{w("preparing.paused_ref")}</p>
+          <p className="av-mono pl-ref">{w("preparing.paused_case", { ref: shortRef(caseId) })}</p>
+          <p className="av-mono pl-ref">{w("preparing.paused_job", { ref: shortRef(job.id) })}</p>
+        </Notice>
+      )}
       {job?.status === "failed" && (
         <Notice tone="error">
           <p>{w("preparing.failed")}</p>

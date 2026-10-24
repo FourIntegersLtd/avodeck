@@ -10,7 +10,7 @@ import { forgetPages } from "./pageImageCache";
 import { forgetView } from "./viewer";
 import { forgetSearch } from "./search";
 import { CASE_ID, pageWords } from "./testData";
-import { mockReader } from "./testing";
+import { mockReader, moreTools, openFind } from "./testing";
 import "./index";
 
 beforeEach(() => {
@@ -35,6 +35,7 @@ describe.each([
       const api = mockReader(pack, { searchHits: HITS });
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       const find = screen.getByRole("search", { name: "Find words in the bundle" });
       await user.type(within(find).getByRole("searchbox", { name: "Find words in the bundle" }), "chest pain");
       await user.click(within(find).getByRole("button", { name: "Find" }));
@@ -56,6 +57,7 @@ describe.each([
       mockReader(pack, { searchHits: HITS });
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest pain");
       await user.click(screen.getByRole("button", { name: "Find" }));
       await user.click(await screen.findByRole("link", { name: "Page 12, 3 times" }));
@@ -72,6 +74,7 @@ describe.each([
       const api = mockReader(pack);
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       const box = screen.getByRole("searchbox", { name: "Find words in the bundle" });
       await user.type(box, "a");
       await user.click(screen.getByRole("button", { name: "Find" }));
@@ -87,12 +90,13 @@ describe.each([
     test("shows the next page beside this one; any page number can be chosen", async () => {
       mockReader(pack);
       const { user } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      const two = within(bar).getByRole("button", { name: "Two pages" });
-      expect(two).toHaveAttribute("aria-pressed", "false");
-      await user.click(two);
-      expect(two).toHaveAttribute("aria-pressed", "true");
+      const two = async () => within(await moreTools(user)).getByRole("button", { name: "Two pages" });
+      expect(await two()).toHaveAttribute("aria-pressed", "false");
+      await user.click(await two());
+      expect(await two()).toHaveAttribute("aria-pressed", "true");
+      await user.keyboard("{Escape}");
       expect(await screen.findByRole("img", { name: "Page 119" })).toBeVisible();
       const beside = screen.getByRole("textbox", { name: "Page beside it" });
       await user.clear(beside);
@@ -100,16 +104,16 @@ describe.each([
       await user.click(screen.getByRole("button", { name: "Show" }));
       expect(await screen.findByRole("img", { name: "Page 40" })).toBeVisible();
       expect(screen.getByRole("img", { name: "Page 118" })).toBeVisible();
-      await user.click(two);
+      await user.click(await two());
       expect(screen.queryByRole("img", { name: "Page 40" })).not.toBeInTheDocument();
     });
 
     test("a page with a clearer copy shows the copy beside it", async () => {
       mockReader(pack, { clearer: { page: 1201, read: false, words: pageWords() } });
       const { user } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      await user.click(within(bar).getByRole("button", { name: "Two pages" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
       expect(await screen.findByRole("img", { name: "Page 1201" })).toBeVisible();
     });
   });
@@ -118,12 +122,17 @@ describe.each([
     test("the Full screen button and F show only the page view; Escape comes back", async () => {
       mockReader(pack);
       const { user, container } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      const full = within(bar).getByRole("button", { name: "Full screen" });
-      await user.click(full);
-      expect(full).toHaveAttribute("aria-pressed", "true");
+      const bar = screen.getByRole("toolbar", { name: "Page view" });
+      await user.click(within(bar).getByRole("button", { name: "Full screen" }));
       expect(container.querySelector(".rd")).toHaveClass("rd--full");
+      // The bar stays, and the same button now leaves full screen.
+      expect(within(bar).getByRole("button", { name: "Leave full screen" })).toHaveAttribute("aria-pressed", "true");
+      await user.click(within(bar).getByRole("button", { name: "Leave full screen" }));
+      expect(container.querySelector(".rd")).not.toHaveClass("rd--full");
+      expect(within(bar).getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "false");
+      await user.click(within(bar).getByRole("button", { name: "Full screen" }));
       await user.keyboard("{Escape}");
       expect(container.querySelector(".rd")).not.toHaveClass("rd--full");
       await user.keyboard("f");
@@ -141,10 +150,11 @@ describe.each([
       const api = mockReader(pack);
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
-      const mark = await screen.findByRole("button", { name: "Bookmark this page" });
-      expect(mark).toHaveAttribute("aria-pressed", "false");
+      const mark = await screen.findByRole("checkbox", { name: "Bookmark this page" });
+      expect(mark).not.toBeChecked();
       await user.click(mark);
-      await waitFor(() => expect(mark).toHaveAttribute("aria-pressed", "true"));
+      await waitFor(() => expect(mark).toBeChecked());
+      await user.click(screen.getByRole("button", { name: "Add a note" }));
       expect(screen.getByText("Only you see your bookmarks and notes. They are not part of the records.")).toBeVisible();
       await user.type(screen.getByRole("textbox", { name: "Your note on this page" }), "Ask about the missing letter");
       await user.click(screen.getByRole("button", { name: "Save note" }));
@@ -161,26 +171,30 @@ describe.each([
       mockReader(pack, { notes: [{ page_no: 12, bookmarked: true, note: "" }, { page_no: 118, bookmarked: false, note: "Check the dose" }] });
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await user.click(await screen.findByRole("button", { name: "Your note on this page" }));
       expect(await screen.findByRole("textbox", { name: "Your note on this page" })).toHaveValue("Check the dose");
-      await user.click(screen.getByRole("button", { name: "Your bookmarks and notes (2)" }));
+      await user.click(screen.getByRole("button", { name: "All your notes (2)" }));
       const list = screen.getByRole("list", { name: "Your bookmarks and notes" });
       await user.click(within(list).getByRole("link", { name: /Page 12/ }));
       expect(await screen.findByRole("img", { name: "Page 12" })).toBeVisible();
-      expect(screen.getByRole("button", { name: "Bookmark this page" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("checkbox", { name: "Bookmark this page" })).toBeChecked();
+      await user.click(screen.getByRole("button", { name: "Add a note" }));
       expect(screen.getByRole("textbox", { name: "Your note on this page" })).toHaveValue("");
     });
 
     test("every tool open passes axe", async () => {
       mockReader(pack, { searchHits: HITS, notes: [{ page_no: 12, bookmarked: true, note: "" }] });
       const { user, container } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest");
       await user.click(screen.getByRole("button", { name: "Find" }));
       await screen.findByText("Found on 2 pages");
-      await user.click(within(bar).getByRole("button", { name: "Two pages" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
       await screen.findByRole("img", { name: "Page 119" });
-      await user.click(await screen.findByRole("button", { name: "Your bookmarks and notes (1)" }));
+      await user.click(await screen.findByRole("button", { name: "Add a note" }));
+      await user.click(await screen.findByRole("button", { name: "All your notes (1)" }));
       expect(await axeViolations(container)).toEqual([]);
     });
   });

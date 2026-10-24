@@ -168,6 +168,7 @@ a.av-step__hit:hover .av-step__pill { border-color: var(--green); }
 .av-shell__avatar-disc { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; background: var(--green-tint); }
 .av-shell__help { display: inline-flex; align-items: center; min-height: var(--button-min-height); padding: 0 12px; font-weight: 700; color: var(--green-dark); text-decoration: none; }
 .av-shell__banner { padding-bottom: 0; }
+.av-shell__support-band { padding: var(--space-3) 40px; background: var(--amber-tint); color: var(--ink); border-bottom: 1px solid var(--amber-border); font-size: var(--text-body); font-weight: 700; text-align: center; }
 
 /* Today: date above greeting, case cards with a step ring */
 .av-today__date { margin-bottom: var(--space-1); }
