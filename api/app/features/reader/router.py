@@ -6,6 +6,7 @@ Responses carrying the page picture are never cached.
 
 from __future__ import annotations
 
+import asyncio
 import io
 import uuid
 from typing import Annotated, Literal
@@ -161,6 +162,7 @@ SMALL_WIDTH = 240
 def _small(picture: bytes) -> bytes:
     """A small copy of the page picture for the page strip (made in memory, never stored)."""
     with Image.open(io.BytesIO(picture)) as im:
+        im.draft("RGB", (SMALL_WIDTH, SMALL_WIDTH * 4))  # decode a JPEG at a fraction of its size
         im.thumbnail((SMALL_WIDTH, SMALL_WIDTH * 4))
         out = io.BytesIO()
         im.convert("RGB").save(out, "JPEG", quality=70)
@@ -187,7 +189,7 @@ async def page_image(
     path = r["image_path"]
     picture = await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
     if size == "small":
-        picture = _small(picture)
+        picture = await asyncio.to_thread(_small, picture)  # off the event loop
     return Response(picture, media_type="image/jpeg", headers={"cache-control": "private, no-store"})
 
 

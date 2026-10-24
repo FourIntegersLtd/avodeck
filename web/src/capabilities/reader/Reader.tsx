@@ -390,8 +390,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn };
+  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving });
+  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -399,8 +399,12 @@ function ReadPage({ pageNo }: { pageNo: number }) {
       const s = latest.current;
       const key = e.key.toLowerCase();
       const target = s.facts?.find((f) => f.id === s.focus);
-      if (key === "t") s.turnPage(e.shiftKey ? -90 : 90);
-      else if (key === "u") s.undoTurn();
+      if (key === "t" || key === "u") {
+        // Not while words are chosen on the clearer copy: that view shows another page, and this one is hidden.
+        if (s.moving) return;
+        if (key === "t") s.turnPage(e.shiftKey ? -90 : 90);
+        else s.undoTurn();
+      }
       else if (key === "j") s.go(s.nextPage ?? 0);
       else if (key === "k") s.go(pageNo - 1);
       else if (key === "r") void s.markRead();

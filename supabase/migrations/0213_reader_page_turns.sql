@@ -16,6 +16,7 @@ create table app.page_turns (
   page_id uuid primary key references app.pages (id) on delete cascade,
   degrees int not null check (degrees in (0, 90, 180, 270)),
   person_id uuid not null references app.people (id),
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 

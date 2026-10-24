@@ -99,7 +99,14 @@ export function PageStrip({ caseId, pages, current, currentRead, onOpen }: Props
       tabIndex={0}
       aria-activedescendant={activePage ? `rd-strip-${activePage.page_no}` : undefined}
       onKeyDown={onKeyDown}
-      onScroll={(e) => setScroll(e.currentTarget.scrollTop)}
+      onScroll={(e) => {
+        const top = e.currentTarget.scrollTop;
+        const h = view();
+        setScroll(top);
+        // Scrolled with the mouse away from the active page: the keyboard carries on from the first page in view,
+        // and the active page stays one that is drawn (a screen reader can say it).
+        setActive((a) => (a * ITEM < top || (a + 1) * ITEM > top + h ? Math.min(pages.length - 1, Math.ceil(top / ITEM)) : a));
+      }}
     >
       <div className="rd-strip__track" style={{ height: pages.length * ITEM }}>
         {shown.map((p, i) => {
