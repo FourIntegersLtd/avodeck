@@ -114,6 +114,8 @@ queued ──▶ running ──▶ done
 
 A job paused because the reading service is busy or unreachable (`service_busy`, `model_unavailable`, F5) is resumed by the worker itself (paused → running) after an exponential back-off (doubling from 2 seconds, 2 hours in all); if it is still paused after that, the resumed run ends `failed` (running → failed) with the pause reason as `error_code`, and the retry puts it back on the queue. A resume is not a new attempt. Other pauses (cost guard K3, a cancelled run) wait for a person.
 
+Avodeck support may do the two person-driven moves (`POST /v1/support/jobs/{job_id}/resume` and `/requeue`, permissions.md "Avodeck staff"; `app.support_job_action()`, migration 0035): **support resume** hands a paused job back to the queue and the worker makes the paused → running move when it picks it up (refused while the case is on hold, 409 `case_on_hold`; any status but paused is 409 `job_not_paused`); **support requeue** is failed → queued with `attempts` set back to 0 (any status but failed is 409 `job_not_failed`). What the job was (status, error code, attempts) is kept in `job_support_actions`; the job's own `error_code` stays until the worker picks it up.
+
 Every step is idempotent, so retrying from the start is always safe. Finished steps are recorded in `job_steps` and skipped on retry; a job whose worker stopped sending heartbeats is put back on the queue (F6).
 
 ## Upload (`uploads.status`)
