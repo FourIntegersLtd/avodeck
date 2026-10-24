@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import { screen, within } from "@testing-library/react";
 import { afterEach, expect, test, vi } from "vitest";
 import { apiError, http, json, server, signedIn } from "../../test/api";
-import { CASE_A, PERSONAL_ORG } from "../../test/fixtures";
+import { CASE_A, PERSONAL_ORG, me } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { setFlag } from "./flags";
 
@@ -115,10 +115,14 @@ test("staff choose which served case to move", async () => {
   setFlag("support_custody_transfer", true);
   signedIn();
   const SECOND = "99999999-9999-4999-8999-999999999999";
-  const sent: string[] = [];
+  const sent: unknown[] = [];
   server.use(
     http.get("/v1/support/cases", () => json({ cases: [found({ served: true }), found({ case_id: SECOND, served: true })] })),
-    http.post(`/v1/support/cases/${SECOND}/custody`, () => (sent.push(SECOND), json({}))),
+    // The API's one route (routes_support.py): POST /v1/support/custody-transfers with {case_id, to, evidence_note}.
+    http.post("/v1/support/custody-transfers", async ({ request }) => {
+      sent.push(await request.json());
+      return json({ id: CASE_A, case_id: SECOND, to_person_id: null, to_organisation_id: null, transferred_at: "2026-10-24T10:00:00Z" }, 201);
+    }),
   );
   const { user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), "a@example.test");
@@ -127,5 +131,15 @@ test("staff choose which served case to move", async () => {
   await user.type(screen.getByLabelText("Where the evidence is kept (a reference code)"), "REF1");
   await user.click(screen.getByRole("button", { name: "Move custody" }));
   expect(await screen.findByText("Custody has moved.")).toBeInTheDocument();
-  expect(sent).toEqual([SECOND]);
+  expect(sent).toEqual([{ case_id: SECOND, to: "custodian", evidence_note: "REF1" }]);
+});
+
+test("support staff signing in land on the console, with Support console in the top bar and no expert places", async () => {
+  signedIn({ me: { ...me(), is_support_staff: true } });
+  const { router } = renderAt("/today");
+  expect(await screen.findByRole("heading", { level: 1, name: "Support" })).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe("/support");
+  const nav = screen.getByRole("navigation");
+  expect(within(nav).getByRole("link", { name: "Support console" })).toHaveAttribute("href", "/support");
+  expect(within(nav).queryByRole("link", { name: "Today" })).toBeNull();
 });
