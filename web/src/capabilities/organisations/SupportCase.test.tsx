@@ -39,7 +39,7 @@ test("staff see each part of the case as a plain section, with what a stuck stat
   }
   expect(screen.getByText("Pages the expert hasn't read yet: 212. Suggestions stay hidden until a page is read; nothing is lost.")).toBeInTheDocument();
   const work = screen.getByRole("region", { name: "Work Avodeck is doing" });
-  expect(within(work).getByText(/Paused/)).toBeInTheDocument();
+  expect(within(work).getByText("Paused")).toBeInTheDocument();
   expect(within(work).getByText(/cost_guard/)).toBeInTheDocument();
   expect(within(work).getByText("Paused work waits safely; nothing is lost. It starts again when the service is back.")).toBeInTheDocument();
   expect(screen.getByText("Facts to check again after a change: 5.")).toBeInTheDocument();
