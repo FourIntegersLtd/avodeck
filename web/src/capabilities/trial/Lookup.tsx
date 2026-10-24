@@ -18,7 +18,7 @@ type View =
   | { state: "none" }
   | { state: "expired" }
   | { state: "revoked" }
-  | { state: "locked"; wrong: number | null }
+  | { state: "locked"; wrong: number | null; triesLeft: number; expiresAt: string; locale: string }
   | Exclude<Opened, { state: "wrong" }>;
 
 export function Lookup() {
@@ -33,7 +33,7 @@ export function Lookup() {
       const found = await findCopy(caseId);
       if (found.state !== "locked") return live && setView(found);
       const checked = await checkWithServer(caseId, found.packageId);
-      if (live) setView(checked === "wiped" ? { state: "revoked" } : { state: "locked", wrong: null });
+      if (live) setView(checked === "wiped" ? { state: "revoked" } : { state: "locked", wrong: null, triesLeft: found.triesLeft, expiresAt: found.expiresAt, locale: found.locale });
     })();
     return () => {
       live = false;
@@ -46,7 +46,7 @@ export function Lookup() {
     try {
       const result = await unlockCopy(caseId, pin);
       setPin("");
-      setView(result.state === "wrong" ? { state: "locked", wrong: result.triesLeft } : result);
+      setView((was) => (result.state === "wrong" && was?.state === "locked" ? { ...was, wrong: result.triesLeft, triesLeft: result.triesLeft } : result.state === "wrong" ? { state: "none" } : result));
     } finally {
       setBusy(false);
     }
@@ -68,6 +68,8 @@ export function Lookup() {
         {view?.state === "broken" && <Notice tone="error"><p>{w("lookup.broken")}</p></Notice>}
         {view?.state === "locked" && (
           <form className="av-stack" onSubmit={open}>
+            <p className="av-trial-strong">{w("lookup.ends", { date: longDate(view.expiresAt, view.locale) })}</p>
+            <p role="status" className="av-trial-strong">{wn("lookup.pin.left", view.triesLeft)}</p>
             <TextField
               label={w("lookup.pin.label")}
               name="pin"
