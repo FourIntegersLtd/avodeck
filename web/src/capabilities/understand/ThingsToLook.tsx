@@ -293,7 +293,7 @@ export function ThingsToLook() {
     }
   };
   return (
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-page--full av-stack">
       <div className="av-understand-things">
         <div className="av-understand-things__main av-stack">
           <div>

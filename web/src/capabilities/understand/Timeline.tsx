@@ -152,7 +152,7 @@ export function Timeline() {
 
   return (
     <HighlightProvider>
-    <div className="av-page av-page--wide av-stack">
+    <div className="av-page av-page--wide av-page--full av-stack">
       <div className="av-understand-top">
         <div>
           <h2>{w("timeline.title")}</h2>
