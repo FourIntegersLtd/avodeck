@@ -830,7 +830,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |
 | GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
 | GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA in the last 10 minutes on every call |
-| GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants; the look is audited on the case | Support staff, as above |
+| GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants, and where it is stuck (jobs, pages, suggestions, questions, report, close, offline copies, named expert changes, deadlines) in counts and codes only; the look is audited on the case | Support staff, as above |
 | POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
 
 **Case setup (slice C)**

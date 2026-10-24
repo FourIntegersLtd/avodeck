@@ -226,6 +226,11 @@ async def support_cases(conn: AsyncConnection, case_id: uuid.UUID | None, email:
     return await rows(conn, "select * from app.support_cases(%s, %s)", (case_id, email))
 
 
+async def support_case_diagnostics(conn: AsyncConnection, case_id: uuid.UUID) -> dict[str, Any] | None:
+    found = await value(conn, "select app.support_case_diagnostics(%s)", (case_id,))
+    return dict(found) if found is not None else None
+
+
 async def support_case_grants(conn: AsyncConnection, case_id: uuid.UUID) -> list[dict[str, Any]]:
     return await rows(conn, "select * from app.support_case_grants(%s)", (case_id,))
 

@@ -69,6 +69,9 @@ export function SupportConsole() {
                 <p>{c.grant_active && c.grant_expires_at ? w("console.grant_active", { when: when(c.grant_expires_at, me.person.locale) }) : w("console.grant_none")}</p>
                 {!c.grant_active && <p className="av-muted av-small">{w("console.records_locked")}</p>}
               </div>
+              <Link className="av-button av-button--secondary" to={`/support/cases/${c.case_id}`}>
+                {w("console.details")}
+              </Link>
               {c.grant_active && (
                 <Link className="av-button av-button--secondary" to={`/cases/${c.case_id}`}>
                   {w("console.open_case")}
