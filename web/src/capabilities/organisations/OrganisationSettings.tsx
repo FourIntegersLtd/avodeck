@@ -98,7 +98,7 @@ function Switcher({ current, memberships }: { current: string; memberships: Sche
 }
 
 function Rules({ org, manage, onPolicy }: { org: Org; manage: boolean; onPolicy: (p: Org["policy"]) => void }) {
-  const { act, message } = useAct();
+  const { act, busy, message } = useAct();
   const [editing, setEditing] = useState(false);
   const [years, setYears] = useState("");
   const [invalid, setInvalid] = useState(false);
@@ -136,7 +136,7 @@ function Rules({ org, manage, onPolicy }: { org: Org; manage: boolean; onPolicy:
     const n = Number(text);
     if (text !== "" && (!Number.isInteger(n) || n < 1 || n > 100)) return setInvalid(true);
     setInvalid(false);
-    void save({ required_template_id: policy.required_template_id ?? null, max_retention_years: text === "" ? null : n }, () => setEditing(false));
+    return save({ required_template_id: policy.required_template_id ?? null, max_retention_years: text === "" ? null : n }, () => setEditing(false));
   };
   const on = Boolean(policy.required_template_id);
   return (
@@ -148,7 +148,7 @@ function Rules({ org, manage, onPolicy }: { org: Org; manage: boolean; onPolicy:
           <p className="av-field__label">{w("rules.template")}</p>
           <p className="av-muted">{on ? w("rules.template_on") : mine.data || !manage ? w("rules.template_off") : w("rules.template_none")}</p>
         </div>
-        {manage && <ToggleSwitch label={w("rules.template_switch")} checked={on} disabled={!on && !mine.data} onChange={toggleTemplate} />}
+        {manage && <ToggleSwitch label={w("rules.template_switch")} checked={on} disabled={busy || (!on && !mine.data)} onChange={toggleTemplate} />}
       </div>
       <div className="av-row-item">
         <div className="av-row-item__text">
@@ -241,7 +241,7 @@ function CloseOrganisation({ org }: { org: Org }) {
         <Dialog title={w("close_org.dialog", { name: org.name })} onClose={() => setAsking(false)}>
           <p>{w("close_org.dialog_body")}</p>
           <div className="av-row">
-            <Button variant="danger" onClick={() => void close()}>
+            <Button variant="danger" onClick={() => close()}>
               {w("close_org.confirm")}
             </Button>
             <Button variant="secondary" onClick={() => setAsking(false)}>

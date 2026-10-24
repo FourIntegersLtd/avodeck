@@ -86,7 +86,7 @@ export function People({ orgId, members, manage, assignable, me, reload }: Props
                       </option>
                     ))}
                   </select>
-                  <Button onClick={() => void saveRole(m)}>{w("people.save")}</Button>
+                  <Button onClick={() => saveRole(m)}>{w("people.save")}</Button>
                   <Button variant="quiet" onClick={() => setEditing(null)}>
                     {w("people.cancel")}
                   </Button>
@@ -129,7 +129,7 @@ export function People({ orgId, members, manage, assignable, me, reload }: Props
         <Dialog title={w("people.remove_title", { name: nameOf(removing) })} onClose={() => setRemoving(null)}>
           <p>{w("people.remove_body")}</p>
           <div className="av-row">
-            <Button variant="danger" onClick={() => void remove(removing)}>
+            <Button variant="danger" onClick={() => remove(removing)}>
               {w("people.remove_confirm")}
             </Button>
             <Button variant="secondary" onClick={() => setRemoving(null)}>
@@ -190,7 +190,7 @@ function Invites({ orgId, locale, roles }: { orgId: string; locale: string | nul
       {invites === null && (
         <div className="av-row-item">
           <p className="av-muted av-row-item__text">{w("invites.show_hint")}</p>
-          <Button variant="secondary" onClick={() => void load()}>
+          <Button variant="secondary" onClick={() => load()}>
             {w("invites.show")}
           </Button>
         </div>
@@ -213,7 +213,7 @@ function Invites({ orgId, locale, roles }: { orgId: string; locale: string | nul
                   <p className="av-field__label">{roleName(i.role)}</p>
                   <p className="av-muted">{w("invites.waiting")}</p>
                 </div>
-                <Button variant="quiet" aria-label={w("invites.cancel_for", { email: i.email })} onClick={() => void cancel(i)}>
+                <Button variant="quiet" aria-label={w("invites.cancel_for", { email: i.email })} onClick={() => cancel(i)}>
                   {w("invites.cancel")}
                 </Button>
               </li>
