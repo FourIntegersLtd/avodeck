@@ -21,7 +21,7 @@ Agencies, chambers and NHS teams can work in Avodeck together. One person, one s
 - `POST /v1/cases/{id}/named-expert` 🔒 (before serving; 409 after)
 - `PUT /v1/me/custodian` 🔒; `POST /v1/me/close` 🔒
 - `GET/POST /v1/cases/{id}/support-access` 🔒 (POST); `DELETE /v1/cases/{id}/support-access/{grant_id}` 🔒
-- Support console: `GET /v1/support/cases?q=`, `GET /v1/support/cases/{case_id}` (staff, step-up on every call); the case page `/support/cases/:caseId` shows where a case is stuck (migration 1011, counts and codes only)
+- Support console: `GET /v1/support/cases?q=`, `GET /v1/support/cases/{case_id}` (staff, step-up on every call); the case page `/support/cases/:caseId` shows where a case is stuck (migration 1011, counts and codes only); `GET /v1/support/people?q=`, `GET /v1/support/organisations/{organisation_id}`, `GET /v1/support/cell/status` (migration 1012, flags, counts and dates only)
 - `POST /webhooks/stripe`: Avodeck's own subscription (seats per organisation), signature-verified; moved here from the foundation
 
 ## Tables owned
@@ -58,6 +58,7 @@ Items marked **(legal check)** in architecture 10.1 and ADR 0012: named-expert a
 - Numbering: the policy check took 1003, so the billing policy is 1004 and closure 1005.
 - Built (PR 2, migration 1006): records custodian, account closure (S15), support grants (S17, F38), support console (metadata only).
 - Built (support plan phase 2, migration 1011): support case diagnostics, `app.support_case_diagnostics()`, and the console case page.
+- Built (support plan phase 2, migration 1012): console look-ups of a person, an organisation and the cell, and the runbooks in `docs/ops/support-staff.md` (MFA reset, virus-scan review, paused work). "Dictation" and "key service" mean set up in this cell, not a live probe. The look-ups use `require_support_staff` (step-up) until foundation's `require_support_lookup` (sign-in MFA only) lands.
 - Built (PR 3, migration 1008): `POST /v1/support/custody-transfers` behind the flag `support_custody_transfer` **(legal check)**: support staff, to the expert's named records custodian (an open account, not support staff, not the recorder) or the case's own team organisation; served cases only; audited as `support.custody_transferred`. One holder at a time (409 `custody_already_transferred`, under a per-case transaction lock). Step-up is checked before the flag (core guard `test_foundation_step_up.py` scans every step-up route with no flag set). A refused attempt is audited as `support.custody_transfer_refused` (target `refused:<code>`) in a transaction of its own after the request's (`audit.record_detached`), so it stays though the request rolls back; requests turned away before the transfer is considered (step-up, the flag, not staff, a malformed body) are not audited here. A closed team organisation cannot receive custody (409 `organisation_closed`, through `app.support_organisation_closed()`, migration 1010). A served case gets one replacement: asking again for the same expert and consent returns the one already made with 200, and for anything else is 409 `replacement_exists` (foundation migration 0034).
 
 ## Cross-slice requests

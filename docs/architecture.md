@@ -831,6 +831,9 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
 | GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA in the last 10 minutes on every call |
 | GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants, and where it is stuck (jobs, pages, suggestions, questions, report, close, offline copies, named expert changes, deadlines) in counts and codes only; the look is audited on the case | Support staff, as above |
+| GET | `/support/people?q=` | Support console: an account found by its sign-in email: closed or not, MFA set up, locked out until, backup codes left, last MFA, an email change waiting, custodian named, the cases that stop it closing; never a name, an email or a date of birth; audited as `support.person_looked_up` | Support staff, as above |
+| GET | `/support/organisations/{organisation_id}` | Support console: a practice or team's members (role and dates), invites (state and dates, never the token or email), owners, open cases and named expert changes; audited as `support.org_looked_up` | Support staff, as above |
+| GET | `/support/cell/status` | Support console: dictation and key service set up in this cell, the worker's last heartbeat, work waiting and work paused | Support staff, as above |
 | POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
 
 **Case setup (slice C)**
