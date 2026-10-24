@@ -8,7 +8,7 @@ import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { IconTile, LinkButton, LoadError, Loading, ProgressRing, stepLabel } from "../../foundation/ui";
+import { IconTile, LinkButton, LoadError, Loading, ProgressRing, SegmentedControl, stepLabel } from "../../foundation/ui";
 
 type CasePack = Schemas["CasePack"];
 type CaseCard = Schemas["CaseCard"];
@@ -39,6 +39,7 @@ export function Today() {
   const today = useResource(() => unwrap(api.GET("/v1/today")), [], { cache: "today/Today#Today:today" });
   const packs = usePacks(today.data?.cases);
   const [org, setOrg] = useState<string | null>(null);
+  const hasNeeds = (today.data?.needs_you.length ?? 0) > 0;
   const name = me.person.greeting_name || me.person.full_name || me.person.email;
   const locale = me.person.locale;
 
@@ -52,7 +53,7 @@ export function Today() {
           <h1 className="av-today__title">{t(greetingKey(hourIn(me.person.timezone)), { name })}</h1>
         </div>
         {hasScreen("new_case") && (
-          <LinkButton to={screenPath("new_case")!} className="av-today__new">
+          <LinkButton to={screenPath("new_case")!} variant={hasNeeds ? "secondary" : "primary"} className="av-today__new">
             <Icon d="M12 5v14M5 12h14" />
             {t("today.cases.new")}
           </LinkButton>
@@ -92,7 +93,7 @@ function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: C
   const ranked = [...items].sort((a, b) => a.rank - b.rank);
   const label = (id: string) => cases.find((c) => c.case_id === id)?.label ?? "";
   return (
-    <section aria-labelledby="needs-you" className={ranked.length ? "av-section av-card av-needs-card" : "av-section"}>
+    <section aria-labelledby="needs-you" className="av-section">
       <h2 id="needs-you">{ranked.length ? t("today.needs_you.heading", { count: ranked.length }) : t("today.needs_you.none")}</h2>
       {ranked.length > 0 && (
         <ol className="av-needs">
@@ -124,7 +125,7 @@ function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: C
               );
             const icon = needsYouIcon(item.kind, Boolean(item.due_at));
             return (
-              <li key={`${item.kind}-${item.case_id ?? ""}-${item.rank}`} className="av-needs__item">
+              <li key={`${item.kind}-${item.case_id ?? ""}-${item.rank}`} className="av-needs__item av-hairline-row">
                 <IconTile tone={icon.tone}>
                   <Icon glyph={icon.glyph} size={26} />
                 </IconTile>
@@ -162,16 +163,15 @@ function Cases({ data, packs, locale, org, setOrg }: CasesProps) {
       <div className="av-today__head">
         <h2 id="your-cases">{t("today.cases.title")}</h2>
         {data.organisations.length > 1 && (
-          <div className="av-filter" role="group" aria-label={t("today.filter.label")}>
-            <button type="button" className="av-button av-button--secondary" aria-pressed={org === null} onClick={() => setOrg(null)}>
-              {t("today.filter.option", { name: t("today.filter.all"), count: data.cases.length })}
-            </button>
-            {data.organisations.map((o) => (
-              <button key={o.id} type="button" className="av-button av-button--secondary" aria-pressed={org === o.id} onClick={() => setOrg(o.id)}>
-                {t("today.filter.option", { name: orgName(o), count: data.cases.filter((c) => c.organisation_id === o.id).length })}
-              </button>
-            ))}
-          </div>
+          <SegmentedControl
+            label={t("today.filter.label")}
+            value={org ?? "all"}
+            onChange={(v) => setOrg(v === "all" ? null : v)}
+            options={[
+              { value: "all", label: t("today.filter.option", { name: t("today.filter.all"), count: data.cases.length }) },
+              ...data.organisations.map((o) => ({ value: o.id, label: t("today.filter.option", { name: orgName(o), count: data.cases.filter((c) => c.organisation_id === o.id).length }) })),
+            ]}
+          />
         )}
         <p className="av-muted">{t("today.cases.counts", { open: shown.length, closed: data.closed_count })}</p>
       </div>

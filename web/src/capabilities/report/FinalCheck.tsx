@@ -148,11 +148,11 @@ export function FinalCheck() {
       <div className="rp-bar">
         <div className="rp-bar__actions">
           <button type="button" className="av-text-link rp-linkbtn" aria-expanded={spotOpen} onClick={() => setSpotOpen(!spotOpen)}>{w("check.spot")}</button>
-          {check && <button type="button" className="av-text-link rp-linkbtn" onClick={() => void run()} disabled={wait.waiting}>{w("check.run_again")}</button>}
+          {check && <Button variant="link" className="av-text-link rp-linkbtn" onClick={() => run()} disabled={wait.waiting}>{w("check.run_again")}</Button>}
         </div>
         <div className="rp-bar__actions">
           {!check ? (
-            <Button onClick={() => void run()} disabled={wait.waiting}>{w("check.run")}</Button>
+            <Button onClick={() => run()} disabled={wait.waiting}>{w("check.run")}</Button>
           ) : ready ? (
             <LinkButton arrow to={`/cases/${caseId}/sign`}>{w("check.sign")}</LinkButton>
           ) : (
@@ -237,7 +237,7 @@ function SpotCheck({ caseId }: { caseId: string }) {
       )}
       <TextField label={w("check.spot_email")} name="reviewer_email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <div className="av-row">
-        <Button variant="secondary" disabled={!email.includes("@")} onClick={() => void send()}>{w("check.spot_send")}</Button>
+        <Button variant="secondary" disabled={!email.includes("@")} onClick={() => send()}>{w("check.spot_send")}</Button>
       </div>
       {(list.data?.spot_checks.length ?? 0) > 0 && (
         <>

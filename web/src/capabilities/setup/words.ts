@@ -8,6 +8,7 @@ const WORDS = {
   "questions.changed": "A question changed while you were here. We've shown the latest. Please check them and confirm again.",
   "template.stale_show": "{{count}} headings matched to report sections",
   "new_case.template_locked": "{{name}}'s report template is used for this case. You can't change it here.",
+  "new_case.checking_template": "Checking the report template…",
   "new_case.oral_hint": "You need to record oral instructions too. Write them in your own words.",
 };
 

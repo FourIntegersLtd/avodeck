@@ -69,7 +69,7 @@ export function Leave() {
             <Button variant="secondary" onClick={() => navigate("/account")}>
               {w("leave.stay")}
             </Button>
-            <Button variant="danger" onClick={() => void leave()}>
+            <Button variant="danger" onClick={() => leave()}>
               {w("leave.button", { name })}
             </Button>
           </div>

@@ -10,7 +10,7 @@ import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { accountSections } from "../../foundation/lib/slots";
-import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField, TextLink } from "../../foundation/ui";
+import { BackLink, Button, Checkbox, LoadError, Loading, Notice, TextField, TextLink, useBusy } from "../../foundation/ui";
 
 export function Account() {
   const { me } = useSession();
@@ -47,7 +47,7 @@ export function Account() {
         act={act}
         locale={me.person.locale}
         signOut={() =>
-          void act(async () => {
+          act(async () => {
             await unwrap(api.POST("/v1/auth/sign-out"));
             navigate("/sign-in", { replace: true });
           })
@@ -109,13 +109,14 @@ function SigningIn({ email, passwordChangedAt, locale, act }: { email: string; p
   const [changing, setChanging] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [sent, setSent] = useState(false);
-  const send = async (e: FormEvent) => {
+  const { busy, run } = useBusy();
+  const send = (e: FormEvent) => {
     e.preventDefault();
-    await act(async () => {
+    return run(() => act(async () => {
       await unwrap(api.POST("/v1/me/email-change", { body: { new_email: newEmail } }));
       setSent(true);
       setChanging(false);
-    });
+    }));
   };
   return (
     <section aria-labelledby="signing-in" className="av-card av-account-card">
@@ -135,7 +136,7 @@ function SigningIn({ email, passwordChangedAt, locale, act }: { email: string; p
         {changing && (
           <form className="av-stack" onSubmit={(e) => void send(e)} noValidate>
             <TextField label={t("account.email.new")} name="new_email" type="email" autoComplete="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
-            <Button type="submit">{t("account.email.send")}</Button>
+            <Button type="submit" busy={busy}>{t("account.email.send")}</Button>
             <Button variant="quiet" onClick={() => setChanging(false)}>
               {t("account.email.cancel")}
             </Button>
@@ -154,7 +155,7 @@ function SigningIn({ email, passwordChangedAt, locale, act }: { email: string; p
           <Button
             variant="quiet"
             aria-label={t("account.password.change")}
-            onClick={() => void act(() => unwrap(api.POST("/v1/auth/password/forgot", { body: { email } })), "account.password.sent")}
+            onClick={() => act(() => unwrap(api.POST("/v1/auth/password/forgot", { body: { email } })), "account.password.sent")}
           >
             {t("account.change")}
           </Button>
@@ -199,7 +200,7 @@ function BackupCodes({ act }: { act: Act }) {
           variant="secondary"
           className="av-button--small"
           onClick={() =>
-            void act(async () => {
+            act(async () => {
               const made = await unwrap(api.POST("/v1/auth/mfa/recovery-codes"));
               setCodes(made.recovery_codes);
               left.reload();
@@ -235,7 +236,7 @@ function Devices({ act, locale, signOut }: { act: Act; locale: string | null | u
       <div className="av-row-item av-row-item--head">
         <h2 id="devices">{t("account.devices.title")}</h2>
         {devices.data && devices.data.some((d) => !d.current) && (
-          <Button variant="secondary" className="av-button--small" onClick={() => void signOutOthers()}>
+          <Button variant="secondary" className="av-button--small" onClick={() => signOutOthers()}>
             {t("account.devices.sign_out_others")}
           </Button>
         )}
@@ -255,7 +256,7 @@ function Devices({ act, locale, signOut }: { act: Act; locale: string | null | u
               {d.current ? (
                 signOutHere
               ) : (
-                <Button variant="quiet" aria-label={t("account.devices.sign_out_one", { device: d.device_label })} onClick={() => void signOutOne(d.id)}>
+                <Button variant="quiet" aria-label={t("account.devices.sign_out_one", { device: d.device_label })} onClick={() => signOutOne(d.id)}>
                   {t("account.sign_out")}
                 </Button>
               )}
@@ -278,9 +279,12 @@ function HowWeTellYou() {
   const found = useResource(() => unwrap(api.GET("/v1/me/notification-preferences")), [], { cache: "account/Account#HowWeTellYou:found" });
   const [saved, setSaved] = useState<Record<string, Choice>>({});
   const [failed, setFailed] = useState<string | null>(null);
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
   const change = async (choice: Choice, channel: (typeof CHANNELS)[number][0], on: boolean) => {
     const next = { ...choice, [channel]: on };
     setFailed(null);
+    if (saving[choice.organisation_id]) return;
+    setSaving((s) => ({ ...s, [choice.organisation_id]: true }));
     setSaved((s) => ({ ...s, [choice.organisation_id]: next }));
     try {
       await unwrap(
@@ -291,6 +295,8 @@ function HowWeTellYou() {
     } catch (err) {
       setSaved((s) => ({ ...s, [choice.organisation_id]: choice }));
       setFailed(errorMessage(err));
+    } finally {
+      setSaving((s) => ({ ...s, [choice.organisation_id]: false }));
     }
   };
   return (
@@ -308,11 +314,11 @@ function HowWeTellYou() {
         const choice = saved[original.organisation_id] ?? original;
         const name = choice.organisation_kind === "personal" ? t("today.filter.personal") : choice.organisation_name;
         return (
-          <fieldset key={choice.organisation_id} className="av-choices av-row-item">
+          <fieldset key={choice.organisation_id} className="av-choices av-row-item" aria-busy={saving[choice.organisation_id] ? "true" : undefined}>
             <legend className="av-field__label">{name}</legend>
             <div className="av-row">
               {CHANNELS.map(([channel, label]) => (
-                <Checkbox key={channel} label={t(label)} checked={choice[channel]} onChange={(e) => void change(choice, channel, e.target.checked)} />
+                <Checkbox key={channel} label={t(label)} checked={choice[channel]} disabled={Boolean(saving[choice.organisation_id])} onChange={(e) => void change(choice, channel, e.target.checked)} />
               ))}
             </div>
           </fieldset>

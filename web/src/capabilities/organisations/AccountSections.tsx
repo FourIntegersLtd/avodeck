@@ -12,7 +12,7 @@ import { w } from "./words";
 
 /** The custodian form, as the S28 section and as the page body. */
 export function CustodianBody() {
-  const { act, message, setMessage } = useAct();
+  const { act, busy, message, setMessage } = useAct();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const save = async (e: FormEvent) => {
@@ -41,10 +41,10 @@ export function CustodianBody() {
         <TextField label={w("custodian.email")} name="email" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} />
         <p className="av-muted av-small">{w("custodian.note")}</p>
         <div className="av-row av-org-actions">
-          <Button variant="secondary" onClick={() => void clear()}>
+          <Button variant="secondary" disabled={busy} onClick={() => clear()}>
             {w("custodian.clear")}
           </Button>
-          <Button type="submit">{w("custodian.save")}</Button>
+          <Button type="submit" busy={busy}>{w("custodian.save")}</Button>
         </div>
       </form>
     </div>
@@ -139,7 +139,7 @@ export function CloseAccountBody() {
         <Dialog title={w("close_account.dialog")} onClose={() => setAsking(false)}>
           <p>{w("close_account.dialog_body")}</p>
           <div className="av-row">
-            <Button variant="danger" onClick={() => void close()}>
+            <Button variant="danger" onClick={() => close()}>
               {w("close_account.confirm")}
             </Button>
             <Button variant="secondary" onClick={() => setAsking(false)}>

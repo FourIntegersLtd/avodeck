@@ -703,7 +703,7 @@ function Editor({
                   {v.version_no !== current && (
                     <Button
                       variant="secondary"
-                      onClick={() => void restore(v.version_no)}
+                      onClick={() => restore(v.version_no)}
                     >
                       {w("opinion.restore", { number: v.version_no })}
                     </Button>
@@ -719,7 +719,7 @@ function Editor({
           title={w("opinion.dismiss_title")}
           label={w("opinion.dismiss_reason")}
           confirm={w("opinion.dismiss_confirm")}
-          onConfirm={(reason) => void dismiss(dismissing, reason)}
+          onConfirm={(reason) => dismiss(dismissing, reason)}
           onClose={() => setDismissing(null)}
         />
       )}

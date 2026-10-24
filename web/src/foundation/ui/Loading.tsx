@@ -14,6 +14,16 @@ export function Loading({ inline = false }: { inline?: boolean }) {
   );
 }
 
+/** Shown while fresh data loads behind what is already on screen, so the person knows their action is being done. */
+export function Updating({ label }: { label: string }) {
+  return (
+    <p role="status" className="av-muted av-updating">
+      <Spinner />
+      {label}
+    </p>
+  );
+}
+
 export function LoadError({ onRetry, message }: { onRetry: () => void; message?: string }) {
   return (
     <Notice tone="error">

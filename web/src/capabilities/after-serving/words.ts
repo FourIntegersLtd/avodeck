@@ -5,6 +5,7 @@ import { registerMessages, t } from "../../foundation/i18n";
 
 const WORDS = {
   "back": "After serving",
+  "new.updating": "Updating the other expert's report…",
   "stale_title": "Someone changed this while you were working",
   "stale_mine": "Keep my version",
   "stale_theirs": "Use the saved version",

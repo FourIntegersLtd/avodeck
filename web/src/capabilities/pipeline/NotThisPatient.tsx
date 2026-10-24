@@ -7,7 +7,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, LoadError, Loading, Notice, PageRef, TextLink } from "../../foundation/ui";
+import { BackLink, Button, LoadError, Loading, Notice, PageRef, SegmentedControl, TextLink } from "../../foundation/ui";
 import { can, casePath, partyWord } from "./data";
 import { formatNumber } from "./format";
 import { Thumbnail } from "./Thumbnail";
@@ -118,14 +118,15 @@ export function NotThisPatient() {
                   {q.reason && <span className="pl-chip">{wordFor("quarantine.reason", q.reason, humanise(q.reason))}</span>}
                 </div>
                 {q.status === "suggested" && decides && (
-                  <div className="pl-choices">
-                    <Button variant="secondary" className="pl-choice pl-choice--not" aria-pressed={choices[q.page_id] === "not"} onClick={() => choose(q, "not")}>
-                      {w("quarantine.not", { name })}
-                    </Button>
-                    <Button variant="secondary" className="pl-choice pl-choice--is" aria-pressed={choices[q.page_id] === "is"} onClick={() => choose(q, "is")}>
-                      {w("quarantine.is", { name })}
-                    </Button>
-                  </div>
+                  <SegmentedControl
+                    label={w("quarantine.choice", { page: num(q.page_no) })}
+                    value={choices[q.page_id] ?? null}
+                    onChange={(v) => choose(q, v as Choice)}
+                    options={[
+                      { value: "not", label: w("quarantine.not", { name }) },
+                      { value: "is", label: w("quarantine.is", { name }) },
+                    ]}
+                  />
                 )}
                 {q.status === "confirmed" && (
                   <div className="av-row">

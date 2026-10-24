@@ -1,4 +1,5 @@
-// Correcting the computer's reading: tick "These words were read wrongly", type what they say, save (decision 0018).
+// Correcting the computer's reading: tick "These words were read wrongly" and save; "The right words" is the
+// expert's reading of the chosen words, so nothing is typed twice (decision 0018).
 import { screen, within } from "@testing-library/react";
 import { beforeEach, expect, test, vi } from "vitest";
 import { forgetPages } from "./pageImageCache";
@@ -26,13 +27,14 @@ async function openEdit(opts: Parameters<typeof mockReader>[1] = {}) {
   return { api, user, c };
 }
 
-test("with words chosen, the tick box shows; ticking it shows one box for what the words say", async () => {
+test("with words chosen, the tick box shows; ticking it asks for nothing more", async () => {
   const { c, user } = await openEdit();
   const tick = within(c).getByRole("checkbox", { name: TICK });
   expect(tick).not.toBeChecked();
-  expect(within(c).queryByLabelText(SAYS)).toBeNull();
   await user.click(tick);
-  expect(within(c).getAllByLabelText(SAYS)).toHaveLength(1);
+  expect(within(c).queryByLabelText(SAYS)).toBeNull();
+  expect(within(c).getAllByRole("textbox", { name: "The right words" })).toHaveLength(1);
+  expect(within(c).getByText("We'll keep “The right words” as what these words really say.")).toBeVisible();
 });
 
 test("no words chosen: no tick box", async () => {
@@ -41,10 +43,9 @@ test("no words chosen: no tick box", async () => {
   expect(within(c).queryByRole("checkbox", { name: TICK })).toBeNull();
 });
 
-test("save sends the expert's reading of the chosen words with the new value", async () => {
+test("save sends The right words as the expert's reading of the chosen words", async () => {
   const { api, c, user } = await openEdit();
   await user.click(within(c).getByRole("checkbox", { name: TICK }));
-  await user.type(within(c).getByLabelText(SAYS), "Dr Patel");
   const value = within(c).getByLabelText("The right words");
   await user.clear(value);
   await user.type(value, "Dr Patel consultation");
@@ -54,17 +55,21 @@ test("save sends the expert's reading of the chosen words with the new value", a
     action: "edit",
     new_value: "Dr Patel consultation",
     word_ids: ["p118w1a", "p118w1b"],
-    corrected_words: { word_ids: ["p118w1a", "p118w1b"], text: "Dr Patel" },
+    corrected_words: { word_ids: ["p118w1a", "p118w1b"], text: "Dr Patel consultation" },
   });
 });
 
-test("ticked with nothing typed says to type what the words say", async () => {
+test("ticked with the right words unchanged still saves the reading", async () => {
   const { api, c, user } = await openEdit();
   await user.click(within(c).getByRole("checkbox", { name: TICK }));
-  await user.type(within(c).getByLabelText("The right words"), " x");
   await user.click(within(c).getByRole("button", { name: "Save change" }));
-  expect(await within(c).findByRole("alert")).toHaveTextContent("Type what the words really say.");
-  expect(api.verifies).toHaveLength(0);
+  await vi.waitFor(() => expect(api.verifies).toHaveLength(1));
+  expect(api.verifies[0]!.body).toMatchObject({ corrected_words: { word_ids: ["p118w1a", "p118w1b"], text: "Dr P consultation 15 May 2024" } });
+});
+
+test("with words chosen, the form does not repeat the choose-words instruction", async () => {
+  const { c } = await openEdit();
+  expect(within(c).queryByText("Choose the words on the page that show this.")).toBeNull();
 });
 
 test("unticked: no corrected words are sent", async () => {

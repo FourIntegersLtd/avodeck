@@ -11,7 +11,7 @@ import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/p
 import { Button, LinkButton, LoadError, Loading, Notice, PageRef, ProgressBar } from "../../foundation/ui";
 import { casePath, count, periodRange, sourceLabel } from "./data";
 import { dateFieldKey, suggestTimelineDate } from "./timelineDate";
-import { allowed, editableFields, FactCard } from "./FactCard";
+import { allowed, editableFields, FactCard, fieldTypes } from "./FactCard";
 import { FactList } from "./FactList";
 import { loadSplitPct, saveSplitPct } from "./splitPane";
 import { SplitDivider } from "./SplitDivider";
@@ -22,10 +22,10 @@ import { PageImage } from "./PageImage";
 import { PageStrip } from "./PageStrip";
 import { noteRead, useBundlePages } from "./bundlePages";
 import { loadSearch, loadTools, saveSearch, saveTools, type SearchResult, type Tools } from "./search";
-import { clampZoom, loadView, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
+import { clampZoom, loadStripHidden, loadView, saveStripHidden, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
-import { ChevronIcon, EyeIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
+import { ChevronIcon, EyeIcon, SidebarIcon, FindIcon, FullScreenIcon, SlidersIcon, TickIcon, TurnIcon, ViewIcon } from "./icons";
 
 /** The browser has the Popover API (the View menu then sits in the top layer, above the bar and the page). */
 const POPOVER = typeof HTMLElement !== "undefined" && "showPopover" in HTMLElement.prototype;
@@ -43,7 +43,7 @@ function MenuItem({ icon, on, children, ...rest }: { icon: ReactNode; on?: boole
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
-type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean; misreadText: string };
+type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; misread: boolean };
 
 type MoveDraft = { id: string; page: number; words: PageWord[] | null; chosen: string[]; problem: string | null; readFirst: boolean };
 
@@ -194,6 +194,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   // The toolbar's "More tools" panel and "Find words" (open again on the next page while a search is held).
   const [more, setMore] = useState(false);
   const [keys, setKeys] = useState(false);
+  const [stripHidden, setStripHidden] = useState(loadStripHidden);
+  const toggleStrip = useCallback(() => setStripHidden((h) => { saveStripHidden(!h); return !h; }), []);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const loadFacts = useCallback(async () => {
@@ -256,7 +258,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
     setFormError(null);
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false, misreadText: "" });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, misread: false });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -328,11 +330,11 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
     const fieldsChanged = editableFields(f, pack).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
     const dayChanged = eventDateChanged(f);
-    const misread = editing.misread && editing.words.length > 0 ? editing.misreadText.trim() : null;
-    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed" | "read.error.misread_needed") =>
+    // Ticked: "The right words" is the expert's reading of the chosen words (decision 0018), so it is typed once.
+    const misread = editing.misread && editing.words.length > 0 && headline ? headline : null;
+    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed") =>
       setFormError({ text: w(key), typeOut: false });
-    if (valueChanged && !headline) return stop("read.error.headline_needed");
-    if (misread === "") return stop("read.error.misread_needed");
+    if ((valueChanged || editing.misread) && !headline) return stop("read.error.headline_needed");
     if (!valueChanged && !misread && !fieldsChanged && !wordsChanged && !dayChanged) return stop("read.error.nothing_changed");
     if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return stop("read.error.words_needed");
     setFormError(null);
@@ -346,10 +348,29 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       body.new_value = headline;
       body.word_ids = orderedWords(editing.words);
     } else if (wordsChanged) body.word_ids = orderedWords(editing.words);
-    if (fieldsChanged) body.fields = { ...(f.fields ?? {}), ...editing.fields };
+    if (fieldsChanged || (dayChanged && hasDate(f))) body.fields = fieldsToSend(f, editing);
     if (dayChanged && editing.eventDate) body.event_date = editing.eventDate;
     void act(f, "edit", body);
   };
+
+  // The server replaces the details and checks each against the pack's types, so send only the kind's own
+  // fields, with numbers as numbers and dates as calendar days (never the date as written, which it refuses).
+  function fieldsToSend(f: Fact, draft: EditDraft): Record<string, unknown> {
+    const types = fieldTypes(pack, f.kind);
+    if (Object.keys(types).length === 0) return { ...(f.fields ?? {}), ...draft.fields };
+    const dayKey = dateFieldKey(pack, f.kind);
+    const out: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries({ ...(f.fields ?? {}), ...draft.fields })) {
+      const type = types[key];
+      if (type === "date") {
+        const day = key === dayKey && draft.eventDate ? draft.eventDate : typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+        if (day) out[key] = day;
+      } else if ((type === "integer" || type === "number") && typeof value === "string") {
+        out[key] = value.trim() === "" ? null : Number.isFinite(Number(value)) ? Number(value) : value;
+      } else if (type) out[key] = value;
+    }
+    return out;
+  }
 
   async function startMove(fact: Fact, to: number) {
     setEditing(null);
@@ -595,8 +616,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys };
+  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip });
+  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -622,6 +643,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
         if (key === "t") s.turnPage(e.shiftKey ? -90 : 90);
         else s.undoTurn();
       }
+      else if (key === "[") s.toggleStrip();
       else if (key === "f") s.setFull(!s.full);
       else if (key === "escape" && s.full) s.setFull(false);
       else if (key === "j") s.go(s.nextPage ?? 0);
@@ -667,9 +689,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       onStartMove={page.superseded_by_page_no ? () => void startMove(f, page.superseded_by_page_no!) : undefined}
       onSaveMove={() => void saveMove(f)}
       onCancelMove={() => setMoving(null)}
-      misread={editing?.id === f.id && editing.words.length > 0 ? { ticked: editing.misread, text: editing.misreadText } : null}
+      misread={editing?.id === f.id && editing.words.length > 0 ? { ticked: editing.misread } : null}
       onMisread={(ticked) => setEditing((e) => e && { ...e, misread: ticked })}
-      onMisreadText={(text) => setEditing((e) => e && { ...e, misreadText: text })}
       typeOutHref={formError?.typeOut ? `/cases/${caseId}/read/couldnt-read?page=${pageNo}` : undefined}
       typedWords={editing?.id === f.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
       reason={reasons[f.id] ?? ""}
@@ -679,16 +700,9 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       onNotRight={() => notRight(f)}
       onStartEdit={() => { setMoving(null); void startEdit(f); }}
       onEditText={(text) => setEditing((e) => e && { ...e, text })}
-      onEditField={(key, value) =>
-        setEditing((e) => {
-          if (!e) return e;
-          const fields = { ...e.fields, [key]: value };
-          const follow = e.eventDate !== null && !e.eventDateByHand && key === dateFieldKey(pack, f.kind);
-          return { ...e, fields, eventDate: follow ? suggestTimelineDate({ ...f, event_date: null, fields: { ...(f.fields ?? {}), ...fields } }, pack) : e.eventDate };
-        })
-      }
+      onEditField={(key, value) => setEditing((e) => e && { ...e, fields: { ...e.fields, [key]: value } })}
       editEventDate={editing?.id === f.id ? editing.eventDate : null}
-      onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value, eventDateByHand: true })}
+      onEditEventDate={(value) => setEditing((e) => e && { ...e, eventDate: value })}
       onSaveEdit={() => saveEdit(f)}
       onCancelEdit={() => { setEditing(null); setFormError(null); }}
       onFlag={() => toggleFlag(f)}
@@ -890,7 +904,19 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
                 </div>
               </div>
             )}
-            {pages && <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />}
+            {pages && !stripHidden && (
+              <div className="rd-strip-col">
+                <Button variant="secondary" className="rd-strip-col__toggle" onClick={toggleStrip}>
+                  <SidebarIcon /> {w("read.strip_hide")}
+                </Button>
+                <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />
+              </div>
+            )}
+            {pages && stripHidden && (
+              <Button variant="secondary" className="rd-strip-show" onClick={toggleStrip}>
+                <SidebarIcon /> {w("read.strip_show")}
+              </Button>
+            )}
             {moving?.words ? (
               <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
                 <WordToggles

@@ -868,6 +868,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET / POST | `/cases/{case_id}/exhibits` | Audio, video, imaging: listed, never paged | A |
 | GET | `/cases/{case_id}/bundle/versions` | What each delivery of records added | A |
 | POST | `/cases/{case_id}/process/cancel` | Stop processing at a page boundary | A |
+| POST | `/cases/{case_id}/process/retry` | Try again: put the case's failed processing jobs back on the queue | A |
 | POST | `/cases/{case_id}/reprocess` | Opt in to a newer model; checked facts never change | A |
 | GET / POST | `/cases/{case_id}/comments` | Comments on a page, fact or paragraph | D; never in reports |
 | PATCH | `/cases/{case_id}/comments/{comment_id}` | Edit or resolve | D |

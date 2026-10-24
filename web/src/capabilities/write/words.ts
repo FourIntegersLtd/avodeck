@@ -19,6 +19,7 @@ const WORDS = {
   "points.stale_point": "The fact under this has changed since it was placed. Keep it, move it or remove it.",
   "points.keep": "Keep",
   "points.move": "Move to {{side}}",
+  "points.moving": "Moving the point…",
   "points.remove": "Remove",
   "points.more": "More",
   "points.remove_title": "Why are you removing this?",

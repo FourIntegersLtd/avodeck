@@ -1,6 +1,8 @@
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ButtonHTMLAttributes, MouseEvent, ReactNode } from "react";
 import type { LinkProps } from "react-router-dom";
 import { SafeLink as Link } from "./SafeLink";
+import { Spinner } from "./Spinner";
 
 type Variant = "primary" | "secondary" | "outline" | "quiet" | "link" | "danger";
 
@@ -8,7 +10,11 @@ function classes(variant: Variant, wide?: boolean, extra?: string, arrow?: boole
   return ["av-button", variant !== "primary" && `av-button--${variant}`, wide && "av-button--wide", arrow && "av-button--arrow", arrow === "back" && "av-button--arrow-back", extra].filter(Boolean).join(" ");
 }
 
-export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
+  /** Work is running: the button is disabled, shows a spinner before its label and ignores clicks. */
+  busy?: boolean;
+  /** If it returns a promise the button is busy until the promise settles. */
+  onClick?: (e: MouseEvent<HTMLButtonElement>) => unknown;
   variant?: Variant;
   wide?: boolean;
   /** Adds the arrow of a call to action that moves on ("Confirm and continue →"); "back" puts a left arrow before the words. */
@@ -16,10 +22,33 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
 }
 
-/** A button at least 52px tall. It never submits a form unless asked to. */
-export function Button({ variant = "primary", wide, arrow, type = "button", className, children, ...rest }: ButtonProps) {
+/** A button at least 52px tall. It never submits a form unless asked to.
+ * `busy` shows work in progress; an `onClick` that returns a promise makes it busy until it settles. */
+export function Button({ variant = "primary", wide, arrow, type = "button", className, children, busy, onClick, disabled, ...rest }: ButtonProps) {
+  const [auto, setAuto] = useState(false);
+  const running = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  const isBusy = Boolean(busy) || auto;
+  function click(e: MouseEvent<HTMLButtonElement>) {
+    if (isBusy || running.current) return;
+    const out = onClick?.(e);
+    if (out && typeof (out as PromiseLike<unknown>).then === "function") {
+      running.current = true;
+      setAuto(true);
+      const done = () => {
+        running.current = false;
+        if (mounted.current) setAuto(false);
+      };
+      (out as PromiseLike<unknown>).then(done, done);
+    }
+  }
   return (
-    <button type={type} className={classes(variant, wide, className, arrow)} {...rest}>
+    <button type={type} className={classes(variant, wide, className, arrow)} {...rest} disabled={disabled || isBusy} aria-busy={isBusy ? "true" : undefined} onClick={click}>
+      {isBusy && <Spinner />}
       {arrow === "back" && <Arrow back />}
       {children}
       {arrow === true && <Arrow />}

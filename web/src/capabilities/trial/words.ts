@@ -108,6 +108,7 @@ const WORDS = {
   "pages.trial_input": "Trial page for your p.{{page}}",
   "pages.confirm": "Confirm",
   "pages.confirmed": "Confirmed.",
+  "picker.sending": "Sending…",
   "pages.export_csv": "Download as a spreadsheet",
   "pages.export_pdf": "Print this table",
   "pages.error.stale": "Someone else changed this row. We've loaded the latest version.",

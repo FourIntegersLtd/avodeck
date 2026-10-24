@@ -4,7 +4,7 @@ import { useState } from "react";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap } from "../../foundation/platform-client";
-import { Button, Notice } from "../../foundation/ui";
+import { Button, Notice, Updating } from "../../foundation/ui";
 import { casePath, TextArea } from "./shared";
 import { w } from "./words";
 
@@ -15,6 +15,7 @@ export function Comments({ caseId, targetKind, targetId }: { caseId: string; tar
   );
   const [body, setBody] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const updating = found.loading && !!found.data;
 
   const add = async () => {
     setError(null);
@@ -40,20 +41,21 @@ export function Comments({ caseId, targetKind, targetId }: { caseId: string; tar
   };
 
   return (
-    <section aria-labelledby="understand-comments" className="av-card av-stack">
+    <section aria-labelledby="understand-comments" className="av-card av-stack" aria-busy={updating}>
       <h2 id="understand-comments">{w("comments.title")}</h2>
       <Notice tone="warning">
         <p>{w("comments.warning")}</p>
       </Notice>
+      {updating && <Updating label={w("comments.updating")} />}
       {found.data && found.data.comments.length === 0 && <p className="av-muted">{w("comments.none")}</p>}
-      <ul className="av-understand-list">
+      <ul className={updating ? "av-understand-list av-busy-dim" : "av-understand-list"}>
         {(found.data?.comments ?? []).map((c) => (
           <li key={c.id} className="av-understand-event">
             <span>{c.body}</span>
             {c.resolved_at ? (
               <span className="av-muted">{w("comments.resolved")}</span>
             ) : (
-              <Button variant="secondary" onClick={() => void resolve(c.id, c.version)}>
+              <Button variant="secondary" onClick={() => resolve(c.id, c.version)}>
                 {w("comments.resolve")}
               </Button>
             )}
@@ -62,7 +64,7 @@ export function Comments({ caseId, targetKind, targetId }: { caseId: string; tar
       </ul>
       <TextArea label={w("comments.add")} rows={3} value={body} onChange={(e) => setBody(e.target.value)} />
       {error && <Notice tone="error"><p>{error}</p></Notice>}
-      <Button disabled={!body.trim()} onClick={() => void add()}>
+      <Button disabled={!body.trim()} onClick={add}>
         {w("comments.add_button")}
       </Button>
     </section>

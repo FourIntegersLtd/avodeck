@@ -241,6 +241,10 @@ class ProcessingCancelled(BaseModel):
     cancelled: bool  # false when nothing was processing (or a stop was already asked for)
 
 
+class ProcessingRetried(BaseModel):
+    requeued: int  # failed processing jobs put back on the queue; 0 when nothing had failed
+
+
 class ReplaceAsk(BaseModel):
     document_id: uuid.UUID  # the clearer copy, uploaded as later records
 

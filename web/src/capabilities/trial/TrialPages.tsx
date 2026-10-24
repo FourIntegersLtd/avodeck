@@ -7,7 +7,7 @@ import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { screenPath } from "../../foundation/lib/screens";
-import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { Button, IconTile, Spinner, useBusy, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
 import { joined, longDate, mediumDate, num, partyWord, pdfBody, printBlob, saveBlob, sourceLabel, tag, trialRef, vocab } from "./data";
 import { PdfPicker, TrialFrame, TrialPage, TrialTitle, type Frame } from "./frame";
 import { w, wn } from "./words";
@@ -216,8 +216,9 @@ const STATUS_WORD: Record<string, "pages.status.matched" | "pages.status.to_conf
 
 const SHOWN = 4;
 
-function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged, onCsv }: { caseId: string; rows: Row[]; pack: Schemas["CasePack"]; locale: string; bundleName: string; canConfirm: boolean; onChanged: () => void; onCsv: () => void }) {
+function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged, onCsv }: { caseId: string; rows: Row[]; pack: Schemas["CasePack"]; locale: string; bundleName: string; canConfirm: boolean; onChanged: () => void; onCsv: () => unknown }) {
   const [all, setAll] = useState(false);
+  const csv = useBusy();
   // The ones to check always show; the rest fill the first few places, then "and N more".
   let room = SHOWN;
   const shown = all ? rows : rows.filter((r) => (r.status === "to_confirm" && !r.confirmed) || room-- > 0);
@@ -244,7 +245,7 @@ function Table({ caseId, rows, pack, locale, bundleName, canConfirm, onChanged, 
             {w("pages.and_more", { count: hidden })} <button type="button" className="av-text-link av-trial-linkbutton" onClick={() => setAll(true)}>{w("pages.show_all")}</button>{" · "}
           </>
         )}
-        <button type="button" className="av-text-link av-trial-linkbutton" onClick={onCsv}>{w("pages.export_csv")}</button>
+        <button type="button" className="av-text-link av-trial-linkbutton" aria-busy={csv.busy ? "true" : undefined} disabled={csv.busy} onClick={() => void csv.run(async () => { await onCsv(); })}>{csv.busy && <Spinner />}{w("pages.export_csv")}</button>
       </p>
     </section>
   );

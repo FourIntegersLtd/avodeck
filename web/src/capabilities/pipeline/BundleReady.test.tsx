@@ -174,12 +174,12 @@ describe.each([
     expect(labels[0]!.querySelector(".av-mono")).toHaveTextContent(/^[\d,]+$/);
   });
 
-  test("each card has an icon tile, and the cards that need a look are outlined in amber", async () => {
+  test("each card has an icon tile, and the cards that need a look are amber notices", async () => {
     mock(pack);
     renderAt(PATH);
     const other = card(await screen.findByText("4 pages may belong to someone else."));
     expect(other.querySelector(".av-icon-tile--amber")).not.toBeNull();
-    expect(other).toHaveClass("pl-card--amber");
+    expect(other).toHaveClass("av-notice--amber");
     expect(card("37 copies set aside. Nothing deleted.").querySelector(".av-icon-tile--mint")).not.toBeNull();
     expect(card("1,231 pages, numbered 1 to 1,231.").querySelector(".av-icon-tile")).not.toBeNull();
   });
