@@ -1,5 +1,7 @@
 // Test stand-in for the reader API (MSW). It keeps the server's blind-read rule: facts answer 423 until
 // the page's read is recorded. Imported by the reader tests only.
+import { screen } from "@testing-library/react";
+import type { UserEvent } from "@testing-library/user-event";
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { CASE_ID, fact, JPEG, pageDetail, pageId, pageWords, queuePage, theCase, type PageWord } from "./testData";
@@ -239,4 +241,18 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     }),
   );
   return api;
+}
+
+/** The "More tools" panel of the page toolbar, opened if it is closed (it closes once a tool is picked). */
+export async function moreTools(user: UserEvent): Promise<HTMLElement> {
+  const open = screen.queryByRole("group", { name: "More tools" });
+  if (open) return open;
+  await user.click(await screen.findByRole("button", { name: "More tools" }));
+  return screen.getByRole("group", { name: "More tools" });
+}
+
+/** Opens "Find words" on the page toolbar, if it is not open already. */
+export async function openFind(user: UserEvent): Promise<void> {
+  await screen.findByRole("toolbar", { name: "Page view" });
+  if (!screen.queryByRole("searchbox", { name: "Find words in the bundle" })) await user.click(screen.getByRole("button", { name: "Find words" }));
 }

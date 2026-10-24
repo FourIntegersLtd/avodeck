@@ -10,7 +10,7 @@ import { forgetPages } from "./pageImageCache";
 import { forgetView } from "./viewer";
 import { forgetSearch } from "./search";
 import { CASE_ID, pageWords } from "./testData";
-import { mockReader } from "./testing";
+import { mockReader, moreTools, openFind } from "./testing";
 import "./index";
 
 beforeEach(() => {
@@ -35,6 +35,7 @@ describe.each([
       const api = mockReader(pack, { searchHits: HITS });
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       const find = screen.getByRole("search", { name: "Find words in the bundle" });
       await user.type(within(find).getByRole("searchbox", { name: "Find words in the bundle" }), "chest pain");
       await user.click(within(find).getByRole("button", { name: "Find" }));
@@ -56,6 +57,7 @@ describe.each([
       mockReader(pack, { searchHits: HITS });
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest pain");
       await user.click(screen.getByRole("button", { name: "Find" }));
       await user.click(await screen.findByRole("link", { name: "Page 12, 3 times" }));
@@ -72,6 +74,7 @@ describe.each([
       const api = mockReader(pack);
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       const box = screen.getByRole("searchbox", { name: "Find words in the bundle" });
       await user.type(box, "a");
       await user.click(screen.getByRole("button", { name: "Find" }));
@@ -89,10 +92,11 @@ describe.each([
       const { user } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      const two = within(bar).getByRole("button", { name: "Two pages" });
-      expect(two).toHaveAttribute("aria-pressed", "false");
-      await user.click(two);
-      expect(two).toHaveAttribute("aria-pressed", "true");
+      const two = async () => within(await moreTools(user)).getByRole("button", { name: "Two pages" });
+      expect(await two()).toHaveAttribute("aria-pressed", "false");
+      await user.click(await two());
+      expect(await two()).toHaveAttribute("aria-pressed", "true");
+      await user.keyboard("{Escape}");
       expect(await screen.findByRole("img", { name: "Page 119" })).toBeVisible();
       const beside = screen.getByRole("textbox", { name: "Page beside it" });
       await user.clear(beside);
@@ -100,7 +104,7 @@ describe.each([
       await user.click(screen.getByRole("button", { name: "Show" }));
       expect(await screen.findByRole("img", { name: "Page 40" })).toBeVisible();
       expect(screen.getByRole("img", { name: "Page 118" })).toBeVisible();
-      await user.click(two);
+      await user.click(await two());
       expect(screen.queryByRole("img", { name: "Page 40" })).not.toBeInTheDocument();
     });
 
@@ -109,7 +113,7 @@ describe.each([
       const { user } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      await user.click(within(bar).getByRole("button", { name: "Two pages" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
       expect(await screen.findByRole("img", { name: "Page 1201" })).toBeVisible();
     });
   });
@@ -120,9 +124,11 @@ describe.each([
       const { user, container } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      const full = within(bar).getByRole("button", { name: "Full screen" });
-      await user.click(full);
-      expect(full).toHaveAttribute("aria-pressed", "true");
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Full screen" }));
+      expect(container.querySelector(".rd")).toHaveClass("rd--full");
+      expect(within(await moreTools(user)).getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
+      // The first Escape closes More tools; the next leaves full screen.
+      await user.keyboard("{Escape}");
       expect(container.querySelector(".rd")).toHaveClass("rd--full");
       await user.keyboard("{Escape}");
       expect(container.querySelector(".rd")).not.toHaveClass("rd--full");
@@ -175,10 +181,11 @@ describe.each([
       const { user, container } = renderAt(PATH);
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
+      await openFind(user);
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest");
       await user.click(screen.getByRole("button", { name: "Find" }));
       await screen.findByText("Found on 2 pages");
-      await user.click(within(bar).getByRole("button", { name: "Two pages" }));
+      await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
       await screen.findByRole("img", { name: "Page 119" });
       await user.click(await screen.findByRole("button", { name: "Your bookmarks and notes (1)" }));
       expect(await axeViolations(container)).toEqual([]);
