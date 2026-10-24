@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, apiOrigin, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, LoadError, Loading, Notice, ProgressBar, Spinner, TextLink } from "../../foundation/ui";
+import { Button, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, ProgressBar, Spinner, TextLink } from "../../foundation/ui";
 import { can, casePath } from "./data";
 import { LockIcon, PagesPicture } from "./icons";
 import { w, wn } from "./words";
@@ -140,9 +140,11 @@ export function Preparing() {
 
   const stopButton =
     running && uploads ? (
-      <button type="button" className="av-text-link" onClick={stop} disabled={busy}>
-        {w("preparing.stop")}
-      </button>
+      <Menu label={w("preparing.more")} trigger={w("preparing.more")}>
+        <MenuSection>
+          <MenuItem onClick={stop} disabled={busy}>{w("preparing.stop")}</MenuItem>
+        </MenuSection>
+      </Menu>
     ) : null;
 
   return (
@@ -205,11 +207,8 @@ export function Preparing() {
           </span>
         </p>
         <p>{w("preparing.close")}</p>
-        {(exhibits > 0 || stopButton) && (
-          <p>
-            {exhibits > 0 && wn(audioOnly ? "preparing.exhibits_audio" : "preparing.exhibits", exhibits, pack.locale)} {stopButton}
-          </p>
-        )}
+        {exhibits > 0 && <p>{wn(audioOnly ? "preparing.exhibits_audio" : "preparing.exhibits", exhibits, pack.locale)}</p>}
+        {stopButton}
         {questions && (
           <p>
             <TextLink to={questions}>{w("preparing.meanwhile")}</TextLink>

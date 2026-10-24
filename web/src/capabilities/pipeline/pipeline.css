@@ -39,8 +39,6 @@
 .pl-kept { display: inline-flex; align-items: center; gap: 10px; }
 .pl-kept svg { flex: none; color: var(--green); }
 .pl-notes .av-text-link { font-size: 17px; }
-.pl-notes button.av-text-link { background: none; border: 0; padding: 0 var(--space-2); font-family: inherit; color: var(--green); text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
-.pl-notes button.av-text-link:hover { color: var(--green-dark); }
 
 /* 08 */
 .pl-ready { display: flex; flex-wrap: wrap; gap: var(--space-7); align-items: stretch; }
@@ -55,7 +53,8 @@
 .pl-stack__count { font: 400 14px var(--font-mono); fill: var(--ink-soft); }
 .pl-cards { flex: 1 1 480px; min-width: 0; display: flex; flex-direction: column; gap: 14px; }
 .pl-card { padding: 22px 26px; border-radius: 18px; }
-.pl-card--amber { border: 2px solid var(--amber-border); background: var(--surface); }
+.pl-hairlines > li + li { border-top: 1px solid var(--hairline); }
+.pl-hairlines > li { padding: var(--space-3) 0; }
 .pl-card__row { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; }
 .pl-card__text { flex: 1 1 280px; min-width: 0; }
 .pl-card__title { font-size: 20px; margin: 0 0 var(--space-1); }
@@ -86,22 +85,21 @@
 
 /* 08b */
 .pl-ask { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
-.pl-letter { flex: 1.5 1 560px; min-width: 0; background: var(--surface); border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.pl-letter { flex: 1.5 1 560px; min-width: 0; background: var(--surface); box-shadow: var(--shadow-card); border-radius: var(--radius-card); overflow: hidden; }
 .pl-letter__head { margin: 0; padding: var(--space-4) 26px; border-bottom: 1px solid var(--surface-muted); display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: var(--space-2) var(--space-3); align-items: center; }
 .pl-letter__head dt { color: var(--ink-soft); }
 .pl-letter__head dd { margin: 0; display: flex; flex-direction: column; gap: var(--space-1); }
 .pl-letter__body { margin: 0; padding: 26px 30px; white-space: pre-wrap; font-family: Georgia, "Times New Roman", serif; font-size: 18px; line-height: 1.7; }
 .pl-letter__edit { padding: var(--space-5) 26px; }
-.pl-letter__foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-3); padding: 14px 22px; background: var(--surface-soft); border-top: 1px solid var(--line); }
-.pl-letter__foot .av-button { border-radius: 999px; border-color: var(--line); color: var(--ink); }
+.pl-letter__foot { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-3); padding: 14px 22px; background: var(--surface-soft); border-top: 1px solid var(--hairline); }
 .pl-aside { flex: 1 1 340px; display: flex; flex-direction: column; gap: 18px; }
 .pl-next { border-radius: 18px; padding: 22px 24px; }
 .pl-next h2 { font-size: 20px; margin: 0 0 14px; }
 .pl-ticks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
 .pl-ticks li { display: flex; gap: var(--space-3); }
 .pl-ticks svg { flex: none; margin-top: 5px; color: var(--green); }
-.pl-more { display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; background: var(--amber-tint); border: 1px solid var(--amber-border); border-radius: 18px; }
-.pl-more h2 { margin: 0; font-size: 18px; color: var(--amber); }
+.pl-more { display: flex; flex-direction: column; gap: 10px; padding: 20px 22px; border-radius: var(--radius-card); }
+.pl-more h2 { margin: 0; font-size: 18px; }
 .pl-more p { margin: 0; }
 
 /* 30 */
