@@ -38,9 +38,9 @@ async function expectAligned(page: Page, turn: number) {
 
 /** Tools other than Turn page, zoom and Find words sit in the More tools panel, which sits beside the "Page view" bar and closes after a pick. */
 async function moreTool(page: Page, name: string) {
-  const more = page.getByRole("button", { name: "More tools" });
+  const more = page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "View" });
   if ((await more.getAttribute("aria-expanded")) !== "true") await more.click();
-  await page.getByRole("group", { name: "More tools" }).getByRole("button", { name, exact: true }).click();
+  await page.getByRole("group", { name: "View", exact: true }).first().getByRole("button", { name, exact: true }).click();
 }
 
 async function openRead(page: Page) {
@@ -108,7 +108,7 @@ for (const { name, pack } of PACKS) {
       expect(fitted.height).toBeLessThanOrEqual(paper.height + 1);
       expect(fitted.width).toBeLessThanOrEqual(paper.width + 1);
 
-      await moreTool(page, "Fit width");
+      await moreTool(page, "Fit to width");
       await page.locator(".rd-paper").hover();
       await page.keyboard.down("Control");
       await page.mouse.wheel(0, -100);
@@ -126,7 +126,7 @@ for (const { name, pack } of PACKS) {
       await expect(strip.getByRole("option", { name: "Page 118, not read yet" })).toHaveAttribute("aria-selected", "true");
       await expect(strip.getByRole("option", { name: "Page 117, read" })).toBeVisible();
       expect(await strip.getByRole("option").count()).toBeLessThan(60);
-      await moreTool(page, "Make it clearer");
+      await moreTool(page, "Make it clearer…");
       await expect(page.getByRole("slider", { name: "Brightness" })).toBeVisible();
       await checkScreen(page);
 
@@ -137,6 +137,34 @@ for (const { name, pack } of PACKS) {
       await page.getByRole("textbox", { name: "Go to page" }).fill("40");
       await page.keyboard.press("Enter");
       await expect(page.getByRole("img", { name: "Page 40" })).toBeVisible();
+    });
+  });
+}
+
+for (const size of [{ width: 1280, height: 800 }, { width: 1024, height: 700 }]) {
+  test.describe(`the View menu at ${size.width} x ${size.height}`, () => {
+    test.use({ viewport: size });
+    test("09 opens over the page, fully on screen, with nothing covering its last item", async ({ page }) => {
+      await stubReader(page, PACKS[0]!.pack);
+      await openRead(page);
+      await page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "View" }).click();
+      const menu = page.getByRole("group", { name: "View", exact: true }).first();
+      await expect(menu).toBeVisible();
+      const box = (await menu.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(size.height);
+      const last = menu.getByRole("button").last();
+      await last.scrollIntoViewIfNeeded();
+      const r = (await last.boundingBox())!;
+      const topmost = await last.evaluate((el, [x, y]) => {
+        const hit = document.elementFromPoint(x!, y!);
+        return hit === el || el.contains(hit);
+      }, [r.x + r.width / 2, r.y + r.height / 2]);
+      expect(topmost).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(menu).toBeHidden();
     });
   });
 }

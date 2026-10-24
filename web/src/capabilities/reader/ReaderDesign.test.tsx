@@ -50,7 +50,7 @@ describe.each([
   test("Not this patient opens the not-this-patient screen for this page", async () => {
     mockReader(pack);
     const { user } = renderAt(PATH);
-    expect(within(await moreTools(user)).getByRole("link", { name: "Not this patient" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/not-this-patient?page=118`);
+    expect(within(await moreTools(user)).getByRole("link", { name: "Not this patient's page…" })).toHaveAttribute("href", `/cases/${CASE_ID}/bundle/not-this-patient?page=118`);
   });
 
   test("Why we do this explains reading first", async () => {
