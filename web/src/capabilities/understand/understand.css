@@ -235,3 +235,11 @@
 .av-understand-top .av-segmented-control__option, .av-story-window .av-segmented-control__option, .av-understand-asseen .av-segmented-control__option, .av-understand-decide .av-segmented-control__option { min-height: 52px; }
 /* Work screens use the whole window: the record and the timeline need every pixel. */
 .av-page--full { max-width: none; }
+/* The board and the entry panel are one continuous surface; the divider between them sets the board's share. */
+@media (min-width: 1100px) {
+  .av-story-layout--split { display: flex; gap: 0; align-items: stretch; background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-card); overflow: clip; }
+  .av-story-layout--split > .av-story-layout__main { flex: 0 0 var(--tl-split, 72%); min-width: 0; }
+  .av-story-layout--split > .av-story-panel { flex: 1 1 0; min-width: 300px; border: 0; border-left: 1px solid var(--line); border-radius: 0; box-shadow: none; align-self: flex-start; }
+  .av-story-layout--split .av-story-board { border-radius: 0; box-shadow: none; }
+}
+@media (max-width: 1099px) { .av-story-layout--split > .av-split { display: none; } }

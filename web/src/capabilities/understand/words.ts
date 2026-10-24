@@ -100,6 +100,7 @@ const WORDS = {
   "timeline.question_only": "Question {{n}} only",
   "timeline.question_clear": "Show every question",
   "timeline.updating": "Updating the timeline…",
+  "timeline.resize_split": "Make the timeline or the entry panel wider",
   "timeline.lane_icon": "Line {{label}}",
   "timeline.legend_dots": "What the dots mean",
   "timeline.legend_question": "Linked question",

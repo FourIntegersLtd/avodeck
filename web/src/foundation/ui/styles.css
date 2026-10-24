@@ -407,3 +407,6 @@ a.av-page-ref { color: var(--green); }
 .av-needs__item.av-hairline-row { border-top: 1px solid var(--line); padding: 20px 0; }
 .av-needs__item.av-hairline-row:first-child { border-top: 0; }
 .av-case-card:hover { border-color: transparent; box-shadow: var(--shadow-card), 0 0 0 2px var(--green-tint); }
+/* SplitDivider: a thin line between two parts; it turns green on hover or focus. */
+.av-split { flex: 0 0 12px; margin: 0 -6px; z-index: 2; align-self: stretch; cursor: col-resize; touch-action: none; border: 0; border-radius: 6px; outline: none; background: linear-gradient(to right, transparent calc(50% - 1px), var(--line) calc(50% - 1px), var(--line) calc(50% + 1px), transparent calc(50% + 1px)); }
+.av-split:hover, .av-split:focus-visible { background: linear-gradient(to right, transparent calc(50% - 2px), var(--green) calc(50% - 2px), var(--green) calc(50% + 2px), transparent calc(50% + 2px)); }
