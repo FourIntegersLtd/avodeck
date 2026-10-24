@@ -10,7 +10,7 @@ const HEX = /^#[0-9a-fA-F]{3,8}$/;
 
 function declarations(block: string): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const m of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out[m[1]] = m[2].trim();
+  for (const m of block.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) out[m[1]!] = m[2]!.trim();
   return out;
 }
 
@@ -34,15 +34,15 @@ const darkAttr = declarations(blockAfter(':root[data-theme="dark"]'));
 
 function lum(hex: string): number {
   const n = parseInt(hex.slice(1), 16);
-  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+  const c: number[] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
     const s = v / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   });
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  return 0.2126 * c[0]! + 0.7152 * c[1]! + 0.0722 * c[2]!;
 }
 const ratio = (a: string, b: string) => {
   const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p);
-  return (x + 0.05) / (y + 0.05);
+  return (x! + 0.05) / (y! + 0.05);
 };
 
 describe("dark mode tokens", () => {
@@ -63,7 +63,7 @@ describe("dark mode tokens", () => {
   const pairs: [string, string][] = [
     ["--ink", "--surface"], ["--ink", "--surface-soft"], ["--ink-soft", "--surface"],
     ["--ink-soft", "--surface-soft"], ["--ink", "--surface-muted"],
-    ["--on-accent", "--green"], ["--on-brand", "--green-dark"],
+    ["--on-accent", "--green"], ["--on-brand", "--brand"],
     ["--green", "--surface"], ["--amber", "--amber-tint"], ["--red", "--red-tint"],
     ["--blue", "--blue-tint"], ["--green-dark", "--green-tint"], ["--red", "--surface"],
   ];
@@ -76,7 +76,7 @@ describe("dark mode tokens", () => {
     it(`meets AA contrast in ${name}`, () => {
       for (const [fg, bg] of pairs) {
         expect(theme[fg], fg).toMatch(HEX);
-        expect(ratio(theme[fg], theme[bg]), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
+        expect(ratio(theme[fg]!, theme[bg]!), `${fg} on ${bg}`).toBeGreaterThanOrEqual(4.5);
       }
     });
   }

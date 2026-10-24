@@ -12,7 +12,7 @@
 .av-close-title { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
 .av-close-title h1 { margin: 0; font-size: 36px; }
 .av-close-title__lead { margin: 2px 0 0; color: var(--ink-soft); font-size: 18px; }
-.av-close-title__mark { width: 64px; height: 64px; border-radius: 50%; background: var(--green); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.av-close-title__mark { width: 64px; height: 64px; border-radius: 50%; background: var(--green); color: var(--on-accent); display: inline-flex; align-items: center; justify-content: center; flex: none; }
 .av-close-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; align-items: stretch; }
 .av-close-card { padding: 24px; gap: 14px; display: flex; flex-direction: column; }
 .av-close-card__head { display: flex; align-items: center; gap: 12px; }
