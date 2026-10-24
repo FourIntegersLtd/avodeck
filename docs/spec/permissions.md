@@ -106,7 +106,7 @@ Slice O's routes and the action each checks: viewing an organisation, its member
 
 ## Person actions (no case)
 
-Only the person themselves: profile, expert profile, billing profile (changing the tax number 🔒), signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password: no route takes another person's id, and recovery needs the person's own password as well as a recovery code.
+Only the person themselves: profile, expert profile, billing profile (changing the tax number 🔒), signature, declarations, sessions, recovery codes, email change 🔒, notification preferences, custodian 🔒, account closure 🔒. Organisation admins cannot reset another person's MFA or password: no route takes another person's id, and recovery needs the person's own password as well as a recovery code. Current Avodeck support staff with no expert record get 404 on the expert profile routes (`/me/profile`), so a support account never reaches or saves the expert profile form; staff who also have an expert record are unaffected.
 
 ## Closed accounts
 

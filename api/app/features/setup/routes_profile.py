@@ -66,12 +66,13 @@ async def _profile(conn: DbConn) -> tuple[Profile, int]:
         await cur.execute(
             "select p.full_name, e.profession, coalesce(e.specialties, '{}') as specialties, e.registration_body,"
             " e.registration_number, e.hourly_rate, e.currency, e.default_retention, e.default_jurisdiction,"
-            " coalesce((extract(epoch from e.updated_at) * 1000000)::bigint, 0) as tag"
+            " coalesce((extract(epoch from e.updated_at) * 1000000)::bigint, 0) as tag,"
+            " (e.person_id is null and app.is_support_staff(p.id)) as staff_only"
             " from app.people p left join app.experts e on e.person_id = p.id"
             " where p.id = app.current_person_id()"
         )
         row = await cur.fetchone()
-    if row is None:
+    if row is None or row.pop("staff_only"):
         raise not_found()
     tag = int(row.pop("tag"))
     return Profile(**row, version=tag), tag

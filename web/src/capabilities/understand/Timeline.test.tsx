@@ -41,7 +41,7 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     serve();
     const { container } = renderAt(`/cases/${CASE_A}/timeline`);
     expect(await screen.findByRole("heading", { level: 2, name: "The timeline" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Board" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Board" })).toHaveAttribute("aria-pressed", "true");
     await screen.findByTestId("timeline-board");
     const lanes = await screen.findAllByRole("region", { name: /^Lane / });
     expect(lanes.map((l) => within(l).getByRole("heading").textContent)).toEqual(["Lane one words", "Lane two words"]);
@@ -101,12 +101,13 @@ describe("the board", () => {
     expect(screen.getByText(/^Showing [\d,]+ of 40 entries/)).toBeInTheDocument();
   });
 
-  test("a lane with nothing in the window stays, and says so", async () => {
+  test("lanes with nothing in the dates collapse into one line that names them", async () => {
     inCase("launch");
-    serve(timeline({ lanes: [{ key: "lane_one", label: "Lane one words", events: [event()], colour: "#2a6f97" }, { key: "lane_two", label: "Lane two words", events: [] }] }));
+    serve(timeline({ lanes: [{ key: "lane_one", label: "Lane one words", events: [event()], colour: "#2a6f97" }, { key: "lane_two", label: "Lane two words", events: [] }, { key: "lane_three", label: "Lane three words", events: [] }] }));
     renderAt(`/cases/${CASE_A}/timeline`);
-    const empty = await screen.findByRole("region", { name: "Lane two words" });
-    expect(within(empty).getByText("Nothing in this period")).toBeInTheDocument();
+    await screen.findByRole("region", { name: "Lane one words" });
+    expect(screen.queryByRole("region", { name: "Lane two words" })).not.toBeInTheDocument();
+    expect(screen.getByText("Nothing in these dates: Lane two words · Lane three words")).toBeInTheDocument();
   });
 
   test("a thing to look at shows how long until the next entry", async () => {
@@ -321,7 +322,7 @@ describe("the ribbon and the window", () => {
       expect(last.searchParams.get("from")).toBe("2024-02-01");
       expect(last.searchParams.get("to")).toBe("2024-08-31");
     });
-    expect(screen.getByRole("radio", { name: "Instruction period" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Instruction period" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("the ribbon asks for the whole record, whatever the window", async () => {
@@ -348,7 +349,7 @@ describe("the ribbon and the window", () => {
     fireEvent.keyDown(start, { key: "ArrowRight" });
     await waitFor(() => expect(boardCalls(seen).at(-1)!.searchParams.get("from")).toBe("2024-03-01"));
     expect(start).toHaveAttribute("aria-valuetext", "1 March 2024");
-    expect(screen.getByRole("radio", { name: "Choose dates" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Choose dates" })).toHaveAttribute("aria-pressed", "true");
   });
 
   test("Whole record clears the window, and Choose dates offers the two date fields", async () => {
@@ -356,13 +357,13 @@ describe("the ribbon and the window", () => {
     const seen = serve();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await screen.findByTestId("timeline-ribbon");
-    await user.click(screen.getByRole("radio", { name: "Whole record" }));
+    await user.click(screen.getByRole("button", { name: "Whole record" }));
     await waitFor(() => {
       const last = seen.at(-1)!;
       expect(last.searchParams.get("from")).toBeNull();
       expect(last.searchParams.get("to")).toBeNull();
     });
-    await user.click(screen.getByRole("radio", { name: "Choose dates" }));
+    await user.click(screen.getByRole("button", { name: "Choose dates" }));
     const from = screen.getByLabelText("From");
     await user.clear(from);
     await user.type(from, "2024-03-01");
@@ -371,29 +372,44 @@ describe("the ribbon and the window", () => {
 });
 
 describe("filters", () => {
-  test("the status pills carry their counts and send the choice", async () => {
+  test("the Show menu carries the counts for the dates in view and sends the choice", async () => {
     inCase("launch");
     const seen = serve();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    const pills = await screen.findByRole("radiogroup", { name: "Show" });
-    expect(within(pills).getByRole("radio", { name: "Everything" })).toBeChecked();
-    expect(within(pills).getByRole("radio", { name: "Checked by you · 2" })).toBeInTheDocument();
-    await user.click(within(pills).getByRole("radio", { name: "Please check · 1" }));
+    await user.click(await screen.findByRole("button", { name: /^Show:/ }));
+    const menu = screen.getByRole("group", { name: "Show" });
+    expect(within(menu).getByRole("button", { name: "Everything" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(menu).getByRole("button", { name: "Checked by you 2" })).toBeInTheDocument();
+    await user.click(within(menu).getByRole("button", { name: "Please check 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("status")).toBe("suggested"));
-    await user.click(within(pills).getByRole("radio", { name: "Thing to look at · 1" }));
+    await user.click(screen.getByRole("button", { name: /^Show:/ }));
+    await user.click(screen.getByRole("button", { name: "Thing to look at 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("things_to_look"));
-    await user.click(within(pills).getByRole("radio", { name: "Not linked to a question · 1" }));
+    await user.click(screen.getByRole("button", { name: /^Show:/ }));
+    await user.click(screen.getByRole("button", { name: "Not linked to a question 1" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("only")).toBe("not_linked"));
     expect(seen.at(-1)!.searchParams.get("status")).toBeNull();
   });
 
-  test("the question pills send the question", async () => {
+  test("a status with nothing in the dates is left out of the Show menu", async () => {
+    inCase("launch");
+    serve(timeline({ counts: { checked: 2, please_check: 0, things_to_look: 0, not_linked: 1, undated: 0, total: 2 } }));
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await user.click(await screen.findByRole("button", { name: /^Show:/ }));
+    const menu = screen.getByRole("group", { name: "Show" });
+    expect(within(menu).getByRole("button", { name: "Checked by you 2" })).toBeInTheDocument();
+    expect(within(menu).queryByRole("button", { name: /^Please check/ })).not.toBeInTheDocument();
+    expect(within(menu).queryByRole("button", { name: /^Thing to look at/ })).not.toBeInTheDocument();
+  });
+
+  test("the Question menu sends the question", async () => {
     inCase("launch");
     const seen = serve();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    const pills = await screen.findByRole("radiogroup", { name: "Linked to" });
-    expect(within(pills).getByRole("radio", { name: "Any question" })).toBeChecked();
-    await user.click(await within(pills).findByRole("radio", { name: "Q2" }));
+    await user.click(await screen.findByRole("button", { name: /^Question:/ }));
+    const menu = screen.getByRole("group", { name: "Linked to" });
+    expect(within(menu).getByRole("button", { name: "Any question" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(await within(menu).findByRole("button", { name: "Q2" }));
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("question_id")).toBe(Q_2));
   });
 
@@ -401,10 +417,10 @@ describe("filters", () => {
     inCase(run);
     const seen = serve();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    const toggle = await screen.findByRole("switch", { name: "Seen on the day on…" });
+    const toggle = await screen.findByRole("button", { name: "Seen on the day on…" });
     expect(screen.queryByLabelText("Seen on the day on")).not.toBeInTheDocument();
     await user.click(toggle);
-    expect(toggle).toHaveAttribute("aria-checked", "true");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
     await user.type(screen.getByLabelText("Seen on the day on"), "2024-03-01");
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("as_seen_on")).toBe("2024-03-01"));
     await user.click(toggle);
@@ -417,10 +433,10 @@ describe("the list", () => {
     inCase("launch");
     serve();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    await user.click(await screen.findByRole("radio", { name: "List" }));
+    await user.click(await screen.findByRole("button", { name: "List" }));
     const list = await screen.findByTestId("timeline-chronology");
     expect(within(list).getAllByRole("heading").map((h) => h.textContent)).toEqual(["February 2024", "May 2024"]);
-    const rows = within(list).getAllByRole("button", { name: /^Open / });
+    const rows = within(list).getAllByRole("button");
     expect(rows[0]).toHaveAccessibleName(/Result · 19 February 2024/);
     await user.click(rows[0]!);
     const panel = await screen.findByRole("complementary", { name: "The entry you opened" });
@@ -431,7 +447,7 @@ describe("the list", () => {
     inCase("fixture");
     serve();
     const { container, user } = renderAt(`/cases/${CASE_A}/timeline`);
-    await user.click(await screen.findByRole("radio", { name: "List" }));
+    await user.click(await screen.findByRole("button", { name: "List" }));
     await screen.findByTestId("timeline-chronology");
     expect(await axeViolations(container)).toEqual([]);
   });
@@ -467,4 +483,58 @@ test("1,500 events draw in under one second, with a bounded number of cards and 
   expect(took).toBeLessThan(1000);
   expect(screen.getAllByRole("button").length).toBeLessThan(400);
   expect(screen.getByText(/^Showing [\d,]+ of 1,500 entries/)).toBeInTheDocument();
+});
+
+describe("the calm layout", () => {
+  test("the day button and the empty panel are on the screen from the start", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    await screen.findByTestId("timeline-board");
+    expect(screen.getByRole("button", { name: "Seen on the day on…" })).toBeInTheDocument();
+    const empty = screen.getByRole("complementary", { name: "Selected entry" });
+    expect(within(empty).getByRole("heading", { name: "Choose an entry" })).toBeInTheDocument();
+  });
+
+  test("the date card names the span and counts the entries in view", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    expect(await screen.findByText("2 entries in these dates")).toBeInTheDocument();
+  });
+
+  test("the key and the count stay under the list view too", async () => {
+    inCase("launch");
+    serve();
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await user.click(await screen.findByRole("button", { name: "List" }));
+    await screen.findByTestId("timeline-chronology");
+    expect(screen.getByText(/^Showing 2 of 2 entries in these dates/)).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: "What the dots mean" })).toBeInTheDocument();
+  });
+
+  test("kinds of record show the pack's words, never a raw key", async () => {
+    inCase("launch");
+    serve(timeline({ sources: [{ key: "out_of_hours", label: "out_of_hours", colour: "#2a6f97" }, { key: "witness_statement", label: "witness_statement", colour: "#b5651d" }, { key: "hospital", label: "Hospital notes", colour: null }] }));
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const kinds = await screen.findByRole("list", { name: "Kinds of record" });
+    expect(within(kinds).getByText("Out of hours")).toBeInTheDocument();
+    expect(within(kinds).getByText("Witness statement")).toBeInTheDocument();
+    expect(within(kinds).getByText("Hospital notes")).toBeInTheDocument();
+    expect(kinds.textContent).not.toMatch(/_/);
+  });
+
+  test("the panel shows the words from the page in a quote, a date warning, the page, and one main button", async () => {
+    inCase("launch");
+    serve(timeline({ lanes: [{ key: "lane_one", label: "Lane one words", colour: "#2a6f97", events: [event({ date_basis: "printed_century", summary: "tired, TFT requested" })] }] }));
+    const { user } = renderAt(`/cases/${CASE_A}/timeline`);
+    await user.click(await screen.findByRole("button", { name: /Consultation · 15 May 2024/ }));
+    const panel = await screen.findByRole("complementary", { name: "The entry you opened" });
+    expect(panel.querySelector("blockquote")).toHaveTextContent("tired, TFT requested");
+    expect(within(panel).getByText("Year worked out from the two-digit year on the page, please check")).toBeInTheDocument();
+    const main = within(panel).getByRole("link", { name: "Open page 118 in Read" });
+    expect(main).not.toHaveClass("av-button--secondary");
+    expect(main).not.toHaveClass("av-button--quiet");
+    expect(within(panel).getByRole("link", { name: "Open this day as it was seen" })).toHaveClass("av-button--quiet");
+  });
 });

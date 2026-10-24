@@ -9,7 +9,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, Segmented, StaleChoice } from "../../foundation/ui";
+import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, SegmentedControl, StaleChoice } from "../../foundation/ui";
 import { downloadPath, useLocale, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -90,21 +90,21 @@ export function ReportScreen() {
           <p className="rp-lead">{w("report.intro")}</p>
         </div>
         <div className="rp-head__tools">
-          <Segmented label={w("report.style")} hideLabel name="citation_style" value={currentStyle} onChange={(next) => void changeStyle(next)} options={STYLES.map((key) => ({ value: key, label: w(`report.style.${key}`) }))} />
+          <SegmentedControl label={w("report.style")} value={currentStyle} onChange={(next) => void changeStyle(next)} options={STYLES.map((key) => ({ value: key, label: w(`report.style.${key}`) }))} />
           <span className="av-visually-hidden">{w("report.style_changed")}</span>
-          {version && <a className="av-button av-button--secondary" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>}
+          {version && <a className="av-button av-button--quiet" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>}
         </div>
       </div>
       {error && <Notice tone="error"><p>{error}</p></Notice>}
       {served && (
-        <Notice tone="warning">
+        <Notice tone="amber">
           <p>{w("report.served")}</p>
           <LinkButton to={screenPath("S21b", { caseId }) ?? `/cases/${caseId}`}>{w("report.served_link")}</LinkButton>
         </Notice>
       )}
-      {wait.waiting && <Notice><p>{w("building")}</p></Notice>}
-      {!version && <Notice><p>{w("report.empty")}</p></Notice>}
-      {version?.template_fallback && <Notice tone="warning"><p>{w("report.fallback")}</p></Notice>}
+      {wait.waiting && <Notice tone="mint"><p>{w("building")}</p></Notice>}
+      {!version && <Notice tone="mint"><p>{w("report.empty")}</p></Notice>}
+      {version?.template_fallback && <Notice tone="amber"><p>{w("report.fallback")}</p></Notice>}
 
       <div className="rp-report">
         <Contents sections={data.sections} selected={selected?.key ?? null} onChoose={setChosen} appendices={appendices} />
@@ -131,7 +131,7 @@ export function ReportScreen() {
         <span className="av-muted rp-bar__note">{footer}</span>
         <div className="rp-bar__actions">
           {!served ? (version ? (
-            <button type="button" className="av-text-link rp-linkbtn" onClick={() => void build()} disabled={wait.waiting}>{w("report.rebuild")}</button>
+            <Button variant="quiet" onClick={() => void build()} disabled={wait.waiting}>{w("report.rebuild")}</Button>
           ) : (
             <Button onClick={() => void build()} disabled={wait.waiting}>{w("report.build")}</Button>
           )) : null}
@@ -324,7 +324,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
         </ul>
       )}
       <div className="av-row">
-        <Button onClick={() => void save()}>{w("report.section.save")}</Button>
+        <Button variant="secondary" onClick={() => void save()}>{w("report.section.save")}</Button>
         <Button variant="secondary" onClick={onClose}>{w("report.section.close")}</Button>
         {saved && <span role="status">{w("report.section.saved")}</span>}
       </div>

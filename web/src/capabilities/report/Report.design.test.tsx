@@ -20,9 +20,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     const [first] = sectionKeys(run);
     serve(run, { paragraphs: paragraphs(first!) });
     const { container } = renderAt(url);
-    const group = await screen.findByRole("radiogroup", { name: M["report.report.style"]! });
-    expect(group).toHaveClass("av-segmented");
-    expect(within(group).getByRole("radio", { name: M["report.report.style.page"]! })).toBeChecked();
+    const group = await screen.findByRole("group", { name: M["report.report.style"]! });
+    expect(group).toHaveClass("av-segmented-control");
+    expect(within(group).getByRole("button", { name: M["report.report.style.page"]! })).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("link", { name: M["report.report.open_word"]! })).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
     expect(await axeViolations(container)).toEqual([]);

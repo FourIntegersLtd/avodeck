@@ -1,13 +1,14 @@
 // S11 side panel: the entry the expert opened, with its page, status and questions, and the ways on (Read, or the
 // day as it was seen). The timeline stays where it was; Earlier and Later step through every entry in date order.
 import { useEffect, useRef, useState } from "react";
+import { t } from "../../foundation/i18n";
 import type { Schemas } from "../../foundation/platform-client";
-import { LinkButton, PageRef, StatusBadge } from "../../foundation/ui";
+import { LinkButton, Notice, PageRef, StatusMark } from "../../foundation/ui";
 import { useHighlight } from "./highlight";
 import { QuestionToggle } from "./QuestionChip";
 import { axisIso, entryHref, statusOf, useKindWord } from "./shared";
 import { pageImage } from "./pageImage";
-import { entryLabel, entryName } from "./TimelineBoard";
+import { dateMark, entryLabel, entryName } from "./TimelineBoard";
 import { w } from "./words";
 
 type Event = Schemas["Event"];
@@ -29,6 +30,18 @@ function PagePicture({ caseId, page }: { caseId: string; page: number }) {
   }, [caseId, page]);
   if (!src) return null;
   return <img className="av-story-panel__page" src={src} alt={w("consultation.page_alt", { page })} />;
+}
+
+/** Before an entry is chosen the panel is still there, so the page does not jump when one is. */
+export function TimelineInspectorEmpty() {
+  return (
+    <aside className="av-story-panel av-story-panel--empty" aria-label={w("timeline.inspector.empty_label")}>
+      <div className="av-story-panel__body">
+        <h3>{w("timeline.inspector.empty_title")}</h3>
+        <p className="av-muted">{w("timeline.inspector.empty_body")}</p>
+      </div>
+    </aside>
+  );
 }
 
 export function TimelineInspector({
@@ -59,6 +72,7 @@ export function TimelineInspector({
   const { show } = useHighlight();
   const linked = current.question_ids.length;
   const dated = !!axisIso(current);
+  const mark = dateMark([current]);
 
   // Closing the panel puts the screen back as it was.
   useEffect(() => () => show(null), [show]);
@@ -74,7 +88,6 @@ export function TimelineInspector({
   return (
     <aside className="av-story-panel" aria-label={w("timeline.inspector.title")}>
       <div className="av-story-panel__bar">
-        <PageRef page={current.page_no} />
         <span className="av-story-panel__nav">
           <button type="button" className="av-story-panel__icon" disabled={!earlier} onClick={() => earlier && onSelect(earlier)} aria-label={w("timeline.inspector.earlier")}>
             <span aria-hidden="true">‹</span>
@@ -89,17 +102,33 @@ export function TimelineInspector({
       </div>
       <div className="av-story-panel__body">
         <h3 ref={heading} tabIndex={-1}>{entryLabel(current, word)}</h3>
-        {current.summary && <p className="av-story-panel__summary">{current.summary}</p>}
-        <div className="av-story-panel__badges">
-          <StatusBadge status={statusOf(current.status)} />
-          {current.has_finding && <StatusBadge status="look" />}
-        </div>
-        <p className="av-story-panel__linked">
-          <span>{linked ? w("timeline.linked", { count: linked }) : w("timeline.not_linked")}</span>
-          {chips.map((c) => (
-            <QuestionToggle key={c.id} questionId={c.id} n={c.n} />
-          ))}
+        <p className="av-story-panel__status">
+          <StatusMark status={statusOf(current.status)} />
+          <span>{t(`ui.status.${statusOf(current.status)}`)}</span>
+          {current.has_finding && (
+            <>
+              <StatusMark status="look" />
+              <span>{t("ui.status.look")}</span>
+            </>
+          )}
         </p>
+        {current.summary && <blockquote className="av-story-panel__summary">{current.summary}</blockquote>}
+        {mark && <Notice tone="amber">{w(mark)}</Notice>}
+        <dl className="av-story-panel__facts">
+          <div>
+            <dt>{w("timeline.inspector.page")}</dt>
+            <dd><PageRef page={current.page_no} /></dd>
+          </div>
+          <div>
+            <dt>{w("timeline.inspector.question")}</dt>
+            <dd className="av-story-panel__linked">
+              <span>{linked ? w("timeline.linked", { count: linked }) : w("timeline.not_linked")}</span>
+              {chips.map((c) => (
+                <QuestionToggle key={c.id} questionId={c.id} n={c.n} />
+              ))}
+            </dd>
+          </div>
+        </dl>
         {current.has_finding && <p className="av-story-panel__finding">{w("timeline.inspector.finding")}</p>}
         <PagePicture caseId={caseId} page={current.page_no} />
         <div className="av-story-panel__ways">
@@ -107,7 +136,7 @@ export function TimelineInspector({
             {w("timeline.inspector.open_read", { page: current.page_no })}
           </LinkButton>
           {dated && (
-            <LinkButton wide variant="secondary" to={entryHref(caseId, current)}>
+            <LinkButton wide variant="quiet" to={entryHref(caseId, current)}>
               {w("timeline.inspector.open_day")}
             </LinkButton>
           )}
