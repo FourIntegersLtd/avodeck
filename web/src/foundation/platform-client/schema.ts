@@ -4685,6 +4685,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/support/jobs/{job_id}/requeue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Requeue Job */
+        post: operations["requeue_job_v1_support_jobs__job_id__requeue_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/jobs/{job_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Job */
+        post: operations["resume_job_v1_support_jobs__job_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/today": {
         parameters: {
             query?: never;
@@ -6743,6 +6777,12 @@ export interface components {
         FactList: {
             /** Facts */
             facts: components["schemas"]["FactOut"][];
+            /**
+             * Reassigned
+             * @description A fact on this page is suggested again because the case's named expert changed.
+             * @default false
+             */
+            reassigned: boolean;
         };
         /** FactOut */
         FactOut: {
@@ -7442,6 +7482,37 @@ export interface components {
             step_done?: number | null;
             /** Step Total */
             step_total?: number | null;
+        };
+        /** JobActionBody */
+        JobActionBody: {
+            /**
+             * Reason Code
+             * @enum {string}
+             */
+            reason_code: "service_restored" | "fault_fixed" | "expert_asked";
+        };
+        /** JobActionResult */
+        JobActionResult: {
+            /**
+             * Action
+             * @enum {string}
+             */
+            action: "resume" | "requeue";
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed" | "paused";
         };
         /** JobOut */
         JobOut: {
@@ -24789,6 +24860,94 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustodyTransfer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    requeue_job_v1_support_jobs__job_id__requeue_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobActionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobActionResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    resume_job_v1_support_jobs__job_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobActionBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobActionResult"];
                 };
             };
             /** @description Validation Error */

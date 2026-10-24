@@ -6,11 +6,19 @@ expired (checked on every read, so a grant ends by itself after 24 hours). Under
 only the three read actions, every request is written to the case's audit trail as
 `support_access.viewed`, and every call needs MFA in the last 10 minutes (`aal2`). The database
 answers the same through `app.can_access_case()`, so row-level security repeats it.
+
+Support actions (`SUPPORT_ACTIONS`, under `/v1/support/`): each is behind its own flag, answers
+current staff only (anyone else 404, as if the route did not exist), needs MFA in the last 10
+minutes (403 `step_up_required`), and writes `support.<action>` to the case's audit trail (job
+actions) or the person's (MFA), with ids and a reason code only (rule 6). Every route under
+`/v1/support/` depends on `require_support_staff`.
 """
 
 from __future__ import annotations
 
+import re
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
@@ -25,7 +33,7 @@ from app.core.auth.session import Session
 from app.core.auth.support import require_support_staff
 from app.core.db import Database
 from app.core.errors import ApiError
-from tests.support.db import scope_for
+from tests.support.db import ClientFor, scope_for
 from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
@@ -210,3 +218,123 @@ async def test_the_support_console_needs_current_staff_and_a_fresh_mfa(api_db: D
             with pytest.raises(ApiError) as missing:
                 await require_support_staff(_request(person, mfa_age=timedelta(0)), conn)
         assert missing.value.status == 404
+
+
+# --- Support actions: current staff, a fresh MFA, its own flag, and an audit row ------------------------
+
+
+@dataclass(frozen=True)
+class Target:
+    path: str
+    case_id: uuid.UUID | None  # the trail the row goes on: a case's, or None for a person's
+    target: str
+
+
+@dataclass(frozen=True)
+class SupportAction:
+    flag: str
+    audit_action: str
+    body: dict[str, str]
+    make: Callable[[Seed, psycopg.Connection, Desk], Target]
+
+
+def _job_in(seed: Seed, admin: psycopg.Connection, case: uuid.UUID, status: str, error_code: str) -> uuid.UUID:
+    job = seed.job(case)
+    admin.execute("update app.jobs set status = 'running', attempts = 3 where id = %s", (job,))
+    admin.execute("update app.jobs set status = %s, error_code = %s where id = %s", (status, error_code, job))
+    return job
+
+
+def _paused_job(seed: Seed, admin: psycopg.Connection, desk: Desk) -> Target:
+    job = _job_in(seed, admin, desk.case, "paused", "cost_guard")
+    return Target(f"/v1/support/jobs/{job}/resume", desk.case, f"job:{job}/reason:service_restored")
+
+
+def _failed_job(seed: Seed, admin: psycopg.Connection, desk: Desk) -> Target:
+    job = _job_in(seed, admin, desk.case, "failed", "job_error")
+    return Target(f"/v1/support/jobs/{job}/requeue", desk.case, f"job:{job}/reason:fault_fixed")
+
+
+SUPPORT_ACTIONS = {
+    "job_resume": SupportAction("support_job_resume", "support.job_resumed", {"reason_code": "service_restored"},
+                                _paused_job),
+    "job_requeue": SupportAction("support_job_requeue", "support.job_requeued", {"reason_code": "fault_fixed"},
+                                 _failed_job),
+}  # fmt: skip
+TARGET_SHAPE = re.compile(r"^[a-z_]+:[0-9a-f-]{36}/reason:[a-z_]+$")  # ids and a code: nothing else (rule 6)
+
+
+def _audit_rows(admin: psycopg.Connection, action: str, person: uuid.UUID) -> list[tuple[Any, ...]]:
+    return admin.execute(
+        "select case_id, target from app.audit_log where action = %s and person_id = %s order by seq", (action, person)
+    ).fetchall()
+
+
+@pytest.mark.parametrize("name", sorted(SUPPORT_ACTIONS))
+async def test_a_support_action_is_not_there_for_anyone_but_current_staff(
+    name: str, client_for: ClientFor, admin: psycopg.Connection, seed: Seed, desk: Desk
+) -> None:
+    action = SUPPORT_ACTIONS[name]
+    former, stranger = seed.person(), seed.person()
+    seed.support_staff(former, removed=True)
+    target = action.make(seed, admin, desk)
+    for person in (former, stranger, desk.expert):
+        seed.flag(action.flag, "person", person)
+        response = await (await client_for(person)).post(target.path, json=action.body)
+        assert response.status_code == 404, (name, response.text)
+        assert _audit_rows(admin, action.audit_action, person) == []
+
+
+@pytest.mark.parametrize("name", sorted(SUPPORT_ACTIONS))
+async def test_a_support_action_needs_a_fresh_mfa(
+    name: str, client_for: ClientFor, admin: psycopg.Connection, seed: Seed, desk: Desk
+) -> None:
+    action = SUPPORT_ACTIONS[name]
+    seed.flag(action.flag, "person", desk.staff)
+    target = action.make(seed, admin, desk)
+    response = await (await client_for(desk.staff, mfa_age=timedelta(minutes=11))).post(target.path, json=action.body)
+    assert (response.status_code, response.json()["error"]["code"]) == (403, "step_up_required")
+    assert _audit_rows(admin, action.audit_action, desk.staff) == []
+
+
+@pytest.mark.parametrize("name", sorted(SUPPORT_ACTIONS))
+async def test_a_support_action_is_off_until_its_flag_is_on(
+    name: str, client_for: ClientFor, admin: psycopg.Connection, seed: Seed, desk: Desk
+) -> None:
+    action = SUPPORT_ACTIONS[name]
+    target = action.make(seed, admin, desk)
+    response = await (await client_for(desk.staff)).post(target.path, json=action.body)
+    assert response.status_code == 404
+    assert _audit_rows(admin, action.audit_action, desk.staff) == []
+
+
+@pytest.mark.parametrize("name", sorted(SUPPORT_ACTIONS))
+async def test_a_support_action_writes_its_audit_row_with_ids_and_a_reason_code_only(
+    name: str, client_for: ClientFor, admin: psycopg.Connection, seed: Seed, desk: Desk
+) -> None:
+    action = SUPPORT_ACTIONS[name]
+    seed.flag(action.flag, "person", desk.staff)
+    target = action.make(seed, admin, desk)
+    response = await (await client_for(desk.staff)).post(target.path, json=action.body)
+    assert response.status_code == 200, response.text
+    assert _audit_rows(admin, action.audit_action, desk.staff) == [(target.case_id, target.target)]
+    assert TARGET_SHAPE.match(target.target)
+    assert action.audit_action.startswith("support.")
+
+
+async def test_every_support_route_needs_current_staff(app: Any) -> None:
+    """A new route under /v1/support/ cannot forget the gate: it must depend on `require_support_staff`."""
+
+    def calls(dependant: Any) -> set[Any]:
+        found = {dependant.call}
+        for sub in dependant.dependencies:
+            found |= calls(sub)
+        return found
+
+    support = [r for r in app.routes if getattr(r, "path", "").startswith("/v1/support/")]
+    assert {f"{m} {r.path}" for r in support for m in r.methods} >= {
+        "POST /v1/support/jobs/{job_id}/resume",
+        "POST /v1/support/jobs/{job_id}/requeue",
+    }
+    for route in support:
+        assert require_support_staff in calls(route.dependant), route.path

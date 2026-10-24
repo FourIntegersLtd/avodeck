@@ -40,6 +40,7 @@ export interface ReaderApi {
 export interface ReaderOpts {
   page?: number;
   alreadyRead?: boolean;
+  reassigned?: boolean;
   /** The page detail says read although the server holds no read record (to prove a 423 shows nothing). */
   pageSaysRead?: boolean;
   inPeriod?: boolean;
@@ -151,7 +152,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     }),
     http.get(`${c}/pages/:n/facts`, () => {
       api.factRequests += 1;
-      return api.read ? json({ facts: api.facts }) : apiError(423, "blind_read");
+      return api.read ? json({ facts: api.facts, reassigned: opts.reassigned ?? false }) : apiError(423, "blind_read");
     }),
     http.get(`${c}/pages/:n/words`, ({ params }) => {
       api.wordRequests += 1;

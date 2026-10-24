@@ -31,6 +31,7 @@ from app.core.routes.jobs import jobs_router
 from app.core.routes.me import me_router
 from app.core.routes.notifications import notifications_router
 from app.core.routes.packs import case_pack_router, packs_router
+from app.core.routes.support import support_router
 from app.core.routes.today import today_router
 from app.core.routes.uploads import uploads_router
 from app.core.speech import SpeechClient
@@ -140,7 +141,7 @@ def create_app(
         account_router,
     )
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
-    people = (me_router, today_router, notifications_router)
+    people = (me_router, today_router, notifications_router, support_router)
     slices = (pipeline_router, colleague_router, esign_webhook_router)  # public: token- or signature-gated
     for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files, *slices):
         mount(app, r)

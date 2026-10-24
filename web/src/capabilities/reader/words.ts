@@ -17,6 +17,8 @@ const WORDS = {
   "read.not_read_yet": "When you've read it, our suggestions appear here.",
   "read.read_first": "Read the page first",
   "read.still_reading": "We're still reading this page. Its suggestions will appear here.",
+  "read.not_read_why": "Suggestions appear once you mark this page as read.",
+  "read.reassigned": "This case has a new named expert. Every suggestion goes back to be checked again by you. Nothing has been lost.",
   "read.none_found": "We found nothing to check on this page.",
   "read.mark_read": "I've read this page",
   "read.next": "Next page",

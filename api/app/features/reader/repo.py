@@ -146,6 +146,21 @@ async def page_facts(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UU
     return facts
 
 
+async def page_reassigned(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> bool:
+    """True when a fact on the page is `suggested` and its latest log row is the system's `reset`: the named
+    expert changed and the check went back to be done again (migration 0031)."""
+    cur = await conn.execute(
+        """select exists (
+             select 1 from app.facts f
+             where f.case_id = %(case)s and f.page_id = %(page)s and f.status = 'suggested'
+               and (select v.action from app.fact_verifications v where v.fact_id = f.id
+                    order by v.seq desc limit 1) = 'reset')""",
+        {"case": case_id, "page": page_id},
+    )
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
 async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UUID) -> tuple[int, int, int]:
     """(pages read, pages, seconds left). Each unread page takes the person's median dwell for its kind of
     source, else their median over every page, else `DEFAULT_SECONDS_PER_PAGE`."""

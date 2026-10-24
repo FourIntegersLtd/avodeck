@@ -158,6 +158,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const queue = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/unreadable", casePath(caseId))).catch(() => null), [caseId]);
   const [read, setRead] = useState(false);
   const [facts, setFacts] = useState<Fact[] | null>(null);
+  const [reassigned, setReassigned] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditDraft | null>(null);
   const [pageWords, setPageWords] = useState<PageWord[] | null>(null);
@@ -197,17 +198,18 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
 
   const loadFacts = useCallback(async () => {
     try {
-      const { facts: list } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
+      const { facts: list, reassigned: again } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
       // The server answers only once the page was read, so the page counts as read from here.
       setRead(true);
       setFacts(list);
+      setReassigned(again ?? false);
       setFocus((f) => {
         if (f) return f;
         if (factFromUrl && list.some((x) => x.id === factFromUrl)) return factFromUrl;
         return list.find((x) => x.status === "suggested")?.id ?? list[0]?.id ?? null;
       });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 423) setFacts(null);
+      if (error instanceof ApiError && error.status === 423) { setFacts(null); setReassigned(false); }
       else setNotice(errorMessage(error));
     }
   }, [caseId, pageNo, factFromUrl]);
@@ -917,11 +919,13 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
         <aside className="rd-side" aria-label={w("read.found")}>
           {notice && <Notice tone="error">{notice}</Notice>}
           {info && !notice && <Notice tone="success">{info}</Notice>}
+          {reassigned && facts !== null && <Notice tone="info">{w("read.reassigned")}</Notice>}
           {facts === null ? (
             <div className="rd-blind">
               <EyeIcon />
               <h2>{w("read.read_first")}</h2>
               <p>{w("read.not_read_yet")}</p>
+              <p className="av-visually-hidden">{w("read.not_read_why")}</p>
             </div>
           ) : (
             <>

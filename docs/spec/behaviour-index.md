@@ -125,6 +125,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case; waits while its case is on hold; requested_by set by the system; step counts are whole numbers, never text | Metadata kept 90 days |
 | `job_kind_actions` | Foundation | Migrations only | One per job kind | Read-only reference | Kept (no patient data) |
 | `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
+| `job_support_actions` | Foundation | Support staff, through `app.support_job_action()` only | Many per job | Insert only; written only with a resume or requeue that happened | With the job |
 | `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
 | `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open; daily sweep expires unfinished uploads after 7 days and deletes their chunks; completing publishes `DocumentUploaded` (with `append`) in the same transaction | Case deletion |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only; held while the case is on hold | Deleted after 1 year; case ones with the case |
