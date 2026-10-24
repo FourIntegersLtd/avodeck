@@ -30,6 +30,8 @@ a { color: var(--green); }
 }
 .av-button:hover { background: var(--green-dark); border-color: var(--green-dark); }
 .av-button[disabled] { opacity: 0.6; cursor: not-allowed; }
+.av-button[aria-busy=true] { cursor: progress; }
+.av-button .av-spinner { width: 20px; height: 20px; }
 .av-button--secondary { min-height: var(--button-min-height); padding: 0 20px; background: var(--well); border-color: transparent; color: var(--ink); }
 .av-button--secondary:hover { background: var(--surface-muted); border-color: transparent; color: var(--ink); }
 .av-button--outline { min-height: var(--button-min-height); padding: 0 22px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; }
@@ -360,7 +362,7 @@ a.av-page-ref { color: var(--green); }
 
 /* Calm design system parts (docs/design: DesignSystemCalm). */
 .av-segmented-control { display: inline-flex; flex-wrap: wrap; background: var(--well); border-radius: 12px; padding: 3px; }
-.av-segmented-control__option { min-height: 46px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
+.av-segmented-control__option { min-height: 52px; padding: 0 16px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); font: inherit; font-weight: 700; cursor: pointer; }
 .av-segmented-control__option:hover { background: var(--surface-muted); }
 .av-segmented-control__option[aria-pressed=true] { background: var(--surface); box-shadow: var(--shadow-raised); }
 .av-segmented-control__option[disabled] { opacity: 0.6; cursor: not-allowed; }
