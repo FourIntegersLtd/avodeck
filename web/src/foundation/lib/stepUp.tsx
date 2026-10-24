@@ -1,9 +1,9 @@
 // Rule 10: risky actions need the code entered in the last 10 minutes. When the API answers
 // step_up_required, this asks for the code (POST /v1/auth/mfa/verify) and then tries again. If the
 // person cancels, or the code is still asked for after it was given, it says that nothing was changed.
-import { createContext, useCallback, useContext, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { t } from "../i18n";
-import { api, ApiError, unwrap } from "../platform-client";
+import { api, ApiError, onStepUpRequired, unwrap } from "../platform-client";
 import { Button, CodeField, Dialog, Notice } from "../ui";
 import { DevSkipCode } from "./DevSkipCode";
 import { errorMessage } from "./errors";
@@ -29,12 +29,28 @@ export function StepUpProvider({ children }: { children: ReactNode }) {
     answer.current = null;
   };
 
+  // Every API call that needs the code asks here first and is sent again once (platform-client).
+  useEffect(
+    () =>
+      onStepUpRequired({
+        ask: async () => {
+          setCancelled(false);
+          const ok = await ask();
+          if (!ok) setCancelled(true);
+          return ok;
+        },
+        nothingChanged: () => setCancelled(true),
+      }),
+    [],
+  );
+
   const run = useCallback<Run>(async (action) => {
     setCancelled(false);
     try {
       return await action();
     } catch (error) {
       if (!needsCode(error)) throw error;
+      if (error instanceof ApiError && error.stepUpAsked) return nothingChanged(); // already asked once
       if (!(await ask())) return nothingChanged();
       try {
         return await action();

@@ -17,6 +17,8 @@ export class ApiError extends Error {
     readonly status: number,
     readonly code: string,
     readonly extra: Record<string, unknown> = {},
+    /** True when the code prompt was already shown for this call (cancelled, or still asked for). */
+    readonly stepUpAsked = false,
   ) {
     super(code);
     this.name = "ApiError";
@@ -73,19 +75,70 @@ const csrf: Middleware = {
   },
 };
 
+/** Rule 10: who asks for the code when a call answers step_up_required (foundation/lib/stepUp.tsx). */
+export interface StepUpPrompt {
+  /** Shows the code prompt; true once the code is accepted, false if cancelled. */
+  ask(): Promise<boolean>;
+  /** The code was given but the call still needs it: tell the person nothing was changed. */
+  nothingChanged(): void;
+}
+
+let stepUpPrompt: StepUpPrompt | null = null;
+let asking: Promise<boolean> | null = null;
+const ASKED = "x-avodeck-step-up-asked";
+
+/** Registers the code prompt. Returns a function that removes it. */
+export function onStepUpRequired(prompt: StepUpPrompt): () => void {
+  stepUpPrompt = prompt;
+  return () => {
+    if (stepUpPrompt === prompt) stepUpPrompt = null;
+  };
+}
+
+async function needsCode(response: Response): Promise<boolean> {
+  if (response.status !== 403) return false;
+  try {
+    const body = (await response.clone().json()) as { error?: { code?: unknown } };
+    return body.error?.code === "step_up_required";
+  } catch {
+    return false;
+  }
+}
+
+function markAsked(response: Response): Response {
+  const headers = new Headers(response.headers);
+  headers.set(ASKED, "1");
+  return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
+}
+
+/** Sends a request; if it needs the code, asks once (shared by calls in flight) and sends it again once. */
+async function send(request: Request): Promise<Response> {
+  const prompt = stepUpPrompt;
+  const spare = prompt && !new URL(request.url).pathname.startsWith("/v1/auth/") ? request.clone() : null;
+  const first = await globalThis.fetch(request); // looked up on each call, so test doubles of fetch are honoured
+  if (!prompt || !spare || !(await needsCode(first))) return first;
+  asking ??= prompt.ask().finally(() => {
+    asking = null;
+  });
+  if (!(await asking)) return markAsked(first);
+  const again = await globalThis.fetch(spare);
+  if (!(await needsCode(again))) return again;
+  prompt.nothingChanged();
+  return markAsked(again);
+}
+
 export const api = createClient<paths>({
   baseUrl: apiOrigin(),
   credentials: "include",
-  // Looked up on each call, so test doubles of fetch are honoured.
-  fetch: (request) => globalThis.fetch(request),
+  fetch: send,
 });
 api.use(csrf, mutations);
 
-function toApiError(status: number, body: unknown): ApiError {
+function toApiError(status: number, body: unknown, stepUpAsked = false): ApiError {
   if (body && typeof body === "object" && "error" in body) {
     const { code, ...extra } = (body as { error: Record<string, unknown> }).error;
     delete extra.message; // the API's own text is for logs; screens show their own words
-    if (typeof code === "string") return new ApiError(status, code, extra);
+    if (typeof code === "string") return new ApiError(status, code, extra, stepUpAsked);
   }
   return new ApiError(status, "server_error");
 }
@@ -99,7 +152,7 @@ export async function unwrap<D>(call: Promise<{ data?: D; error?: unknown; respo
     throw new ApiError(0, "network_error");
   }
   if (result.response.ok) return result.data as D;
-  const err = toApiError(result.response.status, result.error);
+  const err = toApiError(result.response.status, result.error, result.response.headers.get(ASKED) === "1");
   if (err.status === 401 && SIGNED_OUT_CODES.has(err.code)) signedOutListeners.forEach((listener) => listener(err.code));
   throw err;
 }
