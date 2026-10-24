@@ -9,7 +9,7 @@ import { dayMs } from "./storyLayout";
 import { w } from "./words";
 
 const W = 1000;
-const ROW = 12;
+const ROW = 8;
 
 function iso(ms: number): string {
   const d = new Date(ms);

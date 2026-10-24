@@ -72,7 +72,7 @@ test("'relevant' is saved at once, without a reason", async () => {
   const calls = serve();
   const { user } = open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
-  await user.click(within(card).getByRole("radio", { name: "Relevant" }));
+  await user.click(within(card).getByRole("button", { name: "Relevant" }));
   expect(within(card).queryByRole("button", { name: "Save my decision" })).not.toBeInTheDocument();
   await waitFor(() => expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ decision: "relevant", reason: null }));
   expect(await screen.findByText("2 of 2 decided")).toBeInTheDocument();
@@ -83,7 +83,7 @@ test.each([["Not relevant", "not_relevant"], ["Explained elsewhere", "explained_
   const calls = serve();
   const { user } = open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
-  await user.click(within(card).getByRole("radio", { name: label }));
+  await user.click(within(card).getByRole("button", { name: label }));
   const save = within(card).getByRole("button", { name: "Save my decision" });
   expect(save).toBeDisabled();
   await user.type(within(card).getByLabelText("Your reason"), "The ward saw it the same day");
@@ -125,7 +125,7 @@ test("the reason can be dictated", async () => {
   serve();
   const { user } = open();
   const card = await screen.findByRole("article", { name: "Nothing in the record shows what followed this entry" });
-  await user.click(within(card).getByRole("radio", { name: "Not relevant" }));
+  await user.click(within(card).getByRole("button", { name: "Not relevant" }));
   expect(within(card).getByRole("button", { name: "Dictate" })).toBeInTheDocument();
 });
 
@@ -137,7 +137,7 @@ test("already decided findings show a one-line summary of the decision", async (
   expect(within(row).getByText("Relevant")).toBeInTheDocument();
   await user.click(within(row).getByText(/^Nothing in the record shows this was acknowledged/));
   const other = await screen.findByRole("article", { name: "Nothing in the record shows this was acknowledged" });
-  expect(within(other).getByRole("radio", { name: "Relevant" })).toBeChecked();
+  expect(within(other).getByRole("button", { name: "Relevant" })).toHaveAttribute("aria-pressed", "true");
 });
 
 test("you can add your own check: it needs a name, a kind of entry to follow, and a number of days", async () => {
