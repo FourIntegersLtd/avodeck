@@ -1,5 +1,5 @@
 // One suggestion: what we found, its state, and the actions the expert can take on it.
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { t } from "../../foundation/i18n";
 import { Button, Checkbox, IconTile, LinkButton, StatusBadge } from "../../foundation/ui";
@@ -88,6 +88,7 @@ export function FactCard(p: FactCardProps) {
   const { fact } = p;
   const fields = editableFields(fact, p.pack);
   const id = useId();
+  const [moreOpen, setMoreOpen] = useState(false);
   const can = allowed(fact);
   const checked = fact.status === "verified" || fact.status === "edited";
   const rejected = fact.status === "rejected";
@@ -261,28 +262,25 @@ export function FactCard(p: FactCardProps) {
       ) : (
         <>
           <p className="rd-hint">{w("fact.fix_one_line")}</p>
-          <div className="rd-actions">
-            {can.correct && (
+          {can.correct && (
+            <div className="rd-actions">
               <Button disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
                 {w("fact.correct")}
               </Button>
-            )}
+            </div>
+          )}
+          <div className="rd-actions rd-actions--quiet">
             {can.notRight && (
-              <Button variant="secondary" disabled={p.busy} onClick={p.onNotRight} aria-keyshortcuts="2">
+              <Button variant="quiet" disabled={p.busy} onClick={p.onNotRight} aria-keyshortcuts="2">
                 {w("fact.not_right")}
               </Button>
             )}
+            {can.edit && (
+              <Button variant="quiet" disabled={p.busy} onClick={p.onStartEdit} aria-keyshortcuts="3">
+                {w("fact.change")}
+              </Button>
+            )}
           </div>
-          {can.edit && (
-            <Button variant="quiet" disabled={p.busy} onClick={p.onStartEdit} aria-keyshortcuts="3">
-              {w("fact.change")}
-            </Button>
-          )}
-          {can.timelineDate && p.onStartTimelineDate && (
-            <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
-              {w("fact.set_timeline_date")}
-            </Button>
-          )}
           {can.notRight && (
             <details className="rd-why-not">
               <summary>{w("fact.say_why")}</summary>
@@ -292,10 +290,26 @@ export function FactCard(p: FactCardProps) {
               </label>
             </details>
           )}
-          {p.clearerPage && p.onStartMove && (
-            <Button variant="secondary" disabled={p.busy} onClick={p.onStartMove}>
-              {w("fact.move_clearer")}
-            </Button>
+          {(Boolean(can.timelineDate && p.onStartTimelineDate) || Boolean(p.clearerPage && p.onStartMove)) && (
+            <>
+              <Button variant="quiet" aria-expanded={moreOpen} aria-controls={`${id}-more`} onClick={() => setMoreOpen((o) => !o)}>
+                {w("fact.more")}
+              </Button>
+              {moreOpen && (
+                <div id={`${id}-more`} className="rd-actions rd-actions--quiet">
+                  {can.timelineDate && p.onStartTimelineDate && (
+                    <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
+                      {w("fact.set_timeline_date")}
+                    </Button>
+                  )}
+                  {p.clearerPage && p.onStartMove && (
+                    <Button variant="quiet" disabled={p.busy} onClick={p.onStartMove}>
+                      {w("fact.move_clearer")}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
           )}
           {checked && (
             <Button variant="secondary" disabled={p.busy} onClick={p.onFlag}>

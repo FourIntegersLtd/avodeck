@@ -113,6 +113,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const canNote = (item.allowed_actions ?? []).includes("page.read");
   // The toolbar's "More tools" panel and "Find words" (open again on the next page while a search is held).
   const [more, setMore] = useState(false);
+  const [keys, setKeys] = useState(false);
   const moreRef = useRef<HTMLSpanElement>(null);
   const [findOpen, setFindOpen] = useState(found !== null);
   const [focusFind, setFocusFind] = useState(false);
@@ -416,8 +417,13 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     run();
     closeMore();
   };
+  function openKeys() {
+    setMore(true);
+    setKeys(true);
+  }
   function closeMore() {
     setMore(false);
+    setKeys(false);
     document.getElementById("rd-more-button")?.focus();
   }
 
@@ -465,8 +471,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore };
+  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys });
+  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -479,6 +485,11 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         return;
       }
       if (typing(e.target)) return;
+      if (e.key === "?") {
+        s.openKeys();
+        e.preventDefault();
+        return;
+      }
       const key = e.key.toLowerCase();
       const target = s.facts?.find((f) => f.id === s.focus);
       if (key === "t" || key === "u") {
@@ -660,6 +671,21 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                         {w("read.two_pages")}
                       </Button>
                     </div>
+                    <div className="rd-more__group">
+                      <Button variant="secondary" aria-expanded={keys} aria-controls="rd-keys" onClick={() => setKeys((o) => !o)}>
+                        {w("read.keys.heading")}
+                      </Button>
+                      {keys && (
+                        <div id="rd-keys" className="rd-keys" role="group" aria-label={w("read.keys.heading")}>
+                          <p className="rd-hints">
+                            <span><kbd>C</kbd> {w("read.keys.correct")}</span>
+                            <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
+                            <span><kbd>→</kbd> {w("read.keys.next")}</span>
+                          </p>
+                          <p>{w("read.keys.more")}</p>
+                        </div>
+                      )}
+                    </div>
                     <div className="rd-more__group" role="group" aria-labelledby="rd-more-page">
                       <p id="rd-more-page" className="rd-more__head">{w("read.more.page")}</p>
                       <Button variant="secondary" disabled={busy} onClick={pick(() => void askClearerCopy())}>
@@ -751,7 +777,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
           {notice && <Notice tone="error">{notice}</Notice>}
           {info && !notice && <Notice tone="success">{info}</Notice>}
           {facts === null && <p className="rd-note">{w("read.not_read_yet")}</p>}
-          {facts?.length === 0 && <p className="rd-note">{w("read.none_found")}</p>}
+          {facts?.length === 0 && <p className="rd-note">{w(page.source_type ? "read.none_found" : "read.still_reading")}</p>}
           {facts && facts.length > 0 && <FactSwitcher pack={pack} facts={facts} focus={focus} onFocus={setFocus} />}
           {focusedFact && (
             <FactCard
@@ -812,17 +838,11 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             />
           )}
           {canNote && <MyNotes caseId={caseId} pageNo={pageNo} />}
-          {read && (
-            <div className="rd-keys">
-              <p>
-                <strong>{w("read.keys.heading")}</strong>
-              </p>
-              <p className="rd-hints">
-                <span><kbd>C</kbd> {w("read.keys.correct")}</span>
-                <span><kbd>N</kbd> {w("read.keys.not_right")}</span>
-                <span><kbd>→</kbd> {w("read.keys.next")}</span>
-              </p>
-              <p>{w("read.keys.more")}</p>
+          {hard > 0 && (
+            <div className="rd-side__foot">
+              <Link className="rd-hard" to={`/cases/${caseId}/read/couldnt-read`}>
+                {w("read.couldnt_read", { count: hard })}
+              </Link>
             </div>
           )}
         </aside>
@@ -844,11 +864,6 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             </>
           )}
         </div>
-        {hard > 0 && (
-          <Link className="rd-hard" to={`/cases/${caseId}/read/couldnt-read`}>
-            {w("read.couldnt_read", { count: hard })}
-          </Link>
-        )}
         {read ? (
           <Button arrow disabled={nextPage === null} onClick={() => nextPage !== null && go(nextPage)}>
             {w("read.next")}

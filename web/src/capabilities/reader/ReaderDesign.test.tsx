@@ -87,11 +87,13 @@ describe.each([
     const api = mockReader(pack, { alreadyRead: true, lastPage: 119 });
     const { user } = renderAt(PATH);
     await screen.findByRole("article", { name: /Dr P consultation/ });
-    const hints = screen.getByText(/Keyboard, if you like it/).closest(".rd-keys")!;
+    await user.keyboard("?");
+    const hints = screen.getByRole("group", { name: "Keyboard shortcuts" });
     for (const [key, what] of [["C", "correct"], ["N", "not right"], ["→", "next page"]] as Array<[string, string]>) {
       expect(within(hints as HTMLElement).getByText(key)).toBeVisible();
       expect(within(hints as HTMLElement).getByText(new RegExp(what))).toBeVisible();
     }
+    await user.keyboard("{Escape}");
     await user.keyboard("c");
     await waitFor(() => expect(api.verifies[0]).toMatchObject({ id: factId(1), body: { action: "correct" } }));
     await user.keyboard("n");

@@ -31,6 +31,7 @@ test("Set date on timeline prefills from the Date row (DMY, e.g. 31.12.93)", asy
   });
   const { user } = renderAt(PATH);
   const c = await screen.findByRole("article", { name: /Pitt Pill/ });
+  await user.click(within(c).getByRole("button", { name: "More for this fact" }));
   await user.click(within(c).getByRole("button", { name: "Set date on timeline" }));
   expect(within(c).getByLabelText("Date on timeline")).toHaveValue("1993-12-31");
 });

@@ -150,10 +150,11 @@ describe.each([
       const api = mockReader(pack);
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
-      const mark = await screen.findByRole("button", { name: "Bookmark this page" });
-      expect(mark).toHaveAttribute("aria-pressed", "false");
+      const mark = await screen.findByRole("checkbox", { name: "Bookmark this page" });
+      expect(mark).not.toBeChecked();
       await user.click(mark);
-      await waitFor(() => expect(mark).toHaveAttribute("aria-pressed", "true"));
+      await waitFor(() => expect(mark).toBeChecked());
+      await user.click(screen.getByRole("button", { name: "Add a note" }));
       expect(screen.getByText("Only you see your bookmarks and notes. They are not part of the records.")).toBeVisible();
       await user.type(screen.getByRole("textbox", { name: "Your note on this page" }), "Ask about the missing letter");
       await user.click(screen.getByRole("button", { name: "Save note" }));
@@ -170,12 +171,14 @@ describe.each([
       mockReader(pack, { notes: [{ page_no: 12, bookmarked: true, note: "" }, { page_no: 118, bookmarked: false, note: "Check the dose" }] });
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
+      await user.click(await screen.findByRole("button", { name: "Your note on this page" }));
       expect(await screen.findByRole("textbox", { name: "Your note on this page" })).toHaveValue("Check the dose");
-      await user.click(screen.getByRole("button", { name: "Your bookmarks and notes (2)" }));
+      await user.click(screen.getByRole("button", { name: "All your notes (2)" }));
       const list = screen.getByRole("list", { name: "Your bookmarks and notes" });
       await user.click(within(list).getByRole("link", { name: /Page 12/ }));
       expect(await screen.findByRole("img", { name: "Page 12" })).toBeVisible();
-      expect(screen.getByRole("button", { name: "Bookmark this page" })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("checkbox", { name: "Bookmark this page" })).toBeChecked();
+      await user.click(screen.getByRole("button", { name: "Add a note" }));
       expect(screen.getByRole("textbox", { name: "Your note on this page" })).toHaveValue("");
     });
 
@@ -190,7 +193,8 @@ describe.each([
       await screen.findByText("Found on 2 pages");
       await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
       await screen.findByRole("img", { name: "Page 119" });
-      await user.click(await screen.findByRole("button", { name: "Your bookmarks and notes (1)" }));
+      await user.click(await screen.findByRole("button", { name: "Add a note" }));
+      await user.click(await screen.findByRole("button", { name: "All your notes (1)" }));
       expect(await axeViolations(container)).toEqual([]);
     });
   });

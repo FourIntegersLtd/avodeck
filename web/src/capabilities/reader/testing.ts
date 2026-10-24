@@ -67,6 +67,8 @@ export interface ReaderOpts {
   searchHits?: Record<number, { hits: number; boxes: Array<{ x0: number; y0: number; x1: number; y1: number }> }>;
   /** The person's own bookmarks and notes when the screen opens (default none). */
   notes?: Array<{ page_no: number; bookmarked: boolean; note: string }>;
+  /** The page's source type (default: the test page's own; null = never sorted). */
+  sourceType?: string | null;
 }
 
 /** Mounts every reader endpoint for a case; returns what it saw. */
@@ -200,7 +202,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       return json({ fact_id: params.id, flagged: false });
     }),
     http.get(`${c}/pages/:n`, ({ params }) =>
-      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null, superseded_by_page_no: opts.clearer && Number(params.n) === pageNo ? opts.clearer.page : null, turn: Number(params.n) === pageNo ? turn : 0 })),
+      json(pageDetail(Number(params.n), { ...(opts.sourceType !== undefined ? { source_type: opts.sourceType } : {}), read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null, superseded_by_page_no: opts.clearer && Number(params.n) === pageNo ? opts.clearer.page : null, turn: Number(params.n) === pageNo ? turn : 0 })),
     ),
     http.put(`${c}/pages/:n/transcription`, async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;
