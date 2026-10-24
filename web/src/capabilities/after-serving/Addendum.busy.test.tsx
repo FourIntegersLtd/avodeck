@@ -1,6 +1,6 @@
 // S21b: every action shows it is working and ignores a second click while it runs.
 import { screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { test } from "vitest";
 import { http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { renderAt } from "../../test/render";

@@ -6,7 +6,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField } from "../../foundation/ui";
+import { BackLink, Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField, Updating } from "../../foundation/ui";
 import { PeopleIcon, NewDocIcon, TickGreenIcon, WarnIcon } from "./icons";
 import { dayMonth, keyName, useLocale, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
@@ -39,6 +39,7 @@ export function NewMaterial() {
     }
   }, [caseId, document]);
   const checking = useWaiting(() => pages.reload(), pages.data?.pages.length);
+  const updating = report.loading && !!report.data;
   const registering = useWaiting(() => report.reload(), report.data?.claims.length);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,7 +93,7 @@ export function NewMaterial() {
               )}
               <div className="av-after-actions">
                 {unread && <LinkButton to={`/cases/${caseId}/read/${unread.page_no}`}>{w("new.read_action")}</LinkButton>}
-                <button type="button" className="av-after-linkbtn" onClick={() => void check()}>{w("new.check")}</button>
+                <Button variant="link" onClick={check}>{w("new.check")}</Button>
               </div>
             </>
           )}
@@ -117,7 +118,10 @@ export function NewMaterial() {
           {rep && <p>{w("new.checked", { count: needAttention })}</p>}
         </section>
       </div>
-      {rep && <Claims caseId={caseId} report={rep} />}
+      {updating && <Updating label={w("new.updating")} />}
+      <div className="av-busy-dim" aria-busy={updating}>
+        {rep && <Claims caseId={caseId} report={rep} />}
+      </div>
       {rep && meeting && <div className="av-after-footer"><LinkButton to={meeting} arrow>{w("new.prepare")}</LinkButton></div>}
     </div>
   );
@@ -145,7 +149,7 @@ function Register({ caseId, document, onStart }: { caseId: string; document: str
       <TextField label={w("new.expert_name")} name="expert_name" value={expertName} onChange={(e) => setExpertName(e.target.value)} />
       <TextField label={w("new.expert_role")} name="expert_role" value={expertRole} onChange={(e) => setExpertRole(e.target.value)} />
       <div className="av-after-footer">
-        <Button disabled={!receivedOn} onClick={() => void go()}>{w("new.register")}</Button>
+        <Button disabled={!receivedOn} onClick={go}>{w("new.register")}</Button>
       </div>
     </div>
   );
@@ -186,7 +190,7 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
           )}
           {c.expert_confirmed
             ? <p role="status">{w("new.confirmed")}</p>
-            : c.discrepancy && shown(c) && <div><Button variant="secondary" onClick={() => void confirm(c)}>{w("new.confirm")}</Button></div>}
+            : c.discrepancy && shown(c) && <div><Button variant="secondary" onClick={() => confirm(c)}>{w("new.confirm")}</Button></div>}
         </td>
       </tr>
     );
