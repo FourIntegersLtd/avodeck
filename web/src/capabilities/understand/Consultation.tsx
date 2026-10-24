@@ -8,7 +8,7 @@ import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, SegmentedControl, StatusBadge } from "../../foundation/ui";
+import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, SegmentedControl, StatusBadge, Updating, useBusy } from "../../foundation/ui";
 import { Comments } from "./Comments";
 import { GuidanceChanged, longDate, statusOf, TextArea, useCan, useKindWord } from "./shared";
 import { w } from "./words";
@@ -123,8 +123,9 @@ function ArrivalDialog({ caseId, entry, onClose, onSaved }: { caseId: string; en
   const [unknown, setUnknown] = useState(false);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { busy, run } = useBusy();
   const ready = reason.trim() !== "" && (unknown || date !== "");
-  const save = async () => {
+  const save = () => run(async () => {
     setError(null);
     try {
       await unwrap(
@@ -137,7 +138,7 @@ function ArrivalDialog({ caseId, entry, onClose, onSaved }: { caseId: string; en
     } catch (err) {
       setError(errorMessage(err));
     }
-  };
+  });
   return (
     <Dialog title={w("consultation.arrival_title")} onClose={onClose}>
       <form
@@ -159,7 +160,7 @@ function ArrivalDialog({ caseId, entry, onClose, onSaved }: { caseId: string; en
         <TextArea label={w("consultation.arrival_reason")} rows={3} required value={reason} onChange={(e) => setReason(e.target.value)} />
         {error && <Notice tone="error"><p>{error}</p></Notice>}
         <div className="av-row">
-          <Button type="submit" disabled={!ready}>{w("common.save")}</Button>
+          <Button type="submit" busy={busy} disabled={!ready}>{w("common.save")}</Button>
           <Button variant="secondary" onClick={onClose}>{w("common.cancel")}</Button>
         </div>
       </form>
@@ -174,7 +175,8 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const writable = canAdd || initial !== "";
-  const save = async (thenLeave: boolean) => {
+  const { busy, run } = useBusy();
+  const save = (thenLeave: boolean) => run(async () => {
     setError(null);
     setSaved(false);
     try {
@@ -184,7 +186,7 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
     } catch (err) {
       setError(errorMessage(err));
     }
-  };
+  });
   return (
     <>
       <section aria-labelledby="consult-note" className="av-card av-stack av-understand-area-note">
@@ -195,7 +197,7 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
         {saved && <Notice tone="success"><p>{w("consultation.note_saved")}</p></Notice>}
         {writable && (
           <div className="av-row">
-            <Button variant="quiet" onClick={() => void save(false)}>{w("consultation.note_save")}</Button>
+            <Button variant="quiet" busy={busy} onClick={() => save(false)}>{w("consultation.note_save")}</Button>
           </div>
         )}
       </section>
@@ -203,7 +205,7 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
         <LinkButton to={`/cases/${caseId}/timeline`} variant="secondary">
           {w("consultation.back_bottom")}
         </LinkButton>
-        <Button arrow onClick={() => void save(true)}>{w("consultation.note_continue")}</Button>
+        <Button arrow busy={busy} onClick={() => save(true)}>{w("consultation.note_continue")}</Button>
       </div>
     </>
   );
@@ -211,17 +213,19 @@ function NoteEditor({ caseId, factId, initial, canAdd }: { caseId: string; factI
 
 function PagePanel({ caseId, pageNo, marks }: { caseId: string; pageNo: number; marks: PageMark[] }) {
   const shown = useResource(() => pageImage(caseId, pageNo), [caseId, pageNo]);
+  const updating = shown.loading && !!shown.data;
   return (
-    <section aria-labelledby="consult-page" className="av-card av-stack av-understand-page av-understand-area-page">
+    <section aria-labelledby="consult-page" aria-busy={updating} className="av-card av-stack av-understand-page av-understand-area-page">
       <div className="av-understand-page__head">
         <h2 id="consult-page">{w("consultation.page_title")}</h2>
         <PageRef page={pageNo} />
       </div>
       <p className="av-muted av-understand-page__context">{w("consultation.page_context", { page: pageNo })}</p>
+      {updating && <Updating label={w("consultation.page_updating")} />}
       {shown.error ? (
         <p className="av-muted">{w("consultation.page_none")}</p>
       ) : shown.data ? (
-        <div className="av-understand-page__sheet">
+        <div className={updating ? "av-understand-page__sheet av-busy-dim" : "av-understand-page__sheet"}>
           <img src={shown.data} alt={w("consultation.page_alt", { page: pageNo })} />
           {marks.map((m) => (
             <span key={`${m.fact_id}-${m.role}`} className={`av-understand-mark av-understand-mark--${m.role}`} data-testid={`page-mark-${m.role}`} style={placed(m)} aria-hidden="true" />
@@ -238,10 +242,12 @@ function PagePanel({ caseId, pageNo, marks }: { caseId: string; pageNo: number; 
 function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
   const word = useKindWord();
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/consultations/{fact_id}/later-notes", { params: { path: { case_id: caseId, fact_id: factId } } })), [caseId, factId], { cache: "understand/Consultation#LaterNotes:found" });
+  const updating = found.loading && !!found.data;
   return (
-    <section aria-labelledby="consult-later-notes" className="av-card av-stack av-understand-card">
+    <section aria-labelledby="consult-later-notes" aria-busy={updating} className="av-card av-stack av-understand-card">
       <h2 id="consult-later-notes">{w("consultation.later_notes_title")}</h2>
       <p className="av-muted">{w("consultation.later_notes_hint")}</p>
+      {updating && <Updating label={w("consultation.later_notes_updating")} />}
       {found.error ? (
         <LoadError onRetry={found.reload} />
       ) : !found.data ? (
@@ -249,7 +255,7 @@ function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
       ) : found.data.notes.length === 0 ? (
         <p className="av-muted">{w("consultation.later_notes_none")}</p>
       ) : (
-        <ul className="av-understand-list av-understand-entries">
+        <ul className={updating ? "av-understand-list av-understand-entries av-busy-dim" : "av-understand-list av-understand-entries"}>
           {found.data.notes.map((n) => (
             <li key={n.fact_id} className="av-understand-entry av-understand-entry--plain">
               <span className="av-understand-entry__words">
@@ -303,6 +309,7 @@ export function Consultation() {
   }
   if (!found.data) return <div className="av-page"><Loading /></div>;
   const c = found.data;
+  const updating = found.loading;
   const day = c.entry.event_date ?? c.entry.available_at;
   const change = can("availability.override") ? setChanging : undefined;
   const pick = (value: string) => {
@@ -310,7 +317,8 @@ export function Consultation() {
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) setOn(value);
   };
   return (
-    <div className="av-page av-page--wide av-page--full av-stack">
+    <div className="av-page av-page--wide av-page--full av-stack" aria-busy={updating}>
+      {updating && <Updating label={w("consultation.updating")} />}
       <div className="av-understand-top">
         <div>
           <BackLink to={`/cases/${caseId}/timeline`}>{w("common.back_to_timeline")}</BackLink>
@@ -348,7 +356,7 @@ export function Consultation() {
         </div>
       </div>
       <GuidanceChanged codes={c.guidance_changed} />
-      <div className="av-understand-consult">
+      <div className={updating ? "av-understand-consult av-busy-dim" : "av-understand-consult"}>
         {c.entry.page_no != null && <PagePanel caseId={caseId} pageNo={c.entry.page_no} marks={c.page_marks ?? []} />}
         <div className="av-stack av-understand-area-aside">
           <section aria-labelledby="consult-seen" className="av-card av-stack av-understand-card">

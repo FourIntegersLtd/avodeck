@@ -156,7 +156,7 @@ test("the page picture says it is updating while another page loads", async () =
   try {
     fireEvent.change(screen.getByLabelText("Show the record as it stood on"), { target: { value: "2024-05-20" } });
     expect(await screen.findByText("Updating the page…")).toBeInTheDocument();
-    expect(screen.getByAltText("Page 118 of the record").closest("[aria-busy]")).toHaveAttribute("aria-busy", "true");
+    expect(picture.closest("[aria-busy]")).toHaveAttribute("aria-busy", "true");
     expect(picture).toBeInTheDocument();
   } finally { h.release(); }
   await waitFor(() => expect(screen.queryByText("Updating the page…")).not.toBeInTheDocument());
