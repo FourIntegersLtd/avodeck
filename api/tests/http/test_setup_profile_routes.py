@@ -117,7 +117,9 @@ async def test_profile_is_not_found_for_support_staff_without_an_expert_row(
     seed.admin.execute("insert into app.experts (person_id) values (%s)", (both,))
     client = await client_for(staff)
     assert (await client.get("/v1/me/profile")).status_code == 404
-    assert (await client.patch("/v1/me/profile", json={"profession": "x"}, headers={"if-match": "1"})).status_code == 404
+    assert (
+        await client.patch("/v1/me/profile", json={"profession": "x"}, headers={"if-match": "1"})
+    ).status_code == 404
     assert (await (await client_for(both)).get("/v1/me/profile")).status_code == 200
     assert (await (await client_for(expert)).get("/v1/me/profile")).status_code == 200
 
