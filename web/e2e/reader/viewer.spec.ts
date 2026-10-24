@@ -140,3 +140,31 @@ for (const { name, pack } of PACKS) {
     });
   });
 }
+
+for (const size of [{ width: 1280, height: 800 }, { width: 1024, height: 700 }]) {
+  test.describe(`the View menu at ${size.width} x ${size.height}`, () => {
+    test.use({ viewport: size });
+    test("09 opens over the page, fully on screen, with nothing covering its last item", async ({ page }) => {
+      await stubReader(page, PACKS[0]!.pack);
+      await openRead(page);
+      await page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "View" }).click();
+      const menu = page.getByRole("group", { name: "View", exact: true }).first();
+      await expect(menu).toBeVisible();
+      const box = (await menu.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.y).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(size.width);
+      expect(box.y + box.height).toBeLessThanOrEqual(size.height);
+      const last = menu.getByRole("button").last();
+      await last.scrollIntoViewIfNeeded();
+      const r = (await last.boundingBox())!;
+      const topmost = await last.evaluate((el, [x, y]) => {
+        const hit = document.elementFromPoint(x!, y!);
+        return hit === el || el.contains(hit);
+      }, [r.x + r.width / 2, r.y + r.height / 2]);
+      expect(topmost).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(menu).toBeHidden();
+    });
+  });
+}
