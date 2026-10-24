@@ -53,9 +53,10 @@ describe("S11 lanes", () => {
     inCase("launch");
     const seen = serveTimeline();
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
-    const pills = await screen.findByRole("radiogroup", { name: "Linked to" });
+    await user.click(await screen.findByRole("button", { name: /^Question:/ }));
+    const pills = screen.getByRole("group", { name: "Linked to" });
     expect(screen.queryByText("Question 2 only")).not.toBeInTheDocument();
-    await user.click(await within(pills).findByRole("radio", { name: "Q2" }));
+    await user.click(await within(pills).findByRole("button", { name: "Q2" }));
     expect(await screen.findByText("Question 2 only")).toBeInTheDocument();
     await waitFor(() => expect(seen.at(-1)!.searchParams.get("question_id")).toBe(Q_2));
     await user.click(screen.getByRole("button", { name: "Show every question" }));
@@ -176,7 +177,7 @@ describe("S13 titles, icons and decided findings", () => {
     expect(screen.queryByRole("article", { name: "Zz referral title" })).not.toBeInTheDocument();
     await user.click(within(folded).getByText("Zz referral title · 3 Jun"));
     const card = await screen.findByRole("article", { name: "Zz referral title" });
-    expect(within(card).getByRole("radio", { name: "Relevant" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "Relevant" })).toBeInTheDocument();
   });
 
   test("the checks list uses the pack's titles", async () => {
@@ -194,7 +195,7 @@ describe("S13 titles, icons and decided findings", () => {
     server.use(http.patch("/v1/cases/:caseId/findings/:id", () => json({ ...first, decision: "relevant", reason: null, version: 2 })));
     const { user } = open();
     const card = await screen.findByRole("article", { name: "Zz result title" });
-    await user.click(within(card).getByRole("radio", { name: "Relevant" }));
+    await user.click(within(card).getByRole("button", { name: "Relevant" }));
     expect(await screen.findByText("2 of 2 decided")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByRole("article", { name: "Zz result title" })).not.toBeInTheDocument());
     expect(screen.getByRole("group", { name: "Zz result title" })).toBeInTheDocument();
