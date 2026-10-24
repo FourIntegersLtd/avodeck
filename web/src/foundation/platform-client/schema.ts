@@ -1632,6 +1632,26 @@ export interface paths {
         patch: operations["change_missing_item_v1_cases__case_id__missing_items__item_id__patch"];
         trace?: never;
     };
+    "/v1/cases/{case_id}/my-notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * My Notes
+         * @description The person's own bookmarks and notes on the case, in page order.
+         */
+        get: operations["my_notes_v1_cases__case_id__my_notes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/named-expert": {
         parameters: {
             query?: never;
@@ -2064,6 +2084,27 @@ export interface paths {
         /** Page Image */
         get: operations["page_image_v1_cases__case_id__pages__page_no__image_get"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/pages/{page_no}/my-note": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Keep My Note
+         * @description The person's own bookmark and private note for the page; only they see it. Separate from the
+         *     record: not reading, never sent to AI, never logged.
+         */
+        put: operations["keep_my_note_v1_cases__case_id__pages__page_no__my_note_put"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3042,6 +3083,28 @@ export interface paths {
         /** Change Retention */
         put: operations["change_retention_v1_cases__case_id__retention_put"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Search Bundle
+         * @description Find words in the bundle: the words read from the pages (with the expert's readings of misread
+         *     words), never the suggestions, so the blind read stays (rule 3). Not reading. Answers page numbers,
+         *     hit counts and places only; the words are never returned or logged (rule 6).
+         */
+        post: operations["search_bundle_v1_cases__case_id__search_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5000,17 +5063,6 @@ export interface components {
         /** BillingProfileOut */
         BillingProfileOut: {
             profile: components["schemas"]["BillingProfile"] | null;
-        };
-        /** Box */
-        Box: {
-            /** X0 */
-            x0: number;
-            /** X1 */
-            x1: number;
-            /** Y0 */
-            y0: number;
-            /** Y1 */
-            y1: number;
         };
         /** BuildQueued */
         BuildQueued: {
@@ -7940,6 +7992,38 @@ export interface components {
             /** Word Ids */
             word_ids: string[];
         };
+        /** MyNote */
+        MyNote: {
+            /** Bookmarked */
+            bookmarked: boolean;
+            /** Note */
+            note: string;
+            /** Page No */
+            page_no: number;
+            /** Updated At */
+            updated_at: string | null;
+        };
+        /**
+         * MyNoteIn
+         * @description The person's own bookmark and private note for a page; both cleared removes them.
+         */
+        MyNoteIn: {
+            /**
+             * Bookmarked
+             * @default false
+             */
+            bookmarked: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+        };
+        /** MyNotes */
+        MyNotes: {
+            /** Notes */
+            notes: components["schemas"]["MyNote"][];
+        };
         /** NamedExpert */
         NamedExpert: {
             /**
@@ -8928,7 +9012,7 @@ export interface components {
          * @description Where an entry sits on the visit's page (a share of the page, 0 to 1): the visit, or a later entry to blur.
          */
         PageMark: {
-            box: components["schemas"]["Box"];
+            box: components["schemas"]["app__features__understand__routes_consultation__Box"];
             /**
              * Fact Id
              * Format: uuid
@@ -10091,6 +10175,33 @@ export interface components {
             trial_page_no: number | null;
             /** Version */
             version: number;
+        };
+        /**
+         * SearchIn
+         * @description Words to find in the bundle. In the body, never the address, and never logged (rule 6).
+         */
+        SearchIn: {
+            /** Q */
+            q: string;
+        };
+        /** SearchOut */
+        SearchOut: {
+            /** Pages */
+            pages: components["schemas"]["SearchPage"][];
+            /** Total Hits */
+            total_hits: number;
+        };
+        /** SearchPage */
+        SearchPage: {
+            /**
+             * Boxes
+             * @description Each hit's place on the page; never the words themselves.
+             */
+            boxes: components["schemas"]["app__features__reader__schemas__Box"][];
+            /** Hits */
+            hits: number;
+            /** Page No */
+            page_no: number;
         };
         /** SectionIn */
         SectionIn: {
@@ -11511,6 +11622,20 @@ export interface components {
             /** Until */
             until: string | null;
         };
+        /**
+         * Box
+         * @description A place on the page as a share of the page (0 to 1).
+         */
+        app__features__reader__schemas__Box: {
+            /** X0 */
+            x0: number;
+            /** X1 */
+            x1: number;
+            /** Y0 */
+            y0: number;
+            /** Y1 */
+            y1: number;
+        };
         /** WithdrawIn */
         app__features__report__routes_serve__WithdrawIn: {
             /** Reason */
@@ -11547,6 +11672,17 @@ export interface components {
             id: string;
             /** Text */
             text: string;
+        };
+        /** Box */
+        app__features__understand__routes_consultation__Box: {
+            /** X0 */
+            x0: number;
+            /** X1 */
+            x1: number;
+            /** Y0 */
+            y0: number;
+            /** Y1 */
+            y1: number;
         };
         /** NoteOut */
         app__features__understand__routes_consultation__NoteOut: {
@@ -16090,6 +16226,46 @@ export interface operations {
             };
         };
     };
+    my_notes_v1_cases__case_id__my_notes_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyNotes"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     change_named_expert_v1_cases__case_id__named_expert_post: {
         parameters: {
             query?: never;
@@ -17301,6 +17477,51 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    keep_my_note_v1_cases__case_id__pages__page_no__my_note_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MyNoteIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyNote"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -19977,6 +20198,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CloseSummary"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    search_bundle_v1_cases__case_id__search_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SearchIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchOut"];
                 };
             };
             /** @description Validation Error */

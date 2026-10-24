@@ -8,6 +8,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
+from app.features.reader.search import searchable
+
 
 class PageSummary(BaseModel):
     page_no: int
@@ -193,3 +195,53 @@ class TurnIn(BaseModel):
 
 class JobOut(BaseModel):
     job_id: uuid.UUID
+
+
+class SearchIn(BaseModel):
+    """Words to find in the bundle. In the body, never the address, and never logged (rule 6)."""
+
+    q: str = Field(max_length=100)
+
+    @model_validator(mode="after")
+    def _enough(self) -> SearchIn:
+        if not searchable(self.q):
+            raise ValueError("Type at least two letters or numbers.")
+        return self
+
+
+class Box(BaseModel):
+    """A place on the page as a share of the page (0 to 1)."""
+
+    x0: float
+    y0: float
+    x1: float
+    y1: float
+
+
+class SearchPage(BaseModel):
+    page_no: int
+    hits: int
+    boxes: list[Box] = Field(description="Each hit's place on the page; never the words themselves.")
+
+
+class SearchOut(BaseModel):
+    pages: list[SearchPage]
+    total_hits: int
+
+
+class MyNoteIn(BaseModel):
+    """The person's own bookmark and private note for a page; both cleared removes them."""
+
+    bookmarked: bool = False
+    note: str = Field(default="", max_length=2000)
+
+
+class MyNote(BaseModel):
+    page_no: int
+    bookmarked: bool
+    note: str
+    updated_at: datetime | None
+
+
+class MyNotes(BaseModel):
+    notes: list[MyNote]

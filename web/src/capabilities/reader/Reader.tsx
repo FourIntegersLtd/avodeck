@@ -14,10 +14,13 @@ import { allowed, editableFields, FactCard } from "./FactCard";
 import { FactSwitcher } from "./FactSwitcher";
 import { loadSplitPct, saveSplitPct } from "./splitPane";
 import { SplitDivider } from "./SplitDivider";
+import { BundleSearch, SearchMarks } from "./BundleSearch";
 import { Highlights } from "./Highlights";
+import { MyNotes } from "./MyNotes";
 import { PageImage } from "./PageImage";
 import { PageStrip } from "./PageStrip";
 import { noteRead, useBundlePages } from "./bundlePages";
+import { loadSearch, loadTools, saveSearch, saveTools, type SearchResult, type Tools } from "./search";
 import { clampZoom, loadView, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
@@ -101,6 +104,13 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const [gotoError, setGotoError] = useState<string | null>(null);
   const [why, setWhy] = useState(false);
   const [timelineDraft, setTimelineDraft] = useState<{ id: string; value: string } | null>(null);
+  // Finding words, two pages side by side and full screen: held for the visit, from page to page.
+  const [found, setFound] = useState<SearchResult | null>(() => loadSearch(caseId));
+  const [tools, setTools] = useState<Tools>(loadTools);
+  const [beside, setBeside] = useState<number | null>(null);
+  const [besideText, setBesideText] = useState<string | null>(null);
+  const [besideError, setBesideError] = useState<string | null>(null);
+  const canNote = (item.allowed_actions ?? []).includes("page.read");
 
   const loadFacts = useCallback(async () => {
     try {
@@ -329,6 +339,46 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   }
 
   useEffect(() => saveView(view), [view]);
+  useEffect(() => saveTools(tools), [tools]);
+
+  const showFound = (result: SearchResult | null) => {
+    saveSearch(caseId, result);
+    setFound(result);
+  };
+
+  /** Full screen: the browser's own where it has one, and the page view filling the window either way. */
+  const setFull = useCallback((full: boolean) => {
+    setTools((t) => ({ ...t, full }));
+    try {
+      if (full && !document.fullscreenElement) void document.documentElement.requestFullscreen?.()?.catch(() => undefined);
+      if (!full && document.fullscreenElement) void document.exitFullscreen?.()?.catch(() => undefined);
+    } catch {
+      // The window-filling view still works without the browser's full screen.
+    }
+  }, []);
+  useEffect(() => {
+    const left = () => {
+      if (!document.fullscreenElement) setTools((t) => (t.full ? { ...t, full: false } : t));
+    };
+    document.addEventListener("fullscreenchange", left);
+    return () => document.removeEventListener("fullscreenchange", left);
+  }, []);
+
+  async function showBeside() {
+    const n = Number((besideText ?? "").trim());
+    if (!Number.isInteger(n) || n < 1) return setBesideError(w("read.goto_number"));
+    // The loaded list may hold only part of the bundle: a page not in it is asked of the server.
+    if (!pages?.some((p) => p.page_no === n)) {
+      try {
+        await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: n } } }));
+      } catch {
+        return setBesideError(w("read.goto_none", { page: n }));
+      }
+    }
+    setBesideError(null);
+    setBesideText(null);
+    setBeside(n);
+  }
 
   /** Ctrl and the wheel, a pinch, or the zoom buttons: zoom from what is on screen now. */
   function zoomBy(points: number) {
@@ -390,8 +440,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving };
+  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull });
+  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -405,6 +455,8 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         if (key === "t") s.turnPage(e.shiftKey ? -90 : 90);
         else s.undoTurn();
       }
+      else if (key === "f") s.setFull(!s.full);
+      else if (key === "escape" && s.full) s.setFull(false);
       else if (key === "j") s.go(s.nextPage ?? 0);
       else if (key === "k") s.go(pageNo - 1);
       else if (key === "r") void s.markRead();
@@ -426,10 +478,11 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const left = progress.data ? Math.max(0, progress.data.total - progress.data.read) : 0;
   const hard = queue.data ? queue.data.total - queue.data.done : 0;
   const focusedFact = facts?.find((f) => f.id === focus) ?? facts?.[0] ?? null;
+  const besideNo = beside ?? page.superseded_by_page_no ?? nextPage ?? (pageNo > 1 ? pageNo - 1 : null);
   const filter = view.brightness === 100 && view.contrast === 100 ? undefined : `brightness(${view.brightness / 100}) contrast(${view.contrast / 100})`;
 
   return (
-    <div className="rd">
+    <div className={tools.full ? "rd rd--full" : "rd"}>
       {page.in_period && (
         <div className="rd-banner">
           <div className="rd-banner__row">
@@ -522,7 +575,47 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               <Button variant="secondary" aria-expanded={clearer} aria-controls="rd-clearer" onClick={() => setClearer((o) => !o)}>
                 {w("read.clearer_view")}
               </Button>
+              <Button variant="secondary" aria-pressed={tools.twoPages} onClick={() => setTools((t) => ({ ...t, twoPages: !t.twoPages }))}>
+                {w("read.two_pages")}
+              </Button>
+              <Button variant="secondary" aria-pressed={tools.full} onClick={() => setFull(!tools.full)}>
+                {w("read.full_screen")}
+              </Button>
             </div>
+            {tools.twoPages && besideNo !== null && (
+              <form
+                className="rd-goto"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void showBeside();
+                }}
+              >
+                <label htmlFor="rd-beside" className="rd-label">
+                  {w("read.beside")}
+                </label>
+                <input
+                  id="rd-beside"
+                  className="av-input rd-goto__input"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="off"
+                  value={besideText ?? String(besideNo)}
+                  aria-describedby={besideError ? "rd-beside-error" : undefined}
+                  onChange={(e) => {
+                    setBesideText(e.target.value);
+                    setBesideError(null);
+                  }}
+                />
+                <Button type="submit" variant="secondary">
+                  {w("read.beside_show")}
+                </Button>
+                {besideError && (
+                  <p id="rd-beside-error" className="rd-goto__error" role="alert">
+                    {besideError}
+                  </p>
+                )}
+              </form>
+            )}
             {clearer && (
               <div id="rd-clearer" className="rd-clearer">
                 {(["brightness", "contrast"] as const).map((k) => (
@@ -544,8 +637,9 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                 {w("read.not_patient")}
               </LinkButton>
             </div>
+            <BundleSearch caseId={caseId} result={found} onResult={showFound} />
           </div>
-          <div className="rd-viewer">
+          <div className={tools.twoPages ? "rd-viewer rd-viewer--two" : "rd-viewer"}>
             {pages && <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />}
             {moving?.words ? (
               <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
@@ -558,7 +652,13 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             ) : (
               <PageImage caseId={caseId} pageNo={pageNo} turn={turn} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
                 <Highlights facts={facts ?? []} focus={focus} />
+                <SearchMarks result={found} pageNo={pageNo} />
                 {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
+              </PageImage>
+            )}
+            {tools.twoPages && besideNo !== null && !moving?.words && (
+              <PageImage key={`beside-${besideNo}`} caseId={caseId} pageNo={besideNo} turn={0} view={view} filter={filter} onZoom={zoomBy} onScale={() => undefined}>
+                <SearchMarks result={found} pageNo={besideNo} />
               </PageImage>
             )}
           </div>
@@ -634,6 +734,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               onCancelTimelineDate={() => { setTimelineDraft(null); setFormError(null); }}
             />
           )}
+          {canNote && <MyNotes caseId={caseId} pageNo={pageNo} />}
           {read && (
             <div className="rd-keys">
               <p>

@@ -27,7 +27,7 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance? (relevant | background | nothing), needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned
-`page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209), `page_turns` (how a page is turned for reading, display only; page-owned, no case_id; migration 0213).
+`page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209), `page_turns` (how a page is turned for reading, display only; page-owned, no case_id; migration 0213), `page_notes` (the person's own bookmarks and private notes; page-owned, no case_id; migration 0214).
 
 Writes on contract tables: `facts.status` and `facts.value` / `fields` on edit (the original stays in `fact_verifications.old_value`); `pages.relevance`, `pages.transcribed_by_expert_text`, `pages.needs_clearer_copy`. Reads `pages`, `facts`, `ocr_words` (A).
 
@@ -89,6 +89,12 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] Fit width, Whole page, zoom buttons, Ctrl and the wheel, pinch, and drag to move about; the view stays as left on every page for the visit (held in memory; no browser storage)
 - [x] Go to page, and a page strip of every page with read marks: drawn a screenful at a time (4,000 pages), small pictures only for what is drawn, works from the keyboard
 - [x] Make it clearer: brightness and contrast change only how the picture is shown
+
+**Page viewer (approved 2026-10-23, PR2):**
+- [x] Find words in the bundle (`POST …/search`): only the words read from the pages, with the expert's corrections; never suggestions or facts, so searching is not reading and the blind read holds; answers page numbers and places, hits marked on the page
+- [x] Two pages side by side: the clearer copy, else the next page, or any page number
+- [x] Full screen (button, F, Escape); view settings held in memory only
+- [x] The person's own bookmarks and private notes (`page_notes`, migration 0214): RLS per person, sealed, not reading, never sent to AI; goes with its page on case deletion (no case_id, so no purge-list entry)
 
 - [x] Only the named expert's `page_reads` unlock citing; an assistant's reads are recorded but don't count (permissions `page.read`)
 - [x] Only the named expert can verify facts (403 for anyone else)

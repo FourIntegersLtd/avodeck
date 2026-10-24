@@ -160,7 +160,7 @@ async def progress(conn: AsyncConnection, case_id: uuid.UUID, person_id: uuid.UU
                   coalesce((select sum(coalesce(pace.m, overall.m, %(default)s))
                             from shown s cross join overall
                             left join pace on pace.source_type is not distinct from s.source_type
-                            where s.id not in (select page_id from mine)), 0)""",
+                            where not exists (select 1 from mine m where m.page_id = s.id)), 0)""",
         {"case": case_id, "person": person_id, "default": DEFAULT_SECONDS_PER_PAGE},
     )
     row = await cur.fetchone()
@@ -530,3 +530,92 @@ async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> lis
         (case_ids,),
     )
     return [(r[0], r[1]) for r in await cur.fetchall()]
+
+
+# Finding words in the bundle (S09) -------------------------------------------------------------------
+
+
+async def searchable_pages(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, tuple[int, uuid.UUID]]:
+    """Each page that is not set aside: page id -> (page number, document id)."""
+    cur = await conn.execute(
+        "select id, bundle_page_no, document_id from app.pages where case_id = %s and not quarantined",
+        (case_id,),
+    )
+    return {p: (int(n), d) for p, n, d in await cur.fetchall()}
+
+
+async def word_places(
+    conn: AsyncConnection, case_id: uuid.UUID
+) -> tuple[dict[uuid.UUID, dict[str, list[float]]], dict[uuid.UUID, tuple[float, float]]]:
+    """Every word's polygon by page (pages not set aside), and each page's size from its analysis."""
+    cur = await conn.execute(
+        "select w.page_id, w.word_id, w.polygon from app.ocr_words w join app.pages p on p.id = w.page_id"
+        " where p.case_id = %s and not p.quarantined",
+        (case_id,),
+    )
+    polygons: dict[uuid.UUID, dict[str, list[float]]] = {}
+    for page, word, polygon in await cur.fetchall():
+        polygons.setdefault(page, {})[word] = [float(v) for v in polygon or []]
+    cur = await conn.execute(
+        "select a.page_id, a.width, a.height from app.page_analysis a join app.pages p on p.id = a.page_id"
+        " where p.case_id = %s and a.width > 0 and a.height > 0",
+        (case_id,),
+    )
+    sizes = {page: (float(wd), float(ht)) for page, wd, ht in await cur.fetchall()}
+    return polygons, sizes
+
+
+# The person's own bookmarks and notes (S09) ---------------------------------------------------------
+
+
+def note_purpose(page_id: uuid.UUID, person_id: uuid.UUID) -> str:
+    """The purpose each private note is sealed under."""
+    return f"page_notes/{page_id}/{person_id}"
+
+
+async def keep_note(
+    conn: AsyncConnection,
+    crypto: CaseCrypto,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    person_id: uuid.UUID,
+    bookmarked: bool,
+    note: str,
+) -> Any:
+    """Keeps the person's bookmark and note for the page (one row, replaced); clearing both removes it.
+    Returns when it was kept (None once removed). The note is sealed and never logged."""
+    if not bookmarked and not note:
+        await conn.execute("delete from app.page_notes where page_id = %s and person_id = %s", (page_id, person_id))
+        return None
+    sealed = (
+        await crypto.encrypt(conn, case_id, note.encode(), purpose=note_purpose(page_id, person_id)) if note else None
+    )
+    cur = await conn.execute(
+        "insert into app.page_notes (page_id, person_id, bookmarked, note) values (%s, %s, %s, %s)"
+        " on conflict (page_id, person_id) do update set bookmarked = excluded.bookmarked, note = excluded.note,"
+        " updated_at = now() returning updated_at",
+        (page_id, person_id, bookmarked, sealed),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return row[0]
+
+
+async def my_notes(
+    conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID, person_id: uuid.UUID
+) -> list[dict[str, Any]]:
+    """The person's own bookmarks and notes on the case, in page order, unsealed (never logged)."""
+    cur = await conn.execute(
+        "select n.page_id, p.bundle_page_no, n.bookmarked, n.note, n.updated_at from app.page_notes n"
+        " join app.pages p on p.id = n.page_id where p.case_id = %s and n.person_id = %s"
+        " order by p.bundle_page_no",
+        (case_id, person_id),
+    )
+    out = []
+    for page_id, page_no, bookmarked, sealed, updated_at in await cur.fetchall():
+        note = ""
+        if sealed is not None:
+            plain = await crypto.decrypt(conn, case_id, bytes(sealed), purpose=note_purpose(page_id, person_id))
+            note = plain.decode()
+        out.append({"page_no": page_no, "bookmarked": bookmarked, "note": note, "updated_at": updated_at})
+    return out
