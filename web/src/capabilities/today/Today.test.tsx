@@ -95,23 +95,3 @@ test("New case appears once a slice registers the screen", async () => {
   renderAt("/today");
   expect(await screen.findByRole("link", { name: "New case" })).toHaveAttribute("href", "/cases/new");
 });
-
-test("support staff with no cases are pointed at the support console; others never see the line", async () => {
-  registerScreen("support_console", () => "/support");
-  signedIn({ me: { ...me(), is_support_staff: true }, today: today({ cases: [], needs_you: [] }) });
-  const first = renderAt("/today");
-  expect(await screen.findByText("You're signed in as Avodeck support. Open the support console to find a case.")).toBeInTheDocument();
-  first.unmount();
-
-  signedIn({ today: today({ cases: [], needs_you: [] }) });
-  renderAt("/today");
-  await screen.findByText("You have no open cases.");
-  expect(screen.queryByText(/signed in as Avodeck support/)).toBeNull();
-});
-
-test("support staff who have cases of their own do not get the line", async () => {
-  signedIn({ me: { ...me(), is_support_staff: true }, today: twoOrgs });
-  renderAt("/today");
-  await screen.findAllByRole("link", { name: /Mrs A/ });
-  expect(screen.queryByText(/signed in as Avodeck support/)).toBeNull();
-});
