@@ -273,7 +273,6 @@ async def test_mfa_at_sign_in_30_minutes_ago_can_search_but_not_record_a_custody
     client_for: ClientFor, seed: Seed, desk: Desk
 ) -> None:
     seed.flag("support_custody_transfer", "person", desk.staff)
-    seed.case_status(desk.case, "served")
     client = await client_for(desk.staff, mfa_age=timedelta(minutes=30))
     found = await client.get("/v1/support/cases", params={"q": str(desk.case)})
     assert found.status_code == 200, found.text
