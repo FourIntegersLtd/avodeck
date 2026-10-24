@@ -408,7 +408,7 @@ async def test_a_support_action_writes_its_audit_row_with_ids_and_a_reason_code_
 
 
 async def test_every_support_route_needs_current_staff(app: Any) -> None:
-    """A new route under /v1/support/ cannot forget the gate: `require_support_staff`, or `require_support_lookup` for a GET."""
+    """A new route under /v1/support/ cannot forget the gate: its staff gate (lookup gate for a GET)."""
 
     def calls(dependant: Any) -> set[Any]:
         found = {dependant.call}
