@@ -228,7 +228,10 @@ async def page_facts(
     r = await _page(conn, case_id, page_no, scope)
     if r["duplicate_of_page_id"] is not None:  # a copy's facts show on the original
         return FactList(facts=[])
-    return FactList(facts=[FactOut(**f) for f in await repo.page_facts(conn, case_id, r["id"])])
+    return FactList(
+        facts=[FactOut(**f) for f in await repo.page_facts(conn, case_id, r["id"])],
+        reassigned=await repo.page_reassigned(conn, case_id, r["id"]),
+    )
 
 
 @router.get("/pages/{page_no}/words", response_model=PageWords)
