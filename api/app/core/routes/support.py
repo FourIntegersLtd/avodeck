@@ -15,12 +15,13 @@ code (rule 6), and tells the affected expert by a patient-free email when it wor
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Request
 from pydantic import BaseModel, ConfigDict
 
 from app.core import audit, jobs
+from app.core.auth.step_up import require_step_up
 from app.core.auth.support import SupportStaff, require_support_staff
 from app.core.email import SUPPORT_JOB_REQUEUED, SUPPORT_JOB_RESUMED, support_job_mail
 from app.core.errors import ApiError
@@ -31,6 +32,9 @@ from app.core.notifications import send_mail
 support_router = router(prefix="/v1/support", tags=["support"])
 
 Staff = Annotated[SupportStaff, Depends(require_support_staff)]
+# A route's own dependencies run first: a stale MFA is 403 `step_up_required` for everyone, before the
+# staff list or the flag is read, so the answer says nothing about who is staff or what is switched on.
+STEP_UP_FIRST: list[Any] = [Depends(require_step_up)]
 
 JOB_RESUME_FLAG = "support_job_resume"
 JOB_REQUEUE_FLAG = "support_job_requeue"
@@ -74,7 +78,9 @@ async def _job_action(
 
 
 @support_router.post(
-    "/jobs/{job_id}/resume", response_model=JobActionResult, dependencies=[Depends(require_flag(JOB_RESUME_FLAG))]
+    "/jobs/{job_id}/resume",
+    response_model=JobActionResult,
+    dependencies=[*STEP_UP_FIRST, Depends(require_flag(JOB_RESUME_FLAG))],
 )
 async def resume_job(
     request: Request, job_id: uuid.UUID, body: JobActionBody, conn: DbConn, _: Staff
@@ -83,7 +89,9 @@ async def resume_job(
 
 
 @support_router.post(
-    "/jobs/{job_id}/requeue", response_model=JobActionResult, dependencies=[Depends(require_flag(JOB_REQUEUE_FLAG))]
+    "/jobs/{job_id}/requeue",
+    response_model=JobActionResult,
+    dependencies=[*STEP_UP_FIRST, Depends(require_flag(JOB_REQUEUE_FLAG))],
 )
 async def requeue_job(
     request: Request, job_id: uuid.UUID, body: JobActionBody, conn: DbConn, _: Staff
