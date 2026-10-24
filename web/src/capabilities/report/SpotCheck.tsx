@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Notice, TextField } from "../../foundation/ui";
+import { Button, Notice, TextField, useBusy } from "../../foundation/ui";
 import { w } from "./words";
 
 type Item = Schemas["ColleagueItem"];
@@ -22,6 +22,7 @@ export function SpotCheckScreen() {
   const [closed, setClosed] = useState(false);
   const [done, setDone] = useState(false);
   const [answers, setAnswers] = useState<Record<string, boolean>>({});
+  const { busy: opening, run: guard } = useBusy();
 
   const attempt = async (work: () => Promise<Status>) => {
     setProblem(null);
@@ -60,10 +61,10 @@ export function SpotCheckScreen() {
         <Notice tone="success"><p>{w("colleague.thanks")}</p></Notice>
       ) : items === null ? (
         !closed && (
-          <form className="av-stack" onSubmit={(e) => { e.preventDefault(); void open(); }}>
+          <form className="av-stack" onSubmit={(e) => { e.preventDefault(); void guard(open); }}>
             <p>{w("colleague.intro")}</p>
             <TextField label={w("colleague.code")} name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.trim())} />
-            <Button type="submit" disabled={!/^\d{6}$/.test(code)}>{w("colleague.open")}</Button>
+            <Button type="submit" busy={opening} disabled={!/^\d{6}$/.test(code)}>{w("colleague.open")}</Button>
           </form>
         )
       ) : (
@@ -81,7 +82,7 @@ export function SpotCheckScreen() {
               ))}
             </fieldset>
           ))}
-          <Button onClick={() => void send()} disabled={items.some((i) => answers[i.fact_id] === undefined)}>{w("colleague.send")}</Button>
+          <Button onClick={() => send()} disabled={items.some((i) => answers[i.fact_id] === undefined)}>{w("colleague.send")}</Button>
         </div>
       )}
     </main>
