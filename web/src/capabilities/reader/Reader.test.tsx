@@ -74,7 +74,7 @@ describe.each([
     mockReader(pack, { alreadyRead: true });
     renderAt(PATH);
     expect(await screen.findByRole("article", { name: /Dr P consultation/ })).toBeVisible();
-    expect(screen.getByText(/Suggestion 1 of 2/)).toBeVisible();
+    expect(screen.getByText("0 of 2 checked")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Mark as read" })).not.toBeInTheDocument();
   });
 
@@ -93,7 +93,6 @@ describe.each([
     await user.click(within(c).getByRole("button", { name: "Correct" }));
     await waitFor(() => expect(api.verifies).toHaveLength(1));
     expect(api.verifies[0]).toMatchObject({ id: factId(1), ifMatch: '"1"', body: { action: "correct" } });
-    await user.click(await screen.findByText(/Checked on this page \(1\)/));
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
     expect(screen.getByText("Checked by you")).toBeVisible();
   });
@@ -106,7 +105,6 @@ describe.each([
     await user.click(within(c).getByRole("button", { name: "Not right" }));
     await waitFor(() => expect(api.verifies).toHaveLength(1));
     expect(api.verifies[0]!.body).toEqual({ action: "not_right", reason: "wrong day" });
-    await user.click(await screen.findByText(/Checked on this page \(1\)/));
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
     const rejected = await screen.findByRole("button", { name: "Undo" });
     expect(rejected).toBeVisible();
@@ -156,7 +154,6 @@ describe.each([
     const api = mockReader(pack, { alreadyRead: true, facts: [fact(1, { status: "verified" }), fact(2)] });
     const { user } = renderAt(PATH);
     await screen.findByRole("article", { name: /Anusol/ });
-    await user.click(await screen.findByText(/Checked on this page \(1\)/));
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
     const c = await screen.findByRole("article", { name: /Dr P consultation/ });
     await user.click(within(c).getByRole("button", { name: "Send to Points against" }));
@@ -211,7 +208,6 @@ describe.each([
     expect(within(checked).getByRole("button", { name: "Not right" })).toBeVisible();
     fireEvent.click(checked);
     await user.keyboard("1");
-    await user.click(await screen.findByText(/Checked on this page \(2\)/));
     await user.click(screen.getByRole("button", { name: /Anusol HC/ }));
     const rejected = await screen.findByRole("article", { name: /Anusol/ });
     await user.keyboard("2");
