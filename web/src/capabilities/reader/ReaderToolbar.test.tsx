@@ -39,8 +39,9 @@ describe.each([
       "Zoom in",
       "Find words",
       "More tools",
+      "Full screen",
     ]);
-    for (const name of ["Two pages", "Full screen", "Fit width", "Whole page", "Make it clearer", "Clearer copy", "Turn left", "Upside down", "Undo turn"]) {
+    for (const name of ["Two pages", "Fit width", "Whole page", "Make it clearer", "Clearer copy", "Turn left", "Upside down", "Undo turn"]) {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
     expect(screen.queryByRole("link", { name: "Not this patient" })).not.toBeInTheDocument();
@@ -52,10 +53,11 @@ describe.each([
     expect(more).toHaveAttribute("aria-expanded", "true");
     const panel = screen.getByRole("group", { name: "More tools" });
     expect(within(panel).getByRole("group", { name: "Turning" })).toBeVisible();
-    for (const name of ["Turn left", "Upside down", "Undo turn", "Fit width", "Whole page", "Make it clearer", "Two pages", "Full screen", "Clearer copy"]) {
+    for (const name of ["Turn left", "Upside down", "Undo turn", "Fit width", "Whole page", "Make it clearer", "Two pages", "Clearer copy"]) {
       expect(within(panel).getByRole("button", { name })).toBeVisible();
     }
     expect(within(panel).getByRole("link", { name: "Not this patient" })).toBeVisible();
+    expect(within(panel).queryByRole("button", { name: "Full screen" })).not.toBeInTheDocument();
     // Go to page stays on show, beside the source.
     expect(screen.getByRole("textbox", { name: "Go to page" })).toBeVisible();
   });

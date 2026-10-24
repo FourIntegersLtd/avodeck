@@ -39,6 +39,7 @@ const WORDS = {
   "read.beside": "Page beside it",
   "read.beside_show": "Show",
   "read.full_screen": "Full screen",
+  "read.leave_full_screen": "Leave full screen",
   "read.search.label": "Find words in the bundle",
   "read.search.find": "Find",
   "read.search.finding": "Finding…",

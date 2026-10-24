@@ -659,9 +659,6 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                       <Button variant="secondary" aria-pressed={tools.twoPages} onClick={pick(() => setTools((t) => ({ ...t, twoPages: !t.twoPages })))}>
                         {w("read.two_pages")}
                       </Button>
-                      <Button variant="secondary" aria-pressed={tools.full} onClick={pick(() => setFull(!tools.full))}>
-                        {w("read.full_screen")}
-                      </Button>
                     </div>
                     <div className="rd-more__group" role="group" aria-labelledby="rd-more-page">
                       <p id="rd-more-page" className="rd-more__head">{w("read.more.page")}</p>
@@ -675,6 +672,9 @@ function ReadPage({ pageNo }: { pageNo: number }) {
                   </div>
                 )}
               </span>
+              <Button variant="secondary" className="rd-view__full" aria-pressed={tools.full} onClick={() => setFull(!tools.full)}>
+                {w(tools.full ? "read.leave_full_screen" : "read.full_screen")}
+              </Button>
             </div>
             {tools.twoPages && besideNo !== null && (
               <form

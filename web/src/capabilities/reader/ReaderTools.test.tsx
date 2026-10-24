@@ -124,12 +124,15 @@ describe.each([
       const { user, container } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
-      await user.click(within(await moreTools(user)).getByRole("button", { name: "Full screen" }));
+      const bar = screen.getByRole("toolbar", { name: "Page view" });
+      await user.click(within(bar).getByRole("button", { name: "Full screen" }));
       expect(container.querySelector(".rd")).toHaveClass("rd--full");
-      expect(within(await moreTools(user)).getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "true");
-      // The first Escape closes More tools; the next leaves full screen.
-      await user.keyboard("{Escape}");
-      expect(container.querySelector(".rd")).toHaveClass("rd--full");
+      // The bar stays, and the same button now leaves full screen.
+      expect(within(bar).getByRole("button", { name: "Leave full screen" })).toHaveAttribute("aria-pressed", "true");
+      await user.click(within(bar).getByRole("button", { name: "Leave full screen" }));
+      expect(container.querySelector(".rd")).not.toHaveClass("rd--full");
+      expect(within(bar).getByRole("button", { name: "Full screen" })).toHaveAttribute("aria-pressed", "false");
+      await user.click(within(bar).getByRole("button", { name: "Full screen" }));
       await user.keyboard("{Escape}");
       expect(container.querySelector(".rd")).not.toHaveClass("rd--full");
       await user.keyboard("f");
