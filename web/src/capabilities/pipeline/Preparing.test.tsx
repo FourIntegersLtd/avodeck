@@ -189,6 +189,21 @@ describe.each([
     await waitFor(() => expect(latest().url).toMatch(new RegExp(`/v1/jobs/${NEXT_JOB}/events$`)));
   });
 
+  test.each(["service_busy", "model_unavailable", "cost_guard", "key_service_unreachable"])(
+    "a paused job (%s) says Avodeck is looking into it and gives a reference to read out",
+    async (reason) => {
+      mockCase(pack, { job: processingJob({ status: "paused", error_code: reason }) });
+      renderAt(PATH);
+      expect(await screen.findByText("Avodeck is looking into this. You don't need to do anything.")).toBeVisible();
+      expect(screen.getByText("If you phone us, please read out this reference:")).toBeVisible();
+      expect(screen.getByText("Case 4444 4444")).toBeVisible();
+      expect(screen.getByText("Job 7777 7777")).toBeVisible();
+      expect(screen.queryByText(/try again in a little while/)).toBeNull();
+      expect(screen.queryByText(reason)).toBeNull();
+      expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    },
+  );
+
   test("files Avodeck cannot read are listed, and the questions screen is offered when it exists", async () => {
     registerScreen("questions", ({ caseId }) => `/cases/${caseId}/questions`);
     mockCase(pack);
