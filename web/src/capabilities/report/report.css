@@ -134,3 +134,14 @@
 .rp-payment { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); padding: 4px 16px; background: var(--surface-soft); border-radius: var(--radius); }
 .rp-fold--inner { margin-top: var(--space-3); }
 .av-report-crop { max-width: 100%; height: auto; border: 1px solid var(--line-strong); border-radius: var(--radius); }
+
+/* Calm design: soft shadows instead of borders, hairline rows, borderless notices. */
+.rp-card { border: 0; box-shadow: var(--shadow-card); border-radius: var(--radius-card); padding: var(--space-5); }
+.rp-contents { border: 0; box-shadow: var(--shadow-card); border-radius: var(--radius-card); }
+.rp-passed { background: transparent; border: 0; border-radius: 0; padding: 0; }
+.rp-passed__row { border-top: 1px solid var(--line); }
+.rp-passed__row + .rp-passed__row { border-top: 1px solid var(--line); }
+.rp-payment { background: transparent; border-top: 1px solid var(--line); border-radius: 0; padding: 4px 0; }
+.av-report-preview, .av-report-crop { border: 0; box-shadow: var(--shadow-paper); }
+.av-report-failed { border-left: 0; }
+.rp-paper { box-shadow: var(--shadow-paper); border-radius: 3px; }

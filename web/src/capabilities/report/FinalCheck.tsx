@@ -105,10 +105,10 @@ export function FinalCheck() {
         </div>
       </div>
       {error && <Notice tone="error"><p>{error}</p>{action && <LinkButton to={action.to}>{action.label}</LinkButton>}</Notice>}
-      {wait.waiting && <Notice><p>{w("check.running")}</p></Notice>}
-      {!check && !wait.waiting && <Notice><p>{w("check.none")}</p></Notice>}
-      {check && !check.current && <Notice tone="warning"><p>{w("check.out_of_date")}</p></Notice>}
-      {check?.declaration_changed && <Notice tone="warning"><p>{w("check.declaration_changed")}</p></Notice>}
+      {wait.waiting && <Notice tone="mint"><p>{w("check.running")}</p></Notice>}
+      {!check && !wait.waiting && <Notice tone="mint"><p>{w("check.none")}</p></Notice>}
+      {check && !check.current && <Notice tone="amber"><p>{w("check.out_of_date")}</p></Notice>}
+      {check?.declaration_changed && <Notice tone="amber"><p>{w("check.declaration_changed")}</p></Notice>}
 
       {(failed.length > 0 || notRun.length > 0) && (
         <ul className="rp-fixes">
@@ -173,7 +173,7 @@ function Failed({ caseId, result }: { caseId: string; result: Result }) {
   const to = fix ? (screenPath(fix.screen, { caseId, params: { item: fix.item } }) ?? `/cases/${caseId}`) : null;
   return (
     <li aria-label={nameOf(result)}>
-      <Callout title={nameOf(result)} icon={<AlertIcon />} actions={to ? <LinkButton to={to}>{w("check.fix")}</LinkButton> : undefined}>
+      <Callout title={nameOf(result)} icon={<AlertIcon />} actions={to ? <LinkButton variant="secondary" to={to}>{w("check.fix")}</LinkButton> : undefined}>
         {explanation(result) && <p>{explanation(result)}</p>}
         {result.count > 1 && <p>{w("check.count", { count: result.count })}</p>}
       </Callout>
@@ -229,7 +229,7 @@ function SpotCheck({ caseId }: { caseId: string }) {
       <p>{w("check.spot_intro")}</p>
       {error && <Notice tone="error"><p>{error}</p>{action && <LinkButton to={action.to}>{action.label}</LinkButton>}</Notice>}
       {started && (
-        <Notice tone="success">
+        <Notice tone="mint">
           <p>{w("check.spot_sent")}</p>
           <p className="av-report-mono">{w("check.spot_link", { path: `${window.location.origin}/spot-check/${started.token}` })}</p>
           <p>{w("check.spot_once", { date: longDate(started.expires_at, locale) })}</p>

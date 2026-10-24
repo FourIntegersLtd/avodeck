@@ -69,8 +69,8 @@ test("changing the citation style sends the version you saw and then waits for t
     http.patch("/v1/cases/:caseId/report/settings", async ({ request }) => (await record(request), etagged(settingsOut({ citation_style: "paragraph", version: 4, job_id: "j2" }), 4, 202))),
   );
   const { user } = renderAt(url);
-  expect(await screen.findByRole("radio", { name: M["report.report.style.page"]! })).toBeChecked();
-  await user.click(screen.getByRole("radio", { name: M["report.report.style.paragraph"]! }));
+  expect(await screen.findByRole("button", { name: M["report.report.style.page"]! })).toHaveAttribute("aria-pressed", "true");
+  await user.click(screen.getByRole("button", { name: M["report.report.style.paragraph"]! }));
   await waitFor(() => expect(sent).toContainEqual({ method: "PATCH", path: `/v1/cases/${CASE_A}/report/settings`, body: { citation_style: "paragraph" }, ifMatch: '"3"' }));
   expect(await screen.findByText(M["report.building"]!)).toBeInTheDocument();
 });
