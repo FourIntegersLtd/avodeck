@@ -19,13 +19,13 @@ import {
   Button,
   Checkbox,
   StaleChoice,
-  ChoicePills,
   DictationBar,
   LinkButton,
   LoadError,
   Loading,
   Notice,
   PageRef,
+  SegmentedControl,
 } from "../../foundation/ui";
 import {
   ReasonDialog,
@@ -553,10 +553,8 @@ function Editor({
           <div className="av-write-columns">
             <section className="av-card av-stack">
               <h3>{w("opinion.view")}</h3>
-              <ChoicePills
+              <SegmentedControl
                 label={w("opinion.view")}
-                hideLabel
-                name="view"
                 value={fields.view}
                 onChange={(view) => edit({ view })}
                 options={space.views.map((v) => ({ value: v.code, label: v.label }))}

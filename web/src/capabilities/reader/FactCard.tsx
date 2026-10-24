@@ -2,9 +2,10 @@
 import { useId, useState, type ReactNode } from "react";
 import type { Schemas } from "../../foundation/platform-client";
 import { t } from "../../foundation/i18n";
-import { Button, Checkbox, IconTile, LinkButton, StatusBadge } from "../../foundation/ui";
+import { Button, Checkbox, IconTile, LinkButton } from "../../foundation/ui";
 import { fieldWord } from "../../foundation/lib/packWords";
 import { kindLabel, longDate } from "./data";
+import { DotsIcon } from "./icons";
 import { w } from "./words";
 
 export interface FactCardProps {
@@ -112,18 +113,10 @@ export function FactCard(p: FactCardProps) {
   ) : null;
   return (
     <article className={cls} aria-labelledby={`${id}-t`} onFocusCapture={p.onFocus} onClick={p.onFocus}>
-      {checked && !recheck ? (
-        <p className="rd-tick">
-          <IconTile tone="mint">✓</IconTile>
-          <span>{t("ui.status.checked")}</span>
-        </p>
-      ) : rejected ? (
-        <StatusBadge status="not_right" />
-      ) : (
-        <p className="rd-state">{t("ui.status.please_check")}</p>
-      )}
-      <p className="rd-kind">{kindLabel(p.pack, fact.kind)}</p>
-      <h3 id={`${id}-t`} className="rd-value">
+      {/* The row above already shows the mark, the kind and the words; a screen reader still gets them here. */}
+      <p className="rd-sr">{t(checked && !recheck ? "ui.status.checked" : rejected ? "ui.status.not_right" : "ui.status.please_check")}</p>
+      <p className="rd-sr rd-kind">{kindLabel(p.pack, fact.kind)}</p>
+      <h3 id={`${id}-t`} className="rd-sr rd-value">
         {fact.value}
       </h3>
       {fields.length > 0 && p.editing === null && (
@@ -261,13 +254,10 @@ export function FactCard(p: FactCardProps) {
         </div>
       ) : (
         <>
-          <p className="rd-hint">{w("fact.fix_one_line")}</p>
           {can.correct && (
-            <div className="rd-actions">
-              <Button disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
-                {w("fact.correct")}
-              </Button>
-            </div>
+            <Button className="rd-correct" disabled={p.busy} onClick={p.onCorrect} aria-keyshortcuts="1">
+              {w("fact.correct")}
+            </Button>
           )}
           <div className="rd-actions rd-actions--quiet">
             {can.notRight && (
@@ -280,7 +270,26 @@ export function FactCard(p: FactCardProps) {
                 {w("fact.change")}
               </Button>
             )}
+            {(Boolean(can.timelineDate && p.onStartTimelineDate) || Boolean(p.clearerPage && p.onStartMove)) && (
+              <Button variant="quiet" className="rd-more-dots" aria-label={w("fact.more")} aria-expanded={moreOpen} aria-controls={`${id}-more`} onClick={() => setMoreOpen((o) => !o)}>
+                <DotsIcon />
+              </Button>
+            )}
           </div>
+          {moreOpen && (
+            <div id={`${id}-more`} className="rd-actions rd-actions--quiet">
+              {can.timelineDate && p.onStartTimelineDate && (
+                <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
+                  {w("fact.set_timeline_date")}
+                </Button>
+              )}
+              {p.clearerPage && p.onStartMove && (
+                <Button variant="quiet" disabled={p.busy} onClick={p.onStartMove}>
+                  {w("fact.move_clearer")}
+                </Button>
+              )}
+            </div>
+          )}
           {can.notRight && (
             <details className="rd-why-not">
               <summary>{w("fact.say_why")}</summary>
@@ -290,29 +299,8 @@ export function FactCard(p: FactCardProps) {
               </label>
             </details>
           )}
-          {(Boolean(can.timelineDate && p.onStartTimelineDate) || Boolean(p.clearerPage && p.onStartMove)) && (
-            <>
-              <Button variant="quiet" aria-expanded={moreOpen} aria-controls={`${id}-more`} onClick={() => setMoreOpen((o) => !o)}>
-                {w("fact.more")}
-              </Button>
-              {moreOpen && (
-                <div id={`${id}-more`} className="rd-actions rd-actions--quiet">
-                  {can.timelineDate && p.onStartTimelineDate && (
-                    <Button variant="quiet" disabled={p.busy} onClick={p.onStartTimelineDate}>
-                      {w("fact.set_timeline_date")}
-                    </Button>
-                  )}
-                  {p.clearerPage && p.onStartMove && (
-                    <Button variant="quiet" disabled={p.busy} onClick={p.onStartMove}>
-                      {w("fact.move_clearer")}
-                    </Button>
-                  )}
-                </div>
-              )}
-            </>
-          )}
           {checked && (
-            <Button variant="secondary" disabled={p.busy} onClick={p.onFlag}>
+            <Button variant="quiet" disabled={p.busy} onClick={p.onFlag}>
               {fact.flagged ? w("fact.points_against_off") : w("fact.points_against")}
             </Button>
           )}

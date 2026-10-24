@@ -75,7 +75,7 @@ describe("question highlight", () => {
     await user.click(within(panel).getByRole("button", { name: "Light up everything linked to Q2" }));
     expect(result).toHaveAttribute("data-highlight", "on");
     await user.click(within(panel).getByRole("button", { name: /^Close/ }));
-    await waitFor(() => expect(screen.queryByRole("complementary")).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "The entry you opened" })).toBeNull());
     expect(consult).not.toHaveAttribute("data-faded");
   });
 

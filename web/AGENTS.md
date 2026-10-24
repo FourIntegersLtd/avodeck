@@ -25,6 +25,7 @@ Components in `src/foundation/ui/` match the design canvas (`docs/spec/design-ca
 - **Fonts:** Atkinson Hyperlegible (UI), IBM Plex Mono (page numbers and dates), Georgia (report and record text).
 - **Sizes:** body 17px, buttons at least 52px tall, one primary action per screen, bottom right.
 - **Status badges:** "Checked by you" (solid, tick), "Please check" (dashed 2px `#8A948E`), "Not right", "Thing to look at" (amber).
+- Calm look (DesignSystemCalm board): primary 56px green (one per screen); `secondary` is a soft grey fill (#F1F2F1, no border); `outline` only for Done or Cancel in a bar; `quiet`, `link`, `danger` (soft red); cards radius 16 with a soft shadow and no border; paper radius 3; the step bar is a grey track with the current step raised in white. New parts: `SegmentedControl`, `StepperCapsule`, `Menu` (`MenuSection`, `MenuItem`), `ListRow`, `StatusMark`, and `Notice` tones `amber` and `mint`.
 - Components: `Button`, `CaseHeader` (step pills), `Card`, `Paper`, `PageRef`, `StatusBadge`, `DictationBox`, `Toggle`, `ChoiceCards`, `Countdown`, `AmberNotice`, `Table`.
 
 ## Copy

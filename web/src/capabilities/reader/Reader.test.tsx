@@ -1,4 +1,4 @@
-// Screen 09, Reading: the page, "Mark as read" as the one main action, and (only after the read is
+// Screen 09, Reading: the page, "I've read this page" as the one main action, and (only after the read is
 // recorded) the suggestions with the exact words highlighted. Runs under both pack sets.
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, test, vi } from "vitest";
@@ -43,20 +43,20 @@ describe.each([
   test("an unread page shows the page, the period banner, progress and one main action, and asks for no suggestions", async () => {
     const api = mockReader(pack);
     const { container } = renderAt(PATH);
-    expect(await screen.findByRole("button", { name: "Mark as read" })).toBeVisible();
+    expect(await screen.findByRole("button", { name: "I've read this page" })).toBeVisible();
     await waitFor(() => expect(screen.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", expect.stringMatching(/^blob:/)));
     expect(screen.getByText(/You're in the period in question/)).toBeVisible();
-    expect(await screen.findByText(/Page 118 of 10\. You've read 3\. 7 to go\./)).toBeVisible();
-    expect(screen.getByText(/Mark this page as read to see our suggestions/)).toBeVisible();
+    expect(await screen.findByText("3 of 10 read")).toBeVisible();
+    expect(screen.getByText(/When you've read it, our suggestions appear here\./)).toBeVisible();
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
     expect(api.factRequests).toBe(0);
     expect(await axeViolations(container)).toEqual([]);
   });
 
-  test("Mark as read records the seconds, then shows the suggestions with their words highlighted", async () => {
+  test("I've read this page records the seconds, then shows the suggestions with their words highlighted", async () => {
     const api = mockReader(pack);
     const { user } = renderAt(PATH);
-    await user.click(await screen.findByRole("button", { name: "Mark as read" }));
+    await user.click(await screen.findByRole("button", { name: "I've read this page" }));
     expect(await screen.findByRole("article", { name: /Dr P consultation 15 May 2024/ })).toBeVisible();
     expect(api.reads).toHaveLength(1);
     expect(api.reads[0]!.page).toBe(118);
@@ -74,8 +74,8 @@ describe.each([
     mockReader(pack, { alreadyRead: true });
     renderAt(PATH);
     expect(await screen.findByRole("article", { name: /Dr P consultation/ })).toBeVisible();
-    expect(screen.getByText(/Suggestion 1 of 2/)).toBeVisible();
-    expect(screen.queryByRole("button", { name: "Mark as read" })).not.toBeInTheDocument();
+    expect(screen.getByText("0 of 2 checked")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "I've read this page" })).not.toBeInTheDocument();
   });
 
   test("a 423 from the server shows no suggestions", async () => {
@@ -83,7 +83,7 @@ describe.each([
     renderAt(PATH);
     await waitFor(() => expect(api.factRequests).toBeGreaterThan(0));
     expect(screen.queryByRole("article")).not.toBeInTheDocument();
-    expect(screen.getByText(/Mark this page as read to see our suggestions/)).toBeVisible();
+    expect(screen.getByText(/When you've read it, our suggestions appear here\./)).toBeVisible();
   });
 
   test("Correct sends the version it loaded in If-Match", async () => {
@@ -93,7 +93,6 @@ describe.each([
     await user.click(within(c).getByRole("button", { name: "Correct" }));
     await waitFor(() => expect(api.verifies).toHaveLength(1));
     expect(api.verifies[0]).toMatchObject({ id: factId(1), ifMatch: '"1"', body: { action: "correct" } });
-    await user.click(await screen.findByText(/Checked on this page \(1\)/));
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
     expect(screen.getByText("Checked by you")).toBeVisible();
   });
@@ -106,7 +105,6 @@ describe.each([
     await user.click(within(c).getByRole("button", { name: "Not right" }));
     await waitFor(() => expect(api.verifies).toHaveLength(1));
     expect(api.verifies[0]!.body).toEqual({ action: "not_right", reason: "wrong day" });
-    await user.click(await screen.findByText(/Checked on this page \(1\)/));
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
     const rejected = await screen.findByRole("button", { name: "Undo" });
     expect(rejected).toBeVisible();
@@ -156,7 +154,6 @@ describe.each([
     const api = mockReader(pack, { alreadyRead: true, facts: [fact(1, { status: "verified" }), fact(2)] });
     const { user } = renderAt(PATH);
     await screen.findByRole("article", { name: /Anusol/ });
-    await user.click(await screen.findByText(/Checked on this page \(1\)/));
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
     const c = await screen.findByRole("article", { name: /Dr P consultation/ });
     await user.click(within(c).getByRole("button", { name: "Send to Points against" }));
@@ -168,7 +165,7 @@ describe.each([
   test("keys: R marks read, 1/2/3 act on the focused suggestion, J and K move between pages", async () => {
     const api = mockReader(pack);
     const { user, router } = renderAt(PATH);
-    await screen.findByRole("button", { name: "Mark as read" });
+    await screen.findByRole("button", { name: "I've read this page" });
     await user.keyboard("r");
     await screen.findByRole("article", { name: /Dr P consultation/ });
     expect(api.reads).toHaveLength(1);
@@ -211,7 +208,6 @@ describe.each([
     expect(within(checked).getByRole("button", { name: "Not right" })).toBeVisible();
     fireEvent.click(checked);
     await user.keyboard("1");
-    await user.click(await screen.findByText(/Checked on this page \(2\)/));
     await user.click(screen.getByRole("button", { name: /Anusol HC/ }));
     const rejected = await screen.findByRole("article", { name: /Anusol/ });
     await user.keyboard("2");
@@ -261,12 +257,12 @@ describe.each([
     await waitFor(() => expect(router.state.location.pathname).toBe(`/cases/${CASE_ID}/read/77`));
   });
 
-  test("with several suggestions, the switcher changes focus and only one full card is shown", async () => {
+  test("with several suggestions, choosing a row changes focus and only one full card is shown", async () => {
     mockReader(pack, { alreadyRead: true });
     const { user } = renderAt(PATH);
     expect(await screen.findByRole("article", { name: /Dr P consultation/ })).toBeVisible();
     expect(screen.queryByRole("article", { name: /Anusol/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Next suggestion on this page" }));
+    await user.click(screen.getAllByRole("button", { name: /Anusol/ }).find((b) => b.classList.contains("rd-row__head"))!);
     expect(await screen.findByRole("article", { name: /Anusol/ })).toBeVisible();
     expect(screen.queryByRole("article", { name: /Dr P consultation/ })).not.toBeInTheDocument();
     expect(screen.getByTestId(`highlight-${factId(2)}`)).toHaveClass("rd-mark--focus");

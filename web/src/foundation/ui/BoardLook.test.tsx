@@ -41,7 +41,7 @@ test("following the Cases link highlights Cases, not Today", async () => {
   expect(within(nav).getByRole("link", { name: "Today" })).not.toHaveAttribute("aria-current");
 });
 
-test("a finished step is a mint pill with a tick and no number; the current step keeps its number", () => {
+test("a finished step shows a green tick and no number; the current step keeps its number", () => {
   const { container } = renderUi(
     <MemoryRouter>
       <CaseHeader bar caseId="c1" steps={[{ key: "prepare" }, { key: "read" }, { key: "write" }]} current="read" title={<span>{"Mrs A"}</span>} />
@@ -52,7 +52,7 @@ test("a finished step is a mint pill with a tick and no number; the current step
   expect(done.querySelector(".av-step__marker")).toBeNull();
   expect(done).not.toHaveTextContent("1");
   expect(container.querySelector(".av-step--current .av-step__marker")).toHaveTextContent("2");
-  expect(rule(".av-step--done .av-step__pill")).toMatch(/background:\s*var\(--green-tint\)/);
+  expect(rule(".av-steps")).toMatch(/background:\s*var\(--well\)/); // calm design: steps sit in a grey track
 });
 
 test("the focused header (S04) has the logo, the task's name and Cancel, and no menu", () => {
