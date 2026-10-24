@@ -399,3 +399,8 @@ a.av-page-ref { color: var(--green); }
 .av-mark--please_check { border: 2px dashed var(--border-dashed); }
 .av-mark--not_right { background: var(--red); }
 .av-mark--look { border: 3px solid var(--amber-bright); }
+
+/* Today, calm: hairline rows in place of a boxed list; case cards keep the soft shadow, no border */
+.av-needs__item.av-hairline-row { border-top: 1px solid var(--line); padding: 20px 0; }
+.av-needs__item.av-hairline-row:first-child { border-top: 0; }
+.av-case-card:hover { border-color: transparent; box-shadow: var(--shadow-card), 0 0 0 2px var(--green-tint); }
