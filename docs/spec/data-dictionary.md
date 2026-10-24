@@ -515,6 +515,16 @@ A joint expert is one with two or more current instructing parties; no separate 
 | created_at | When the page was first turned |
 | updated_at | When it was last turned |
 
+### page_notes
+| Field | In plain words |
+|---|---|
+| page_id | The page; the note goes with the page (no case_id, like `page_turns`) (0214) |
+| person_id | Whose bookmark and note this is; only they see it |
+| bookmarked | Whether they bookmarked the page |
+| note | Their private note on the page, up to 2,000 characters; sealed; not part of the records and never sent to AI |
+| created_at | When they first bookmarked or noted the page |
+| updated_at | When they last changed it |
+
 ### missing_items
 | Field | In plain words |
 |---|---|
