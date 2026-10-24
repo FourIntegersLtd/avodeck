@@ -145,3 +145,4 @@
 .av-report-preview, .av-report-crop { border: 0; box-shadow: var(--shadow-paper); }
 .av-report-failed { border-left: 0; }
 .rp-paper { box-shadow: var(--shadow-paper); border-radius: 3px; }
+.rp-head__tools .av-segmented-control__option { min-height: var(--button-min-height); }
