@@ -42,6 +42,7 @@ EXCUSED = {
     "bdfae2c0fb7a37804edbe60f91f074b3838f71f8": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
     "2697618939377f51f7efed553baa18c17d544231": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
     "d6784a1789899552f84afb7a2078e9b2bfdeba7e": "test-order bug in its test commit, fixed in cac27bd",
+    "afccc4c1103afff340f007237cf7fb04e17dd375": "slice/0-support-lookup-session-mfa: its test setup moved a case draft to served, which the database refuses; fixed in afa9f59, history kept (no force push)",
 }
 
 

@@ -830,7 +830,7 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/cases/{case_id}/support-access` | Named expert grants support 24-hour access to one case | 🔒; shown on the case |
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |
 | GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
-| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA in the last 10 minutes on every call |
+| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA completed at sign-in for this session (ADR 0020) |
 | GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants, and where it is stuck (jobs, pages, suggestions, questions, report, close, offline copies, named expert changes, deadlines) in counts and codes only; the look is audited on the case | Support staff, as above |
 | POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
 | POST | `/support/jobs/{job_id}/resume` | Put a paused job back on the queue (the worker moves it paused → running); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_resume`; audited `support.job_resumed` on the case; 409 `job_not_paused`, `case_on_hold` |

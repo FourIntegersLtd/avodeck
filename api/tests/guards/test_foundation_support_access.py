@@ -7,11 +7,17 @@ only the three read actions, every request is written to the case's audit trail 
 `support_access.viewed`, and every call needs MFA in the last 10 minutes (`aal2`). The database
 answers the same through `app.can_access_case()`, so row-level security repeats it.
 
+The support console (ADR 0020): its read-only lookups (`GET /v1/support/...`) need current staff and
+a session whose MFA was completed at sign-in (`require_support_lookup`), within the 30-minute idle and
+12-hour limits but not the 10-minute window; every support route that changes something needs MFA in
+the last 10 minutes (`require_support_staff`).
+
 Support actions (`SUPPORT_ACTIONS`, under `/v1/support/`): each is behind its own flag, answers
 current staff only (anyone else 404, as if the route did not exist), needs MFA in the last 10
 minutes (403 `step_up_required`), and writes `support.<action>` to the case's audit trail (job
 actions) or the person's (MFA), with ids and a reason code only (rule 6). Every route under
-`/v1/support/` depends on `require_support_staff`.
+`/v1/support/` depends on `require_support_staff`, or `require_support_lookup` for a read-only
+`GET`.
 """
 
 from __future__ import annotations
@@ -26,13 +32,16 @@ from typing import Any
 
 import psycopg
 import pytest
+from fastapi.dependencies.models import Dependant
+from fastapi.routing import APIRoute
 
 from app.core.auth.access import check_case_access, require_case_access
 from app.core.auth.permissions import CASE_ACTIONS
 from app.core.auth.session import Session
-from app.core.auth.support import require_support_staff
+from app.core.auth.support import require_support_lookup, require_support_staff
 from app.core.db import Database
 from app.core.errors import ApiError
+from app.main import create_app
 from tests.support.db import ClientFor, scope_for
 from tests.support.seed import Seed
 
@@ -170,7 +179,7 @@ async def test_every_view_under_the_support_role_is_in_the_case_audit_trail(
 # --- MFA in the last 10 minutes on every support call -------------------------------------------------
 
 
-def _request(person: uuid.UUID, *, mfa_age: timedelta) -> Any:
+def _request(person: uuid.UUID, *, mfa_age: timedelta | None, aal: str = "aal2") -> Any:
     now = datetime.now(UTC)
     session = Session(
         id=uuid.uuid4(),
@@ -178,9 +187,9 @@ def _request(person: uuid.UUID, *, mfa_age: timedelta) -> Any:
         email="staff@example.test",
         full_name=None,
         csrf_hash="0" * 64,
-        aal="aal2",
+        aal=aal,
         mfa_enrolled=True,
-        mfa_verified_at=now - mfa_age,
+        mfa_verified_at=None if mfa_age is None else now - mfa_age,
         last_seen_at=now,
         auth_access_token=None,
         auth_refresh_token=None,
@@ -218,6 +227,82 @@ async def test_the_support_console_needs_current_staff_and_a_fresh_mfa(api_db: D
             with pytest.raises(ApiError) as missing:
                 await require_support_staff(_request(person, mfa_age=timedelta(0)), conn)
         assert missing.value.status == 404
+
+
+# --- Read-only lookups: session MFA, not the 10-minute window (ADR 0020) ------------------------------
+
+
+def _calls(dependant: Dependant) -> list[Any]:
+    return [c for d in dependant.dependencies for c in (d.call, *_calls(d))]
+
+
+def _support_routes() -> list[tuple[str, str, list[Any]]]:
+    return sorted(
+        ((method, r.path, _calls(r.dependant)) for r in create_app().routes
+         if isinstance(r, APIRoute) and r.path.startswith("/v1/support")
+         for method in r.methods or ()),
+        key=lambda t: (t[1], t[0]),
+    )  # fmt: skip
+
+
+def test_every_support_lookup_uses_the_lookup_gate_and_every_change_needs_a_fresh_mfa() -> None:
+    routes = _support_routes()
+    lookups = [(m, p) for m, p, _ in routes if m == "GET"]
+    changes = [(m, p) for m, p, _ in routes if m != "GET"]
+    assert ("GET", "/v1/support/cases") in lookups and ("POST", "/v1/support/custody-transfers") in changes
+    for method, path, calls in routes:
+        if method == "GET":
+            assert require_support_lookup in calls, (method, path)
+            assert not any(getattr(c, "step_up", False) is True for c in calls), (method, path)
+        else:
+            assert require_support_staff in calls, (method, path)
+            assert any(getattr(c, "step_up", False) is True for c in calls), (method, path)
+
+
+async def test_the_lookup_gate_needs_current_staff_and_mfa_done_this_session(api_db: Database, seed: Seed) -> None:
+    staff, former, stranger = seed.person(), seed.person(), seed.person()
+    seed.support_staff(staff)
+    seed.support_staff(former, removed=True)
+    assert require_support_lookup.step_up is False
+    async with api_db.request(scope_for(staff)) as conn:
+        for age in (timedelta(minutes=2), timedelta(minutes=30), timedelta(hours=11)):
+            assert (await require_support_lookup(_request(staff, mfa_age=age), conn)).person_id == staff
+        for request in (_request(staff, mfa_age=None), _request(staff, mfa_age=timedelta(0), aal="aal1")):
+            with pytest.raises(ApiError) as no_mfa:
+                await require_support_lookup(request, conn)
+            assert (no_mfa.value.status, no_mfa.value.code) == (403, "mfa_required")
+    for person in (former, stranger):
+        async with api_db.request(scope_for(person)) as conn:
+            with pytest.raises(ApiError) as missing:
+                await require_support_lookup(_request(person, mfa_age=timedelta(minutes=30)), conn)
+        assert missing.value.status == 404
+
+
+async def test_mfa_at_sign_in_30_minutes_ago_can_search_but_not_record_a_custody_transfer(
+    client_for: ClientFor, seed: Seed, desk: Desk
+) -> None:
+    seed.flag("support_custody_transfer", "person", desk.staff)
+    client = await client_for(desk.staff, mfa_age=timedelta(minutes=30))
+    found = await client.get("/v1/support/cases", params={"q": str(desk.case)})
+    assert found.status_code == 200, found.text
+    assert [c["case_id"] for c in found.json()["cases"]] == [str(desk.case)]
+    assert (await client.get(f"/v1/support/cases/{desk.case}")).status_code == 200
+    resp = await client.post(
+        "/v1/support/custody-transfers",
+        json={"case_id": str(desk.case), "to": "organisation", "evidence_note": "Letter on file"},
+    )
+    assert (resp.status_code, resp.json()["error"]["code"]) == (403, "step_up_required")
+
+
+async def test_support_lookups_refuse_the_signed_out_and_non_staff(
+    client_for: ClientFor, seed: Seed, desk: Desk
+) -> None:
+    signed_out = await client_for(None)
+    assert (await signed_out.get("/v1/support/cases", params={"q": "x"})).status_code == 401
+    for person in (desk.expert, seed.person()):
+        client = await client_for(person, mfa_age=timedelta(minutes=30))
+        assert (await client.get("/v1/support/cases", params={"q": str(desk.case)})).status_code == 404
+        assert (await client.get(f"/v1/support/cases/{desk.case}")).status_code == 404
 
 
 # --- Support actions: current staff, a fresh MFA, its own flag, and an audit row ------------------------
@@ -323,7 +408,7 @@ async def test_a_support_action_writes_its_audit_row_with_ids_and_a_reason_code_
 
 
 async def test_every_support_route_needs_current_staff(app: Any) -> None:
-    """A new route under /v1/support/ cannot forget the gate: it must depend on `require_support_staff`."""
+    """A new route under /v1/support/ cannot forget the gate: its staff gate (lookup gate for a GET)."""
 
     def calls(dependant: Any) -> set[Any]:
         found = {dependant.call}
@@ -337,4 +422,5 @@ async def test_every_support_route_needs_current_staff(app: Any) -> None:
         "POST /v1/support/jobs/{job_id}/requeue",
     }
     for route in support:
-        assert require_support_staff in calls(route.dependant), route.path
+        gate = require_support_lookup if route.methods == {"GET"} else require_support_staff
+        assert gate in calls(route.dependant), route.path

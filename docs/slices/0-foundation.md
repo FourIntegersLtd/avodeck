@@ -127,7 +127,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 ### Changes for slice O (2026-10-22, founder-approved plan, Phase 0)
 
 - [x] `support_staff` (operators add and remove staff by hand, `docs/ops/support-staff.md`; no route writes it) and `support_access_grants` (shared core table, kept after case deletion as the record of consent; O builds the routes), migration 0030
-- [x] Case role `support` in `app.case_access()` and `require_case_access`: current staff and a live grant from the named expert (24 hours, checked on read); only `case.view_metadata`, `case.view_content`, `case.view_audit`; every request audited `support_access.viewed`; fresh MFA (`aal2`) on every call; `require_support_staff` for console routes
+- [x] Case role `support` in `app.case_access()` and `require_case_access`: current staff and a live grant from the named expert (24 hours, checked on read); only `case.view_metadata`, `case.view_content`, `case.view_audit`; every request audited `support_access.viewed`; fresh MFA (`aal2`) on every call; `require_support_staff` (10-minute step-up) for support routes that change something, `require_support_lookup` (MFA at sign-in for the session, ADR 0020) for read-only lookups
 - [x] Closed accounts (S15): read-only on served cases where they are the named expert; everything else 404, in the API and RLS
 - [x] `require_org_access(action)` for the organisation-action table (non-members 404, members without the right 403, 🔒 step-up)
 - [x] Contracts `org_policy()`, `request_case_deletion()`, `case_export_done()`; mails `org.invite`, `case.reassigned`, `support_access.granted`

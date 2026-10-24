@@ -6,8 +6,8 @@
   label, names or anything from its pages.
 - `GET /v1/support/cases/{case_id}`: the same for one case, with its grants and whether support may open
   it now (an active grant). Every look is written to the case's audit trail.
-- Only current support staff (`require_support_staff`), with MFA in the last 10 minutes on every call;
-  anyone else gets 404, as if the console did not exist.
+- Only current support staff (`require_support_lookup`), in a session whose MFA was completed at sign-in
+  (not the 10-minute window: ADR 0020); anyone else gets 404, as if the console did not exist.
 """
 
 from __future__ import annotations
@@ -105,14 +105,13 @@ async def test_anyone_but_current_staff_gets_404(client_for: ClientFor, world: W
     assert (await client.get(f"/v1/support/cases/{case}")).status_code == 404
 
 
-async def test_every_console_call_needs_recent_mfa(client_for: ClientFor, world: World, staff: uuid.UUID) -> None:
+async def test_console_lookups_need_session_mfa_not_the_ten_minute_window(
+    client_for: ClientFor, world: World, staff: uuid.UUID
+) -> None:
     client = await client_for(staff, mfa_age=STALE)
     case = world.team_case()
-    for resp in (
-        await client.get("/v1/support/cases", params={"q": str(case)}),
-        await client.get(f"/v1/support/cases/{case}"),
-    ):
-        assert (resp.status_code, resp.json()["error"]["code"]) == (403, "step_up_required")
+    assert (await client.get("/v1/support/cases", params={"q": str(case)})).status_code == 200
+    assert (await client.get(f"/v1/support/cases/{case}")).status_code == 200
 
 
 @pytest.mark.parametrize("q", ["", "x" * 321])
