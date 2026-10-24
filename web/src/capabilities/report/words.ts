@@ -9,6 +9,7 @@ const WORDS = {
   "not_built": "Build your report first.",
 
   "report.title": "Your report",
+  "report.updating": "Updating your report...",
   "report.read_text": "Read",
   "report.close_text": "Hide",
   "report.progress": "{{done}} of {{total}}",

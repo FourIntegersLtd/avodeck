@@ -92,6 +92,7 @@ test("saving the time estimates is busy and sends once", async () => {
   server.use(http.post("/v1/cases/:caseId/time/estimates", h.handler));
   const { user } = renderAt(`/cases/${CASE_A}/invoice`);
   const region = await screen.findByRole("region", { name: M["report.invoice.estimate"]! });
+  await user.type(within(region).getAllByLabelText(M["report.invoice.estimate_hours"]!)[1]!, "3");
   const button = within(region).getByRole("button", { name: M["report.invoice.estimate_save"]! });
   await user.click(button);
   await expectBusy(button);

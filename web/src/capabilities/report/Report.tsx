@@ -9,7 +9,7 @@ import { screenPath } from "../../foundation/lib/screens";
 import { errorAction, errorMessage, type ErrorAction } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, apiOrigin, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, SegmentedControl, StaleChoice } from "../../foundation/ui";
+import { Button, DictationBox, LinkButton, LoadError, Loading, Notice, SegmentedControl, StaleChoice, Updating, useBusy } from "../../foundation/ui";
 import { downloadPath, useLocale, useSectionName, useWaiting, versionTag } from "./shared";
 import { w } from "./words";
 
@@ -30,6 +30,7 @@ export function ReportScreen() {
   const [styleVersion, setStyleVersion] = useState<number | null>(null);
   const [chosen, setChosen] = useState<string | null>(null);
   const [refused, setRefused] = useState(false);
+  const { busy: styling, run: guard } = useBusy();
 
   if (found.error || settings.error) return <div className="av-page"><LoadError onRetry={() => { found.reload(); settings.reload(); }} /></div>;
   if (found.data === undefined || !settings.data) return <div className="av-page"><Loading /></div>;
@@ -90,7 +91,7 @@ export function ReportScreen() {
           <p className="rp-lead">{w("report.intro")}</p>
         </div>
         <div className="rp-head__tools">
-          <SegmentedControl label={w("report.style")} value={currentStyle} onChange={(next) => void changeStyle(next)} options={STYLES.map((key) => ({ value: key, label: w(`report.style.${key}`) }))} />
+          <SegmentedControl label={w("report.style")} value={currentStyle} onChange={(next) => { void guard(() => changeStyle(next)); }} options={STYLES.map((key) => ({ value: key, label: w(`report.style.${key}`), disabled: styling }))} />
           <span className="av-visually-hidden">{w("report.style_changed")}</span>
           {version && <a className="av-button av-button--quiet" href={`${apiOrigin()}${downloadPath(caseId, version.id, "docx")}`}>{w("report.open_word")}</a>}
         </div>
@@ -131,9 +132,9 @@ export function ReportScreen() {
         <span className="av-muted rp-bar__note">{footer}</span>
         <div className="rp-bar__actions">
           {!served ? (version ? (
-            <Button variant="quiet" onClick={() => void build()} disabled={wait.waiting}>{w("report.rebuild")}</Button>
+            <Button variant="quiet" onClick={() => build()} disabled={wait.waiting}>{w("report.rebuild")}</Button>
           ) : (
-            <Button onClick={() => void build()} disabled={wait.waiting}>{w("report.build")}</Button>
+            <Button onClick={() => build()} disabled={wait.waiting}>{w("report.build")}</Button>
           )) : null}
           {version && <LinkButton arrow to={`/cases/${caseId}/final-check`}>{w("report.final_check")}</LinkButton>}
         </div>
@@ -195,9 +196,11 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
   const [editing, setEditing] = useState(false);
   const name = nameOf(section.key);
   const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })), [caseId, section.key, data.version?.id], { cache: "report/Report#Paper:found" });
+  const updating = found.loading && !!found.data;
   return (
     <div className="rp-centre">
-      <section className="rp-paper" aria-label={w("report.paper")} aria-live="polite">
+      <section className="rp-paper av-busy-dim" aria-label={w("report.paper")} aria-live="polite" aria-busy={updating}>
+        {updating && <Updating label={w("report.updating")} />}
         <h2 className="rp-paper__heading">{`${number}. ${name}`}</h2>
         {found.error ? <LoadError onRetry={found.reload} /> : !found.data ? <Loading inline /> : found.data.paragraphs.length === 0 ? (
           <p className="rp-paper__empty">{w("report.section.empty")}</p>
@@ -324,7 +327,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
         </ul>
       )}
       <div className="av-row">
-        <Button variant="secondary" onClick={() => void save()}>{w("report.section.save")}</Button>
+        <Button variant="secondary" onClick={() => save()}>{w("report.section.save")}</Button>
         <Button variant="secondary" onClick={onClose}>{w("report.section.close")}</Button>
         {saved && <span role="status">{w("report.section.saved")}</span>}
       </div>
