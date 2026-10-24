@@ -8,7 +8,7 @@ for (const { name, pack } of PACKS) {
     test("09 Reading asks the expert to mark the page read before showing anything", async ({ page }) => {
       await stubReader(page, pack);
       await page.goto(`/cases/${CASE_A}/read/118`);
-      await expect(page.getByRole("button", { name: "Mark as read" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "I've read this page" })).toBeVisible();
       await expect(page.getByRole("img", { name: "Page 118" })).toHaveAttribute("src", /^blob:/);
       await expect(page.getByRole("article")).toHaveCount(0);
       await checkScreen(page);
@@ -17,7 +17,7 @@ for (const { name, pack } of PACKS) {
     test("09 after Mark as read the suggestions appear and their highlight boxes match the cited words", async ({ page }) => {
       await stubReader(page, pack);
       await page.goto(`/cases/${CASE_A}/read/118`);
-      await page.getByRole("button", { name: "Mark as read" }).click();
+      await page.getByRole("button", { name: "I've read this page" }).click();
       await expect(page.getByRole("article", { name: /Dr P consultation/ })).toBeVisible();
       const img = await page.getByRole("img", { name: "Page 118" }).boundingBox();
       expect(img).not.toBeNull();
@@ -45,7 +45,7 @@ for (const { name, pack } of PACKS) {
 
     test("09 and 10 keep a margin at both sides of the window", async ({ page }) => {
       await stubReader(page, pack);
-      for (const [path, ready] of [["read/118", "Mark as read"], ["read/couldnt-read", "Save and next page"]]) {
+      for (const [path, ready] of [["read/118", "I've read this page"], ["read/couldnt-read", "Save and next page"]]) {
         await page.goto(`/cases/${CASE_A}/${path}`);
         await expect(page.getByRole("button", { name: ready })).toBeVisible();
         const edges = await page.locator("main").evaluate((main) => {

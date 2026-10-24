@@ -96,7 +96,7 @@ describe("The suggestions list", () => {
   test("shows nothing before the page is read", async () => {
     mockReader(launchPack);
     renderAt(PATH);
-    await screen.findByRole("button", { name: "Mark as read" });
+    await screen.findByRole("button", { name: "I've read this page" });
     expect(screen.queryByRole("list", { name: "What we found on this page" })).not.toBeInTheDocument();
   });
 });
