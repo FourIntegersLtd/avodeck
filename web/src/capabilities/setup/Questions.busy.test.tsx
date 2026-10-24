@@ -44,7 +44,7 @@ test("drafting a note goes busy and sends once", async () => {
   server.use(http.post("/v1/cases/:caseId/instructing-party-notes/draft", async () => (await h.enter(), json(note("outside_expertise")))));
   const { user } = renderAt(url);
   try {
-    await expectBusyOnce(user, await byName(/^Draft a note/), h);
+    await expectBusyOnce(user, await screen.findByRole("button", { name: /^Draft a note/ }), h);
   } finally { h.release(); }
 });
 

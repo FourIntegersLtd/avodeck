@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Callout, ChoicePills, Dialog, LoadError, Loading, Notice, TextLink } from "../../foundation/ui";
+import { Button, Callout, ChoicePills, Dialog, LoadError, Loading, Notice, TextLink, useBusy } from "../../foundation/ui";
 import { Balance, NoteView, partyWords, TextArea } from "./shared";
 
 type Answer = { answer: "yes" | "no" | null; detail: string };
@@ -39,6 +39,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
   const [leaving, setLeaving] = useState(false);
   const [reason, setReason] = useState("");
   const [withdrawn, setWithdrawn] = useState(false);
+  const stepping = useBusy();
   const preparing = useResource(async () => (await unwrap(api.GET("/v1/cases/{case_id}/process", path))).job, [caseId]);
   const job = preparing.data && ["queued", "running"].includes(preparing.data.status) ? preparing.data : null;
 
@@ -205,19 +206,19 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
           <span />
         )}
         {!withdrawn && state.declared_at && (
-          <Button variant="secondary" onClick={() => void declare(false)}>
+          <Button variant="secondary" onClick={() => declare(false)}>
             {t("setup.conflicts.declare_change")}
           </Button>
         )}
         {!withdrawn && !state.declared_at && (
-          <Button arrow onClick={() => void declare(true)}>
+          <Button arrow onClick={() => declare(true)}>
             {t("setup.conflicts.confirm")}
           </Button>
         )}
       </div>
       {!withdrawn && (
         <div>
-          <Button variant="quiet" onClick={() => setLeaving(true)}>
+          <Button variant="quiet" busy={stepping.busy} onClick={() => setLeaving(true)}>
             {t("setup.withdraw.open")}
           </Button>
         </div>
@@ -228,7 +229,7 @@ function ConflictsView({ caseId, initial, pack }: { caseId: string; initial: Sch
             className="av-stack"
             onSubmit={(e) => {
               e.preventDefault();
-              void stepBack();
+              void stepping.run(stepBack);
             }}
           >
             <p>{t("setup.withdraw.intro")}</p>

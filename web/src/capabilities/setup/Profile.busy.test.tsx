@@ -127,7 +127,7 @@ test("suggesting sections goes busy and sends once", async () => {
   server.use(http.post("/v1/me/template/suggestions", async () => (await h.enter(), json({ suggestions: [] }))));
   const { user } = open({ template: true });
   try {
-    const template = await region("Your Word template");
+    const template = await region("Your report template");
     await user.click(await template.findByRole("button", { name: "Match your headings to report sections" }));
     await expectBusyOnce(user, template.getByRole("button", { name: "Suggest sections" }), h);
   } finally { h.release(); }
@@ -138,7 +138,7 @@ test("saving the headings goes busy and sends once", async () => {
   server.use(http.patch("/v1/me/template/mapping", async () => (await h.enter(), tag(TEMPLATE, '"2"'))));
   const { user } = open({ template: true });
   try {
-    const template = await region("Your Word template");
+    const template = await region("Your report template");
     await user.click(await template.findByRole("button", { name: "Match your headings to report sections" }));
     await expectBusyOnce(user, template.getByRole("button", { name: "Save the headings" }), h);
   } finally { h.release(); }

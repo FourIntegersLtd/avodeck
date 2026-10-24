@@ -33,6 +33,8 @@ import {
   Spinner,
   StaleChoice,
   TextField,
+  Updating,
+  useBusy,
 } from "../../foundation/ui";
 import {
   Choice,
@@ -185,6 +187,7 @@ function NewCaseForm({
         : null,
     [team?.organisation_id],
   );
+  const checkingTemplate = required.loading && required.data !== undefined;
   const [combo, setCombo] = useState(0);
   const [label, setLabel] = useState("");
   const [side, setSide] = useState<string | null>(null);
@@ -485,7 +488,8 @@ function NewCaseForm({
               }))}
             />
           )}
-          {team && required.data?.locked && (
+          {checkingTemplate && <Updating label={sw("new_case.checking_template")} />}
+          {team && !checkingTemplate && required.data?.locked && (
             <p className="av-hint" role="note">
               {sw("new_case.template_locked", { name: team.name })}
             </p>
@@ -824,9 +828,10 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
       });
     }
   };
+  const sending = useBusy();
   const save = (e: FormEvent) => {
     e.preventDefault();
-    void send(saved.etag);
+    void sending.run(() => send(saved.etag));
   };
 
   return (
@@ -887,7 +892,7 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
             </Notice>
           )}
           <div>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" busy={sending.busy}>
               {t("setup.details.save")}
             </Button>
           </div>
@@ -905,7 +910,7 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
         <StaleChoice
           draft={form}
           saved={formOf(stale.data)}
-          onKeepMine={() => void send(stale.etag)}
+          onKeepMine={() => sending.run(() => send(stale.etag))}
           onUseSaved={() => {
             setSaved(stale);
             setForm(formOf(stale.data));
@@ -1126,6 +1131,7 @@ function InstructedBy({
   const current = found.data?.current ?? [];
   const showForm = adding || (Boolean(found.data) && current.length === 0);
 
+  const adding_ = useBusy();
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -1164,7 +1170,7 @@ function InstructedBy({
         </Notice>
       )}
       {showForm ? (
-        <form className="av-stack" onSubmit={(e) => void add(e)}>
+        <form className="av-stack" onSubmit={(e) => void adding_.run(() => add(e))}>
           {types.length > 1 && (
             <Select
               label={t("setup.instructed.type")}
@@ -1191,7 +1197,7 @@ function InstructedBy({
             onChange={(e) => setFirm(e.target.value)}
           />
           <div>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" busy={adding_.busy}>
               {t("setup.instructed.add")}
             </Button>
           </div>
@@ -1223,6 +1229,7 @@ function SamePerson({
   const [result, setResult] = useState<Schemas["DuplicateCheck"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const checking = useBusy();
   const check = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -1250,7 +1257,7 @@ function SamePerson({
       title={t("setup.same_person.title")}
       intro={t("setup.same_person.intro")}
     >
-      <form className="av-stack" onSubmit={(e) => void check(e)}>
+      <form className="av-stack" onSubmit={(e) => void checking.run(() => check(e))}>
         <TextField
           label={t("setup.same_person.identifier")}
           name="identifier"
@@ -1260,7 +1267,7 @@ function SamePerson({
           onChange={(e) => setIdentifier(e.target.value)}
         />
         <div>
-          <Button type="submit" variant="secondary">
+          <Button type="submit" variant="secondary" busy={checking.busy}>
             {t("setup.same_person.check")}
           </Button>
         </div>
@@ -1292,6 +1299,7 @@ function OralInstructions({ caseId }: { caseId: string }) {
     tone: "success" | "error";
     text: string;
   } | null>(null);
+  const saving = useBusy();
   const save = async (e: FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -1316,7 +1324,7 @@ function OralInstructions({ caseId }: { caseId: string }) {
       title={t("setup.oral.title")}
       intro={t("setup.oral.intro")}
     >
-      <form className="av-stack" onSubmit={(e) => void save(e)}>
+      <form className="av-stack" onSubmit={(e) => void saving.run(() => save(e))}>
         <DictationBox
           caseId={caseId}
           context="oral_instructions"
@@ -1342,6 +1350,7 @@ function OralInstructions({ caseId }: { caseId: string }) {
           <Button
             type="submit"
             variant="secondary"
+            busy={saving.busy}
             disabled={!text.trim() || !on}
           >
             {t("setup.oral.save")}

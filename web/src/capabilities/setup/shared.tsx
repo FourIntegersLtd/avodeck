@@ -6,7 +6,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
 import { ApiError, api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { ChoicePills, Segmented, StackedBar } from "../../foundation/ui";
+import { ChoicePills, Segmented, Spinner, StackedBar } from "../../foundation/ui";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
 export async function withEtag<D>(call: Promise<{ data?: D; error?: unknown; response: Response }>): Promise<{ data: D; etag: string }> {
@@ -305,14 +305,15 @@ export function uploadSummary(out: UploadOutcome): string | null {
 export const fileBytes = bytesOf;
 
 /** A file input that looks like a button; the input itself stays the labelled control. */
-export function FileButton({ label, accept, onChange, link }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; link?: boolean }) {
+export function FileButton({ label, accept, onChange, link, busy }: { label: string; accept: string; onChange: (e: ChangeEvent<HTMLInputElement>) => void; link?: boolean; busy?: boolean }) {
   const id = useId();
   return (
     <div className="av-setup-file">
-      <label htmlFor={id} className={link ? "av-text-link av-setup-file__label" : "av-button av-button--secondary av-setup-file__label"}>
+      <label htmlFor={id} aria-busy={busy || undefined} className={link ? "av-text-link av-setup-file__label" : "av-button av-button--secondary av-setup-file__label"}>
+        {busy && <Spinner />}
         {label}
       </label>
-      <input id={id} type="file" accept={accept} className="av-visually-hidden" onChange={onChange} />
+      <input id={id} type="file" accept={accept} className="av-visually-hidden" disabled={busy} onChange={onChange} />
     </div>
   );
 }
