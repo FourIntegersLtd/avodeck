@@ -403,11 +403,18 @@ class JobWorker:
             return
         except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
             logger.warning("job %s of kind %s failed on attempt %d: %s", job, kind_name, attempt, type(exc).__name__)
-            await self._finish(case, job, "failed", error_code="job_error")
             if attempt < self.max_attempts:
+                # running -> failed -> queued in ONE transaction (the guard allows each step): under read
+                # committed no one else sees `failed`, so a reader never takes a retry for the end.
                 async with self.database.job(case) as conn:
-                    await conn.execute("update app.jobs set status = 'queued' where id = %s", (job,))
+                    await conn.execute(
+                        "update app.jobs set status = 'failed', error_code = 'job_error' where id = %s", (job,)
+                    )
+                    await conn.execute(
+                        "update app.jobs set status = 'queued', finished_at = null where id = %s", (job,)
+                    )
                 raise _TryAgain from None
+            await self._finish(case, job, "failed", error_code="job_error")
             return
         await self._finish(case, job, "done", pct=100)
 
