@@ -18,6 +18,9 @@ import {
   Checkbox,
   LoadError,
   Loading,
+  Menu,
+  MenuItem,
+  MenuSection,
   Notice,
   TextLink,
 } from "../../foundation/ui";
@@ -194,11 +197,11 @@ export function AskInstructingParty() {
           <div className="pl-letter__foot">
             <span className="pl-note">{w("ask.private")}</span>
             {editing ? (
-              <Button variant="secondary" onClick={() => setEditing(false)}>
+              <Button variant="quiet" onClick={() => setEditing(false)}>
                 {w("ask.done_editing")}
               </Button>
             ) : (
-              <Button variant="secondary" onClick={() => setEditing(true)}>
+              <Button variant="quiet" onClick={() => setEditing(true)}>
                 {w("ask.edit")}
               </Button>
             )}
@@ -228,7 +231,7 @@ export function AskInstructingParty() {
             </ul>
           </section>
           {draft.extension && (
-            <section className="pl-more">
+            <section className="pl-more av-notice av-notice--amber">
               <h2>{w("ask.more_time")}</h2>
               <p>
                 {w("ask.more_time_due", {
@@ -259,9 +262,11 @@ export function AskInstructingParty() {
         </Notice>
       )}
       <div className="pl-actions">
-        <Button variant="secondary" onClick={copy}>
-          {w("ask.copy")}
-        </Button>
+        <Menu label={w("ask.more")} trigger={w("ask.more")}>
+          <MenuSection>
+            <MenuItem onClick={copy}>{w("ask.copy")}</MenuItem>
+          </MenuSection>
+        </Menu>
         <Button arrow onClick={send} disabled={busy}>
           {w("ask.send")}
         </Button>

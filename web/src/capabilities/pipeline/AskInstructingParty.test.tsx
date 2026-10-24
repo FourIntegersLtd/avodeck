@@ -114,6 +114,7 @@ describe.each([
     const { user } = renderAt(PATH);
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await user.click(await screen.findByRole("button", { name: "More" }));
     await user.click(await screen.findByRole("button", { name: "Copy the text" }));
     await waitFor(() => expect(writeText).toHaveBeenCalledWith(`Records needed - Mrs A\n\n${draft().body}`));
     expect(await screen.findByText("Copied.")).toBeVisible();

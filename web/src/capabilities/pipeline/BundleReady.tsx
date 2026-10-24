@@ -145,7 +145,7 @@ export function BundleReady() {
       {s.versions.length > 1 && (
         <section className="av-card pl-section">
           <h2>{w("bundle.deliveries")}</h2>
-          <ul className="pl-plain">
+          <ul className="pl-plain pl-hairlines">
             {s.versions.map((v) => (
               <li key={v.bundle_version}>
                 {w("bundle.delivery", { n: v.bundle_version, first: num(v.first_page_no ?? 0), last: num(v.last_page_no ?? 0) })}
@@ -201,7 +201,7 @@ interface CardProps {
 
 function Card({ icon, title, tone, centred, action, children, below }: CardProps) {
   return (
-    <section className={["av-card", "pl-card", tone === "amber" && "pl-card--amber", centred && "pl-card--centred"].filter(Boolean).join(" ")}>
+    <section className={["av-card", "pl-card", tone === "amber" && "av-notice av-notice--amber", centred && "pl-card--centred"].filter(Boolean).join(" ")}>
       <div className="pl-card__row">
         <IconTile tone={tone ?? "mint"}>{icon}</IconTile>
         <div className="pl-card__text">

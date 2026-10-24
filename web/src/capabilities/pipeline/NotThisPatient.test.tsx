@@ -159,7 +159,7 @@ describe.each([
     expect(fetched).toBe(false);
   });
 
-  test("the pages sit in a grid, a chosen 'not' is amber and the explanation is one card under the grid", async () => {
+  test("the pages sit in a grid, a chosen answer is pressed and the explanation is one card under the grid", async () => {
     mock(pack);
     const { container, user } = renderAt(PATH);
     await screen.findByRole("heading", { level: 1, name: "These pages may belong to someone else" });
@@ -167,9 +167,9 @@ describe.each([
     expect(container.querySelector(".pl-grid ~ .pl-explain-card")).not.toBeNull();
     const first = pageCard(412);
     await user.click(within(first).getByRole("button", { name: "Not Mrs A's" }));
-    expect(within(first).getByRole("button", { name: "Not Mrs A's" })).toHaveClass("pl-choice--not");
+    expect(within(first).getByRole("button", { name: "Not Mrs A's" })).toHaveAttribute("aria-pressed", "true");
     await user.click(within(first).getByRole("button", { name: "It is Mrs A's" }));
-    expect(within(first).getByRole("button", { name: "It is Mrs A's" })).toHaveClass("pl-choice--is");
+    expect(within(first).getByRole("button", { name: "It is Mrs A's" })).toHaveAttribute("aria-pressed", "true");
   });
 });
 

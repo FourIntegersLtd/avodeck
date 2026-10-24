@@ -161,6 +161,7 @@ describe.each([
       }),
     );
     const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "More" }));
     await user.click(await screen.findByRole("button", { name: "Stop preparing" }));
     expect(await screen.findByText("Preparing has stopped. Your files are kept.")).toBeVisible();
     expect(cancelled).toBe(1);
@@ -223,12 +224,13 @@ describe.each([
     expect(await screen.findByRole("button", { name: "Try again" })).toBeVisible();
   });
 
-  test("the step being done shows its own count, and Stop sits inside the note about recordings", async () => {
+  test("the step being done shows its own count, and Stop sits in the More menu", async () => {
     mockCase(pack, { job: processingJob({ step_done: 840, step_total: 1268 }) });
-    renderAt(PATH);
+    const { user } = renderAt(PATH);
     expect(await screen.findByText("840 of 1,268")).toBeVisible();
-    const stop = screen.getByRole("button", { name: "Stop preparing" });
-    expect(stop.closest("p")).toHaveTextContent("1 voice recording was kept as it is.");
+    expect(screen.getByText(/1 voice recording was kept as it is/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "More" }));
+    expect(screen.getByRole("button", { name: "Stop preparing" })).toBeVisible();
   });
 
   test("shows the picture, a count beside each finished step, and a lock on the note about original files", async () => {
