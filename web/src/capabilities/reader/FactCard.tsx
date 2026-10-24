@@ -36,10 +36,9 @@ export interface FactCardProps {
   typeOutHref?: string;
   /** When the words weren't on the page: first suggest ticking "These words were read wrongly". */
   tickHint?: boolean;
-  /** While changing with words chosen: the "read wrongly" tick and what the expert says the words are. */
-  misread?: { ticked: boolean; text: string } | null;
+  /** While changing with words chosen: the "read wrongly" tick ("The right words" is then the expert's reading). */
+  misread?: { ticked: boolean } | null;
   onMisread?: (ticked: boolean) => void;
-  onMisreadText?: (text: string) => void;
   reason: string;
   onFocus: () => void;
   onReason: (text: string) => void;
@@ -229,17 +228,12 @@ export function FactCard(p: FactCardProps) {
               <input id={`${id}-ed`} className="av-input" type="date" value={p.editEventDate} onChange={(e) => p.onEditEventDate?.(e.target.value)} />
             </div>
           )}
-          <p className="rd-note">{w("fact.choose_words")}</p>
+          {!p.misread && <p className="rd-note">{w("fact.choose_words")}</p>}
           {p.typedWords}
           {p.misread && (
             <div className="rd-misread">
               <Checkbox label={w("fact.misread_tick")} checked={p.misread.ticked} onChange={(e) => p.onMisread?.(e.target.checked)} />
-              {p.misread.ticked && (
-                <div className="rd-edit__row">
-                  <label htmlFor={`${id}-m`} className="rd-label rd-label--small">{w("fact.misread_label")}</label>
-                  <input id={`${id}-m`} className="av-input" maxLength={500} value={p.misread.text} onChange={(e) => p.onMisreadText?.(e.target.value)} />
-                </div>
-              )}
+              {p.misread.ticked && <p className="rd-hint">{w("fact.misread_uses_right_words")}</p>}
             </div>
           )}
           <div className="rd-actions">
