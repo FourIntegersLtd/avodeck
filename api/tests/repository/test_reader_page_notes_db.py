@@ -31,7 +31,14 @@ def world(seed: Seed) -> dict[str, Any]:
     seed.case_member(case, assistant, "assistant", added_by=expert)
     seed.case_member(case, viewer, "viewer", added_by=expert)
     page = seed.page(case, seed.document(case), 1)
-    return {"case": case, "expert": expert, "assistant": assistant, "viewer": viewer, "stranger": stranger, "page_id": page}
+    return {
+        "case": case,
+        "expert": expert,
+        "assistant": assistant,
+        "viewer": viewer,
+        "stranger": stranger,
+        "page_id": page,
+    }
 
 
 async def add(api_db: Database, w: dict[str, Any], person: str) -> None:
@@ -54,7 +61,9 @@ async def test_each_person_sees_only_their_own(api_db: Database, world: dict[str
         assert await count(api_db, world, person) == seen, person
 
 
-async def test_nobody_keeps_a_note_for_someone_else_or_without_page_read(api_db: Database, world: dict[str, Any]) -> None:
+async def test_nobody_keeps_a_note_for_someone_else_or_without_page_read(
+    api_db: Database, world: dict[str, Any]
+) -> None:
     for person, as_person in (("viewer", "viewer"), ("stranger", "stranger"), ("assistant", "expert")):
         async with api_db.request(scope_for(world[person])) as conn:
             with pytest.raises(psycopg.errors.InsufficientPrivilege):

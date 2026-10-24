@@ -44,7 +44,14 @@ def world(seed: Seed) -> dict[str, Any]:
     seed.case(seed.org(kind="personal", members={stranger: "owner"}), stranger, status="active")
     doc = seed.document(case)
     pages = {n: seed.page(case, doc, n) for n in (3, 12, 40)}
-    return {"case": case, "expert": expert, "assistant": assistant, "viewer": viewer, "stranger": stranger, "pages": pages}
+    return {
+        "case": case,
+        "expert": expert,
+        "assistant": assistant,
+        "viewer": viewer,
+        "stranger": stranger,
+        "pages": pages,
+    }
 
 
 def base(w: dict[str, Any]) -> str:
