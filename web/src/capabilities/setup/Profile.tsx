@@ -6,7 +6,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, StaleChoice, TextField } from "../../foundation/ui";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, ProgressRing, StaleChoice, TextField, useBusy } from "../../foundation/ui";
 import { sw } from "./words";
 import { Balance, FileButton, fileBytes, LinkAction, PartMark, Section, Select, TextArea, versionTag, withEtag } from "./shared";
 
@@ -175,9 +175,10 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
       setMessage({ tone: "error", text: errorMessage(err) });
     }
   };
+  const sending = useBusy();
   const save = (e: FormEvent) => {
     e.preventDefault();
-    void send(saved);
+    void sending.run(() => send(saved));
   };
   const takeSaved = (latest: Tagged<Schemas["Profile"]>) => {
     setSaved(latest);
@@ -223,7 +224,7 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
             </fieldset>
           )}
           <div className="av-row">
-            <Button type="submit">{t("setup.about.save")}</Button>
+            <Button type="submit" busy={sending.busy}>{t("setup.about.save")}</Button>
             {done && (
               <Button variant="quiet" onClick={() => { setForm(saved.data); setEditing(false); }}>
                 {t("setup.cancel")}
@@ -247,7 +248,7 @@ function AboutYou({ initial, packs, done, onSaved }: { initial: Tagged<Schemas["
         <StaleChoice
           draft={form}
           saved={stale.data}
-          onKeepMine={() => void send(stale)}
+          onKeepMine={() => sending.run(() => send(stale))}
           onUseSaved={() => takeSaved(stale)}
           onClose={() => setStale(null)}
           show={(p) => [p.full_name, [p.registration_body, p.registration_number].filter(Boolean).join(" · ")].filter(Boolean).join(", ")}
@@ -263,6 +264,7 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ role_title: "", started_on: "", ended_on: "" });
   const [error, setError] = useState<string | null>(null);
+  const adding_ = useBusy();
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -315,9 +317,10 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
       setError(errorMessage(err, { invalid: "setup.roles.invalid" }));
     }
   };
+  const sending = useBusy();
   const saveEdit = (e: FormEvent, r: Schemas["Role"]) => {
     e.preventDefault();
-    void send(r, r.version);
+    void sending.run(() => send(r, r.version));
   };
   const takeSavedRole = (latest: Schemas["Role"]) => {
     setRoles(roles.map((x) => (x.id === latest.id ? latest : x)));
@@ -348,11 +351,11 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
                   <TextField label={t("setup.roles.from")} name="started_on" type="date" required value={edit.started_on} onChange={(e) => setEdit({ ...edit, started_on: e.target.value })} />
                   <TextField label={t("setup.roles.edit_until")} hint={t("setup.roles.to_hint")} name="ended_on" type="date" value={edit.ended_on} onChange={(e) => setEdit({ ...edit, ended_on: e.target.value })} />
                   <div className="av-row">
-                    <Button type="submit">{t("setup.roles.save")}</Button>
+                    <Button type="submit" busy={sending.busy}>{t("setup.roles.save")}</Button>
                     <Button variant="quiet" onClick={() => setEditing(null)}>
                       {t("setup.cancel")}
                     </Button>
-                    <Button variant="quiet" onClick={() => void remove(r.id)}>
+                    <Button variant="quiet" onClick={() => remove(r.id)}>
                       {t("setup.remove", { name: r.role_title })}
                     </Button>
                   </div>
@@ -376,7 +379,7 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
         </Notice>
       )}
       {adding ? (
-        <form className="av-stack" onSubmit={(e) => void add(e)}>
+        <form className="av-stack" onSubmit={(e) => void adding_.run(() => add(e))}>
           <TextField label={t("setup.roles.role")} name="role_title" required value={form.role_title} onChange={(e) => setForm({ ...form, role_title: e.target.value })} />
           <TextField label={t("setup.roles.from")} name="started_on" type="date" required value={form.started_on} onChange={(e) => setForm({ ...form, started_on: e.target.value })} />
           <TextField
@@ -388,7 +391,7 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
             onChange={(e) => setForm({ ...form, ended_on: e.target.value })}
           />
           <div className="av-row">
-            <Button type="submit">{t("setup.roles.add_this")}</Button>
+            <Button type="submit" busy={adding_.busy}>{t("setup.roles.add_this")}</Button>
             <Button variant="quiet" onClick={() => setAdding(false)}>
               {t("setup.cancel")}
             </Button>
@@ -408,7 +411,7 @@ function Roles({ roles, setRoles, specialty, onSaved }: { roles: Schemas["Role"]
           saved={stale}
           onKeepMine={() => {
             const mine = roles.find((x) => x.id === editing);
-            if (mine) void send(mine, stale.version);
+            if (mine) void sending.run(() => send(mine, stale.version));
           }}
           onUseSaved={() => takeSavedRole(stale)}
           onClose={() => setStale(null)}
@@ -423,6 +426,7 @@ function Training({ items, setItems, onSaved }: { items: Schemas["Training"][]; 
   const [managing, setManaging] = useState(false);
   const [form, setForm] = useState({ title: "", year: "" });
   const [error, setError] = useState<string | null>(null);
+  const adding_ = useBusy();
   const add = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
@@ -454,7 +458,7 @@ function Training({ items, setItems, onSaved }: { items: Schemas["Training"][]; 
               <span className="av-setup-line__title">{i.title}</span>
               {i.year && <span className="av-mono av-muted">{i.year}</span>}
               {managing && (
-                <Button variant="quiet" onClick={() => void remove(i.id)}>
+                <Button variant="quiet" onClick={() => remove(i.id)}>
                   {t("setup.remove", { name: i.title })}
                 </Button>
               )}
@@ -468,11 +472,11 @@ function Training({ items, setItems, onSaved }: { items: Schemas["Training"][]; 
         </Notice>
       )}
       {open && (
-        <form className="av-stack" onSubmit={(e) => void add(e)}>
+        <form className="av-stack" onSubmit={(e) => void adding_.run(() => add(e))}>
           <TextField label={t("setup.training.course")} name="title" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
           <TextField label={t("setup.training.year")} name="year" inputMode="numeric" value={form.year} onChange={(e) => setForm({ ...form, year: e.target.value })} />
           <div>
-            <Button type="submit" variant="secondary">
+            <Button type="submit" variant="secondary" busy={adding_.busy}>
               {t("setup.training.add")}
             </Button>
           </div>
@@ -496,7 +500,7 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
   const [mapping, setMapping] = useState<Record<number, string>>({});
   const [suggested, setSuggested] = useState<Set<number>>(new Set());
   const [message, setMessage] = useState<{ tone: "success" | "error" | "info"; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const uploading = useBusy();
   useEffect(() => {
     setMapping(Object.fromEntries((template?.data.mapping ?? []).map((m) => [m.index, m.section])));
     setSuggested(new Set());
@@ -523,7 +527,6 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
     }
   };
   const suggest = async () => {
-    setBusy(true);
     setMessage(null);
     try {
       const found = await unwrap(api.POST("/v1/me/template/suggestions"));
@@ -532,8 +535,6 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
       setMessage({ tone: "info", text: t("setup.template.suggested_note") });
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, { processing_paused: "setup.template.suggest_paused" }) });
-    } finally {
-      setBusy(false);
     }
   };
   const [stale, setStale] = useState<Tagged<Template> | null>(null);
@@ -559,9 +560,7 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
       setMessage({ tone: "error", text: errorMessage(err) });
     }
   };
-  const save = () => {
-    if (template) void send(template);
-  };
+  const save = () => (template ? send(template) : undefined);
   const sections = template?.data.sections ?? [];
   const options = [{ value: "", label: t("setup.template.unmapped") }, ...sections.map((key) => ({ value: key, label: sectionLabel(key) }))];
   return (
@@ -576,10 +575,10 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
             <strong>{template.data.filename}</strong>
             <span className="av-muted">{t("setup.template.kept")}</span>
           </span>
-          <FileButton link label={t("setup.template.replace")} accept=".docx" onChange={(e) => void upload(e)} />
+          <FileButton link busy={uploading.busy} label={t("setup.template.replace")} accept=".docx" onChange={(e) => void uploading.run(() => upload(e))} />
         </div>
       ) : (
-        <FileButton label={t("setup.template.choose")} accept=".docx" onChange={(e) => void upload(e)} />
+        <FileButton busy={uploading.busy} label={t("setup.template.choose")} accept=".docx" onChange={(e) => void uploading.run(() => upload(e))} />
       )}
       {template && template.data.styles.length > 0 && (
         <ul className="av-setup-plain av-setup-tiles" aria-label={t("setup.template.styles")}>
@@ -611,10 +610,10 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
             </div>
           ))}
           <div className="av-row">
-            <Button variant="secondary" disabled={busy} onClick={() => void suggest()}>
+            <Button variant="secondary" onClick={suggest}>
               {t("setup.template.suggest")}
             </Button>
-            <Button onClick={() => void save()}>{t("setup.template.save")}</Button>
+            <Button onClick={save}>{t("setup.template.save")}</Button>
           </div>
         </div>
       )}
@@ -627,7 +626,7 @@ function TemplateSection({ template, setTemplate, onSaved }: { template: Tagged<
         <StaleChoice
           draft={mapping}
           saved={Object.fromEntries(stale.data.mapping.map((m) => [m.index, m.section]))}
-          onKeepMine={() => void send(stale)}
+          onKeepMine={() => send(stale)}
           onUseSaved={() => {
             setTemplate(stale);
             setStale(null);
@@ -673,9 +672,7 @@ function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declar
       setMessage({ tone: "error", text: errorMessage(err, { locked: "setup.declaration.locked" }) });
     }
   };
-  const save = () => {
-    if (current) void send(current);
-  };
+  const save = () => (current ? send(current) : undefined);
   const addedText = (d: Schemas["Declaration"]) => d.additions.map((a) => a.text).join(" / ");
   return (
     <Section id="setup-declaration" title={t("setup.declaration.title")} mark={<PartMark done={signed} number={5} />}>
@@ -734,7 +731,7 @@ function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declar
       )}
       {reviewing && current && !current.data.locked && (
         <div>
-          <Button variant="secondary" onClick={() => void save()}>
+          <Button variant="secondary" onClick={save}>
             {t("setup.declaration.save")}
           </Button>
         </div>
@@ -749,7 +746,7 @@ function DeclarationSection({ declaration, signed, onSigned, onSaved }: { declar
         <StaleChoice
           draft={Object.values(additions).filter((x) => x.trim()).join(" / ")}
           saved={addedText(stale.data)}
-          onKeepMine={() => void send(stale)}
+          onKeepMine={() => send(stale)}
           onUseSaved={() => {
             setCurrent(stale);
             setAdditions(Object.fromEntries(stale.data.additions.map((a) => [a.kind, a.text])));
@@ -768,6 +765,7 @@ function SignaturePad({ signed, onSigned }: { signed: boolean; onSigned: () => v
   const [drawn, setDrawn] = useState(false);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sending = useBusy();
   const context = () => canvas.current?.getContext?.("2d") ?? null;
 
   const point = (e: PointerEvent<HTMLCanvasElement>) => {
@@ -814,7 +812,7 @@ function SignaturePad({ signed, onSigned }: { signed: boolean; onSigned: () => v
       setError(errorMessage(err, { invalid: "setup.signature.not_picture" }));
     }
   };
-  const saveDrawn = () => canvas.current?.toBlob((blob) => blob && void send(blob, "drawn"), "image/png");
+  const saveDrawn = () => canvas.current?.toBlob((blob) => blob && void sending.run(() => send(blob, "drawn")), "image/png");
 
   return (
     <div className="av-stack">
@@ -855,7 +853,7 @@ function SignaturePad({ signed, onSigned }: { signed: boolean; onSigned: () => v
             onPointerLeave={() => (drawing.current = false)}
           />
           <div className="av-row">
-            <Button variant="secondary" disabled={!drawn} onClick={saveDrawn}>
+            <Button variant="secondary" busy={sending.busy} disabled={!drawn} onClick={saveDrawn}>
               {t("setup.signature.save")}
             </Button>
             <Button variant="quiet" onClick={clear}>
@@ -863,11 +861,12 @@ function SignaturePad({ signed, onSigned }: { signed: boolean; onSigned: () => v
             </Button>
           </div>
           <FileButton
+            busy={sending.busy}
             label={t("setup.signature.photo")}
             accept="image/png,image/jpeg"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) void send(file, "photo");
+              if (file) void sending.run(() => send(file, "photo"));
             }}
           />
         </div>

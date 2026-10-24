@@ -7,7 +7,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, StaleChoice, TextLink } from "../../foundation/ui";
+import { Button, Checkbox, LinkButton, LoadError, Loading, Notice, QChip, StaleChoice, TextLink, useBusy } from "../../foundation/ui";
 import { NoteView, Select, TextArea, versionTag, type Option } from "./shared";
 
 type QuestionItem = Schemas["QuestionOut"];
@@ -91,7 +91,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
       ))}
       {asked.read_failed && (
         <div>
-          <Button onClick={() => void readAgain()}>{t("setup.questions.read_again")}</Button>
+          <Button onClick={() => readAgain()}>{t("setup.questions.read_again")}</Button>
         </div>
       )}
       {asked.reading && (
@@ -123,14 +123,15 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           onChange={(next) => setQuestions(questions.map((x, j) => (j === i ? (next as QuestionItem) : x)))}
           pack={pack}
           party={party}
-          onDraft={() => void draft(q.id)}
-          extra={(save) => (
+          onDraft={() => draft(q.id)}
+          extra={(save, busy) => (
             <>
-              <Select label={t("setup.questions.kind")} options={kinds} value={q.kind ?? ""} disabled={asked.locked} onChange={(e) => void save({ kind: e.target.value })} />
+              <Select label={t("setup.questions.kind")} options={kinds} value={q.kind ?? ""} aria-busy={busy || undefined} disabled={asked.locked || busy} onChange={(e) => void save({ kind: e.target.value })} />
               <Checkbox
                 label={t("setup.questions.outside")}
                 checked={q.outside_expertise}
-                disabled={asked.locked}
+                aria-busy={busy || undefined}
+                disabled={asked.locked || busy}
                 onChange={(e) => void save({ outside_expertise: e.target.checked })}
               />
             </>
@@ -160,7 +161,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
               <span className="av-setup-footer__hint">
                 {total > done ? t("setup.questions.last", { count: total - done }) : t("setup.questions.ready")} · <TextLink to={`/cases/${caseId}/details`}>{t("setup.questions.further")}</TextLink>
               </span>
-              <Button arrow disabled={done < total} onClick={() => void confirmAll()}>
+              <Button arrow disabled={done < total} onClick={() => confirmAll()}>
                 {t("setup.questions.confirm_all")}
               </Button>
             </>
@@ -186,13 +187,13 @@ function ItemCard({
 }: {
   pack?: Schemas["CasePack"];
   party?: string;
-  onDraft?: () => void;
+  onDraft?: () => void | Promise<void>;
   kind: "question" | "assumption";
   caseId: string;
   item: QuestionItem | AssumptionItem;
   locked: boolean;
   onChange: (next: QuestionItem | AssumptionItem) => void;
-  extra?: (save: (change: Change) => Promise<void>) => ReactNode;
+  extra?: (save: (change: Change) => Promise<void | undefined>, busy: boolean) => ReactNode;
 }) {
   const [editing, setEditing] = useState(false);
   const [wording, setWording] = useState(item.confirmed_text ?? item.text_verbatim);
@@ -202,7 +203,9 @@ function ItemCard({
   const [pending, setPending] = useState<Change>({});
   const [stale, setStale] = useState<QuestionItem | AssumptionItem | null>(null);
   const wordsOf = (i: QuestionItem | AssumptionItem) => i.confirmed_text ?? i.text_verbatim;
-  const save = async (change: Change, version = item.version) => {
+  const saving = useBusy();
+  const save = (change: Change, version = item.version) => saving.run(() => send(change, version));
+  const send = async (change: Change, version: number) => {
     setError(null);
     try {
       const headers = ifMatch(versionTag(version));
@@ -277,7 +280,7 @@ function ItemCard({
         <p className="av-setup-text">{item.text_verbatim}</p>
       )}
       {item.para_ref && <p className="av-mono av-muted av-setup-ref">{t("setup.questions.from_paragraph", { ref: item.para_ref })}</p>}
-      {outside && <OutsideExpertise question={item as QuestionItem} pack={pack} locked={locked} party={party} onAnswer={() => void save({ confirm: true })} onDraft={onDraft} />}
+      {outside && <OutsideExpertise question={item as QuestionItem} pack={pack} locked={locked} party={party} onAnswer={() => save({ confirm: true })} onDraft={onDraft} />}
       {editing && (
         <form
           className="av-stack"
@@ -287,9 +290,9 @@ function ItemCard({
           }}
         >
           <TextArea label={t("setup.questions.your_wording")} rows={3} value={wording} onChange={(e) => setWording(e.target.value)} />
-          {extra?.(save)}
+          {extra?.(save, saving.busy)}
           <div className="av-row">
-            <Button type="submit" variant="secondary" disabled={!wording.trim()}>
+            <Button type="submit" variant="secondary" busy={saving.busy} disabled={!wording.trim()}>
               {t("setup.questions.save_wording")}
             </Button>
             <Button variant="quiet" onClick={() => setEditing(false)}>
@@ -305,7 +308,7 @@ function ItemCard({
       )}
       {!locked && !editing && (
         <div className="av-row">
-          {item.status !== "confirmed" && <Button variant="secondary" onClick={() => void save({ confirm: true })}>{t("setup.questions.confirm")}</Button>}
+          {item.status !== "confirmed" && <Button variant="secondary" onClick={() => save({ confirm: true })}>{t("setup.questions.confirm")}</Button>}
           <Button variant="quiet" onClick={() => setEditing(true)}>
             {t("setup.questions.change_wording")}
           </Button>
@@ -316,7 +319,7 @@ function ItemCard({
           draft={pending.text ?? (pending.confirm ? t("setup.questions.confirm") : pending.kind ? humanise(pending.kind) : wordsOf(item))}
           saved={wordsOf(stale)}
           savedVersion={stale.version}
-          onKeepMine={(version) => void save(pending, version)}
+          onKeepMine={(version) => save(pending, version)}
           onUseSaved={() => {
             onChange(stale);
             setEditing(false);
@@ -353,8 +356,8 @@ function OutsideExpertise({
   pack?: Schemas["CasePack"];
   locked: boolean;
   party?: string | undefined;
-  onAnswer: () => void;
-  onDraft?: (() => void) | undefined;
+  onAnswer: () => void | Promise<unknown>;
+  onDraft?: (() => void | Promise<void>) | undefined;
 }) {
   const type = (pack?.question_types as { key: string; parts?: { key: string; label_key?: string }[] }[] | undefined)?.find((q) => q.key === question.kind);
   const parts = (question.answer_parts ?? [])
