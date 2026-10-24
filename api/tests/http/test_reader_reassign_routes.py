@@ -65,7 +65,9 @@ async def test_reassigned_after_the_named_expert_changed(world: dict[str, Any]) 
     case = world["case"]
     fact = next(f for f in (await page_facts(world["old"], case))["facts"] if f["value"] and f["word_ids"])
     r = await world["old"].post(
-        f"/v1/cases/{case}/facts/{fact['id']}/verify", json={"action": "correct"}, headers={"if-match": etag(fact["version"])}
+        f"/v1/cases/{case}/facts/{fact['id']}/verify",
+        json={"action": "correct"},
+        headers={"if-match": etag(fact["version"])},
     )
     assert r.status_code == 200, r.text
     await world["aconn"].execute("update app.cases set named_expert_id = %s where id = %s", (world["new_id"], case))
@@ -81,7 +83,9 @@ async def test_not_reassigned_once_the_new_expert_checked_the_reset_facts(world:
     case = world["case"]
     fact = next(f for f in (await page_facts(world["old"], case))["facts"] if f["value"] and f["word_ids"])
     await world["old"].post(
-        f"/v1/cases/{case}/facts/{fact['id']}/verify", json={"action": "correct"}, headers={"if-match": etag(fact["version"])}
+        f"/v1/cases/{case}/facts/{fact['id']}/verify",
+        json={"action": "correct"},
+        headers={"if-match": etag(fact["version"])},
     )
     await world["aconn"].execute("update app.cases set named_expert_id = %s where id = %s", (world["new_id"], case))
     await world["new"].post(f"/v1/cases/{case}/pages/118/read", json={"dwell_seconds": 20})
@@ -89,7 +93,9 @@ async def test_not_reassigned_once_the_new_expert_checked_the_reset_facts(world:
     for f in out["facts"]:
         if f["status"] == "suggested" and f["value"] and f["word_ids"]:
             r = await world["new"].post(
-                f"/v1/cases/{case}/facts/{f['id']}/verify", json={"action": "correct"}, headers={"if-match": etag(f["version"])}
+                f"/v1/cases/{case}/facts/{f['id']}/verify",
+                json={"action": "correct"},
+                headers={"if-match": etag(f["version"])},
             )
             assert r.status_code == 200, r.text
     assert (await page_facts(world["new"], case))["reassigned"] is False
