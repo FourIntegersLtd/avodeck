@@ -65,6 +65,7 @@ async def test_a_person_shows_their_mfa_codes_email_change_custodian_and_closure
     blocking = world.solo_case()
     exported = world.solo_case()
     job = world.seed.job(exported, kind="export_case", requested_by=k)
+    admin.execute("update app.jobs set status = 'running' where id = %s", (job,))
     admin.execute("update app.jobs set status = 'done' where id = %s", (job,))
     world.team_case()  # a team case never blocks closing the account
 
