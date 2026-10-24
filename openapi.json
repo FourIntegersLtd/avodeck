@@ -1125,6 +1125,11 @@
             "title": "Quarantined",
             "type": "array"
           },
+          "splits": {
+            "default": 0,
+            "title": "Splits",
+            "type": "integer"
+          },
           "straightened": {
             "default": 0,
             "title": "Straightened",
@@ -16597,6 +16602,68 @@
         "title": "SourceCount",
         "type": "object"
       },
+      "Split": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "page_id": {
+            "format": "uuid",
+            "title": "Page Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "document_id",
+          "job_id"
+        ],
+        "title": "Split",
+        "type": "object"
+      },
+      "SplitAsk": {
+        "description": "Where to cut a two-page scan: down the page (left and right) or across it (top and bottom).",
+        "properties": {
+          "at": {
+            "default": 0.5,
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "At",
+            "type": "number"
+          },
+          "axis": {
+            "enum": [
+              "vertical",
+              "horizontal"
+            ],
+            "title": "Axis",
+            "type": "string"
+          },
+          "first": {
+            "enum": [
+              "left",
+              "right",
+              "top",
+              "bottom"
+            ],
+            "title": "First",
+            "type": "string"
+          }
+        },
+        "required": [
+          "axis",
+          "first"
+        ],
+        "title": "SplitAsk",
+        "type": "object"
+      },
       "SpotCheckAnswer": {
         "properties": {
           "agrees": {
@@ -28045,6 +28112,80 @@
         "summary": "Rotate Page",
         "tags": [
           "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/pages/{page_id}/split": {
+      "post": {
+        "description": "A two-page scan is cut in two. The halves are added as new pages after the last one (never\nrenumbering); the original stays as it is, with its checked facts.",
+        "operationId": "split_page_v1_cases__case_id__pages__page_id__split_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Page Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitAsk"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Split"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Split Page",
+        "tags": [
+          "pipeline"
         ]
       }
     },

@@ -70,7 +70,7 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Sorted view:** it reads page-level `page_analysis.printed_dates` (dates found by code in the page's words), never suggested facts, so an unread page reveals nothing (rule 3).
 
-**Extra endpoints:** `GET /v1/cases/{id}/bundle/sorted` (source then date, numbers unchanged), `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `GET /v1/cases/{id}/exhibits` (POST deferred: exhibits arrive through uploads), `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/reprocess`.
+**Extra endpoints:** `GET /v1/cases/{id}/bundle/sorted` (source then date, numbers unchanged), `POST/DELETE /v1/cases/{id}/pages/{page_id}/quarantine`, `POST /v1/cases/{id}/pages/{page_id}/replace`, `POST /v1/cases/{id}/pages/{page_id}/split` (ADR 0019: two linked pages added after the last, nothing renumbered), `GET /v1/cases/{id}/exhibits` (POST deferred: exhibits arrive through uploads), `GET /v1/cases/{id}/bundle/versions`, `POST /v1/cases/{id}/process/cancel`, `POST /v1/cases/{id}/reprocess`.
 
 - [x] Wrong-patient pages (planted in the synthetic bundle) are suggested for quarantine, never auto-hidden; once confirmed they keep their numbers, show a placeholder, leave AI, search, exports and citations, and their facts are rejected (S5, F25)
 - [x] A locked (password-protected) or damaged PDF stops that document only: no pages, `documents.unreadable_reason` (migration 0116), listed on S08 and asked for in the S08b draft; the rest of the bundle carries on (F2)
