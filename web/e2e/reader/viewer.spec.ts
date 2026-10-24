@@ -84,6 +84,13 @@ for (const { name, pack } of PACKS) {
       await expect(page.getByTestId("page-turn")).toHaveAttribute("data-turn", "270");
     });
 
+    test("09 the page area keeps two-finger and one-finger gestures for itself, so pinch zooms the page, not the screen", async ({ page }) => {
+      await stubReader(page, pack);
+      await openRead(page);
+      // Without this a touch screen takes the pinch for the whole screen and cancels the page's own zoom and drag.
+      expect(await page.locator(".rd-paper").evaluate((el) => getComputedStyle(el).touchAction)).toBe("none");
+    });
+
     test("09 Whole page fits the page in view; Ctrl and the wheel zoom; the zoom stays on the next page", async ({ page }) => {
       await stubReader(page, pack);
       await openRead(page);

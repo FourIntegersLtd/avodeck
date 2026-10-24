@@ -205,6 +205,21 @@ describe.each([
       expect(await screen.findByRole("img", { name: "Page 119" })).toBeVisible();
     });
 
+    test("after scrolling the strip with the mouse, the keyboard carries on from a page in view", async () => {
+      mockReader(pack, { pageCount: 4000 });
+      const { user } = renderAt(PATH);
+      const strip = await screen.findByRole("listbox", { name: "Pages" });
+      await within(strip).findByRole("option", { name: "Page 118, not read yet" });
+      strip.scrollTop = 2000 * 136;
+      fireEvent.scroll(strip);
+      // The active page is one that is drawn, so a screen reader can say it.
+      const shown = () => document.getElementById(strip.getAttribute("aria-activedescendant")!);
+      expect(shown()).toHaveAccessibleName("Page 2001, not read yet");
+      strip.focus();
+      await user.keyboard("{ArrowDown}");
+      expect(shown()).toHaveAccessibleName("Page 2002, not read yet");
+    });
+
     test("Home and End go to the first and last pages of the bundle", async () => {
       mockReader(pack, { pageCount: 4000 });
       const { user } = renderAt(PATH);
