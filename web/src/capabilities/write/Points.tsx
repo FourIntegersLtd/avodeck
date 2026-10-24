@@ -8,7 +8,7 @@ import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Callout, DictationBar, LinkButton, LoadError, Loading, Notice, PageRef, TextLink } from "../../foundation/ui";
+import { Button, DictationBar, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, PageRef, TextLink } from "../../foundation/ui";
 import { KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
@@ -147,20 +147,22 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                     {point.status === "stale" && <p className="av-write-badge">{w("points.stale_point")}</p>}
                     <div className="av-write-actions">
                       {(point.status === "suggested" || point.status === "stale") && (
-                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void change(point, { status: "accepted" })}>
+                        <Button variant="quiet" onClick={() => void change(point, { status: "accepted" })}>
                           {w("points.keep")}
-                        </button>
+                        </Button>
                       )}
-                      {data.sides
-                        .filter((s) => s.code !== point.side)
-                        .map((s) => (
-                          <button type="button" key={s.code} className="av-text-link av-write-linkbutton" onClick={() => void change(point, { side: s.code })}>
-                            {w("points.move", { side: s.label })}
-                          </button>
-                        ))}
-                      <button type="button" className="av-text-link av-write-linkbutton" onClick={() => setRemoving(point)}>
-                        {w("points.remove")}
-                      </button>
+                      <Menu label={w("points.more")} trigger={w("points.more")}>
+                        <MenuSection>
+                          {data.sides
+                            .filter((s) => s.code !== point.side)
+                            .map((s) => (
+                              <MenuItem key={s.code} onClick={() => void change(point, { side: s.code })}>
+                                {w("points.move", { side: s.label })}
+                              </MenuItem>
+                            ))}
+                          <MenuItem onClick={() => setRemoving(point)}>{w("points.remove")}</MenuItem>
+                        </MenuSection>
+                      </Menu>
                     </div>
                   </li>
                 ))}
@@ -194,24 +196,20 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
       </div>
 
       {data.relevant.map((r) => (
-        <Callout
-          key={r.id}
-          title={
+        <Notice key={r.id} tone="amber">
+          <p>
             <strong>{w("points.relevant_title", { count: 1 })}</strong>
-          }
-          actions={
-            <>
-              <TextLink to={`/cases/${caseId}/consultation/${r.fact.id}`}>{w("points.relevant_look")}</TextLink>
-              <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void dismissRelevant(r)}>
-                {w("points.relevant_dismiss")}
-              </button>
-            </>
-          }
-        >
+          </p>
           <p>
             <span>{r.fact.value}</span> <PageRef page={r.fact.page_no} /> <span>{r.why_relevant}</span>
           </p>
-        </Callout>
+          <div className="av-write-actions">
+            <TextLink to={`/cases/${caseId}/consultation/${r.fact.id}`}>{w("points.relevant_look")}</TextLink>
+            <Button variant="quiet" onClick={() => void dismissRelevant(r)}>
+              {w("points.relevant_dismiss")}
+            </Button>
+          </div>
+        </Notice>
       ))}
 
       <div className="av-write-columns">
@@ -229,7 +227,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
             rows={6}
           />
           <div className="av-write-actions">
-            <Button onClick={() => void saveNote()}>{w("points.range_save")}</Button>
+            <Button variant="secondary" onClick={() => void saveNote()}>{w("points.range_save")}</Button>
             {noteSaved && <span role="status">{w("points.range_saved")}</span>}
             {dictatedOn && <span className="av-muted">{w("points.dictated", { date: formatDue(dictatedOn, undefined) })}</span>}
           </div>

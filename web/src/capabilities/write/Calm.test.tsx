@@ -7,7 +7,7 @@ import { renderAt } from "../../test/render";
 import { Q1, serve, sides, views } from "./testing";
 import { WRITE_MESSAGES as M } from "./words";
 
-const primaries = (root: HTMLElement) => root.querySelectorAll(".av-button:not([class*='av-button--'])");
+const primaries = (root: HTMLElement) => root.querySelectorAll(".av-button:not(.av-button--secondary):not(.av-button--outline):not(.av-button--quiet):not(.av-button--link):not(.av-button--danger)");
 
 test("screen 14 shows exactly one primary button", async () => {
   serve("launch");
