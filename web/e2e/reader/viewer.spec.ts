@@ -36,6 +36,13 @@ async function expectAligned(page: Page, turn: number) {
   for (let i = 0; i < BBOXES.length; i++) await expectOver(boxes.nth(i), frame, turnedBox(BBOXES[i]!, turn));
 }
 
+/** Tools other than Turn page, zoom and Find words sit in the More tools panel, which sits beside the "Page view" bar and closes after a pick. */
+async function moreTool(page: Page, name: string) {
+  const more = page.getByRole("button", { name: "More tools" });
+  if ((await more.getAttribute("aria-expanded")) !== "true") await more.click();
+  await page.getByRole("group", { name: "More tools" }).getByRole("button", { name, exact: true }).click();
+}
+
 async function openRead(page: Page) {
   await page.goto(`/cases/${CASE_A}/read/118`);
   await page.getByRole("button", { name: "Mark as read" }).click();
@@ -50,18 +57,18 @@ for (const { name, pack } of PACKS) {
       const bar = page.getByRole("toolbar", { name: "Page view" });
       await expectAligned(page, 0);
       for (const turn of [90, 180, 270]) {
-        await bar.getByRole("button", { name: "Turn right" }).click();
+        await bar.getByRole("button", { name: "Turn page" }).click();
         await expectAligned(page, turn);
       }
       for (const turn of [180, 90, 0]) {
-        await bar.getByRole("button", { name: "Undo turn" }).click();
+        await moreTool(page, "Undo turn");
         await expectAligned(page, turn);
       }
-      await bar.getByRole("button", { name: "Turn left" }).click();
+      await moreTool(page, "Turn left");
       await expectAligned(page, 270);
       await page.keyboard.press("t");
       await expectAligned(page, 0);
-      await bar.getByRole("button", { name: "Upside down" }).click();
+      await moreTool(page, "Upside down");
       await expectAligned(page, 180);
       await expect.poll(() => seen.turns).toEqual([90, 180, 270, 180, 90, 0, 270, 0, 180]);
     });
@@ -69,7 +76,7 @@ for (const { name, pack } of PACKS) {
     test("09 the word picker's words sit over the page's words on a turned page", async ({ page }) => {
       await stubReader(page, pack);
       await openRead(page);
-      await page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "Turn right" }).click();
+      await page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "Turn page" }).click();
       await page.getByRole("button", { name: "Change a detail" }).click();
       const frame = (await page.getByTestId("page-turn").boundingBox())!;
       for (const word of WORDS) await expectOver(page.getByRole("button", { name: word.text, exact: true }), frame, turnedBox(word.box!, 90));
@@ -78,7 +85,7 @@ for (const { name, pack } of PACKS) {
     test("09 the turn is kept: the page opens turned the next time", async ({ page }) => {
       await stubReader(page, pack);
       await page.goto(`/cases/${CASE_A}/read/118`);
-      await page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "Turn left" }).click();
+      await moreTool(page, "Turn left");
       await expect(page.getByTestId("page-turn")).toHaveAttribute("data-turn", "270");
       await page.reload();
       await expect(page.getByTestId("page-turn")).toHaveAttribute("data-turn", "270");
@@ -95,13 +102,13 @@ for (const { name, pack } of PACKS) {
       await stubReader(page, pack);
       await openRead(page);
       const bar = page.getByRole("toolbar", { name: "Page view" });
-      await bar.getByRole("button", { name: "Whole page" }).click();
+      await moreTool(page, "Whole page");
       const paper = (await page.locator(".rd-paper").boundingBox())!;
       const fitted = (await page.getByTestId("page-turn").boundingBox())!;
       expect(fitted.height).toBeLessThanOrEqual(paper.height + 1);
       expect(fitted.width).toBeLessThanOrEqual(paper.width + 1);
 
-      await bar.getByRole("button", { name: "Fit width" }).click();
+      await moreTool(page, "Fit width");
       await page.locator(".rd-paper").hover();
       await page.keyboard.down("Control");
       await page.mouse.wheel(0, -100);
@@ -119,7 +126,7 @@ for (const { name, pack } of PACKS) {
       await expect(strip.getByRole("option", { name: "Page 118, not read yet" })).toHaveAttribute("aria-selected", "true");
       await expect(strip.getByRole("option", { name: "Page 117, read" })).toBeVisible();
       expect(await strip.getByRole("option").count()).toBeLessThan(60);
-      await page.getByRole("toolbar", { name: "Page view" }).getByRole("button", { name: "Make it clearer" }).click();
+      await moreTool(page, "Make it clearer");
       await expect(page.getByRole("slider", { name: "Brightness" })).toBeVisible();
       await checkScreen(page);
 
