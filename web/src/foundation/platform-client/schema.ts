@@ -4665,6 +4665,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/support/cell/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Cell Status
+         * @description Speech and the key service set up, the worker's heartbeat, and how much work waits or is paused.
+         */
+        get: operations["cell_status_v1_support_cell_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/support/custody-transfers": {
         parameters: {
             query?: never;
@@ -4679,6 +4699,46 @@ export interface paths {
          * @description (legal check) Behind the flag `support_custody_transfer` until the legal review of custody is done.
          */
         post: operations["record_custody_transfer_v1_support_custody_transfers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/organisations/{organisation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Look Up Organisation
+         * @description Members, invites, owners, open cases and reassignments; never a name, an email or an invite token.
+         */
+        get: operations["look_up_organisation_v1_support_organisations__organisation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/people": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Look Up People
+         * @description An account's state by its sign-in email: MFA, backup codes, email change, custodian, closure blockers.
+         */
+        get: operations["look_up_people_v1_support_people_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -10996,6 +11056,22 @@ export interface components {
             /** Cases */
             cases: components["schemas"]["SupportCase"][];
         };
+        /**
+         * SupportCellStatus
+         * @description How the cell is running. `speech_ok`, `key_service_ok`: set up in this cell.
+         */
+        SupportCellStatus: {
+            /** Key Service Ok */
+            key_service_ok: boolean;
+            /** Paused Jobs */
+            paused_jobs: number;
+            /** Queue Depth */
+            queue_depth: number;
+            /** Speech Ok */
+            speech_ok: boolean;
+            /** Worker Heartbeat Age Seconds */
+            worker_heartbeat_age_seconds: number | null;
+        };
         /** SupportClose */
         SupportClose: {
             /** Delete After */
@@ -11119,6 +11195,37 @@ export interface components {
              */
             read_status: "not_needed" | "reading" | "read" | "failed";
         };
+        /**
+         * SupportInvite
+         * @description An invite's state; never its token or the invitee's email.
+         */
+        SupportInvite: {
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "expert" | "assistant" | "viewer";
+            /**
+             * Sent At
+             * Format: date-time
+             */
+            sent_at: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "pending" | "accepted" | "cancelled" | "expired";
+        };
         /** SupportJob */
         SupportJob: {
             /** Attempts */
@@ -11154,6 +11261,26 @@ export interface components {
              */
             updated_at: string;
         };
+        /** SupportMember */
+        SupportMember: {
+            /** Ended At */
+            ended_at: string | null;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "owner" | "admin" | "expert" | "assistant" | "viewer";
+            /**
+             * Started At
+             * Format: date-time
+             */
+            started_at: string;
+        };
         /** SupportNamedExpertChange */
         SupportNamedExpertChange: {
             /**
@@ -11181,6 +11308,39 @@ export interface components {
              */
             state: "built" | "downloaded" | "revoked";
         };
+        /**
+         * SupportOrganisation
+         * @description An organisation for the console: never its name.
+         */
+        SupportOrganisation: {
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Invites */
+            invites: components["schemas"]["SupportInvite"][];
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "personal" | "team";
+            /** Members */
+            members: components["schemas"]["SupportMember"][];
+            /** Open Case Count */
+            open_case_count: number;
+            /**
+             * Organisation Id
+             * Format: uuid
+             */
+            organisation_id: string;
+            /** Owner Count */
+            owner_count: number;
+            /** Reassignments */
+            reassignments: components["schemas"]["SupportReassignment"][];
+        };
         /** SupportPages */
         SupportPages: {
             /** Needs Clearer Copy */
@@ -11196,6 +11356,43 @@ export interface components {
             /** Unreadable */
             unreadable: number;
         };
+        /**
+         * SupportPerson
+         * @description An account's state for a support call: flags, counts, dates and ids, never a name or an email.
+         */
+        SupportPerson: {
+            /** Blocking Case Ids For Closure */
+            blocking_case_ids_for_closure: string[];
+            /** Closed At */
+            closed_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Custodian Set */
+            custodian_set: boolean;
+            /** Last Mfa At */
+            last_mfa_at: string | null;
+            /** Mfa Enrolled */
+            mfa_enrolled: boolean | null;
+            /** Mfa Locked Until */
+            mfa_locked_until: string | null;
+            /** Pending Email Change */
+            pending_email_change: boolean;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /** Recovery Codes Left */
+            recovery_codes_left: number;
+        };
+        /** SupportPersonList */
+        SupportPersonList: {
+            /** People */
+            people: components["schemas"]["SupportPerson"][];
+        };
         /** SupportQuestions */
         SupportQuestions: {
             /** Instruction Versions */
@@ -11205,6 +11402,19 @@ export interface components {
              * @enum {string}
              */
             state: "none" | "to_check" | "confirmed";
+        };
+        /** SupportReassignment */
+        SupportReassignment: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /**
+             * Changed At
+             * Format: date-time
+             */
+            changed_at: string;
         };
         /** SupportReport */
         SupportReport: {
@@ -24769,6 +24979,35 @@ export interface operations {
             };
         };
     };
+    cell_status_v1_support_cell_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportCellStatus"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     record_custody_transfer_v1_support_custody_transfers_post: {
         parameters: {
             query?: never;
@@ -24789,6 +25028,86 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CustodyTransfer"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    look_up_organisation_v1_support_organisations__organisation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organisation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportOrganisation"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    look_up_people_v1_support_people_get: {
+        parameters: {
+            query: {
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportPersonList"];
                 };
             };
             /** @description Validation Error */

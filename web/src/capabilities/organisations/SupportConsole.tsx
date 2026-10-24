@@ -11,6 +11,7 @@ import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-c
 import { Button, TextField } from "../../foundation/ui";
 import { MessageNotice, NotFoundPage, OWN_ERRORS, type Message } from "./common";
 import { flag } from "./flags";
+import { SupportLookups } from "./SupportLookups";
 import { w } from "./words";
 
 type Found = Schemas["SupportCase"];
@@ -82,6 +83,7 @@ export function SupportConsole() {
         </ul>
       )}
       {served.length > 0 && flag("support_custody_transfer") && <Custody cases={served.map((c) => c.case_id)} />}
+      <SupportLookups onHidden={() => setHidden(true)} />
     </div>
   );
 }

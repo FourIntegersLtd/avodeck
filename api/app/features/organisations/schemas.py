@@ -307,6 +307,71 @@ class SupportCaseDetail(BaseModel):
     deadlines: SupportDeadlines
 
 
+class SupportPerson(BaseModel):
+    """An account's state for a support call: flags, counts, dates and ids, never a name or an email."""
+
+    person_id: uuid.UUID
+    created_at: datetime
+    closed_at: datetime | None
+    mfa_enrolled: bool | None  # null: never signed in, so not known
+    mfa_locked_until: datetime | None
+    recovery_codes_left: int
+    last_mfa_at: datetime | None
+    pending_email_change: bool
+    custodian_set: bool
+    blocking_case_ids_for_closure: list[uuid.UUID]
+
+
+class SupportPersonList(BaseModel):
+    people: list[SupportPerson]
+
+
+class SupportMember(BaseModel):
+    person_id: uuid.UUID
+    role: OrgRole
+    started_at: datetime
+    ended_at: datetime | None
+
+
+class SupportInvite(BaseModel):
+    """An invite's state; never its token or the invitee's email."""
+
+    id: uuid.UUID
+    role: OrgRole
+    state: Literal["pending", "accepted", "cancelled", "expired"]
+    sent_at: datetime
+    expires_at: datetime
+
+
+class SupportReassignment(BaseModel):
+    case_id: uuid.UUID
+    changed_at: datetime
+
+
+class SupportOrganisation(BaseModel):
+    """An organisation for the console: never its name."""
+
+    organisation_id: uuid.UUID
+    kind: Literal["personal", "team"]
+    created_at: datetime
+    closed_at: datetime | None
+    owner_count: int
+    open_case_count: int
+    members: list[SupportMember]
+    invites: list[SupportInvite]
+    reassignments: list[SupportReassignment]
+
+
+class SupportCellStatus(BaseModel):
+    """How the cell is running. `speech_ok`, `key_service_ok`: set up in this cell."""
+
+    speech_ok: bool
+    key_service_ok: bool
+    worker_heartbeat_age_seconds: int | None
+    queue_depth: int
+    paused_jobs: int
+
+
 class CustodyTransferCreate(Strict):
     case_id: uuid.UUID
     to: Literal["custodian", "organisation"]

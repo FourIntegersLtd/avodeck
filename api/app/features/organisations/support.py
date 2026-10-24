@@ -19,13 +19,17 @@ from app.core.email import Mailer, support_access_granted_mail
 from app.core.errors import ApiError, conflict
 from app.core.notifications import send_mail
 from app.core.packs import MergedPack, PackError, PackLibrary
+from app.core.routes.auth import MFA_MAX_FAILURES, MFA_WINDOW
 from app.features.organisations import repo
 from app.features.organisations.schemas import (
     SupportCase,
     SupportCaseDetail,
     SupportCaseGrant,
+    SupportCellStatus,
     SupportGrant,
     SupportGrantCreate,
+    SupportOrganisation,
+    SupportPerson,
 )
 
 
@@ -116,3 +120,26 @@ async def revoke(conn: AsyncConnection, case_id: uuid.UUID, grant_id: uuid.UUID)
         raise conflict()
     await repo.revoke_grant(conn, grant_id)
     await audit.record(conn, action="support_access.revoked", target=f"grant:{grant_id}", case_id=case_id)
+
+
+async def console_people(conn: AsyncConnection, q: str) -> list[SupportPerson]:
+    """People whose sign-in email is `q`; each one found is a look at them, in the audit trail."""
+    email = q.strip()
+    if "@" not in email:
+        return []
+    found = [SupportPerson(**r) for r in await repo.support_person(conn, email, MFA_MAX_FAILURES, MFA_WINDOW)]
+    for person in found:
+        await audit.record(conn, action="support.person_looked_up", target=f"person:{person.person_id}")
+    return found
+
+
+async def console_organisation(conn: AsyncConnection, org_id: uuid.UUID) -> SupportOrganisation:
+    found = await repo.support_organisation(conn, org_id)
+    if found is None:
+        raise not_found()
+    await audit.record(conn, action="support.org_looked_up", target=f"organisation:{org_id}", organisation_id=org_id)
+    return SupportOrganisation(**found)
+
+
+async def console_cell(conn: AsyncConnection, *, speech_ok: bool, key_service_ok: bool) -> SupportCellStatus:
+    return SupportCellStatus(speech_ok=speech_ok, key_service_ok=key_service_ok, **await repo.support_cell_status(conn))
