@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable
+from typing import Any
 
 import pytest
 from psycopg.conninfo import conninfo_to_dict, make_conninfo
@@ -156,7 +157,7 @@ async def test_counting_every_step_meter_is_one_round_trip(counted: tuple[Callab
     make, turns = counted
     db = make()
     await db.open()
-    steps = [
+    steps: list[dict[str, Any]] = [
         {"key": "a", "meters": ["questions_confirmed"]},
         {"key": "b", "meters": ["pages_read", "facts_decided"]},
         {"key": "c", "meters": ["questions_with_opinion", "report_stages", "unknown_meter"]},
