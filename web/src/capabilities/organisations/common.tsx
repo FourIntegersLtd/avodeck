@@ -1,5 +1,5 @@
 // Small parts shared by slice O's screens.
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useStepUp } from "../../foundation/lib/stepUp";
@@ -20,7 +20,12 @@ export const OWN_ERRORS = {
 export function useAct(own: Record<string, string> = {}) {
   const stepUp = useStepUp();
   const [message, setMessage] = useState<Message>(null);
+  const [busy, setBusy] = useState(false);
+  const running = useRef(false);
   const act = async <T,>(action: () => Promise<T>, success?: (result: T) => string): Promise<T | undefined> => {
+    if (running.current) return undefined;
+    running.current = true;
+    setBusy(true);
     setMessage(null);
     try {
       const result = await stepUp(action);
@@ -29,9 +34,12 @@ export function useAct(own: Record<string, string> = {}) {
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, { ...OWN_ERRORS, ...own }) });
       return undefined;
+    } finally {
+      running.current = false;
+      setBusy(false);
     }
   };
-  return { act, message, setMessage };
+  return { act, busy, message, setMessage };
 }
 
 export function MessageNotice({ message }: { message: Message }) {

@@ -48,7 +48,7 @@ export function Messages() {
               <div className="av-row">
                 {m.case_id && m.case_label && <Link to={`/cases/${m.case_id}`}>{t("messages.open", { case: m.case_label })}</Link>}
                 {!m.read_at && (
-                  <Button variant="secondary" onClick={() => void markRead(m.id)}>
+                  <Button variant="secondary" onClick={() => markRead(m.id)}>
                     {t("messages.mark_read")}
                   </Button>
                 )}

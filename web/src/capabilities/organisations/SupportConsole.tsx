@@ -8,7 +8,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, TextField } from "../../foundation/ui";
+import { Button, TextField, useBusy } from "../../foundation/ui";
 import { MessageNotice, NotFoundPage, OWN_ERRORS, type Message } from "./common";
 import { flag } from "./flags";
 import { w } from "./words";
@@ -34,6 +34,7 @@ export function SupportConsole() {
   const [cases, setCases] = useState<Found[] | null>(null);
   const [hidden, setHidden] = useState(false);
   const [message, setMessage] = useState<Message>(null);
+  const { busy, run } = useBusy();
 
   if (hidden) return <NotFoundPage />;
   const search = async (e: FormEvent) => {
@@ -53,9 +54,9 @@ export function SupportConsole() {
     <div className="av-page av-page--narrow av-stack">
       <h1>{w("console.title")}</h1>
       <p>{w("console.intro")}</p>
-      <form className="av-row av-org-search" onSubmit={(e) => void search(e)} noValidate>
+      <form className="av-row av-org-search" onSubmit={(e) => void run(() => search(e))} noValidate>
         <TextField label={w("console.query")} name="q" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <Button type="submit">{w("console.search")}</Button>
+        <Button type="submit" busy={busy}>{w("console.search")}</Button>
       </form>
       <MessageNotice message={message} />
       {cases && cases.length === 0 && <p className="av-muted">{w("console.none")}</p>}
@@ -92,6 +93,7 @@ function Custody({ cases }: { cases: string[] }) {
   const [to, setTo] = useState<"custodian" | "organisation">("custodian");
   const [evidence, setEvidence] = useState("");
   const [message, setMessage] = useState<Message>(null);
+  const { busy, run } = useBusy();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setMessage(null);
@@ -107,7 +109,7 @@ function Custody({ cases }: { cases: string[] }) {
       <h2 id="custody-title">{w("console.custody.title")}</h2>
       <p>{w("console.custody.intro")}</p>
       <MessageNotice message={message} />
-      <form className="av-stack" onSubmit={(e) => void submit(e)} noValidate>
+      <form className="av-stack" onSubmit={(e) => void run(() => submit(e))} noValidate>
         <div className="av-field">
           <label className="av-field__label" htmlFor="custody-case">
             {w("console.custody.case")}
@@ -130,7 +132,7 @@ function Custody({ cases }: { cases: string[] }) {
           </select>
         </div>
         <TextField label={w("console.custody.evidence")} name="evidence" autoComplete="off" value={evidence} onChange={(e) => setEvidence(e.target.value)} />
-        <Button type="submit">{w("console.custody.button")}</Button>
+        <Button type="submit" busy={busy}>{w("console.custody.button")}</Button>
       </form>
     </section>
   );
