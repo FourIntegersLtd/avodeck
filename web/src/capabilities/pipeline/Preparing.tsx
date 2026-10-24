@@ -108,6 +108,20 @@ export function Preparing() {
     }
   }
 
+  async function retry() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      await unwrap(api.POST("/v1/cases/{case_id}/process/retry", casePath(caseId)));
+      setStopped(false);
+      await check();
+    } catch (error) {
+      setActionError(errorMessage(error, OWN));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function stop() {
     setBusy(true);
     setActionError(null);
@@ -168,7 +182,7 @@ export function Preparing() {
       {job?.status === "failed" && (
         <Notice tone="error">
           <p>{w("preparing.failed")}</p>
-          {uploads && <Button variant="secondary" onClick={start} disabled={busy}>{w("preparing.again")}</Button>}
+          {uploads && <Button variant="secondary" onClick={retry} disabled={busy}>{w("preparing.again")}</Button>}
         </Notice>
       )}
       {job === null && uploads && (

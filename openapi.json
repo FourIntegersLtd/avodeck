@@ -13202,6 +13202,19 @@
         "title": "ProcessingJob",
         "type": "object"
       },
+      "ProcessingRetried": {
+        "properties": {
+          "requeued": {
+            "title": "Requeued",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requeued"
+        ],
+        "title": "ProcessingRetried",
+        "type": "object"
+      },
       "Profile": {
         "properties": {
           "currency": {
@@ -30215,6 +30228,60 @@
           }
         },
         "summary": "Cancel Processing",
+        "tags": [
+          "pipeline"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/process/retry": {
+      "post": {
+        "description": "Try again: puts the case's failed processing jobs back on the queue (failed to queued). Finished\npages are never read again. Nothing failed is not an error: the answer is a count of 0.",
+        "operationId": "retry_processing_v1_cases__case_id__process_retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProcessingRetried"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Retry Processing",
         "tags": [
           "pipeline"
         ]

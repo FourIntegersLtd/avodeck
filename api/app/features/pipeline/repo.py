@@ -1194,6 +1194,27 @@ async def request_cancel(conn: AsyncConnection, case_id: uuid.UUID, person_id: u
     return await cur.fetchone() is not None
 
 
+async def failed_job_ids(
+    conn: AsyncConnection, case_id: uuid.UUID, kinds: tuple[str, ...]
+) -> list[tuple[uuid.UUID, str]]:
+    """The case's failed jobs of these kinds, oldest first: id and kind only."""
+    cur = await conn.execute(
+        "select id, kind from app.jobs where case_id = %s and kind = any(%s) and status = 'failed'"
+        " order by created_at, id",
+        (case_id, list(kinds)),
+    )
+    return [(r[0], r[1]) for r in await cur.fetchall()]
+
+
+async def requeue_failed(
+    conn: AsyncConnection, job_id: uuid.UUID, queue: str, priority: int, changes_case: bool
+) -> bool:
+    """failed -> queued through the database function; False when the job was no longer failed."""
+    cur = await conn.execute("select app.requeue_failed_job(%s, %s, %s, %s)", (job_id, queue, priority, changes_case))
+    row = await cur.fetchone()
+    return bool(row and row[0])
+
+
 async def cancel_requested(conn: AsyncConnection, job_id: uuid.UUID) -> bool:
     """Whether a stop was asked for after this job was queued."""
     cur = await conn.execute(

@@ -179,15 +179,20 @@ describe.each([
 
   test("a failed job says so in plain words and offers to try again", async () => {
     mockCase(pack);
-    server.use(http.post(`/v1/cases/${CASE_ID}/process`, () => json({ job_id: NEXT_JOB }, 202)));
+    let retried = 0;
+    server.use(http.post(`/v1/cases/${CASE_ID}/process/retry`, () => { retried += 1; return json({ requeued: 1 }); }));
     const { user } = renderAt(PATH);
     await waitFor(() => expect(FakeEventSource.all.length).toBe(1));
+    server.use(http.get(`/v1/cases/${CASE_ID}/process`, () => json({ job: processingJob({ id: NEXT_JOB, status: "queued", step: null, pct: 0, eta_seconds: null }) })));
     act(() => latest().emit({ status: "failed", step: "ocr", pct: 35, eta_seconds: null, error_code: "ocr_failed" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Something went wrong while preparing your bundle. Your files are kept.");
     expect(alert).not.toHaveTextContent("ocr_failed");
     await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(retried).toBe(1);
     await waitFor(() => expect(latest().url).toMatch(new RegExp(`/v1/jobs/${NEXT_JOB}/events$`)));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   test.each(["service_busy", "model_unavailable", "cost_guard", "key_service_unreachable"])(
