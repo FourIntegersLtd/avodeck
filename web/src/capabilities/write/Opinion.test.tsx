@@ -29,9 +29,9 @@ describe.each<PackRun>(["launch", "fixture"])("under the %s packs", (run) => {
     expect(screen.getByRole("button", { name: /Bleeding for 3 weeks.*p\.118/ })).toBeInTheDocument();
     expect(screen.getByText("Guidance one")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: M["write.opinion.points_open"]! })).toHaveAttribute("href", `/cases/${CASE_A}/points?q=${Q1}`);
-    const group = screen.getByRole("radiogroup", { name: M["write.opinion.view"]! });
+    const group = screen.getByRole("group", { name: M["write.opinion.view"]! });
     expect(screen.getByRole("heading", { name: M["write.opinion.view"]! })).toBeInTheDocument();
-    for (const v of views(run)) expect(within(group).getByRole("radio", { name: v.label })).toBeInTheDocument();
+    for (const v of views(run)) expect(within(group).getByRole("button", { name: v.label })).toBeInTheDocument();
     expect(screen.getByText(M["write.opinion.yours_only"]!)).toBeInTheDocument();
     expect(screen.getByText(workspace(run).legal_test)).toBeInTheDocument();
     if (run === "fixture") expect(document.body.textContent).not.toMatch(launchWords());
@@ -67,7 +67,7 @@ test("the view, the provisional flag and the test text are saved with the opinio
   const { sent, record } = serve("launch");
   save(sent, record);
   const { user } = renderAt(url);
-  await user.click(await screen.findByRole("radio", { name: views("launch")[2]!.label }));
+  await user.click(await screen.findByRole("button", { name: views("launch")[2]!.label }));
   await user.click(screen.getByRole("checkbox", { name: M["write.opinion.provisional"]! }));
   // The pack's test is shown as the board does; the expert's own wording sits behind a button.
   expect(screen.queryByLabelText(M["write.opinion.test"]!)).not.toBeInTheDocument();
