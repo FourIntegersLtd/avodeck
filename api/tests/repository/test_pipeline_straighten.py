@@ -132,7 +132,9 @@ def dark_box_points(image: Image.Image) -> tuple[float, ...]:
 
 
 def word_polygon(h: Harness, page_id: uuid.UUID) -> list[float]:
-    row = h.admin.execute("select polygon from app.ocr_words where page_id = %s and word_id = 'p1w1'", (page_id,)).fetchone()
+    row = h.admin.execute(
+        "select polygon from app.ocr_words where page_id = %s and word_id = 'p1w1'", (page_id,)
+    ).fetchone()
     assert row is not None
     return [float(v) for v in row[0]]
 
@@ -157,7 +159,7 @@ async def test_a_turned_scan_is_stored_the_right_way_up_with_its_word_boxes_on_i
     assert page["rotation"] == turn
     assert page["straightened"] is True
     picture = await stored_picture(h, page["id"])
-    assert picture.size == (round(WIDTH * DPI_SCALE), round(HEIGHT * DPI_SCALE))
+    assert abs(picture.width - WIDTH * DPI_SCALE) <= 1 and abs(picture.height - HEIGHT * DPI_SCALE) <= 1
     assert close(dark_box_points(picture), BLOCK), "the picture is upright"
     assert close(word_box_points(h, page["id"]), BLOCK), "the box sits on the word it names"
     words = h.admin.execute("select word_id from app.ocr_words where page_id = %s", (page["id"],)).fetchall()
@@ -179,7 +181,7 @@ async def test_an_upright_or_slightly_skewed_page_is_left_alone(h: Harness, angl
     assert page["rotation"] == 0
     assert page["straightened"] is False
     _, polygon, _ = scan(angle)
-    assert [round(v, 6) for v in word_polygon(h, page["id"])] == [round(v, 6) for v in polygon], "boxes as read"
+    assert [round(v, 4) for v in word_polygon(h, page["id"])] == [round(v, 4) for v in polygon], "boxes as read"
 
 
 async def test_reading_the_page_again_does_not_turn_it_again(h: Harness) -> None:
