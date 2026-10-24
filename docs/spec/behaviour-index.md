@@ -47,7 +47,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `document_scans` | A | Worker | One per document | Scan result set once; split time set once | Case deletion |
 | `document_parts` | A | Worker | Many per email or zip | Insert only | Case deletion |
 | `exhibits` | A | Named expert or assistant | Many | Listed only | Case deletion |
-| `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation per state machine | Case deletion; quarantined images deleted earlier |
+| `pages` | Foundation (A, B) | Worker; named expert for flags | Many | Number permanent; quarantine, replacement, rotation (also set once by auto-straighten) per state machine | Case deletion; quarantined images deleted earlier |
 | `page_analysis` | A | Worker; named expert or assistant for duplicate review | One per page | Worker notes; duplicate review with If-Match; cleared when a quarantined page is deleted | Case deletion |
 | `page_embeddings` | A | Worker | One per page | Remade only when the embedder changes; made from stripped text | Case deletion |
 | `page_quarantines` | A | Worker or case member suggests; only named expert confirms or undoes | Many per page; one open | State machine in the database; image and text deleted once told or after the pack's days | Case deletion |

@@ -63,6 +63,7 @@ from app.features.pipeline import (
     repo,
 )
 from app.features.pipeline.render import render
+from app.features.pipeline.straighten import quarter_turn
 from app.features.pipeline.wiring import PipelineServices, current
 from app.features.pipeline.words import assess, turned, typed, usable_text_layer
 
@@ -332,6 +333,7 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                     conn, ctx.case_id, state.typed, purpose=transcription_purpose(page_id)
                 )
             page_pdf = None if typing is not None else await _page_pdf(conn, services, ctx.case_id, page_id)
+        straightened = False
         if page_pdf is None:
             page, source = typed((typing or b"").decode()), "expert"
         else:
@@ -347,7 +349,11 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                 except ServiceBusy:  # F5: back-off spent; the job waits and is retried later
                     raise ProcessingPaused("service_busy") from None
                 source = "ocr"
-            page = turned(found, state.rotation)
+            turn = state.rotation
+            if source == "ocr" and not before and not state.rotation and not state.straightened:
+                turn = quarter_turn(found.angle)  # first reading of a scan: store it the right way up
+                straightened = turn != 0
+            page = turned(found, turn)
         reading = assess(page, source)
         async with ctx.transaction() as conn:
             rows: list[repo.WordRow] = []
@@ -370,6 +376,15 @@ async def _read_words(ctx: JobContext, services: PipelineServices) -> None:
                         source,
                     )
                 )
+            if straightened and page_pdf is not None:
+                pictures = render(page_pdf, turn)
+                await _put_sealed(
+                    conn, services, ctx.case_id, paths.thumbnail_path(ctx.case_id, page_id), pictures.thumbnail
+                )
+                await _put_sealed(
+                    conn, services, ctx.case_id, paths.page_image_path(ctx.case_id, page_id), pictures.image
+                )
+                await repo.set_straightened(conn, page_id, turn)
             await repo.store_words(
                 conn,
                 page_id,

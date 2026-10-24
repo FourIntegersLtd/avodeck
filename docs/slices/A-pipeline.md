@@ -56,6 +56,7 @@ Using `evals/gb-eaw/clin-neg-breach/general-practice/bundles/synthetic-mrs-a/` (
 - [x] Appending 14 pages numbers them 901–914 and processes only those pages
 - [x] The instructing-party email draft lists the open missing items and clearer-copy pages, contains no patient name or NHS number, and returns a valid `mailto:` link; the request is logged
 - [x] Bundle summary returns counts by source, duplicates, unreadable pages, gaps and missing items
+- [x] A scan the reading service finds turned (angle snapped to 90/180/270; under 10 degrees is left) is stored the right way up when first read, using the stored `pages.rotation` the reader shares: picture, thumbnail and word boxes turn together, ids and page number unchanged; `pages.straightened` (migration 0118) marks it, a later reading never turns it again, and S08 shows the count (`bundle.straightened_*`)
 - [x] Screens 07, 08 and 08b pass Playwright + axe and match their canvas boards (and screen 30, under the launch and fixture packs)
 - [x] `ai_calls` records task, model ID, region, prompt version and tokens for every call, with no content
 

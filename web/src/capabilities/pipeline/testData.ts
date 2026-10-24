@@ -75,6 +75,7 @@ export function summary(pack: Schemas["CasePack"], over: Partial<Schemas["Bundle
     by_source: types.map((s, i) => ({ source_type: s.key, pages: i === 0 ? 1231 - each * (types.length - 1) : each })),
     duplicates: 37,
     unreadable: 31,
+    straightened: 0,
     gaps: 1,
     missing_items: 2,
     documents: documents() as unknown as Schemas["BundleSummary"]["documents"],

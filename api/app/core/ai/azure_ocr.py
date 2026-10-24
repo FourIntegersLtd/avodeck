@@ -178,6 +178,7 @@ def _result(model: str, analysed: dict[str, Any]) -> OcrResult:
                 number=int(page["pageNumber"]),
                 width=float(page.get("width") or 0.0),
                 height=float(page.get("height") or 0.0),
+                angle=float(page.get("angle") or 0.0),
                 words=tuple(
                     OcrWord(
                         id=word_id(int(page["pageNumber"]), n),
