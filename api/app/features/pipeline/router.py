@@ -61,8 +61,6 @@ from app.core.storage import SupabaseStorage
 from app.features.pipeline import missing, paths, repo, split, wiring
 from app.features.pipeline.schemas import (
     Appended,
-    Split,
-    SplitAsk,
     AppendRecords,
     BundleSummary,
     BundleVersion,
@@ -95,6 +93,8 @@ from app.features.pipeline.schemas import (
     SortedPage,
     SortedPages,
     SourceCount,
+    Split,
+    SplitAsk,
 )
 from app.features.pipeline.service import REPAIR_FACT_DATES, REPROCESS_CASE, SCAN_DOCUMENT
 
