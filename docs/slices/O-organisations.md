@@ -21,7 +21,7 @@ Agencies, chambers and NHS teams can work in Avodeck together. One person, one s
 - `POST /v1/cases/{id}/named-expert` 🔒 (before serving; 409 after)
 - `PUT /v1/me/custodian` 🔒; `POST /v1/me/close` 🔒
 - `GET/POST /v1/cases/{id}/support-access` 🔒 (POST); `DELETE /v1/cases/{id}/support-access/{grant_id}` 🔒
-- Support console: `GET /v1/support/cases?q=`, `GET /v1/support/cases/{case_id}` (staff, step-up on every call)
+- Support console: `GET /v1/support/cases?q=`, `GET /v1/support/cases/{case_id}` (staff, MFA completed at sign-in for the session, ADR 0020; actions keep the 10-minute step-up)
 - `POST /webhooks/stripe`: Avodeck's own subscription (seats per organisation), signature-verified; moved here from the foundation
 
 ## Tables owned
