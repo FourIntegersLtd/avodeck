@@ -15,7 +15,7 @@ code (rule 6), and tells the affected expert by a patient-free email when it wor
 from __future__ import annotations
 
 import uuid
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, cast
 
 from fastapi import Depends, Request
 from pydantic import BaseModel, ConfigDict
@@ -39,6 +39,7 @@ STEP_UP_FIRST: list[Any] = [Depends(require_step_up)]
 JOB_RESUME_FLAG = "support_job_resume"
 JOB_REQUEUE_FLAG = "support_job_requeue"
 
+JobStatus = Literal["queued", "running", "done", "failed", "paused"]
 JobReason = Literal["service_restored", "fault_fixed", "expert_asked"]
 
 _REFUSED = {
@@ -57,7 +58,7 @@ class JobActionResult(BaseModel):
     job_id: uuid.UUID
     case_id: uuid.UUID
     action: Literal["resume", "requeue"]
-    status: str
+    status: JobStatus
 
 
 async def _job_action(
@@ -74,7 +75,7 @@ async def _job_action(
         template = SUPPORT_JOB_RESUMED if action == "resume" else SUPPORT_JOB_REQUEUED
         mail = support_job_mail(done.expert_email, template=template, case_id=done.case_id, job_id=job_id)
         await send_mail(request.app.state.mailer, mail)
-    return JobActionResult(job_id=job_id, case_id=done.case_id, action=action, status=done.status or "")
+    return JobActionResult(job_id=job_id, case_id=done.case_id, action=action, status=cast(JobStatus, done.status))
 
 
 @support_router.post(

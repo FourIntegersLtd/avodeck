@@ -7502,8 +7502,11 @@ export interface components {
              * Format: uuid
              */
             job_id: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "done" | "failed" | "paused";
         };
         /** JobOut */
         JobOut: {

@@ -7609,6 +7609,13 @@
             "type": "string"
           },
           "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "paused"
+            ],
             "title": "Status",
             "type": "string"
           }
