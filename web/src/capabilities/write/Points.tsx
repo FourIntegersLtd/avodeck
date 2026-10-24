@@ -9,7 +9,7 @@ import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, DictationBar, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, PageRef, TextLink } from "../../foundation/ui";
-import { KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
+import { ActionLink, KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
 type Data = Schemas["Points"];
@@ -44,7 +44,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
 
   const [existing, setExisting] = useState<string | null>(null);
 
-  const attempt = async (work: () => Promise<void>) => {
+  const attempt = async (work: () => Promise<void>): Promise<void> => {
     setError(null);
     setExisting(null);
     try {
@@ -147,7 +147,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                     {point.status === "stale" && <p className="av-write-badge">{w("points.stale_point")}</p>}
                     <div className="av-write-actions">
                       {(point.status === "suggested" || point.status === "stale") && (
-                        <Button variant="quiet" onClick={() => void change(point, { status: "accepted" })}>
+                        <Button variant="quiet" onClick={() => change(point, { status: "accepted" })}>
                           {w("points.keep")}
                         </Button>
                       )}
@@ -182,9 +182,9 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                     {data.unused.map((fact) => (
                       <li key={fact.id} className="av-write-item av-write-item__head">
                         <span>{fact.value} <PageRef page={fact.page_no} /></span>
-                        <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void add(fact, side.code)}>
+                        <ActionLink onClick={() => add(fact, side.code)}>
                           {w("points.add_to", { side: side.label })}
-                        </button>
+                        </ActionLink>
                       </li>
                     ))}
                   </ul>
@@ -205,7 +205,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
           </p>
           <div className="av-write-actions">
             <TextLink to={`/cases/${caseId}/consultation/${r.fact.id}`}>{w("points.relevant_look")}</TextLink>
-            <Button variant="quiet" onClick={() => void dismissRelevant(r)}>
+            <Button variant="quiet" onClick={() => dismissRelevant(r)}>
               {w("points.relevant_dismiss")}
             </Button>
           </div>
@@ -227,7 +227,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
             rows={6}
           />
           <div className="av-write-actions">
-            <Button variant="secondary" onClick={() => void saveNote()}>{w("points.range_save")}</Button>
+            <Button variant="secondary" onClick={saveNote}>{w("points.range_save")}</Button>
             {noteSaved && <span role="status">{w("points.range_saved")}</span>}
             {dictatedOn && <span className="av-muted">{w("points.dictated", { date: formatDue(dictatedOn, undefined) })}</span>}
           </div>
@@ -254,12 +254,12 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                 ))}
               </p>
               <div className="av-write-actions">
-                <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void decide(claim, "confirmed")}>
+                <ActionLink onClick={() => decide(claim, "confirmed")}>
                   {w("points.claim_confirm")}
-                </button>
-                <button type="button" className="av-text-link av-write-linkbutton" onClick={() => void decide(claim, "dismissed")}>
+                </ActionLink>
+                <ActionLink onClick={() => decide(claim, "dismissed")}>
                   {w("points.claim_dismiss")}
-                </button>
+                </ActionLink>
               </div>
             </article>
           ))}
@@ -285,7 +285,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
           title={w("points.remove_title")}
           label={w("points.remove_reason")}
           confirm={w("points.remove_confirm")}
-          onConfirm={(reason) => void change(removing, { status: "dismissed", dismissed_reason: reason })}
+          onConfirm={(reason) => change(removing, { status: "dismissed", dismissed_reason: reason })}
           onClose={() => setRemoving(null)}
         />
       )}
