@@ -79,4 +79,12 @@ export function saveView(view: View) {
 /** Back to the defaults (signing out, or a test). */
 export function forgetView() {
   remembered = VIEW_DEFAULTS;
+  stripHidden = false;
+}
+
+/** Whether the page strip is hidden. Held for the visit (the guard allows no browser storage). */
+let stripHidden = false;
+export const loadStripHidden = (): boolean => stripHidden;
+export function saveStripHidden(hidden: boolean) {
+  stripHidden = hidden;
 }

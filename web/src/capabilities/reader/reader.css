@@ -68,9 +68,12 @@
 .rd-clearer__buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .rd-clearer__row { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; }
 .rd-clearer__row input { width: 160px; accent-color: var(--green); }
-.rd-viewer { position: relative; display: flex; gap: var(--space-3); flex: 1 1 auto; min-height: 0; }
+.rd-viewer { position: relative; display: flex; gap: 0; background: var(--surface); border-radius: 16px; box-shadow: var(--shadow-card); overflow: clip; flex: 1 1 auto; min-height: 0; }
 .rd-viewer > .rd-paper { flex: 1 1 0; min-width: 0; }
-.rd-strip { flex: 0 0 116px; overflow-y: auto; position: relative; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); }
+.rd-strip-col { flex: 0 0 160px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+.rd-strip-col__toggle, .rd-strip-show { min-height: 52px; gap: 6px; flex: none; }
+.rd-strip-show { position: absolute; top: 0; left: 0; z-index: 3; border-radius: 0 0 12px 0; }
+.rd-strip { flex: 1 1 0; min-height: 0; overflow-y: auto; position: relative; background: var(--surface); }
 .rd-strip:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .rd-strip__track { position: relative; }
 .rd-strip__item { position: absolute; left: 0; right: 0; height: 136px; box-sizing: border-box; padding: 8px 10px; display: flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; border: 2px solid transparent; border-radius: 4px; }
@@ -84,13 +87,13 @@
 .rd-page--sized { position: absolute; left: 50%; top: 50%; }
 .rd-page--sized > .rd-page__image { width: 100%; height: 100%; }
 .rd-paper--dragging { cursor: grabbing; user-select: none; }
-.rd-paper { touch-action: none; overflow: auto; flex: 1 1 auto; min-height: 0; max-height: none; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 12px 32px rgba(15, 61, 44, 0.1); }
+.rd-paper { touch-action: none; overflow: auto; flex: 1 1 auto; min-height: 0; max-height: none; background: var(--surface); border: 0; border-radius: 0; box-shadow: none; }
 @media (max-width: 900px) {
   .rd-work { flex-wrap: wrap; }
   .rd-split { display: none; }
   .rd-pane, .rd-side { flex: 1 1 100%; max-width: none; }
   .rd-paper { max-height: 55vh; flex: none; }
-  .rd-strip { display: none; }
+  .rd-strip-col, .rd-strip-show { display: none; }
   .rd-viewer { display: block; }
 }
 .rd-page { position: relative; }
