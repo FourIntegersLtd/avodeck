@@ -11756,6 +11756,11 @@
             ],
             "title": "Superseded By Page No"
           },
+          "turn": {
+            "description": "How the page is turned for reading, clockwise: 0, 90, 180 or 270. Display only.",
+            "title": "Turn",
+            "type": "integer"
+          },
           "unreadable": {
             "title": "Unreadable",
             "type": "boolean"
@@ -11769,6 +11774,7 @@
           "in_period",
           "unreadable",
           "duplicate_of_page_no",
+          "turn",
           "period_start",
           "period_end",
           "rotation",
@@ -11931,6 +11937,11 @@
             ],
             "title": "Source Type"
           },
+          "turn": {
+            "description": "How the page is turned for reading, clockwise: 0, 90, 180 or 270. Display only.",
+            "title": "Turn",
+            "type": "integer"
+          },
           "unreadable": {
             "title": "Unreadable",
             "type": "boolean"
@@ -11943,7 +11954,8 @@
           "read",
           "in_period",
           "unreadable",
-          "duplicate_of_page_no"
+          "duplicate_of_page_no",
+          "turn"
         ],
         "title": "PageSummary",
         "type": "object"
@@ -18140,6 +18152,26 @@
           "version"
         ],
         "title": "TrialPackSettingsOut",
+        "type": "object"
+      },
+      "TurnIn": {
+        "description": "How the page is turned for reading, clockwise and absolute (so undo sends the turn before).",
+        "properties": {
+          "degrees": {
+            "enum": [
+              0,
+              90,
+              180,
+              270
+            ],
+            "title": "Degrees",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "degrees"
+        ],
+        "title": "TurnIn",
         "type": "object"
       },
       "UnreadablePage": {
@@ -28011,6 +28043,20 @@
               "title": "Page No",
               "type": "integer"
             }
+          },
+          {
+            "in": "query",
+            "name": "size",
+            "required": false,
+            "schema": {
+              "default": "page",
+              "enum": [
+                "page",
+                "small"
+              ],
+              "title": "Size",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -28239,6 +28285,79 @@
           }
         },
         "summary": "Save Transcription",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/pages/{page_no}/turn": {
+      "put": {
+        "description": "Turns the page for reading, at once. The picture, its words, their boxes and the facts stay as they\nwere and nothing is read again: the screen turns the picture and what is drawn on it together.",
+        "operationId": "turn_page_v1_cases__case_id__pages__page_no__turn_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "page_no",
+            "required": true,
+            "schema": {
+              "title": "Page No",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TurnIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Turn Page",
         "tags": [
           "reader"
         ]

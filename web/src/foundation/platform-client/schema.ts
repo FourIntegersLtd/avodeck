@@ -2125,6 +2125,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/pages/{page_no}/turn": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Turn Page
+         * @description Turns the page for reading, at once. The picture, its words, their boxes and the facts stay as they
+         *     were and nothing is read again: the screen turns the picture and what is drawn on it together.
+         */
+        put: operations["turn_page_v1_cases__case_id__pages__page_no__turn_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/pages/{page_no}/words": {
         parameters: {
             query?: never;
@@ -8882,6 +8903,11 @@ export interface components {
             source_type: string | null;
             /** Superseded By Page No */
             superseded_by_page_no: number | null;
+            /**
+             * Turn
+             * @description How the page is turned for reading, clockwise: 0, 90, 180 or 270. Display only.
+             */
+            turn: number;
             /** Unreadable */
             unreadable: boolean;
         };
@@ -8943,6 +8969,11 @@ export interface components {
             read: boolean;
             /** Source Type */
             source_type: string | null;
+            /**
+             * Turn
+             * @description How the page is turned for reading, clockwise: 0, 90, 180 or 270. Display only.
+             */
+            turn: number;
             /** Unreadable */
             unreadable: boolean;
         };
@@ -11098,6 +11129,17 @@ export interface components {
             sections: ("report" | "chronology" | "readiness" | "joint_statement" | "written_answers" | "legal_tests" | "guidance")[];
             /** Version */
             version: number;
+        };
+        /**
+         * TurnIn
+         * @description How the page is turned for reading, clockwise and absolute (so undo sends the turn before).
+         */
+        TurnIn: {
+            /**
+             * Degrees
+             * @enum {integer}
+             */
+            degrees: 0 | 90 | 180 | 270;
         };
         /** UnreadablePage */
         UnreadablePage: {
@@ -17236,7 +17278,9 @@ export interface operations {
     };
     page_image_v1_cases__case_id__pages__page_no__image_get: {
         parameters: {
-            query?: never;
+            query?: {
+                size?: "page" | "small";
+            };
             header?: never;
             path: {
                 case_id: string;
@@ -17380,6 +17424,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    turn_page_v1_cases__case_id__pages__page_no__turn_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TurnIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PageDetail"];
                 };
             };
             /** @description Validation Error */

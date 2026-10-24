@@ -6,6 +6,10 @@ Use these words in the interface. Users are GPs aged roughly 50–60 who are not
 |---|---|
 | Pages you've read | Coverage, read progress |
 | Pages we couldn't read | OCR failures, low-confidence pages |
+| Turn left, Turn right, Upside down | Rotate, orientation |
+| Make it clearer | Brightness/contrast filter, image enhancement |
+| Go to page, Pages (the page strip) | Jump to, thumbnails, navigator |
+| Fit width, Whole page | Fit to width, fit to page, viewport |
 | What we found on this page | Extracted entities, AI suggestions |
 | Checked by you | Verified |
 | Please check | Unverified, pending review |

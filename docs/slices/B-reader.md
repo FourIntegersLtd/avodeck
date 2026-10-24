@@ -27,7 +27,7 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance? (relevant | background | nothing), needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned
-`page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209).
+`page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209), `page_turns` (how a page is turned for reading, display only; page-owned, no case_id; migration 0213).
 
 Writes on contract tables: `facts.status` and `facts.value` / `fields` on edit (the original stays in `fact_verifications.old_value`); `pages.relevance`, `pages.transcribed_by_expert_text`, `pages.needs_clearer_copy`. Reads `pages`, `facts`, `ocr_words` (A).
 
@@ -82,7 +82,13 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 
 **Test inputs:** synthetic files in `bundles/synthetic-mrs-a/inputs/` (built by `make eval-data`), expected results in `evals/gb-eaw/clin-neg-breach/general-practice/expected/inputs.json` under `rotation`.
 
-**Extra endpoints:** `POST /v1/cases/{id}/pages/{page_id}/rotate`, `POST /v1/cases/{id}/facts/{fact_id}/move`.
+**Extra endpoints:** `POST /v1/cases/{id}/pages/{page_id}/rotate` (kept for clients; screen 09 no longer uses it), `PUT /v1/cases/{id}/pages/{page_no}/turn`, `GET …/pages/{page_no}/image?size=small`, `POST /v1/cases/{id}/facts/{fact_id}/move`.
+
+**Page viewer (approved 2026-10-23, PR1):**
+- [x] Turn left, Turn right, Upside down and Undo turn (keys T, Shift+T, U) turn the page at once; the turn is saved in `page_turns` (display only, nothing is read again); the picture, highlights and word picker turn as one, so they stay over the same words at 90, 180, 270 and after undo
+- [x] Fit width, Whole page, zoom buttons, Ctrl and the wheel, pinch, and drag to move about; the view stays as left on every page for the visit (held in memory; no browser storage)
+- [x] Go to page, and a page strip of every page with read marks: drawn a screenful at a time (4,000 pages), small pictures only for what is drawn, works from the keyboard
+- [x] Make it clearer: brightness and contrast change only how the picture is shown
 
 - [x] Only the named expert's `page_reads` unlock citing; an assistant's reads are recorded but don't count (permissions `page.read`)
 - [x] Only the named expert can verify facts (403 for anyone else)

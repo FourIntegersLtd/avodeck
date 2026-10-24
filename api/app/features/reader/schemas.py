@@ -17,6 +17,7 @@ class PageSummary(BaseModel):
     in_period: bool | None
     unreadable: bool
     duplicate_of_page_no: int | None
+    turn: int = Field(description="How the page is turned for reading, clockwise: 0, 90, 180 or 270. Display only.")
 
 
 class PageList(BaseModel):
@@ -182,6 +183,12 @@ class PageChange(BaseModel):
 
 class RotateIn(BaseModel):
     degrees: Literal[90, 180, 270]
+
+
+class TurnIn(BaseModel):
+    """How the page is turned for reading, clockwise and absolute (so undo sends the turn before)."""
+
+    degrees: Literal[0, 90, 180, 270]
 
 
 class JobOut(BaseModel):

@@ -5,7 +5,7 @@ import type { Schemas } from "../../foundation/platform-client";
 export const CASE_ID = "44444444-4444-4444-8444-444444444444";
 export const pageId = (n: number) => `99999999-9999-4999-8999-${String(n).padStart(12, "0")}`;
 export const factId = (n: number) => `88888888-8888-4888-8888-${String(n).padStart(12, "0")}`;
-export const EXPERT_ACTIONS = ["case.view_metadata", "case.view_content", "fact.verify", "page.read"];
+export const EXPERT_ACTIONS = ["case.view_metadata", "case.view_content", "fact.verify", "page.read", "page.rotate"];
 
 export function theCase(over: Partial<Schemas["Case"]> = {}): Schemas["Case"] {
   return {
@@ -47,6 +47,7 @@ export function pageDetail(n: number, over: Partial<Schemas["PageDetail"]> = {})
     period_end: null,
     unreadable: false,
     rotation: 0,
+    turn: 0,
     relevance: null,
     needs_clearer_copy: false,
     superseded_by_page_no: null,
