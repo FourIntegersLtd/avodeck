@@ -126,3 +126,20 @@ test("dismissing a check is busy in the dialog and sends once", async () => {
   await expectBusyOnce(user, within(dialog).getByRole("button", { name: M["write.opinion.dismiss_confirm"]! }), h.hits);
   h.release();
 });
+
+test("moving a point to the other side says so, and a second move sends nothing", async () => {
+  serve("launch");
+  const h = hold(() => ok(pointOut({ side: sides("launch")[1]!.code, version: 2 }), 2));
+  server.use(http.patch("/v1/cases/:caseId/points/:id", h.handler));
+  const { user } = renderAt(points);
+  await user.click(await screen.findByRole("button", { name: M["write.points.more"]! }));
+  await user.click(await screen.findByRole("button", { name: `Move to ${sides("launch")[1]!.label}` }));
+  expect(await screen.findByText("Moving the point…")).toBeInTheDocument();
+  expect(document.querySelector("#point-b1111111-1111-4111-8111-111111111111")).toHaveAttribute("aria-busy", "true");
+  await user.click(screen.getByRole("button", { name: M["write.points.more"]! }));
+  const again = screen.queryByRole("button", { name: `Move to ${sides("launch")[1]!.label}` });
+  if (again) await user.click(again);
+  expect(h.hits.n).toBe(1);
+  h.release();
+  await waitFor(() => expect(screen.queryByText("Moving the point…")).not.toBeInTheDocument());
+});
