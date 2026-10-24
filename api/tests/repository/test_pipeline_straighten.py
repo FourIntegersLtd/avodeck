@@ -171,7 +171,8 @@ async def test_a_thumbnail_is_drawn_upright_too(h: Harness) -> None:
     (page,) = h.pages()
     path = paths.thumbnail_path(h.case_id, page["id"])
     thumb = Image.open(io.BytesIO(await h.decrypt(await h.storage.get(path), path))).convert("L")
-    assert thumb.getpixel((int(BLOCK[0] / WIDTH * thumb.width) + 5, int(BLOCK[1] / HEIGHT * thumb.height) + 5)) < 60
+    pixel = thumb.getpixel((int(BLOCK[0] / WIDTH * thumb.width) + 5, int(BLOCK[1] / HEIGHT * thumb.height) + 5))
+    assert isinstance(pixel, int) and pixel < 60
 
 
 @pytest.mark.parametrize("angle", [0.0, 6.0, -8.5])
