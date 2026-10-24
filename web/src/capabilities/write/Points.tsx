@@ -8,7 +8,7 @@ import { formatDue } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, ifMatch, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, DictationBar, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, PageRef, TextLink } from "../../foundation/ui";
+import { Button, DictationBar, LinkButton, LoadError, Loading, Menu, MenuItem, MenuSection, Notice, PageRef, TextLink, Updating } from "../../foundation/ui";
 import { ActionLink, KindBadge, QuestionTabs, ReasonDialog, versionTag, WithQuestion, type Chosen } from "./shared";
 import { w } from "./words";
 
@@ -43,6 +43,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   const [dictatedOn, setDictatedOn] = useState(initial.range_note.dictated_on);
 
   const [existing, setExisting] = useState<string | null>(null);
+  const [moving, setMoving] = useState<string | null>(null);
 
   const attempt = async (work: () => Promise<void>): Promise<void> => {
     setError(null);
@@ -51,6 +52,16 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
       await work();
     } catch (err) {
       setError(errorMessage(err, { stale: "write.points.stale", conflict: "write.points.exists" }));
+    }
+  };
+
+  const move = async (point: Point, side: string) => {
+    if (moving) return;
+    setMoving(point.id);
+    try {
+      await change(point, { side });
+    } finally {
+      setMoving(null);
     }
   };
 
@@ -138,7 +149,8 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
               {mine.length === 0 && <p className="av-muted">{w("points.side_empty")}</p>}
               <ul className="av-write-list">
                 {mine.map((point) => (
-                  <li key={point.id} id={`point-${point.id}`} tabIndex={-1} className="av-write-item">
+                  <li key={point.id} id={`point-${point.id}`} tabIndex={-1} className={moving === point.id ? "av-write-item av-busy-dim" : "av-write-item"} aria-busy={moving === point.id}>
+                    {moving === point.id && <Updating label={w("points.moving")} />}
                     <div className="av-write-item__head">
                       <span>{point.fact.value}</span>
                       <PageRef page={point.fact.page_no} />
@@ -156,7 +168,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
                           {data.sides
                             .filter((s) => s.code !== point.side)
                             .map((s) => (
-                              <MenuItem key={s.code} onClick={() => void change(point, { side: s.code })}>
+                              <MenuItem key={s.code} onClick={() => void move(point, s.code)}>
                                 {w("points.move", { side: s.label })}
                               </MenuItem>
                             ))}
