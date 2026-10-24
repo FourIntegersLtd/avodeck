@@ -122,7 +122,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `deletion_certificates` | H | System | One per deleted case | Never change | Kept (no patient data) |
 | `deletion_ledger` | Foundation (H writes, through `app.purge_case`) | System | One per deleted case | Append only; replayed after restore (`app.replay_deletion_ledger`) | Kept |
 | `case_keys` | Foundation | System only | One per case | Never updated; destroyed at deletion by `app.destroy_case_key` (worker, in the case's own job) | Destroyed at deletion |
-| `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case; waits while its case is on hold; requested_by set by the system; step counts are whole numbers, never text | Metadata kept 90 days |
+| `jobs` | Foundation | System | Many | State machine; one case-changing job at a time per case; waits while its case is on hold; requested_by set by the system; step counts are whole numbers, never text; a failed processing job goes back to queued only through "Try again" (`app.requeue_failed_job`, slice A), which counts attempts again from none | Metadata kept 90 days |
 | `job_kind_actions` | Foundation | Migrations only | One per job kind | Read-only reference | Kept (no patient data) |
 | `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
 | `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |

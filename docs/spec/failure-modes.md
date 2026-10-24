@@ -8,7 +8,7 @@ What happens when things go wrong, so the code handles each case on purpose. Pri
 | F2 | Uploaded file is not a valid PDF, or is encrypted | Split step fails | Try qpdf repair; if encrypted, stop that document | "We couldn't open *filename*. It may be password-protected. Ask the {instructing_party} for an unlocked copy." Pre-filled 08b request | A |
 | F3 | Virus scan flags a file | ClamAV | Quarantine; never processed | "This file was blocked for safety." Audit entry | Foundation |
 | F4 | OCR fails on one page | Azure error after 3 tries | Mark page `unreadable`; continue with the rest | Page appears in "Pages we couldn't read" | A |
-| F5 | Azure or Bedrock outage or throttling | 429/5xx | Exponential back-off; job pauses up to 2 hours, then `failed` with a resume button | Progress shows "Waiting for the reading service, your bundle is safe" | A |
+| F5 | Azure or Bedrock outage or throttling | 429/5xx | Exponential back-off; job pauses up to 2 hours, then `failed` with a "Try again" button (`POST …/process/retry`, `case.upload`) | Progress shows "Waiting for the reading service, your bundle is safe" | A |
 | F6 | Worker crashes mid-job | Job heartbeat stops | Job re-queued; idempotent steps skip finished pages | Progress continues | Foundation |
 | F7 | Model returns invalid JSON or wrong schema | Pydantic validation | One retry; then that page's extraction is marked `needs_human` | Page still readable; "No suggestions for this page" | A |
 | F8 | Model cites words that don't contain the value | `provenance.check` | Reject value; one retry; then drop the suggestion | Nothing wrong shown; dropped count logged | A |

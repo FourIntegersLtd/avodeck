@@ -63,7 +63,9 @@ async def failed_job(h: Harness, kind: str = "process_bundle", code: str = "serv
     """A job that ran out of back-off: failed with the pause reason, no longer in the queue."""
     job = await h.enqueue(kind)
     h.admin.execute("set search_path = procrastinate, public")  # the queue's triggers use bare type names
-    h.admin.execute("update procrastinate.procrastinate_jobs set status = 'succeeded' where args->>'job_id' = %s", (str(job),))
+    h.admin.execute(
+        "update procrastinate.procrastinate_jobs set status = 'succeeded' where args->>'job_id' = %s", (str(job),)
+    )
     h.admin.execute("reset search_path")
     h.admin.execute("update app.jobs set status = 'running', attempts = 2 where id = %s", (job,))
     h.admin.execute("update app.jobs set status = 'failed', error_code = %s where id = %s", (code, job))

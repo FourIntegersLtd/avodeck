@@ -57,6 +57,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
+from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY
 from app.core.storage import SupabaseStorage
 from app.features.pipeline import missing, paths, repo, split, wiring
 from app.features.pipeline.schemas import (
@@ -81,6 +82,7 @@ from app.features.pipeline.schemas import (
     Processing,
     ProcessingCancelled,
     ProcessingJob,
+    ProcessingRetried,
     ProvenanceChange,
     QuarantineAsk,
     QuarantinePage,
@@ -623,6 +625,27 @@ async def cancel_processing(
     if cancelled:
         await audit.record(conn, action="bundle.processing_cancelled", target=f"case:{case_id}", case_id=case_id)
     return ProcessingCancelled(cancelled=cancelled)
+
+
+@pipeline_router.post("/{case_id}/process/retry", response_model=ProcessingRetried)
+async def retry_processing(
+    case_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    conn: DbConn,
+) -> ProcessingRetried:
+    """Try again: puts the case's failed processing jobs back on the queue (failed to queued). Finished
+    pages are never read again. Nothing failed is not an error: the answer is a count of 0."""
+    registry = wiring.registry()
+    kinds = (SCAN_DOCUMENT, PROCESS_BUNDLE, PROCESS_PAGES, REPROCESS_CASE)
+    requeued = 0
+    for job_id, name in await repo.failed_job_ids(conn, case_id, kinds):
+        kind = registry.kinds[name]
+        priority = INTERACTIVE_PRIORITY if kind.interactive else BATCH_PRIORITY
+        if await repo.requeue_failed(conn, job_id, registry.queue, priority, kind.changes_case):
+            requeued += 1
+    if requeued:
+        await audit.record(conn, action="bundle.processing_retried", target=f"case:{case_id}", case_id=case_id)
+    return ProcessingRetried(requeued=requeued)
 
 
 @pipeline_router.post("/{case_id}/reprocess", status_code=202, response_model=JobQueued)
