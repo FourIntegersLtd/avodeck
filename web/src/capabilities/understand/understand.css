@@ -231,3 +231,5 @@
 .av-calm-rows { list-style: none; margin: 0; padding: 0; }
 .av-calm-row { border-top: 1px solid var(--hairline, var(--line)); }
 .av-story-month:first-child .av-calm-row:first-of-type { border-top: 0; }
+/* Buttons are at least 52px tall on every screen; the shared control's options are 46px inside a padded track. */
+.av-understand-top .av-segmented-control__option, .av-story-window .av-segmented-control__option, .av-understand-asseen .av-segmented-control__option, .av-understand-decide .av-segmented-control__option { min-height: 52px; }

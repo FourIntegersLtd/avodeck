@@ -94,12 +94,14 @@ function FindingCard({ caseId, finding, canDecide, onDecided }: { caseId: string
         finding.decision && <p>{w("things.decision")}: {t(`understand.things.decision.${finding.decision}`)}</p>
       ) : (
         <>
-          <SegmentedControl
-            label={w("things.decision")}
-            value={decision || null}
-            onChange={choose}
-            options={DECISIONS.map((d) => ({ value: d, label: t(`understand.things.decision.${d}`) }))}
-          />
+          <div className="av-understand-decide">
+            <SegmentedControl
+              label={w("things.decision")}
+              value={decision || null}
+              onChange={choose}
+              options={DECISIONS.map((d) => ({ value: d, label: t(`understand.things.decision.${d}`) }))}
+            />
+          </div>
           {needs && (
             <>
               <p className="av-muted">{w("things.reason_hint")}</p>
