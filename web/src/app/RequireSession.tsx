@@ -1,6 +1,7 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { t } from "../foundation/i18n";
 import { MessagesProvider } from "../foundation/lib/messages";
+import { claimResourceCache } from "../foundation/lib/resourceCache";
 import { SessionContext } from "../foundation/lib/session";
 import { useResource } from "../foundation/lib/useResource";
 import { api, unwrap } from "../foundation/platform-client";
@@ -36,6 +37,7 @@ export function RequireSession() {
       </main>
     );
   }
+  claimResourceCache(session.data.me.person.id); // a different person empties the screen cache
   return (
     <SessionContext.Provider value={{ me: session.data.me, status: session.data.status }}>
       <MessagesProvider>

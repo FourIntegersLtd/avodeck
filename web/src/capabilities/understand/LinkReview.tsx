@@ -34,7 +34,7 @@ function LinkRow({ link, question, canDecide, onDecide }: { link: Link; question
 }
 
 function AddLink({ caseId, questions, onAdded }: { caseId: string; questions: Schemas["Questions"]["questions"]; onAdded: (l: Link) => void }) {
-  const checked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: { status: "verified" } } })), [caseId]);
+  const checked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/timeline", { params: { path: { case_id: caseId }, query: { status: "verified" } } })), [caseId], { cache: "understand/LinkReview#AddLink:checked" });
   const word = useKindWord();
   const [factId, setFactId] = useState("");
   const [questionId, setQuestionId] = useState("");
@@ -81,8 +81,8 @@ function AddLink({ caseId, questions, onAdded }: { caseId: string; questions: Sc
 }
 
 export function LinkReview({ caseId, can }: { caseId: string; can: (action: string) => boolean }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/fact-links", casePath(caseId))), [caseId]);
-  const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/fact-links", casePath(caseId))), [caseId], { cache: "understand/LinkReview#LinkReview:found" });
+  const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId], { cache: "understand/LinkReview#LinkReview:asked" });
   const [changed, setChanged] = useState<Record<string, Link>>({});
   const [added, setAdded] = useState<Link[]>([]);
   const [started, setStarted] = useState(false);

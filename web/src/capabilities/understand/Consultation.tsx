@@ -237,7 +237,7 @@ function PagePanel({ caseId, pageNo, marks }: { caseId: string; pageNo: number; 
 
 function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
   const word = useKindWord();
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/consultations/{fact_id}/later-notes", { params: { path: { case_id: caseId, fact_id: factId } } })), [caseId, factId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/consultations/{fact_id}/later-notes", { params: { path: { case_id: caseId, fact_id: factId } } })), [caseId, factId], { cache: "understand/Consultation#LaterNotes:found" });
   return (
     <section aria-labelledby="consult-later-notes" className="av-card av-stack av-understand-card">
       <h2 id="consult-later-notes">{w("consultation.later_notes_title")}</h2>
@@ -245,7 +245,7 @@ function LaterNotes({ caseId, factId }: { caseId: string; factId: string }) {
       {found.error ? (
         <LoadError onRetry={found.reload} />
       ) : !found.data ? (
-        <Loading />
+        <Loading inline />
       ) : found.data.notes.length === 0 ? (
         <p className="av-muted">{w("consultation.later_notes_none")}</p>
       ) : (

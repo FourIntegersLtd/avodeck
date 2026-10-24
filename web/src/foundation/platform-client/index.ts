@@ -43,6 +43,27 @@ function readCookie(name: string): string | null {
 
 const SAFE = new Set(["GET", "HEAD", "OPTIONS"]);
 
+type MutationListener = () => void;
+const mutationListeners = new Set<MutationListener>();
+
+/** Called when a change (POST, PUT, PATCH, DELETE) is sent and again when it is answered, so kept
+ * answers (foundation/lib/resourceCache.ts) are dropped. Returns a function that stops listening. */
+export function onMutation(listener: MutationListener): () => void {
+  mutationListeners.add(listener);
+  return () => mutationListeners.delete(listener);
+}
+
+const mutations: Middleware = {
+  onRequest({ request }) {
+    if (!SAFE.has(request.method)) mutationListeners.forEach((listener) => listener());
+    return request;
+  },
+  onResponse({ request, response }) {
+    if (!SAFE.has(request.method)) mutationListeners.forEach((listener) => listener());
+    return response;
+  },
+};
+
 const csrf: Middleware = {
   onRequest({ request }) {
     if (SAFE.has(request.method)) return request;
@@ -58,7 +79,7 @@ export const api = createClient<paths>({
   // Looked up on each call, so test doubles of fetch are honoured.
   fetch: (request) => globalThis.fetch(request),
 });
-api.use(csrf);
+api.use(csrf, mutations);
 
 function toApiError(status: number, body: unknown): ApiError {
   if (body && typeof body === "object" && "error" in body) {

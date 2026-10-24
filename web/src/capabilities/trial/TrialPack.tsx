@@ -35,7 +35,7 @@ function Pack({ frame }: { frame: Frame }) {
   const path = { case_id: frame.caseId };
   // The preview is a help: when it can't be had, the rest of the screen still works.
   const preview = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/preview", { params: { path } })).catch(() => null), [frame.caseId]);
-  const latest = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/latest", { params: { path } })), [frame.caseId]);
+  const latest = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/trial-pack/latest", { params: { path } })), [frame.caseId], { cache: "trial/TrialPack#Pack:latest" });
   const sheets = preview.data?.sheets ?? [];
   const caseLabel = preview.data?.case_label;
   const totalPages = preview.data?.total_pages ?? 0;
@@ -473,7 +473,7 @@ function OfflineCopy({ frame }: { frame: Frame }) {
   const id = useId();
   const path = { case_id: frame.caseId };
   const stepUp = useStepUp();
-  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/offline-packages", { params: { path } })), [frame.caseId]);
+  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/offline-packages", { params: { path } })), [frame.caseId], { cache: "trial/TrialPack#OfflineCopy:list" });
   const [device, setDevice] = useState("");
   const [pin, setPin] = useState("");
   const [pinAgain, setPinAgain] = useState("");

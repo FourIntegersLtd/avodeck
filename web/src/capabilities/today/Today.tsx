@@ -36,7 +36,7 @@ function usePacks(cases: CaseCard[] | undefined) {
 
 export function Today() {
   const { me } = useSession();
-  const today = useResource(() => unwrap(api.GET("/v1/today")), []);
+  const today = useResource(() => unwrap(api.GET("/v1/today")), [], { cache: "today/Today#Today:today" });
   const packs = usePacks(today.data?.cases);
   const [org, setOrg] = useState<string | null>(null);
   const name = me.person.greeting_name || me.person.full_name || me.person.email;
@@ -73,7 +73,7 @@ export function Today() {
 
 /** "This year: 14 for the …, 9 for the …": how many cases the expert took for each side, in the packs' words. */
 function BalanceFooter({ packs }: { packs: Map<string, CasePack> | undefined }) {
-  const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: 12 } } })), []);
+  const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: 12 } } })), [], { cache: "today/Today#BalanceFooter:found" });
   if (found.error || !found.data) return null;
   const words: Record<string, string> = {};
   for (const pack of packs?.values() ?? []) for (const r of pack.party_roles) words[r.key!] = r.label!;

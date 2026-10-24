@@ -34,7 +34,7 @@ export function JointStatement() {
 
 function Meetings({ frame }: { frame: Frame }) {
   const path = { case_id: frame.caseId };
-  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/expert-meetings", { params: { path } })), [frame.caseId]);
+  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/expert-meetings", { params: { path } })), [frame.caseId], { cache: "trial/JointStatement#Meetings:list" });
   if (list.error) return <div className="av-page"><LoadError onRetry={list.reload} /></div>;
   if (!list.data) return <div className="av-page"><Loading /></div>;
   const meeting = list.data.meetings[0];
@@ -44,7 +44,7 @@ function Meetings({ frame }: { frame: Frame }) {
 
 function SetUp({ frame, onDone }: { frame: Frame; onDone: () => void }) {
   const path = { case_id: frame.caseId };
-  const types = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/expert-meetings/types", { params: { path } })), [frame.caseId]);
+  const types = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/expert-meetings/types", { params: { path } })), [frame.caseId], { cache: "trial/JointStatement#SetUp:types" });
   const selectId = useId();
   const [kind, setKind] = useState("");
   const [on, setOn] = useState("");
@@ -99,7 +99,7 @@ function MeetingScreen({ frame, meetingId }: { frame: Frame; meetingId: string }
   const path = { case_id: frame.caseId, meeting_id: meetingId };
   const stepUp = useStepUp();
   const detail = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/expert-meetings/{meeting_id}", { params: { path } })), [meetingId]);
-  const people = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/expert-meetings/{meeting_id}/participants", { params: { path } })), [meetingId]);
+  const people = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/expert-meetings/{meeting_id}/participants", { params: { path } })), [meetingId], { cache: "trial/JointStatement#MeetingScreen:people" });
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [message, setMessage] = useState<Message>(null);
   const [reading, setReading] = useState(false);

@@ -4,7 +4,7 @@ import { api, unwrap } from "../platform-client";
 
 /** "Need help? Call us on …": the cell's support number and hours (GET /v1/cell). Nothing when it has no number. */
 export function SupportLine() {
-  const cell = useResource(() => unwrap(api.GET("/v1/cell")), []);
+  const cell = useResource(() => unwrap(api.GET("/v1/cell")), [], { cache: "foundation/ui/SupportLine#SupportLine:cell" });
   const phone = cell.data?.support_phone;
   if (!phone) return null;
   const hours = cell.data?.support_hours;

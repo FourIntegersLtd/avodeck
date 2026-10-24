@@ -30,7 +30,7 @@ export function Preparing() {
   const { item, pack } = useCaseFrame();
   const caseId = item.id;
   const navigate = useNavigate();
-  const info = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", casePath(caseId))), [caseId]);
+  const info = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", casePath(caseId))), [caseId], { cache: "pipeline/Preparing#Preparing:info" });
   const [job, setJob] = useState<Job | null | undefined>(undefined);
   const [loadFailed, setLoadFailed] = useState(false);
   const [stopped, setStopped] = useState(false);

@@ -32,7 +32,7 @@ const PackContext = createContext<Schemas["CasePack"] | null>(null);
 /** Gives a screen the case's pack, so fact kinds show in the pack's own words (rule 11). */
 export function PackScope({ children }: { children: ReactNode }) {
   const { caseId = "" } = useParams();
-  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId]);
+  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId], { cache: "understand/shared#PackScope:pack" });
   return <PackContext.Provider value={pack.data ?? null}>{children}</PackContext.Provider>;
 }
 
@@ -80,7 +80,7 @@ export function TextArea({ label, hint, ...box }: { label: string; hint?: string
 
 /** What the signed-in person may do on this case (Case.allowed_actions). Buttons follow it; the server still checks. */
 export function useCan(caseId: string): (action: string) => boolean {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId], { cache: "understand/shared#useCan:found" });
   const actions = found.data?.allowed_actions ?? [];
   return (action: string) => actions.includes(action);
 }

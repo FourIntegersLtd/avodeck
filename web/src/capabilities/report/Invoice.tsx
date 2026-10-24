@@ -22,7 +22,7 @@ const PAYMENT = ["paid", "part_paid", "written_off"] as const;
 
 export function InvoiceScreen() {
   const { caseId = "" } = useParams();
-  const report = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId]);
+  const report = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Invoice#InvoiceScreen:report" });
   const version = report.data?.version ?? null;
   const sent = version?.status === "served";
   const locale = useLocale();
@@ -30,7 +30,7 @@ export function InvoiceScreen() {
     () => (sent && version ? unwrap(api.GET("/v1/cases/{case_id}/report/versions/{version_id}/servings", { params: { path: { case_id: caseId, version_id: version.id } } })) : Promise.resolve(null)),
     [caseId, version?.id, sent],
   );
-  const time = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId]);
+  const time = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Invoice#InvoiceScreen:time" });
   const served = servings.data?.servings.at(-1);
   const sentTo = sent && served && time.data?.instructing_party ? w("invoice.sent_to_on", { party: time.data.instructing_party, date: longDate(served.served_on, locale) }) : null;
   return (
@@ -68,9 +68,9 @@ async function loadProfile(): Promise<{ profile: Schemas["BillingProfile"] | nul
 function Workspace({ caseId }: { caseId: string }) {
   const stepUp = useStepUp();
   const navigate = useNavigate();
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/invoices", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Invoice#Workspace:found" });
   const billing = useResource(loadProfile, []);
-  const theCase = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })), [caseId]);
+  const theCase = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Invoice#Workspace:theCase" });
   const [expenses, setExpenses] = useState("");
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +89,7 @@ function Workspace({ caseId }: { caseId: string }) {
       return made;
     });
   if (found.error || billing.error) return <LoadError onRetry={() => { found.reload(); billing.reload(); }} />;
-  if (!found.data || !billing.data) return <Loading />;
+  if (!found.data || !billing.data) return <Loading inline />;
   const list = found.data.invoices;
   const latest = list.at(-1) ?? null;
   const missing = billing.data.profile === null && !saved;
@@ -158,10 +158,10 @@ function Workspace({ caseId }: { caseId: string }) {
 }
 
 function TimeCard({ caseId }: { caseId: string }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Invoice#TimeCard:found" });
   const [adjusting, setAdjusting] = useState(false);
   if (found.error) return <LoadError onRetry={found.reload} />;
-  if (!found.data) return <Loading />;
+  if (!found.data) return <Loading inline />;
   const time = found.data;
   return (
     <>
@@ -291,9 +291,9 @@ function InvoicePaper({ caseId, invoice, from, caseLabel, act, download }: { cas
 }
 
 function EstimateCard({ caseId }: { caseId: string }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/time", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/Invoice#EstimateCard:found" });
   if (found.error) return <LoadError onRetry={found.reload} />;
-  if (!found.data) return <Loading />;
+  if (!found.data) return <Loading inline />;
   return <EstimateForm caseId={caseId} time={found.data} />;
 }
 

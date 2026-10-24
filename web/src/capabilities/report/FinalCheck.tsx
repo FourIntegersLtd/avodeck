@@ -206,7 +206,7 @@ function Warnings({ warnings }: { warnings: Schemas["Warning"][] }) {
 
 function SpotCheck({ caseId }: { caseId: string }) {
   const locale = useLocale();
-  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/spot-checks", { params: { path: { case_id: caseId } } })), [caseId]);
+  const list = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/spot-checks", { params: { path: { case_id: caseId } } })), [caseId], { cache: "report/FinalCheck#SpotCheck:list" });
   const [email, setEmail] = useState("");
   const [started, setStarted] = useState<Schemas["SpotCheckStarted"] | null>(null);
   const [error, setError] = useState<string | null>(null);

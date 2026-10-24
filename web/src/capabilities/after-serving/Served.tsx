@@ -15,15 +15,15 @@ export function ServedScreen() {
   const { caseId = "" } = useParams();
   const locale = useLocale();
   const path = { params: { path: { case_id: caseId } } };
-  const served = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/served", path)), [caseId]);
-  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId]);
-  const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId]);
-  const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId]);
-  const fresh = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/new-since-served", path)), [caseId]);
-  const changes = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report-changes", path)), [caseId]);
-  const hearings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/hearings", path)), [caseId]);
-  const directions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/court-directions", path)), [caseId]);
-  const steps = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/after-serving/steps", path)), [caseId]);
+  const served = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/served", path)), [caseId], { cache: "after-serving/Served#ServedScreen:served" });
+  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId], { cache: "after-serving/Served#ServedScreen:deadlines" });
+  const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId], { cache: "after-serving/Served#ServedScreen:rounds" });
+  const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId], { cache: "after-serving/Served#ServedScreen:questions" });
+  const fresh = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/new-since-served", path)), [caseId], { cache: "after-serving/Served#ServedScreen:fresh" });
+  const changes = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report-changes", path)), [caseId], { cache: "after-serving/Served#ServedScreen:changes" });
+  const hearings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/hearings", path)), [caseId], { cache: "after-serving/Served#ServedScreen:hearings" });
+  const directions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/court-directions", path)), [caseId], { cache: "after-serving/Served#ServedScreen:directions" });
+  const steps = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/after-serving/steps", path)), [caseId], { cache: "after-serving/Served#ServedScreen:steps" });
   const { pack } = useCaseFrame();
   const [open, setOpen] = useState(false);
 

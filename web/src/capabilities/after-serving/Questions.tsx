@@ -33,9 +33,9 @@ export function QuestionsScreen() {
   const locale = useLocale();
   const { item, pack } = useCaseFrame();
   const path = { params: { path: { case_id: caseId } } };
-  const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId]);
+  const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId], { cache: "after-serving/Questions#QuestionsScreen:rounds" });
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId]);
-  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId]);
+  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId], { cache: "after-serving/Questions#QuestionsScreen:deadlines" });
   const [selected, setSelected] = useState<string | null>(null);
   const wait = useWaiting(() => { rounds.reload(); questions.reload(); }, questions.data?.questions.length);
 
