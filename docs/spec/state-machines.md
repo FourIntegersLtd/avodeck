@@ -112,6 +112,8 @@ queued ──▶ running ──▶ done
              └──▶ paused (cost guard K3) ──resume──▶ running
 ```
 
+A job paused because the reading service is busy or unreachable (`service_busy`, `model_unavailable`, F5) is resumed by the worker itself (paused → running) after an exponential back-off (doubling from 2 seconds, 2 hours in all); if it is still paused after that, the resumed run ends `failed` (running → failed) with the pause reason as `error_code`, and the retry puts it back on the queue. A resume is not a new attempt. Other pauses (cost guard K3, a cancelled run) wait for a person.
+
 Every step is idempotent, so retrying from the start is always safe. Finished steps are recorded in `job_steps` and skipped on retry; a job whose worker stopped sending heartbeats is put back on the queue (F6).
 
 ## Upload (`uploads.status`)
