@@ -1437,6 +1437,61 @@ async def link_replacements(conn: AsyncConnection, case_id: uuid.UUID) -> dict[u
     return linked
 
 
+async def split_blocked(conn: AsyncConnection, page_id: uuid.UUID) -> bool:
+    """The page is set aside (a clearer copy replaces it) or is already split."""
+    cur = await conn.execute(
+        "select 1 from app.pages where id = %s and superseded_by_page_id is not null"
+        " union all select 1 from app.page_replacements where page_id = %s"
+        " union all select 1 from app.documents where split_of_page_id = %s",
+        (page_id, page_id, page_id),
+    )
+    return await cur.fetchone() is not None
+
+
+async def add_split_document(
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    page_id: uuid.UUID,
+    *,
+    document_id: uuid.UUID,
+    filename: str,
+    sha256: str,
+    storage_path: str,
+) -> int:
+    """The halves of a page, as a generated document of their own; returns its bundle version."""
+    await conn.execute(
+        "insert into app.documents (id, case_id, kind, filename, storage_path, sha256, split_of_page_id, uploaded_by)"
+        " values (%s, %s, %s, %s, %s, %s, %s, app.current_person_id())",
+        (document_id, case_id, RECORDS_KIND, filename, storage_path, sha256, page_id),
+    )
+    return await group_version(conn, case_id, [document_id])
+
+
+async def link_splits(conn: AsyncConnection, case_id: uuid.UUID) -> int:
+    """Pages of a split document point back at the page they came from, and the original's unchecked
+    suggestions are rejected (the halves read the same words). Checked facts are never touched."""
+    cur = await conn.execute(
+        "update app.pages p set split_of_page_id = d.split_of_page_id from app.documents d"
+        " where p.document_id = d.id and d.case_id = %s and d.split_of_page_id is not null"
+        " and p.split_of_page_id is null returning d.split_of_page_id",
+        (case_id,),
+    )
+    originals = list({r[0] for r in await cur.fetchall()})
+    if originals:
+        await conn.execute(
+            "update app.facts set status = 'rejected' where page_id = any(%s) and status = 'suggested'", (originals,)
+        )
+    return len(originals)
+
+
+async def split_count(conn: AsyncConnection, case_id: uuid.UUID) -> int:
+    cur = await conn.execute(
+        "select count(*) from app.documents where case_id = %s and split_of_page_id is not null", (case_id,)
+    )
+    row = await cur.fetchone()
+    return int(row[0]) if row else 0
+
+
 @dataclass(frozen=True)
 class UndatedFact:
     fact_id: uuid.UUID

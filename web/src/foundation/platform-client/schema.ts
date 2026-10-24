@@ -2019,6 +2019,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/pages/{page_id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Split Page
+         * @description A two-page scan is cut in two. The halves are added as new pages after the last one (never
+         *     renumbering); the original stays as it is, with its checked facts.
+         */
+        post: operations["split_page_v1_cases__case_id__pages__page_id__split_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/pages/{page_no}": {
         parameters: {
             query?: never;
@@ -5092,6 +5113,11 @@ export interface components {
              * @default []
              */
             quarantined: components["schemas"]["QuarantinePage"][];
+            /**
+             * Splits
+             * @default 0
+             */
+            splits: number;
             /** Unreadable */
             unreadable: number;
             /** Versions */
@@ -10534,6 +10560,45 @@ export interface components {
             pages: number;
             /** Source Type */
             source_type: string | null;
+        };
+        /** Split */
+        Split: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /**
+             * Job Id
+             * Format: uuid
+             */
+            job_id: string;
+            /**
+             * Page Id
+             * Format: uuid
+             */
+            page_id: string;
+        };
+        /**
+         * SplitAsk
+         * @description Where to cut a two-page scan: down the page (left and right) or across it (top and bottom).
+         */
+        SplitAsk: {
+            /**
+             * At
+             * @default 0.5
+             */
+            at: number;
+            /**
+             * Axis
+             * @enum {string}
+             */
+            axis: "vertical" | "horizontal";
+            /**
+             * First
+             * @enum {string}
+             */
+            first: "left" | "right" | "top" | "bottom";
         };
         /** SpotCheckAnswer */
         SpotCheckAnswer: {
@@ -17127,6 +17192,51 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    split_page_v1_cases__case_id__pages__page_id__split_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SplitAsk"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Split"];
                 };
             };
             /** @description Validation Error */

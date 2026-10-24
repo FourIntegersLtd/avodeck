@@ -11,7 +11,6 @@
 Runs under the launch and the fixture packs.
 """
 
-
 from __future__ import annotations
 
 import uuid
@@ -27,7 +26,7 @@ from app.core.storage import SupabaseStorage
 from tests.repository.test_pipeline_quarantine import answer, audited
 from tests.repository.test_pipeline_support import Harness, facts_of, harness, text_pdf
 from tests.support.ai import ScriptedBedrock
-from tests.support.db import ClientFor, scope_for
+from tests.support.db import ClientFor
 from tests.support.files import local_storage
 from tests.support.packs import BOTH, Combo
 from tests.support.seed import Seed
@@ -155,7 +154,9 @@ async def test_a_page_set_aside_cannot_be_split_and_a_half_can(h: Harness) -> No
     assert (await h.client.post(split_path(h, page(h, SPREAD)["id"]), json=CUT)).status_code == 202
     await h.drain()
     half = page(h, len(BUNDLE) + 1)
-    assert (await h.client.post(split_path(h, half["id"]), json={**CUT, "axis": "horizontal", "first": "top"})).status_code == 202
+    assert (
+        await h.client.post(split_path(h, half["id"]), json={**CUT, "axis": "horizontal", "first": "top"})
+    ).status_code == 202
 
 
 async def test_who_may_split(h: Harness, seed: Seed, client_for: ClientFor) -> None:

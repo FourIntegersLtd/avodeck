@@ -25,7 +25,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `case.change_jurisdiction` (jurisdiction, case type, specialty; before serving) 🔒 | ✓ | — | — | — | — | — | — | — |
 | `conflict.declare` (conflict answers and declarations) | ✓ | — | — | — | — | — | — | — |
 | `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — | — | — |
-| `page.quarantine`, `page.replace`, `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — | — | — |
+| `page.quarantine`, `page.replace` (also splits a two-page scan), `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — | — | — |
 | `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — | — | — |
 | `page.transcribe` (type out a page we couldn't read, ask for a second reading, mark relevance or ask for a clearer copy) | ✓ | — | — | ✓ | — | — | — | — |
 | `fact.verify` (also flag a fact for points against, move it to a clearer copy) | ✓ | — | — | — | — | — | — | — |

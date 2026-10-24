@@ -42,6 +42,7 @@ archived ──reopen──▶ active (if not past delete_after)
 | `quarantined` | false → true (expert, or expert accepting a suggestion) → false (undo, only until the image is deleted) | A |
 | quarantined image and text | kept → deleted (after a logged request lists the page, or the pack's `quarantine_purge_days` pass after confirming); terminal | A |
 | `superseded_by_page_id` | null → page (a clearer copy was uploaded); never back | A |
+| `split_of_page_id` | null → the page a half was cut from (set once, when the halves are numbered); never back | A |
 | `rotation` | any → any (expert); re-runs OCR, keeps verified facts (boxes re-mapped or flagged) | B |
 | `unreadable` | false → true (worker); true → false only when an expert transcription is saved | A, B |
 | `duplicate_of_page_id` | null → page (worker suggestion or expert); page → null (expert undo) | A, B |

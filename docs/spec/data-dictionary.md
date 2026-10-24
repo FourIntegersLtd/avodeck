@@ -354,6 +354,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | received_on / obtained_how | When it arrived and from whom/how |
 | bundle_version | Which delivery of records it came in (v1, v2…) |
 | unreadable_reason | Why we couldn't open it: password-protected (`locked`) or `damaged`. Empty for every file that opened. A file with a reason has no pages; the instructing party is asked for a readable copy |
+| split_of_page_id | If these pages were made by cutting a two-page scan in two, the page that was cut |
 
 ### document_scans
 | Field | In plain words |
@@ -392,6 +393,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | rotation | How it has been turned for reading |
 | duplicate_of_page_id | If it's a copy, which page it copies |
 | superseded_by_page_id | If a clearer copy arrived, which page replaces it |
+| split_of_page_id | If this page is one half of a two-page scan, the page it was cut from (that page keeps its number and facts) |
 | quarantined | Marked as another person's record: hidden, and when, why and by whom |
 | unreadable | The computer couldn't read it; it's in "Pages we couldn't read" |
 | needs_clearer_copy | The expert asked for a clearer copy; the page goes on the next request to the instructing party |
