@@ -24,6 +24,12 @@
   --focus: #B45309;
   --track: #E9ECEA;
   --brand: #0F3D2C;
+  --well: #F1F2F1;
+  --hairline: #E9ECEA;
+  --shadow-card: 0 1px 2px rgba(15, 61, 44, 0.05), 0 8px 24px rgba(15, 61, 44, 0.06);
+  --shadow-paper: 0 1px 2px rgba(15, 61, 44, 0.06), 0 16px 40px rgba(15, 61, 44, 0.10);
+  --shadow-raised: 0 1px 3px rgba(15, 61, 44, 0.14);
+  --shadow-menu: 0 2px 6px rgba(15, 61, 44, 0.08), 0 18px 48px rgba(15, 61, 44, 0.18);
   --on-accent: #FFFFFF;
   --on-brand: #FFFFFF;
   --on-brand-soft: #CFE6DA;
@@ -53,6 +59,9 @@
   --button-min-height: 52px;
   --radius: 12px;
   --radius-large: 18px;
+  --radius-card: 16px;
+  --space-8: 40px;
+  --space-9: 56px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -91,6 +100,12 @@
     --focus: #F2B073;
     --track: #2D3833;
     --brand: #1B4A38;
+    --well: #232D28;
+    --hairline: #2D3833;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow-paper: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+    --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4);
+    --shadow-menu: 0 2px 6px rgba(0, 0, 0, 0.3), 0 18px 48px rgba(0, 0, 0, 0.5);
     --on-accent: #06140E;
     --on-brand: #F2F8F4;
     --on-brand-soft: #CFE6DA;
@@ -133,6 +148,12 @@
   --focus: #F2B073;
   --track: #2D3833;
   --brand: #1B4A38;
+  --well: #232D28;
+  --hairline: #2D3833;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-paper: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+  --shadow-raised: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow-menu: 0 2px 6px rgba(0, 0, 0, 0.3), 0 18px 48px rgba(0, 0, 0, 0.5);
   --on-accent: #06140E;
   --on-brand: #F2F8F4;
   --on-brand-soft: #CFE6DA;
