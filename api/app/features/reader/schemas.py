@@ -86,6 +86,10 @@ class FactOut(BaseModel):
 
 class FactList(BaseModel):
     facts: list[FactOut]
+    reassigned: bool = Field(
+        default=False,
+        description="A fact on this page is suggested again because the case's named expert changed.",
+    )
 
 
 class PageWord(BaseModel):

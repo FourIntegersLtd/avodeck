@@ -6740,6 +6740,12 @@ export interface components {
         FactList: {
             /** Facts */
             facts: components["schemas"]["FactOut"][];
+            /**
+             * Reassigned
+             * @description A fact on this page is suggested again because the case's named expert changed.
+             * @default false
+             */
+            reassigned: boolean;
         };
         /** FactOut */
         FactOut: {
