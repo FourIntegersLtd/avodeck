@@ -112,6 +112,7 @@ export function BundleReady() {
             </Card>
           )}
           {unopenedCard}
+          {s.straightened > 0 && <Card icon={<PageIcon />} tone="grey" title={wn("bundle.straightened", s.straightened, locale)} />}
           {s.unreadable > 0 && (
             <Card icon={<SearchIcon />} tone="amber" title={wn("bundle.unreadable", s.unreadable, locale)}>
               <p>{w("bundle.unreadable_note")}</p>

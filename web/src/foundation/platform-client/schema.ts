@@ -5092,6 +5092,11 @@ export interface components {
              * @default []
              */
             quarantined: components["schemas"]["QuarantinePage"][];
+            /**
+             * Straightened
+             * @default 0
+             */
+            straightened: number;
             /** Unreadable */
             unreadable: number;
             /** Versions */

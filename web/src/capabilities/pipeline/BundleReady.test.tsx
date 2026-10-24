@@ -197,4 +197,17 @@ describe.each([
     renderAt(PATH);
     expect(await screen.findByText("Mostly handwriting and faint scans. We'll show you these one by one.")).toBeVisible();
   });
+
+  test("pages we turned the right way up are counted in plain words", async () => {
+    mock(pack, { summary: { straightened: 3 } });
+    renderAt(PATH);
+    expect(await screen.findByText("3 pages turned the right way up.")).toBeVisible();
+  });
+
+  test("no card when no page was turned", async () => {
+    mock(pack, { summary: { straightened: 0 } });
+    renderAt(PATH);
+    await screen.findByRole("table");
+    expect(screen.queryByText(/turned the right way up/)).toBeNull();
+  });
 });

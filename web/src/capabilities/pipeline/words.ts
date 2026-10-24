@@ -84,6 +84,8 @@ const WORDS = {
   "bundle.unopened_locked": "{{name}} is password-protected.",
   "bundle.unopened_damaged": "{{name}} looks damaged.",
   "bundle.unopened_note": "The other files are not affected.",
+  "bundle.straightened_one": "1 page turned the right way up.",
+  "bundle.straightened_other": "{{n}} pages turned the right way up.",
   "bundle.unreadable_note": "Mostly handwriting and faint scans. We'll show you these one by one.",
   "bundle.missing_one": "1 thing looks missing",
   "bundle.missing_other": "{{n}} things look missing",

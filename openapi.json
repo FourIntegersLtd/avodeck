@@ -1153,6 +1153,11 @@
             "title": "Quarantined",
             "type": "array"
           },
+          "straightened": {
+            "default": 0,
+            "title": "Straightened",
+            "type": "integer"
+          },
           "unreadable": {
             "title": "Unreadable",
             "type": "integer"
