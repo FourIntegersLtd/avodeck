@@ -63,9 +63,9 @@ export function SupportConsole() {
       <MessageNotice message={message} />
       {cases && cases.length === 0 && <p className="av-muted">{w("console.none")}</p>}
       {cases && cases.length > 0 && (
-        <ul className="av-rows" role="list" aria-label={w("console.results")}>
+        <ul className="av-rows av-org-results" role="list" aria-label={w("console.results")}>
           {cases.map((c) => (
-            <li key={c.case_id} className="av-row-item av-card">
+            <li key={c.case_id} className="av-row-item av-card av-org-result">
               <div className="av-row-item__text">
                 <p className="av-field__label">{c.case_id}</p>
                 <p className="av-muted">{`${w("console.status")}: ${statusWords(c.status)} · ${c.organisation_kind === "personal" ? w("console.personal") : w("console.team")} · ${c.served ? w("console.served") : w("console.not_served")}`}</p>

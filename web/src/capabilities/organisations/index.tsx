@@ -23,26 +23,16 @@ registerAccountSection({ key: "organisations.custodian", order: 10, titleKey: "o
 registerAccountSection({ key: "organisations.close", order: 20, titleKey: "organisations.close_account.title", component: CloseAccountBody });
 
 const toTeam = ({ caseId }: { caseId: string }) => `/cases/${caseId}/team`;
+// One entry for the case's settings page: shown when any of its cards (named expert, replacement case, support) is.
 registerCaseAction({
-  key: "organisations.change_expert",
+  key: "organisations.case_settings",
   order: 10,
-  labelKey: "organisations.case_team.change",
+  labelKey: "organisations.case_settings",
   to: toTeam,
-  visible: (c) => !c.served && c.allowedActions.includes("case.reassign_named_expert"),
-});
-registerCaseAction({
-  key: "organisations.support",
-  order: 20,
-  labelKey: "organisations.support.card.title",
-  to: toTeam,
-  visible: (c) => c.allowedActions.includes("support_access.grant"),
-});
-registerCaseAction({
-  key: "organisations.replacement",
-  order: 30,
-  labelKey: "organisations.case_team.replacement",
-  to: toTeam,
-  visible: (c) => c.served && flag("replacement_case") && c.allowedActions.includes("case.reassign_named_expert"),
+  visible: (c) =>
+    (!c.served && c.allowedActions.includes("case.reassign_named_expert")) ||
+    c.allowedActions.includes("support_access.grant") ||
+    (c.served && flag("replacement_case") && c.allowedActions.includes("case.reassign_named_expert")),
 });
 
 export const organisationsRoutes: RouteObject[] = [

@@ -25,22 +25,36 @@ const factId = (n: number) => `88888888-8888-4888-8888-${String(n).padStart(12, 
 // A blank page picture, 1000 x 1400.
 const PAGE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1400" viewBox="0 0 1000 1400"><rect width="1000" height="1400" fill="#ffffff"/></svg>';
 
-export async function stubReader(page: Page, pack: Pack) {
+/** Page 118's words (once read): each cited word's box is the fact's box. */
+export const WORDS = [
+  { word_id: "p118w1", text: "Dr P consultation", box: BBOXES[0] },
+  { word_id: "p118w2", text: "Anusol", box: BBOXES[1] },
+];
+
+/** What the stub saw. */
+export interface Seen {
+  turns: number[];
+}
+
+export async function stubReader(page: Page, pack: Pack): Promise<Seen> {
   let read = false;
+  let turn = 0;
+  const seen: Seen = { turns: [] };
+  const LAST = 1231;
   const facts = [
     { id: factId(1), kind: "consultation", fields: { who: "Dr P", how: "Face to face, at the surgery" }, value: "Dr P consultation 15 May 2024", word_ids: ["p118w1"], bbox: BBOXES[0], event_date: "2024-05-15", status: "suggested", version: 1, flagged: false },
     { id: factId(2), kind: "prescription", fields: {}, value: "Anusol HC suppositories", word_ids: ["p118w2"], bbox: BBOXES[1], event_date: "2024-05-15", status: "suggested", version: 1, flagged: false },
   ];
   const queue = [612, 640].map((n) => ({ page_id: pageId(n), page_no: n, source_type: pack.source_types[0]!.key, handwriting: true, relevance: null, has_transcription: false, needs_clearer_copy: false, done: false }));
   const detail = (n: number) => ({
-    page_id: pageId(n), page_no: n, source_type: pack.source_types[0]!.key, read: read && n === 118, in_period: true, unreadable: n > 600, rotation: 0, relevance: null,
+    page_id: pageId(n), page_no: n, source_type: pack.source_types[0]!.key, read: read && n === 118, in_period: true, unreadable: n > 600, rotation: 0, turn: n === 118 ? turn : 0, relevance: null,
     needs_clearer_copy: false, superseded_by_page_no: null, duplicate_of_page_no: null, handwriting: null, has_transcription: false, first_read_at: null,
   });
   const theCase = {
     id: CASE_A, organisation_id: ORG, named_expert_id: "11111111-1111-4111-8111-111111111111", jurisdiction: "gb-eaw", case_type: "clin-neg-breach",
     specialty: "general-practice", expert_role: "single", label: "Mrs A", party_role: "other_side", instructing_party_type: "lawyer",
     court_track: null, due_date: "2026-11-30", status: "open", on_hold: false, created_at: "2026-10-01T09:00:00Z", updated_at: "2026-10-01T09:00:00Z",
-    allowed_actions: ["case.view_metadata", "case.view_content", "fact.verify", "page.read"],
+    allowed_actions: ["case.view_metadata", "case.view_content", "fact.verify", "page.read", "page.rotate"],
   };
   await page.route("**/v1/**", async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -60,7 +74,14 @@ export async function stubReader(page: Page, pack: Pack) {
     if (path === `${c}/pack`) return json(route, pack);
     if (path === `${c}/progress`) return json(route, { read: 1104, total: 1231, seconds_left: 7620 });
     if (path === `${c}/pages/unreadable`) return json(route, { pages: queue, done: 0, total: queue.length });
-    if (path === `${c}/pages` && method === "GET") return json(route, { pages: [], next_cursor: null });
+    if (path === `${c}/pages` && method === "GET") {
+      const query = new URL(route.request().url()).searchParams;
+      const from = Number(query.get("cursor") ?? 0) + 1;
+      const to = Math.min(LAST, from + Number(query.get("limit") ?? 100) - 1);
+      const pages = [];
+      for (let n = from; n <= to; n++) pages.push({ page_no: n, page_id: pageId(n), source_type: null, read: n < 118 || (read && n === 118), in_period: null, unreadable: false, duplicate_of_page_no: null, turn: 0 });
+      return json(route, { pages, next_cursor: to < LAST ? to : null });
+    }
     const m = path.match(/\/pages\/(\d+)(\/\w+)?$/);
     if (m) {
       const n = Number(m[1]);
@@ -70,11 +91,18 @@ export async function stubReader(page: Page, pack: Pack) {
         read = true;
         return json(route, { page_no: n, read: true, first_read_at: "2026-10-18T10:00:00Z" });
       }
+      if (tail === "/turn" && method === "PUT") {
+        turn = Number((route.request().postDataJSON() as { degrees: number }).degrees);
+        seen.turns.push(turn);
+        return json(route, detail(n));
+      }
+      if (tail === "/words") return read ? json(route, { words: WORDS, reading: WORDS.map((x) => x.text).join(" ") }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
       if (tail === "/facts") return read ? json(route, { facts }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
       if (tail === "") return json(route, detail(n));
     }
     return json(route, { error: { code: "not_found", message: "" } }, 404);
   });
+  return seen;
 }
 
 /** axe with colour contrast, buttons at least 52px tall and body text at least 17px. */

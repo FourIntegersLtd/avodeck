@@ -100,3 +100,15 @@ test("a clearer copy not read yet asks to read it first, with a link to it", asy
   expect(within(c).getByRole("link", { name: "Open page 900" })).toHaveAttribute("href", `/cases/${CASE_ID}/read/900`);
   expect(api.moves).toHaveLength(0);
 });
+
+test("while words are chosen on the clearer copy, the turn keys leave the page underneath alone", async () => {
+  const api = mockReader(launchPack, { alreadyRead: true, facts: [checkedFact()], clearer: { page: 900, read: true, words: clearerWords } });
+  const { user } = renderAt(PATH);
+  const c = await card(/Dr P consultation/);
+  await user.click(within(c).getByRole("button", { name: "Move to the clearer copy" }));
+  expect(await screen.findByRole("img", { name: "Page 900" })).toBeInTheDocument();
+  await user.keyboard("t");
+  await user.keyboard("u");
+  await new Promise((r) => setTimeout(r, 50));
+  expect(api.turns).toHaveLength(0);
+});

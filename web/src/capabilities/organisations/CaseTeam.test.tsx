@@ -48,7 +48,7 @@ test("an admin can move the case to another expert, and the request names the pe
 test("without the action there is no change button and no support card", async () => {
   world(["case.view_metadata"]);
   renderAt(`/cases/${CASE_A}/team`);
-  await screen.findByRole("heading", { name: "Who can work on this case" });
+  await screen.findByRole("heading", { name: "Case settings" });
   expect(screen.queryByRole("button", { name: "Change named expert" })).toBeNull();
   expect(screen.queryByRole("heading", { name: "Avodeck support" })).toBeNull();
 });
@@ -108,4 +108,24 @@ test("passes the automated accessibility checks", async () => {
   const { container } = renderAt(`/cases/${CASE_A}/team`);
   await screen.findByRole("button", { name: "Change named expert" });
   expect(await axeViolations(container)).toEqual([]);
+});
+
+// Reason: the page is now "Case settings", with the cards in a fixed order and a plain support explanation.
+test("Case settings lists the named expert, then the replacement, then Avodeck support", async () => {
+  setFlag("replacement_case", true);
+  world(["case.view_metadata", "case.reassign_named_expert", "support_access.grant"], true);
+  renderAt(`/cases/${CASE_A}/team`);
+  await screen.findByRole("heading", { name: "Case settings" });
+  const order = (await screen.findAllByRole("heading", { level: 3 })).map((h) => h.textContent);
+  expect(order).toEqual(["Named expert", "Avodeck support"]);
+  const replace = await screen.findByRole("button", { name: "Create a replacement case" });
+  expect(replace.compareDocumentPosition(screen.getByRole("heading", { name: "Avodeck support" })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
+test("the support card says in plain words what support can and cannot do", async () => {
+  world(["case.view_metadata", "support_access.grant"]);
+  renderAt(`/cases/${CASE_A}/team`);
+  expect(await screen.findByText(/can't change anything/)).toBeInTheDocument();
+  expect(screen.getByText(/ends by itself after 24 hours/)).toBeInTheDocument();
+  expect(screen.getByText(/written in the case's record/)).toBeInTheDocument();
 });

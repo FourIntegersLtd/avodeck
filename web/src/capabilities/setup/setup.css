@@ -31,8 +31,8 @@
 .av-setup-letter p { margin: 0; display: grid; grid-template-columns: 3.2em minmax(0, 1fr); column-gap: var(--space-2); }
 .av-setup-letter__head { font-size: var(--text-small); color: var(--ink-soft); }
 .av-setup-letter__ref { font-weight: 700; }
-.av-setup-letter mark { background: #FFF3B0; color: inherit; padding: 4px 8px; border-radius: 4px; }
-.av-setup-letter mark.av-setup-mark--outside { background: #FDE7CC; }
+.av-setup-letter mark { background: var(--highlighter); color: inherit; padding: 4px 8px; border-radius: 4px; }
+.av-setup-letter mark.av-setup-mark--outside { background: var(--amber-tint-strong); }
 .av-setup-kind { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: 999px; background: var(--surface-muted); font-size: var(--text-small); font-weight: 700; }
 .av-setup-text { font-size: 18px; margin: 0; }
 .av-setup-ref { margin: 0; font-size: var(--text-small); }

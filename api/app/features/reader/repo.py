@@ -65,7 +65,8 @@ _PAGE_COLUMNS = """
                         from app.page_analysis a, unnest(a.printed_dates) d where a.page_id = p.id), false)
     end as in_period,
     p.unreadable,
-    (select o.bundle_page_no from app.pages o where o.id = p.duplicate_of_page_id) as duplicate_of_page_no
+    (select o.bundle_page_no from app.pages o where o.id = p.duplicate_of_page_id) as duplicate_of_page_no,
+    coalesce((select t.degrees from app.page_turns t where t.page_id = p.id), 0) as turn
 """
 
 _DETAIL_COLUMNS = """,
@@ -505,6 +506,16 @@ async def rotate(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, 
     )
     row = await cur.fetchone()
     return None if row is None else int(row[0])
+
+
+async def set_turn(conn: AsyncConnection, page_id: uuid.UUID, degrees: int, person_id: uuid.UUID) -> None:
+    """Keeps how the page is turned for reading (one row per page, replaced). Nothing else changes."""
+    await conn.execute(
+        "insert into app.page_turns (page_id, degrees, person_id) values (%s, %s, %s)"
+        " on conflict (page_id) do update set degrees = excluded.degrees, person_id = excluded.person_id,"
+        " updated_at = now()",
+        (page_id, degrees, person_id),
+    )
 
 
 async def pages_to_type(conn: AsyncConnection, case_ids: list[uuid.UUID]) -> list[tuple[uuid.UUID, int]]:

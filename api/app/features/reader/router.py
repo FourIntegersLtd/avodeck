@@ -6,10 +6,13 @@ Responses carrying the page picture are never cached.
 
 from __future__ import annotations
 
+import asyncio
+import io
 import uuid
 from typing import Annotated, Literal
 
 from fastapi import Depends, Query, Request, Response
+from PIL import Image
 
 from app.core.ai import provenance
 from app.core.auth.access import CaseAccess, require_case_access
@@ -43,6 +46,7 @@ from app.features.reader.schemas import (
     ReadOut,
     RotateIn,
     TranscriptionIn,
+    TurnIn,
     UnreadablePage,
     UnreadableQueue,
     VerifyIn,
@@ -136,9 +140,44 @@ def _detail(r: dict) -> PageDetail:  # type: ignore[type-arg]
     )
 
 
+@router.put("/pages/{page_no}/turn", response_model=PageDetail)
+async def turn_page(
+    case_id: uuid.UUID,
+    page_no: int,
+    body: TurnIn,
+    access: Annotated[CaseAccess, Depends(require_case_access("page.rotate"))],
+    conn: DbConn,
+    scope: CurrentScope,
+) -> PageDetail:
+    """Turns the page for reading, at once. The picture, its words, their boxes and the facts stay as they
+    were and nothing is read again: the screen turns the picture and what is drawn on it together."""
+    r = await _page(conn, case_id, page_no, scope)
+    await repo.set_turn(conn, r["id"], body.degrees, scope.person_id)
+    return _detail(await _page(conn, case_id, page_no, scope))
+
+
+SMALL_WIDTH = 240
+
+
+def _small(picture: bytes) -> bytes:
+    """A small copy of the page picture for the page strip (made in memory, never stored)."""
+    with Image.open(io.BytesIO(picture)) as im:
+        im.draft("RGB", (SMALL_WIDTH, SMALL_WIDTH * 4))  # decode a JPEG at a fraction of its size
+        im.thumbnail((SMALL_WIDTH, SMALL_WIDTH * 4))
+        out = io.BytesIO()
+        im.convert("RGB").save(out, "JPEG", quality=70)
+    return out.getvalue()
+
+
 @router.get("/pages/{page_no}/image", response_class=Response)
 async def page_image(
-    case_id: uuid.UUID, page_no: int, access: View, request: Request, conn: DbConn, scope: CurrentScope
+    case_id: uuid.UUID,
+    page_no: int,
+    access: View,
+    request: Request,
+    conn: DbConn,
+    scope: CurrentScope,
+    size: Literal["page", "small"] = "page",
 ) -> Response:
     storage: SupabaseStorage | None = getattr(request.app.state, "storage", None)
     crypto: CaseCrypto | None = getattr(request.app.state, "crypto", None)
@@ -149,6 +188,8 @@ async def page_image(
         raise _not_found()
     path = r["image_path"]
     picture = await crypto.decrypt(conn, case_id, await storage.get(path), purpose=path)
+    if size == "small":
+        picture = await asyncio.to_thread(_small, picture)  # off the event loop
     return Response(picture, media_type="image/jpeg", headers={"cache-control": "private, no-store"})
 
 
@@ -545,4 +586,4 @@ async def unflag_point(
 
 
 def _summary(r: dict) -> dict:  # type: ignore[type-arg]
-    return {k: r[k] for k in ("source_type", "read", "in_period", "unreadable", "duplicate_of_page_no")}
+    return {k: r[k] for k in ("source_type", "read", "in_period", "unreadable", "duplicate_of_page_no", "turn")}

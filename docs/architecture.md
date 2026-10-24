@@ -281,6 +281,7 @@ The records received, every page and word, and the facts found on them.
 | `page_reads` | Proof the expert read each page: who, when, how long. Never edited; each row is chained to the last so tampering shows. | case_id, page_id, person_id, seq, at, dwell_seconds, counts_for_citing, prev_hash, hash |
 | `fact_flags` | Facts the expert marked to come back to under "points against" (`points`), and checked facts the reading job flagged "Please check" after a page was read again (`recheck`, no person). | case_id, fact_id, person_id, flagged_for, at |
 | `word_corrections` | The named expert's reading of words the computer misread (decision 0018). Sealed; the computer's reading in `ocr_words` is kept. A later reading of the same words, or new words for the page, replaces it. Belongs to a page (no case_id); goes with the page, and with a purged quarantined page. | page_id, word_ids, text (sealed), person_id, created_at, superseded_at |
+| `page_turns` | How a page is turned for reading on screen 09 (0213). Display only: the picture, `pages.rotation`, the words and every fact stay as they were, and nothing is read again. One row per page, the latest turn; set by anyone allowed `page.rotate`. Belongs to a page (no case_id); goes with the page. | page_id, degrees (0/90/180/270 clockwise), person_id, updated_at |
 | `missing_items` | Documents mentioned in the records but not in the bundle, to ask for. | case_id, description (sealed), citing_page_id, reference_key, word_ids, reference_date, status, reason (sealed), received_page_id, version |
 | `record_gaps` | Periods where a record source seems to go quiet (possible missing records). | case_id, source_type, fact_kind, gap_start, gap_end, last_page_id, confirmed, version |
 | `instructing_party_requests` | Emails asking the instructing party for missing or clearer records, and when they were sent. | case_id, items, body_text, sent_via, sent_at, message_id, follow_up_on, quarantined_page_ids |
@@ -551,7 +552,8 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 |---|---|---|---|
 | GET | `/cases/{case_id}/pages?cursor=&filter=unread|period|source` | Page list for navigation + progress | |
 | GET | `/cases/{case_id}/pages/{page_no}` | Source, period-in-question flag and the period itself (start, end), read state | Facts **not** included |
-| GET | `/cases/{case_id}/pages/{page_no}/image?zoom=` | Page image streamed by the API | `no-store` |
+| GET | `/cases/{case_id}/pages/{page_no}/image?size=page\|small` | Page image streamed by the API; `small` is the page strip's picture (240 px wide) | `no-store` |
+| PUT | `/cases/{case_id}/pages/{page_no}/turn` | `{degrees: 0\|90\|180\|270}` clockwise: how the page is shown for reading (`page_turns`); no reading again, words and facts unchanged; answers the page | B; `page.rotate` |
 | GET | `/cases/{case_id}/pages/{page_no}/thumbnail` | Small image streamed by the API | |
 | POST | `/cases/{case_id}/pages/{page_no}/read` | Record read `{dwell_seconds}` → appends to hash-chained log | Unlocks suggestions |
 | GET | `/cases/{case_id}/pages/{page_no}/facts` | Suggested + verified facts with bounding boxes | **423** until the page is read |

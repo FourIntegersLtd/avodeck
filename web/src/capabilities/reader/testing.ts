@@ -2,7 +2,7 @@
 // the page's read is recorded. Imported by the reader tests only.
 import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, HttpResponse, json, server, signedIn } from "../../test/api";
-import { CASE_ID, fact, JPEG, pageDetail, pageWords, queuePage, theCase, type PageWord } from "./testData";
+import { CASE_ID, fact, JPEG, pageDetail, pageId, pageWords, queuePage, theCase, type PageWord } from "./testData";
 
 export interface ReaderApi {
   factRequests: number;
@@ -13,6 +13,12 @@ export interface ReaderApi {
   puts: Array<{ page: number; body: Record<string, unknown> }>;
   patches: Array<{ page: number; body: Record<string, unknown> }>;
   rotations: Array<{ pageId: string; body: Record<string, unknown> }>;
+  /** Every view turn saved (`PUT /pages/{n}/turn`), in order. */
+  turns: Array<{ page: number; body: Record<string, unknown> }>;
+  /** How many small pictures (the page strip's) were asked for. */
+  smallImages: number;
+  /** The page list requests, as their query strings. */
+  listRequests: string[];
   copies: Array<{ pageId: string; body: Record<string, unknown> }>;
   replaces: Array<{ pageId: string; body: Record<string, unknown> }>;
   appends: Array<Record<string, unknown>>;
@@ -45,6 +51,12 @@ export interface ReaderOpts {
   clearer?: { page: number; read: boolean; words: PageWord[] };
   /** What the progress endpoint says (default 3 of 10, 5 minutes left). */
   progress?: { read: number; total: number; seconds_left: number };
+  /** How the page is turned for reading when it opens (default 0). */
+  turn?: number;
+  /** The bundle has pages 1 to `pageCount`, listed a block at a time (cursor and limit) as the server does. */
+  pageCount?: number;
+  /** Pages the list says were read (with `pageCount`). */
+  readPages?: number[];
 }
 
 /** Mounts every reader endpoint for a case; returns what it saw. */
@@ -59,6 +71,9 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     puts: [],
     patches: [],
     rotations: [],
+    turns: [],
+    smallImages: 0,
+    listRequests: [],
     copies: [],
     replaces: [],
     appends: [],
@@ -66,6 +81,8 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     facts: opts.facts ?? [fact(1), fact(2)],
     read: opts.alreadyRead ?? false,
   };
+  let turn = opts.turn ?? 0;
+  const listed = (n: number) => ({ page_no: n, page_id: pageId(n), source_type: null, read: (opts.readPages ?? []).includes(n), in_period: null, unreadable: false, duplicate_of_page_no: null, turn: 0 });
   let queue = opts.queue ?? [queuePage(612), queuePage(640), queuePage(655)];
   const c = `/v1/cases/${CASE_ID}`;
   signedIn({ pack });
@@ -73,16 +90,34 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     http.get(c, () => json(theCase())),
     http.get(`${c}/pages/unreadable`, () => json({ pages: queue, done: queue.filter((p) => p.done).length, total: queue.length })),
     http.get(`${c}/pages`, ({ request }) => {
-      const cursor = new URL(request.url).searchParams.get("cursor");
+      const query = new URL(request.url).searchParams;
+      api.listRequests.push(query.toString());
+      if (opts.pageCount) {
+        const from = Number(query.get("cursor") ?? 0) + 1;
+        const limit = Number(query.get("limit") ?? 100);
+        const to = Math.min(opts.pageCount, from + limit - 1);
+        const pages = from <= to ? Array.from({ length: to - from + 1 }, (_, i) => listed(from + i)) : [];
+        return json({ pages, next_cursor: to < opts.pageCount ? to : null });
+      }
+      const cursor = query.get("cursor");
       if (cursor !== null) {
         const next = Number(cursor) + 1;
-        const pages = next <= (opts.lastPage ?? 100_000) ? [{ page_no: next, page_id: "x", source_type: null, read: false, in_period: null, unreadable: false, duplicate_of_page_no: null }] : [];
+        const pages = next <= (opts.lastPage ?? 100_000) ? [{ page_no: next, page_id: "x", source_type: null, read: false, in_period: null, unreadable: false, duplicate_of_page_no: null, turn: 0 }] : [];
         return json({ pages, next_cursor: null });
       }
-      return json({ pages: [{ page_no: pageNo, page_id: "x", source_type: null, read: false, in_period: true, unreadable: false, duplicate_of_page_no: null }], next_cursor: null });
+      return json({ pages: [{ page_no: pageNo, page_id: "x", source_type: null, read: false, in_period: true, unreadable: false, duplicate_of_page_no: null, turn: 0 }], next_cursor: null });
     }),
     http.get(`${c}/progress`, () => json(opts.progress ?? { read: 3, total: 10, seconds_left: 300 })),
-    http.get(`${c}/pages/:n/image`, () => new HttpResponse(JPEG, { headers: { "Content-Type": "image/jpeg" } })),
+    http.get(`${c}/pages/:n/image`, ({ request }) => {
+      if (new URL(request.url).searchParams.get("size") === "small") api.smallImages += 1;
+      return new HttpResponse(JPEG, { headers: { "Content-Type": "image/jpeg" } });
+    }),
+    http.put(`${c}/pages/:n/turn`, async ({ params, request }) => {
+      const body = (await request.json()) as Record<string, unknown>;
+      api.turns.push({ page: Number(params.n), body });
+      turn = Number(body.degrees);
+      return json(pageDetail(Number(params.n), { read: api.read, turn }));
+    }),
     http.get(`${c}/pages/:n/facts`, () => {
       api.factRequests += 1;
       return api.read ? json({ facts: api.facts }) : apiError(423, "blind_read");
@@ -136,7 +171,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
       return json({ fact_id: params.id, flagged: false });
     }),
     http.get(`${c}/pages/:n`, ({ params }) =>
-      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null, superseded_by_page_no: opts.clearer && Number(params.n) === pageNo ? opts.clearer.page : null })),
+      json(pageDetail(Number(params.n), { read: api.read || Boolean(opts.pageSaysRead), in_period: opts.inPeriod ?? true, period_start: opts.period?.start ?? null, period_end: opts.period?.end ?? null, first_read_at: api.read ? "2026-10-18T10:00:00Z" : null, superseded_by_page_no: opts.clearer && Number(params.n) === pageNo ? opts.clearer.page : null, turn: Number(params.n) === pageNo ? turn : 0 })),
     ),
     http.put(`${c}/pages/:n/transcription`, async ({ params, request }) => {
       const body = (await request.json()) as Record<string, unknown>;

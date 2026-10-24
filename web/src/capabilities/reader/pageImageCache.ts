@@ -2,6 +2,7 @@
 // memory), and the last few pages are kept so flipping back does not fetch and decrypt the page again.
 // Nothing is written to disk and nothing outlives the tab: the server's no-store stays honoured.
 import { api, unwrap } from "../../foundation/platform-client";
+import { forgetBundlePages } from "./bundlePages";
 
 /** How many pages are kept; a page picture is a few hundred KB, so this stays small. */
 export const KEEP_PAGES = 6;
@@ -54,6 +55,8 @@ export function pageImage(caseId: string, pageNo: number): Promise<string> {
 export function forgetPages() {
   for (const page of kept.values()) release(page);
   kept.clear();
+  forgetSmallPages();
+  forgetBundlePages();
 }
 
 /** Releases one kept page, so the next look fetches it again (after it was turned or replaced). */
@@ -63,4 +66,36 @@ export function forgetPage(caseId: string, pageNo: number) {
   if (!page) return;
   kept.delete(key);
   release(page);
+}
+
+/** How many small pictures the page strip keeps (a few KB each). */
+export const KEEP_SMALL = 120;
+const small = new Map<string, Promise<string>>();
+
+/** A page's small picture for the page strip, fetched only when its place in the strip is drawn. */
+export function smallPageImage(caseId: string, pageNo: number): Promise<string> {
+  const key = `${caseId}/${pageNo}`;
+  const seen = small.get(key);
+  if (seen) {
+    small.delete(key);
+    small.set(key, seen);
+    return seen;
+  }
+  const url = unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/image", { params: { path: { case_id: caseId, page_no: pageNo }, query: { size: "small" } }, parseAs: "blob" })).then((blob) => URL.createObjectURL(blob as Blob));
+  small.set(key, url);
+  url.catch(() => {
+    if (small.get(key) === url) small.delete(key);
+  });
+  for (const [oldest, old] of small) {
+    if (small.size <= KEEP_SMALL) break;
+    small.delete(oldest);
+    old.then((made) => URL.revokeObjectURL(made)).catch(() => undefined);
+  }
+  return url;
+}
+
+/** Releases every small picture (leaving the case, or a test). */
+export function forgetSmallPages() {
+  for (const url of small.values()) url.then((made) => URL.revokeObjectURL(made)).catch(() => undefined);
+  small.clear();
 }

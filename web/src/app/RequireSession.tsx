@@ -41,7 +41,7 @@ export function RequireSession() {
   return (
     <SessionContext.Provider value={{ me: session.data.me, status: session.data.status }}>
       <MessagesProvider>
-        <AppShell name={session.data.me.person.full_name || session.data.me.person.email}>
+        <AppShell name={session.data.me.person.full_name || session.data.me.person.email} support={session.data.me.is_support_staff}>
           <Outlet />
         </AppShell>
       </MessagesProvider>

@@ -23,7 +23,24 @@
   --amber-border: #E8C9A6;
   --focus: #B45309;
   --track: #E9ECEA;
+  --brand: #0F3D2C;
+  --on-accent: #FFFFFF;
+  --on-brand: #FFFFFF;
+  --on-brand-soft: #CFE6DA;
+  --on-brand-faint: #A9CDBB;
+  --brand-leaf: #7CCFA6;
+  --ink-muted: #5F6964;
+  --border-dashed: #8A948E;
+  --surface-subtle: #F1F2F1;
+  --surface-faint: #FBFCFB;
+  --green-line: #8FC7AB;
+  --amber-tint-strong: #FDE7CC;
+  --highlighter: #FFF3B0;
+  --highlighter-border: #E8D46A;
+  --mark-blue: #1D4ED8;
+  --mark-blue-tint: #DBEAFE;
 
+  color-scheme: light dark;
   --font-body: "Atkinson Hyperlegible", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --text-small: 17px;
@@ -46,4 +63,89 @@
   --page-width: 1180px;
   --page-width-narrow: 920px;
   --page-width-wide: 1360px;
+}
+
+/* Dark theme: every colour token again. Follows the device unless the person chose light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --green: #4DB88A;
+    --green-dark: #A8DCC3;
+    --green-bright: #5FD0A0;
+    --green-tint: #1C2F26;
+    --ink: #E8EDEA;
+    --ink-soft: #B3BDB7;
+    --line: #2D3833;
+    --line-strong: #46544D;
+    --surface: #18201C;
+    --surface-soft: #111714;
+    --surface-muted: #232D28;
+    --amber: #F2B073;
+    --amber-tint: #33261A;
+    --red: #FF8E82;
+    --red-tint: #3A1F1C;
+    --blue: #9DBBDA;
+    --blue-tint: #1E2A36;
+    --blue-tint-strong: #2A3B4D;
+    --amber-bright: #E8A04F;
+    --amber-border: #6B4A2A;
+    --focus: #F2B073;
+    --track: #2D3833;
+    --brand: #1B4A38;
+    --on-accent: #06140E;
+    --on-brand: #F2F8F4;
+    --on-brand-soft: #CFE6DA;
+    --on-brand-faint: #A9CDBB;
+    --brand-leaf: #7CCFA6;
+    --ink-muted: #98A39D;
+    --border-dashed: #7C8883;
+    --surface-subtle: #202A25;
+    --surface-faint: #1C2420;
+    --green-line: #2F6B50;
+    --amber-tint-strong: #4A3320;
+    --highlighter: #5A5018;
+    --highlighter-border: #A89A3C;
+    --mark-blue: #7DA2FF;
+    --mark-blue-tint: #1F2E52;
+  }
+}
+
+:root[data-theme="dark"] {
+  --green: #4DB88A;
+  --green-dark: #A8DCC3;
+  --green-bright: #5FD0A0;
+  --green-tint: #1C2F26;
+  --ink: #E8EDEA;
+  --ink-soft: #B3BDB7;
+  --line: #2D3833;
+  --line-strong: #46544D;
+  --surface: #18201C;
+  --surface-soft: #111714;
+  --surface-muted: #232D28;
+  --amber: #F2B073;
+  --amber-tint: #33261A;
+  --red: #FF8E82;
+  --red-tint: #3A1F1C;
+  --blue: #9DBBDA;
+  --blue-tint: #1E2A36;
+  --blue-tint-strong: #2A3B4D;
+  --amber-bright: #E8A04F;
+  --amber-border: #6B4A2A;
+  --focus: #F2B073;
+  --track: #2D3833;
+  --brand: #1B4A38;
+  --on-accent: #06140E;
+  --on-brand: #F2F8F4;
+  --on-brand-soft: #CFE6DA;
+  --on-brand-faint: #A9CDBB;
+  --brand-leaf: #7CCFA6;
+  --ink-muted: #98A39D;
+  --border-dashed: #7C8883;
+  --surface-subtle: #202A25;
+  --surface-faint: #1C2420;
+  --green-line: #2F6B50;
+  --amber-tint-strong: #4A3320;
+  --highlighter: #5A5018;
+  --highlighter-border: #A89A3C;
+  --mark-blue: #7DA2FF;
+  --mark-blue-tint: #1F2E52;
 }

@@ -505,6 +505,15 @@ A joint expert is one with two or more current instructing parties; no separate 
 | person_id | The named expert who typed it |
 | created_at / superseded_at | When it was typed, and when a later reading of any of the same words, or new words for the page (turned, read again, typed out), replaced it (set once; 0211) |
 
+### page_turns
+| Field | In plain words |
+|---|---|
+| page_id | The page; the turn goes with the page (no case_id, like `word_corrections`) (0213) |
+| degrees | How far the page is turned for reading, clockwise: 0 (upright), 90, 180 or 270. Only how it is shown: the picture, the words and the facts never change |
+| person_id | Who turned it last (the named expert or an assistant) |
+| created_at | When the page was first turned |
+| updated_at | When it was last turned |
+
 ### missing_items
 | Field | In plain words |
 |---|---|

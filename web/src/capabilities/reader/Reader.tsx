@@ -16,14 +16,15 @@ import { loadSplitPct, saveSplitPct } from "./splitPane";
 import { SplitDivider } from "./SplitDivider";
 import { Highlights } from "./Highlights";
 import { PageImage } from "./PageImage";
-import { forgetPage } from "./pageImageCache";
+import { PageStrip } from "./PageStrip";
+import { noteRead, useBundlePages } from "./bundlePages";
+import { clampZoom, loadView, saveView, turnBy, ZOOM_MAX, ZOOM_MIN, type View } from "./viewer";
 import { inPageOrder, TypedWordToggles, WordToggles, type PageWord } from "./WordPicker";
 import { w } from "./words";
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
 type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean; misreadText: string };
-const ZOOMS = [75, 100, 125, 150, 200, 250];
 
 type MoveDraft = { id: string; page: number; words: PageWord[] | null; chosen: string[]; problem: string | null; readFirst: boolean };
 
@@ -83,9 +84,22 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const workRef = useRef<HTMLDivElement>(null);
   const [splitPct, setSplitPct] = useState(loadSplitPct);
   const [info, setInfo] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(100);
+  // How the page is shown (held for the visit): fit, zoom and "Make it clearer" stay as the expert left them.
+  const [view, setView] = useState<View>(loadView);
+  const [scale, setScale] = useState<number | null>(null);
+  const scaleRef = useRef<number | null>(null);
+  scaleRef.current = scale;
+  const [clearer, setClearer] = useState(false);
+  // How the page is turned for reading (display only; saved for the case, nothing is read again).
+  const canTurn = (item.allowed_actions ?? []).includes("page.rotate");
+  const [turn, setTurn] = useState(0);
+  const [turnsBefore, setTurnsBefore] = useState<number[]>([]);
+  const turnLoaded = useRef(false);
+  const saving = useRef<Promise<unknown>>(Promise.resolve());
+  const pages = useBundlePages(caseId);
+  const [gotoText, setGotoText] = useState("");
+  const [gotoError, setGotoError] = useState<string | null>(null);
   const [why, setWhy] = useState(false);
-  const [imageKey, setImageKey] = useState(0);
   const [timelineDraft, setTimelineDraft] = useState<{ id: string; value: string } | null>(null);
 
   const loadFacts = useCallback(async () => {
@@ -108,6 +122,10 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   // The page says whether it was read; suggestions are asked for only when it was.
   useEffect(() => {
     if (!detail.data) return;
+    if (!turnLoaded.current) {
+      turnLoaded.current = true;
+      setTurn(detail.data.turn ?? 0);
+    }
     setRead(detail.data.read);
     if (detail.data.read) void loadFacts();
   }, [detail.data, loadFacts]);
@@ -129,6 +147,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
         }),
       );
       setRead(true);
+      noteRead(caseId, pageNo);
       await loadFacts();
       progress.reload();
     } catch (error) {
@@ -309,20 +328,49 @@ function ReadPage({ pageNo }: { pageNo: number }) {
     }
   }
 
-  async function turnPage() {
-    if (busy || !detail.data) return;
-    setBusy(true);
-    setNotice(null);
-    try {
-      await unwrap(api.POST("/v1/cases/{case_id}/pages/{page_id}/rotate", { params: { path: { case_id: caseId, page_id: detail.data.page_id } }, body: { degrees: 90 } }));
-      setInfo(w("read.turning"));
-      forgetPage(caseId, pageNo);
-      setImageKey((k) => k + 1);
-    } catch (error) {
-      setNotice(errorMessage(error));
-    } finally {
-      setBusy(false);
+  useEffect(() => saveView(view), [view]);
+
+  /** Ctrl and the wheel, a pinch, or the zoom buttons: zoom from what is on screen now. */
+  function zoomBy(points: number) {
+    setView((v) => {
+      const from = v.fit === "zoom" ? v.zoom : (scaleRef.current ?? v.zoom);
+      return { ...v, fit: "zoom", zoom: clampZoom(from + points) };
+    });
+  }
+
+  function showTurn(next: number, undoing: boolean) {
+    if (!canTurn) return;
+    if (!undoing) setTurnsBefore((list) => [...list, turn]);
+    setTurn(next);
+    // Saved in the order turned; a refusal is said, and the page stays as shown.
+    saving.current = saving.current
+      .then(() => unwrap(api.PUT("/v1/cases/{case_id}/pages/{page_no}/turn", { params: { path: { case_id: caseId, page_no: pageNo } }, body: { degrees: next as 0 | 90 | 180 | 270 } })))
+      .catch((error: unknown) => setNotice(errorMessage(error)));
+  }
+
+  const turnPage = (by: number) => showTurn(turnBy(turn, by), false);
+  function undoTurn() {
+    const before = turnsBefore[turnsBefore.length - 1];
+    if (before === undefined) return;
+    setTurnsBefore((list) => list.slice(0, -1));
+    showTurn(before, true);
+  }
+
+  const openPage = (n: number) => n !== pageNo && navigate(`/cases/${caseId}/read/${n}`);
+  async function goToPage() {
+    const n = Number(gotoText.trim());
+    if (!Number.isInteger(n) || n < 1) return setGotoError(w("read.goto_number"));
+    if (pages) {
+      if (!pages.some((p) => p.page_no === n)) return setGotoError(w("read.goto_none", { page: n }));
+    } else {
+      try {
+        await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}", { params: { path: { case_id: caseId, page_no: n } } }));
+      } catch {
+        return setGotoError(w("read.goto_none", { page: n }));
+      }
     }
+    setGotoError(null);
+    openPage(n);
   }
 
   async function askClearerCopy() {
@@ -342,16 +390,22 @@ function ReadPage({ pageNo }: { pageNo: number }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage };
+  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving });
+  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
       const s = latest.current;
       const key = e.key.toLowerCase();
       const target = s.facts?.find((f) => f.id === s.focus);
-      if (key === "j") s.go(s.nextPage ?? 0);
+      if (key === "t" || key === "u") {
+        // Not while words are chosen on the clearer copy: that view shows another page, and this one is hidden.
+        if (s.moving) return;
+        if (key === "t") s.turnPage(e.shiftKey ? -90 : 90);
+        else s.undoTurn();
+      }
+      else if (key === "j") s.go(s.nextPage ?? 0);
       else if (key === "k") s.go(pageNo - 1);
       else if (key === "r") void s.markRead();
       else if (key === "arrowright") s.go(s.nextPage ?? 0);
@@ -372,6 +426,7 @@ function ReadPage({ pageNo }: { pageNo: number }) {
   const left = progress.data ? Math.max(0, progress.data.total - progress.data.read) : 0;
   const hard = queue.data ? queue.data.total - queue.data.done : 0;
   const focusedFact = facts?.find((f) => f.id === focus) ?? facts?.[0] ?? null;
+  const filter = view.brightness === 100 && view.contrast === 100 ? undefined : `brightness(${view.brightness / 100}) contrast(${view.contrast / 100})`;
 
   return (
     <div className="rd">
@@ -398,19 +453,90 @@ function ReadPage({ pageNo }: { pageNo: number }) {
             <p className="rd-source">
               <strong>{sourceLabel(pack, page.source_type)}</strong>
             </p>
-            <div className="rd-zoom">
-              <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={zoom <= ZOOMS[0]!} onClick={() => setZoom(ZOOMS[Math.max(0, ZOOMS.indexOf(zoom) - 1)]!)}>
-                −
+            <form
+              className="rd-goto"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void goToPage();
+              }}
+            >
+              <label htmlFor="rd-goto" className="rd-label">
+                {w("read.goto")}
+              </label>
+              <input
+                id="rd-goto"
+                className="av-input rd-goto__input"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                value={gotoText}
+                aria-describedby={gotoError ? "rd-goto-error" : undefined}
+                onChange={(e) => {
+                  setGotoText(e.target.value);
+                  setGotoError(null);
+                }}
+              />
+              <Button type="submit" variant="secondary">
+                {w("read.goto_go")}
               </Button>
-              <span className="rd-ref" aria-live="polite">{w("read.zoom_level", { percent: zoom })}</span>
-              <Button variant="secondary" aria-label={w("read.zoom_in")} disabled={zoom >= ZOOMS[ZOOMS.length - 1]!} onClick={() => setZoom(ZOOMS[Math.min(ZOOMS.length - 1, ZOOMS.indexOf(zoom) + 1)]!)}>
-                +
+            </form>
+            {gotoError && (
+              <p id="rd-goto-error" className="rd-goto__error" role="alert">
+                {gotoError}
+              </p>
+            )}
+            <div className="rd-view" role="toolbar" aria-label={w("read.view_bar")}>
+              {canTurn && (
+                <>
+                  <Button variant="secondary" onClick={() => turnPage(-90)}>
+                    {w("read.turn_left")}
+                  </Button>
+                  <Button variant="secondary" onClick={() => turnPage(90)}>
+                    {w("read.turn_right")}
+                  </Button>
+                  <Button variant="secondary" onClick={() => turnPage(180)}>
+                    {w("read.upside_down")}
+                  </Button>
+                  <Button variant="secondary" disabled={turnsBefore.length === 0} onClick={undoTurn}>
+                    {w("read.undo_turn")}
+                  </Button>
+                </>
+              )}
+              <span className="rd-view__group">
+                <Button variant="secondary" aria-label={w("read.zoom_out")} disabled={view.fit === "zoom" && view.zoom <= ZOOM_MIN} onClick={() => zoomBy(-25)}>
+                  −
+                </Button>
+                <span className="rd-ref rd-view__level" aria-live="polite">
+                  {w("read.zoom_level", { percent: view.fit === "zoom" ? view.zoom : (scale ?? 100) })}
+                </span>
+                <Button variant="secondary" aria-label={w("read.zoom_in")} disabled={view.fit === "zoom" && view.zoom >= ZOOM_MAX} onClick={() => zoomBy(25)}>
+                  +
+                </Button>
+              </span>
+              <Button variant="secondary" aria-pressed={view.fit === "width"} onClick={() => setView((v) => ({ ...v, fit: "width" }))}>
+                {w("read.fit_width")}
+              </Button>
+              <Button variant="secondary" aria-pressed={view.fit === "page"} onClick={() => setView((v) => ({ ...v, fit: "page" }))}>
+                {w("read.whole_page")}
+              </Button>
+              <Button variant="secondary" aria-expanded={clearer} aria-controls="rd-clearer" onClick={() => setClearer((o) => !o)}>
+                {w("read.clearer_view")}
               </Button>
             </div>
+            {clearer && (
+              <div id="rd-clearer" className="rd-clearer">
+                {(["brightness", "contrast"] as const).map((k) => (
+                  <label key={k} className="rd-clearer__row">
+                    <span className="rd-label">{w(k === "brightness" ? "read.brightness" : "read.contrast")}</span>
+                    <input type="range" min={50} max={200} step={5} value={view[k]} onChange={(e) => setView((v) => ({ ...v, [k]: Number(e.target.value) }))} />
+                  </label>
+                ))}
+                <Button variant="secondary" onClick={() => setView((v) => ({ ...v, brightness: 100, contrast: 100 }))}>
+                  {w("read.back_to_normal")}
+                </Button>
+              </div>
+            )}
             <div className="rd-tools">
-              <Button variant="secondary" disabled={busy} onClick={() => void turnPage()}>
-                {w("read.turn")}
-              </Button>
               <Button variant="secondary" disabled={busy} onClick={() => void askClearerCopy()}>
                 {w("read.clearer")}
               </Button>
@@ -419,20 +545,23 @@ function ReadPage({ pageNo }: { pageNo: number }) {
               </LinkButton>
             </div>
           </div>
-          {moving?.words ? (
-            <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} zoom={zoom}>
-              <WordToggles
-                words={moving.words}
-                chosen={moving.chosen}
-                onToggle={(id) => setMoving((m) => m && { ...m, problem: null, chosen: m.chosen.includes(id) ? m.chosen.filter((x) => x !== id) : [...m.chosen, id] })}
-              />
-            </PageImage>
-          ) : (
-            <PageImage key={imageKey} caseId={caseId} pageNo={pageNo} zoom={zoom}>
-              <Highlights facts={facts ?? []} focus={focus} />
-              {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
-            </PageImage>
-          )}
+          <div className="rd-viewer">
+            {pages && <PageStrip caseId={caseId} pages={pages} current={pageNo} currentRead={read} onOpen={openPage} />}
+            {moving?.words ? (
+              <PageImage key={`move-${moving.page}`} caseId={caseId} pageNo={moving.page} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
+                <WordToggles
+                  words={moving.words}
+                  chosen={moving.chosen}
+                  onToggle={(id) => setMoving((m) => m && { ...m, problem: null, chosen: m.chosen.includes(id) ? m.chosen.filter((x) => x !== id) : [...m.chosen, id] })}
+                />
+              </PageImage>
+            ) : (
+              <PageImage caseId={caseId} pageNo={pageNo} turn={turn} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
+                <Highlights facts={facts ?? []} focus={focus} />
+                {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
+              </PageImage>
+            )}
+          </div>
         </section>
 
         <SplitDivider workRef={workRef} value={splitPct} onChange={setSplitPct} onCommit={saveSplitPct} />

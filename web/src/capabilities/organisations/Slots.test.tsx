@@ -25,24 +25,26 @@ test("the account page shows the custodian and closing sections through the slot
   expect(await axeViolations(container)).toEqual([]);
 });
 
-test("Change named expert shows for owners and admins on an unserved case, and not otherwise", () => {
-  expect(caseActions(ctx()).map((a) => a.labelKey)).toContain("organisations.case_team.change");
+// Reason: the three bar links became one "Case settings" action, visible when any of the three used to be.
+const SETTINGS = "organisations.case_settings";
+
+test("Case settings shows for owners and admins on an unserved case, and not otherwise", () => {
+  expect(caseActions(ctx()).map((a) => a.labelKey)).toEqual([SETTINGS]);
   expect(caseActions(ctx())[0]!.to).toBe("/cases/c1/team");
-  expect(caseActions(ctx({ allowedActions: ["case.view_metadata"] })).map((a) => a.labelKey)).not.toContain("organisations.case_team.change");
-  expect(caseActions(ctx({ served: true, status: "served" })).map((a) => a.labelKey)).not.toContain("organisations.case_team.change");
+  expect(caseActions(ctx({ allowedActions: ["case.view_metadata"] }))).toEqual([]);
+  expect(caseActions(ctx({ served: true, status: "served" }))).toEqual([]);
 });
 
-test("the named expert gets a link to the support grant card", () => {
-  const labels = caseActions(ctx({ allowedActions: ["case.view_metadata", "support_access.grant"], orgRole: null, isNamedExpert: true })).map((a) => a.labelKey);
-  expect(labels).toContain("organisations.support.card.title");
+test("the named expert gets Case settings for the support grant card", () => {
+  expect(caseActions(ctx({ allowedActions: ["case.view_metadata", "support_access.grant"], orgRole: null, isNamedExpert: true })).map((a) => a.labelKey)).toEqual([SETTINGS]);
 });
 
-test("Create a replacement case shows on a served case only behind its flag", () => {
+test("on a served case Case settings shows only behind the replacement flag, and only once", () => {
   const served = ctx({ served: true, status: "served" });
-  expect(caseActions(served).map((a) => a.labelKey)).not.toContain("organisations.case_team.replacement");
+  expect(caseActions(served)).toEqual([]);
   setFlag("replacement_case", true);
-  expect(caseActions(served).map((a) => a.labelKey)).toContain("organisations.case_team.replacement");
-  expect(caseActions(ctx()).map((a) => a.labelKey)).not.toContain("organisations.case_team.replacement");
+  expect(caseActions(served).map((a) => a.labelKey)).toEqual([SETTINGS]);
+  expect(caseActions({ ...served, allowedActions: ["case.reassign_named_expert", "support_access.grant"] })).toHaveLength(1);
   setFlag("replacement_case", false);
 });
 
