@@ -37,9 +37,9 @@ function formatDate(iso: string, locale: string | undefined): string {
 export function Close() {
   const { caseId = "" } = useParams();
   const path = { case_id: caseId };
-  const item = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path } })), [caseId]);
-  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", { params: { path } })), [caseId]);
-  const close = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/close", { params: { path } })), [caseId]);
+  const item = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", { params: { path } })), [caseId], { cache: "close/Close#Close:item" });
+  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", { params: { path } })), [caseId], { cache: "close/Close#Close:pack" });
+  const close = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/close", { params: { path } })), [caseId], { cache: "close/Close#Close:close" });
   const [message, setMessage] = useState<Message>(null);
   const me = useContext(SessionContext)?.me;
   const person = me && (me.person.full_name || me.person.email);
@@ -150,7 +150,7 @@ function Copies({ caseId, adminCopy }: { caseId: string; adminCopy: boolean }) {
   const stepUp = useStepUp();
   const [making, setMaking] = useState<Making>({ state: "idle" });
   const [error, setError] = useState<string | null>(null);
-  const kinds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/export/files", { params: { path: { case_id: caseId } } })), [caseId]);
+  const kinds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/export/files", { params: { path: { case_id: caseId } } })), [caseId], { cache: "close/Close#Copies:kinds" });
   // Ticks the user has changed; anything else follows the server's defaults.
   const [changed, setChanged] = useState<Record<string, boolean>>({});
   const files = kinds.data?.files ?? [];
@@ -541,7 +541,7 @@ function DeletedCase({ caseId }: { caseId: string }) {
 }
 
 function Certificate({ caseId, locale }: { caseId: string; locale: string | undefined }) {
-  const cert = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deletion-certificate", { params: { path: { case_id: caseId } } })), [caseId]);
+  const cert = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deletion-certificate", { params: { path: { case_id: caseId } } })), [caseId], { cache: "close/Close#Certificate:cert" });
   if (cert.error) return <LoadError onRetry={cert.reload} />;
   if (!cert.data) return <Loading />;
   const counts = cert.data.counts as Record<string, number>;

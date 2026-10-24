@@ -233,12 +233,16 @@ a.av-step__hit:hover .av-step__pill { border-color: var(--green); }
 .av-progress { height: 12px; border-radius: 999px; background: var(--surface-muted); overflow: hidden; }
 .av-progress svg { display: block; width: 100%; height: 12px; }
 .av-progress__fill { fill: var(--green); }
-.av-spinner { flex: none; animation: av-spin 1s linear infinite; }
-.av-spinner__track { stroke: var(--line); }
-.av-spinner__arc { stroke: var(--green); }
-.av-loading { display: flex; align-items: center; gap: var(--space-3); }
+.av-spinner { flex: none; transform-origin: 50% 50%; animation: av-spin .9s cubic-bezier(0.45, 0.2, 0.55, 0.8) infinite; }
+.av-spinner__track { stroke: var(--track); }
+.av-spinner__head { stop-color: var(--green); }
+.av-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-4); min-height: 40vh; margin: 0; text-align: center; font-size: 19px; animation: av-appear 300ms ease-out 200ms both; }
+.av-loading--inline { flex-direction: row; justify-content: flex-start; gap: var(--space-3); min-height: 0; margin: var(--space-3) 0; text-align: start; font-size: 17px; }
+.av-loading--inline .av-spinner { width: 28px; height: 28px; }
 @keyframes av-spin { to { transform: rotate(360deg); } }
-@media (prefers-reduced-motion: reduce) { .av-spinner { animation: none; } }
+@keyframes av-appear { from { opacity: 0; } to { opacity: 1; } }
+@keyframes av-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .av-spinner { animation: av-pulse 2s ease-in-out infinite; } }
 
 /* Icon tile, callout, status row, chips, links */
 .av-icon-tile { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border-radius: 16px; }

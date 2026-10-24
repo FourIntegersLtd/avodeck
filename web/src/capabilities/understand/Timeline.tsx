@@ -43,8 +43,8 @@ export function Timeline() {
   const lastCounts = useRef<Schemas["TimelineCounts"] | null>(null);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(seenOn) ? seenOn : "";
 
-  const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId]);
-  const caseRow = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId]);
+  const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId], { cache: "understand/Timeline#Timeline:asked" });
+  const caseRow = useResource(() => unwrap(api.GET("/v1/cases/{case_id}", casePath(caseId))), [caseId], { cache: "understand/Timeline#Timeline:caseRow" });
   // The ribbon always shows the whole record (as it stood on the chosen day), whatever the window and filters.
   const whole = useRibbonData(caseId, day);
   const recordRange = whole.data?.range ?? null;

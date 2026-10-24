@@ -12,10 +12,12 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 beforeEach(() => {
   if (expect.getState().testPath?.includes("/src/app/")) resetScreens();
 });
-afterEach(() => {
+afterEach(async () => {
   server.resetHandlers();
-  if (typeof document !== "undefined") cleanup();
-  if (typeof document === "undefined") return; // node-environment guard tests
+  if (typeof document === "undefined") return; // node-environment guard tests (the client needs a window)
+  cleanup();
+  // Each test starts with nothing kept from the last.
+  (await import("../foundation/lib/resourceCache")).clearResourceCache();
   document.cookie.split(";").forEach((c) => {
     const name = c.split("=")[0]?.trim();
     if (name) document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;

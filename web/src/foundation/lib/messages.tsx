@@ -13,7 +13,7 @@ export interface MessagesSummary {
 const MessagesContext = createContext<MessagesSummary | null>(null);
 
 export function MessagesProvider({ children }: { children: ReactNode }) {
-  const found = useResource(() => unwrap(api.GET("/v1/notifications", { params: { query: { unread: true } } })), []);
+  const found = useResource(() => unwrap(api.GET("/v1/notifications", { params: { query: { unread: true } } })), [], { cache: "foundation/lib/messages#MessagesProvider:found" });
   const value = { unread: found.data?.unread_count ?? 0, bounced: found.data?.email_bounced ?? false, reload: found.reload };
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;
 }

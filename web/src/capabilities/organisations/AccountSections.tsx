@@ -64,7 +64,7 @@ export function Custodian() {
 /** The closing section, as the S28 section and as the page body. */
 export function CloseAccountBody() {
   const stepUp = useStepUp();
-  const preview = useResource(() => unwrap(api.GET("/v1/me/close")), []);
+  const preview = useResource(() => unwrap(api.GET("/v1/me/close")), [], { cache: "organisations/AccountSections#CloseAccountBody:preview" });
   const [asking, setAsking] = useState(false);
   const [message, setMessage] = useState<Message>(null);
   const [closed, setClosed] = useState(false);
@@ -73,7 +73,7 @@ export function CloseAccountBody() {
     return <LoadError onRetry={preview.reload} />;
   }
   if (!preview.data) {
-    return <Loading />;
+    return <Loading inline />;
   }
   const cases = preview.data.cases;
   const close = async () => {

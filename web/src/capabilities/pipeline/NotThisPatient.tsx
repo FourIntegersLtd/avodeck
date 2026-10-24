@@ -23,7 +23,7 @@ export function NotThisPatient() {
   const navigate = useNavigate();
   const [search] = useSearchParams();
   const asked = Number(search.get("page"));
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", casePath(caseId))), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", casePath(caseId))), [caseId], { cache: "pipeline/NotThisPatient#NotThisPatient:found" });
   const [pages, setPages] = useState<Q[] | null>(null);
   const [choices, setChoices] = useState<Record<string, Choice>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});

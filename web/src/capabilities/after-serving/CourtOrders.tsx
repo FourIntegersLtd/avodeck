@@ -22,15 +22,15 @@ export function CourtOrders() {
   const locale = useLocale();
   const { item, pack, reload: reloadCase } = useCaseFrame();
   const path = { params: { path: { case_id: caseId } } };
-  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId]);
-  const hearings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/hearings", path)), [caseId]);
-  const directions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/court-directions", path)), [caseId]);
+  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId], { cache: "after-serving/CourtOrders#CourtOrders:deadlines" });
+  const hearings = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/hearings", path)), [caseId], { cache: "after-serving/CourtOrders#CourtOrders:hearings" });
+  const directions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/court-directions", path)), [caseId], { cache: "after-serving/CourtOrders#CourtOrders:directions" });
   const ids = (deadlines.data?.deadlines ?? []).map((d) => d.id);
   const history = useResource(
     async () => (await Promise.all(ids.map((id) => unwrap(api.GET("/v1/cases/{case_id}/deadlines/{deadline_id}/changes", { params: { path: { case_id: caseId, deadline_id: id } } }))))).flatMap((r, i) => r.changes.map((c) => ({ ...c, deadline: ids[i]! }))),
     [caseId, ids.join(",")],
   );
-  const steps = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/after-serving/steps", path)), [caseId]);
+  const steps = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/after-serving/steps", path)), [caseId], { cache: "after-serving/CourtOrders#CourtOrders:steps" });
   const [moving, setMoving] = useState<Schemas["DeadlineOut"] | null>(null);
   const [adding, setAdding] = useState<"order" | "hearing" | null>(null);
 

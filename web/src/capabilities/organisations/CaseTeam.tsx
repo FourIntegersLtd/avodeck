@@ -34,7 +34,7 @@ export function CaseTeam() {
 function NamedExpert({ caseId }: { caseId: string }) {
   const stepUp = useStepUp();
   const navigate = useNavigate();
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/named-expert/candidates", { params: { path: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/named-expert/candidates", { params: { path: { case_id: caseId } } })), [caseId], { cache: "organisations/CaseTeam#NamedExpert:found" });
   const [open, setOpen] = useState(false);
   const [chosen, setChosen] = useState("");
   const [servedNow, setServedNow] = useState(false);
@@ -87,7 +87,7 @@ function NamedExpert({ caseId }: { caseId: string }) {
       ) : open ? (
         <div className="av-stack">
           {found.error && <LoadError message={w("case_team.people_error")} onRetry={found.reload} />}
-          {!found.data && !found.error && <Loading />}
+          {!found.data && !found.error && <Loading inline />}
           <div className="av-field">
             <label className="av-field__label" htmlFor="new-expert">
               {w("case_team.choose")}
@@ -129,7 +129,7 @@ function leftText(expires: string): string {
 
 function SupportCard({ caseId }: { caseId: string }) {
   const { act, message } = useAct();
-  const grants = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/support-access", { params: { path: { case_id: caseId } } })), [caseId]);
+  const grants = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/support-access", { params: { path: { case_id: caseId } } })), [caseId], { cache: "organisations/CaseTeam#SupportCard:grants" });
   const [reason, setReason] = useState<(typeof REASONS)[number]>("help");
   const active = grants.data?.grants.find((g) => g.active);
   const ended = (grants.data?.grants ?? []).filter((g) => !g.active);
@@ -153,7 +153,7 @@ function SupportCard({ caseId }: { caseId: string }) {
       <p className="av-muted">{w("support.card.intro")}</p>
       <MessageNotice message={message} />
       {grants.error && <LoadError onRetry={grants.reload} />}
-      {!grants.data && !grants.error && <Loading />}
+      {!grants.data && !grants.error && <Loading inline />}
       {grants.data &&
         (active ? (
           <>

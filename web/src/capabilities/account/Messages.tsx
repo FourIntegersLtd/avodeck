@@ -21,7 +21,7 @@ function words(m: Message): string {
 export function Messages() {
   const { me } = useSession();
   const summary = useMessages();
-  const found = useResource(() => unwrap(api.GET("/v1/notifications")), []);
+  const found = useResource(() => unwrap(api.GET("/v1/notifications")), [], { cache: "account/Messages#Messages:found" });
   const [read, setRead] = useState<Record<string, Message>>({});
   const markRead = async (id: string) => {
     const done = await unwrap(api.POST("/v1/notifications/{notification_id}/read", { params: { path: { notification_id: id } } }));

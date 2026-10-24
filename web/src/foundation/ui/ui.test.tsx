@@ -237,6 +237,51 @@ test("a spinner is hidden from assistive technology and Loading uses it", () => 
   expect(screen.getByRole("status")).toHaveTextContent("Loading…");
 });
 
+const stylesheet = () => readFileSync(join(__dirname, "styles.css"), "utf8");
+
+// The founder asked for the page loader to sit in the middle of the page and look calmer (2026-10-23):
+// these replace the left-aligned row the test above used to allow everywhere.
+test("Loading centres in the page by default, with the spinner above the words, and has a compact inline form", () => {
+  renderUi(
+    <>
+      <Loading />
+      <Loading inline />
+    </>,
+  );
+  const [page, inline] = screen.getAllByRole("status");
+  expect(page).toHaveClass("av-loading");
+  expect(page).not.toHaveClass("av-loading--inline");
+  expect(inline).toHaveClass("av-loading", "av-loading--inline");
+  expect(page!.firstElementChild).toHaveClass("av-spinner");
+  const centred = rule(".av-loading");
+  expect(centred).toMatch(/flex-direction:\s*column/);
+  expect(centred).toMatch(/align-items:\s*center/);
+  expect(centred).toMatch(/justify-content:\s*center/);
+  expect(centred).toMatch(/min-height:\s*40vh/);
+  expect(rule(".av-loading--inline")).toMatch(/flex-direction:\s*row/);
+  expect(rule(".av-loading--inline")).toMatch(/min-height:\s*0/);
+});
+
+test("the words are in the page at once for screen readers; only the picture waits 200ms, so fast loads do not flash", () => {
+  renderUi(<Loading />);
+  expect(screen.getByRole("status")).toHaveTextContent("Loading…");
+  expect(rule(".av-loading")).toMatch(/animation:\s*av-appear[^;]*200ms[^;]*both/);
+  expect(stylesheet()).toMatch(/@keyframes av-appear\s*\{\s*from\s*\{\s*opacity:\s*0/);
+});
+
+test("the spinner is a 44px comet arc on design tokens, and under reduced motion it pulses instead of turning", () => {
+  const { container } = renderUi(<Spinner />);
+  const svg = container.querySelector("svg.av-spinner")!;
+  expect(svg).toHaveAttribute("width", "44");
+  expect(svg).toHaveAttribute("aria-hidden", "true");
+  expect(svg.querySelector("linearGradient")).not.toBeNull();
+  expect(rule(".av-spinner")).toMatch(/animation:\s*av-spin\s+0?\.9s\s+cubic-bezier/);
+  expect(rule(".av-spinner__track")).toMatch(/stroke:\s*var\(--/);
+  const reduced = stylesheet().match(/@media \(prefers-reduced-motion: reduce\)\s*\{([^@]*?\}\s*)\}/g)?.join("\n") ?? "";
+  expect(reduced).toMatch(/\.av-spinner\s*\{[^}]*animation:\s*av-pulse/);
+  expect(stylesheet()).toMatch(/@keyframes av-pulse/);
+});
+
 test("an icon tile is mint or amber", () => {
   const { container } = renderUi(
     <>

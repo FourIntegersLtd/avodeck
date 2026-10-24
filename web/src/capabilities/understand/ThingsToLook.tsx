@@ -139,7 +139,7 @@ function FoldedFinding({ caseId, finding, canDecide, onDecided }: { caseId: stri
 
 function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () => void; onAdded: () => void }) {
   const word = useKindWord();
-  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId]);
+  const pack = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pack", casePath(caseId))), [caseId], { cache: "understand/ThingsToLook#AddCheck:pack" });
   const kinds = ((pack.data?.fact_kinds ?? []) as Array<{ key: string }>).map((k) => k.key);
   const [label, setLabel] = useState("");
   const [from, setFrom] = useState("");
@@ -191,7 +191,7 @@ function AddCheck({ caseId, onClose, onAdded }: { caseId: string; onClose: () =>
 
 function Checks({ caseId, can }: { caseId: string; can: (a: string) => boolean }) {
   const [adding, setAdding] = useState(false);
-  const found = useResource(() => unwrap(api.GET("/v1/me/checks", { params: { query: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/me/checks", { params: { query: { case_id: caseId } } })), [caseId], { cache: "understand/ThingsToLook#Checks:found" });
   const [enabled, setEnabled] = useState<Record<string, boolean>>({});
   const [days, setDays] = useState<Record<string, string>>({});
   const [daysSaved, setDaysSaved] = useState(false);

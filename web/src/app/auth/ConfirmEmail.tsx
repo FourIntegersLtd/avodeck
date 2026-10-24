@@ -25,7 +25,7 @@ export function ConfirmEmail() {
   return (
     <AuthLayout>
       <h1>{t("email_confirm.title")}</h1>
-      {!result && <Loading />}
+      {!result && <Loading inline />}
       {result?.error && (
         <Notice tone="error">
           <p>{result.error}</p>

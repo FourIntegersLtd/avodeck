@@ -23,8 +23,8 @@ export interface Chosen {
 /** Loads the answerable questions and hands the chosen one to `children`; shows why when there is none. */
 export function WithQuestion({ caseId, children }: { caseId: string; children: (chosen: Chosen) => React.ReactNode }) {
   const [params] = useSearchParams();
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", { params: { path: { case_id: caseId } } })), [caseId]);
-  const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/write-progress", { params: { path: { case_id: caseId } } })), [caseId]);
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", { params: { path: { case_id: caseId } } })), [caseId], { cache: "write/shared#WithQuestion:found" });
+  const progress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/write-progress", { params: { path: { case_id: caseId } } })), [caseId], { cache: "write/shared#WithQuestion:progress" });
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!found.data) return <div className="av-page"><Loading /></div>;
   const all = found.data.questions.filter((q) => q.status === "confirmed" || q.status === "edited").sort((a, b) => a.number - b.number);

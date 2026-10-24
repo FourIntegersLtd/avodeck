@@ -28,7 +28,7 @@ export function NewMaterial() {
   const document = params.get("document");
   const locale = useLocale();
   const path = { params: { path: { case_id: caseId } } };
-  const pages = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/new-since-served", path)), [caseId]);
+  const pages = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/new-since-served", path)), [caseId], { cache: "after-serving/NewMaterial#NewMaterial:pages" });
   const report = useResource(async () => {
     if (!document) return null;
     try {

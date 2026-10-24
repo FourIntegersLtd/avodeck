@@ -85,11 +85,10 @@ async def resolve(database: Database, token: str | None, *, touch: bool) -> Sess
     """The session behind the cookie; 401 `not_signed_in` or `session_expired` otherwise."""
     if not token:
         raise not_signed_in()
-    async with database.anonymous() as conn:
-        cur = await conn.execute(
-            "select * from app.session_resolve(%s, %s, %s, %s)", (digest(token), IDLE_TIMEOUT, MAX_AGE, touch)
-        )
-        row = await cur.fetchone()
+    # One round trip: the lookup (and its touch, inside the function) in its own anonymous transaction.
+    row = await database.anonymous_one(
+        "select * from app.session_resolve(%s, %s, %s, %s)", (digest(token), IDLE_TIMEOUT, MAX_AGE, touch)
+    )
     if row is None:
         raise not_signed_in()
     *fields, state = row

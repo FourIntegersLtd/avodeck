@@ -156,7 +156,7 @@ const BALANCE_COLOURS = ["var(--green)", "var(--green-bright)", "var(--line-stro
 
 /** The heading shows at once; the counts fill in when they arrive. */
 export function Balance({ words }: { words: Record<string, string> }) {
-  const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: BALANCE_MONTHS } } })), []);
+  const found = useResource(() => unwrap(api.GET("/v1/me/stats/balance", { params: { query: { months: BALANCE_MONTHS } } })), [], { cache: "setup/shared#Balance:found" });
   if (found.error) return null;
   const counts = Object.entries(found.data?.counts ?? {});
   const title = t("setup.balance.title", { months: found.data?.months ?? BALANCE_MONTHS });
