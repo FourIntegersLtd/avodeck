@@ -238,7 +238,7 @@ describe.each([
     test("brightness and contrast change only how the picture is shown, and Back to normal undoes it", async () => {
       const api = mockReader(pack);
       const { user } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       const img = await screen.findByRole("img", { name: "Page 118" });
       await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer" }));
       fireEvent.change(screen.getByRole("slider", { name: "Brightness" }), { target: { value: "130" } });
@@ -255,7 +255,7 @@ describe.each([
     test("the viewer with every control open passes axe", async () => {
       mockReader(pack, { pageCount: 200 });
       const { user, container } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await within(await screen.findByRole("listbox", { name: "Pages" })).findByRole("option", { name: "Page 118, not read yet" });
       await user.click(within(await moreTools(user)).getByRole("button", { name: "Make it clearer" }));
       expect(await axeViolations(container)).toEqual([]);

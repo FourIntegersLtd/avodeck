@@ -90,7 +90,7 @@ describe.each([
     test("shows the next page beside this one; any page number can be chosen", async () => {
       mockReader(pack);
       const { user } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
       const two = async () => within(await moreTools(user)).getByRole("button", { name: "Two pages" });
       expect(await two()).toHaveAttribute("aria-pressed", "false");
@@ -111,7 +111,7 @@ describe.each([
     test("a page with a clearer copy shows the copy beside it", async () => {
       mockReader(pack, { clearer: { page: 1201, read: false, words: pageWords() } });
       const { user } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
       await user.click(within(await moreTools(user)).getByRole("button", { name: "Two pages" }));
       expect(await screen.findByRole("img", { name: "Page 1201" })).toBeVisible();
@@ -122,7 +122,7 @@ describe.each([
     test("the Full screen button and F show only the page view; Escape comes back", async () => {
       mockReader(pack);
       const { user, container } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
       await user.click(within(await moreTools(user)).getByRole("button", { name: "Full screen" }));
       expect(container.querySelector(".rd")).toHaveClass("rd--full");
@@ -179,7 +179,7 @@ describe.each([
     test("every tool open passes axe", async () => {
       mockReader(pack, { searchHits: HITS, notes: [{ page_no: 12, bookmarked: true, note: "" }] });
       const { user, container } = renderAt(PATH);
-      const bar = await screen.findByRole("toolbar", { name: "Page view" });
+      await screen.findByRole("toolbar", { name: "Page view" });
       await screen.findByRole("img", { name: "Page 118" });
       await openFind(user);
       await user.type(screen.getByRole("searchbox", { name: "Find words in the bundle" }), "chest");
