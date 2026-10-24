@@ -43,7 +43,7 @@ function MenuItem({ icon, on, children, ...rest }: { icon: ReactNode; on?: boole
 
 type Fact = Schemas["FactOut"];
 type Action = "correct" | "not_right" | "edit";
-type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean; misreadText: string };
+type EditDraft = { id: string; text: string; words: string[]; fields: Record<string, string>; eventDate: string | null; eventDateByHand: boolean; misread: boolean };
 
 type MoveDraft = { id: string; page: number; words: PageWord[] | null; chosen: string[]; problem: string | null; readFirst: boolean };
 
@@ -256,7 +256,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   // chosen again (the server refuses its change without them). The page's words load once.
   async function startEdit(fact: Fact) {
     setFormError(null);
-    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false, misreadText: "" });
+    setEditing({ id: fact.id, text: fact.value ?? "", words: fact.needs_recheck ? [] : fact.word_ids, fields: fieldDraft(fact, pack), eventDate: hasDate(fact) ? suggestTimelineDate(fact, pack) : null, eventDateByHand: false, misread: false });
     if (pageWords !== null) return;
     try {
       const { words } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/words", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
@@ -328,11 +328,11 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
     const fieldsChanged = editableFields(f, pack).some((row) => (editing.fields[row.key] ?? "").trim() !== row.value.trim());
     const wordsChanged = orderedWords(editing.words).join() !== orderedWords(f.word_ids).join();
     const dayChanged = eventDateChanged(f);
-    const misread = editing.misread && editing.words.length > 0 ? editing.misreadText.trim() : null;
-    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed" | "read.error.misread_needed") =>
+    // Ticked: "The right words" is the expert's reading of the chosen words (decision 0018), so it is typed once.
+    const misread = editing.misread && editing.words.length > 0 && headline ? headline : null;
+    const stop = (key: "read.error.nothing_changed" | "read.error.words_needed" | "read.error.headline_needed") =>
       setFormError({ text: w(key), typeOut: false });
-    if (valueChanged && !headline) return stop("read.error.headline_needed");
-    if (misread === "") return stop("read.error.misread_needed");
+    if ((valueChanged || editing.misread) && !headline) return stop("read.error.headline_needed");
     if (!valueChanged && !misread && !fieldsChanged && !wordsChanged && !dayChanged) return stop("read.error.nothing_changed");
     if (editing.words.length === 0 && (valueChanged || f.needs_recheck)) return stop("read.error.words_needed");
     setFormError(null);
@@ -667,9 +667,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       onStartMove={page.superseded_by_page_no ? () => void startMove(f, page.superseded_by_page_no!) : undefined}
       onSaveMove={() => void saveMove(f)}
       onCancelMove={() => setMoving(null)}
-      misread={editing?.id === f.id && editing.words.length > 0 ? { ticked: editing.misread, text: editing.misreadText } : null}
+      misread={editing?.id === f.id && editing.words.length > 0 ? { ticked: editing.misread } : null}
       onMisread={(ticked) => setEditing((e) => e && { ...e, misread: ticked })}
-      onMisreadText={(text) => setEditing((e) => e && { ...e, misreadText: text })}
       typeOutHref={formError?.typeOut ? `/cases/${caseId}/read/couldnt-read?page=${pageNo}` : undefined}
       typedWords={editing?.id === f.id && pageWords ? <TypedWordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} /> : undefined}
       reason={reasons[f.id] ?? ""}
