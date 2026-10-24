@@ -254,8 +254,8 @@ export async function moreTools(user: UserEvent): Promise<HTMLElement> {
   return screen.getByRole("group", { name: "View" });
 }
 
-/** Opens "Find words" on the page toolbar, if it is not open already. */
+/** Opens "Find" on the page toolbar, if it is not open already. */
 export async function openFind(user: UserEvent): Promise<void> {
   await screen.findByRole("toolbar", { name: "Page view" });
-  if (!screen.queryByRole("searchbox", { name: "Find words in the bundle" })) await user.click(screen.getByRole("button", { name: "Find words" }));
+  if (!screen.queryByRole("searchbox", { name: "Find words in the bundle" })) await user.click(screen.getByRole("button", { name: "Find" }));
 }

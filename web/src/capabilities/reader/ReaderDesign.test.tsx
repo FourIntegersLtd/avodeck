@@ -75,10 +75,10 @@ describe.each([
     mockReader(pack, { alreadyRead: true, facts: [fact(1, { related }), fact(2)] });
     const { user } = renderAt(PATH);
     await screen.findByRole("article", { name: /Dr P consultation/ });
-    await user.click(screen.getByRole("button", { name: "Next suggestion on this page" }));
+    await user.click(screen.getAllByRole("button", { name: /Anusol/ }).find((b) => b.classList.contains("rd-row__head"))!);
     const rx = await screen.findByRole("article", { name: /Anusol HC suppositories/ });
     await user.click(within(rx).getByRole("button", { name: "Correct" }));
-    await user.click(screen.getByRole("button", { name: /Consultation: Dr P consultation/ }));
+    await user.click(screen.getAllByRole("button", { name: /Dr P consultation/ }).find((b) => b.classList.contains("rd-row__head"))!);
     const visit = await screen.findByRole("article", { name: /Dr P consultation/ });
     await waitFor(() => expect(within(visit).getByText(/Anusol HC suppositories · checked by you/)).toBeVisible());
   });

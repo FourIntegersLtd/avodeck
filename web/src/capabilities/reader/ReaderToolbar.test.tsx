@@ -29,15 +29,17 @@ describe.each([
   { name: "launch packs", pack: launchPack },
   { name: "fixture packs", pack: fixturePack },
 ])("The page toolbar under the $name", ({ pack }: { pack: Schemas["CasePack"] }) => {
-  test("shows only Turn page, zoom, Find words and More tools; the rest wait under More tools", async () => {
+  test("shows only the page capsule, Turn page, zoom, Find, View and Full screen; the rest wait under More tools", async () => {
     mockReader(pack);
     const { user } = renderAt(PATH);
     const bar = await screen.findByRole("toolbar", { name: "Page view" });
     expect(within(bar).getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)).toEqual([
+      "Page before",
+      "Page after",
       "Turn page",
       "Zoom out",
       "Zoom in",
-      "Find words",
+      "Find",
       "View",
       "Full screen",
     ]);
@@ -106,11 +108,10 @@ describe.each([
   describe("finding words", () => {
     async function search(user: ReturnType<typeof renderAt>["user"], q: string) {
       const bar = await screen.findByRole("toolbar", { name: "Page view" });
-      await user.click(within(bar).getByRole("button", { name: "Find words" }));
+      await user.click(within(bar).getByRole("button", { name: "Find" }));
       const input = screen.getByRole("searchbox", { name: "Find words in the bundle" });
       expect(input).toHaveFocus();
       await user.type(input, q);
-      await user.click(screen.getByRole("button", { name: "Find" }));
     }
 
     test("opens the first page with the words, and Next and Previous step through the pages found", async () => {
@@ -119,19 +120,19 @@ describe.each([
       await screen.findByRole("img", { name: "Page 118" });
       await search(user, "chest pain");
       expect(await screen.findByRole("img", { name: "Page 12" })).toBeVisible();
-      const strip = screen.getByRole("region", { name: "Pages with these words" });
-      expect(within(strip).getByText("Found on 3 pages")).toBeVisible();
-      expect(within(strip).getByRole("link", { name: "Page 12, 3 times" })).toHaveAttribute("aria-current", "page");
+      const strip = screen.getByRole("search", { name: "Find words in the bundle" });
+      expect(within(strip).getByText("Page 1 of 3")).toBeVisible();
+      await user.click(within(strip).getByRole("button", { name: "Show all" }));
+      expect(within(screen.getByRole("list", { name: "Pages with these words" })).getByRole("link", { name: "Page 12 · 3 times" })).toHaveAttribute("aria-current", "page");
       expect(screen.getAllByTestId(/^search-hit-/)).toHaveLength(1);
       const previous = within(strip).getByRole("button", { name: "Previous page with the words" });
       expect(previous).toBeDisabled();
       await user.click(within(strip).getByRole("button", { name: "Next page with the words" }));
       expect(await screen.findByRole("img", { name: "Page 40" })).toBeVisible();
-      await user.click(within(screen.getByRole("region", { name: "Pages with these words" })).getByRole("button", { name: "Next page with the words" }));
+      await user.click(within(strip).getByRole("button", { name: "Next page with the words" }));
       expect(await screen.findByRole("img", { name: "Page 41" })).toBeVisible();
-      const atLast = screen.getByRole("region", { name: "Pages with these words" });
-      expect(within(atLast).getByRole("button", { name: "Next page with the words" })).toBeDisabled();
-      await user.click(within(atLast).getByRole("button", { name: "Previous page with the words" }));
+      expect(within(strip).getByRole("button", { name: "Next page with the words" })).toBeDisabled();
+      await user.click(within(strip).getByRole("button", { name: "Previous page with the words" }));
       expect(await screen.findByRole("img", { name: "Page 40" })).toBeVisible();
     });
 
@@ -140,12 +141,12 @@ describe.each([
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
       await search(user, "chest");
-      expect(await screen.findByText("Found on 4 pages")).toBeVisible();
+      expect(await screen.findByText("Page 4 of 4")).toBeVisible();
       expect(screen.getByRole("img", { name: "Page 118" })).toBeVisible();
       expect(screen.getAllByTestId(/^search-hit-/)).toHaveLength(1);
     });
 
-    test("the Find button says it is looking while the server searches", async () => {
+    test("the find bar says it is looking while the server searches", async () => {
       mockReader(pack);
       let answer: () => void = () => undefined;
       server.use(
@@ -156,12 +157,10 @@ describe.each([
       );
       const { user } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
-      await search(user, "aspirin").catch(() => undefined);
-      const looking = await screen.findByRole("button", { name: "Finding…" });
-      expect(looking).toBeDisabled();
+      await search(user, "aspirin");
+      expect(await screen.findByText("Finding…")).toBeVisible();
       answer();
       expect(await screen.findByText("We didn't find those words on any page.")).toBeVisible();
-      expect(screen.getByRole("button", { name: "Find" })).toBeEnabled();
     });
 
     test("with More tools and the results open, passes axe", async () => {
@@ -169,7 +168,7 @@ describe.each([
       const { user, container } = renderAt(PATH);
       await screen.findByRole("img", { name: "Page 118" });
       await search(user, "chest");
-      await screen.findByText("Found on 4 pages");
+      await screen.findByText("Page 4 of 4");
       await user.click(screen.getByRole("button", { name: "View" }));
       expect(await axeViolations(container)).toEqual([]);
     });

@@ -2,7 +2,7 @@
 // "Make it clearer" only change how it is shown: the picture and everything drawn on it sit in one box
 // that is turned as a whole, so highlights and the word picker stay over the same words (rule 2).
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { pageImage } from "./pageImageCache";
+import { pageImage, peekPage } from "./pageImageCache";
 import { drawnSize, type Fit } from "./viewer";
 import { w } from "./words";
 
@@ -24,7 +24,7 @@ interface Props {
 const NATURAL = { width: 1000, height: 1400 };
 
 export function PageImage({ caseId, pageNo, turn = 0, view = { fit: "width", zoom: 100 }, filter, onZoom, onScale, children }: Props) {
-  const [src, setSrc] = useState<string | null>(null);
+  const [src, setSrc] = useState<string | null>(() => peekPage(caseId, pageNo));
   const [natural, setNatural] = useState(NATURAL);
   const [space, setSpace] = useState({ width: 0, height: 0 });
   const paperRef = useRef<HTMLDivElement>(null);
@@ -33,7 +33,7 @@ export function PageImage({ caseId, pageNo, turn = 0, view = { fit: "width", zoo
 
   useEffect(() => {
     let live = true;
-    setSrc(null);
+    setSrc(peekPage(caseId, pageNo));
     pageImage(caseId, pageNo)
       .then((url) => live && setSrc(url))
       .catch(() => undefined);

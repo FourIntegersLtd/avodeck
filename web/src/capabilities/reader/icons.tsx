@@ -43,6 +43,29 @@ export const TickIcon = () => (
     <path d="M5 12.5l4.5 4.5L19 7" />
   </Icon>
 );
+export const CloseIcon = () => (
+  <Icon size={16}>
+    <path d="M6 6l12 12M18 6L6 18" />
+  </Icon>
+);
+export const EyeIcon = () => (
+  <Icon size={32}>
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </Icon>
+);
+export const PencilIcon = () => (
+  <Icon size={18}>
+    <path d="M4 20l4-1 11-11-3-3L5 16l-1 4z" />
+  </Icon>
+);
+export const DotsIcon = () => (
+  <Icon>
+    <circle cx="5" cy="12" r="1.2" />
+    <circle cx="12" cy="12" r="1.2" />
+    <circle cx="19" cy="12" r="1.2" />
+  </Icon>
+);
 export const SlidersIcon = () => (
   <Icon>
     <path d="M4 7h10M18 7h2M4 17h2M10 17h10" />

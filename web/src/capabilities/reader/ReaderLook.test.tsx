@@ -19,14 +19,14 @@ describe.each([
     mockReader(pack, { progress: { read: 1104, total: 1231, seconds_left: 7620 } });
     renderAt(PATH);
     const n = new Intl.NumberFormat(pack.locale);
-    const text = `Page 118 of ${n.format(1231)}. You've read ${n.format(1104)}. ${n.format(127)} to go.`;
-    expect(await screen.findByText(text)).toBeVisible();
+    expect(await screen.findByText(`${n.format(1104)} of ${n.format(1231)} read`)).toBeVisible();
+    expect(screen.getByText(new RegExp(`${n.format(127)} to go`))).toBeVisible();
   });
 
   test("the keyboard help is not on the side; the ? key opens it in More tools", async () => {
     mockReader(pack);
     const { user } = renderAt(PATH);
-    await screen.findByRole("button", { name: "Mark as read" });
+    await screen.findByRole("button", { name: "I've read this page" });
     expect(screen.queryByText("Keyboard shortcuts")).not.toBeInTheDocument();
     await user.keyboard("?");
     expect(await screen.findByRole("group", { name: "Keyboard shortcuts" })).toBeVisible();
