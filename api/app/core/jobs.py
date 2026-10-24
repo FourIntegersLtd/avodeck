@@ -9,12 +9,19 @@
   the `jobs` row as numbers and short codes, never text (rule 6). `ctx.step()` records finished steps
   so a retried or requeued job skips them (F6).
 - A job that raises is retried up to `max_attempts`, then ends `failed` with `job_error`; one that
-  raises `ProcessingPaused` ends `paused` with its reason and waits.
+  raises `ProcessingPaused` ends `paused` with its reason. A pause for a busy or unreachable service
+  (`RESUMABLE_PAUSES`, F5) goes back on the queue after an exponential back-off (`DEFAULT_PAUSE_DELAYS`,
+  2 hours in all) and carries on when the service answers; still paused after that, it ends `failed`
+  with the pause reason so a person can retry it. Other pauses (cost guard K3, cancelled) wait for a person.
 - `registry.schedule(name)` registers a daily job keyed by date; `JobWorker.catch_up()` runs every
   date since the last run exactly once (F28).
 - A job of a case on hold is not run: it stays `queued` with `case_on_hold` until the case resumes
   (`app.core.case_hold.release_case_hold`), unless its kind is registered with `runs_on_hold=True`.
 - A worker that dies stops its heartbeat; `JobWorker.requeue_stalled()` puts its jobs back (F6).
+- Avodeck support resumes a paused job or requeues a failed one with `support_job_action()` (current
+  staff only, in the database): a resumed job goes back on the queue and the worker moves it
+  paused -> running; a requeued one goes failed -> queued with `attempts` 0, and what it was is kept in
+  `job_support_actions`.
 """
 
 from __future__ import annotations
@@ -24,7 +31,7 @@ import contextlib
 import logging
 import os
 import uuid
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
@@ -33,6 +40,7 @@ from procrastinate.jobs import Job
 from procrastinate.retry import BaseRetryStrategy, RetryDecision
 from psycopg import AsyncConnection
 
+from app.core.ai.kit import MAX_WAIT_SECONDS, backoff_delays
 from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer
 from app.core.errors import ProcessingPaused
@@ -46,6 +54,11 @@ TASK_NAME = "run_job"
 JobHandler = Callable[["JobContext"], Awaitable[None]]
 ScheduleHandler = Callable[[AsyncConnection, date], Awaitable[None]]
 StepWork = Callable[[AsyncConnection], Awaitable[None]]
+
+# F5: pauses the worker resumes by itself, because the service comes back without anyone acting.
+RESUMABLE_PAUSES = frozenset({"service_busy", "model_unavailable"})
+# Waits between resumes: doubling from the AI kit's base, F5's 2 hours in all; then the job fails.
+DEFAULT_PAUSE_DELAYS: tuple[float, ...] = tuple(backoff_delays(64, limit=MAX_WAIT_SECONDS))
 
 
 @dataclass(frozen=True)
@@ -108,6 +121,35 @@ class JobRegistry:
 
 
 registry = JobRegistry()
+
+SUPPORT_JOB_ACTIONS = ("resume", "requeue")
+
+
+@dataclass(frozen=True)
+class SupportJobOutcome:
+    """`outcome` is `ok`, `not_found`, `job_not_paused`, `job_not_failed` or `case_on_hold`; nothing was
+    written unless it is `ok`. `expert_email` is the named expert's, for the patient-free notice."""
+
+    outcome: str
+    case_id: uuid.UUID | None
+    status: str | None
+    expert_email: str | None
+
+
+async def support_job_action(
+    conn: AsyncConnection, job_id: uuid.UUID, action: str, reason_code: str, *, queue: str = registry.queue
+) -> SupportJobOutcome:
+    """Support resumes a paused job (`resume`) or requeues a failed one (`requeue`) on `queue`
+    (`app.support_job_action()`, migration 0035). Raises 42501 for anyone not current support staff."""
+    if action not in SUPPORT_JOB_ACTIONS:
+        raise ValueError(f"unknown support job action {action!r}")
+    cur = await conn.execute(
+        "select outcome, case_id, status, expert_email from app.support_job_action(%s, %s, %s, %s)",
+        (job_id, action, reason_code, queue),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    return SupportJobOutcome(*row)
 
 
 class JobContext:
@@ -189,6 +231,14 @@ class _TryAgain(Exception):
     """Raised to the queue when a failed job has attempts left."""
 
 
+class _ResumeLater(Exception):
+    """Raised to the queue when a paused job should run again after `wait_seconds` (F5)."""
+
+    def __init__(self, wait_seconds: float) -> None:
+        super().__init__()
+        self.wait_seconds = wait_seconds
+
+
 class _RetryOnlyWhenAsked(BaseRetryStrategy):
     def __init__(self, wait_seconds: float) -> None:
         self.wait_seconds = wait_seconds
@@ -196,6 +246,9 @@ class _RetryOnlyWhenAsked(BaseRetryStrategy):
     def get_retry_decision(self, *, exception: BaseException, job: Job) -> RetryDecision | None:
         if isinstance(exception, _TryAgain):
             return RetryDecision(retry_at=datetime.now(UTC) + timedelta(seconds=self.wait_seconds))
+        if isinstance(exception, _ResumeLater):
+            # The same queue row goes back to `todo`, so the job can never run twice at once.
+            return RetryDecision(retry_at=datetime.now(UTC) + timedelta(seconds=exception.wait_seconds))
         return None
 
 
@@ -214,6 +267,7 @@ class JobWorker:
         max_attempts: float = 3,
         retry_wait_seconds: float = 5,
         schedule_seconds: float = 3600,
+        pause_delays: Sequence[float] = DEFAULT_PAUSE_DELAYS,
         mailer: Mailer | None = None,
     ) -> None:
         self.registry = registry
@@ -224,12 +278,13 @@ class JobWorker:
         self.stalled_after_seconds = stalled_after_seconds
         self.max_attempts = int(max_attempts)
         self.schedule_seconds = schedule_seconds
+        self.pause_delays = tuple(pause_delays)
         connector = procrastinate.PsycopgConnector(
             conninfo=dsn, kwargs={"options": "-c search_path=procrastinate"}, min_size=1, max_size=10
         )
         self.queue = procrastinate.App(connector=connector)
         self.queue.task(
-            name=TASK_NAME, queue=registry.queue, retry=_RetryOnlyWhenAsked(retry_wait_seconds), pass_context=False
+            name=TASK_NAME, queue=registry.queue, retry=_RetryOnlyWhenAsked(retry_wait_seconds), pass_context=True
         )(self._run_job)
 
     async def __aenter__(self) -> JobWorker:
@@ -306,7 +361,7 @@ class JobWorker:
             day += timedelta(days=1)
         return ran
 
-    async def _run_job(self, job_id: str, case_id: str) -> None:
+    async def _run_job(self, queued: procrastinate.JobContext, job_id: str, case_id: str) -> None:
         job, case = uuid.UUID(job_id), uuid.UUID(case_id)
         async with self.database.job(case) as conn:
             cur = await conn.execute("select kind from app.jobs where id = %s", (job,))
@@ -318,7 +373,9 @@ class JobWorker:
             if waits is not None and waits[0]:
                 return  # stays queued; `release_case_hold()` puts it back when the case resumes
             cur = await conn.execute(
-                "update app.jobs set status = 'running', attempts = attempts + 1, error_code = null,"
+                # Resuming from a pause is not a new attempt: `attempts` counts failures and requeues only.
+                "update app.jobs set status = 'running', error_code = null,"
+                " attempts = attempts + case when status = 'paused' then 0 else 1 end,"
                 " started_at = coalesce(started_at, now()) where id = %s returning kind, attempts",
                 (job,),
             )
@@ -333,7 +390,16 @@ class JobWorker:
         try:
             await kind.handler(JobContext(self.database, job, case, kind_name, attempt, mailer=self.mailer))
         except ProcessingPaused as paused:
-            await self._finish(case, job, "paused", error_code=paused.reason)
+            if paused.reason not in RESUMABLE_PAUSES:
+                await self._finish(case, job, "paused", error_code=paused.reason)
+                return
+            # Runs of this queue row so far, less the failed attempts and requeues: the resumes after a pause.
+            resumes = max(0, queued.job.attempts - (attempt - 1))
+            if resumes < len(self.pause_delays):
+                await self._finish(case, job, "paused", error_code=paused.reason)
+                raise _ResumeLater(self.pause_delays[resumes]) from None
+            logger.warning("job %s of kind %s still paused (%s) after back-off: failed", job, kind_name, paused.reason)
+            await self._finish(case, job, "failed", error_code=paused.reason)
             return
         except Exception as exc:  # noqa: BLE001 - the type only: messages may carry patient text
             logger.warning("job %s of kind %s failed on attempt %d: %s", job, kind_name, attempt, type(exc).__name__)

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
@@ -163,11 +163,18 @@ class SupportGrantList(BaseModel):
     grants: list[SupportGrant]
 
 
+# Support answers carry no free text (rule 6; tests/guards/test_organisations_support_rule6.py): every string
+# is an enum, an id, a date or a code held to this pattern.
+SupportCode = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_.]{0,63}$")]
+CaseStatus = Literal["draft", "processing", "active", "served", "settled", "withdrawn", "archived", "deleted"]
+JobStatus = Literal["queued", "running", "done", "failed", "paused"]
+
+
 class SupportCase(BaseModel):
     """What the support console shows of a case: metadata only (permissions.md "Avodeck staff")."""
 
     case_id: uuid.UUID
-    status: str
+    status: SupportCode
     organisation_id: uuid.UUID
     organisation_kind: Literal["personal", "team"]
     created_at: datetime
@@ -183,17 +190,121 @@ class SupportCaseList(BaseModel):
 class SupportCaseGrant(BaseModel):
     id: uuid.UUID
     granted_to: uuid.UUID | None
-    reason: str
+    reason: SupportCode
     granted_at: datetime
     expires_at: datetime
     revoked_at: datetime | None
     active: bool
 
 
+class SupportJob(BaseModel):
+    id: uuid.UUID
+    kind: SupportCode | None
+    status: JobStatus
+    attempts: int
+    error_code: SupportCode | None
+    step: SupportCode | None
+    created_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    updated_at: datetime
+
+
+class SupportPages(BaseModel):
+    total: int
+    unread_by_named_expert: int
+    unreadable: int
+    needs_clearer_copy: int
+    quarantined: int
+    superseded: int
+
+
+class SupportFacts(BaseModel):
+    suggested: int
+    verified: int  # checked by the named expert: verified or edited
+    needs_recheck: int
+
+
+class SupportInstructionVersion(BaseModel):
+    n: int
+    read_status: Literal["not_needed", "reading", "read", "failed"]
+    job_error_code: SupportCode | None
+
+
+class SupportQuestions(BaseModel):
+    state: Literal["none", "to_check", "confirmed"]
+    instruction_versions: list[SupportInstructionVersion]
+
+
+class SupportFinalCheck(BaseModel):
+    status: Literal["not_run", "passed", "failed"]
+    item_codes: list[SupportCode]
+
+
+class SupportReport(BaseModel):
+    latest_version_status: Literal["draft", "locked", "served", "withdrawn"] | None
+    locked_at: datetime | None
+    served_at: datetime | None
+    final_check: SupportFinalCheck
+    declaration_acknowledged: bool
+    signature_present: bool
+    signature_readable: bool  # its record is complete; the console never opens the image
+    pack_correction_pending: bool
+
+
+class SupportHold(BaseModel):
+    present: bool
+    until: date | None
+    reason_code: SupportCode | None
+
+
+class SupportExport(BaseModel):
+    status: Literal["none", "queued", "running", "done", "failed", "paused"]
+    downloaded: bool
+
+
+class SupportClose(BaseModel):
+    status: CaseStatus
+    delete_after: date | None
+    hold: SupportHold
+    deletion_started: bool
+    export: SupportExport
+
+
+class SupportOfflinePackage(BaseModel):
+    id: uuid.UUID
+    state: Literal["built", "downloaded", "revoked"]
+    expires_at: datetime | None
+    stale_reason: SupportCode | None
+    downloaded_at: datetime | None
+
+
+class SupportNamedExpertChange(BaseModel):
+    changed_at: datetime
+
+
+class SupportDeadlines(BaseModel):
+    open: int
+    overdue: int
+    done: int
+    cancelled: int
+
+
 class SupportCaseDetail(BaseModel):
+    """One case for the console: its grants, then where it is stuck, in counts, codes and dates only."""
+
     case: SupportCase
     grants: list[SupportCaseGrant]
     content_access: bool
+    jobs: list[SupportJob]
+    pages: SupportPages
+    facts: SupportFacts
+    questions: SupportQuestions
+    report: SupportReport
+    close: SupportClose
+    offline_packages: list[SupportOfflinePackage]
+    named_expert_history: list[SupportNamedExpertChange]
+    deadlines: SupportDeadlines
 
 
 class CustodyTransferCreate(Strict):

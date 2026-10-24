@@ -1044,6 +1044,16 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | step | A step that finished (a short code), so a retry skips it |
 | created_at | When it finished |
 
+### job_support_actions
+| Field | In plain words |
+|---|---|
+| job_id | Which job Avodeck support acted on |
+| action | `resume` (a paused job put back on the queue) or `requeue` (a failed job started again) |
+| reason_code | Why, from a fixed list: `service_restored`, `fault_fixed`, `expert_asked` |
+| from_status / error_code / attempts | What the job was just before: its status, its error code and how many attempts it had made (a requeue sets the job's attempts back to 0, so they are kept here) |
+| person_id | The support staff member who did it |
+| created_at | When |
+
 ### scheduled_runs
 | Field | In plain words |
 |---|---|

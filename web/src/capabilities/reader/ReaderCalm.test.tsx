@@ -28,17 +28,15 @@ async function side() {
 }
 
 describe("the right side", () => {
-  test("What we found comes first, and the notes row is followed only by Couldn't read", async () => {
+  test("What we found comes first, and the notes row is last and holds the Couldn't read link", async () => {
     mockReader(launchPack, { alreadyRead: true });
     renderAt(PATH);
     const aside = await side();
     expect(aside.firstElementChild).toContainElement(within(aside).getByRole("heading", { level: 2, name: "What we found on this page" }));
-    const kids = Array.from(aside.children);
     const notes = aside.querySelector(".rd-notes");
     expect(notes).not.toBeNull();
-    const after = kids.slice(kids.indexOf(notes as Element) + 1);
-    expect(after).toHaveLength(1);
-    expect(within(after[0] as HTMLElement).getByRole("link", { name: /pages we couldn't read/ })).toBeVisible();
+    expect(aside.lastElementChild).toBe(notes);
+    expect(within(notes as HTMLElement).getByRole("link", { name: /pages we couldn't read/ })).toBeVisible();
   });
 
   test("notes are closed by default and open on a click; the bookmark is a checkbox", async () => {
@@ -72,20 +70,20 @@ describe("the right side", () => {
     expect(within(aside).queryByText("Keyboard, if you like it")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Keyboard shortcuts" })).not.toBeInTheDocument();
     await user.keyboard("?");
-    const panel = screen.getByRole("group", { name: "More tools" });
+    const panel = screen.getByRole("group", { name: "View" });
     const keys = within(panel).getByRole("group", { name: "Keyboard shortcuts" });
     expect(within(keys).getByText("C")).toBeVisible();
     expect(within(keys).getByText(/not right/)).toBeVisible();
     await user.keyboard("{Escape}");
-    expect(screen.queryByRole("group", { name: "More tools" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "View" })).not.toBeInTheDocument();
   });
 
   test("Keyboard shortcuts is also an item in the More tools panel", async () => {
     mockReader(launchPack, { alreadyRead: true });
     const { user } = renderAt(PATH);
     await side();
-    await user.click(screen.getByRole("button", { name: "More tools" }));
-    const item = within(screen.getByRole("group", { name: "More tools" })).getByRole("button", { name: "Keyboard shortcuts" });
+    await user.click(screen.getByRole("button", { name: "View" }));
+    const item = within(screen.getByRole("group", { name: "View" })).getByRole("button", { name: "Keyboard shortcuts" });
     expect(item).toHaveAttribute("aria-expanded", "false");
     await user.click(item);
     expect(screen.getByRole("group", { name: "Keyboard shortcuts" })).toBeVisible();

@@ -5537,6 +5537,12 @@
             },
             "title": "Facts",
             "type": "array"
+          },
+          "reassigned": {
+            "default": false,
+            "description": "A fact on this page is suggested again because the case's named expert changed.",
+            "title": "Reassigned",
+            "type": "boolean"
           }
         },
         "required": [
@@ -7567,6 +7573,66 @@
           "finished_at"
         ],
         "title": "Job",
+        "type": "object"
+      },
+      "JobActionBody": {
+        "additionalProperties": false,
+        "properties": {
+          "reason_code": {
+            "enum": [
+              "service_restored",
+              "fault_fixed",
+              "expert_asked"
+            ],
+            "title": "Reason Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason_code"
+        ],
+        "title": "JobActionBody",
+        "type": "object"
+      },
+      "JobActionResult": {
+        "properties": {
+          "action": {
+            "enum": [
+              "resume",
+              "requeue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "job_id": {
+            "format": "uuid",
+            "title": "Job Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "paused"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "case_id",
+          "action",
+          "status"
+        ],
+        "title": "JobActionResult",
         "type": "object"
       },
       "JobOut": {
@@ -17244,6 +17310,7 @@
             "type": "boolean"
           },
           "status": {
+            "pattern": "^[a-z][a-z0-9_.]{0,63}$",
             "title": "Status",
             "type": "string"
           }
@@ -17262,13 +17329,23 @@
         "type": "object"
       },
       "SupportCaseDetail": {
+        "description": "One case for the console: its grants, then where it is stuck, in counts, codes and dates only.",
         "properties": {
           "case": {
             "$ref": "#/components/schemas/SupportCase"
           },
+          "close": {
+            "$ref": "#/components/schemas/SupportClose"
+          },
           "content_access": {
             "title": "Content Access",
             "type": "boolean"
+          },
+          "deadlines": {
+            "$ref": "#/components/schemas/SupportDeadlines"
+          },
+          "facts": {
+            "$ref": "#/components/schemas/SupportFacts"
           },
           "grants": {
             "items": {
@@ -17276,12 +17353,51 @@
             },
             "title": "Grants",
             "type": "array"
+          },
+          "jobs": {
+            "items": {
+              "$ref": "#/components/schemas/SupportJob"
+            },
+            "title": "Jobs",
+            "type": "array"
+          },
+          "named_expert_history": {
+            "items": {
+              "$ref": "#/components/schemas/SupportNamedExpertChange"
+            },
+            "title": "Named Expert History",
+            "type": "array"
+          },
+          "offline_packages": {
+            "items": {
+              "$ref": "#/components/schemas/SupportOfflinePackage"
+            },
+            "title": "Offline Packages",
+            "type": "array"
+          },
+          "pages": {
+            "$ref": "#/components/schemas/SupportPages"
+          },
+          "questions": {
+            "$ref": "#/components/schemas/SupportQuestions"
+          },
+          "report": {
+            "$ref": "#/components/schemas/SupportReport"
           }
         },
         "required": [
           "case",
           "grants",
-          "content_access"
+          "content_access",
+          "jobs",
+          "pages",
+          "facts",
+          "questions",
+          "report",
+          "close",
+          "offline_packages",
+          "named_expert_history",
+          "deadlines"
         ],
         "title": "SupportCaseDetail",
         "type": "object"
@@ -17320,6 +17436,7 @@
             "type": "string"
           },
           "reason": {
+            "pattern": "^[a-z][a-z0-9_.]{0,63}$",
             "title": "Reason",
             "type": "string"
           },
@@ -17362,6 +17479,159 @@
           "cases"
         ],
         "title": "SupportCaseList",
+        "type": "object"
+      },
+      "SupportClose": {
+        "properties": {
+          "delete_after": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delete After"
+          },
+          "deletion_started": {
+            "title": "Deletion Started",
+            "type": "boolean"
+          },
+          "export": {
+            "$ref": "#/components/schemas/SupportExport"
+          },
+          "hold": {
+            "$ref": "#/components/schemas/SupportHold"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "processing",
+              "active",
+              "served",
+              "settled",
+              "withdrawn",
+              "archived",
+              "deleted"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "delete_after",
+          "hold",
+          "deletion_started",
+          "export"
+        ],
+        "title": "SupportClose",
+        "type": "object"
+      },
+      "SupportDeadlines": {
+        "properties": {
+          "cancelled": {
+            "title": "Cancelled",
+            "type": "integer"
+          },
+          "done": {
+            "title": "Done",
+            "type": "integer"
+          },
+          "open": {
+            "title": "Open",
+            "type": "integer"
+          },
+          "overdue": {
+            "title": "Overdue",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "open",
+          "overdue",
+          "done",
+          "cancelled"
+        ],
+        "title": "SupportDeadlines",
+        "type": "object"
+      },
+      "SupportExport": {
+        "properties": {
+          "downloaded": {
+            "title": "Downloaded",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "none",
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "paused"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "downloaded"
+        ],
+        "title": "SupportExport",
+        "type": "object"
+      },
+      "SupportFacts": {
+        "properties": {
+          "needs_recheck": {
+            "title": "Needs Recheck",
+            "type": "integer"
+          },
+          "suggested": {
+            "title": "Suggested",
+            "type": "integer"
+          },
+          "verified": {
+            "title": "Verified",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "suggested",
+          "verified",
+          "needs_recheck"
+        ],
+        "title": "SupportFacts",
+        "type": "object"
+      },
+      "SupportFinalCheck": {
+        "properties": {
+          "item_codes": {
+            "items": {
+              "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+              "type": "string"
+            },
+            "title": "Item Codes",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "not_run",
+              "passed",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "item_codes"
+        ],
+        "title": "SupportFinalCheck",
         "type": "object"
       },
       "SupportGrant": {
@@ -17479,6 +17749,407 @@
           "grants"
         ],
         "title": "SupportGrantList",
+        "type": "object"
+      },
+      "SupportHold": {
+        "properties": {
+          "present": {
+            "title": "Present",
+            "type": "boolean"
+          },
+          "reason_code": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Code"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Until"
+          }
+        },
+        "required": [
+          "present",
+          "until",
+          "reason_code"
+        ],
+        "title": "SupportHold",
+        "type": "object"
+      },
+      "SupportInstructionVersion": {
+        "properties": {
+          "job_error_code": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Error Code"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "read_status": {
+            "enum": [
+              "not_needed",
+              "reading",
+              "read",
+              "failed"
+            ],
+            "title": "Read Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "n",
+          "read_status",
+          "job_error_code"
+        ],
+        "title": "SupportInstructionVersion",
+        "type": "object"
+      },
+      "SupportJob": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Kind"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "enum": [
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "paused"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "step": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Step"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "attempts",
+          "error_code",
+          "step",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "updated_at"
+        ],
+        "title": "SupportJob",
+        "type": "object"
+      },
+      "SupportNamedExpertChange": {
+        "properties": {
+          "changed_at": {
+            "format": "date-time",
+            "title": "Changed At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "changed_at"
+        ],
+        "title": "SupportNamedExpertChange",
+        "type": "object"
+      },
+      "SupportOfflinePackage": {
+        "properties": {
+          "downloaded_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Downloaded At"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "stale_reason": {
+            "anyOf": [
+              {
+                "pattern": "^[a-z][a-z0-9_.]{0,63}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stale Reason"
+          },
+          "state": {
+            "enum": [
+              "built",
+              "downloaded",
+              "revoked"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "expires_at",
+          "stale_reason",
+          "downloaded_at"
+        ],
+        "title": "SupportOfflinePackage",
+        "type": "object"
+      },
+      "SupportPages": {
+        "properties": {
+          "needs_clearer_copy": {
+            "title": "Needs Clearer Copy",
+            "type": "integer"
+          },
+          "quarantined": {
+            "title": "Quarantined",
+            "type": "integer"
+          },
+          "superseded": {
+            "title": "Superseded",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          },
+          "unread_by_named_expert": {
+            "title": "Unread By Named Expert",
+            "type": "integer"
+          },
+          "unreadable": {
+            "title": "Unreadable",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "unread_by_named_expert",
+          "unreadable",
+          "needs_clearer_copy",
+          "quarantined",
+          "superseded"
+        ],
+        "title": "SupportPages",
+        "type": "object"
+      },
+      "SupportQuestions": {
+        "properties": {
+          "instruction_versions": {
+            "items": {
+              "$ref": "#/components/schemas/SupportInstructionVersion"
+            },
+            "title": "Instruction Versions",
+            "type": "array"
+          },
+          "state": {
+            "enum": [
+              "none",
+              "to_check",
+              "confirmed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "instruction_versions"
+        ],
+        "title": "SupportQuestions",
+        "type": "object"
+      },
+      "SupportReport": {
+        "properties": {
+          "declaration_acknowledged": {
+            "title": "Declaration Acknowledged",
+            "type": "boolean"
+          },
+          "final_check": {
+            "$ref": "#/components/schemas/SupportFinalCheck"
+          },
+          "latest_version_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "draft",
+                  "locked",
+                  "served",
+                  "withdrawn"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Version Status"
+          },
+          "locked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Locked At"
+          },
+          "pack_correction_pending": {
+            "title": "Pack Correction Pending",
+            "type": "boolean"
+          },
+          "served_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Served At"
+          },
+          "signature_present": {
+            "title": "Signature Present",
+            "type": "boolean"
+          },
+          "signature_readable": {
+            "title": "Signature Readable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "latest_version_status",
+          "locked_at",
+          "served_at",
+          "final_check",
+          "declaration_acknowledged",
+          "signature_present",
+          "signature_readable",
+          "pack_correction_pending"
+        ],
+        "title": "SupportReport",
         "type": "object"
       },
       "TaskOut": {
@@ -38430,6 +39101,7 @@
     },
     "/v1/support/cases/{case_id}": {
       "get": {
+        "description": "The case's grants and where it is stuck: counts, codes, statuses, dates and ids only (rule 6).",
         "operationId": "look_up_case_v1_support_cases__case_id__get",
         "parameters": [
           {
@@ -38530,6 +39202,132 @@
         "summary": "Record Custody Transfer",
         "tags": [
           "organisations"
+        ]
+      }
+    },
+    "/v1/support/jobs/{job_id}/requeue": {
+      "post": {
+        "operationId": "requeue_job_v1_support_jobs__job_id__requeue_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobActionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Requeue Job",
+        "tags": [
+          "support"
+        ]
+      }
+    },
+    "/v1/support/jobs/{job_id}/resume": {
+      "post": {
+        "operationId": "resume_job_v1_support_jobs__job_id__resume_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobActionBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobActionResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Resume Job",
+        "tags": [
+          "support"
         ]
       }
     },

@@ -20,6 +20,7 @@ const WORDS = {
   "points.keep": "Keep",
   "points.move": "Move to {{side}}",
   "points.remove": "Remove",
+  "points.more": "More",
   "points.remove_title": "Why are you removing this?",
   "points.remove_reason": "A few words",
   "points.reason_needed": "Please say why, in a few words.",

@@ -395,6 +395,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 | `case_keys` | The case's encryption key (scrambled by the key service); destroying it makes the case unreadable. | case_id, wrapped_key, key_ref, created_at, destroyed_at |
 | `jobs` | Background work (processing a bundle, building a report) and its progress. | case_id, kind, status, priority, attempts, step, pct, eta_seconds, step_done, step_total, code_version, error_code, requested_by |
 | `job_steps` | The steps of a job that have finished, so a retried or requeued job skips them (F6). | job_id, case_id, step, created_at |
+| `job_support_actions` | Each time Avodeck support resumed a paused job or requeued a failed one, with what the job was before (so a requeue that resets attempts keeps the history). Ids and codes only; goes with its job (migration 0035). | job_id, action (resume/requeue), reason_code, from_status, error_code, attempts, person_id (staff), created_at |
 | `job_kind_actions` | The case action each job kind needs; `app.enqueue_job()` looks it up, so a caller cannot choose a weaker one. | kind, action |
 | `scheduled_runs` | One row per daily job per date it ran, so a missed date catches up exactly once (F28). | name, run_date, started_at |
 | `uploads` | A file being sent in 8 MB chunks: which chunks have arrived, and the document it became. | case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received, status, document_id, append, expires_at, completed_at |
@@ -830,8 +831,10 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |
 | GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
 | GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA completed at sign-in for this session (ADR 0020) |
-| GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants; the look is audited on the case | Support staff, as above |
+| GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants, and where it is stuck (jobs, pages, suggestions, questions, report, close, offline copies, named expert changes, deadlines) in counts and codes only; the look is audited on the case | Support staff, as above |
 | POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
+| POST | `/support/jobs/{job_id}/resume` | Put a paused job back on the queue (the worker moves it paused → running); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_resume`; audited `support.job_resumed` on the case; 409 `job_not_paused`, `case_on_hold` |
+| POST | `/support/jobs/{job_id}/requeue` | Put a failed job back on the queue (failed → queued, attempts reset; history kept in `job_support_actions`); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_requeue`; audited `support.job_requeued` on the case; 409 `job_not_failed` |
 
 **Case setup (slice C)**
 

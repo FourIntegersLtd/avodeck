@@ -26,6 +26,7 @@ from PIL import Image
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
+from app.core.http import etag
 from app.core.packs import default_library
 from app.core.storage import SupabaseStorage
 from tests.support.db import ClientFor
@@ -105,6 +106,23 @@ async def test_profile_reads_and_saves_with_an_etag(client_for: ClientFor, exper
     assert (await client.patch("/v1/me/profile", json={"profession": "x"})).status_code == 428
     unknown = await client.patch("/v1/me/profile", json={"surprise": 1}, headers={"if-match": again.headers["etag"]})
     assert unknown.status_code == 422
+
+
+async def test_profile_is_not_found_for_support_staff_without_an_expert_row(
+    client_for: ClientFor, seed: Seed, expert: uuid.UUID
+) -> None:
+    staff, both = seed.person(), seed.person()
+    seed.support_staff(staff)
+    seed.support_staff(both)
+    seed.org(kind="personal", members={both: "owner"})
+    seed.admin.execute("insert into app.experts (person_id) values (%s)", (both,))
+    client = await client_for(staff)
+    assert (await client.get("/v1/me/profile")).status_code == 404
+    assert (
+        await client.patch("/v1/me/profile", json={"profession": "x"}, headers={"if-match": etag(1)})
+    ).status_code == 404
+    assert (await (await client_for(both)).get("/v1/me/profile")).status_code == 200
+    assert (await (await client_for(expert)).get("/v1/me/profile")).status_code == 200
 
 
 # --- roles and training ------------------------------------------------------------------------------

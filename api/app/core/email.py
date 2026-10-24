@@ -27,6 +27,8 @@ SPOT_CHECK_CODE = "spot_check.code"
 ORG_INVITE = "org.invite"
 CASE_REASSIGNED = "case.reassigned"
 SUPPORT_ACCESS_GRANTED = "support_access.granted"
+SUPPORT_JOB_RESUMED = "support.job_resumed"
+SUPPORT_JOB_REQUEUED = "support.job_requeued"
 TEMPLATES = frozenset(
     {
         EMAIL_CHANGE_CONFIRM_OLD,
@@ -40,6 +42,8 @@ TEMPLATES = frozenset(
         ORG_INVITE,
         CASE_REASSIGNED,
         SUPPORT_ACCESS_GRANTED,
+        SUPPORT_JOB_RESUMED,
+        SUPPORT_JOB_REQUEUED,
     }
 )
 
@@ -104,6 +108,9 @@ TEMPLATE_PARAMS: dict[str, dict[str, Callable[[str], bool]]] = {
     CASE_REASSIGNED: {"case_ref": _is_uuid, "side": lambda v: v in REASSIGNED_SIDES},
     # The named expert let support look at one case (slice O): when the access ends.
     SUPPORT_ACCESS_GRANTED: {"case_ref": _is_uuid, "grant_ref": _is_uuid, "expires_at": _is_time},
+    # Avodeck support set one of the case's jobs going again (resumed a pause, or requeued a failure).
+    SUPPORT_JOB_RESUMED: {"case_ref": _is_uuid, "job_ref": _is_uuid},
+    SUPPORT_JOB_REQUEUED: {"case_ref": _is_uuid, "job_ref": _is_uuid},
 }
 
 
@@ -187,6 +194,15 @@ def support_access_granted_mail(to: str, *, case_id: uuid.UUID, grant_id: uuid.U
         SUPPORT_ACCESS_GRANTED,
         {"case_ref": str(case_id), "grant_ref": str(grant_id), "expires_at": expires_at.isoformat()},
     )
+    check_params(mail)
+    return mail
+
+
+def support_job_mail(to: str, *, template: str, case_id: uuid.UUID, job_id: uuid.UUID) -> Mail:
+    """Support resumed or requeued a job: the case's and the job's reference ids only."""
+    if template not in (SUPPORT_JOB_RESUMED, SUPPORT_JOB_REQUEUED):
+        raise ValueError(f"not a support job template: {template!r}")
+    mail = Mail(to, template, {"case_ref": str(case_id), "job_ref": str(job_id)})
     check_params(mail)
     return mail
 

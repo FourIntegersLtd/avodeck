@@ -51,6 +51,11 @@ export function pageImage(caseId: string, pageNo: number): Promise<string> {
   return page.url;
 }
 
+/** The object URL of a page already fetched, at once (so a page seen before opens without an empty frame). */
+export function peekPage(caseId: string, pageNo: number): string | null {
+  return kept.get(`${caseId}/${pageNo}`)?.made ?? null;
+}
+
 /** Releases every kept page (leaving the case, or a test). */
 export function forgetPages() {
   for (const page of kept.values()) release(page);

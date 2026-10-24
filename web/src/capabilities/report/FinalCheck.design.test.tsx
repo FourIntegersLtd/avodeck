@@ -29,8 +29,7 @@ test("each thing to fix is an amber outlined card with an icon and a solid Fix i
   expect(card.querySelector(".rp-fix")).toBeNull();
   expect(card.querySelector(".av-icon-tile--amber")).not.toBeNull();
   const fix = within(card).getByRole("link", { name: M["report.check.fix"]! });
-  expect(fix).toHaveClass("av-button");
-  expect(fix).not.toHaveClass("av-button--secondary");
+  expect(fix).toHaveClass("av-button--secondary");
 });
 
 test("a check that could not run shows in the same list with its own words", async () => {

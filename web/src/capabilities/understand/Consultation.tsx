@@ -8,7 +8,7 @@ import { t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
-import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, StatusBadge, ToggleSwitch } from "../../foundation/ui";
+import { BackLink, Button, DictationBox, Dialog, LinkButton, LoadError, Loading, Notice, PageRef, QChip, SegmentedControl, StatusBadge } from "../../foundation/ui";
 import { Comments } from "./Comments";
 import { GuidanceChanged, longDate, statusOf, TextArea, useCan, useKindWord } from "./shared";
 import { w } from "./words";
@@ -328,7 +328,15 @@ export function Consultation() {
           )}
         </div>
         <div className="av-understand-asseen">
-          <ToggleSwitch label={w("consultation.on", { title: c.title, date: longDate(c.on) })} checked={asSeen} onChange={setAsSeen} />
+          <SegmentedControl
+            label={w("consultation.view")}
+            value={asSeen ? "seen" : "later"}
+            onChange={(v) => setAsSeen(v === "seen")}
+            options={[
+              { value: "seen", label: w("consultation.on", { title: c.title, date: longDate(c.on) }) },
+              { value: "later", label: w("consultation.with_later") },
+            ]}
+          />
           <span className="av-understand-asseen__hint">{w("consultation.switch_hint")}</span>
           <details className="av-understand-asseen__day">
             <summary>{w("consultation.change_day")}</summary>

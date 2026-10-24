@@ -40,6 +40,7 @@ export interface ReaderApi {
 export interface ReaderOpts {
   page?: number;
   alreadyRead?: boolean;
+  reassigned?: boolean;
   /** The page detail says read although the server holds no read record (to prove a 423 shows nothing). */
   pageSaysRead?: boolean;
   inPeriod?: boolean;
@@ -151,7 +152,7 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     }),
     http.get(`${c}/pages/:n/facts`, () => {
       api.factRequests += 1;
-      return api.read ? json({ facts: api.facts }) : apiError(423, "blind_read");
+      return api.read ? json({ facts: api.facts, reassigned: opts.reassigned ?? false }) : apiError(423, "blind_read");
     }),
     http.get(`${c}/pages/:n/words`, ({ params }) => {
       api.wordRequests += 1;
@@ -247,14 +248,14 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
 
 /** The "More tools" panel of the page toolbar, opened if it is closed (it closes once a tool is picked). */
 export async function moreTools(user: UserEvent): Promise<HTMLElement> {
-  const open = screen.queryByRole("group", { name: "More tools" });
+  const open = screen.queryByRole("group", { name: "View" });
   if (open) return open;
-  await user.click(await screen.findByRole("button", { name: "More tools" }));
-  return screen.getByRole("group", { name: "More tools" });
+  await user.click(await screen.findByRole("button", { name: "View" }));
+  return screen.getByRole("group", { name: "View" });
 }
 
-/** Opens "Find words" on the page toolbar, if it is not open already. */
+/** Opens "Find" on the page toolbar, if it is not open already. */
 export async function openFind(user: UserEvent): Promise<void> {
   await screen.findByRole("toolbar", { name: "Page view" });
-  if (!screen.queryByRole("searchbox", { name: "Find words in the bundle" })) await user.click(screen.getByRole("button", { name: "Find words" }));
+  if (!screen.queryByRole("searchbox", { name: "Find words in the bundle" })) await user.click(screen.getByRole("button", { name: "Find" }));
 }
