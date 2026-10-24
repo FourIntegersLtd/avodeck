@@ -124,3 +124,5 @@
   .pl-card__below { padding-left: 0; }
 }
 .pl-ref { font-size: 1.5rem; font-weight: 600; margin: 0.25rem 0; }
+.pl-pagecard .av-segmented-control { display: flex; }
+.pl-pagecard .av-segmented-control__option { flex: 1 1 0; min-height: 52px; }
