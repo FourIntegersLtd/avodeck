@@ -7,6 +7,7 @@ import { CaseTeam } from "./CaseTeam";
 import { flag } from "./flags";
 import { Leave } from "./Leave";
 import { OrganisationSettings } from "./OrganisationSettings";
+import { SupportCase } from "./SupportCase";
 import { SupportConsole } from "./SupportConsole";
 import "./words";
 
@@ -41,6 +42,7 @@ export const organisationsRoutes: RouteObject[] = [
   { path: "account/custodian", element: <Custodian /> },
   { path: "account/close", element: <CloseAccount /> },
   { path: "support", element: <SupportConsole /> },
+  { path: "support/cases/:caseId", element: <SupportCase /> },
 ];
 
 export const organisationsCaseRoutes: RouteObject[] = [{ path: "team", element: <CaseTeam /> }];

@@ -11,7 +11,7 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, Query
+from fastapi import Depends, Query, Request
 
 from app.core.auth.support import SupportStaff, require_support_staff
 from app.core.flags import require_flag
@@ -49,5 +49,6 @@ async def record_custody_transfer(body: CustodyTransferCreate, conn: DbConn, sta
 
 
 @router.get("/support/cases/{case_id}", response_model=SupportCaseDetail, dependencies=STEP_UP_FIRST)
-async def look_up_case(case_id: uuid.UUID, conn: DbConn, _: Staff) -> SupportCaseDetail:
-    return await support.console_case(conn, case_id)
+async def look_up_case(case_id: uuid.UUID, request: Request, conn: DbConn, _: Staff) -> SupportCaseDetail:
+    """The case's grants and where it is stuck: counts, codes, statuses, dates and ids only (rule 6)."""
+    return await support.console_case(conn, request.app.state.packs, case_id)

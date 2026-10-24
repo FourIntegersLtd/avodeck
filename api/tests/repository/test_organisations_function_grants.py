@@ -22,6 +22,7 @@ FUNCTIONS = {
     "app.close_organisation(uuid)": True,
     "app.support_cases(uuid, text)": True,
     "app.support_case_grants(uuid)": True,
+    "app.support_case_diagnostics(uuid)": True,
 }
 
 
