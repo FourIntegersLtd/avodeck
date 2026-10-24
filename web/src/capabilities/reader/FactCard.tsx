@@ -75,10 +75,18 @@ export function allowed(fact: Schemas["FactOut"]): { correct: boolean; notRight:
 
 const ISO_DAY = /^\d{4}-\d{2}-\d{2}/;
 
-/** Editable detail rows: pack key, the pack's label, display value. Dates in fields are omitted (title carries the date). */
+/** The pack's field types for a kind ({field: "string" | "integer" | "number" | "date" | "boolean"}). */
+export function fieldTypes(pack: Schemas["CasePack"], kind: string): Record<string, string> {
+  const fields = pack.fact_kinds.find((k) => k.key === kind)?.fields;
+  return fields && typeof fields === "object" ? (fields as Record<string, string>) : {};
+}
+
+/** Editable detail rows: pack key, the pack's label, display value. Dates are omitted: the title carries the
+ * date, and the date detail is set by "Date on timeline". */
 export function editableFields(fact: Schemas["FactOut"], pack: Schemas["CasePack"]): Array<{ key: string; label: string; value: string }> {
+  const types = fieldTypes(pack, fact.kind);
   return Object.entries(fact.fields ?? {}).flatMap(([key, value]) =>
-    (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value))
+    (typeof value === "string" || typeof value === "number") && String(value).trim() && !ISO_DAY.test(String(value)) && types[key] !== "date"
       ? [{ key, label: fieldWord(pack, fact.kind, key), value: String(value) }]
       : [],
   );
