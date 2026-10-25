@@ -33,7 +33,7 @@ Not run by Railway. From the founder's Mac, before deploying code that needs the
 The browser must reach the API on its own origin (web/AGENTS.md). In `web/vercel.json`, add a rewrite once the Railway domain exists:
 
 ```json
-"rewrites": [{ "source": "/v1/:path*", "destination": "https://<api-service>.up.railway.app/v1/:path*" }]
+"rewrites": [{ "source": "/v1/:path*", "destination": "https://api-production-0e15e.up.railway.app/v1/:path*" }]
 ```
 
 Vercel rewrites do not carry WebSockets, so live dictation (`/v1/.../dictation`) needs the API on a subdomain of the web domain (for example `api.avodeck.com` behind the same site) before it works in the cloud. Everything else works through the rewrite.
