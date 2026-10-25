@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { Navigate, useMatches, useOutlet, useParams } from "react-router-dom";
+import { Link, Navigate, useMatches, useOutlet, useParams } from "react-router-dom";
 import { t } from "../foundation/i18n";
 import { caseSubtitle, stepFor, type CaseFrame, type CaseScreenHandle } from "../foundation/lib/caseFrame";
 import { firstScreenInCase } from "../foundation/lib/screens";
@@ -13,11 +13,12 @@ import { WhereYouAre } from "./WhereYouAre";
 
 /** A case's frame: its name and the pack's steps. Slices' case routes render inside it (the outlet),
  * get the case and pack from `useCaseFrame()`, and name their screen key in the route's handle. */
-/** Where a bare case address opens: the first registered screen inside the case of the step the case is at. */
+/** Where a bare case address opens: the case's home when a slice registers one, else the first registered screen
+ * inside the case of the step the case is at. */
 export function caseHome(frame: Pick<CaseFrame, "item" | "pack">): string | null {
   const stage = (frame.item as { stage?: string | null }).stage;
   const steps = frame.pack.workflow_steps as Array<{ key: string; screens?: string[] }>;
-  return firstScreenInCase(steps.find((s) => s.key === stage)?.screens, frame.item.id);
+  return firstScreenInCase(["case_home"], frame.item.id) ?? firstScreenInCase(steps.find((s) => s.key === stage)?.screens, frame.item.id);
 }
 
 export function CaseLayout() {
@@ -56,6 +57,7 @@ export function CaseLayout() {
   const { item, pack } = found.data;
   const home = outlet ? null : caseHome(found.data);
   if (home) return <Navigate to={home} replace />;
+  const homePath = firstScreenInCase(["case_home"], caseId);
   const pills = Object.fromEntries(
     (stepProgress.data?.steps ?? []).flatMap((s) => (s.percent === null || s.done === null || s.total === null ? [] : [[s.key, { done: s.done, total: s.total, percent: s.percent }]])),
   );
@@ -76,7 +78,18 @@ export function CaseLayout() {
         caseId={caseId}
         steps={pack.workflow_steps as Array<{ key: string; screens?: string[] }>}
         current={stepFor(pack, screenKey)}
-        title={<h1 className="av-case-bar__title">{item.label}</h1>}
+        screen={screenKey}
+        title={
+          <h1 className="av-case-bar__title">
+            {homePath ? (
+              <Link to={homePath} className="av-case-bar__title-link">
+                {item.label}
+              </Link>
+            ) : (
+              item.label
+            )}
+          </h1>
+        }
         subtitle={caseSubtitle(item, pack)}
         progress={pills}
         person={person}

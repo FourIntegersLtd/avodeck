@@ -97,12 +97,15 @@ describe.each([
     expect(screen.getByText("Checked by you")).toBeVisible();
   });
 
-  test("Not right sends the short reason, keeps the card, and Undo checks it again", async () => {
+  test("Not right asks why first, sends the short reason on Mark as not right, and Undo checks it again", async () => {
     const api = mockReader(pack, { alreadyRead: true });
     const { user } = renderAt(PATH);
     const c = await screen.findByRole("article", { name: /Dr P consultation/ });
-    await user.type(within(c).getByLabelText("Why not? (optional)"), "wrong day");
+    expect(within(c).queryByLabelText("Why not? (optional)")).toBeNull();
     await user.click(within(c).getByRole("button", { name: "Not right" }));
+    expect(api.verifies).toHaveLength(0);
+    await user.type(within(c).getByLabelText("Why not? (optional)"), "wrong day");
+    await user.click(within(c).getByRole("button", { name: "Mark as not right" }));
     await waitFor(() => expect(api.verifies).toHaveLength(1));
     expect(api.verifies[0]!.body).toEqual({ action: "not_right", reason: "wrong day" });
     await user.click(screen.getByRole("button", { name: /Dr P consultation/ }));
@@ -233,11 +236,12 @@ describe.each([
     const api = mockReader(pack, { alreadyRead: true });
     const { user, router } = renderAt(PATH);
     const c = await screen.findByRole("article", { name: /Dr P consultation/ });
+    await user.click(within(c).getByRole("button", { name: "Not right" }));
     await user.click(within(c).getByLabelText("Why not? (optional)"));
     await user.keyboard("jk12r");
     expect(api.verifies).toHaveLength(0);
     expect(router.state.location.pathname).toBe(PATH);
-    fireEvent.keyDown(document.body, { key: "2" });
+    fireEvent.keyDown(document.body, { key: "1" });
     await waitFor(() => expect(api.verifies).toHaveLength(1));
   });
 

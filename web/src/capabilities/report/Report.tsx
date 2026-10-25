@@ -195,7 +195,8 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
   const nameOf = useSectionName();
   const [editing, setEditing] = useState(false);
   const name = nameOf(section.key);
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })), [caseId, section.key, data.version?.id], { cache: "report/Report#Paper:found" });
+  // No built report yet answers 404: that is the empty section, not a failure.
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/paragraphs", { params: { path: { case_id: caseId }, query: { section: section.key } } })).catch((err: unknown) => { if (err instanceof ApiError && err.status === 404) return { paragraphs: [] as Schemas["ParagraphOut"][] }; throw err; }), [caseId, section.key, data.version?.id], { cache: "report/Report#Paper:found" });
   const updating = found.loading && !!found.data;
   return (
     <div className="rp-centre">
@@ -226,7 +227,8 @@ function Paper({ caseId, data, section, number, onSaved }: { caseId: string; dat
 }
 
 function SectionEditor({ caseId, sectionKey, onClose, onSaved }: { caseId: string; sectionKey: string; onClose: () => void; onSaved: () => void }) {
-  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/sections/{key}", { params: { path: { case_id: caseId, key: sectionKey } } })), [caseId, sectionKey]);
+  // A section never saved answers 404: start an empty one (version 0; the first save sends no If-Match).
+  const found = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/report/sections/{key}", { params: { path: { case_id: caseId, key: sectionKey } } })).catch((err: unknown): Schemas["SectionText"] => { if (err instanceof ApiError && err.status === 404) return { key: sectionKey, body: "", citations: [], version: 0 }; throw err; }), [caseId, sectionKey]);
   if (found.error) return <LoadError onRetry={found.reload} />;
   if (!found.data) return <Loading inline />;
   return <SectionForm caseId={caseId} initial={found.data} onClose={onClose} onSaved={onSaved} />;
@@ -280,7 +282,7 @@ function SectionForm({ caseId, initial, onClose, onSaved }: { caseId: string; in
         api.PUT("/v1/cases/{case_id}/report/sections/{key}", {
           params: { path: { case_id: caseId, key: initial.key } },
           body: { body, citations: refs },
-          headers: ifMatch(versionTag(at)),
+          headers: at > 0 ? ifMatch(versionTag(at)) : undefined,
         }),
       );
       setVersion(next.version);

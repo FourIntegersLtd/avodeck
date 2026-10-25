@@ -163,6 +163,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const [editing, setEditing] = useState<EditDraft | null>(null);
   const [pageWords, setPageWords] = useState<PageWord[] | null>(null);
   const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [askingWhy, setAskingWhy] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const workRef = useRef<HTMLDivElement>(null);
@@ -320,7 +321,11 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
     }
   }
 
-  const notRight = (f: Fact) => act(f, "not_right", reasons[f.id]?.trim() ? { reason: reasons[f.id]!.trim() } : {});
+  const askWhy = (f: Fact) => setAskingWhy(f.id);
+  const notRight = (f: Fact) => {
+    setAskingWhy(null);
+    return act(f, "not_right", reasons[f.id]?.trim() ? { reason: reasons[f.id]!.trim() } : {});
+  };
   const orderedWords = (ids: string[]) => (pageWords ? inPageOrder(ids, pageWords) : ids);
 
   const saveEdit = (f: Fact) => {
@@ -616,8 +621,8 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
 
   const nextPage = following.data ?? null;
   const go = (n: number) => n >= 1 && (n <= pageNo || n === nextPage) && navigate(`/cases/${caseId}/read/${n}`);
-  const latest = useRef({ markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip });
-  latest.current = { markRead, go, act, notRight, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip };
+  const latest = useRef({ markRead, go, act, askWhy, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip });
+  latest.current = { markRead, go, act, askWhy, startEdit, facts, focus, read, nextPage, turnPage, undoTurn, moving, full: tools.full, setFull, more, closeMore, openKeys, toggleStrip };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -652,7 +657,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       else if (key === "arrowright") s.go(s.nextPage ?? 0);
       else if (key === "arrowleft") s.go(pageNo - 1);
       else if ((key === "1" || key === "c") && target && allowed(target).correct) void s.act(target, "correct");
-      else if ((key === "2" || key === "n") && target && allowed(target).notRight) void s.notRight(target);
+      else if ((key === "2" || key === "n") && target && allowed(target).notRight) s.askWhy(target);
       else if (key === "3" && target && allowed(target).edit) void s.startEdit(target);
       else return;
       e.preventDefault();
@@ -697,6 +702,9 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       onFocus={() => setFocus(f.id)}
       onReason={(text) => setReasons((r) => ({ ...r, [f.id]: text }))}
       onCorrect={() => act(f, "correct")}
+      askWhy={askingWhy === f.id}
+      onAskWhy={() => askWhy(f)}
+      onCancelWhy={() => { setReasons((r) => ({ ...r, [f.id]: "" })); setAskingWhy(null); }}
       onNotRight={() => notRight(f)}
       onStartEdit={() => { setMoving(null); void startEdit(f); }}
       onEditText={(text) => setEditing((e) => e && { ...e, text })}

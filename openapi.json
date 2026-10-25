@@ -2315,33 +2315,9 @@
               }
             ],
             "title": "Storage Place"
-          },
-          "support_hours": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Support Hours"
-          },
-          "support_phone": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Support Phone"
           }
         },
         "required": [
-          "support_phone",
-          "support_hours",
           "storage_place"
         ],
         "title": "Cell",
@@ -6324,6 +6300,38 @@
           "counted"
         ],
         "title": "HeartbeatOut",
+        "type": "object"
+      },
+      "HelpRequest": {
+        "properties": {
+          "message": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Message",
+            "type": "string"
+          },
+          "page": {
+            "pattern": "^/[A-Za-z0-9/_-]{0,200}$",
+            "title": "Page",
+            "type": "string"
+          },
+          "topic": {
+            "enum": [
+              "case",
+              "account",
+              "billing",
+              "other"
+            ],
+            "title": "Topic",
+            "type": "string"
+          }
+        },
+        "required": [
+          "topic",
+          "message",
+          "page"
+        ],
+        "title": "HelpRequest",
         "type": "object"
       },
       "HoldCreate": {
@@ -17274,6 +17282,95 @@
           "declaration_confirmed"
         ],
         "title": "SupplementarySignIn",
+        "type": "object"
+      },
+      "SupportAccount": {
+        "description": "An account support created: ids, email, codes and dates only (rule 6: no name).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+$",
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_sent_at": {
+            "format": "date-time",
+            "title": "Last Sent At",
+            "type": "string"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "invited",
+              "active"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "email",
+          "status",
+          "created_at",
+          "last_sent_at"
+        ],
+        "title": "SupportAccount",
+        "type": "object"
+      },
+      "SupportAccountCreate": {
+        "additionalProperties": false,
+        "description": "A new person's account, made by Avodeck support: no password (the person sets their own) and no team\n(a team's own owners and admins invite people; any other field is 422).",
+        "properties": {
+          "email": {
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "title": "Email",
+            "type": "string"
+          },
+          "full_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Full Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "full_name",
+          "email"
+        ],
+        "title": "SupportAccountCreate",
+        "type": "object"
+      },
+      "SupportAccountList": {
+        "properties": {
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/SupportAccount"
+            },
+            "title": "Accounts",
+            "type": "array"
+          }
+        },
+        "required": [
+          "accounts"
+        ],
+        "title": "SupportAccountList",
         "type": "object"
       },
       "SupportCase": {
@@ -35897,6 +35994,56 @@
         ]
       }
     },
+    "/v1/help-requests": {
+      "post": {
+        "description": "Emails the message to our support address; at most 5 per person per day.",
+        "operationId": "send_help_request_v1_help_requests_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HelpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Send Help Request",
+        "tags": [
+          "help"
+        ]
+      }
+    },
     "/v1/invites/{token}/accept": {
       "post": {
         "operationId": "accept_invite_v1_invites__token__accept_post",
@@ -39109,6 +39256,166 @@
         "summary": "Answer Spot Check",
         "tags": [
           "spot-checks"
+        ]
+      }
+    },
+    "/v1/support/accounts": {
+      "get": {
+        "description": "The accounts support created: `invited` until the person first completes MFA, then `active`.",
+        "operationId": "list_accounts_v1_support_accounts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportAccountList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "List Accounts",
+        "tags": [
+          "organisations"
+        ]
+      },
+      "post": {
+        "description": "A new person's account, with no password and no team: they get an email to set their own, sent after\ncommit (409 `conflict` if the email already has an account, 422 `invalid_email` if Auth will not take it;\nat most 20 an hour per staff member counting refused attempts, 429 `too_many_attempts`).",
+        "operationId": "create_account_v1_support_accounts_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SupportAccountCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportAccount"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Create Account",
+        "tags": [
+          "organisations"
+        ]
+      }
+    },
+    "/v1/support/accounts/{account_id}/resend": {
+      "post": {
+        "description": "A new set-password link (1 hour) for an account still `invited`; at most once a minute (429\n`sent_recently`).",
+        "operationId": "resend_account_invite_v1_support_accounts__account_id__resend_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "account_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Account Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "maxLength": 128,
+              "minLength": 8,
+              "title": "Idempotency-Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SupportAccount"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Resend Account Invite",
+        "tags": [
+          "organisations"
         ]
       }
     },

@@ -107,6 +107,7 @@ const WORDS = {
   "timeline.resize_split": "Make the timeline or the entry panel wider",
   "timeline.lane_icon": "Line {{label}}",
   "timeline.legend_dots": "What the dots mean",
+  "timeline.legend_fold": "What the colours and marks mean",
   "timeline.legend_question": "Linked question",
   "timeline.look_one": "Look at the {{count}} thing we found",
   "timeline.look_other": "Look at the {{count}} things we found",

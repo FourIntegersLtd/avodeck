@@ -106,6 +106,7 @@ test("adding a course goes busy and sends once", async () => {
   const { user } = open();
   try {
     const training = await region("Expert training");
+    await user.click(await training.findByRole("button", { name: "Add training" }));
     await user.type(await training.findByLabelText("Course name"), "Course");
     await expectBusyOnce(user, training.getByRole("button", { name: "Add this course" }), h);
   } finally { h.release(); }

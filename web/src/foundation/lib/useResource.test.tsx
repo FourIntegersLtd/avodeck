@@ -148,7 +148,7 @@ describe("useResource with a cache name", () => {
   });
 
   test("a read (GET) leaves the cache alone", async () => {
-    server.use(http.get("/v1/cell", () => json({ storage_place: null, support_phone: null, support_hours: null })));
+    server.use(http.get("/v1/cell", () => json({ storage_place: null })));
     await loadOnce("probe.read", "old");
     await unwrap(api.GET("/v1/cell"));
     render(<Probe load={() => new Promise<string>(() => {})} cache="probe.read" />);

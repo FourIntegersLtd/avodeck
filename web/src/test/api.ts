@@ -26,7 +26,7 @@ export function signedIn(
     http.get("/v1/cases/:caseId/progress", () => json({ read: 0, total: 0, seconds_left: 0 })),
     http.get("/v1/me/stats/balance", () => json({ counts: {}, months: 12 })),
     http.get("/v1/auth/mfa/recovery-codes", () => json({ remaining: 10, total: 10 })),
-    http.get("/v1/cell", () => json({ storage_place: null, support_phone: null, support_hours: null })),
+    http.get("/v1/cell", () => json({ storage_place: null })),
   );
 }
 
@@ -34,7 +34,7 @@ export function signedOut() {
   server.use(
     http.get("/v1/auth/session", () => apiError(401, "not_signed_in")),
     http.get("/v1/me", () => apiError(401, "not_signed_in")),
-    http.get("/v1/cell", () => json({ storage_place: null, support_phone: null, support_hours: null })),
+    http.get("/v1/cell", () => json({ storage_place: null })),
   );
 }
 

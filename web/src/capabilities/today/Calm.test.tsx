@@ -1,5 +1,5 @@
 // S03 in the calm design: one green primary button, quiet everything else, hairline rows, soft cards.
-import { screen, within } from "@testing-library/react";
+import { screen } from "@testing-library/react";
 import { beforeAll, expect, test } from "vitest";
 import { registerMessages } from "../../foundation/i18n";
 import { registerScreen } from "../../foundation/lib/screens";
@@ -32,33 +32,22 @@ test("at most one green primary button on the screen", async () => {
   const { container } = renderAt("/today");
   await screen.findByRole("region", { name: "2 things need you" });
   expect([...container.querySelectorAll(".av-button")].filter(isPrimary)).toHaveLength(1);
-  expect(screen.getByRole("link", { name: "New case" })).toHaveClass("av-button--secondary");
+  expect(screen.getByRole("link", { name: "Start a new case" })).toHaveClass("av-button--secondary");
 });
 
 test("with nothing waiting, New case is the one primary button", async () => {
-  signedIn({ today: today({ cases: [], needs_you: [] }) });
+  signedIn({ today: today({ needs_you: [] }) });
   const { container } = renderAt("/today");
-  await screen.findByText("You have no open cases.");
+  await screen.findByText("Nothing needs you right now.");
   expect([...container.querySelectorAll(".av-button")].filter(isPrimary)).toHaveLength(1);
-  expect(screen.getByRole("link", { name: "New case" })).not.toHaveClass("av-button--secondary");
+  expect(screen.getByRole("link", { name: "Start a new case" })).not.toHaveClass("av-button--secondary");
 });
 
-test("the organisation filter is the calm segmented control, not a row of buttons", async () => {
-  signedIn({ today: full });
-  const { container } = renderAt("/today");
-  const filter = await screen.findByRole("group", { name: "Show cases for" });
-  expect(filter).toHaveClass("av-segmented-control");
-  expect(within(filter).getAllByRole("button")).toHaveLength(3);
-  expect(container.querySelector(".av-filter")).toBeNull();
-});
-
-test("needs-you rows are hairline rows and case cards are soft cards with no inline styles", async () => {
+test("needs-you sits in one card of hairline rows, with no inline styles", async () => {
   signedIn({ today: full });
   const { container } = renderAt("/today");
   const region = await screen.findByRole("region", { name: "2 things need you" });
-  expect(region).not.toHaveClass("av-card");
+  expect(region).toHaveClass("av-card");
   expect(region.querySelectorAll("li.av-needs__item.av-hairline-row")).toHaveLength(2);
-  const card = (await screen.findAllByRole("link", { name: /Mrs A/ })).find((l) => l.classList.contains("av-case-card"))!;
-  expect(card).toHaveClass("av-card");
   expect(container.querySelector("[style]")).toBeNull();
 });

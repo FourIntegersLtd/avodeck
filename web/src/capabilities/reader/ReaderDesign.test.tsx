@@ -97,7 +97,10 @@ describe.each([
     await user.keyboard("c");
     await waitFor(() => expect(api.verifies[0]).toMatchObject({ id: factId(1), body: { action: "correct" } }));
     await user.keyboard("n");
-    await waitFor(() => expect(api.verifies[1]).toMatchObject({ id: factId(2), body: { action: "not_right" } }));
+    expect(await screen.findByLabelText("Why not? (optional)")).toHaveFocus();
+    expect(api.verifies).toHaveLength(1);
+    await user.keyboard("wrong day{Enter}");
+    await waitFor(() => expect(api.verifies[1]).toMatchObject({ id: factId(2), body: { action: "not_right", reason: "wrong day" } }));
     await user.keyboard("{ArrowRight}");
     expect(await screen.findByRole("img", { name: "Page 119" })).toBeVisible();
   });
