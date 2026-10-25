@@ -15,7 +15,8 @@ export interface paths {
         put?: never;
         /**
          * Enroll
-         * @description First sign-in: a new authenticator app (QR code and the same secret as text).
+         * @description A new authenticator app (QR code and the same secret as text), from a signed-in session; usually at
+         *     the first risky action, which carries on once `/mfa/verify` accepts a code from it.
          */
         post: operations["enroll_v1_auth_mfa_enroll_post"];
         delete?: never;
@@ -36,7 +37,8 @@ export interface paths {
         /**
          * Recover
          * @description Lost phone: password plus one recovery code. The code is used up, the old authenticator is
-         *     removed and the new session must enrol a new one (which issues a new set of codes).
+         *     removed and the new session is signed in; the new phone is set up at the next risky action (which
+         *     issues a new set of codes).
          */
         post: operations["recover_v1_auth_mfa_recover_post"];
         delete?: never;
@@ -80,7 +82,7 @@ export interface paths {
         put?: never;
         /**
          * Verify
-         * @description A code from the authenticator app: completes sign-in, or steps up for 10 minutes.
+         * @description A code from the authenticator app: the session becomes aal2 and is stepped up for 10 minutes.
          *
          *     The session gets new cookies. Finishing enrolment issues the ten recovery codes, shown once.
          */
@@ -183,7 +185,8 @@ export interface paths {
         put?: never;
         /**
          * Sign In
-         * @description Password step. Sets the session cookies; the session stays at `mfa_required` until a code is verified.
+         * @description The password. Sets the session cookies; the session (aal1) can use every ordinary route. A code is
+         *     asked for at risky actions (ADR 0025); `mfa_required` stays in the contract but is no longer answered.
          */
         post: operations["sign_in_v1_auth_sign_in_post"];
         delete?: never;

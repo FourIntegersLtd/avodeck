@@ -29,7 +29,13 @@ from app.core.auth.session import current_session
 from app.core.auth.step_up import check_session_mfa
 from app.core.http import DbConn
 
-__all__ = ["SupportStaff", "check_session_mfa", "check_support_staff", "require_support_lookup", "require_support_staff"]
+__all__ = [
+    "SupportStaff",
+    "check_session_mfa",
+    "check_support_staff",
+    "require_support_lookup",
+    "require_support_staff",
+]
 
 
 @dataclass(frozen=True)
