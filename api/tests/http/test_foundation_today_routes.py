@@ -296,7 +296,8 @@ async def test_due_this_month_ignores_q_and_counts_open_cases_only(
 
 
 async def _ready(client_for: ClientFor, person: uuid.UUID) -> dict[str, object]:
-    return (await (await client_for(person)).get("/v1/today")).json()["readiness"]
+    ready: dict[str, object] = (await (await client_for(person)).get("/v1/today")).json()["readiness"]
+    return ready
 
 
 async def test_readiness_counts_the_first_visit_steps_on_the_server(
