@@ -248,7 +248,8 @@ async def custody_in_force(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     await conn.execute("select pg_advisory_xact_lock(hashtextextended('custody:' || %s::text, 0))", (case_id,))
     return bool(
         await value(
-            conn, "select exists (select 1 from app.custody_transfers where case_id = %s and revoked_at is null)",
+            conn,
+            "select exists (select 1 from app.custody_transfers where case_id = %s and revoked_at is null)",
             (case_id,),
         )  # fmt: skip
     )
