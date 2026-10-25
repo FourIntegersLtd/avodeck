@@ -70,7 +70,7 @@ export function documents(): TestDocument[] {
 export function summary(pack: Schemas["CasePack"], over: Partial<Schemas["BundleSummary"]> = {}): Schemas["BundleSummary"] {
   const types = pack.source_types as Array<{ key: string }>;
   const each = Math.floor(1231 / types.length);
-  return {
+  const merged = {
     pages: 1231,
     by_source: types.map((s, i) => ({ source_type: s.key, pages: i === 0 ? 1231 - each * (types.length - 1) : each })),
     duplicates: 37,
@@ -86,6 +86,25 @@ export function summary(pack: Schemas["CasePack"], over: Partial<Schemas["Bundle
     foreign_language: [{ page_id: page(903), page_no: 903, language: "cy" }],
     ...over,
   } as Schemas["BundleSummary"];
+  // The groups the server hands the screens, worked out the way the server does it.
+  const unopened = merged.documents.filter((d) => "unreadable_reason" in d && d.unreadable_reason);
+  const setAside = (merged.quarantined ?? []).filter((q) => q.status === "confirmed" || q.status === "purged");
+  const suggested = (merged.quarantine_suggestions ?? []).filter((q) => q.status === "suggested");
+  return {
+    unopened_documents: unopened,
+    unopened_count: unopened.length,
+    quarantine_listed: [...suggested, ...setAside],
+    quarantine_confirmed: setAside.filter((q) => q.status === "confirmed"),
+    suggested_count: suggested.length,
+    set_aside_count: setAside.length,
+    ...merged,
+  } as Schemas["BundleSummary"];
+}
+
+/** The missing-items answer, with the "still missing" group the server works out. */
+export function missingList(items: Array<Schemas["MissingItem"]>): Schemas["MissingItems"] {
+  const still = items.filter((m) => m.status === "open" || m.status === "requested");
+  return { missing_items: items, still_missing: still, still_missing_count: still.length } as Schemas["MissingItems"];
 }
 
 export function missingItem(over: Partial<Schemas["MissingItem"]> = {}): Schemas["MissingItem"] {
