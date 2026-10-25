@@ -26,7 +26,7 @@ FUNCTIONS = {
     "app.support_account_check(text)": False,
     "app.support_account_precheck(text)": True,
     "app.support_create_account(uuid, text, text, text)": True,
-    "app.support_resend_account(uuid)": True,
+    "app.support_new_password(uuid)": True,
     "app.support_accounts_list()": True,
 }
 
