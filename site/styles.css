@@ -452,7 +452,7 @@ a:hover { color: var(--forest); }
 @media (max-width: 760px) {
   .wrap { padding: 56px 16px; }
   .pilot .wrap { padding: 56px 16px; }
-  .hero-copy { min-height: calc(100vh - 81px); min-height: calc(100svh - 81px); padding: 24px 0; gap: 22px; }
+  .hero-copy { min-height: 0; padding: 32px 0 0; gap: 22px; }
   .hero-sub { max-width: none; font-size: 20px; }
   .hero-actions { flex-direction: column; align-items: stretch; gap: 8px; }
   .hero-actions .btn { justify-content: center; width: 100%; }
