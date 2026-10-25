@@ -50,7 +50,7 @@ export function OrganisationSettings() {
         </div>
         <Switcher current={item.id} memberships={me.memberships} />
       </div>
-      <People orgId={item.id} members={members.data.members} manage={manage} assignable={item.assignable_roles} me={{ personId: me.person.id, locale: me.person.locale }} reload={members.reload} />
+      <People orgId={item.id} members={members.data.current_members} manage={manage} assignable={item.assignable_roles} me={{ personId: me.person.id, locale: me.person.locale }} reload={members.reload} />
       <div className="av-org-panels">
         <section aria-labelledby="roles-panel" className="av-card av-org-card">
           <h2 id="roles-panel">{w("panel.roles.title")}</h2>
