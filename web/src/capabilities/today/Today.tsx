@@ -20,7 +20,7 @@ export function Today() {
   const name = me.person.greeting_name || me.person.full_name || me.person.email;
   const data = today.data;
   // No cases at all, open or closed: the first-visit welcome (S03d).
-  if (data && data.cases.length === 0 && data.closed_count === 0) return <TodayFirst />;
+  if (data && data.cases.length === 0 && data.closed_count === 0) return <TodayFirst ready={data.readiness} />;
   return (
     <div className="av-page">
       <div className="av-today__head">

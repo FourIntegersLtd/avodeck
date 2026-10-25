@@ -14135,6 +14135,40 @@
         "title": "ReadOut",
         "type": "object"
       },
+      "Readiness": {
+        "description": "The first-visit steps (account secured, profile filled in, signature saved) and how many are done.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "boolean"
+          },
+          "done_steps": {
+            "title": "Done Steps",
+            "type": "integer"
+          },
+          "profile": {
+            "title": "Profile",
+            "type": "boolean"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "boolean"
+          },
+          "total_steps": {
+            "title": "Total Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account",
+          "profile",
+          "signature",
+          "done_steps",
+          "total_steps"
+        ],
+        "title": "Readiness",
+        "type": "object"
+      },
       "Recipient": {
         "properties": {
           "email": {
@@ -18838,6 +18872,9 @@
             },
             "title": "Organisations",
             "type": "array"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/Readiness"
           }
         },
         "required": [
@@ -18846,7 +18883,8 @@
           "organisations",
           "closed_count",
           "open_count",
-          "due_this_month"
+          "due_this_month",
+          "readiness"
         ],
         "title": "Today",
         "type": "object"

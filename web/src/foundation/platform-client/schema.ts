@@ -9927,6 +9927,22 @@ export interface components {
             /** Read */
             read: boolean;
         };
+        /**
+         * Readiness
+         * @description The first-visit steps (account secured, profile filled in, signature saved) and how many are done.
+         */
+        Readiness: {
+            /** Account */
+            account: boolean;
+            /** Done Steps */
+            done_steps: number;
+            /** Profile */
+            profile: boolean;
+            /** Signature */
+            signature: boolean;
+            /** Total Steps */
+            total_steps: number;
+        };
         /** Recipient */
         Recipient: {
             /** Email */
@@ -11647,6 +11663,7 @@ export interface components {
             open_count: number;
             /** Organisations */
             organisations: components["schemas"]["TodayOrganisation"][];
+            readiness: components["schemas"]["Readiness"];
         };
         /** TodayOrganisation */
         TodayOrganisation: {
