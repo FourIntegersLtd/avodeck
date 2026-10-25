@@ -41,10 +41,21 @@ def _session(*, aal: str, enrolled: bool, mfa_age: timedelta | None) -> Session:
     )
 
 
-NOT_SET_UP = _session(aal="aal1", enrolled=False, mfa_age=None)
-NO_CODE_YET = _session(aal="aal1", enrolled=True, mfa_age=None)
-CODE_11_MINUTES_AGO = _session(aal="aal2", enrolled=True, mfa_age=timedelta(minutes=11))
-CODE_JUST_NOW = _session(aal="aal2", enrolled=True, mfa_age=timedelta(minutes=1))
+# Built when each test runs, not at import: the full suite runs for longer than the 10-minute window.
+def NOT_SET_UP() -> Session:
+    return _session(aal="aal1", enrolled=False, mfa_age=None)
+
+
+def NO_CODE_YET() -> Session:
+    return _session(aal="aal1", enrolled=True, mfa_age=None)
+
+
+def CODE_11_MINUTES_AGO() -> Session:
+    return _session(aal="aal2", enrolled=True, mfa_age=timedelta(minutes=11))
+
+
+def CODE_JUST_NOW() -> Session:
+    return _session(aal="aal2", enrolled=True, mfa_age=timedelta(minutes=1))
 
 
 def _refusal(check: object, session: Session) -> tuple[int, str, object]:
@@ -54,22 +65,22 @@ def _refusal(check: object, session: Session) -> tuple[int, str, object]:
 
 
 def test_a_risky_action_from_a_password_only_session_asks_to_set_up_the_authenticator() -> None:
-    assert _refusal(check_step_up, NOT_SET_UP) == (403, "mfa_required", False)
+    assert _refusal(check_step_up, NOT_SET_UP()) == (403, "mfa_required", False)
 
 
 def test_a_risky_action_from_a_set_up_session_with_no_code_yet_asks_for_a_code() -> None:
-    assert _refusal(check_step_up, NO_CODE_YET) == (403, "mfa_required", True)
+    assert _refusal(check_step_up, NO_CODE_YET()) == (403, "mfa_required", True)
 
 
 def test_a_risky_action_after_a_code_more_than_10_minutes_ago_asks_again() -> None:
-    assert _refusal(check_step_up, CODE_11_MINUTES_AGO) == (403, "step_up_required", True)
+    assert _refusal(check_step_up, CODE_11_MINUTES_AGO()) == (403, "step_up_required", True)
 
 
 def test_a_risky_action_right_after_a_code_goes_ahead() -> None:
-    check_step_up(CODE_JUST_NOW)
+    check_step_up(CODE_JUST_NOW())
 
 
 def test_support_needs_a_code_this_session_and_says_whether_to_set_it_up() -> None:
-    assert _refusal(check_session_mfa, NOT_SET_UP) == (403, "mfa_required", False)
-    assert _refusal(check_session_mfa, NO_CODE_YET) == (403, "mfa_required", True)
-    check_session_mfa(CODE_11_MINUTES_AGO)  # no fresh code (ADR 0023)
+    assert _refusal(check_session_mfa, NOT_SET_UP()) == (403, "mfa_required", False)
+    assert _refusal(check_session_mfa, NO_CODE_YET()) == (403, "mfa_required", True)
+    check_session_mfa(CODE_11_MINUTES_AGO())  # no fresh code (ADR 0023)
