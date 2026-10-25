@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import io
 import uuid
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import Depends, Query, Request, Response
 from PIL import Image
@@ -34,6 +34,7 @@ from app.features.reader import search as bundle_search
 from app.features.reader.schemas import (
     Box,
     FactList,
+    Highlight,
     FactOut,
     FlagOut,
     JobOut,
@@ -217,6 +218,12 @@ async def mark_read(
     return ReadOut(page_no=page_no, read=True, first_read_at=after["first_read_at"])
 
 
+def _dealt_with(f: dict[str, Any]) -> bool:
+    if f["status"] == "rejected":
+        return True
+    return f["status"] in ("verified", "edited") and not f.get("needs_recheck")
+
+
 @router.get("/pages/{page_no}/facts", response_model=FactList)
 async def page_facts(
     case_id: uuid.UUID,
@@ -228,8 +235,14 @@ async def page_facts(
     r = await _page(conn, case_id, page_no, scope)
     if r["duplicate_of_page_id"] is not None:  # a copy's facts show on the original
         return FactList(facts=[])
+    rows = await repo.page_facts(conn, case_id, r["id"])
     return FactList(
-        facts=[FactOut(**f) for f in await repo.page_facts(conn, case_id, r["id"])],
+        facts=[FactOut(**f) for f in rows],
+        total=len(rows),
+        done=sum(1 for f in rows if _dealt_with(f)),
+        highlights=[
+            Highlight(id=f["id"], word_ids=f["word_ids"], bbox=f["bbox"]) for f in rows if f["status"] != "rejected"
+        ],
         reassigned=await repo.page_reassigned(conn, case_id, r["id"]),
     )
 

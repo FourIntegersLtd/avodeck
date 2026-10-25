@@ -84,8 +84,21 @@ class FactOut(BaseModel):
     )
 
 
+class Highlight(BaseModel):
+    id: uuid.UUID
+    word_ids: list[str]
+    bbox: dict[str, Any] | None
+
+
 class FactList(BaseModel):
     facts: list[FactOut]
+    total: int = Field(default=0, description="How many suggestions the page has.")
+    done: int = Field(
+        default=0, description="How many are dealt with: checked as right or changed (and not asked again), or marked not right."
+    )
+    highlights: list[Highlight] = Field(
+        default_factory=list, description="The words to mark on the page picture: every fact not marked not right."
+    )
     reassigned: bool = Field(
         default=False,
         description="A fact on this page is suggested again because the case's named expert changed.",
