@@ -20,8 +20,7 @@
 .av-report-bar { flex: 1; min-width: 4rem; margin: 0 var(--av-space-3, 12px); height: 12px; }
 
 /* The boards' layout (S16, S17, S18, S18b). Colours and sizes come from the foundation tokens. */
-.av-page.rp-page { display: flex; flex-direction: column; gap: var(--space-5); padding-top: 28px; padding-bottom: 48px; }
-.rp-page--wide { max-width: 1440px; }
+.av-page.rp-page { display: flex; flex-direction: column; gap: var(--space-5); }
 .rp-page--wide2 { max-width: 1240px; }
 .rp-page--narrow { max-width: 1120px; }
 .rp-title { font-size: 34px; margin: 0; }

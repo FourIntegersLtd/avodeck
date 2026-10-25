@@ -17,23 +17,26 @@ export function TimelineFooter({ caseId, shown, total, sources, found }: { caseI
     <div className="av-calm-foot">
       <p className="av-story-shown">{w("timeline.shown", { shown: NUMBER.format(shown), total: NUMBER.format(total) })}</p>
       <p className="av-muted av-calm-foot__hint">{w("timeline.blind_read_hint")}</p>
-      <ul className="av-understand-legend" aria-label={w("timeline.legend_dots")}>
-        <li><span className="av-understand-key av-understand-key--checked" aria-hidden="true" />{t("ui.status.checked")}</li>
-        <li><span className="av-understand-key av-understand-key--please_check" aria-hidden="true" />{t("ui.status.please_check")}</li>
-        <li><span className="av-understand-key av-understand-key--look" aria-hidden="true" />{t("ui.status.look")}</li>
-        <li><QChip n={2} />{w("timeline.legend_question")}</li>
-        <li><DateMarkIcon />{w("timeline.check_the_date")}</li>
-      </ul>
-      {sources && sources.length > 0 && (
-        <ul className="av-understand-legend av-understand-legend--kinds" aria-label={w("timeline.legend")}>
-          {sources.map((s) => (
-            <li key={s.key}>
-              <span className="av-understand-swatch" style={{ background: s.colour ?? undefined }} aria-hidden="true" />
-              {sourceLabel(s)}
-            </li>
-          ))}
+      <details className="av-understand-later av-understand-key-fold">
+        <summary>{w("timeline.legend_fold")}</summary>
+        <ul className="av-understand-legend" aria-label={w("timeline.legend_dots")}>
+          <li><span className="av-understand-key av-understand-key--checked" aria-hidden="true" />{t("ui.status.checked")}</li>
+          <li><span className="av-understand-key av-understand-key--please_check" aria-hidden="true" />{t("ui.status.please_check")}</li>
+          <li><span className="av-understand-key av-understand-key--look" aria-hidden="true" />{t("ui.status.look")}</li>
+          <li><QChip n={2} />{w("timeline.legend_question")}</li>
+          <li><DateMarkIcon />{w("timeline.check_the_date")}</li>
         </ul>
-      )}
+        {sources && sources.length > 0 && (
+          <ul className="av-understand-legend av-understand-legend--kinds" aria-label={w("timeline.legend")}>
+            {sources.map((s) => (
+              <li key={s.key}>
+                <span className="av-understand-swatch" style={{ background: s.colour ?? undefined }} aria-hidden="true" />
+                {sourceLabel(s)}
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
       {found > 0 && (
         <div>
           <LinkButton variant="outline" to={screenPath("things_to_look_at", { caseId }) ?? `/cases/${caseId}/things-to-look-at`} arrow>

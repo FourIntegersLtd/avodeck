@@ -19,7 +19,9 @@ from app.core.packs import MergedPack
 PROMPTS = Path(__file__).resolve().parent / "prompts"
 REASON = {"type": "string", "maxLength": 80}
 WORD_IDS = {"type": "array", "minItems": 1, "maxItems": 400, "items": {"type": "string", "maxLength": 40}}
-PARA_REF = {"type": ["string", "null"], "maxLength": 20}
+# Labels the server replaces (title over 40 characters: the question's first clause; paragraph reference: read
+# from the letter's layout), so a little too long must not make the whole output invalid.
+PARA_REF = {"type": ["string", "null"], "maxLength": 80}
 OTHER_SECTION = "other"
 PREFILL_FIELDS = ("instructing_party_name", "instructing_party_type", "party_role", "due_date", "court_track")
 
@@ -50,7 +52,7 @@ def t06(pack: MergedPack) -> AiTask:
         "properties": {
             **copied,
             "kind": {"type": "string", "enum": kinds},
-            "short_title": {"type": "string", "minLength": 1, "maxLength": 40},
+            "short_title": {"type": "string", "minLength": 1, "maxLength": 80},
         },
     }
     assumption = {

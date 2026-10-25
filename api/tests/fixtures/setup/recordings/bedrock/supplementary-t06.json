@@ -67,7 +67,7 @@
             "additionalProperties": false,
             "properties": {
               "para_ref": {
-                "maxLength": 20,
+                "maxLength": 80,
                 "type": [
                   "string",
                   "null"
@@ -116,7 +116,7 @@
                 "type": "string"
               },
               "para_ref": {
-                "maxLength": 20,
+                "maxLength": 80,
                 "type": [
                   "string",
                   "null"
@@ -127,7 +127,7 @@
                 "type": "string"
               },
               "short_title": {
-                "maxLength": 40,
+                "maxLength": 80,
                 "minLength": 1,
                 "type": "string"
               },

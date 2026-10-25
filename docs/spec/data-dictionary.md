@@ -193,6 +193,14 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | person_id | The person who works for Avodeck support (they sign in like anyone else, with MFA) |
 | added_at / removed_at | When they joined support and when they left it; only current staff can use a grant |
 
+### support_accounts
+| Field | In plain words |
+|---|---|
+| person_id | The person whose account support created (they set their own password and MFA) |
+| created_by | The support staff member who created it |
+| created_at | When the account was created |
+| last_sent_at | When the set-password email was last sent (its link lasts 1 hour; sent again at most once a minute) |
+
 ## Case
 
 ### cases

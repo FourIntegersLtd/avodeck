@@ -248,7 +248,8 @@ async def custody_in_force(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     await conn.execute("select pg_advisory_xact_lock(hashtextextended('custody:' || %s::text, 0))", (case_id,))
     return bool(
         await value(
-            conn, "select exists (select 1 from app.custody_transfers where case_id = %s and revoked_at is null)",
+            conn,
+            "select exists (select 1 from app.custody_transfers where case_id = %s and revoked_at is null)",
             (case_id,),
         )  # fmt: skip
     )
@@ -320,3 +321,24 @@ async def set_custodian(conn: AsyncConnection, name: str | None, email: str | No
         " where id = app.current_person_id()",
         (name, email),
     )
+
+
+async def support_account_precheck(conn: AsyncConnection, email: str) -> None:
+    await conn.execute("select app.support_account_precheck(%s)", (email,))
+
+
+async def support_create_account(
+    conn: AsyncConnection, person_id: uuid.UUID, email: str, full_name: str, region: str
+) -> uuid.UUID:
+    found: uuid.UUID = await value(
+        conn, "select app.support_create_account(%s, %s, %s, %s)", (person_id, email, full_name, region)
+    )
+    return found
+
+
+async def support_accounts(conn: AsyncConnection) -> list[dict[str, Any]]:
+    return await rows(conn, "select * from app.support_accounts_list()")
+
+
+async def support_resend_account(conn: AsyncConnection, account_id: uuid.UUID) -> dict[str, Any] | None:
+    return await row(conn, "select * from app.support_resend_account(%s)", (account_id,))

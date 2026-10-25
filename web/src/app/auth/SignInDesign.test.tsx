@@ -15,7 +15,7 @@ test("the password step says a code comes next and how to get in without the pho
 
 test("the privacy note says where records are stored when the cell names the place, and falls back when it does not", async () => {
   signedOut();
-  server.use(http.get("/v1/cell", () => json({ storage_place: "Placeland", support_phone: null, support_hours: null })));
+  server.use(http.get("/v1/cell", () => json({ storage_place: "Placeland" })));
   renderAt("/sign-in");
   const note = await screen.findByRole("note");
   await waitFor(() => expect(note).toHaveTextContent("Your records are stored in Placeland and never used to train AI."));

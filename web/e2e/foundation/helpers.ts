@@ -46,7 +46,7 @@ export async function stubApi(page: Page, opts: { signedIn: boolean }) {
       signedIn = true;
       return json(route, { status: "signed_in", recovery_codes: null });
     }
-    if (path === "/v1/cell") return json(route, { storage_place: "the UK", support_phone: "0300 000 0000", support_hours: "weekdays 8am to 6pm" });
+    if (path === "/v1/cell") return json(route, { storage_place: "the UK" });
     if (path === "/v1/me") {
       return json(route, {
         person: { id: "11111111-1111-4111-8111-111111111111", email: "j.morgan@example.test", full_name: "Dr Jane Morgan", locale: "en-GB", timezone: "Europe/London", home_region: "uk", created_at: "2026-01-05T09:00:00Z", greeting_name: "Dr Morgan", password_changed_at: new Date(Date.now() - 95 * 86_400_000).toISOString() },

@@ -264,8 +264,8 @@ export function Timeline() {
       {found.error ? (
         <LoadError onRetry={found.reload} />
       ) : data && split ? (
-        <>
-        {updating && <Updating label={w("timeline.updating")} />}
+        <div className="av-story-stage">
+        {updating && <div className="av-story-updating"><Updating label={w("timeline.updating")} /></div>}
         <div
           className="av-story-layout av-story-layout--open av-story-layout--split av-busy-dim"
           aria-busy={updating}
@@ -294,7 +294,7 @@ export function Timeline() {
           <SplitDivider areaRef={surfaceRef} value={splitPct} min={SPLIT_MIN} max={SPLIT_MAX} label={w("timeline.resize_split")} onChange={setSplitPct} />
           {current ? <TimelineInspector caseId={caseId} current={current} here={panelHere} order={order} numbers={numbers} onSelect={select} onClose={close} /> : <TimelineInspectorEmpty />}
         </div>
-        </>
+        </div>
       ) : (
         <Loading />
       )}

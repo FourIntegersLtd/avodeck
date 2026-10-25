@@ -33,6 +33,10 @@ class InvalidToken(Exception):
     """An access token failed verification."""
 
 
+# Supabase Auth's codes for "this email already has a login"; any other refusal of the email is 422.
+_EMAIL_EXISTS = frozenset({"email_exists", "user_already_exists"})
+
+
 def _unavailable() -> AuthError:
     return AuthError("auth_unavailable", "Signing in is not available just now. Try again shortly.", 503)
 
@@ -192,6 +196,37 @@ class SupabaseAuth:
         if 400 <= resp.status_code < 500:
             raise AuthError("email_unavailable", "That email address cannot be used.", 409)
         self._check(resp)
+
+    async def admin_create_user(self, email: str) -> uuid.UUID:
+        """A login with a confirmed email and no password: the person sets their own (support, 1012)."""
+        resp = await self._call("POST", "/admin/users", admin=True, json={"email": email, "email_confirm": True})
+        if resp.status_code in (400, 409, 422):
+            try:
+                body = resp.json() if resp.content else {}
+            except ValueError:
+                body = {}
+            code = (body.get("error_code") or body.get("code")) if isinstance(body, dict) else None
+            if code in _EMAIL_EXISTS:
+                raise AuthError("conflict", "An account with this email already exists.", 409)
+            raise AuthError("invalid_email", "Check the email address and try again.", 422)
+        return uuid.UUID(str(self._check(resp)["id"]))
+
+    async def admin_delete_user(self, person_id: uuid.UUID) -> None:
+        """Best effort: undo a login whose Avodeck account could not be made."""
+        try:
+            await self._call("DELETE", f"/admin/users/{person_id}", admin=True)
+        except AuthError:
+            pass
+
+    async def admin_recovery_token(self, email: str) -> str:
+        """The set-password token the reset page verifies; Auth sends no email for it (FastAPI does)."""
+        body = self._check(
+            await self._call("POST", "/admin/generate_link", admin=True, json={"type": "recovery", "email": email})
+        )
+        token = body.get("hashed_token") or (body.get("properties") or {}).get("hashed_token")
+        if not token:
+            raise _unavailable()
+        return str(token)
 
     async def admin_delete_totp_factors(self, person_id: uuid.UUID) -> None:
         resp = await self._call("GET", f"/admin/users/{person_id}/factors", admin=True)

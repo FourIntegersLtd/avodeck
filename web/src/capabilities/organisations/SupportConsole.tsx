@@ -54,6 +54,9 @@ export function SupportConsole() {
     <div className="av-page av-page--narrow av-stack">
       <h1>{w("console.title")}</h1>
       <p>{w("console.intro")}</p>
+      <p>
+        <Link to="/support/accounts">{w("console.accounts")}</Link>
+      </p>
       <form className="av-row av-org-search" onSubmit={(e) => void run(() => search(e))} noValidate>
         <TextField label={w("console.query")} name="q" autoComplete="off" value={query} onChange={(e) => setQuery(e.target.value)} />
         <Button type="submit" busy={busy}>{w("console.search")}</Button>

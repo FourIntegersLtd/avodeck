@@ -1,13 +1,11 @@
 // S03 Today: greeting, the "needs you" items slices register, and case cards across organisations.
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { beforeAll, expect, test } from "vitest";
 import { registerScreen } from "../../foundation/lib/screens";
 import { registerMessages } from "../../foundation/i18n";
-import { http, json, server, signedIn } from "../../test/api";
-import { CASE_A, CASE_B, caseCard, launchPack, me, PERSONAL_ORG, TEAM_ORG, today } from "../../test/fixtures";
+import { signedIn } from "../../test/api";
+import { CASE_A, CASE_B, caseCard, PERSONAL_ORG, TEAM_ORG, today } from "../../test/fixtures";
 
-// Party words come from the pack (rule 11), so this file names none itself.
-const instructingSide = launchPack.party_roles.find((r) => r.key === "instructing_side")!.label;
 import { axeViolations, renderAt } from "../../test/render";
 
 beforeAll(() => {
@@ -31,8 +29,8 @@ const twoOrgs = today({
   ],
   closed_count: 23,
   needs_you: [
-    { kind: "unknown_thing", case_id: CASE_B, rank: 10, label_key: "nobody.registered.this", action_key: "nobody.registered.action", screen: "nowhere", count: null, minutes: null, due_at: null, params: {} },
     { kind: "pages_to_read", case_id: CASE_A, rank: 20, label_key: "example.unread.label", action_key: "example.unread.action", screen: "example_reader", count: 127, minutes: 40, due_at: null, params: {} },
+    { kind: "unknown_thing", case_id: CASE_B, rank: 10, label_key: "nobody.registered.this", action_key: "nobody.registered.action", screen: "nowhere", count: null, minutes: null, due_at: null, params: {} },
   ],
 });
 
@@ -40,7 +38,7 @@ test("greets the expert by name and passes axe", async () => {
   signedIn({ today: twoOrgs });
   const { container } = renderAt("/today");
   expect(await screen.findByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening), Dr Jane Morgan$/ })).toBeInTheDocument();
-  await screen.findAllByRole("link", { name: /Mrs A/ });
+  await screen.findByRole("region", { name: "2 things need you" });
   expect(await axeViolations(container)).toEqual([]);
 });
 
@@ -61,46 +59,9 @@ test("nothing to do says so", async () => {
   expect(await screen.findByText("Nothing needs you right now.")).toBeInTheDocument();
 });
 
-test("case cards show the step, party, due date, organisation badge and counts", async () => {
-  signedIn({ today: twoOrgs });
-  renderAt("/today");
-  const card = await screen.findByRole("link", { name: /Ms C/ });
-  expect(card).toHaveAttribute("href", `/cases/${CASE_B}`);
-  await within(card).findByText(`For the ${instructingSide}`);
-  expect(within(card).getByText("Court")).toBeInTheDocument();
-  expect(within(card).getByText("Due 21 Oct")).toBeInTheDocument();
-  expect(within(card).getByText("Northgate")).toBeInTheDocument();
-  expect(screen.getByText("2 open · 23 closed")).toBeInTheDocument();
-});
-
-test("the organisation filter asks the server, which sends only that organisation's cases", async () => {
-  signedIn({ today: twoOrgs });
-  const asked: Array<string | null> = [];
-  server.use(
-    http.get("/v1/today", ({ request }) => {
-      const org = new URL(request.url).searchParams.get("organisation_id");
-      asked.push(org);
-      return json(org ? { ...twoOrgs, cases: twoOrgs.cases.filter((c) => c.organisation_id === org), open_count: 1 } : twoOrgs);
-    }),
-  );
-  const { user } = renderAt("/today");
-  const filter = await screen.findByRole("group", { name: "Show cases for" });
-  expect(within(filter).getByRole("button", { name: "All · 2" })).toHaveAttribute("aria-pressed", "true");
-  await user.click(within(filter).getByRole("button", { name: "My practice · 1" }));
-  await waitFor(() => expect(asked).toContain(PERSONAL_ORG));
-  await waitFor(() => expect(screen.queryByRole("link", { name: /Ms C/ })).toBeNull());
-  expect(screen.getByRole("link", { name: /Mrs A/ })).toBeInTheDocument();
-});
-
-test("no cases says so plainly", async () => {
-  signedIn({ me: me(), today: today({ cases: [], needs_you: [] }) });
-  renderAt("/today");
-  expect(await screen.findByText("You have no open cases.")).toBeInTheDocument();
-});
-
 test("New case appears once a slice registers the screen", async () => {
   signedIn();
   registerScreen("new_case", () => "/cases/new");
   renderAt("/today");
-  expect(await screen.findByRole("link", { name: "New case" })).toHaveAttribute("href", "/cases/new");
+  expect(await screen.findByRole("link", { name: "Start a new case" })).toHaveAttribute("href", "/cases/new");
 });

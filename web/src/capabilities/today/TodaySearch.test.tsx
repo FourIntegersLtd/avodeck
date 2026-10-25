@@ -38,7 +38,7 @@ beforeEach(() => {
 });
 
 test("the chips and the heading show the server's counts, not a count of what was fetched", async () => {
-  renderAt("/today");
+  renderAt("/cases");
   const filter = await screen.findByRole("group", { name: "Show cases for" });
   expect(within(filter).getByRole("button", { name: "All · 16" })).toBeInTheDocument();
   expect(within(filter).getByRole("button", { name: "My practice · 7" })).toBeInTheDocument();
@@ -47,7 +47,7 @@ test("the chips and the heading show the server's counts, not a count of what wa
 });
 
 test("choosing an organisation asks the server and keeps it in the address", async () => {
-  const { user, router } = renderAt("/today");
+  const { user, router } = renderAt("/cases");
   await user.click(await screen.findByRole("button", { name: "My practice · 7" }));
   await waitFor(() => expect(asked.some((q) => q.get("organisation_id") === PERSONAL_ORG)).toBe(true));
   expect(await screen.findByText("5 open · 3 closed")).toBeInTheDocument();
@@ -56,8 +56,8 @@ test("choosing an organisation asks the server and keeps it in the address", asy
 });
 
 test("typing in the search box sends q to the server after a short pause", async () => {
-  const { user, router } = renderAt("/today");
-  await user.type(await screen.findByRole("searchbox", { name: "Search your cases" }), "zz");
+  const { user, router } = renderAt("/cases");
+  await user.type(await screen.findByRole("searchbox", { name: "Find a case by name" }), "zz");
   await waitFor(() => expect(asked.some((q) => q.get("q") === "zz")).toBe(true));
   expect(asked.filter((q) => q.get("q") === "z")).toHaveLength(0); // debounced: no request per key
   expect(await screen.findByRole("link", { name: /Zz found/ })).toBeInTheDocument();
@@ -66,7 +66,7 @@ test("typing in the search box sends q to the server after a short pause", async
 });
 
 test("the address restores the search and the organisation", async () => {
-  renderAt(`/today?q=zz&organisation_id=${TEAM_ORG}`);
+  renderAt(`/cases?q=zz&organisation_id=${TEAM_ORG}`);
   await waitFor(() => expect(asked.some((q) => q.get("q") === "zz" && q.get("organisation_id") === TEAM_ORG)).toBe(true));
-  expect(await screen.findByRole("searchbox", { name: "Search your cases" })).toHaveValue("zz");
+  expect(await screen.findByRole("searchbox", { name: "Find a case by name" })).toHaveValue("zz");
 });

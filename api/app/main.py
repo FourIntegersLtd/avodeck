@@ -27,6 +27,7 @@ from app.core.routes.auth import auth_pending, auth_public, auth_signed_in, auth
 from app.core.routes.cases import cases_router
 from app.core.routes.cell import cell_public_router
 from app.core.routes.dictation import dictation_socket, transcripts_router
+from app.core.routes.help import help_router
 from app.core.routes.jobs import jobs_router
 from app.core.routes.me import me_router
 from app.core.routes.notifications import notifications_router
@@ -141,7 +142,7 @@ def create_app(
         account_router,
     )
     files = (uploads_router, jobs_router, transcripts_router, dictation_socket)
-    people = (me_router, today_router, notifications_router, support_router)
+    people = (me_router, help_router, today_router, notifications_router, support_router)
     slices = (pipeline_router, colleague_router, esign_webhook_router)  # public: token- or signature-gated
     for r in (*routers, *people, cases_router, packs_router, case_pack_router, *files, *slices):
         mount(app, r)

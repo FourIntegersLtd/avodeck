@@ -54,22 +54,10 @@ test("only the first row's button is the main action; the rest are outlined", as
   expect(within(region).getByRole("link", { name: "Fix them" })).toHaveClass("av-button--secondary");
 });
 
-test("New case has a plus in front of it", async () => {
+test("Start a new case has a plus in front of it", async () => {
   signedIn({ today: withItems });
   renderAt("/today");
-  const button = await screen.findByRole("link", { name: "New case" });
+  const button = await screen.findByRole("link", { name: "Start a new case" });
   expect(button.querySelector("svg")).not.toBeNull();
 });
 
-test("the case ring is a 9px arc over a grey track, drawn by the design system's ring", async () => {
-  signedIn({ today: withItems });
-  renderAt("/today");
-  const card = (await screen.findAllByRole("link", { name: /Mrs A/ })).find((l) => l.classList.contains("av-case-card"))!;
-  // The ring appears once the case's pack has loaded.
-  await within(card).findByRole("img", { name: /step/ });
-  const circles = card.querySelectorAll(".av-ring svg circle");
-  expect(circles).toHaveLength(2);
-  expect(circles[0]).toHaveClass("av-ring__track");
-  expect(circles[1]).toHaveClass("av-ring__arc");
-  expect(circles[1]!.getAttribute("stroke-width")).toBe("9");
-});

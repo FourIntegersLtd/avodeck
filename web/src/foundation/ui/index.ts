@@ -48,5 +48,4 @@ export type { MenuItemProps, MenuProps } from "./Menu";
 export { ListRow } from "./ListRow";
 export type { ListRowProps } from "./ListRow";
 export { StatusMark } from "./StatusMark";
-export { SupportLine } from "./SupportLine";
 export { SplitDivider } from "./SplitDivider";

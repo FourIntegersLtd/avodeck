@@ -33,7 +33,6 @@
 .av-after-table td { padding: var(--space-3); border-top: 1px solid var(--line); vertical-align: top; }
 
 /* S19 board: heading with the locked pill, the five-step track, and the tiles */
-.av-after-page { max-width: 1200px; }
 .av-after-head { display: flex; justify-content: space-between; align-items: flex-end; gap: var(--space-5); flex-wrap: wrap; }
 .av-after-head h2 { margin: 0 0 6px; }
 .av-after-lede { margin: 0; font-size: 18px; }

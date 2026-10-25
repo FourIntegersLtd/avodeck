@@ -1,12 +1,14 @@
 // Screen 08, Your bundle is ready: the API's bundle summary, with the pack's source words and colours,
 // a card for each thing the expert should know, the files table and one main action.
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { humanise } from "../../foundation/i18n";
+import { errorMessage } from "../../foundation/lib/errors";
+import { useBusy } from "../../foundation/lib/useBusy";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { IconTile, LinkButton, LoadError, Loading, Notice, TextLink } from "../../foundation/ui";
+import { Button, IconTile, LinkButton, LoadError, Loading, Notice, TextField, TextLink } from "../../foundation/ui";
 import { can, casePath, documentsOf, requestLabel, sourceWord } from "./data";
 import { formatDate, formatNumber, languageName, pageList } from "./format";
 import { AlertIcon, CopyIcon, MicIcon, OtherPersonIcon, PageIcon, SearchIcon } from "./icons";
@@ -168,12 +170,7 @@ export function BundleReady() {
           </thead>
           <tbody>
             {documentsOf(s).map((d) => (
-              <tr key={d.id}>
-                <th scope="row" className="pl-strong">{d.filename}</th>
-                <td className="av-mono">{d.pages != null ? num(d.pages) : w("bundle.not_given")}</td>
-                <td>{d.obtained_how ?? w("bundle.not_given")}</td>
-                <td>{d.received_on ? formatDate(d.received_on, locale) : w("bundle.not_given")}</td>
-              </tr>
+              <FileRow key={d.id} doc={d} caseId={caseId} canEdit={can(item, "case.upload")} locale={locale} onSaved={found.reload} />
             ))}
           </tbody>
         </table>
@@ -232,5 +229,71 @@ function SourceBar({ pack, bySource }: { pack: Schemas["CasePack"]; bySource: Sc
       format={(n) => formatNumber(n, locale)}
       unit={(n) => wn("bundle.tile_unit", n, locale)}
     />
+  );
+}
+
+type Doc = Schemas["Document"];
+
+function FileRow({ doc: d, caseId, canEdit, locale, onSaved }: { doc: Doc; caseId: string; canEdit: boolean; locale: string; onSaved: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [how, setHow] = useState(d.obtained_how ?? "");
+  const [when, setWhen] = useState(d.received_on ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const save = useBusy();
+  const pages = d.pages != null ? formatNumber(d.pages, locale) : d.kind !== "records" ? w("home.not_numbered") : w("bundle.not_given");
+  const empty = !d.obtained_how && !d.received_on;
+  const button = (label: string, aria: "bundle.add_aria" | "bundle.change_aria") =>
+    canEdit && !open ? (
+      <Button variant="secondary" aria-label={w(aria, { name: d.filename })} onClick={() => { setError(null); setHow(d.obtained_how ?? ""); setWhen(d.received_on ?? ""); setOpen(true); }}>{label}</Button>
+    ) : null;
+
+  async function submit() {
+    const body: { obtained_how?: string | null; received_on?: string | null } = {};
+    if (how !== (d.obtained_how ?? "")) body.obtained_how = how.trim() || null;
+    if (when !== (d.received_on ?? "")) body.received_on = when || null;
+    if (Object.keys(body).length === 0) { setOpen(false); return; }
+    setError(null);
+    await save.run(async () => {
+      try {
+        await unwrap(api.PATCH("/v1/cases/{case_id}/documents/{document_id}", { params: { path: { case_id: caseId, document_id: d.id } }, body }));
+        setOpen(false);
+        onSaved();
+      } catch (e) {
+        setError(errorMessage(e));
+      }
+    });
+  }
+
+  const change = empty ? null : button(w("bundle.change"), "bundle.change_aria");
+  return (
+    <>
+      <tr>
+        <th scope="row" className="pl-strong">{d.filename}</th>
+        <td className="av-mono">{pages}</td>
+        <td>
+          {d.obtained_how ?? w("bundle.not_added")}
+          {empty && button(w("bundle.add"), "bundle.add_aria")}
+        </td>
+        <td>
+          {d.received_on ? formatDate(d.received_on, locale) : w("bundle.not_added")}
+          {change}
+        </td>
+      </tr>
+      {open && (
+        <tr>
+          <td colSpan={4}>
+            <form className="av-stack pl-details" onSubmit={(e) => { e.preventDefault(); void submit(); }}>
+              <TextField label={w("bundle.date_received")} name="received_on" type="date" value={when} onChange={(e) => setWhen(e.currentTarget.value)} />
+              <TextField label={w("bundle.how_obtained")} name="obtained_how" maxLength={200} value={how} onChange={(e) => setHow(e.currentTarget.value)} />
+              {error && <p role="alert" className="av-field__error">{error}</p>}
+              <div className="pl-actions">
+                <Button variant="secondary" type="button" disabled={save.busy} onClick={() => setOpen(false)}>{w("bundle.cancel")}</Button>
+                <Button type="submit" busy={save.busy} disabled={save.busy}>{save.busy ? w("bundle.saving") : w("bundle.save")}</Button>
+              </div>
+            </form>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

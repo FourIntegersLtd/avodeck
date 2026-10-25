@@ -1,9 +1,8 @@
 /* Slice B screens (09, 10). Design tokens come from the foundation; no inline styles except box positions. */
-.rd { --rd-gutter: 40px; display: flex; flex-direction: column; gap: var(--space-5); padding: 0 0 0; min-height: 100vh; box-sizing: border-box; }
+.rd { --rd-gutter: var(--gutter); display: flex; flex-direction: column; gap: var(--space-5); padding: 0 0 0; min-height: 100vh; box-sizing: border-box; }
 .rd { gap: 0; }
 .rd > .rd-work { flex: 1 1 auto; min-height: 0; margin-bottom: 0; }
-.rd--narrow { max-width: calc(1160px + 2 * var(--rd-gutter)); margin-inline: auto; width: 100%; padding-top: var(--space-5); box-sizing: border-box; }
-@media (max-width: 700px) { .rd { --rd-gutter: 16px; } }
+.rd--narrow { max-width: calc(1160px + 2 * var(--rd-gutter)); margin-inline: auto; width: 100%; padding-top: var(--page-top); box-sizing: border-box; }
 .rd-banner { background: var(--green-tint); border-bottom: 1px solid var(--green-line); padding: var(--space-3) var(--rd-gutter); }
 .rd-banner__row { display: flex; align-items: center; gap: var(--space-4); }
 .rd-banner__row p { margin: 0; flex: 1; }
@@ -110,6 +109,7 @@
 .rd-notes__head { margin: 0; font-size: 17px; }
 .rd-side__foot { padding-top: var(--space-3); border-top: 1px solid var(--line); }
 .rd-reason, .rd-edit { display: flex; flex-direction: column; gap: var(--space-2); }
+.rd-reason-form { display: flex; flex-direction: column; gap: var(--space-4); }
 .rd-edit__row { display: flex; flex-direction: column; gap: var(--space-1); }
 .rd-hint { margin: 0; padding-top: var(--space-1); font-size: 17px; line-height: 1.45; color: var(--ink-soft); }
 .rd-label { font-weight: 700; }
@@ -166,7 +166,6 @@
 .rd-rows dd { margin: 0; }
 .rd-cuts { margin: 0; display: flex; flex-direction: column; padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius); }
 .rd-cuts span { color: var(--ink-soft); }
-.rd-why-not summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 700; color: var(--green-dark); }
 .rd-label--small { font-size: var(--text-small); color: var(--ink-soft); margin: 0; }
 .rd-pages summary { cursor: pointer; min-height: 52px; display: flex; align-items: center; font-weight: 700; color: var(--green-dark); }
 .rd-choices { display: flex; flex-direction: column; gap: var(--space-3); }
@@ -247,10 +246,13 @@
 /* Two pages side by side: each takes half the space */
 .rd-viewer--two > .rd-paper { flex: 1 1 0; min-width: 0; }
 
-/* Full screen: the page view fills the window; the suggestions wait until full screen ends */
-.rd.rd--full { position: fixed; inset: 0; z-index: 50; background: var(--surface); padding: var(--space-3); overflow: auto; }
-.rd--full > .rd-banner, .rd--full .rd-side, .rd--full .rd-split { display: none; }
-.rd--full .rd-pane { flex: 1 1 100%; max-width: none; }
+/* Full screen: the page view and what we found fill the window; only the banner steps aside */
+.rd.rd--full { position: fixed; inset: 0; z-index: 50; background: var(--surface); overflow: auto; }
+.rd--full > .rd-banner { display: none; }
+@media (min-width: 901px) {
+  .rd.rd--full { display: flex; flex-direction: column; overflow: hidden; }
+  .rd--full > .rd-work { flex: 1 1 auto; min-height: 0; }
+}
 
 /* The expert's own bookmarks and notes */
 .rd-side > .rd-notes { margin-top: auto; position: sticky; bottom: 0; background: var(--surface); }

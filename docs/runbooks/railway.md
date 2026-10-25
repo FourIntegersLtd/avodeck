@@ -1,14 +1,44 @@
-# Railway services (UK cell, Amsterdam)
+# Railway: how the API and worker are deployed
 
-The API and worker run on Railway, Amsterdam (`europe-west4-drams3a`), and hold no data at rest (ADR 0021). All three services use the same image, built from the repository-root `Dockerfile`, and the same shared variables (`REGION`, `DATABASE_URL`, `DATABASE_URL_DIRECT`, Supabase and cell settings, `PACKS_DIR`). Each service points at its own config file (Settings, Config as code); the files are in `railway/`.
+ADR 0021. One Docker image (`api/Dockerfile`, built from the repository root), two services in one Railway project, region **europe-west4 (Amsterdam)**. There is no `railway.toml`; these are dashboard settings.
 
-| Service | Config file | Start command | Schedule | Health check | Public networking |
-|---|---|---|---|---|---|
-| `api` | `railway/api.json` | image default (uvicorn) | none | `/v1/cell` | yes |
-| `worker` | `railway/worker.json` | `python -m app.worker.main` | none | none | no |
-| `cron` | `railway/cron.json` | `python -m app.worker.schedules` | `15 2 * * *` | none | no |
+| Setting | `api` | `worker` |
+|---|---|---|
+| Source | this repo, branch `main` | same |
+| Dockerfile path | `api/Dockerfile` | `api/Dockerfile` |
+| Start command | (image default) | `python -m app.worker.main` |
+| Health check path | `/v1/cell` | none |
+| Public networking | yes (generate a domain) | no |
+| Pre-deploy command | none | none |
+| Volumes | none | none |
+| Replicas | 1 | 1 |
 
-- `cron` runs every daily schedule (`registry.schedules`) once, catching up any missed dates, then exits 0 (or 1 if a schedule raised). Its logs hold schedule names and counts only.
-- The worker's own housekeeping loop keeps running. `claim_scheduled_run` makes each date run once (F28), so running both is safe.
-- Railway skips a cron run while the previous one is still running. The restart policy is `NEVER`, so a failed run waits for the next day's slot instead of retrying in a loop.
-- Region: one replica in `europe-west4-drams3a` for `api` and `worker`.
+## Variables
+
+Copy every name from `api/.env.example` into both services (Railway "shared variables"), with cloud values. Never paste them into chat or commit them.
+
+- `DATABASE_URL` and `DATABASE_URL_DIRECT`: the Supabase **session pooler**, not the direct host (IPv6 only):
+  `postgresql://<role>.<project-ref>:<password>@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require`
+  with `app_api` for `DATABASE_URL` and `app_worker` for `DATABASE_URL_DIRECT`.
+- `APP_ORIGIN`: the web app's public origin (the Vercel domain).
+- `PACKS_APPROVED_ONLY=1` once the launch packs are approved.
+
+## Migrations
+
+Not run by Railway. From the founder's Mac, before deploying code that needs them:
+`supabase db push --linked`
+
+## Web app (Vercel)
+
+The browser must reach the API on its own origin (web/AGENTS.md). In `web/vercel.json`, add a rewrite once the Railway domain exists:
+
+```json
+"rewrites": [{ "source": "/v1/:path*", "destination": "https://<api-service>.up.railway.app/v1/:path*" }]
+```
+
+Vercel rewrites do not carry WebSockets, so live dictation (`/v1/.../dictation`) needs the API on a subdomain of the web domain (for example `api.avodeck.com` behind the same site) before it works in the cloud. Everything else works through the rewrite.
+
+## Check a deploy
+
+- `curl https://<api-service>.up.railway.app/v1/cell` returns the cell.
+- The worker's logs show it waiting for jobs; upload a small test bundle and watch it move through Preparing.

@@ -71,7 +71,7 @@ test("the template shows its styles as chips and a Replace link, and a Done butt
   expect(within(template).getByText("Italic · Indented")).toBeInTheDocument();
   expect(within(template).getByText("Replace")).toBeInTheDocument();
   expect(within(template).getByText("Your headings, numbering and fonts will be kept")).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Done" })).toHaveAttribute("href", "/today");
+  expect(screen.getByRole("link", { name: "Done for now" })).toHaveAttribute("href", "/today");
   expect(await axeViolations(container)).toEqual([]);
 });
 

@@ -363,3 +363,29 @@ class CloseAccountPreview(BaseModel):
     """The cases closing the account would delete, each with whether its export is done."""
 
     cases: list[CloseAccountCase]
+
+
+AccountEmail = Annotated[str, StringConstraints(max_length=254, pattern=r"^[^@\s]+@[^@\s]+$")]
+
+
+class SupportAccountCreate(Strict):
+    """A new person's account, made by Avodeck support: no password (the person sets their own) and no team
+    (a team's own owners and admins invite people; any other field is 422)."""
+
+    full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
+    email: Email
+
+
+class SupportAccount(BaseModel):
+    """An account support created: ids, email, codes and dates only (rule 6: no name)."""
+
+    id: uuid.UUID
+    person_id: uuid.UUID
+    email: AccountEmail
+    status: Literal["invited", "active"]
+    created_at: datetime
+    last_sent_at: datetime
+
+
+class SupportAccountList(BaseModel):
+    accounts: list[SupportAccount]

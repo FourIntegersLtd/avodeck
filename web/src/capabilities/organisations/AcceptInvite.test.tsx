@@ -33,7 +33,7 @@ test("a link that cannot be used says so in plain words", async () => {
 });
 
 test("someone who is not signed in is sent to sign in, and comes back here", async () => {
-  server.use(http.post(`/v1/invites/${TOKEN}/accept`, () => apiError(401, "not_signed_in")), http.get("/v1/auth/session", () => apiError(401, "not_signed_in")), http.get("/v1/cell", () => json({ storage_place: null, support_phone: null, support_hours: null })));
+  server.use(http.post(`/v1/invites/${TOKEN}/accept`, () => apiError(401, "not_signed_in")), http.get("/v1/auth/session", () => apiError(401, "not_signed_in")), http.get("/v1/cell", () => json({ storage_place: null })));
   const { user, router } = renderAt(`/invites/${TOKEN}`);
   await user.click(await screen.findByRole("button", { name: "Join the team" }));
   await waitFor(() => expect(router.state.location.pathname).toBe("/sign-in"));
