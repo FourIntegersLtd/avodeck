@@ -68,6 +68,7 @@ export function today(over: Partial<Schemas["Today"]> = {}): Schemas["Today"] {
     closed_count: 0,
     open_count: cases.length,
     due_this_month: 0,
+    readiness: { account: true, profile: false, signature: false, done_steps: 1, total_steps: 3 },
     ...over,
   };
 }
