@@ -6,20 +6,23 @@ import { describe, expect, test } from "vitest";
 import { http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { finding, inCase, launchWords, type PackRun } from "./testing";
+import { finding, findingsReply, inCase, launchWords, type PackRun } from "./testing";
 
 const second = finding({ id: "c2222222-2222-4222-8222-222222222222", check_key: "referral_acknowledged", rule: "not_acknowledged_within", evidence_pages: [1071, 1072], decision: "relevant", reason: null });
 const gentle = finding({ id: "c3333333-3333-4333-8333-333333333333", check_key: "zz_session_length_recorded", rule: "no_action_within", gentle: true, evidence_pages: [9] });
 
-function serve(list = [finding(), second]) {
+function serve(start = [finding(), second]) {
+  const list = [...start];
   const calls: Array<{ method: string; url: URL; body: unknown }> = [];
   server.use(
-    http.get("/v1/cases/:caseId/findings", () => json({ findings: list })),
+    http.get("/v1/cases/:caseId/findings", () => json(findingsReply(list))),
     http.patch("/v1/cases/:caseId/findings/:id", async ({ request, params }) => {
       const sent = (await request.json()) as { decision: string; reason?: string | null };
       calls.push({ method: "PATCH", url: new URL(request.url), body: sent });
       const base = list.find((f) => f.id === params.id)!;
-      return json({ ...base, decision: sent.decision, reason: sent.reason ?? null, version: base.version + 1 });
+      const out = { ...base, decision: sent.decision, reason: sent.reason ?? null, version: base.version + 1 };
+      list[list.indexOf(base)] = out;
+      return json(out);
     }),
     http.post("/v1/cases/:caseId/findings/rerun", () => {
       calls.push({ method: "POST", url: new URL("http://x/rerun"), body: null });

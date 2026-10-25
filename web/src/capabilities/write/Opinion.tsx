@@ -152,6 +152,7 @@ function Editor({
   const [issues, setIssues] = useState<Schemas["LintIssueOut"][]>(
     space.opinion?.lint ?? [],
   );
+  const [checks, setChecks] = useState<Schemas["LintCheck"][]>(space.checks ?? []);
   const [status, setStatus] = useState<Status>("saved");
   const [message, setMessage] = useState<string | null>(null);
   const [stale, setStale] = useState<{ saved: OpinionOut | null } | null>(null);
@@ -188,22 +189,21 @@ function Editor({
     setOpinionId(o.id);
     setSavedBody(o.body);
     setIssues(o.lint ?? []);
+    setChecks(o.checks ?? []);
     setChangedRefs(o.changed_citations ?? []);
   };
 
   const lintAgain = async () => {
     if (!version.current) return;
     try {
-      setIssues(
-        (
-          await unwrap(
-            api.POST(
-              "/v1/cases/{case_id}/questions/{question_id}/opinion/lint",
-              { params: { path } },
-            ),
-          )
-        ).issues,
+      const state = await unwrap(
+        api.POST(
+          "/v1/cases/{case_id}/questions/{question_id}/opinion/lint",
+          { params: { path } },
+        ),
       );
+      setIssues(state.open_issues);
+      setChecks(state.checks);
     } catch {
       /* the checks are only advice; the next save brings them back */
     }
@@ -420,14 +420,20 @@ function Editor({
           body: { dismissed_reason: reason },
         }),
       );
-      setIssues((all) => all.filter((i) => i.id !== issue.id));
+      const state = await unwrap(
+        api.GET("/v1/cases/{case_id}/questions/{question_id}/opinion/lint", {
+          params: { path: { case_id: caseId, question_id: questionId } },
+        }),
+      );
+      setIssues(state.open_issues);
+      setChecks(state.checks);
       setDismissing(null);
     } catch (err) {
       setMessage(errorMessage(err));
     }
   };
 
-  const open = issues.filter((i) => i.status === "open");
+  const open = issues;
   const sides = space.points.sides;
   return (
     <div className="av-page av-page--wide av-stack">
@@ -621,14 +627,9 @@ function Editor({
                 </Button>
               </div>
             ))}
-            {(
-              [
-                ["uncited_fact", "opinion.check_uncited_ok"],
-                ["loaded_language", "opinion.check_loaded_ok"],
-                ["outside_expertise", "opinion.check_expertise_ok"],
-              ] as const
-            )
-              .filter(([type]) => !open.some((i) => i.type === type))
+            {checks
+              .filter((c) => c.passed && c.type in PASSED_WORDS)
+              .map(({ type }) => [type, PASSED_WORDS[type]!] as const)
               .map(([type, key]) => (
                 <p key={type} className="av-write-pass">
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -743,6 +744,13 @@ function Editor({
 }
 
 /** The saved text read-only, with each sentence that has a check marked (citation markers shown as pages). */
+/** The words for a check that passed, by the check's type (the server says which passed). */
+const PASSED_WORDS: Record<string, "opinion.check_uncited_ok" | "opinion.check_loaded_ok" | "opinion.check_expertise_ok"> = {
+  uncited_fact: "opinion.check_uncited_ok",
+  loaded_language: "opinion.check_loaded_ok",
+  outside_expertise: "opinion.check_expertise_ok",
+};
+
 function FlaggedCopy({ body, issues, page }: { body: string; issues: Schemas["LintIssueOut"][]; page: (n: number) => number | undefined }) {
   const spans = issues
     .filter((i) => i.sentence_start != null && i.sentence_end != null && i.sentence_end <= body.length)

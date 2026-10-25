@@ -79,6 +79,9 @@ class RowOut(BaseModel):
     document_date: date | None = None
 
 
+SHOWN = 4  # rows shown before "and N more", besides those waiting for the expert
+
+
 class Counts(BaseModel):
     matched: int = 0
     to_confirm: int = 0
@@ -89,6 +92,10 @@ class ConcordanceOut(BaseModel):
     bundle: BundleOut | None
     rows: list[RowOut]
     counts: Counts
+    missing_count: int = 0
+    missing_rows: list[RowOut] = []
+    display_rows: list[RowOut] = []
+    hidden: int = 0
 
 
 class RowChange(BaseModel):
@@ -244,9 +251,29 @@ def _counts(rows: list[RowOut]) -> Counts:
     return counts
 
 
+def _display(rows: list[RowOut], show_all: bool) -> list[RowOut]:
+    """Rows to check always show; the rest fill the first few places (page order kept)."""
+    if show_all:
+        return rows
+    room = SHOWN
+    shown: list[RowOut] = []
+    for row in rows:
+        if row.status == "to_confirm" and not row.confirmed:
+            shown.append(row)
+        elif room > 0:
+            room -= 1
+            shown.append(row)
+    return shown
+
+
 @router.get("/cases/{case_id}/concordance", response_model=ConcordanceOut)
 async def get_concordance(
-    case_id: uuid.UUID, conn: DbConn, access: View, crypto: Crypto, status: Status | None = None
+    case_id: uuid.UUID,
+    conn: DbConn,
+    access: View,
+    crypto: Crypto,
+    status: Status | None = None,
+    limit: Literal["all"] | None = None,
 ) -> ConcordanceOut:
     bundle, rows = await _current(conn, crypto, case_id)
     out = _bundle(bundle) if bundle else None
@@ -258,10 +285,17 @@ async def get_concordance(
             (case_id, out.hearing_id, out.version),
         )
         out.replaces_received_on = before["received_on"] if before else None
+    chosen = [r for r in rows if status is None or r.status == status]
+    counts = _counts(rows)
+    display = _display(chosen, limit == "all")
     return ConcordanceOut(
         bundle=out,
-        rows=[r for r in rows if status is None or r.status == status],
-        counts=_counts(rows),
+        rows=chosen,
+        counts=counts,
+        missing_count=counts.missing,
+        missing_rows=[r for r in rows if r.status == "missing"],
+        display_rows=display,
+        hidden=len(chosen) - len(display),
     )
 
 

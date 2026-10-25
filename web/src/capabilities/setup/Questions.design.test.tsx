@@ -5,7 +5,7 @@ import { describe, expect, test } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { assumption, casePack, inCase, launchWords, question, questions, type PackRun } from "./testing";
+import { assumption, casePack, inCase, launchWords, nowAsked, question, questions, type PackRun } from "./testing";
 
 type Over = Parameters<typeof questions>[0];
 
@@ -42,7 +42,9 @@ test("a question outside your expertise explains it and offers to answer only th
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       sent = await request.json();
-      return HttpResponse.json(question({ kind: "causation", status: "confirmed", outside_expertise: true, outside_expertise_source: "pack", answer_parts: ["timing"], version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ kind: "causation", status: "confirmed", outside_expertise: true, outside_expertise_source: "pack", answer_parts: ["timing"], version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);

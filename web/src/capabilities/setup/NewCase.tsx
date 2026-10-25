@@ -932,12 +932,12 @@ function DetailsView({ caseId, item, pack, place }: DetailsProps) {
 function Letter({ caseId }: { caseId: string }) {
   const path = { params: { path: { case_id: caseId } } };
   const found = useResource(
-    () => unwrap(api.GET("/v1/cases/{case_id}/instructions", path)),
+    () => unwrap(api.GET("/v1/cases/{case_id}/instructions", { params: { ...path.params, query: { letters_only: true } } })),
     [caseId],
   );
   const [reading, setReading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const letters = (found.data ?? []).filter((i) => i.document_id);
+  const letters = found.data ?? [];
 
   const add = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1018,7 +1018,7 @@ function FoundInLetter({
 }) {
   const path = { params: { path: { case_id: caseId } } };
   const found = useResource(
-    () => unwrap(api.GET("/v1/cases/{case_id}/prefill", path)),
+    () => unwrap(api.GET("/v1/cases/{case_id}/prefill", { params: { ...path.params, query: { open: true } } })),
     [caseId],
   );
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -1055,9 +1055,7 @@ function FoundInLetter({
       setError(errorMessage(err));
     }
   };
-  const open = (found.data?.suggestions ?? []).filter(
-    (s) => s.status === "suggested" && !done.has(s.id),
-  );
+  const open = (found.data?.suggestions ?? []).filter((s) => !done.has(s.id));
   if (!found.data || (!reading && open.length === 0)) return null;
   return (
     <Section

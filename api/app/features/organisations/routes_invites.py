@@ -26,7 +26,7 @@ def _app_origin(request: Request) -> str:
 
 @router.get("/organisations/{org_id}/invites", response_model=InviteList, dependencies=STEP_UP_FIRST)
 async def list_invites(org_id: uuid.UUID, conn: DbConn, _: ManageMembers) -> InviteList:
-    return InviteList(invites=await service.invites(conn, org_id))
+    return await service.invite_list(conn, org_id)
 
 
 @router.post("/organisations/{org_id}/invites", response_model=Invite, status_code=201, dependencies=STEP_UP_FIRST)

@@ -16,7 +16,6 @@ import { SourceStack } from "./SourceStack";
 import { w, wn } from "./words";
 
 const UNKNOWN_COLOUR = "#8A948E";
-const STILL_MISSING = new Set(["open", "requested"]);
 
 export function BundleReady() {
   const { item, pack } = useCaseFrame();
@@ -27,7 +26,7 @@ export function BundleReady() {
       unwrap(api.GET("/v1/cases/{case_id}/bundle/summary", path)),
       unwrap(api.GET("/v1/cases/{case_id}/missing-items", path)),
     ]);
-    return { summary, missing: missing.missing_items.filter((m) => STILL_MISSING.has(m.status)) };
+    return { summary, missing: missing.still_missing ?? [] };
   }, [caseId]);
 
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
@@ -37,7 +36,7 @@ export function BundleReady() {
   const num = (n: number) => formatNumber(n, locale);
   const base = `/cases/${caseId}/bundle`;
 
-  const unopened = s.documents.filter((d) => d.unreadable_reason);
+  const unopened = s.unopened_documents ?? [];
   const unopenedCard = unopened.length > 0 && (
     <Card
       icon={<AlertIcon />}
@@ -66,8 +65,8 @@ export function BundleReady() {
   }
 
   const last = Math.max(s.pages, ...s.versions.map((v) => v.last_page_no ?? 0));
-  const suggested = (s.quarantine_suggestions ?? []).filter((q) => q.status === "suggested");
-  const setAside = (s.quarantined ?? []).filter((q) => q.status === "confirmed" || q.status === "purged");
+  const suggested = s.quarantine_suggestions ?? [];
+  const setAside = s.quarantined ?? [];
   const exhibits = s.exhibits ?? [];
   const foreign = s.foreign_language ?? [];
   const label = requestLabel(pack);

@@ -7,7 +7,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { CASE_ID, missingItem, packWords, summary, theCase, VIEWER_ACTIONS } from "./testData";
+import { CASE_ID, missingItem, packWords, summary, theCase, VIEWER_ACTIONS, missingList } from "./testData";
 
 const PATH = `/cases/${CASE_ID}/bundle`;
 
@@ -17,13 +17,11 @@ function mock(pack: Schemas["CasePack"], opts: { summary?: Partial<Schemas["Bund
     http.get(`/v1/cases/${CASE_ID}`, () => json(opts.item ?? theCase())),
     http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack, opts.summary))),
     http.get(`/v1/cases/${CASE_ID}/missing-items`, () =>
-      json({
-        missing_items: [
+      json(missingList([
           missingItem(),
           missingItem({ id: "m1000000-0000-4000-8000-000000000002", description: "Practice task list after January", status: "requested" }),
           missingItem({ id: "m1000000-0000-4000-8000-000000000003", description: "An item already received", status: "received" }),
-        ],
-      }),
+        ])),
     ),
   );
 }
@@ -204,7 +202,7 @@ describe.each([
 
   test("with nothing to flag there are no cards for copies, other people's pages or missing items", async () => {
     mock(pack, { summary: { duplicates: 0, unreadable: 0, gaps: 0, missing_items: 0, quarantine_suggestions: [], exhibits: [], foreign_language: [] } });
-    server.use(http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json({ missing_items: [] })));
+    server.use(http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json(missingList([]))));
     renderAt(PATH);
     await screen.findByText("1,231 pages, numbered 1 to 1,231.");
     expect(screen.queryByText(/copies set aside/)).toBeNull();

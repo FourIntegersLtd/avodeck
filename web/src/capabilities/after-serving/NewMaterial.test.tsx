@@ -8,12 +8,12 @@ import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
 import { AFTER_MESSAGES as M } from "./words";
-import { claim, CLAIM, DOC, P1, Q1, serve, type PackRun } from "./testing";
+import { claim, CLAIM, DOC, P1, Q1, serve, type PackRun, type OpposingStub } from "./testing";
 import type { Schemas } from "../../foundation/platform-client";
 
 const url = `/cases/${CASE_A}/new-material`;
 const page = (no: number, read: boolean, may: Schemas["NewPage"]["may_matter"] = []): Schemas["NewPage"] => ({ page_id: `p${no}`, page_no: no, read, may_matter: may });
-const report = (claims: Schemas["OpposingClaimOut"][] = [claim()]): Schemas["OpposingReport"] => ({
+const report = (claims: Schemas["OpposingClaimOut"][] = [claim()]): OpposingStub => ({
   id: "r1", document_id: DOC, received_on: "2026-12-09", checked_at: "2026-12-09T10:00:00Z", claims_found: claims.length, claims,
   expert_name: null, expert_role: null, pages: null,
   positions: [{ question_id: Q1, question_no: 2, own: [{ paragraph_id: P1, para_no: 614, text: "Our paragraph words." }], theirs: [{ paragraph_ref: "5.1", text_verbatim: "Their paragraph words." }] }],

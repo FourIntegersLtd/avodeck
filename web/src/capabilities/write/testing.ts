@@ -36,9 +36,11 @@ export function pointOut(over: Partial<Schemas["PointOut"]> = {}): Schemas["Poin
 }
 
 export function pointsBody(run: PackRun, over: Partial<Schemas["Points"]> = {}): Schemas["Points"] {
+  const points = over.points ?? [pointOut()];
   return {
     sides: sides(run),
-    points: [pointOut()],
+    points,
+    live: points.filter((p) => p.status !== "dismissed"),
     unused: [pointFact({ id: FACT_2, page_id: PAGE_2, page_no: 214, value: "Iron deficiency on file" })],
     relevant: [],
     claims: [],
@@ -61,10 +63,17 @@ export function claim(over: Partial<Schemas["ClaimOut"]> = {}): Schemas["ClaimOu
   };
 }
 
+const LINT_TYPES = ["uncited_fact", "loaded_language", "outside_expertise"];
+
+/** What the server answers for the checks: a type has passed when none of the open warnings is of it. */
+export function checksFor(open: Schemas["LintIssueOut"][] = []): Schemas["LintCheck"][] {
+  return LINT_TYPES.map((type) => ({ type, passed: !open.some((i) => i.type === type) }));
+}
+
 export function opinionOut(over: Partial<Schemas["OpinionOut"]> = {}): Schemas["OpinionOut"] {
   return {
     id: "e1111111-1111-4111-8111-111111111111", question_id: Q1, body: "", citation_refs: [], view: null, provisional: false,
-    test_text: null, restored_from: null, version: 1, updated_at: "2026-10-18T09:00:00Z", lint: [], changed_citations: [], stale: false, ...over,
+    test_text: null, restored_from: null, version: 1, updated_at: "2026-10-18T09:00:00Z", lint: [], checks: checksFor(over.lint), changed_citations: [], stale: false, ...over,
   };
 }
 
@@ -78,6 +87,7 @@ export function workspace(run: PackRun, over: Partial<Schemas["Workspace"]> = {}
     views: views(run),
     legal_test: "The pack's own test of what a reasonable practitioner does.",
     opinion: null,
+    checks: checksFor(over.opinion?.lint),
     question: header(run),
     ...over,
   };
@@ -111,9 +121,13 @@ export function serve(run: PackRun, opts: { points?: Schemas["Points"]; workspac
   };
   const kind = String(casePack(run).question_types[0]!.key);
   server.use(
-    http.get("/v1/cases/:caseId/questions", () =>
-      json(questions({ questions: [question({ id: Q1, number: 1, kind, status: "confirmed" }), question({ id: Q2, number: 2, kind, status: "edited", text_verbatim: "Second question." }), question({ id: "a3333333-3333-4333-8333-333333333333", number: 3, status: "suggested" })] })),
-    ),
+    http.get("/v1/cases/:caseId/questions", ({ request }) => {
+      const all = [question({ id: Q1, number: 1, kind, status: "confirmed" }), question({ id: Q2, number: 2, kind, status: "edited", text_verbatim: "Second question." }), question({ id: "a3333333-3333-4333-8333-333333333333", number: 3, status: "suggested" })];
+      // The server's rule: with ?answerable=true only confirmed or edited questions come back, in number order.
+      const answerable = new URL(request.url).searchParams.get("answerable") === "true";
+      return json(questions({ questions: answerable ? all.filter((q) => q.status === "confirmed" || q.status === "edited") : all }));
+    }),
+    http.get("/v1/cases/:caseId/questions/:q/opinion/lint", () => json({ issues: [], open_issues: [], checks: checksFor() })),
     http.get("/v1/cases/:caseId/questions/:q/points", () => json(opts.points ?? pointsBody(run))),
     http.get("/v1/cases/:caseId/write-progress", () => json(opts.progress ?? progress())),
     http.get("/v1/cases/:caseId/questions/:q/workspace", () => json(opts.workspace ?? workspace(run))),

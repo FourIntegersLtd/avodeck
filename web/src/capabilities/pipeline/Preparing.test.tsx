@@ -6,7 +6,7 @@ import { registerScreen } from "../../foundation/lib/screens";
 import { apiError, http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { CASE_ID, JOB, NEXT_JOB, processingJob, summary, theCase, VIEWER_ACTIONS } from "./testData";
+import { CASE_ID, JOB, NEXT_JOB, processingJob, summary, theCase, VIEWER_ACTIONS, missingList } from "./testData";
 import type { Schemas } from "../../foundation/platform-client";
 
 class FakeEventSource {
@@ -55,7 +55,7 @@ function mockCase(pack: Schemas["CasePack"], opts: { job?: Schemas["ProcessingJo
     http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () =>
       json(summary(pack, { pages: 120, documents: docs as unknown as Schemas["BundleSummary"]["documents"], quarantine_suggestions: [], foreign_language: [] })),
     ),
-    http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json({ missing_items: [] })),
+    http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json(missingList([]))),
   );
 }
 

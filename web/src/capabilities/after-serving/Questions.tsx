@@ -35,24 +35,23 @@ export function QuestionsScreen() {
   const path = { params: { path: { case_id: caseId } } };
   const rounds = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-question-rounds", path)), [caseId], { cache: "after-serving/Questions#QuestionsScreen:rounds" });
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/written-questions", path)), [caseId]);
-  const deadlines = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/deadlines", path)), [caseId], { cache: "after-serving/Questions#QuestionsScreen:deadlines" });
   const [selected, setSelected] = useState<string | null>(null);
   const wait = useWaiting(() => { rounds.reload(); questions.reload(); }, questions.data?.questions.length);
 
-  if (rounds.error || questions.error || deadlines.error) {
-    return <div className="av-page"><LoadError onRetry={() => { rounds.reload(); questions.reload(); deadlines.reload(); }} /></div>;
+  if (rounds.error || questions.error) {
+    return <div className="av-page"><LoadError onRetry={() => { rounds.reload(); questions.reload(); }} /></div>;
   }
-  if (!rounds.data || !questions.data || !deadlines.data) return <div className="av-page"><Loading /></div>;
+  if (!rounds.data || !questions.data) return <div className="av-page"><Loading /></div>;
   const vocab = (pack.vocabulary as Record<string, unknown>).written_questions;
   const classes = pack.written_question_classifications ?? [];
-  const firstOpen = rounds.data.rounds.find((r) => r.status !== "answered");
-  const firstDeadline = firstOpen && deadlines.data.deadlines.find((d) => d.id === firstOpen.deadline_id);
-  const chip = firstOpen && firstDeadline && firstDeadline.days_left != null
-    ? { left: firstDeadline.days_left, due: firstDeadline.due_on, number: firstOpen.number }
+  const firstOpen = rounds.data.rounds.find((r) => r.open);
+  const chip = firstOpen && firstOpen.days_left != null && firstOpen.due_on
+    ? { left: firstOpen.days_left, due: firstOpen.due_on, number: firstOpen.number }
     : null;
-  const reloadAll = () => { rounds.reload(); questions.reload(); deadlines.reload(); };
+  const reloadAll = () => { rounds.reload(); questions.reload(); };
 
   const all = questions.data.questions;
+  const byRound = questions.data.by_round;
   const current = all.find((q) => q.id === selected) ?? all[0];
   const effective = (q: Question) => q.classification ?? q.suggested_classification ?? "";
 
@@ -107,7 +106,7 @@ export function QuestionsScreen() {
         </div>
         <div className="av-after-qmain av-stack">
           {rounds.data.rounds.map((round) => {
-            const mine = all.filter((q) => q.round_id === round.id);
+            const mine = byRound.find((g) => g.round_id === round.id)?.questions ?? [];
             return (
               <RoundView
                 key={round.id}

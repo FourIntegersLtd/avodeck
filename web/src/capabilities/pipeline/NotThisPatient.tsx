@@ -15,7 +15,6 @@ import { w, wn, wordFor } from "./words";
 
 type Q = Schemas["QuarantinePage"];
 type Choice = "not" | "is";
-const SHOWN = new Set(["confirmed", "purged"]);
 
 // The reason code sent when the expert sets aside a page they opened themselves (?page=).
 const EXPERT_REASON = "not_this_person";
@@ -41,7 +40,7 @@ export function NotThisPatient() {
   useEffect(() => {
     if (!found.data) return;
     const s = found.data;
-    const listed = [...(s.quarantine_suggestions ?? []).filter((q) => q.status === "suggested"), ...(s.quarantined ?? []).filter((q) => SHOWN.has(q.status))];
+    const listed = s.quarantine_listed ?? [];
     setPages(listed);
     setLookup(null);
     if (!search.has("page") || listed.some((q) => q.page_no === asked)) return;

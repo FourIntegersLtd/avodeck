@@ -51,6 +51,7 @@ export function Timeline() {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const opener = useRef<Element | null>(null);
   const lastCounts = useRef<Schemas["TimelineCounts"] | null>(null);
+  const lastOptions = useRef<string[]>([]);
   const day = /^\d{4}-\d{2}-\d{2}$/.test(seenOn) ? seenOn : "";
 
   const asked = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId], { cache: "understand/Timeline#Timeline:asked" });
@@ -64,6 +65,7 @@ export function Timeline() {
     windowPreset !== "period" ||
     periodSeeded ||
     (!caseRow.loading && !whole.loading && periodDefaultDates(caseRow.data, recordRange) === null);
+  const windowed = useRibbonData(caseId, day, from, to, windowReady && (from !== "" || to !== ""));
   const found = useResource(async () => {
     if (!windowReady) return null;
     const query: Record<string, string> = {};
@@ -103,7 +105,7 @@ export function Timeline() {
   const data = found.data ?? undefined;
   // A new window or filter is loading behind the lanes already drawn: say so, and dim them until it arrives.
   const updating = found.loading && !!data;
-  const order = useMemo(() => (data ? chronologyEntries(splitForTrack(data).lanes, splitForTrack(data).unplaced) : []), [data]);
+  const order = useMemo(() => (data ? chronologyEntries(data) : []), [data]);
   const entryId = params.get("entry");
   const current = entryId ? order.find((e) => e.fact_id === entryId) ?? null : null;
   const panelHere = current && here.some((e) => e.fact_id === current.fact_id) ? here : current ? [current] : [];
@@ -143,13 +145,14 @@ export function Timeline() {
     if (!on) setSeenOn("");
   };
   const split = data ? splitForTrack(data) : null;
+  if (data) lastOptions.current = data.status_options;
   const statusItems = c
     ? [
         { value: "verified", label: t("ui.status.checked"), n: c.checked },
         { value: "suggested", label: t("ui.status.please_check"), n: c.please_check },
         { value: "things_to_look", label: t("ui.status.look"), n: c.things_to_look },
         { value: "not_linked", label: w("timeline.not_linked"), n: c.not_linked },
-      ].filter((it) => it.n > 0 || it.value === status)
+      ].filter((it) => lastOptions.current.includes(it.value))
     : [];
   const statusWord = status === "" ? w("timeline.filter.status.all") : (statusItems.find((it) => it.value === status)?.label ?? "");
   const questionWord = questionId && numbers[questionId] !== undefined ? t("ui.qchip", { n: numbers[questionId] }) : w("timeline.filter.question.all");
@@ -283,7 +286,7 @@ export function Timeline() {
               </div>
             )}
             {view === "board" ? (
-              <TimelineBoard caseId={caseId} data={data} from={from} to={to} numbers={numbers} selectedId={current?.fact_id} onOpen={open} />
+              <TimelineBoard caseId={caseId} data={data} from={from} to={to} numbers={numbers} selectedId={current?.fact_id} windowed={from || to ? windowed.data : whole.data} onOpen={open} />
             ) : (
               <>
                 <TimelineChronology entries={order} numbers={numbers} selectedId={current?.fact_id} onOpen={open} />

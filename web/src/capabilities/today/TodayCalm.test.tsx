@@ -21,8 +21,8 @@ const data = today({
     caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_name: "Northgate", organisation_kind: "team", due_date: inDays(40) }),
   ],
   organisations: [
-    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal" },
-    { id: TEAM_ORG, name: "Northgate", kind: "team" },
+    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 1 },
+    { id: TEAM_ORG, name: "Northgate", kind: "team", open_count: 1 },
   ],
   needs_you: [{ kind: "pages", case_id: CASE_B, rank: 1, label_key: "wk.read.label", action_key: "wk.read.action", screen: "wk_reader", count: 12, minutes: null, due_at: null, params: {} }],
 });

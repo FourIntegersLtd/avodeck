@@ -8,6 +8,7 @@ The frontend renders screens and sends user actions to FastAPI. Nothing else.
 
 - Call only the generated API client in `src/foundation/platform-client/` (from OpenAPI). No `fetch` to any other origin.
 - No Supabase, Azure or AWS SDKs, keys or URLs. CI fails the build if any appear.
+- Search, filters, sort order and counts come from the API; the browser never filters a fetched list to decide what the user sees.
 - No business logic that the server must enforce (blind read, ownership, locking, provenance). The frontend may mirror it for display, never replace it.
 - Auth is a cookie set by FastAPI. Do not store tokens in `localStorage`, `sessionStorage` or JS memory.
 - Send the CSRF token header on every state-changing request (the client does this).

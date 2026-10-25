@@ -52,6 +52,20 @@ async def test_counts_per_lane_per_month_in_the_pack_s_lane_order(
     assert all(len(lane["counts"]) == 3 for lane in body["lanes"])
 
 
+async def test_from_and_to_window_the_months_and_the_counts(client_for: ClientFor, seed: Seed) -> None:
+    case = Case(seed)
+    kind = _plain_lanes(case.pack)[0]["kinds"][0]
+    case.fact(kind, date(2023, 12, 20))
+    case.fact(kind, date(2024, 2, 10))
+    case.fact(kind, date(2024, 2, 11))
+    case.fact(kind, date(2024, 6, 1))
+    body = await _overview(client_for, case, **{"from": "2024-01-15", "to": "2024-03-31"})
+    assert body["months"] == ["2024-01", "2024-02", "2024-03"]
+    assert body["lanes"][0]["counts"] == [0, 2, 0]
+    whole = await _overview(client_for, case)
+    assert body["range"] == whole["range"] == {"first": "2023-12-20", "last": "2024-06-01"}
+
+
 async def test_months_span_the_year_end(client_for: ClientFor, seed: Seed) -> None:
     case = Case(seed)
     kind = _plain_lanes(case.pack)[0]["kinds"][0]

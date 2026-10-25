@@ -12,10 +12,11 @@ instructing parties are drafted for every current one (S4).
 
 from __future__ import annotations
 
+import re
 import uuid
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Query, Request, Response
 from psycopg.errors import RaiseException
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -71,6 +72,16 @@ class AssumptionOut(BaseModel):
     version: int
 
 
+class LetterItem(BaseModel):
+    """A cited paragraph of the letter, ready to show: the words the question or assumption came from."""
+
+    id: uuid.UUID
+    kind: Literal["question", "assumption"]
+    para_ref: str
+    text_verbatim: str
+    outside_expertise: bool = False
+
+
 class Questions(BaseModel):
     instruction_version_id: uuid.UUID | None
     version_no: int | None
@@ -82,6 +93,19 @@ class Questions(BaseModel):
     warnings: list[str] = Field(description="i18n keys.")
     questions: list[QuestionOut]
     assumptions: list[AssumptionOut]
+    confirmed_count: int = Field(description="Questions and assumptions confirmed, of `total`.")
+    total: int = Field(description="All questions and assumptions in the set, whatever `answerable` says.")
+    letter: list[LetterItem] = Field(
+        description="Items that cite a paragraph, in paragraph order (numbers count as numbers)."
+    )
+
+
+_PARA_PART = re.compile(r"(\d+)")
+
+
+def _para_key(ref: str) -> list[tuple[int, int, str]]:
+    """Paragraph references in reading order: digit runs compare as numbers, the rest as lower-case text."""
+    return [(0, int(p), "") if p.isdigit() else (1, 0, p.lower()) for p in _PARA_PART.split(ref) if p]
 
 
 _Q = (
@@ -125,13 +149,30 @@ async def _latest(conn: DbConn, case_id: uuid.UUID) -> dict[str, Any] | None:
 
 
 @router.get("/cases/{case_id}/questions", response_model=Questions)
-async def list_questions(case_id: uuid.UUID, access: ViewContent, conn: DbConn) -> Questions:
+async def list_questions(
+    case_id: uuid.UUID,
+    access: ViewContent,
+    conn: DbConn,
+    answerable: Annotated[
+        bool, Query(description="Only the questions the expert has confirmed or edited, in number order.")
+    ] = False,
+) -> Questions:
     latest = await _latest(conn, case_id)
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(f"{_Q} where case_id = %s order by number, id", (case_id,))  # noqa: S608
         questions = [_question(r) for r in await cur.fetchall()]
         await cur.execute(f"{_A} where case_id = %s order by number, id", (case_id,))  # noqa: S608
         assumptions = [AssumptionOut(**r) for r in await cur.fetchall()]
+    cited = [(q.para_ref, q.id, "question", q.text_verbatim, q.outside_expertise) for q in questions if q.para_ref] + [
+        (a.para_ref, a.id, "assumption", a.text_verbatim, False) for a in assumptions if a.para_ref
+    ]
+    letter = [
+        LetterItem(id=i, kind=k, para_ref=ref, text_verbatim=text, outside_expertise=out)  # type: ignore[arg-type]
+        for ref, i, k, text, out in sorted(cited, key=lambda c: _para_key(str(c[0])))
+    ]
+    done = sum(q.status == "confirmed" for q in questions)
+    confirmed_count = done + sum(a.status == "confirmed" for a in assumptions)
+    total = len(questions) + len(assumptions)
     locked = bool(latest and latest["locked"])
     unread = bool(latest and latest["unread"])
     read_failed = unread and bool(latest and latest["failed"])
@@ -157,8 +198,11 @@ async def list_questions(case_id: uuid.UUID, access: ViewContent, conn: DbConn) 
         reopened=reopened,
         rejected=int(latest["rejected"]) if latest else 0,
         warnings=warnings,
-        questions=questions,
+        questions=[q for q in questions if q.status in ("confirmed", "edited")] if answerable else questions,
         assumptions=assumptions,
+        confirmed_count=confirmed_count,
+        total=total,
+        letter=letter,
     )
 
 

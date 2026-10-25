@@ -2,7 +2,7 @@
 import { screen, within } from "@testing-library/react";
 import { beforeAll, expect, test } from "vitest";
 import { registerScreen } from "../../foundation/lib/screens";
-import { apiError, http, HttpResponse, json, server, signedIn } from "../../test/api";
+import { signedIn } from "../../test/api";
 import { me, today } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 
@@ -12,14 +12,16 @@ beforeAll(() => {
 });
 
 const empty = today({ cases: [], needs_you: [], closed_count: 0 });
-const profile = (over: object = {}) => ({ currency: null, default_jurisdiction: null, default_retention: null, full_name: "Dr Jane Morgan", hourly_rate: null, profession: null, registration_body: null, registration_number: null, specialties: [], version: 1, ...over });
 
 function setup(opts: { done?: boolean; signature?: boolean } = {}) {
-  signedIn({ me: me({ greeting_name: "Dr Morgan" }), today: empty });
-  server.use(
-    http.get("/v1/me/profile", () => json(profile(opts.done ? { profession: "x", registration_number: "1", specialties: ["y"] } : {}), 200)),
-    http.get("/v1/me/signature/image", () => (opts.signature ? new HttpResponse("img", { headers: { "content-type": "image/png" } }) : apiError(404, "not_found"))),
-  );
+  // The server says which steps are done and how many; the page asks nothing else and counts nothing.
+  const profile = Boolean(opts.done);
+  const signature = Boolean(opts.signature);
+  const done_steps = 1 + Number(profile) + Number(signature);
+  signedIn({
+    me: me({ greeting_name: "Dr Morgan" }),
+    today: { ...empty, readiness: { account: true, profile, signature, done_steps, total_steps: 3 } },
+  });
 }
 
 test("welcomes a person with no cases and passes axe", async () => {

@@ -2,6 +2,19 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { signedIn, http, json, server } from "../../test/api";
+
+// The server narrows the list; this stands in for it.
+function narrowing(data: ReturnType<typeof today>) {
+  server.use(
+    http.get("/v1/today", ({ request }) => {
+      const query = new URL(request.url).searchParams;
+      const q = (query.get("q") ?? "").toLowerCase();
+      const org = query.get("organisation_id");
+      const cases = data.cases.filter((c) => (!org || c.organisation_id === org) && c.label.toLowerCase().includes(q));
+      return json({ ...data, cases, open_count: cases.length });
+    }),
+  );
+}
 import { CASE_A, CASE_B, caseCard, launchPack, PERSONAL_ORG, TEAM_ORG, today } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 
@@ -15,8 +28,8 @@ const two = today({
     caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_name: "Northgate", organisation_kind: "team", stage: "court", party_role: "instructing_side", due_date: "2026-10-21" }),
   ],
   organisations: [
-    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal" },
-    { id: TEAM_ORG, name: "Northgate", kind: "team" },
+    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 1 },
+    { id: TEAM_ORG, name: "Northgate", kind: "team", open_count: 1 },
   ],
   closed_count: 23,
 });
@@ -45,6 +58,7 @@ test("Cases is the current place in the header, not Today", async () => {
 
 test("searching narrows the list by case name", async () => {
   signedIn({ today: two });
+  narrowing(two);
   const { user } = renderAt("/cases");
   await screen.findByRole("link", { name: /Mrs A/ });
   await user.type(screen.getByRole("searchbox", { name: "Find a case by name" }), "ms c");
@@ -57,6 +71,7 @@ test("searching narrows the list by case name", async () => {
 
 test("the organisation filter narrows the rows", async () => {
   signedIn({ today: two });
+  narrowing(two);
   const { user } = renderAt("/cases");
   const filter = await screen.findByRole("group", { name: "Show cases for" });
   expect(filter).toHaveClass("av-segmented-control");
@@ -80,7 +95,7 @@ test("New case is the one primary button, and the footer counts the year's sides
 test("with no cases: faded rows, No cases yet, one primary button and three info cards", async () => {
   const { registerScreen } = await import("../../foundation/lib/screens");
   registerScreen("new_case", () => "/cases/new");
-  signedIn({ today: today({ cases: [], needs_you: [], closed_count: 0 }) });
+  signedIn({ today: today({ cases: [], needs_you: [], closed_count: 0, organisations: [{ id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 0 }] }) });
   const { container } = renderAt("/cases");
   expect(await screen.findByRole("heading", { level: 2, name: "No cases yet" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Start your first case" })).toHaveAttribute("href", "/cases/new");

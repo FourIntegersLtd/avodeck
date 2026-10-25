@@ -250,7 +250,7 @@
 <script>
 (function () {
   var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  var appUrl = local ? 'http://localhost:5173' : '';
+  var appUrl = local ? 'http://localhost:5173' : location.origin;
   document.querySelectorAll('[data-app-path]').forEach(function (a) {
     if (appUrl) a.href = appUrl + a.getAttribute('data-app-path'); else a.hidden = true;
   });

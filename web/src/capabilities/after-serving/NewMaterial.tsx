@@ -59,7 +59,7 @@ export function NewMaterial() {
   };
 
   const rep = report.data;
-  const needAttention = rep ? rep.claims.filter((c) => c.discrepancy && !c.expert_confirmed).length : 0;
+  const needAttention = rep?.needs_attention_count ?? 0;
   const meeting = screenPath("expert_meeting", { caseId });
 
   return (
@@ -77,7 +77,7 @@ export function NewMaterial() {
             <IconTile><NewDocIcon /></IconTile>
             <span>
               <h3 id="new-pages">{list.length === 0 ? w("new.title_none") : w("new.pages", { count: list.length })}</h3>
-              {list.length > 0 && <span className="av-muted">{w("new.range", { from: fmt(Math.min(...list.map((p) => p.page_no))), to: fmt(Math.max(...list.map((p) => p.page_no))), read: list.filter((p) => p.read).length, total: list.length })}</span>}
+              {list.length > 0 && <span className="av-muted">{w("new.range", { from: fmt(pages.data.first_page ?? 0), to: fmt(pages.data.last_page ?? 0), read: pages.data.read_count ?? 0, total: list.length })}</span>}
             </span>
           </div>
           {list.length === 0 ? (
@@ -167,8 +167,8 @@ function Claims({ caseId, report }: { caseId: string; report: Schemas["OpposingR
       setError(errorMessage(err, ERRORS));
     }
   };
-  const matching = report.claims.filter((c) => c.status === "matches");
-  const rows = report.claims.filter((c) => c.status !== "matches");
+  const matching = report.matching_claims;
+  const rows = report.other_claims;
   const folded = matching.slice(1);
   const rowFor = (base: Claim) => {
     const c = over[base.id] ?? base;

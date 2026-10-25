@@ -21,6 +21,7 @@ from app.features.understand.common import case_pack
 from app.features.understand.lanes import arrange, subtitle
 from app.features.understand.router import router
 from app.features.understand.timeline_models import (
+    ChronologyRef,
     Event,
     Lane,
     Overview,
@@ -33,6 +34,20 @@ from app.features.understand.timeline_models import (
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Status = Literal["suggested", "verified", "edited"]
 Only = Literal["not_linked", "things_to_look"]
+
+
+def _rank(fact: repo.SeenFact, flagged: set[uuid.UUID], links: dict[uuid.UUID, list[uuid.UUID]]) -> int:
+    if fact.fact_id in flagged:
+        return 0
+    if links.get(fact.fact_id):
+        return 1
+    return 3 if fact.status in repo.CHECKED else 2
+
+
+def _chrono_key(fact: repo.SeenFact) -> tuple[int, date, int]:
+    """Dated entries by day, then page; entries with no day last, by page."""
+    day = fact.event_date or fact.available_at
+    return (0, day, fact.page_no) if day else (1, date.min, fact.page_no)
 
 
 @router.get("/cases/{case_id}/timeline", response_model=Timeline)
@@ -76,6 +91,7 @@ async def timeline(
         return question_id is None or question_id in links.get(fact.fact_id, [])
 
     def event(fact: repo.SeenFact, series_key: str | None = None) -> Event:
+        rank = _rank(fact, flagged, links)
         return Event(
             fact_id=fact.fact_id,
             kind=fact.kind,
@@ -90,6 +106,8 @@ async def timeline(
             date_basis=fact.date_basis,
             first_word_n=fact.first_word_n,
             series_key=series_key,
+            rank=rank,
+            featured=rank <= 1,
         )
 
     lanes = pack.lanes()
@@ -114,7 +132,29 @@ async def timeline(
     days = [f.event_date for f in facts if f.event_date is not None]
     kept = [f for got in placed for f in got[1]]
     lane_series = {key: series.build(pack, key, got) for key, got in placed}
+    rows = [(key, f) for key, got in placed for f in got] + [("", f) for f in unplaced]
+    rows.sort(key=lambda r: _chrono_key(r[1]))
+    options = [
+        value
+        for value, n in (
+            ("verified", counts.checked),
+            ("suggested", counts.please_check),
+            ("things_to_look", counts.things_to_look),
+            ("not_linked", counts.not_linked),
+        )
+        if n > 0 or value == status
+    ]
     return Timeline(
+        chronology=[
+            ChronologyRef(
+                fact_id=f.fact_id,
+                lane_key=key,
+                lane_label=str(labels.get(key, key)) if key else "",
+                lane_icon=icon_of.get(key),
+            )
+            for key, f in rows
+        ],
+        status_options=options,
         range=Range(first=min(days), last=max(days)) if days else None,
         as_seen_on=as_seen_on,
         as_seen_title=pack.term("as_seen_title"),
@@ -148,7 +188,9 @@ async def timeline_overview(
     request: Request,
     conn: DbConn,
     as_seen_on: Annotated[date | None, Query(description="Only what had arrived by this day.")] = None,
+    since: Annotated[date | None, Query(alias="from", description="Count only from this day.")] = None,
+    until: Annotated[date | None, Query(alias="to", description="Count only up to this day.")] = None,
 ) -> Overview:
     """The whole record for the ribbon: counts per lane per month and the entries worth a pin."""
     pack = await case_pack(request, conn, case_id)
-    return await overview.build(request, conn, case_id, pack, as_seen_on)
+    return await overview.build(request, conn, case_id, pack, as_seen_on, since, until)

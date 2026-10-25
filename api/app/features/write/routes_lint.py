@@ -22,11 +22,13 @@ from app.core import audit
 from app.core.ai.kit import InvalidOutput
 from app.core.http import DbConn
 from app.features.write import ai_tasks, services
-from app.features.write.common import Crypto, Write, case_pack, not_found, refused, require_question
+from app.features.write.common import Crypto, View, Write, case_pack, not_found, refused, require_question
 from app.features.write.lint_regex import sentences
 from app.features.write.lint_store import (
     BODY,
+    LintCheck,
     LintIssueOut,
+    checks_for,
     dismissed_issues,
     lint_purpose,
     open_issues,
@@ -39,6 +41,13 @@ logger = logging.getLogger("app.write")
 
 class LintOut(BaseModel):
     issues: list[LintIssueOut]
+    open_issues: list[LintIssueOut]
+    checks: list[LintCheck]
+
+
+async def _state(conn: DbConn, crypto: Crypto, case_id: uuid.UUID, opinion_id: uuid.UUID) -> LintOut:
+    now = await open_issues(conn, crypto, case_id, opinion_id)
+    return LintOut(issues=now, open_issues=now, checks=checks_for(now))
 
 
 class LintDismiss(BaseModel):
@@ -69,7 +78,20 @@ async def lint_opinion(
     said = sentences(body)
     if said:
         await _ask(request, conn, crypto, case_id, opinion_id, version, said, refs)
-    return LintOut(issues=await open_issues(conn, crypto, case_id, opinion_id))
+    return await _state(conn, crypto, case_id, opinion_id)
+
+
+@router.get("/cases/{case_id}/questions/{question_id}/opinion/lint", response_model=LintOut)
+async def lint_state(case_id: uuid.UUID, question_id: uuid.UUID, access: View, conn: DbConn, crypto: Crypto) -> LintOut:
+    """The opinion's open warnings and which checks passed, without asking the model again."""
+    await require_question(conn, case_id, question_id)
+    cur = await conn.execute(
+        "select id from app.opinions where case_id = %s and question_id = %s", (case_id, question_id)
+    )
+    row = await cur.fetchone()
+    if row is None:
+        return LintOut(issues=[], open_issues=[], checks=checks_for([]))
+    return await _state(conn, crypto, case_id, row[0])
 
 
 async def _ask(

@@ -935,6 +935,25 @@
         "title": "BillingProfileOut",
         "type": "object"
       },
+      "BlockingCase": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "label"
+        ],
+        "title": "BlockingCase",
+        "type": "object"
+      },
       "BuildQueued": {
         "properties": {
           "job_id": {
@@ -1109,6 +1128,22 @@
             "title": "Pages",
             "type": "integer"
           },
+          "quarantine_confirmed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuarantinePage"
+            },
+            "title": "Quarantine Confirmed",
+            "type": "array"
+          },
+          "quarantine_listed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuarantinePage"
+            },
+            "title": "Quarantine Listed",
+            "type": "array"
+          },
           "quarantine_suggestions": {
             "default": [],
             "items": {
@@ -1125,6 +1160,11 @@
             "title": "Quarantined",
             "type": "array"
           },
+          "set_aside_count": {
+            "default": 0,
+            "title": "Set Aside Count",
+            "type": "integer"
+          },
           "splits": {
             "default": 0,
             "title": "Splits",
@@ -1134,6 +1174,24 @@
             "default": 0,
             "title": "Straightened",
             "type": "integer"
+          },
+          "suggested_count": {
+            "default": 0,
+            "title": "Suggested Count",
+            "type": "integer"
+          },
+          "unopened_count": {
+            "default": 0,
+            "title": "Unopened Count",
+            "type": "integer"
+          },
+          "unopened_documents": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Document"
+            },
+            "title": "Unopened Documents",
+            "type": "array"
           },
           "unreadable": {
             "title": "Unreadable",
@@ -2583,6 +2641,11 @@
       },
       "Checklist": {
         "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ChecklistItem"
@@ -2593,6 +2656,11 @@
           "rule_ref": {
             "title": "Rule Ref",
             "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -2698,6 +2766,42 @@
           "fact_version"
         ],
         "title": "Chip",
+        "type": "object"
+      },
+      "ChronologyRef": {
+        "description": "One row of the list view: the entry (by id) and the lane it sits in, already in date order.",
+        "properties": {
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "lane_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Icon"
+          },
+          "lane_key": {
+            "default": "",
+            "title": "Lane Key",
+            "type": "string"
+          },
+          "lane_label": {
+            "default": "",
+            "title": "Lane Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id"
+        ],
+        "title": "ChronologyRef",
         "type": "object"
       },
       "ChunkReceived": {
@@ -2907,6 +3011,14 @@
       "CloseSummary": {
         "description": "What screen 26 shows: where the case is, when it will be deleted, and what is holding it.",
         "properties": {
+          "active_holds": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/app__features__close__schemas__Hold"
+            },
+            "title": "Active Holds",
+            "type": "array"
+          },
           "case_id": {
             "format": "uuid",
             "title": "Case Id",
@@ -2977,6 +3089,18 @@
               }
             ],
             "title": "Max Retention Years"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Until"
           },
           "retention_policy": {
             "anyOf": [
@@ -3352,6 +3476,32 @@
           },
           "counts": {
             "$ref": "#/components/schemas/Counts"
+          },
+          "display_rows": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Display Rows",
+            "type": "array"
+          },
+          "hidden": {
+            "default": 0,
+            "title": "Hidden",
+            "type": "integer"
+          },
+          "missing_count": {
+            "default": 0,
+            "title": "Missing Count",
+            "type": "integer"
+          },
+          "missing_rows": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/RowOut"
+            },
+            "title": "Missing Rows",
+            "type": "array"
           },
           "rows": {
             "items": {
@@ -5201,6 +5351,11 @@
             "title": "Fact Id",
             "type": "string"
           },
+          "featured": {
+            "default": false,
+            "title": "Featured",
+            "type": "boolean"
+          },
           "first_word_n": {
             "anyOf": [
               {
@@ -5231,6 +5386,11 @@
             },
             "title": "Question Ids",
             "type": "array"
+          },
+          "rank": {
+            "default": 3,
+            "title": "Rank",
+            "type": "integer"
           },
           "series_key": {
             "anyOf": [
@@ -5531,6 +5691,12 @@
       },
       "FactList": {
         "properties": {
+          "done": {
+            "default": 0,
+            "description": "How many are dealt with: checked as right or changed (and not asked again), or marked not right.",
+            "title": "Done",
+            "type": "integer"
+          },
           "facts": {
             "items": {
               "$ref": "#/components/schemas/FactOut"
@@ -5538,11 +5704,25 @@
             "title": "Facts",
             "type": "array"
           },
+          "highlights": {
+            "description": "The words to mark on the page picture: every fact not marked not right.",
+            "items": {
+              "$ref": "#/components/schemas/Highlight"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
           "reassigned": {
             "default": false,
             "description": "A fact on this page is suggested again because the case's named expert changed.",
             "title": "Reassigned",
             "type": "boolean"
+          },
+          "total": {
+            "default": 0,
+            "description": "How many suggestions the page has.",
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -5689,10 +5869,31 @@
             "title": "Declaration Changed",
             "type": "boolean"
           },
+          "failed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "failed_count": {
+            "default": 0,
+            "title": "Failed Count",
+            "type": "integer"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "not_run": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Not Run",
+            "type": "array"
           },
           "pack_versions": {
             "additionalProperties": {
@@ -5703,6 +5904,19 @@
           },
           "passed": {
             "title": "Passed",
+            "type": "boolean"
+          },
+          "passed_checks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Passed Checks",
+            "type": "array"
+          },
+          "ready": {
+            "default": false,
+            "title": "Ready",
             "type": "boolean"
           },
           "report_version_id": {
@@ -5890,12 +6104,22 @@
       },
       "Findings": {
         "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
           "findings": {
             "items": {
               "$ref": "#/components/schemas/FindingOut"
             },
             "title": "Findings",
             "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -6204,6 +6428,11 @@
             "title": "Id",
             "type": "string"
           },
+          "live": {
+            "description": "Not replaced and not adjourned.",
+            "title": "Live",
+            "type": "boolean"
+          },
           "replaced_by_hearing_id": {
             "anyOf": [
               {
@@ -6255,7 +6484,8 @@
           "replaced_by_hearing_id",
           "direction_id",
           "version",
-          "changed_at"
+          "changed_at",
+          "live"
         ],
         "title": "HearingOut",
         "type": "object"
@@ -6263,15 +6493,44 @@
       "Hearings": {
         "properties": {
           "hearings": {
+            "description": "In the order the screen shows: live first, then newest first.",
             "items": {
               "$ref": "#/components/schemas/HearingOut"
             },
             "title": "Hearings",
             "type": "array"
+          },
+          "next_hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest live hearing.",
+            "title": "Next Hearing Id"
+          },
+          "next_trial_hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest live trial hearing.",
+            "title": "Next Trial Hearing Id"
           }
         },
         "required": [
-          "hearings"
+          "hearings",
+          "next_hearing_id",
+          "next_trial_hearing_id"
         ],
         "title": "Hearings",
         "type": "object"
@@ -6356,6 +6615,41 @@
           "page"
         ],
         "title": "HelpRequest",
+        "type": "object"
+      },
+      "Highlight": {
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "word_ids",
+          "bbox"
+        ],
+        "title": "Highlight",
         "type": "object"
       },
       "HoldCreate": {
@@ -7083,6 +7377,14 @@
               "$ref": "#/components/schemas/Invite"
             },
             "title": "Invites",
+            "type": "array"
+          },
+          "pending_invites": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Invite"
+            },
+            "title": "Pending Invites",
             "type": "array"
           }
         },
@@ -8021,6 +8323,45 @@
         "title": "LatestOut",
         "type": "object"
       },
+      "LetterItem": {
+        "description": "A cited paragraph of the letter, ready to show: the words the question or assumption came from.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "question",
+              "assumption"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "outside_expertise": {
+            "default": false,
+            "title": "Outside Expertise",
+            "type": "boolean"
+          },
+          "para_ref": {
+            "title": "Para Ref",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "para_ref",
+          "text_verbatim"
+        ],
+        "title": "LetterItem",
+        "type": "object"
+      },
       "LinkDecision": {
         "properties": {
           "status": {
@@ -8157,6 +8498,24 @@
         "title": "Links",
         "type": "object"
       },
+      "LintCheck": {
+        "properties": {
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "passed"
+        ],
+        "title": "LintCheck",
+        "type": "object"
+      },
       "LintDismiss": {
         "additionalProperties": false,
         "properties": {
@@ -8236,16 +8595,32 @@
       },
       "LintOut": {
         "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "issues": {
             "items": {
               "$ref": "#/components/schemas/LintIssueOut"
             },
             "title": "Issues",
             "type": "array"
+          },
+          "open_issues": {
+            "items": {
+              "$ref": "#/components/schemas/LintIssueOut"
+            },
+            "title": "Open Issues",
+            "type": "array"
           }
         },
         "required": [
-          "issues"
+          "issues",
+          "open_issues",
+          "checks"
         ],
         "title": "LintOut",
         "type": "object"
@@ -9156,6 +9531,19 @@
             },
             "title": "Missing Items",
             "type": "array"
+          },
+          "still_missing": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MissingItem"
+            },
+            "title": "Still Missing",
+            "type": "array"
+          },
+          "still_missing_count": {
+            "default": 0,
+            "title": "Still Missing Count",
+            "type": "integer"
           }
         },
         "required": [
@@ -9849,12 +10237,39 @@
       },
       "NewSinceServed": {
         "properties": {
+          "first_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Page"
+          },
+          "last_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Page"
+          },
           "pages": {
             "items": {
               "$ref": "#/components/schemas/NewPage"
             },
             "title": "Pages",
             "type": "array"
+          },
+          "read_count": {
+            "default": 0,
+            "title": "Read Count",
+            "type": "integer"
           },
           "served_at": {
             "anyOf": [
@@ -10372,6 +10787,13 @@
             "title": "Changed Citations",
             "type": "array"
           },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "citation_refs": {
             "items": {
               "$ref": "#/components/schemas/Citation"
@@ -10658,6 +11080,11 @@
             "title": "Id",
             "type": "string"
           },
+          "needs_attention": {
+            "description": "Checked, does not match and the expert has not yet confirmed it.",
+            "title": "Needs Attention",
+            "type": "boolean"
+          },
           "our_page_no": {
             "anyOf": [
               {
@@ -10752,7 +11179,8 @@
           "expert_confirmed",
           "confirmed_at",
           "discrepancy",
-          "version"
+          "version",
+          "needs_attention"
         ],
         "title": "OpposingClaimOut",
         "type": "object"
@@ -10841,6 +11269,24 @@
             "title": "Id",
             "type": "string"
           },
+          "matching_claims": {
+            "items": {
+              "$ref": "#/components/schemas/OpposingClaimOut"
+            },
+            "title": "Matching Claims",
+            "type": "array"
+          },
+          "needs_attention_count": {
+            "title": "Needs Attention Count",
+            "type": "integer"
+          },
+          "other_claims": {
+            "items": {
+              "$ref": "#/components/schemas/OpposingClaimOut"
+            },
+            "title": "Other Claims",
+            "type": "array"
+          },
           "pages": {
             "anyOf": [
               {
@@ -10872,7 +11318,10 @@
           "checked_at",
           "claims_found",
           "claims",
-          "positions"
+          "positions",
+          "matching_claims",
+          "other_claims",
+          "needs_attention_count"
         ],
         "title": "OpposingReport",
         "type": "object"
@@ -11029,6 +11478,22 @@
       },
       "OrgMemberList": {
         "properties": {
+          "current_members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OrgMember"
+            },
+            "title": "Current Members",
+            "type": "array"
+          },
+          "former_members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OrgMember"
+            },
+            "title": "Former Members",
+            "type": "array"
+          },
           "members": {
             "items": {
               "$ref": "#/components/schemas/OrgMember"
@@ -11066,6 +11531,14 @@
               "type": "string"
             },
             "title": "Assignable Roles",
+            "type": "array"
+          },
+          "blocking_cases": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BlockingCase"
+            },
+            "title": "Blocking Cases",
             "type": "array"
           },
           "created_at": {
@@ -11734,6 +12207,14 @@
       },
       "PackagesOut": {
         "properties": {
+          "live": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PackageOut"
+            },
+            "title": "Live",
+            "type": "array"
+          },
           "packages": {
             "items": {
               "$ref": "#/components/schemas/PackageOut"
@@ -12841,6 +13322,13 @@
             "title": "Claims",
             "type": "array"
           },
+          "live": {
+            "items": {
+              "$ref": "#/components/schemas/PointOut"
+            },
+            "title": "Live",
+            "type": "array"
+          },
           "points": {
             "items": {
               "$ref": "#/components/schemas/PointOut"
@@ -12879,6 +13367,7 @@
         "required": [
           "sides",
           "points",
+          "live",
           "unused",
           "relevant",
           "claims",
@@ -13309,6 +13798,14 @@
             ],
             "title": "Hourly Rate"
           },
+          "missing_steps": {
+            "description": "Onboarding steps still to do, in order: about, roles, training, template, signature.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Steps",
+            "type": "array"
+          },
           "profession": {
             "anyOf": [
               {
@@ -13365,7 +13862,8 @@
           "hourly_rate",
           "currency",
           "default_retention",
-          "default_jurisdiction"
+          "default_jurisdiction",
+          "missing_steps"
         ],
         "title": "Profile",
         "type": "object"
@@ -13942,6 +14440,11 @@
             "title": "Assumptions",
             "type": "array"
           },
+          "confirmed_count": {
+            "description": "Questions and assumptions confirmed, of `total`.",
+            "title": "Confirmed Count",
+            "type": "integer"
+          },
           "instruction_version_id": {
             "anyOf": [
               {
@@ -13953,6 +14456,14 @@
               }
             ],
             "title": "Instruction Version Id"
+          },
+          "letter": {
+            "description": "Items that cite a paragraph, in paragraph order (numbers count as numbers).",
+            "items": {
+              "$ref": "#/components/schemas/LetterItem"
+            },
+            "title": "Letter",
+            "type": "array"
           },
           "locked": {
             "title": "Locked",
@@ -13986,6 +14497,11 @@
             "title": "Reopened",
             "type": "boolean"
           },
+          "total": {
+            "description": "All questions and assumptions in the set, whatever `answerable` says.",
+            "title": "Total",
+            "type": "integer"
+          },
           "version_no": {
             "anyOf": [
               {
@@ -14015,7 +14531,10 @@
           "rejected",
           "warnings",
           "questions",
-          "assumptions"
+          "assumptions",
+          "confirmed_count",
+          "total",
+          "letter"
         ],
         "title": "Questions",
         "type": "object"
@@ -14162,6 +14681,40 @@
           "first_read_at"
         ],
         "title": "ReadOut",
+        "type": "object"
+      },
+      "Readiness": {
+        "description": "The first-visit steps (account secured, profile filled in, signature saved) and how many are done.",
+        "properties": {
+          "account": {
+            "title": "Account",
+            "type": "boolean"
+          },
+          "done_steps": {
+            "title": "Done Steps",
+            "type": "integer"
+          },
+          "profile": {
+            "title": "Profile",
+            "type": "boolean"
+          },
+          "signature": {
+            "title": "Signature",
+            "type": "boolean"
+          },
+          "total_steps": {
+            "title": "Total Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "account",
+          "profile",
+          "signature",
+          "done_steps",
+          "total_steps"
+        ],
+        "title": "Readiness",
         "type": "object"
       },
       "Recipient": {
@@ -14599,6 +15152,11 @@
               }
             ],
             "title": "Court Track Label"
+          },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
           },
           "sections": {
             "items": {
@@ -15130,6 +15688,18 @@
             ],
             "title": "Answers Version Id"
           },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Days to the due date in the court's timezone.",
+            "title": "Days Left"
+          },
           "deadline_id": {
             "anyOf": [
               {
@@ -15153,6 +15723,19 @@
               }
             ],
             "title": "Document Id"
+          },
+          "due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the answers are due, from the round's deadline.",
+            "title": "Due On"
           },
           "extracted_at": {
             "anyOf": [
@@ -15187,6 +15770,11 @@
             "title": "Number",
             "type": "integer"
           },
+          "open": {
+            "description": "Still to be answered (not yet signed).",
+            "title": "Open",
+            "type": "boolean"
+          },
           "received_on": {
             "format": "date",
             "title": "Received On",
@@ -15211,13 +15799,51 @@
           "answers_version_id",
           "status",
           "extracted_at",
-          "version"
+          "version",
+          "open",
+          "due_on",
+          "days_left"
         ],
         "title": "RoundOut",
         "type": "object"
       },
+      "RoundQuestions": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/WrittenQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "round_id": {
+            "format": "uuid",
+            "title": "Round Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "round_id",
+          "questions"
+        ],
+        "title": "RoundQuestions",
+        "type": "object"
+      },
       "Rounds": {
         "properties": {
+          "next_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest due date among the open rounds.",
+            "title": "Next Due On"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/RoundOut"
@@ -15227,7 +15853,8 @@
           }
         },
         "required": [
-          "rounds"
+          "rounds",
+          "next_due_on"
         ],
         "title": "Rounds",
         "type": "object"
@@ -16849,6 +17476,11 @@
       },
       "SpotCheckOut": {
         "properties": {
+          "agree_count": {
+            "default": 0,
+            "title": "Agree Count",
+            "type": "integer"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -16911,6 +17543,11 @@
           "reviewer_email": {
             "title": "Reviewer Email",
             "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -17683,6 +18320,15 @@
             },
             "title": "Cases",
             "type": "array"
+          },
+          "served_case_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Served Case Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -17947,6 +18593,24 @@
       },
       "SupportGrantList": {
         "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SupportGrant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ended": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SupportGrant"
+            },
+            "title": "Ended",
+            "type": "array"
+          },
           "grants": {
             "items": {
               "$ref": "#/components/schemas/SupportGrant"
@@ -18763,6 +19427,14 @@
             ],
             "title": "As Seen Title"
           },
+          "chronology": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChronologyRef"
+            },
+            "title": "Chronology",
+            "type": "array"
+          },
           "counts": {
             "anyOf": [
               {
@@ -18818,6 +19490,14 @@
               "$ref": "#/components/schemas/TimelineSource"
             },
             "title": "Sources",
+            "type": "array"
+          },
+          "status_options": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Status Options",
             "type": "array"
           },
           "unplaced": {
@@ -18917,6 +19597,10 @@
             "title": "Closed Count",
             "type": "integer"
           },
+          "due_this_month": {
+            "title": "Due This Month",
+            "type": "integer"
+          },
           "needs_you": {
             "items": {
               "$ref": "#/components/schemas/NeedsYouItem"
@@ -18924,19 +19608,29 @@
             "title": "Needs You",
             "type": "array"
           },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
+          },
           "organisations": {
             "items": {
               "$ref": "#/components/schemas/TodayOrganisation"
             },
             "title": "Organisations",
             "type": "array"
+          },
+          "readiness": {
+            "$ref": "#/components/schemas/Readiness"
           }
         },
         "required": [
           "cases",
           "needs_you",
           "organisations",
-          "closed_count"
+          "closed_count",
+          "open_count",
+          "due_this_month",
+          "readiness"
         ],
         "title": "Today",
         "type": "object"
@@ -18955,12 +19649,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "name",
-          "kind"
+          "kind",
+          "open_count"
         ],
         "title": "TodayOrganisation",
         "type": "object"
@@ -19868,6 +20567,13 @@
       },
       "Workspace": {
         "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "chips": {
             "items": {
               "$ref": "#/components/schemas/Chip"
@@ -19936,6 +20642,7 @@
           "views",
           "legal_test",
           "opinion",
+          "checks",
           "question"
         ],
         "title": "Workspace",
@@ -20188,6 +20895,14 @@
       },
       "WrittenQuestions": {
         "properties": {
+          "by_round": {
+            "description": "The same questions under their round.",
+            "items": {
+              "$ref": "#/components/schemas/RoundQuestions"
+            },
+            "title": "By Round",
+            "type": "array"
+          },
           "questions": {
             "items": {
               "$ref": "#/components/schemas/WrittenQuestionOut"
@@ -20197,7 +20912,8 @@
           }
         },
         "required": [
-          "questions"
+          "questions",
+          "by_round"
         ],
         "title": "WrittenQuestions",
         "type": "object"
@@ -21991,6 +22707,23 @@
                 }
               ],
               "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "all",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Limit"
             }
           }
         ],
@@ -26051,6 +26784,18 @@
               "format": "uuid",
               "title": "Case Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Only the versions that have their file attached.",
+            "in": "query",
+            "name": "letters_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the versions that have their file attached.",
+              "title": "Letters Only",
+              "type": "boolean"
             }
           }
         ],
@@ -30158,6 +30903,18 @@
               "title": "Case Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only the suggestions still waiting for the expert.",
+            "in": "query",
+            "name": "open",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the suggestions still waiting for the expert.",
+              "title": "Open",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -30602,6 +31359,18 @@
               "title": "Case Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only the questions the expert has confirmed or edited, in number order.",
+            "in": "query",
+            "name": "answerable",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the questions the expert has confirmed or edited, in number order.",
+              "title": "Answerable",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -30929,6 +31698,68 @@
       }
     },
     "/v1/cases/{case_id}/questions/{question_id}/opinion/lint": {
+      "get": {
+        "description": "The opinion's open warnings and which checks passed, without asking the model again.",
+        "operationId": "lint_state_v1_cases__case_id__questions__question_id__opinion_lint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Lint State",
+        "tags": [
+          "write"
+        ]
+      },
       "post": {
         "description": "Ask the model which words in the saved opinion to check; the warnings open after it answers.",
         "operationId": "lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post",
@@ -34580,6 +35411,44 @@
               ],
               "description": "Only what had arrived by this day.",
               "title": "As Seen On"
+            }
+          },
+          {
+            "description": "Count only from this day.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Count only from this day.",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Count only up to this day.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Count only up to this day.",
+              "title": "To"
             }
           }
         ],
@@ -39876,6 +40745,23 @@
                 }
               ],
               "title": "Organisation Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           }
         ],

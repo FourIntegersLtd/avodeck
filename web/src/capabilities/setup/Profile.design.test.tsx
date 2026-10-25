@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { me } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { casePack, combination, jurisdiction } from "./testing";
+import { casePack, combination, jurisdiction, missingSteps } from "./testing";
 
 const TEMPLATE = {
   id: "f1111111-1111-4111-8111-111111111111",
@@ -32,8 +32,8 @@ function open() {
   const pack = casePack("launch");
   signedIn({ me: me(), pack });
   server.use(
-    http.get("/v1/me/profile", () =>
-      tag({ full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [combination("launch").specialty.code], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null }),
+    http.get("/v1/me/profile", async () =>
+      tag({ full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [combination("launch").specialty.code], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null, missing_steps: await missingSteps(true) }),
     ),
     http.get("/v1/packs", () => json([combination("launch")])),
     http.get("/v1/jurisdictions/:code", () => json(jurisdiction("launch"))),

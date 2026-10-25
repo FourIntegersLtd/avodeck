@@ -10,7 +10,7 @@ export const OWNER_ACTIONS = ["org.billing", "org.close", "org.create_case", "or
 export const ADMIN_ACTIONS = OWNER_ACTIONS.filter((a) => a !== "org.close" && a !== "org.export");
 
 export function org(over: Partial<Schemas["Organisation"]> = {}): Schemas["Organisation"] {
-  return { id: TEAM_ORG, name: "Northgate Medico-Legal", kind: "team", region: "uk", role: "owner", allowed_actions: OWNER_ACTIONS, assignable_roles: ["owner", "admin", "expert", "assistant", "viewer"], policy: { required_template_id: null, max_retention_years: 6 }, created_at: "2026-02-01T09:00:00Z", ...over };
+  return { id: TEAM_ORG, name: "Northgate Medico-Legal", kind: "team", region: "uk", role: "owner", allowed_actions: OWNER_ACTIONS, assignable_roles: ["owner", "admin", "expert", "assistant", "viewer"], policy: { required_template_id: null, max_retention_years: 6 }, created_at: "2026-02-01T09:00:00Z", blocking_cases: [], ...over };
 }
 
 export function member(id: string, name: string, role: Schemas["OrgMember"]["role"], over: Partial<Schemas["OrgMember"]> = {}): Schemas["OrgMember"] {
@@ -53,8 +53,8 @@ export function teamWorld(opts: { org?: Schemas["Organisation"]; invites?: Schem
   const state = { org: opts.org ?? org(), invites: opts.invites ?? [invite()], members: opts.members ?? MEMBERS };
   server.use(
     http.get(`/v1/organisations/${TEAM_ORG}`, () => json(state.org)),
-    http.get(`/v1/organisations/${TEAM_ORG}/members`, () => json({ members: state.members })),
-    http.get(`/v1/organisations/${TEAM_ORG}/invites`, () => json({ invites: state.invites })),
+    http.get(`/v1/organisations/${TEAM_ORG}/members`, () => json({ members: state.members, current_members: state.members.filter((m) => !m.ended_at), former_members: state.members.filter((m) => m.ended_at) })),
+    http.get(`/v1/organisations/${TEAM_ORG}/invites`, () => json({ invites: state.invites, pending_invites: state.invites.filter((i) => i.status === "pending") })),
     http.get(`/v1/organisations/${TEAM_ORG}/billing-profile`, () =>
       json({ profile: { id: OTHER, legal_name: "Northgate Medico-Legal Ltd", address: null, tax_number: null, tax_rate: "0", currency: "GBP", hourly_rate: null, invoice_prefix: "NML" } }),
     ),

@@ -43,6 +43,10 @@ EXCUSED = {
     "2697618939377f51f7efed553baa18c17d544231": "design/a-pipeline: commit split put tests ahead of the code; content tested as a whole, history kept (no force push)",
     "d6784a1789899552f84afb7a2078e9b2bfdeba7e": "test-order bug in its test commit, fixed in cac27bd",
     "afccc4c1103afff340f007237cf7fb04e17dd375": "slice/0-support-lookup-session-mfa: its test setup moved a case draft to served, which the database refuses; fixed in afa9f59, history kept (no force push)",
+    "6fc50eebecae5efbf8c4180196287c95b3a454ee": "slice/0-server-side-search: the cron entry point's feat follows a docs commit; its test commit came before that, history kept (no force push)",
+    "c4bbd65353f9724a49a8266ac4a391d4b5948bd3": "slice/c-server-side-rules: server feat and screen feat both follow one test commit; branch head tested as a whole in #143, history kept (no force push)",
+    "90d1211cf513fcb13b9d1a11b15bb89f02426194": "slice/d-server-side-rules: server feat and screen feat both follow one test commit; branch head tested as a whole in #143, history kept (no force push)",
+    "9b672a82d72da8326dab326162b89ae7ec63b398": "slice/b-server-side-rules: server feat and screen feat both follow one test commit; branch head tested as a whole in #143, history kept (no force push)",
 }
 
 

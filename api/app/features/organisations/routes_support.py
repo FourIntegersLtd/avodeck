@@ -40,7 +40,8 @@ IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=8, ma
 async def search_cases(
     conn: DbConn, _: Lookup, q: Annotated[str, Query(min_length=1, max_length=320)]
 ) -> SupportCaseList:
-    return SupportCaseList(cases=await support.console_search(conn, q))
+    found = await support.console_search(conn, q)
+    return SupportCaseList(cases=found, served_case_ids=[c.case_id for c in found if c.served])
 
 
 @router.post(

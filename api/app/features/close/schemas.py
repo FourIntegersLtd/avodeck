@@ -33,6 +33,8 @@ class CloseSummary(BaseModel):
     max_retention_years: int | None = None  # the organisation's limit, when it sets one
     ever_served: bool
     holds: list[Hold]
+    active_holds: list[Hold] = []  # the holds not yet released
+    paused_until: date | None = None  # latest end date; none when no hold is on or any has no end
     held: bool
     deletion_started: bool
     deleted_at: datetime | None

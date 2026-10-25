@@ -134,19 +134,28 @@ function ProfileView(props: ViewProps) {
   const [savedSomething, setSavedSomething] = useState(false);
   const [balanceOpen, setBalanceOpen] = useState(false);
   const noteSaved = () => setSavedSomething(true);
-  const aboutDone = Boolean(
-    about.full_name && about.registration_number && about.specialties.length,
+  // The server says which steps are still to do; ask again whenever something on this page changes.
+  const [missing, setMissing] = useState<readonly string[]>(
+    props.profile.data.missing_steps,
   );
-  const doneFlags = [
-    aboutDone,
-    roles.length > 0,
-    training.length > 0,
-    template !== null,
-    signed,
-  ];
-  const done = doneFlags.filter(Boolean).length;
-  const firstOpen = doneFlags.indexOf(false);
-  const missing = STEPS.filter((_, i) => !doneFlags[i]);
+  const first = useRef(true);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    let live = true;
+    unwrap(api.GET("/v1/me/profile"))
+      .then((p) => live && setMissing(p.missing_steps))
+      .catch(() => undefined);
+    return () => {
+      live = false;
+    };
+  }, [about, roles, training, template, signed]);
+  const doneStep = (step: (typeof STEPS)[number]) => !missing.includes(step);
+  const aboutDone = doneStep("about");
+  const done = STEPS.length - missing.length;
+  const firstOpen = STEPS.findIndex((step) => missing.includes(step));
   const next = missing[0] ? t(`setup.profile.step.${missing[0]}`) : "";
   const specialty =
     about.specialties[0] ?? props.packs[0]?.specialty.code ?? "";

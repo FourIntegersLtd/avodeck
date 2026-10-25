@@ -285,7 +285,6 @@ export function ThingsToLook() {
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (!found.data) return <div className="av-page"><Loading /></div>;
   const findings = found.data.findings.map((f) => decided[f.id] ?? f);
-  const done = findings.filter((f) => f.decision !== null).length;
   const rerun = async () => {
     setError(null);
     try {
@@ -302,12 +301,12 @@ export function ThingsToLook() {
           <div>
             <h2>{w("things.title")}</h2>
             <p className="av-muted">{w("things.intro")}</p>
-            {findings.length > 0 && <p><strong>{w("things.progress", { done, total: findings.length })}</strong></p>}
+            {found.data.total > 0 && <p><strong>{w("things.progress", { done: found.data.done, total: found.data.total })}</strong></p>}
           </div>
           {findings.length === 0 && <p className="av-muted">{w("things.none")}</p>}
-          {[...findings.filter((f) => f.decision === null), ...findings.filter((f) => f.decision !== null)].map((f) => {
+          {findings.map((f) => {
             const Row = f.decision === null ? FindingCard : FoldedFinding;
-            return <Row key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => setDecided((d) => ({ ...d, [out.id]: out }))} />;
+            return <Row key={f.id} caseId={caseId} finding={f} canDecide={can("finding.decide")} onDecided={(out) => { setDecided((d) => ({ ...d, [out.id]: out })); found.reload(); }} />;
           })}
           {can("finding.decide") && (
             <div className="av-row">

@@ -2521,7 +2521,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Lint State
+         * @description The opinion's open warnings and which checks passed, without asking the model again.
+         */
+        get: operations["lint_state_v1_cases__case_id__questions__question_id__opinion_lint_get"];
         put?: never;
         /**
          * Lint Opinion
@@ -5233,6 +5237,16 @@ export interface components {
         BillingProfileOut: {
             profile: components["schemas"]["BillingProfile"] | null;
         };
+        /** BlockingCase */
+        BlockingCase: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Label */
+            label: string;
+        };
         /** BuildQueued */
         BuildQueued: {
             /**
@@ -5304,6 +5318,16 @@ export interface components {
             /** Pages */
             pages: number;
             /**
+             * Quarantine Confirmed
+             * @default []
+             */
+            quarantine_confirmed: components["schemas"]["QuarantinePage"][];
+            /**
+             * Quarantine Listed
+             * @default []
+             */
+            quarantine_listed: components["schemas"]["QuarantinePage"][];
+            /**
              * Quarantine Suggestions
              * @default []
              */
@@ -5314,6 +5338,11 @@ export interface components {
              */
             quarantined: components["schemas"]["QuarantinePage"][];
             /**
+             * Set Aside Count
+             * @default 0
+             */
+            set_aside_count: number;
+            /**
              * Splits
              * @default 0
              */
@@ -5323,6 +5352,21 @@ export interface components {
              * @default 0
              */
             straightened: number;
+            /**
+             * Suggested Count
+             * @default 0
+             */
+            suggested_count: number;
+            /**
+             * Unopened Count
+             * @default 0
+             */
+            unopened_count: number;
+            /**
+             * Unopened Documents
+             * @default []
+             */
+            unopened_documents: components["schemas"]["Document"][];
             /** Unreadable */
             unreadable: number;
             /** Versions */
@@ -5827,10 +5871,20 @@ export interface components {
         };
         /** Checklist */
         Checklist: {
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
             /** Items */
             items: components["schemas"]["ChecklistItem"][];
             /** Rule Ref */
             rule_ref: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** ChecklistItem */
         ChecklistItem: {
@@ -5867,6 +5921,29 @@ export interface components {
             quote_verbatim: string;
             /** Value */
             value: string;
+        };
+        /**
+         * ChronologyRef
+         * @description One row of the list view: the entry (by id) and the lane it sits in, already in date order.
+         */
+        ChronologyRef: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Lane Icon */
+            lane_icon?: string | null;
+            /**
+             * Lane Key
+             * @default
+             */
+            lane_key: string;
+            /**
+             * Lane Label
+             * @default
+             */
+            lane_label: string;
         };
         /** ChunkReceived */
         ChunkReceived: {
@@ -5955,6 +6032,11 @@ export interface components {
          */
         CloseSummary: {
             /**
+             * Active Holds
+             * @default []
+             */
+            active_holds: components["schemas"]["app__features__close__schemas__Hold"][];
+            /**
              * Case Id
              * Format: uuid
              */
@@ -5975,6 +6057,8 @@ export interface components {
             job_id?: string | null;
             /** Max Retention Years */
             max_retention_years?: number | null;
+            /** Paused Until */
+            paused_until?: string | null;
             /** Retention Policy */
             retention_policy: string | null;
             /** Retention Years */
@@ -6109,6 +6193,26 @@ export interface components {
         ConcordanceOut: {
             bundle: components["schemas"]["BundleOut"] | null;
             counts: components["schemas"]["Counts"];
+            /**
+             * Display Rows
+             * @default []
+             */
+            display_rows: components["schemas"]["RowOut"][];
+            /**
+             * Hidden
+             * @default 0
+             */
+            hidden: number;
+            /**
+             * Missing Count
+             * @default 0
+             */
+            missing_count: number;
+            /**
+             * Missing Rows
+             * @default []
+             */
+            missing_rows: components["schemas"]["RowOut"][];
             /** Rows */
             rows: components["schemas"]["RowOut"][];
         };
@@ -6782,6 +6886,11 @@ export interface components {
              * Format: uuid
              */
             fact_id: string;
+            /**
+             * Featured
+             * @default false
+             */
+            featured: boolean;
             /** First Word N */
             first_word_n?: number | null;
             /** Has Finding */
@@ -6792,6 +6901,11 @@ export interface components {
             page_no: number;
             /** Question Ids */
             question_ids: string[];
+            /**
+             * Rank
+             * @default 3
+             */
+            rank: number;
             /** Series Key */
             series_key?: string | null;
             /** Source */
@@ -6889,14 +7003,31 @@ export interface components {
         };
         /** FactList */
         FactList: {
+            /**
+             * Done
+             * @description How many are dealt with: checked as right or changed (and not asked again), or marked not right.
+             * @default 0
+             */
+            done: number;
             /** Facts */
             facts: components["schemas"]["FactOut"][];
+            /**
+             * Highlights
+             * @description The words to mark on the page picture: every fact not marked not right.
+             */
+            highlights?: components["schemas"]["Highlight"][];
             /**
              * Reassigned
              * @description A fact on this page is suggested again because the case's named expert changed.
              * @default false
              */
             reassigned: boolean;
+            /**
+             * Total
+             * @description How many suggestions the page has.
+             * @default 0
+             */
+            total: number;
         };
         /** FactOut */
         FactOut: {
@@ -6967,16 +7098,41 @@ export interface components {
             /** Declaration Changed */
             declaration_changed: boolean;
             /**
+             * Failed
+             * @default []
+             */
+            failed: components["schemas"]["CheckResult"][];
+            /**
+             * Failed Count
+             * @default 0
+             */
+            failed_count: number;
+            /**
              * Id
              * Format: uuid
              */
             id: string;
+            /**
+             * Not Run
+             * @default []
+             */
+            not_run: components["schemas"]["CheckResult"][];
             /** Pack Versions */
             pack_versions: {
                 [key: string]: string;
             };
             /** Passed */
             passed: boolean;
+            /**
+             * Passed Checks
+             * @default []
+             */
+            passed_checks: components["schemas"]["CheckResult"][];
+            /**
+             * Ready
+             * @default false
+             */
+            ready: boolean;
             /**
              * Report Version Id
              * Format: uuid
@@ -7040,8 +7196,18 @@ export interface components {
         };
         /** Findings */
         Findings: {
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
             /** Findings */
             findings: components["schemas"]["FindingOut"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** Fix */
         Fix: {
@@ -7156,6 +7322,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Live
+             * @description Not replaced and not adjourned.
+             */
+            live: boolean;
             /** Replaced By Hearing Id */
             replaced_by_hearing_id: string | null;
             /**
@@ -7174,8 +7345,21 @@ export interface components {
         };
         /** Hearings */
         Hearings: {
-            /** Hearings */
+            /**
+             * Hearings
+             * @description In the order the screen shows: live first, then newest first.
+             */
             hearings: components["schemas"]["HearingOut"][];
+            /**
+             * Next Hearing Id
+             * @description The earliest live hearing.
+             */
+            next_hearing_id: string | null;
+            /**
+             * Next Trial Hearing Id
+             * @description The earliest live trial hearing.
+             */
+            next_trial_hearing_id: string | null;
         };
         /** HeartbeatIn */
         HeartbeatIn: {
@@ -7204,6 +7388,20 @@ export interface components {
              * @enum {string}
              */
             topic: "case" | "account" | "billing" | "other";
+        };
+        /** Highlight */
+        Highlight: {
+            /** Bbox */
+            bbox: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Word Ids */
+            word_ids: string[];
         };
         /**
          * HoldCreate
@@ -7463,6 +7661,11 @@ export interface components {
         InviteList: {
             /** Invites */
             invites: components["schemas"]["Invite"][];
+            /**
+             * Pending Invites
+             * @default []
+             */
+            pending_invites: components["schemas"]["Invite"][];
         };
         /** InvoiceIn */
         InvoiceIn: {
@@ -7760,6 +7963,31 @@ export interface components {
             pack: components["schemas"]["PackOut"] | null;
             settings: components["schemas"]["TrialPackSettingsOut"];
         };
+        /**
+         * LetterItem
+         * @description A cited paragraph of the letter, ready to show: the words the question or assumption came from.
+         */
+        LetterItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "question" | "assumption";
+            /**
+             * Outside Expertise
+             * @default false
+             */
+            outside_expertise: boolean;
+            /** Para Ref */
+            para_ref: string;
+            /** Text Verbatim */
+            text_verbatim: string;
+        };
         /** LinkDecision */
         LinkDecision: {
             /**
@@ -7815,6 +8043,13 @@ export interface components {
             /** Links */
             links: components["schemas"]["LinkOut"][];
         };
+        /** LintCheck */
+        LintCheck: {
+            /** Passed */
+            passed: boolean;
+            /** Type */
+            type: string;
+        };
         /** LintDismiss */
         LintDismiss: {
             /** Dismissed Reason */
@@ -7844,8 +8079,12 @@ export interface components {
         };
         /** LintOut */
         LintOut: {
+            /** Checks */
+            checks: components["schemas"]["LintCheck"][];
             /** Issues */
             issues: components["schemas"]["LintIssueOut"][];
+            /** Open Issues */
+            open_issues: components["schemas"]["LintIssueOut"][];
         };
         /** Made */
         Made: {
@@ -8199,6 +8438,16 @@ export interface components {
         MissingItems: {
             /** Missing Items */
             missing_items: components["schemas"]["MissingItem"][];
+            /**
+             * Still Missing
+             * @default []
+             */
+            still_missing: components["schemas"]["MissingItem"][];
+            /**
+             * Still Missing Count
+             * @default 0
+             */
+            still_missing_count: number;
         };
         /** MissingPage */
         MissingPage: {
@@ -8480,8 +8729,17 @@ export interface components {
         };
         /** NewSinceServed */
         NewSinceServed: {
+            /** First Page */
+            first_page?: number | null;
+            /** Last Page */
+            last_page?: number | null;
             /** Pages */
             pages: components["schemas"]["NewPage"][];
+            /**
+             * Read Count
+             * @default 0
+             */
+            read_count: number;
             /** Served At */
             served_at: string | null;
         };
@@ -8662,6 +8920,8 @@ export interface components {
             body: string;
             /** Changed Citations */
             changed_citations?: number[];
+            /** Checks */
+            checks?: components["schemas"]["LintCheck"][];
             /** Citation Refs */
             citation_refs: components["schemas"]["Citation"][];
             /**
@@ -8757,6 +9017,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Needs Attention
+             * @description Checked, does not match and the expert has not yet confirmed it.
+             */
+            needs_attention: boolean;
             /** Our Page No */
             our_page_no: number | null;
             /** Our Quote */
@@ -8811,6 +9076,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Matching Claims */
+            matching_claims: components["schemas"]["OpposingClaimOut"][];
+            /** Needs Attention Count */
+            needs_attention_count: number;
+            /** Other Claims */
+            other_claims: components["schemas"]["OpposingClaimOut"][];
             /** Pages */
             pages?: number | null;
             /** Positions */
@@ -8886,6 +9157,16 @@ export interface components {
         };
         /** OrgMemberList */
         OrgMemberList: {
+            /**
+             * Current Members
+             * @default []
+             */
+            current_members: components["schemas"]["OrgMember"][];
+            /**
+             * Former Members
+             * @default []
+             */
+            former_members: components["schemas"]["OrgMember"][];
             /** Members */
             members: components["schemas"]["OrgMember"][];
         };
@@ -8901,6 +9182,11 @@ export interface components {
              * @default []
              */
             assignable_roles: ("owner" | "admin" | "expert" | "assistant" | "viewer")[];
+            /**
+             * Blocking Cases
+             * @default []
+             */
+            blocking_cases: components["schemas"]["BlockingCase"][];
             /**
              * Created At
              * Format: date-time
@@ -9175,6 +9461,11 @@ export interface components {
         };
         /** PackagesOut */
         PackagesOut: {
+            /**
+             * Live
+             * @default []
+             */
+            live: components["schemas"]["PackageOut"][];
             /** Packages */
             packages: components["schemas"]["PackageOut"][];
         };
@@ -9540,6 +9831,8 @@ export interface components {
         Points: {
             /** Claims */
             claims: components["schemas"]["ClaimOut"][];
+            /** Live */
+            live: components["schemas"]["PointOut"][];
             /** Points */
             points: components["schemas"]["PointOut"][];
             question: components["schemas"]["QuestionHeader"];
@@ -9683,6 +9976,11 @@ export interface components {
             full_name: string | null;
             /** Hourly Rate */
             hourly_rate: string | null;
+            /**
+             * Missing Steps
+             * @description Onboarding steps still to do, in order: about, roles, training, template, signature.
+             */
+            missing_steps: string[];
             /** Profession */
             profession: string | null;
             /** Registration Body */
@@ -9865,8 +10163,18 @@ export interface components {
         Questions: {
             /** Assumptions */
             assumptions: components["schemas"]["AssumptionOut"][];
+            /**
+             * Confirmed Count
+             * @description Questions and assumptions confirmed, of `total`.
+             */
+            confirmed_count: number;
             /** Instruction Version Id */
             instruction_version_id: string | null;
+            /**
+             * Letter
+             * @description Items that cite a paragraph, in paragraph order (numbers count as numbers).
+             */
+            letter: components["schemas"]["LetterItem"][];
             /** Locked */
             locked: boolean;
             /** Questions */
@@ -9892,6 +10200,11 @@ export interface components {
              * @description A new letter added a question to a confirmed set; confirm again.
              */
             reopened: boolean;
+            /**
+             * Total
+             * @description All questions and assumptions in the set, whatever `answerable` says.
+             */
+            total: number;
             /** Version No */
             version_no: number | null;
             /**
@@ -9961,6 +10274,22 @@ export interface components {
             page_no: number;
             /** Read */
             read: boolean;
+        };
+        /**
+         * Readiness
+         * @description The first-visit steps (account secured, profile filled in, signature saved) and how many are done.
+         */
+        Readiness: {
+            /** Account */
+            account: boolean;
+            /** Done Steps */
+            done_steps: number;
+            /** Profile */
+            profile: boolean;
+            /** Signature */
+            signature: boolean;
+            /** Total Steps */
+            total_steps: number;
         };
         /** Recipient */
         Recipient: {
@@ -10138,6 +10467,11 @@ export interface components {
             checklist: components["schemas"]["Checklist"];
             /** Court Track Label */
             court_track_label?: string | null;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
             /** Sections */
             sections: components["schemas"]["SectionOut"][];
             version: components["schemas"]["VersionOut"] | null;
@@ -10343,10 +10677,20 @@ export interface components {
         RoundOut: {
             /** Answers Version Id */
             answers_version_id: string | null;
+            /**
+             * Days Left
+             * @description Days to the due date in the court's timezone.
+             */
+            days_left: number | null;
             /** Deadline Id */
             deadline_id: string | null;
             /** Document Id */
             document_id: string | null;
+            /**
+             * Due On
+             * @description When the answers are due, from the round's deadline.
+             */
+            due_on: string | null;
             /** Extracted At */
             extracted_at: string | null;
             /** From Party Id */
@@ -10359,6 +10703,11 @@ export interface components {
             /** Number */
             number: number;
             /**
+             * Open
+             * @description Still to be answered (not yet signed).
+             */
+            open: boolean;
+            /**
              * Received On
              * Format: date
              */
@@ -10368,8 +10717,23 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** RoundQuestions */
+        RoundQuestions: {
+            /** Questions */
+            questions: components["schemas"]["WrittenQuestionOut"][];
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
+        };
         /** Rounds */
         Rounds: {
+            /**
+             * Next Due On
+             * @description The earliest due date among the open rounds.
+             */
+            next_due_on: string | null;
             /** Rounds */
             rounds: components["schemas"]["RoundOut"][];
         };
@@ -10956,6 +11320,11 @@ export interface components {
         /** SpotCheckOut */
         SpotCheckOut: {
             /**
+             * Agree Count
+             * @default 0
+             */
+            agree_count: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -10987,6 +11356,11 @@ export interface components {
             responses: components["schemas"]["SpotCheckAnswer"][];
             /** Reviewer Email */
             reviewer_email: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** SpotCheckStarted */
         SpotCheckStarted: {
@@ -11297,6 +11671,11 @@ export interface components {
         SupportCaseList: {
             /** Cases */
             cases: components["schemas"]["SupportCase"][];
+            /**
+             * Served Case Ids
+             * @default []
+             */
+            served_case_ids: string[];
         };
         /** SupportClose */
         SupportClose: {
@@ -11397,6 +11776,12 @@ export interface components {
         };
         /** SupportGrantList */
         SupportGrantList: {
+            active?: components["schemas"]["SupportGrant"] | null;
+            /**
+             * Ended
+             * @default []
+             */
+            ended: components["schemas"]["SupportGrant"][];
             /** Grants */
             grants: components["schemas"]["SupportGrant"][];
         };
@@ -11668,6 +12053,11 @@ export interface components {
             as_seen_on?: string | null;
             /** As Seen Title */
             as_seen_title?: string | null;
+            /**
+             * Chronology
+             * @default []
+             */
+            chronology: components["schemas"]["ChronologyRef"][];
             counts?: components["schemas"]["TimelineCounts"] | null;
             /** Gaps */
             gaps?: components["schemas"]["Gap"][] | null;
@@ -11684,6 +12074,11 @@ export interface components {
              * @default []
              */
             sources: components["schemas"]["TimelineSource"][];
+            /**
+             * Status Options
+             * @default []
+             */
+            status_options: string[];
             /** Unplaced */
             unplaced: components["schemas"]["Event"][];
         };
@@ -11720,10 +12115,15 @@ export interface components {
             cases: components["schemas"]["CaseCard"][];
             /** Closed Count */
             closed_count: number;
+            /** Due This Month */
+            due_this_month: number;
             /** Needs You */
             needs_you: components["schemas"]["NeedsYouItem"][];
+            /** Open Count */
+            open_count: number;
             /** Organisations */
             organisations: components["schemas"]["TodayOrganisation"][];
+            readiness: components["schemas"]["Readiness"];
         };
         /** TodayOrganisation */
         TodayOrganisation: {
@@ -11736,6 +12136,8 @@ export interface components {
             kind: string;
             /** Name */
             name: string;
+            /** Open Count */
+            open_count: number;
         };
         /** Training */
         Training: {
@@ -12054,6 +12456,8 @@ export interface components {
         };
         /** Workspace */
         Workspace: {
+            /** Checks */
+            checks: components["schemas"]["LintCheck"][];
             /** Chips */
             chips: components["schemas"]["Chip"][];
             /** Guidance */
@@ -12153,6 +12557,11 @@ export interface components {
         };
         /** WrittenQuestions */
         WrittenQuestions: {
+            /**
+             * By Round
+             * @description The same questions under their round.
+             */
+            by_round: components["schemas"]["RoundQuestions"][];
             /** Questions */
             questions: components["schemas"]["WrittenQuestionOut"][];
         };
@@ -13345,6 +13754,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: ("matched" | "to_confirm" | "missing") | null;
+                limit?: "all" | null;
             };
             header?: never;
             path: {
@@ -15982,7 +16392,10 @@ export interface operations {
     };
     list_instructions_v1_cases__case_id__instructions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only the versions that have their file attached. */
+                letters_only?: boolean;
+            };
             header?: never;
             path: {
                 case_id: string;
@@ -18629,7 +19042,10 @@ export interface operations {
     };
     get_prefill_v1_cases__case_id__prefill_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only the suggestions still waiting for the expert. */
+                open?: boolean;
+            };
             header?: never;
             path: {
                 case_id: string;
@@ -18954,7 +19370,10 @@ export interface operations {
     };
     list_questions_v1_cases__case_id__questions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only the questions the expert has confirmed or edited, in number order. */
+                answerable?: boolean;
+            };
             header?: never;
             path: {
                 case_id: string;
@@ -19144,6 +19563,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpinionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    lint_state_v1_cases__case_id__questions__question_id__opinion_lint_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintOut"];
                 };
             };
             /** @description Validation Error */
@@ -21551,6 +22011,10 @@ export interface operations {
             query?: {
                 /** @description Only what had arrived by this day. */
                 as_seen_on?: string | null;
+                /** @description Count only from this day. */
+                from?: string | null;
+                /** @description Count only up to this day. */
+                to?: string | null;
             };
             header?: never;
             path: {
@@ -25444,6 +25908,7 @@ export interface operations {
         parameters: {
             query?: {
                 organisation_id?: string | null;
+                q?: string | null;
             };
             header?: never;
             path?: never;

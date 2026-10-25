@@ -228,3 +228,21 @@ async def test_the_range_note_is_the_experts_words_saved_with_if_match_and_encry
     for person in (world.co_expert, world.supervisor, world.assistant, world.viewer):
         other = await client_for(person)
         assert (await other.put(path, json={"text": "x"}, headers={"If-Match": '"2"'})).status_code == 403
+
+
+async def test_the_reply_names_the_live_points_and_leaves_out_the_dismissed(
+    client_for: ClientFor, world: World, admin: psycopg.Connection, flags: Flags
+) -> None:
+    kept = suggest(admin, world, world.verified, "neutral")
+    gone = suggest(admin, world, world.result, "neutral")
+    client = await client_for(world.expert)
+    path = world.url(f"points/{gone}")
+    removed = await client.patch(
+        path,
+        json={"status": "dismissed", "dismissed_reason": "not relevant to this question"},
+        headers={"If-Match": '"1"'},
+    )
+    assert removed.status_code == 200, removed.text
+    got = (await client.get(world.url(f"questions/{world.question}/points"))).json()
+    assert {p["id"] for p in got["points"]} == {str(kept), str(gone)}
+    assert [p["id"] for p in got["live"]] == [str(kept)]

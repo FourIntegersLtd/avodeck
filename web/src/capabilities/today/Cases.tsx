@@ -1,6 +1,6 @@
 // S03c Cases (every case in one searchable list) and S03e Cases (empty).
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { formatDue, t } from "../../foundation/i18n";
 import { partyLine } from "../../foundation/lib/pack";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
@@ -12,12 +12,26 @@ import { BalanceFooter, Icon, StepRing, caseHref, combination, usePacks, type Ca
 
 export function Cases() {
   const { me } = useSession();
-  const today = useResource(() => unwrap(api.GET("/v1/today")), [], { cache: "today/Cases#Cases:today" });
+  // The server searches and filters; the address holds what was asked, so a reload or a link keeps it.
+  const [params, setParams] = useSearchParams();
+  const org = params.get("organisation_id");
+  const q = params.get("q") ?? "";
+  const [query, setQuery] = useState(q);
+  useEffect(() => {
+    if (query.trim() === q) return;
+    const wait = setTimeout(() => setParams((p) => withParam(p, "q", query.trim()), { replace: true }), 250);
+    return () => clearTimeout(wait);
+  }, [query, q, setParams]);
+  const setOrg = (next: string | null) => setParams((p) => withParam(p, "organisation_id", next ?? ""), { replace: true });
+  const today = useResource(
+    () => unwrap(api.GET("/v1/today", { params: { query: { ...(org ? { organisation_id: org } : {}), ...(q ? { q } : {}) } } })),
+    [org, q],
+    { cache: "today/Cases#Cases:today" },
+  );
   const packs = usePacks(today.data?.cases);
-  const [org, setOrg] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
   const data = today.data;
-  const empty = Boolean(data) && data!.cases.length === 0;
+  // Empty means the person has no open case at all (the chips' counts ignore the search), not "nothing matched".
+  const empty = Boolean(data) && data!.organisations.every((o) => o.open_count === 0) && data!.cases.length === 0;
   return (
     <div className="av-page">
       <div className="av-today__head">
@@ -45,6 +59,13 @@ export function Cases() {
   );
 }
 
+function withParam(p: URLSearchParams, key: string, value: string) {
+  const next = new URLSearchParams(p);
+  if (value) next.set(key, value);
+  else next.delete(key);
+  return next;
+}
+
 interface ListProps {
   data: Schemas["Today"];
   packs: Map<string, CasePack> | undefined;
@@ -56,9 +77,7 @@ interface ListProps {
 }
 
 function List({ data, packs, locale, org, setOrg, query, setQuery }: ListProps) {
-  const inOrg = org ? data.cases.filter((c) => c.organisation_id === org) : data.cases;
-  const needle = query.trim().toLowerCase();
-  const shown = needle ? inOrg.filter((c) => c.label.toLowerCase().includes(needle)) : inOrg;
+  const shown = data.cases;
   const orgName = (o: Schemas["TodayOrganisation"]) => (o.kind === "personal" ? t("today.filter.personal") : o.name);
   return (
     <section aria-labelledby="your-cases" className="av-section">
@@ -73,12 +92,12 @@ function List({ data, packs, locale, org, setOrg, query, setQuery }: ListProps) 
             value={org ?? "all"}
             onChange={(v) => setOrg(v === "all" ? null : v)}
             options={[
-              { value: "all", label: t("today.filter.option", { name: t("today.filter.all"), count: data.cases.length }) },
-              ...data.organisations.map((o) => ({ value: o.id, label: t("today.filter.option", { name: orgName(o), count: data.cases.filter((c) => c.organisation_id === o.id).length }) })),
+              { value: "all", label: t("today.filter.option", { name: t("today.filter.all"), count: data.organisations.reduce((n, o) => n + o.open_count, 0) }) },
+              ...data.organisations.map((o) => ({ value: o.id, label: t("today.filter.option", { name: orgName(o), count: o.open_count }) })),
             ]}
           />
         )}
-        <p className="av-muted">{t("today.cases.counts", { open: inOrg.length, closed: data.closed_count })}</p>
+        <p className="av-muted">{t("today.cases.counts", { open: data.open_count, closed: data.closed_count })}</p>
       </div>
       {shown.length === 0 ? (
         <p>{t("cases.none_match")}</p>

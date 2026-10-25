@@ -17,6 +17,8 @@ const found = (over: Record<string, unknown> = {}) => ({
   case_id: CASE_A, status: "active", organisation_id: PERSONAL_ORG, organisation_kind: "personal", created_at: "2026-01-05T09:00:00Z", served: false, grant_active: false, grant_expires_at: null, ...over,
 });
 
+const list = (cases: Array<ReturnType<typeof found>>) => json({ cases, served_case_ids: cases.filter((c) => c.served).map((c) => c.case_id) });
+
 test("someone who is not staff sees the not found page, not a console", async () => {
   signedIn();
   server.use(http.get("/v1/support/cases", () => apiError(404, "not_found")));
@@ -39,7 +41,7 @@ test("the console explains itself at the top: search, 24-hour access, every look
 
 test("a result card is padded inside, spaced from the search and from the next result", async () => {
   signedIn();
-  server.use(http.get("/v1/support/cases", () => json({ cases: [found({ grant_active: true, grant_expires_at: "2026-10-24T10:00:00Z" })] })));
+  server.use(http.get("/v1/support/cases", () => list([found({ grant_active: true, grant_expires_at: "2026-10-24T10:00:00Z" })])));
   const { user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await user.click(screen.getByRole("button", { name: "Search" }));
@@ -53,7 +55,7 @@ test("a result card is padded inside, spaced from the search and from the next r
 
 test("staff search by case number and see details, no records", async () => {
   signedIn();
-  server.use(http.get("/v1/support/cases", ({ request }) => (new URL(request.url).searchParams.get("q") === CASE_A ? json({ cases: [found({ grant_active: true, grant_expires_at: "2026-10-24T10:00:00Z" })] }) : json({ cases: [] }))));
+  server.use(http.get("/v1/support/cases", ({ request }) => (new URL(request.url).searchParams.get("q") === CASE_A ? list([found({ grant_active: true, grant_expires_at: "2026-10-24T10:00:00Z" })]) : list([]))));
   const { user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await user.click(screen.getByRole("button", { name: "Search" }));
@@ -65,7 +67,7 @@ test("staff search by case number and see details, no records", async () => {
 
 test("the status is shown in plain words, never the raw code", async () => {
   signedIn();
-  server.use(http.get("/v1/support/cases", () => json({ cases: [found({ status: "served", served: true })] })));
+  server.use(http.get("/v1/support/cases", () => list([found({ status: "served", served: true })])));
   const { user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await user.click(screen.getByRole("button", { name: "Search" }));
@@ -76,7 +78,7 @@ test("the status is shown in plain words, never the raw code", async () => {
 
 test("a case with no grant offers no way to open its records", async () => {
   signedIn();
-  server.use(http.get("/v1/support/cases", () => json({ cases: [found()] })));
+  server.use(http.get("/v1/support/cases", () => list([found()])));
   const { user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), "a@example.test");
   await user.click(screen.getByRole("button", { name: "Search" }));
@@ -87,7 +89,7 @@ test("a case with no grant offers no way to open its records", async () => {
 
 test("the custody form shows only behind its flag", async () => {
   signedIn();
-  server.use(http.get("/v1/support/cases", () => json({ cases: [found({ served: true })] })));
+  server.use(http.get("/v1/support/cases", () => list([found({ served: true })])));
   const first = renderAt("/support");
   await first.user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await first.user.click(screen.getByRole("button", { name: "Search" }));
@@ -103,7 +105,7 @@ test("the custody form shows only behind its flag", async () => {
 
 test("passes the automated accessibility checks", async () => {
   signedIn();
-  server.use(http.get("/v1/support/cases", () => json({ cases: [found()] })));
+  server.use(http.get("/v1/support/cases", () => list([found()])));
   const { container, user } = renderAt("/support");
   await user.type(await screen.findByLabelText("Case number or email"), CASE_A);
   await user.click(screen.getByRole("button", { name: "Search" }));
@@ -114,10 +116,10 @@ test("passes the automated accessibility checks", async () => {
 test("staff choose which served case to move", async () => {
   setFlag("support_custody_transfer", true);
   signedIn();
-  const SECOND = "99999999-9999-4999-8999-999999999999";
+const SECOND = "99999999-9999-4999-8999-999999999999";
   const sent: unknown[] = [];
   server.use(
-    http.get("/v1/support/cases", () => json({ cases: [found({ served: true }), found({ case_id: SECOND, served: true })] })),
+    http.get("/v1/support/cases", () => list([found({ served: true }), found({ case_id: SECOND, served: true })])),
     // The API's one route (routes_support.py): POST /v1/support/custody-transfers with {case_id, to, evidence_note}.
     http.post("/v1/support/custody-transfers", async ({ request }) => {
       sent.push(await request.json());

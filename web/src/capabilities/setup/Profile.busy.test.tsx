@@ -5,7 +5,7 @@ import { http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { me } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { byName, expectBusyOnce, hold } from "./busyTesting";
-import { casePack, combination, jurisdiction } from "./testing";
+import { casePack, combination, jurisdiction, missingSteps } from "./testing";
 
 const ROLE = "e1111111-1111-4111-8111-111111111111";
 const TRAINING = "a2222222-2222-4222-8222-222222222222";
@@ -37,8 +37,8 @@ function open(opts: { template?: boolean; training?: boolean } = {}) {
   const specialty = combination("launch").specialty.code;
   signedIn({ me: me(), pack });
   server.use(
-    http.get("/v1/me/profile", () =>
-      tag({ version: 1, full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [specialty], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null }),
+    http.get("/v1/me/profile", async () =>
+      tag({ version: 1, full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [specialty], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null, missing_steps: await missingSteps(true) }),
     ),
     http.get("/v1/packs", () => json([combination("launch")])),
     http.get("/v1/jurisdictions/:code", () => json(jurisdiction("launch"))),

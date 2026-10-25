@@ -20,7 +20,7 @@ export function Today() {
   const name = me.person.greeting_name || me.person.full_name || me.person.email;
   const data = today.data;
   // No cases at all, open or closed: the first-visit welcome (S03d).
-  if (data && data.cases.length === 0 && data.closed_count === 0) return <TodayFirst />;
+  if (data && data.cases.length === 0 && data.closed_count === 0) return <TodayFirst ready={data.readiness} />;
   return (
     <div className="av-page">
       <div className="av-today__head">
@@ -56,10 +56,8 @@ function intro() {
 function Calm({ data, timezone, locale }: { data: Schemas["Today"]; timezone: string | null; locale: string | null }) {
   const hasNeeds = data.needs_you.length > 0;
   const packs = usePacks(data.cases);
-  const ranked = [...data.needs_you].sort((a, b) => a.rank - b.rank);
+  const ranked = data.needs_you; // the API ranks them
   const pick = data.cases.find((c) => c.case_id === ranked.find((n) => n.case_id)?.case_id) ?? data.cases[0];
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const dueThisMonth = data.cases.filter((c) => c.due_date?.startsWith(thisMonth)).length;
   const cases = screenPath("cases") ?? "/cases";
   return (
     <div className="av-today__layout">
@@ -89,11 +87,11 @@ function Calm({ data, timezone, locale }: { data: Schemas["Today"]; timezone: st
           <h2 id="glance">{t("today.glance.title")}</h2>
           <p className="av-glance">
             <span>{t("today.glance.open")}</span>
-            <strong>{data.cases.length}</strong>
+            <strong>{data.open_count}</strong>
           </p>
           <p className="av-glance">
             <span>{t("today.glance.due_month")}</span>
-            <strong>{dueThisMonth}</strong>
+            <strong>{data.due_this_month}</strong>
           </p>
           <Link to={cases}>{t("today.glance.all")}</Link>
         </section>

@@ -6,7 +6,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { launchPack } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
-import { CASE_ID, draft, EXPERT_ACTIONS, missingItem, pageId, processingJob, summary, THUMB, theCase } from "./testData";
+import { CASE_ID, draft, EXPERT_ACTIONS, missingItem, pageId, processingJob, summary, THUMB, theCase, missingList } from "./testData";
 
 const pack = launchPack;
 const VARIANT = /av-button--(secondary|outline|quiet|link|danger)/;
@@ -25,7 +25,7 @@ describe("Bundle ready, calm", () => {
   test("one primary button, and amber items are borderless notices", async () => {
     mockCase([
       http.get(`/v1/cases/${CASE_ID}/bundle/summary`, () => json(summary(pack))),
-      http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json({ missing_items: [missingItem()] })),
+      http.get(`/v1/cases/${CASE_ID}/missing-items`, () => json(missingList([missingItem()]))),
     ]);
     const { container } = renderAt(`/cases/${CASE_ID}/bundle`);
     await screen.findByRole("heading", { level: 1, name: "Your bundle is ready" });

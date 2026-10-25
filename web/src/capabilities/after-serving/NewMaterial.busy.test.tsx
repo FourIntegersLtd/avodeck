@@ -7,11 +7,11 @@ import { CASE_A } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
 import { AFTER_MESSAGES as M } from "./words";
 import { byName, expectBusyOnce, hold } from "./busyTesting";
-import { claim, DOC, P1, Q1, serve } from "./testing";
+import { claim, DOC, P1, Q1, serve, serverReport, type OpposingStub } from "./testing";
 import type { Schemas } from "../../foundation/platform-client";
 
 const url = `/cases/${CASE_A}/new-material`;
-const report = (claims: Schemas["OpposingClaimOut"][] = [claim()]): Schemas["OpposingReport"] => ({
+const report = (claims: Schemas["OpposingClaimOut"][] = [claim()]): OpposingStub => ({
   id: "r1", document_id: DOC, received_on: "2026-12-09", checked_at: "2026-12-09T10:00:00Z", claims_found: claims.length, claims,
   expert_name: null, expert_role: null, pages: null,
   positions: [{ question_id: Q1, question_no: 2, own: [{ paragraph_id: P1, para_no: 614, text: "Ours." }], theirs: [{ paragraph_ref: "5.1", text_verbatim: "Theirs." }] }],
@@ -54,7 +54,7 @@ test("choosing another report keeps the old claims dimmed with an updating note 
   const h = hold();
   server.use(http.get("/v1/cases/:caseId/opposing-reports/:doc", async ({ params }) => {
     if (params.doc === other) await h.enter();
-    return json(report() as never);
+    return json(serverReport(report()) as never);
   }));
   const { router } = renderAt(`${url}?document=${DOC}`);
   await screen.findByText("Haemoglobin was 89 in February");

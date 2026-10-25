@@ -2,37 +2,18 @@
 import { formatDay, t } from "../../foundation/i18n";
 import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
-import { useResource } from "../../foundation/lib/useResource";
-import { api, unwrap } from "../../foundation/platform-client";
+import type { components } from "../../foundation/platform-client/schema";
 import { LinkButton } from "../../foundation/ui";
 import { Icon } from "./shared";
 
 const STEPS = [1, 2, 3, 4, 5] as const;
 const HAND = ["letter", "records", "date"] as const;
 
-/** What the person has already done, from the profile and signature endpoints. A failed look counts as not done. */
-function useReadiness() {
+/** `ready` is what the API says the person has done; the page counts nothing. */
+export function TodayFirst({ ready }: { ready: components["schemas"]["Readiness"] }) {
   const { me } = useSession();
-  const found = useResource(async () => {
-    const profile = await unwrap(api.GET("/v1/me/profile")).catch(() => null);
-    const signature = await unwrap(api.GET("/v1/me/signature/image", { parseAs: "blob" })).then(() => true, () => false);
-    return { profile, signature };
-  }, []);
-  const p = found.data?.profile;
-  return {
-    loaded: Boolean(found.data),
-    account: me.mfa_enrolled,
-    profile: Boolean(p?.profession && p.registration_number && p.specialties.length > 0),
-    signature: Boolean(found.data?.signature),
-  };
-}
-
-export function TodayFirst() {
-  const { me } = useSession();
-  const ready = useReadiness();
   const name = me.person.greeting_name || me.person.full_name || me.person.email;
   const profilePath = screenPath("profile");
-  const done = [ready.account, ready.profile, ready.signature].filter(Boolean).length;
   const items = [
     { key: "account", done: ready.account, to: null },
     { key: "profile", done: ready.profile, to: profilePath },
@@ -51,7 +32,7 @@ export function TodayFirst() {
         <section aria-labelledby="getting-ready" className="av-card av-stack">
           <div>
             <h2 id="getting-ready">{t("today.first.ready")}</h2>
-            {ready.loaded && <p className="av-muted">{t("today.first.progress", { done, total: items.length })}</p>}
+            <p className="av-muted">{t("today.first.progress", { done: ready.done_steps, total: ready.total_steps })}</p>
           </div>
           <ul className="av-rows">
             {items.map((item, i) => (

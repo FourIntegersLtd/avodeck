@@ -51,7 +51,7 @@ async def test_s17_support_finds_a_case_by_id_or_expert_email_and_sees_metadata_
     assert {c["case_id"] for c in by_email.json()["cases"]} == {str(case), str(other)}
     assert "Case Z" not in by_id.text and "Dr K" not in by_email.text
     nothing = await client.get("/v1/support/cases", params={"q": "nobody@example.test"})
-    assert nothing.json() == {"cases": []}
+    assert nothing.json() == {"cases": [], "served_case_ids": []}
     # Every case a search returns is a look at that case: it goes to the case's audit trail.
     looks = world.admin.execute(
         "select case_id, count(*) from app.audit_log where action = 'support.case_looked_up' and person_id = %s"

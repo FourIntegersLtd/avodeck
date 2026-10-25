@@ -33,15 +33,20 @@ def invalid(*fields: str) -> ApiError:
     return ApiError("invalid", "Check the highlighted fields.", 422, fields=list(fields))
 
 
-async def refuse_if_served(conn: Any, case_id: uuid.UUID) -> None:
-    """Rule 8: once the main report is served (or withdrawn after serving) it is locked for good, so a new
-    build, final check or sign is refused; corrections go through the supplementary report (screen 21b)."""
+async def is_served(conn: Any, case_id: uuid.UUID) -> bool:
+    """Rule 8: the main report is locked for good once served (or withdrawn after serving)."""
     cur = await conn.execute(
         "select 1 from app.report_versions where case_id = %s and status in ('served', 'withdrawn')"
         " and type <> all(%s) limit 1",
         (case_id, list(AFTER_SERVING_TYPES)),
     )
-    if await cur.fetchone() is not None:
+    return await cur.fetchone() is not None
+
+
+async def refuse_if_served(conn: Any, case_id: uuid.UUID) -> None:
+    """A new build, final check or sign is refused once served; corrections go through the supplementary
+    report (screen 21b)."""
+    if await is_served(conn, case_id):
         raise ApiError(
             "served_use_supplementary",
             "This report has been served. Use the supplementary report to correct it.",

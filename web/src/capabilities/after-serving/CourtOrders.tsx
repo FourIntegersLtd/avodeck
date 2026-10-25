@@ -42,8 +42,7 @@ export function CourtOrders() {
   const refresh = () => { steps.reload(); deadlines.reload(); hearings.reload(); directions.reload(); history.reload(); };
   const trialPack = screenPath("trial_pack", { caseId });
   const trialMoved = !!steps.data.pack?.stale;
-  const live = (h: Schemas["HearingOut"]) => !h.replaced_by_hearing_id && h.status !== "adjourned";
-  const ordered = [...hearings.data.hearings].sort((a, b) => Number(live(b)) - Number(live(a)) || b.starts_on.localeCompare(a.starts_on));
+  const ordered = hearings.data.hearings;
   const sourceName = (s: string) => keyName("source", s);
 
   return (

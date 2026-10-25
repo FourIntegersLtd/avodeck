@@ -58,6 +58,8 @@ class SpotCheckOut(BaseModel):
     responded_at: datetime | None
     locked: bool
     responses: list[SpotCheckAnswer]
+    agree_count: int = 0
+    total: int = 0
 
 
 class SpotCheckList(BaseModel):
@@ -125,6 +127,8 @@ async def list_spot_checks(case_id: uuid.UUID, access: Build, conn: DbConn) -> S
                 responded_at=r[7],
                 locked=r[8],
                 responses=[SpotCheckAnswer.model_validate(a) for a in answers],
+                agree_count=sum(1 for a in answers if a.get("agrees")),
+                total=len(answers),
             )
         )
     return SpotCheckList(spot_checks=checks)

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi import FastAPI
@@ -200,3 +201,136 @@ async def test_the_organisation_filter_narrows_cards_items_and_closed_count(
     assert body["closed_count"] == 0
     body = (await client.get("/v1/today", params={"organisation_id": str(uuid.uuid4())})).json()
     assert body["cases"] == [] and body["needs_you"] == [] and body["closed_count"] == 0
+
+
+# --- server-side search, counts and "due this month" (rule 4: the browser renders only) ---
+
+
+def _label(seed: Seed, case: uuid.UUID, label: str, due: str | None = None) -> None:
+    seed.admin.execute("update app.cases set label = %s, due_date = %s where id = %s", (label, due, case))
+
+
+@pytest.fixture
+def named(world: dict[str, uuid.UUID], seed: Seed) -> dict[str, uuid.UUID]:
+    _label(seed, world["mine"], "Mrs Anand 100% claim")
+    _label(seed, world["team_case"], "Mr Brown")
+    _label(seed, world["hidden"], "Anand secret")
+    return world
+
+
+async def test_q_matches_a_label_substring_ignoring_case(client_for: ClientFor, named: dict[str, uuid.UUID]) -> None:
+    client = await client_for(named["expert"])
+    body = (await client.get("/v1/today", params={"q": "aNaN"})).json()
+    assert [c["case_id"] for c in body["cases"]] == [str(named["mine"])]
+    assert body["open_count"] == 1
+    body = (await client.get("/v1/today", params={"q": "nobody"})).json()
+    assert body["cases"] == [] and body["open_count"] == 0
+
+
+async def test_q_never_returns_another_persons_case(client_for: ClientFor, named: dict[str, uuid.UUID]) -> None:
+    body = (await (await client_for(named["expert"])).get("/v1/today", params={"q": "secret"})).json()
+    assert body["cases"] == [] and body["open_count"] == 0
+    owner = (await (await client_for(named["other"])).get("/v1/today", params={"q": "secret"})).json()
+    assert [c["case_id"] for c in owner["cases"]] == [str(named["hidden"])]
+
+
+@pytest.mark.parametrize(("q", "hits"), [("%", 1), ("_", 0), ("\\", 0), ("0% c", 1), ("M_s", 0)])
+async def test_q_treats_wildcards_as_plain_text(
+    client_for: ClientFor, named: dict[str, uuid.UUID], q: str, hits: int
+) -> None:
+    body = (await (await client_for(named["expert"])).get("/v1/today", params={"q": q})).json()
+    assert len(body["cases"]) == hits
+
+
+async def test_q_is_limited_to_200_characters(client_for: ClientFor, named: dict[str, uuid.UUID]) -> None:
+    client = await client_for(named["expert"])
+    assert (await client.get("/v1/today", params={"q": "a" * 201})).status_code == 422
+    assert (await client.get("/v1/today", params={"q": "a" * 200})).status_code == 200
+
+
+async def test_organisation_and_q_combine_and_counts_come_from_the_server(
+    client_for: ClientFor, named: dict[str, uuid.UUID]
+) -> None:
+    client = await client_for(named["expert"])
+    chips = {str(named["personal"]): 1, str(named["team"]): 1}
+    body = (await client.get("/v1/today")).json()
+    assert body["open_count"] == 2
+    assert {o["id"]: o["open_count"] for o in body["organisations"]} == chips
+    both = (await client.get("/v1/today", params={"organisation_id": str(named["team"]), "q": "anand"})).json()
+    assert both["cases"] == [] and both["open_count"] == 0
+    # chip counts ignore q so the chips do not jump while typing
+    assert {o["id"]: o["open_count"] for o in both["organisations"]} == chips
+    one = (await client.get("/v1/today", params={"organisation_id": str(named["team"]), "q": "brown"})).json()
+    assert [c["case_id"] for c in one["cases"]] == [str(named["team_case"])] and one["open_count"] == 1
+    assert one["closed_count"] == 0
+    assert (await client.get("/v1/today", params={"q": "zzz"})).json()["closed_count"] == 1
+
+
+def _first_of_month(zone: str, months: int = 0) -> str:
+    day = datetime.now(ZoneInfo(zone)).date().replace(day=1)
+    for _ in range(abs(months)):
+        day = (day + timedelta(days=32)).replace(day=1) if months > 0 else (day - timedelta(days=1)).replace(day=1)
+    return day.isoformat()
+
+
+@pytest.mark.parametrize("zone", ["UTC", "Pacific/Kiritimati", "Etc/GMT+12"])
+async def test_due_this_month_is_the_persons_local_month(
+    client_for: ClientFor, named: dict[str, uuid.UUID], seed: Seed, zone: str
+) -> None:
+    seed.admin.execute("update app.people set timezone = %s where id = %s", (zone, named["expert"]))
+    client = await client_for(named["expert"])
+    for months, expected in ((0, 1), (1, 0), (-1, 0)):
+        _label(seed, named["mine"], "Due", _first_of_month(zone, months))
+        assert (await client.get("/v1/today")).json()["due_this_month"] == expected, (zone, months)
+
+
+async def test_due_this_month_ignores_q_and_counts_open_cases_only(
+    client_for: ClientFor, named: dict[str, uuid.UUID], seed: Seed
+) -> None:
+    _label(seed, named["mine"], "Due", _first_of_month("UTC"))
+    seed.admin.execute(
+        "update app.cases set due_date = %s where id = %s", (_first_of_month("UTC"), named["settled"])
+    )
+    client = await client_for(named["expert"])
+    assert (await client.get("/v1/today", params={"q": "brown"})).json()["due_this_month"] == 1
+
+
+async def _ready(client_for: ClientFor, person: uuid.UUID) -> dict[str, object]:
+    ready: dict[str, object] = (await (await client_for(person)).get("/v1/today")).json()["readiness"]
+    return ready
+
+
+async def test_readiness_counts_the_first_visit_steps_on_the_server(
+    client_for: ClientFor, world: dict[str, uuid.UUID], seed: Seed
+) -> None:
+    person = world["expert"]
+    assert await _ready(client_for, person) == {
+        "account": True,
+        "profile": False,
+        "signature": False,
+        "done_steps": 1,
+        "total_steps": 3,
+    }
+    seed.admin.execute(
+        "insert into app.experts (person_id, profession, registration_number, specialties)"
+        " values (%s, 'zz_profession', 'ZZ1', array['zz_specialty'])",
+        (person,),
+    )
+    assert (await _ready(client_for, person))["done_steps"] == 2
+    seed.admin.execute(
+        "insert into app.signatures (expert_id, method, storage_path, sha256) values (%s, 'drawn', 'zz/path', %s)",
+        (person, "0" * 64),
+    )
+    ready = await _ready(client_for, person)
+    assert (ready["profile"], ready["signature"], ready["done_steps"], ready["total_steps"]) == (True, True, 3, 3)
+
+
+async def test_an_incomplete_profile_is_not_ready(
+    client_for: ClientFor, world: dict[str, uuid.UUID], seed: Seed
+) -> None:
+    seed.admin.execute(
+        "insert into app.experts (person_id, profession, specialties) values (%s, 'zz_profession', '{}')",
+        (world["expert"],),
+    )
+    ready = await _ready(client_for, world["expert"])
+    assert (ready["profile"], ready["done_steps"]) == (False, 1)

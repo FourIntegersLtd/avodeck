@@ -30,7 +30,6 @@ export function People({ orgId, members, manage, assignable, me, reload }: Props
   const [editing, setEditing] = useState<string | null>(null);
   const [newRole, setNewRole] = useState<Role>(assignable[0] ?? "expert");
   const [removing, setRemoving] = useState<Member | null>(null);
-  const current = members.filter((m) => !m.ended_at);
   const nameOf = (m: Member) => m.full_name || m.email;
 
   const saveRole = async (m: Member) => {
@@ -58,12 +57,12 @@ export function People({ orgId, members, manage, assignable, me, reload }: Props
   return (
     <section aria-labelledby="people-title" className="av-card av-org-card">
       <div className="av-row-item av-row-item--head">
-        <h2 id="people-title">{w("people.title", { count: current.length })}</h2>
+        <h2 id="people-title">{w("people.title", { count: members.length })}</h2>
         <span className="av-muted">{w("people.columns")}</span>
       </div>
       <MessageNotice message={message} />
       <ul className="av-rows" role="list">
-        {current.map((m) => {
+        {members.map((m) => {
           const self = m.person_id === me.personId;
           return (
             <li key={m.membership_id} className="av-row-item av-org-person">
@@ -154,7 +153,7 @@ function Invites({ orgId, locale, roles }: { orgId: string; locale: string | nul
   const load = async () => {
     try {
       const found = await stepUp(() => unwrap(api.GET("/v1/organisations/{org_id}/invites", { params: { path: { org_id: orgId } } })));
-      setInvites(found ? found.invites.filter((i) => i.status === "pending") : null);
+      setInvites(found ? found.pending_invites : null);
     } catch {
       setInvites(null);
     }

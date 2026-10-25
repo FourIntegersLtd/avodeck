@@ -61,11 +61,15 @@ export function caseCard(over: Partial<Schemas["CaseCard"]> = {}): Schemas["Case
 }
 
 export function today(over: Partial<Schemas["Today"]> = {}): Schemas["Today"] {
+  const cases = over.cases ?? [caseCard()];
   return {
-    cases: [caseCard()],
+    cases,
     needs_you: [],
-    organisations: [{ id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal" }],
+    organisations: [{ id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 1 }],
     closed_count: 0,
+    open_count: cases.length,
+    due_this_month: 0,
+    readiness: { account: true, profile: false, signature: false, done_steps: 1, total_steps: 3 },
     ...over,
   };
 }

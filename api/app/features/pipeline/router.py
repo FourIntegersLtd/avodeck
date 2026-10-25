@@ -257,6 +257,9 @@ async def _missing_item(conn: DbConn, crypto: CaseCrypto, case_id: uuid.UUID, it
     )
 
 
+STILL_MISSING = ("open", "requested")
+
+
 @pipeline_router.get("/{case_id}/missing-items", response_model=MissingItems)
 async def list_missing_items(
     case_id: uuid.UUID,
@@ -268,7 +271,8 @@ async def list_missing_items(
     crypto = _crypto(request)
     items = [await _missing_item(conn, crypto, case_id, i) for i in await repo.missing_items(conn, case_id)]
     response.headers["cache-control"] = "private, no-store"
-    return MissingItems(missing_items=items)
+    still = [i for i in items if i.status in STILL_MISSING]
+    return MissingItems(missing_items=items, still_missing=still, still_missing_count=len(still))
 
 
 @pipeline_router.patch("/{case_id}/missing-items/{item_id}", response_model=MissingItem)
@@ -391,6 +395,9 @@ async def bundle_summary(
     held = await repo.quarantines(conn, case_id)
     foreign = await _foreign(conn, case_id)
     response.headers["cache-control"] = "private, no-store"
+    suggested = [_quarantine(q) for q in held if q.status == "suggested"]
+    set_aside = [_quarantine(q) for q in held if q.status in ("confirmed", "purged")]
+    unopened = [_document(d) for d in docs if d.unreadable_reason]
     return BundleSummary(
         pages=sum(n for _, n in sources),
         by_source=[SourceCount(source_type=k, pages=n) for k, n in sources],
@@ -401,8 +408,14 @@ async def bundle_summary(
         missing_items=open_items,
         documents=[_document(d) for d in docs],
         versions=[BundleVersion(**v) for v in repo.versions_of(docs)],
-        quarantine_suggestions=[_quarantine(q) for q in held if q.status == "suggested"],
-        quarantined=[_quarantine(q) for q in held if q.status in ("confirmed", "purged")],
+        quarantine_suggestions=suggested,
+        quarantined=set_aside,
+        unopened_documents=unopened,
+        unopened_count=len(unopened),
+        quarantine_listed=[*suggested, *set_aside],
+        quarantine_confirmed=[q for q in set_aside if q.status == "confirmed"],
+        suggested_count=len(suggested),
+        set_aside_count=len(set_aside),
         exhibits=[_exhibit(e) for e in await repo.exhibits(conn, case_id)],
         foreign_language=[ForeignPage(page_id=p, page_no=n, language=code) for p, n, code in foreign],
         splits=await repo.split_count(conn, case_id),

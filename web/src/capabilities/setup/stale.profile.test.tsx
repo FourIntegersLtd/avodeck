@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { me } from "../../test/fixtures";
 import { renderAt } from "../../test/render";
-import { casePack, combination, jurisdiction } from "./testing";
+import { casePack, combination, jurisdiction, missingSteps } from "./testing";
 
 const tag = (body: object, etag: string) => HttpResponse.json(body, { headers: { etag } });
 const stale = () => HttpResponse.json({ error: { code: "stale" } }, { status: 412 });
@@ -30,7 +30,7 @@ function open(over: { template?: object; declaration?: (n: number) => object }) 
   signedIn({ me: me(), pack });
   let declGets = 0;
   server.use(
-    http.get("/v1/me/profile", () => tag({ version: 1, full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1", specialties: [combination("launch").specialty.code], default_jurisdiction: j.code, default_retention: null, hourly_rate: null, currency: null }, '"1"')),
+    http.get("/v1/me/profile", async () => tag({ version: 1, full_name: "Dr Jane Morgan", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1", specialties: [combination("launch").specialty.code], default_jurisdiction: j.code, default_retention: null, hourly_rate: null, currency: null, missing_steps: await missingSteps(true) }, '"1"')),
     http.get("/v1/packs", () => json([combination("launch")])),
     http.get("/v1/jurisdictions", () => json([combination("launch").jurisdiction])),
     http.get("/v1/jurisdictions/:code", () => json(j)),

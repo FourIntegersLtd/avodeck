@@ -131,8 +131,8 @@ function SupportCard({ caseId }: { caseId: string }) {
   const { act, message } = useAct();
   const grants = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/support-access", { params: { path: { case_id: caseId } } })), [caseId], { cache: "organisations/CaseTeam#SupportCard:grants" });
   const [reason, setReason] = useState<(typeof REASONS)[number]>("help");
-  const active = grants.data?.grants.find((g) => g.active);
-  const ended = (grants.data?.grants ?? []).filter((g) => !g.active);
+  const active = grants.data?.active ?? undefined;
+  const ended = grants.data?.ended ?? [];
   const grant = async () => {
     const done = await act(() => unwrap(api.POST("/v1/cases/{case_id}/support-access", { params: { path: { case_id: caseId } }, body: { reason } })), () => w("support.card.granted"));
     if (done) grants.reload();

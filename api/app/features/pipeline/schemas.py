@@ -46,6 +46,8 @@ class MissingItem(BaseModel):
 
 class MissingItems(BaseModel):
     missing_items: list[MissingItem]
+    still_missing: list[MissingItem] = []  # the items that still count: open or requested
+    still_missing_count: int = 0
 
 
 class MissingItemChange(BaseModel):
@@ -152,6 +154,13 @@ class BundleSummary(BaseModel):
     exhibits: list[Exhibit] = []  # files kept but not readable by Avodeck
     foreign_language: list[ForeignPage] = []  # pages not in the pack's language; never translated
     splits: int = 0  # two-page scans cut into halves (the halves are extra pages)
+    # Ready-made groups for the screens: the browser filters nothing (rule 4).
+    unopened_documents: list[Document] = []  # files that could not be opened (locked or damaged)
+    unopened_count: int = 0
+    quarantine_listed: list[QuarantinePage] = []  # screen 30: open suggestions, then pages set aside
+    quarantine_confirmed: list[QuarantinePage] = []  # confirmed pages only (left out of a request)
+    suggested_count: int = 0
+    set_aside_count: int = 0  # confirmed or purged
 
 
 class ProvenanceChange(BaseModel):

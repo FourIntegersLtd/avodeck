@@ -15,7 +15,7 @@ from app.features.organisations.schemas import OrgMember, OrgMemberList, RoleCha
 
 @router.get("/organisations/{org_id}/members", response_model=OrgMemberList)
 async def list_members(org_id: uuid.UUID, conn: DbConn, _: ViewMembers) -> OrgMemberList:
-    return OrgMemberList(members=await service.members(conn, org_id))
+    return await service.member_list(conn, org_id)
 
 
 @router.patch("/organisations/{org_id}/members/{membership_id}", response_model=OrgMember, dependencies=STEP_UP_FIRST)
