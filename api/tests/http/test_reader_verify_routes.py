@@ -579,3 +579,32 @@ async def test_a_suggestion_names_the_other_records_of_the_same_day_on_its_page(
     again = {f["kind"]: f for f in await facts(client, world)}
     assert next(r for r in again["prescription"]["related"] if r["kind"] == "examination")["status"] == "verified"
     assert prescription["id"] == again["prescription"]["id"]
+
+
+async def test_the_facts_reply_counts_the_checked_ones_for_the_screen(world: dict[str, Any]) -> None:
+    client = world["client"]
+    await read(client, world)
+    first = (await client.get(f"{base(world)}/pages/118/facts")).json()
+    assert first["total"] == len(first["facts"]) > 1 and first["done"] == 0
+    a, b = first["facts"][0], first["facts"][1]
+    assert (await act(client, world, a, action="correct")).status_code == 200
+    assert (await act(client, world, b, action="not_right")).status_code == 200  # marked not right counts as dealt with
+    after = (await client.get(f"{base(world)}/pages/118/facts")).json()
+    assert after["done"] == 2 and after["total"] == first["total"]
+
+
+async def test_highlights_leave_out_facts_marked_not_right_and_stay_behind_the_blind_read(
+    world: dict[str, Any],
+) -> None:
+    client = world["client"]
+    assert (await client.get(f"{base(world)}/pages/118/facts")).status_code == 423
+    await read(client, world)
+    fact = (await facts(client, world))[0]
+    before = (await client.get(f"{base(world)}/pages/118/facts")).json()
+    assert fact["id"] in [h["id"] for h in before["highlights"]]
+    shown = next(h for h in before["highlights"] if h["id"] == fact["id"])
+    assert shown["word_ids"] == fact["word_ids"] and shown["bbox"] == fact["bbox"]
+    assert (await act(client, world, fact, action="not_right")).status_code == 200
+    after = (await client.get(f"{base(world)}/pages/118/facts")).json()
+    assert fact["id"] not in [h["id"] for h in after["highlights"]]
+    assert fact["id"] in [f["id"] for f in after["facts"]]
