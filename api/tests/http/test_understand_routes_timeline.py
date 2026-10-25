@@ -202,6 +202,18 @@ async def test_each_event_carries_a_server_rank_and_whether_it_is_featured(clien
     ]
 
 
+async def test_status_options_list_only_the_filters_with_something_in_them_and_the_chosen_one(
+    client_for: ClientFor, seed: Seed
+) -> None:
+    case = Case(seed)
+    case.fact(_plain_lanes(case.pack)[0]["kinds"][0], date(2024, 1, 3))
+    client = await client_for(case.expert)
+    got = (await client.get(f"/v1/cases/{case.id}/timeline")).json()
+    assert got["status_options"] == ["verified", "not_linked"]
+    chosen = (await client.get(f"/v1/cases/{case.id}/timeline", params={"status": "suggested"})).json()
+    assert chosen["status_options"] == ["verified", "suggested", "not_linked"]
+
+
 async def test_suggestions_on_unread_pages_stay_hidden(client_for: ClientFor, seed: Seed) -> None:
     case = Case(seed)
     kind = _plain_lanes(case.pack)[0]["kinds"][0]
