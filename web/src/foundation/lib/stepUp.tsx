@@ -8,6 +8,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { t } from "../i18n";
 import { api, ApiError, CODE_NEEDED, onStepUpRequired, unwrap, type Schemas } from "../platform-client";
 import { Button, CodeField, Dialog, Loading, Notice } from "../ui";
+import { BackupCodeList, SetupSteps } from "./authenticator";
 import { DevSkipCode } from "./DevSkipCode";
 import { errorMessage } from "./errors";
 
@@ -127,12 +128,7 @@ function SetupDialog({ onDone }: { onDone: (ok: boolean) => void }) {
     return (
       <Dialog title={t("sign_in.codes.title")} onClose={() => onDone(true)}>
         <div className="av-stack">
-          <p>{t("sign_in.codes.intro")}</p>
-          <ul className="av-codes">
-            {codes.map((c) => (
-              <li key={c}>{c}</li>
-            ))}
-          </ul>
+          <BackupCodeList codes={codes} />
           <div className="av-row">
             <Button onClick={() => onDone(true)}>{t("sign_in.codes.saved")}</Button>
           </div>
@@ -152,18 +148,7 @@ function SetupDialog({ onDone }: { onDone: (ok: boolean) => void }) {
         {!setup && !error && <Loading inline />}
         {setup && (
           <>
-            <ol className="av-stack">
-              <li>{t("sign_in.enrol.step_app")}</li>
-              <li>
-                <p>{t("sign_in.enrol.step_scan")}</p>
-                <img className="av-qr" src={setup.qr_code} alt={t("sign_in.enrol.qr_alt")} />
-                <p>{t("sign_in.enrol.key")}</p>
-                <p>
-                  <code className="av-mono">{setup.secret}</code>
-                </p>
-              </li>
-              <li>{t("sign_in.enrol.step_code")}</li>
-            </ol>
+            <SetupSteps setup={setup} />
             <CodeField label={t("ui.code_label")} value={code} onChange={setCode} />
           </>
         )}

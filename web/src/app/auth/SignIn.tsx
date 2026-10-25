@@ -5,6 +5,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "../../foundation/i18n";
+import { BackupCodeList, SetupSteps } from "../../foundation/lib/authenticator";
 import { DevSkipCode, rememberDevEmail } from "../../foundation/lib/DevSkipCode";
 import { useResource } from "../../foundation/lib/useResource";
 import { errorMessage } from "../../foundation/lib/errors";
@@ -191,18 +192,7 @@ function EnrolStep({ onDone }: { onDone: (r: Schemas["Verified"]) => void }) {
       {!setup && !error && <Loading inline />}
       {setup && (
         <>
-          <ol className="av-stack">
-            <li>{t("sign_in.enrol.step_app")}</li>
-            <li>
-              <p>{t("sign_in.enrol.step_scan")}</p>
-              <img className="av-qr" src={setup.qr_code} alt={t("sign_in.enrol.qr_alt")} />
-              <p>{t("sign_in.enrol.key")}</p>
-              <p>
-                <code className="av-mono">{setup.secret}</code>
-              </p>
-            </li>
-            <li>{t("sign_in.enrol.step_code")}</li>
-          </ol>
+          <SetupSteps setup={setup} />
           <CodeForm onDone={onDone} submitLabel={t("sign_in.code.submit")} secret={setup.secret} />
         </>
       )}
@@ -214,12 +204,7 @@ function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => void })
   return (
     <>
       <h1>{t("sign_in.codes.title")}</h1>
-      <p>{t("sign_in.codes.intro")}</p>
-      <ul className="av-codes">
-        {codes.map((code) => (
-          <li key={code}>{code}</li>
-        ))}
-      </ul>
+      <BackupCodeList codes={codes} />
       <Button wide onClick={onDone}>
         {t("sign_in.codes.saved")}
       </Button>
