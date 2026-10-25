@@ -6,6 +6,7 @@ mail in memory (tests read `outbox`). Addresses and links are never logged.
 
 from __future__ import annotations
 
+import os
 import re
 import uuid
 from collections.abc import Callable, Mapping
@@ -254,6 +255,11 @@ def support_job_mail(to: str, *, template: str, case_id: uuid.UUID, job_id: uuid
     mail = Mail(to, template, {"case_ref": str(case_id), "job_ref": str(job_id)})
     check_params(mail)
     return mail
+
+
+def mail_configured(env: Mapping[str, str] | None = None) -> bool:
+    """True when the cell has a mail service key (Resend). Without one, mail goes to the outbox stand-in."""
+    return bool((env if env is not None else os.environ).get("RESEND_API_KEY", "").strip())
 
 
 class Mailer(Protocol):

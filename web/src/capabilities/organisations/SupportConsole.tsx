@@ -6,7 +6,6 @@ import { Link } from "react-router-dom";
 import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
-import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, TextField, useBusy } from "../../foundation/ui";
 import { MessageNotice, NotFoundPage, OWN_ERRORS, type Message } from "./common";
@@ -29,7 +28,6 @@ function when(iso: string, locale: string | null | undefined): string {
 
 export function SupportConsole() {
   const { me } = useSession();
-  const stepUp = useStepUp();
   const [query, setQuery] = useState("");
   const [cases, setCases] = useState<Found[] | null>(null);
   const [hidden, setHidden] = useState(false);
@@ -42,8 +40,8 @@ export function SupportConsole() {
     if (!query.trim()) return;
     setMessage(null);
     try {
-      const found = await stepUp(() => unwrap(api.GET("/v1/support/cases", { params: { query: { q: query.trim() } } })));
-      if (found) setCases(found.cases);
+      const found = await unwrap(api.GET("/v1/support/cases", { params: { query: { q: query.trim() } } }));
+      setCases(found.cases);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) return setHidden(true);
       setMessage({ tone: "error", text: errorMessage(err, { ...OWN_ERRORS, server_error: "organisations.console.error" }) });
@@ -91,7 +89,6 @@ export function SupportConsole() {
 }
 
 function Custody({ cases }: { cases: string[] }) {
-  const stepUp = useStepUp();
   const [caseId, setCaseId] = useState(cases[0] ?? "");
   const [to, setTo] = useState<"custodian" | "organisation">("custodian");
   const [evidence, setEvidence] = useState("");
@@ -101,8 +98,8 @@ function Custody({ cases }: { cases: string[] }) {
     e.preventDefault();
     setMessage(null);
     try {
-      const done = await stepUp(() => unwrap(api.POST("/v1/support/custody-transfers", { body: { case_id: caseId, to, evidence_note: evidence.trim() } })));
-      if (done !== undefined) setMessage({ tone: "success", text: w("console.custody.done") });
+      await unwrap(api.POST("/v1/support/custody-transfers", { body: { case_id: caseId, to, evidence_note: evidence.trim() } }));
+      setMessage({ tone: "success", text: w("console.custody.done") });
     } catch (err) {
       setMessage({ tone: "error", text: errorMessage(err, OWN_ERRORS) });
     }

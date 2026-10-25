@@ -35,6 +35,15 @@ export function onSignedOut(listener: SignedOutListener): () => void {
   return () => signedOutListeners.delete(listener);
 }
 
+type PasswordListener = () => void;
+const passwordListeners = new Set<PasswordListener>();
+
+/** Called when the API says the person must choose their own password first (ADR 0024). */
+export function onPasswordChangeRequired(listener: PasswordListener): () => void {
+  passwordListeners.add(listener);
+  return () => passwordListeners.delete(listener);
+}
+
 function readCookie(name: string): string | null {
   for (const part of document.cookie.split(";")) {
     const [key, ...rest] = part.trim().split("=");
@@ -154,6 +163,7 @@ export async function unwrap<D>(call: Promise<{ data?: D; error?: unknown; respo
   if (result.response.ok) return result.data as D;
   const err = toApiError(result.response.status, result.error, result.response.headers.get(ASKED) === "1");
   if (err.status === 401 && SIGNED_OUT_CODES.has(err.code)) signedOutListeners.forEach((listener) => listener(err.code));
+  if (err.status === 403 && err.code === "password_change_required") passwordListeners.forEach((listener) => listener());
   throw err;
 }
 

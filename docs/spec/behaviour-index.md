@@ -6,7 +6,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 
 | Table | Owner | Who can change it | How many | Over time | Leaving / deletion |
 |---|---|---|---|---|---|
-| `people` | Foundation | The person | One per person per cell | Email change needs both addresses; closure keeps sign-in for served cases | Closed account: kept while any served case they're named on exists |
+| `people` | Foundation | The person | One per person per cell | Email change needs both addresses; closure keeps sign-in for served cases; `must_change_password` (migration 0036) blocks every other route until they choose their own password, changed only through `app.password_changed()` and `app.support_new_password()` | Closed account: kept while any served case they're named on exists |
 | `experts` | Foundation (C fills) | The person | 0 or 1 per person | Edits never touch signed reports (snapshots) | Kept with the person |
 | `expert_roles` | C | The expert | Many | Edit freely; snapshot at signing | With the person |
 | `expert_training` | C | The expert | Many | Edit freely; snapshot at signing | With the person |
@@ -15,6 +15,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `signatures` | C | The expert | Many; latest used | New image is a new row; snapshot at signing | With the person |
 | `sessions` | Foundation | The person (revoke) | One per device | Expire on inactivity | All revoked on password reset or closure |
 | `mfa_recovery_codes` | Foundation | The person (regenerate) | 10 at a time | Each used once; regenerate replaces all | Deleted on closure |
+| `password_change_attempts` | Foundation | Person (own row, password change route; counted in a transaction of its own) | One per person | Failures counted in a 15-minute window; 5 give 429 `too_many_attempts`; reset on success; no delete | Deleted with the person |
 | `mfa_attempts` | Foundation | System (verify and recovery routes) | One per person | Failures counted in a 15-minute window; reset on success; last accepted code kept 90 seconds | Deleted on closure |
 | `email_changes` | Foundation | The person (step-up) | One pending per person; a new request cancels the old | Waiting → completed when both addresses confirm; links expire after a day | Deleted on closure |
 | `organisations` | Foundation (O for teams) | Owner/admin | Personal: one per person; teams: any | Closure only when no open cases | Served cases outlive closure until retention |
@@ -26,7 +27,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `custody_transfers` | O (table and access rule created by foundation, migration 0032) | Support staff record (their own name, served cases only, flag `support_custody_transfer`); only `revoked_at` changes | Any; each opens the case read-only to its custodian | active → revoked (final) | Kept after case deletion (who holds the records; ids, dates and a short note about the expert) |
 | `case_replacements` | Foundation (O's replacement route calls it) | Organisation owner/admin through `app.create_replacement_case()` only | One per replacement case; a served case has one not deleted (asking again returns it, migration 0034) | Never changes | Kept after deletion of either case (record of consent) |
 | `support_staff` | Foundation | Operators by hand in SQL (`docs/ops/support-staff.md`); never the app | One per person | Added; removed by setting `removed_at` (never deleted) | A removed person's grants stop working at once |
-| `support_accounts` | O (migration 1012) | Current support staff, through `app.support_create_account()` / `app.support_resend_account()` only (step-up, Idempotency-Key); the app never touches the table | One per person created; 20 per staff member per hour, refused attempts counted, one create at a time per staff member (lock) | invited → active (derived: the person's first MFA) | Kept; the person and their practice are theirs |
+| `support_accounts` | O (migrations 1012, 1013) | Current support staff, through `app.support_create_account()` / `app.support_new_password()` only (Idempotency-Key, no fresh MFA, ADR 0023); the app never touches the table | One per person created; 20 per staff member per hour, refused attempts counted, one create at a time per staff member (lock) | invited → active (derived: the person has chosen their own password and completed MFA) | Kept; the person and their practice are theirs |
 | `cases` | Foundation (C fills) | Named expert; org admin for admin fields | Many per org | State machine; on hold flag; named expert fixed after serving; settled_at and closed_at set by the system | Case deletion; legal hold blocks |
 | `case_members` | C | Named expert or org admin | Many per case | Added and removed with dates, history kept | Removed when membership ends unless named |
 | `case_parties` | C | Named expert or assistant | Many | Editable until served; then additions only (edit or removal refused, 409) | Case deletion |

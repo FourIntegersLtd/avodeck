@@ -1,4 +1,4 @@
-"""Sign-in, MFA, recovery codes, sign-out and password reset (architecture 5.2, 9 "Login"; S01).
+"""Sign-in, MFA, recovery codes, sign-out, password change and reset (architecture 5.2, 9 "Login"; S01).
 
 FastAPI is the only caller of Supabase Auth (rule 4). The browser gets an opaque session cookie
 and a CSRF cookie, never an Auth token. Every sign-in needs the password and then a code from an
@@ -31,6 +31,8 @@ auth_public = public_router(prefix="/v1/auth", tags=["auth"])
 auth_pending = router(prefix="/v1/auth", tags=["auth"], mfa_pending=True)
 auth_status = router(prefix="/v1/auth", tags=["auth"], mfa_pending=True, touch=False)
 auth_signed_in = router(prefix="/v1/auth", tags=["auth"])
+# Changing the password: also reachable while the person is still on a temporary password (ADR 0024).
+auth_password = router(prefix="/v1/auth", tags=["auth"], password_pending=True)
 
 RECOVERY_CODE_COUNT = 10
 _CODE_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"
@@ -85,6 +87,26 @@ async def _mfa_failed(database: Database, person_id: uuid.UUID, target: str) -> 
             (MFA_WINDOW, MFA_WINDOW),
         )
         await audit.record(conn, action="auth.mfa_failed", target=target)
+
+
+PASSWORD_MAX_FAILURES = 5
+PASSWORD_WINDOW = timedelta(minutes=15)
+
+
+async def _password_change_failed(database: Database, person_id: uuid.UUID) -> None:
+    """Counts a wrong current password (a new window after 15 minutes) and audits it, apart from the refused
+    request, so its rollback keeps the count (migration 0036)."""
+    async with database.request(scope(person_id)) as conn:
+        await conn.execute(
+            "insert into app.password_change_attempts (person_id, failures) values (app.current_person_id(), 1)"
+            " on conflict (person_id) do update set"
+            " failures = case when app.password_change_attempts.window_started_at > now() - %s"
+            "   then app.password_change_attempts.failures + 1 else 1 end,"
+            " window_started_at = case when app.password_change_attempts.window_started_at > now() - %s"
+            "   then app.password_change_attempts.window_started_at else now() end",
+            (PASSWORD_WINDOW, PASSWORD_WINDOW),
+        )
+        await audit.record(conn, action="auth.password_change_failed", target=f"person:{person_id}")
 
 
 async def audit_anonymous(database: Database, action: str, email: str) -> None:
@@ -191,6 +213,7 @@ class SessionStatus(BaseModel):
     mfa_complete: bool
     step_up_until: datetime | None
     minutes_until_timeout: int
+    must_change_password: bool = False  # on a temporary password from support: choose one before anything else
 
 
 class Forgot(BaseModel):
@@ -208,6 +231,11 @@ class Reset(BaseModel):
 
 class PasswordChanged(BaseModel):
     status: Literal["password_changed"]
+
+
+class ChangePassword(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256, pattern=PLAIN)
+    new_password: str = Field(min_length=PASSWORD_MIN, max_length=256, pattern=PLAIN)
 
 
 # --- signing in ---------------------------------------------------------------------------------
@@ -370,6 +398,7 @@ async def session_status(session: CurrentSession) -> SessionStatus:
         mfa_complete=session.mfa_complete,
         step_up_until=session.step_up_until if session.stepped_up else None,
         minutes_until_timeout=max(0, int(left.total_seconds() // 60)),
+        must_change_password=session.must_change_password,
     )
 
 
@@ -395,6 +424,44 @@ async def reset_password(body: Reset, request: Request) -> PasswordChanged:
     await auth.admin_set_password(tokens.person_id, body.new_password)
     await auth.sign_out(tokens.access_token, scope="global")
     async with database.request(scope(tokens.person_id)) as conn:
+        await conn.execute("select app.password_changed()")  # a temporary password is replaced too
         await sessions.revoke(conn, "password_reset")
         await audit.record(conn, action="auth.password_reset", target=f"person:{tokens.person_id}")
+    return PasswordChanged(status="password_changed")
+
+
+@auth_password.post("/password/change", response_model=PasswordChanged)
+async def change_password(
+    body: ChangePassword, request: Request, response: Response, session: CurrentSession, conn: DbConn
+) -> PasswordChanged:
+    """The signed-in person's current password and a new one (ADR 0024). Clears a temporary password's
+    block and signs out the person's other devices; this one stays signed in."""
+    if body.new_password == body.current_password:
+        raise ApiError("same_password", "Choose a password different from the one you have now.", 422)
+    cur = await conn.execute(
+        "select failures >= %s and window_started_at > now() - %s"
+        " from app.password_change_attempts where person_id = app.current_person_id()",
+        (PASSWORD_MAX_FAILURES, PASSWORD_WINDOW),
+    )
+    row = await cur.fetchone()
+    if row and row[0]:
+        raise ApiError("too_many_attempts", "Too many wrong passwords. Wait 15 minutes and try again.", 429)
+    auth = _auth(request)
+    try:
+        check = await auth.sign_in_with_password(session.email, body.current_password)
+    except AuthError as exc:
+        if exc.code != "invalid_credentials":
+            raise
+        await _password_change_failed(_database(request), session.person_id)
+        raise ApiError("wrong_password", "That is not your current password.", 400) from None
+    await auth.sign_out(check.access_token)
+    await auth.admin_set_password(session.person_id, body.new_password)
+    await conn.execute("select app.password_changed()")
+    await sessions.revoke(conn, "password_changed", keep=session.id)
+    await conn.execute(
+        "update app.password_change_attempts set failures = 0, window_started_at = now()"
+        " where person_id = app.current_person_id()"
+    )
+    await audit.record(conn, action="auth.password_changed", target=f"person:{session.person_id}")
+    response.headers["Cache-Control"] = "no-store"
     return PasswordChanged(status="password_changed")

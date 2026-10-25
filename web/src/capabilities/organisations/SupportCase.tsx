@@ -5,7 +5,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
-import { useStepUp } from "../../foundation/lib/stepUp";
 import { api, ApiError, unwrap, type Schemas } from "../../foundation/platform-client";
 import { MessageNotice, NotFoundPage, OWN_ERRORS, type Message } from "./common";
 import { w } from "./words";
@@ -32,7 +31,6 @@ function Section({ id, title, children }: { id: string; title: string; children:
 export function SupportCase() {
   const { caseId = "" } = useParams();
   const { me } = useSession();
-  const stepUp = useStepUp();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [hidden, setHidden] = useState(false);
   const [message, setMessage] = useState<Message>(null);
@@ -41,8 +39,8 @@ export function SupportCase() {
     let live = true;
     void (async () => {
       try {
-        const found = await stepUp(() => unwrap(api.GET("/v1/support/cases/{case_id}", { params: { path: { case_id: caseId } } })));
-        if (live && found) setDetail(found);
+        const found = await unwrap(api.GET("/v1/support/cases/{case_id}", { params: { path: { case_id: caseId } } }));
+        if (live) setDetail(found);
       } catch (err) {
         if (!live) return;
         if (err instanceof ApiError && err.status === 404) return setHidden(true);
@@ -52,7 +50,7 @@ export function SupportCase() {
     return () => {
       live = false;
     };
-  }, [caseId, stepUp]);
+  }, [caseId]);
 
   if (hidden) return <NotFoundPage />;
   if (!detail && !message) return <p className="av-page av-muted" role="status">{w("console.case.loading")}</p>;

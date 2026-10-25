@@ -1,27 +1,34 @@
 # ruff: noqa: F811  (pytest fixtures imported from the world module)
-"""Support creates an account for a new person (permissions.md "Avodeck staff"; migration 1012).
+"""Support creates an account for a new person (permissions.md "Avodeck staff"; migrations 1012, 1013; ADR 0024).
 
-- `POST /v1/support/accounts` 🔒 {full_name, email} with an `Idempotency-Key`:
-  current support staff only (anyone else 404), MFA in the last 10 minutes (403 `step_up_required`, asked
-  first). FastAPI creates the Supabase Auth user with no password, the `people` row and the person's own
-  practice, and emails a set-password link (`account.created`: the web app's reset page and its token, and
-  that it lasts 1 hour; nothing else) once the database work has succeeded. Support adds nobody to a team: a
-  team's own owners and admins invite them. An email that already has an account is 409 `conflict`; an email
-  Supabase Auth will not take is 422 `invalid_email`. Writes `support.account_created` to the audit trail. If
-  anything fails after the login is made, the login is deleted. Support never sees or chooses the password.
-- `GET /v1/support/accounts`: the accounts support created, `invited` until the person first completes MFA,
-  then `active`. Session MFA is enough (a read-only lookup).
-- `POST /v1/support/accounts/{id}/resend` 🔒: a new set-password link for an account still `invited`; not
-  more than once a minute (429 `sent_recently`).
+- `POST /v1/support/accounts` {full_name, email} with an `Idempotency-Key`: current support staff only
+  (anyone else 404); the sign-in MFA is enough, no fresh code (ADR 0023). FastAPI makes a temporary password
+  (16 or more characters from an alphabet without look-alike characters), creates the Supabase Auth login with
+  it, the `people` row (`must_change_password`) and the person's own practice. The temporary password is in
+  this response only (`Cache-Control: no-store`): never stored in the database, the audit trail, logs or the
+  kept Idempotency-Key answer; a repeat with the same key answers the account with no password and
+  `password_shown: true`. When email is set up, the person is also sent a set-password link
+  (`account.created`: the link and that it lasts 1 hour; never the password); otherwise no email, quietly.
+  Support adds nobody to a team. An email that already has an account is 409 `conflict`; one Supabase Auth
+  will not take is 422 `invalid_email`. Writes `support.account_created`. Any failure after the login is made
+  deletes it.
+- `GET /v1/support/accounts`: `invited` until the person has chosen their own password and completed MFA,
+  then `active`.
+- `POST /v1/support/accounts/{id}/temporary-password`: a new temporary password for an account still
+  `invited`, shown once the same way; the old one stops working and the person's devices are signed out; not
+  more than once a minute (429 `sent_recently`); an `active` account is 409 `conflict`. No email.
+  Writes `support.account_password_renewed`.
 - At most 20 new accounts per staff member per hour, refused attempts (an email that already has an account,
   one Auth will not take) counted too (429 `too_many_attempts`); one staff member's creates queue on a lock.
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import Any
 
+import httpx
 import psycopg
 import pytest
 from fastapi import FastAPI
@@ -67,58 +74,134 @@ async def create(client_for: ClientFor, staff: uuid.UUID, **body: Any) -> dict[s
     return created
 
 
-async def test_staff_create_an_account_and_the_person_gets_a_set_password_email(
+ALPHABET = set("ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789-")
+
+
+def looks_temporary(password: object) -> bool:
+    return isinstance(password, str) and len(password.replace("-", "")) >= 16 and set(password) <= ALPHABET
+
+
+async def sign_in(browser: Any, email: str, password: str) -> httpx.Response:
+    web = await browser()
+    response: httpx.Response = await web.post("/v1/auth/sign-in", json={"email": email, "password": password})
+    return response
+
+
+async def test_staff_create_an_account_and_see_its_temporary_password_once(
     client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
-    auth_admin: AuthAdmin,
+    auth_admin: AuthAdmin, browser: Any, caplog: pytest.LogCaptureFixture,
 ) -> None:  # fmt: skip
     email = new_email()
-    body = await create(client_for, staff, full_name="Dr New Expert", email=email.upper())
-    assert set(body) == {"id", "person_id", "email", "status", "created_at", "last_sent_at"}
-    assert (body["email"], body["status"]) == (email, "invited")
+    with caplog.at_level(logging.DEBUG):
+        resp = await (await client_for(staff)).post(
+            URL, json={"full_name": "Dr New Expert", "email": email.upper()}, headers=key()
+        )
+    assert resp.status_code == 201, resp.text
+    assert resp.headers["cache-control"] == "no-store"
+    body = resp.json()
+    assert set(body) == {
+        "id", "person_id", "email", "status", "created_at", "last_sent_at", "temporary_password", "password_shown",
+    }  # fmt: skip
+    assert (body["email"], body["status"], body["password_shown"]) == (email, "invited", False)
+    password = body["temporary_password"]
+    assert looks_temporary(password), password
     person = uuid.UUID(body["person_id"])
-    # Supabase Auth holds the login (no password yet); Avodeck holds the person and their own practice.
+    # Supabase Auth holds the login with the temporary password; Avodeck holds the person and their practice.
     assert auth_admin.user(person)["email"] == email
-    assert admin.execute("select email, full_name, closed_at from app.people where id = %s", (person,)).fetchone() == (
-        email, "Dr New Expert", None,
-    )  # fmt: skip
+    assert (await sign_in(browser, email, password)).status_code == 200
+    assert admin.execute(
+        "select email, full_name, closed_at, must_change_password from app.people where id = %s", (person,)
+    ).fetchone() == (email, "Dr New Expert", None, True)
     assert admin.execute(
         "select o.kind, m.role from app.memberships m join app.organisations o on o.id = m.organisation_id"
         " where m.person_id = %s",
         (person,),
     ).fetchall() == [("personal", "owner")]
-    [mail] = mails(app, ACCOUNT_CREATED)
+    [mail] = mails(app, ACCOUNT_CREATED)  # email is set up here: a set-password link, never the password
     assert mail.to == email
-    assert mail.params["link_hours"] == "1"  # the email says plainly the link lasts 1 hour
-    assert set(mail.params) == {"link", "link_hours"}
+    assert set(mail.params) == {"link", "link_hours"} and mail.params["link_hours"] == "1"
     assert mail.params["link"].startswith("https://app.test/reset-password?token=")
-    assert "password" not in str(body).lower().replace("last_sent_at", "")
+    assert password not in str(mail)
     audit = admin.execute(
         "select person_id, target from app.audit_log where action = 'support.account_created' and person_id = %s",
         (staff,),
     ).fetchall()
     assert audit == [(staff, f"person:{person}")]
+    assert password not in caplog.text
+    stored = admin.execute("select response_body from app.idempotency_keys where person_id = %s", (staff,)).fetchall()
+    assert all(password.encode() not in bytes(row[0]) for row in stored)
 
 
-async def test_the_new_person_sets_their_own_password_then_mfa_and_becomes_active(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, browser: Any
+async def test_a_repeat_with_the_same_key_never_shows_the_password_again(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection
 ) -> None:
-    email = new_email()
-    body = await create(client_for, staff, email=email)
+    client = await client_for(staff)
+    body = {"full_name": "Dr X", "email": new_email()}
+    same = key()
+    first = await client.post(URL, json=body, headers=same)
+    again = await client.post(URL, json=body, headers=same)
+    assert first.status_code == again.status_code == 201
+    assert again.headers.get("idempotent-replayed") == "true"
+    assert again.headers["cache-control"] == "no-store"
+    shown, replayed = first.json(), again.json()
+    assert looks_temporary(shown["temporary_password"])
+    assert replayed == {**shown, "temporary_password": None, "password_shown": True}
+    assert admin.execute("select count(*) from app.support_accounts where created_by = %s", (staff,)).fetchone() == (1,)
+    assert len(mails(app, ACCOUNT_CREATED)) == 1
+
+
+async def test_with_no_email_set_up_the_account_is_made_without_one(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, monkeypatch: pytest.MonkeyPatch,
+    browser: Any,
+) -> None:  # fmt: skip
+    async def never(email: str) -> str:
+        raise AssertionError("no set-password link without email")
+
+    monkeypatch.setattr(app.state, "mail_configured", False)
+    monkeypatch.setattr(app.state.auth, "admin_recovery_token", never)
+    made = await create(client_for, staff)
+    assert app.state.mailer.outbox == []
+    assert (await sign_in(browser, made["email"], made["temporary_password"])).status_code == 200
+
+
+async def test_the_new_person_signs_in_sets_up_mfa_chooses_a_password_and_becomes_active(
+    client_for: ClientFor, world: World, staff: uuid.UUID, browser: Any, admin: psycopg.Connection
+) -> None:
+    made = await create(client_for, staff)
+    web = await browser()
+    signed = await web.post("/v1/auth/sign-in", json={"email": made["email"], "password": made["temporary_password"]})
+    assert signed.status_code == 200, signed.text
+    assert signed.json()["mfa_enrolled"] is False  # MFA is set up at first sign-in, by the person
+    secret = (await web.post("/v1/auth/mfa/enroll")).json()["secret"]
+    assert (await web.post("/v1/auth/mfa/verify", json={"code": totp(secret)})).status_code == 200
+    blocked = await web.get("/v1/today")
+    assert (blocked.status_code, blocked.json()["error"]["code"]) == (403, "password_change_required")
+    listed = (await (await client_for(staff)).get(URL)).json()["accounts"]
+    assert [a["status"] for a in listed if a["id"] == made["id"]] == ["invited"]
+    changed = await web.post(
+        "/v1/auth/password/change",
+        json={"current_password": made["temporary_password"], "new_password": NEW_PASSWORD},
+    )
+    assert changed.status_code == 200, changed.text
+    assert (await web.get("/v1/today")).status_code == 200
+    listed = (await (await client_for(staff)).get(URL)).json()["accounts"]
+    assert [a["status"] for a in listed if a["id"] == made["id"]] == ["active"]
+
+
+async def test_the_set_password_link_also_works_and_clears_the_temporary_password(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, browser: Any, admin: psycopg.Connection
+) -> None:
+    made = await create(client_for, staff)
     web = await browser()
     reset = await web.post(
         "/v1/auth/password/reset",
         json={"token": reset_token(mails(app, ACCOUNT_CREATED)[0]), "new_password": NEW_PASSWORD},
     )
     assert reset.status_code == 200, reset.text
-    signed = await web.post("/v1/auth/sign-in", json={"email": email, "password": NEW_PASSWORD})
-    assert signed.status_code == 200, signed.text
-    assert signed.json()["mfa_enrolled"] is False  # MFA is set up at first sign-in, by the person
-    listed = (await (await client_for(staff)).get(URL)).json()["accounts"]
-    assert [a["status"] for a in listed if a["id"] == body["id"]] == ["invited"]
-    secret = (await web.post("/v1/auth/mfa/enroll")).json()["secret"]
-    assert (await web.post("/v1/auth/mfa/verify", json={"code": totp(secret)})).status_code == 200
-    listed = (await (await client_for(staff)).get(URL)).json()["accounts"]
-    assert [a["status"] for a in listed if a["id"] == body["id"]] == ["active"]
+    assert admin.execute(
+        "select must_change_password from app.people where id = %s", (made["person_id"],)
+    ).fetchone() == (False,)
+    assert (await sign_in(browser, made["email"], made["temporary_password"])).status_code == 401
 
 
 BAD_FORMS = {
@@ -206,79 +289,86 @@ async def test_anyone_but_current_staff_gets_404(
     assert (await client.get(URL)).status_code == 404
     created = await client.post(URL, json={"full_name": "Dr X", "email": new_email()}, headers=key())
     assert created.status_code == 404
-    assert (await client.post(f"{URL}/{made['id']}/resend", headers=key())).status_code == 404
+    assert (await client.post(f"{URL}/{made['id']}/temporary-password", headers=key())).status_code == 404
     assert app.state.mailer.outbox == []
 
 
-@pytest.mark.parametrize("who", ["staff", "dr_k"])
-async def test_creating_and_resending_need_mfa_in_the_last_ten_minutes(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, who: str
+async def test_creating_and_a_new_temporary_password_need_no_fresh_mfa(
+    client_for: ClientFor, world: World, staff: uuid.UUID, admin: psycopg.Connection
 ) -> None:
+    """ADR 0023: the sign-in MFA is enough for every support action."""
     made = await create(client_for, staff)
-    app.state.mailer.outbox.clear()
-    client = await client_for(staff if who == "staff" else world[who], mfa_age=STALE)
-    for resp in (
-        await client.post(URL, json={"full_name": "Dr X", "email": new_email()}, headers=key()),
-        await client.post(f"{URL}/{made['id']}/resend", headers=key()),
-    ):
-        assert (resp.status_code, resp.json()["error"]["code"]) == (403, "step_up_required")
-    assert app.state.mailer.outbox == []
-
-
-async def test_the_list_needs_only_the_sign_in_mfa(client_for: ClientFor, world: World, staff: uuid.UUID) -> None:
-    made = await create(client_for, staff)
-    resp = await (await client_for(staff, mfa_age=STALE)).get(URL)
-    assert resp.status_code == 200, resp.text
-    assert made["id"] in [a["id"] for a in resp.json()["accounts"]]
+    admin.execute("update app.support_accounts set last_sent_at = now() - interval '2 minutes'")
+    client = await client_for(staff, mfa_age=STALE)
+    created = await client.post(URL, json={"full_name": "Dr X", "email": new_email()}, headers=key())
+    assert created.status_code == 201, created.text
+    renewed = await client.post(f"{URL}/{made['id']}/temporary-password", headers=key())
+    assert renewed.status_code == 200, renewed.text
+    assert (await client.get(URL)).status_code == 200
 
 
 async def test_creating_needs_the_csrf_token_and_an_idempotency_key(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection
+    client_for: ClientFor, world: World, staff: uuid.UUID, admin: psycopg.Connection
 ) -> None:
     body = {"full_name": "Dr X", "email": new_email()}
     no_csrf = await (await client_for(staff, csrf=False)).post(URL, json=body, headers=key())
     assert (no_csrf.status_code, no_csrf.json()["error"]["code"]) == (403, "csrf_required")
-    client = await client_for(staff)
-    assert (await client.post(URL, json=body)).status_code == 422
-    same = key()
-    first = await client.post(URL, json=body, headers=same)
-    again = await client.post(URL, json=body, headers=same)
-    assert first.status_code == again.status_code == 201
-    assert again.json() == first.json() and again.headers.get("idempotent-replayed") == "true"
-    assert admin.execute("select count(*) from app.support_accounts where created_by = %s", (staff,)).fetchone() == (1,)
-    assert len(mails(app, ACCOUNT_CREATED)) == 1
+    assert (await (await client_for(staff)).post(URL, json=body)).status_code == 422
+    assert admin.execute("select count(*) from app.support_accounts where created_by = %s", (staff,)).fetchone() == (0,)
 
 
-async def test_send_the_invite_again_gives_a_new_link_not_more_than_once_a_minute(
-    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection
-) -> None:
+async def test_a_new_temporary_password_replaces_the_old_one_not_more_than_once_a_minute(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, admin: psycopg.Connection,
+    browser: Any, caplog: pytest.LogCaptureFixture,
+) -> None:  # fmt: skip
     made = await create(client_for, staff)
+    app.state.mailer.outbox.clear()
+    person = uuid.UUID(made["person_id"])
     client = await client_for(staff)
-    soon = await client.post(f"{URL}/{made['id']}/resend", headers=key())
+    url = f"{URL}/{made['id']}/temporary-password"
+    soon = await client.post(url, headers=key())
     assert (soon.status_code, soon.json()["error"]["code"]) == (429, "sent_recently")
-    assert len(mails(app, ACCOUNT_CREATED)) == 1
+    their_device = await client_for(person, email=made["email"], aal="aal1", mfa_age=None)
     admin.execute("update app.support_accounts set last_sent_at = now() - interval '2 minutes' where id = %s",
                   (made["id"],))  # fmt: skip
-    resp = await client.post(f"{URL}/{made['id']}/resend", headers=key())
+    same = key()
+    with caplog.at_level(logging.DEBUG):
+        resp = await client.post(url, headers=same)
     assert resp.status_code == 200, resp.text
-    assert resp.json()["status"] == "invited" and resp.json()["last_sent_at"] > made["last_sent_at"]
-    first, second = mails(app, ACCOUNT_CREATED)
-    assert reset_token(first) != reset_token(second) and second.params["link_hours"] == "1"
+    assert resp.headers["cache-control"] == "no-store"
+    renewed = resp.json()
+    password = renewed["temporary_password"]
+    assert looks_temporary(password) and password != made["temporary_password"]
+    assert (renewed["status"], renewed["password_shown"]) == ("invited", False)
+    assert renewed["last_sent_at"] > made["last_sent_at"]
+    assert (await sign_in(browser, made["email"], made["temporary_password"])).status_code == 401
+    assert (await sign_in(browser, made["email"], password)).status_code == 200
+    assert (await their_device.get("/v1/auth/session")).status_code == 401  # signed out everywhere
+    assert app.state.mailer.outbox == []  # the password is told by phone or in person, never emailed
+    assert password not in caplog.text
+    again = await client.post(url, headers=same)
+    assert again.status_code == 200 and again.headers.get("idempotent-replayed") == "true"
+    assert again.json() == {**renewed, "temporary_password": None, "password_shown": True}
     assert admin.execute(
-        "select count(*) from app.audit_log where action = 'support.account_invite_resent' and person_id = %s",
+        "select target from app.audit_log where action = 'support.account_password_renewed' and person_id = %s",
         (staff,),
-    ).fetchone() == (1,)
+    ).fetchall() == [(f"person:{person}",)]
+    assert admin.execute(
+        "select must_change_password from app.people where id = %s", (person,)
+    ).fetchone() == (True,)
 
 
-async def test_an_active_account_is_not_sent_the_invite_again(
+async def test_an_active_account_gets_no_new_temporary_password(
     client_for: ClientFor, world: World, staff: uuid.UUID, admin: psycopg.Connection
 ) -> None:
     made = await create(client_for, staff)
+    admin.execute("update app.people set must_change_password = false where id = %s", (made["person_id"],))
     await client_for(uuid.UUID(made["person_id"]), email=made["email"])  # a session with MFA done: active
     admin.execute("update app.support_accounts set last_sent_at = now() - interval '2 minutes'")
-    resp = await (await client_for(staff)).post(f"{URL}/{made['id']}/resend", headers=key())
+    client = await client_for(staff)
+    resp = await client.post(f"{URL}/{made['id']}/temporary-password", headers=key())
     assert (resp.status_code, resp.json()["error"]["code"]) == (409, "conflict")
-    assert (await (await client_for(staff)).post(f"{URL}/{uuid.uuid4()}/resend", headers=key())).status_code == 404
+    assert (await client.post(f"{URL}/{uuid.uuid4()}/temporary-password", headers=key())).status_code == 404
 
 
 async def test_at_most_twenty_new_accounts_an_hour_per_staff_member(
@@ -343,3 +433,40 @@ async def test_if_the_database_work_fails_the_login_is_undone(
     assert app.state.mailer.outbox == []
     made = await create(client_for, staff, email=email)
     assert made["email"] == email
+
+
+async def test_a_password_reset_from_the_email_link_is_never_replaced(
+    client_for: ClientFor, world: World, staff: uuid.UUID, app: FastAPI, browser: Any, admin: psycopg.Connection
+) -> None:
+    made = await create(client_for, staff)
+    web = await browser()
+    token = reset_token(mails(app, ACCOUNT_CREATED)[0])
+    reset = await web.post("/v1/auth/password/reset", json={"token": token, "new_password": NEW_PASSWORD})
+    assert reset.status_code == 200, reset.text
+    admin.execute("update app.support_accounts set last_sent_at = now() - interval '2 minutes' where id = %s",
+                  (made["id"],))  # fmt: skip
+    resp = await (await client_for(staff)).post(f"{URL}/{made['id']}/temporary-password", headers=key())
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "conflict")
+    assert (await sign_in(browser, made["email"], NEW_PASSWORD)).status_code == 200
+
+
+async def test_a_person_with_mfa_set_up_keeps_their_password(
+    client_for: ClientFor, world: World, staff: uuid.UUID, browser: Any, admin: psycopg.Connection
+) -> None:
+    """Checked in the database (a session with MFA) and, should no session say so, with Supabase Auth."""
+    made = await create(client_for, staff)
+    web = await browser()
+    signed = await web.post("/v1/auth/sign-in", json={"email": made["email"], "password": made["temporary_password"]})
+    assert signed.status_code == 200, signed.text
+    secret = (await web.post("/v1/auth/mfa/enroll")).json()["secret"]
+    assert (await web.post("/v1/auth/mfa/verify", json={"code": totp(secret)})).status_code == 200
+    admin.execute("update app.support_accounts set last_sent_at = now() - interval '2 minutes' where id = %s",
+                  (made["id"],))  # fmt: skip
+    client = await client_for(staff)
+    url = f"{URL}/{made['id']}/temporary-password"
+    resp = await client.post(url, headers=key())
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "conflict")
+    admin.execute("delete from app.sessions where person_id = %s", (made["person_id"],))
+    resp = await client.post(url, headers=key())
+    assert (resp.status_code, resp.json()["error"]["code"]) == (409, "conflict")
+    assert (await sign_in(browser, made["email"], made["temporary_password"])).status_code == 200

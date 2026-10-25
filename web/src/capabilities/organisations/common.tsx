@@ -16,8 +16,9 @@ export const OWN_ERRORS = {
   cases_open: "organisations.close_org.cases_open",
 };
 
-/** Runs a risky call (asking for the code first when the API wants it) and keeps the plain-words result. */
-export function useAct(own: Record<string, string> = {}) {
+/** Runs a risky call (asking for the code first when the API wants it, unless `stepUp: false`: support
+ * actions never do, ADR 0023) and keeps the plain-words result. */
+export function useAct(own: Record<string, string> = {}, { stepUp: asks = true }: { stepUp?: boolean } = {}) {
   const stepUp = useStepUp();
   const [message, setMessage] = useState<Message>(null);
   const [busy, setBusy] = useState(false);
@@ -28,7 +29,7 @@ export function useAct(own: Record<string, string> = {}) {
     setBusy(true);
     setMessage(null);
     try {
-      const result = await stepUp(action);
+      const result = asks ? await stepUp(action) : await action();
       if (result !== undefined && success) setMessage({ tone: "success", text: success(result) });
       return result;
     } catch (err) {

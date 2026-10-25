@@ -197,9 +197,12 @@ class SupabaseAuth:
             raise AuthError("email_unavailable", "That email address cannot be used.", 409)
         self._check(resp)
 
-    async def admin_create_user(self, email: str) -> uuid.UUID:
-        """A login with a confirmed email and no password: the person sets their own (support, 1012)."""
-        resp = await self._call("POST", "/admin/users", admin=True, json={"email": email, "email_confirm": True})
+    async def admin_create_user(self, email: str, *, password: str | None = None) -> uuid.UUID:
+        """A login with a confirmed email and, for support's accounts, a temporary password (ADR 0024)."""
+        payload: dict[str, Any] = {"email": email, "email_confirm": True}
+        if password is not None:
+            payload["password"] = password
+        resp = await self._call("POST", "/admin/users", admin=True, json=payload)
         if resp.status_code in (400, 409, 422):
             try:
                 body = resp.json() if resp.content else {}
@@ -227,6 +230,12 @@ class SupabaseAuth:
         if not token:
             raise _unavailable()
         return str(token)
+
+    async def admin_has_mfa(self, person_id: uuid.UUID) -> bool:
+        """Whether the person has a verified authenticator app (support never replaces their password then)."""
+        resp = await self._call("GET", f"/admin/users/{person_id}/factors", admin=True)
+        listed: Any = resp.json() if resp.status_code < 400 else self._check(resp)
+        return any(f.get("factor_type") == "totp" and f.get("status") == "verified" for f in listed)
 
     async def admin_delete_totp_factors(self, person_id: uuid.UUID) -> None:
         resp = await self._call("GET", f"/admin/users/{person_id}/factors", admin=True)

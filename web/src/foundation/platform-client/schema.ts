@@ -91,6 +91,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/auth/password/change": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change Password
+         * @description The signed-in person's current password and a new one (ADR 0024). Clears a temporary password's
+         *     block and signs out the person's other devices; this one stays signed in.
+         */
+        post: operations["change_password_v1_auth_password_change_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/auth/password/forgot": {
         parameters: {
             query?: never;
@@ -4678,15 +4699,17 @@ export interface paths {
         };
         /**
          * List Accounts
-         * @description The accounts support created: `invited` until the person first completes MFA, then `active`.
+         * @description The accounts support created: `invited` until the person has chosen their own password and completed
+         *     MFA, then `active`.
          */
         get: operations["list_accounts_v1_support_accounts_get"];
         put?: never;
         /**
          * Create Account
-         * @description A new person's account, with no password and no team: they get an email to set their own, sent after
-         *     commit (409 `conflict` if the email already has an account, 422 `invalid_email` if Auth will not take it;
-         *     at most 20 an hour per staff member counting refused attempts, 429 `too_many_attempts`).
+         * @description A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set
+         *     up, also a set-password email sent after commit (409 `conflict` if the email already has an account, 422
+         *     `invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,
+         *     429 `too_many_attempts`).
          */
         post: operations["create_account_v1_support_accounts_post"];
         delete?: never;
@@ -4695,7 +4718,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/support/accounts/{account_id}/resend": {
+    "/v1/support/accounts/{account_id}/temporary-password": {
         parameters: {
             query?: never;
             header?: never;
@@ -4705,11 +4728,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Resend Account Invite
-         * @description A new set-password link (1 hour) for an account still `invited`; at most once a minute (429
-         *     `sent_recently`).
+         * New Temporary Password
+         * @description A new temporary password, shown once, for an account still `invited`; the old one stops working and the
+         *     person is signed out everywhere. At most once a minute (429 `sent_recently`); 409 `conflict` once active.
          */
-        post: operations["resend_account_invite_v1_support_accounts__account_id__resend_post"];
+        post: operations["new_temporary_password_v1_support_accounts__account_id__temporary_password_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5768,6 +5791,13 @@ export interface components {
             new_text?: string | null;
             /** Reason */
             reason?: string | null;
+        };
+        /** ChangePassword */
+        ChangePassword: {
+            /** Current Password */
+            current_password: string;
+            /** New Password */
+            new_password: string;
         };
         /** CheckResult */
         CheckResult: {
@@ -7872,6 +7902,11 @@ export interface components {
             memberships: components["schemas"]["Membership"][];
             /** Mfa Enrolled */
             mfa_enrolled: boolean;
+            /**
+             * Must Change Password
+             * @default false
+             */
+            must_change_password: boolean;
             person: components["schemas"]["Person"];
         };
         /** MeetingIn */
@@ -10634,6 +10669,11 @@ export interface components {
             mfa_enrolled: boolean;
             /** Minutes Until Timeout */
             minutes_until_timeout: number;
+            /**
+             * Must Change Password
+             * @default false
+             */
+            must_change_password: boolean;
             /** Step Up Until */
             step_up_until: string | null;
         };
@@ -11115,8 +11155,8 @@ export interface components {
         };
         /**
          * SupportAccountCreate
-         * @description A new person's account, made by Avodeck support: no password (the person sets their own) and no team
-         *     (a team's own owners and admins invite people; any other field is 422).
+         * @description A new person's account, made by Avodeck support: support never chooses the password (Avodeck makes a
+         *     temporary one) and adds no team (a team's own owners and admins invite people; any other field is 422).
          */
         SupportAccountCreate: {
             /** Email */
@@ -11128,6 +11168,47 @@ export interface components {
         SupportAccountList: {
             /** Accounts */
             accounts: components["schemas"]["SupportAccount"][];
+        };
+        /**
+         * SupportAccountWithPassword
+         * @description An account with its temporary password (ADR 0024): in this one answer only (`Cache-Control: no-store`).
+         *     A repeat with the same Idempotency-Key answers `temporary_password: null` and `password_shown: true`.
+         */
+        SupportAccountWithPassword: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Email */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Last Sent At
+             * Format: date-time
+             */
+            last_sent_at: string;
+            /**
+             * Password Shown
+             * @default false
+             */
+            password_shown: boolean;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "invited" | "active";
+            /** Temporary Password */
+            temporary_password?: string | null;
         };
         /**
          * SupportCase
@@ -12336,6 +12417,48 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Verified"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    change_password_v1_auth_password_change_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangePassword"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasswordChanged"];
                 };
             };
             /** @description Validation Error */
@@ -25042,7 +25165,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SupportAccount"];
+                    "application/json": components["schemas"]["SupportAccountWithPassword"];
                 };
             };
             /** @description Validation Error */
@@ -25065,7 +25188,7 @@ export interface operations {
             };
         };
     };
-    resend_account_invite_v1_support_accounts__account_id__resend_post: {
+    new_temporary_password_v1_support_accounts__account_id__temporary_password_post: {
         parameters: {
             query?: never;
             header: {
@@ -25084,7 +25207,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["SupportAccount"];
+                    "application/json": components["schemas"]["SupportAccountWithPassword"];
                 };
             };
             /** @description Validation Error */
