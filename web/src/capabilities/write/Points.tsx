@@ -68,7 +68,11 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
   const change = (point: Point, body: Schemas["PointChange"]) =>
     attempt(async () => {
       const next = await unwrap(api.PATCH("/v1/cases/{case_id}/points/{point_id}", { params: { path: { case_id: caseId, point_id: point.id } }, body, headers: ifMatch(versionTag(point.version)) }));
-      setData((d) => ({ ...d, points: next.status === "dismissed" ? d.points.filter((p) => p.id !== point.id) : d.points.map((p) => (p.id === point.id ? next : p)) }));
+      setData((d) => {
+        const without = (list: Point[]) => list.filter((p) => p.id !== point.id);
+        const replaced = (list: Point[]) => list.map((p) => (p.id === point.id ? next : p));
+        return next.status === "dismissed" ? { ...d, points: without(d.points), live: without(d.live) } : { ...d, points: replaced(d.points), live: replaced(d.live) };
+      });
       setRemoving(null);
     });
 
@@ -86,7 +90,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
         }
         throw err;
       }
-      setData((d) => ({ ...d, points: [...d.points, point], unused: d.unused.filter((f) => f.id !== fact.id), relevant: d.relevant.filter((r) => r.fact.id !== fact.id) }));
+      setData((d) => ({ ...d, points: [...d.points, point], live: [...d.live, point], unused: d.unused.filter((f) => f.id !== fact.id), relevant: d.relevant.filter((r) => r.fact.id !== fact.id) }));
     });
 
   const dismissRelevant = (relevant: Schemas["RelevantOut"]) =>
@@ -110,7 +114,7 @@ function PointsView({ caseId, chosen, initial }: { caseId: string; chosen: Chose
     });
 
   const done = chosen.progress?.questions.find((p) => p.question_id === questionId)?.points_done ?? false;
-  const live = data.points.filter((p) => p.status !== "dismissed");
+  const live = data.live;
   return (
     <div className="av-page av-stack">
       <div>

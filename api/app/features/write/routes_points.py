@@ -78,6 +78,7 @@ class RelevantOut(BaseModel):
 class Points(BaseModel):
     sides: list[Side]
     points: list[PointOut]
+    live: list[PointOut]
     unused: list[PointFact]
     relevant: list[RelevantOut]
     claims: list[ClaimOut]
@@ -163,6 +164,7 @@ async def list_points(
     return Points(
         sides=[Side(**s) for s in sides],
         points=points,
+        live=[p for p in points if p.status != "dismissed"],
         unused=unused,
         relevant=relevant,
         claims=claims,

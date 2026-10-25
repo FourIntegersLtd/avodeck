@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from app.core.contracts.opinions import BODY_PURPOSE
 from app.core.http import DbConn
+from app.features.write.ai_tasks import LINT_TYPES
 from app.features.write.common import Crypto
 from app.features.write.lint_regex import sentence_spans
 
@@ -29,6 +30,16 @@ class LintIssueOut(BaseModel):
     words: str
     source: str
     status: str
+
+
+class LintCheck(BaseModel):
+    type: str
+    passed: bool
+
+
+def checks_for(open_now: list[LintIssueOut]) -> list[LintCheck]:
+    """Each kind of check the model and the pattern check make, and whether no warning of it is open."""
+    return [LintCheck(type=t, passed=not any(i.type == t for i in open_now)) for t in LINT_TYPES]
 
 
 async def dismissed_issues(
