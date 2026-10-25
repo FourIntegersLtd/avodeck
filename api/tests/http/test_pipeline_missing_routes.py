@@ -234,7 +234,6 @@ async def test_the_list_says_which_items_are_still_missing(bundle: Harness) -> N
     set_requested(bundle)
     body = (await listed(bundle)).json()
     assert body["still_missing_count"] == 1, "a requested item stopped counting as missing"
-    bundle.admin.execute("update app.missing_items set status = 'open' where id = %s", (item,))
     done = await change(bundle, item, {"status": "not_available", "reason": "Destroyed"}, 0)
     assert done.status_code == 200, done.status_code
     body = (await listed(bundle)).json()
