@@ -45,7 +45,7 @@ test("the logo goes back to the Avodeck home page", async () => {
   signedIn();
   renderAt("/today");
   const header = await screen.findByRole("banner");
-  expect(within(header).getByRole("link", { name: "Avodeck home page" })).toHaveAttribute("href", "http://localhost:3000");
+  expect(within(header).getByRole("link", { name: "Avodeck home page" })).toHaveAttribute("href", "/");
 });
 
 afterEach(() => resetScreens());

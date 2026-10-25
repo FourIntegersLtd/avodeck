@@ -51,5 +51,5 @@ test("confirming from both addresses changes the email", async () => {
 
 test("the sign-in logo goes back to the Avodeck home page", async () => {
   renderAt("/sign-in");
-  expect(await screen.findByRole("link", { name: "Avodeck home page" })).toHaveAttribute("href", "http://localhost:3000");
+  expect(await screen.findByRole("link", { name: "Avodeck home page" })).toHaveAttribute("href", "/");
 });
