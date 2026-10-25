@@ -40,7 +40,8 @@ async def test_changing_the_password_clears_the_block_and_the_old_one_stops_work
     web = await browser()
     signed = await sign_in_with_mfa(web, auth_admin)
     other_device = await browser()
-    assert (await other_device.post("/v1/auth/sign-in", json={"email": signed.email, "password": PASSWORD})).status_code == 200
+    signed_in = await other_device.post("/v1/auth/sign-in", json={"email": signed.email, "password": PASSWORD})
+    assert signed_in.status_code == 200
     admin.execute("update app.people set must_change_password = true where id = %s", (signed.person_id,))
     assert (await web.get("/v1/today")).status_code == 403
     with caplog.at_level(logging.DEBUG):
@@ -111,6 +112,7 @@ async def test_a_reset_from_the_email_link_also_clears_the_block(
     web = await browser()
     assert (await web.post("/v1/auth/sign-in", json={"email": email, "password": PASSWORD})).status_code == 200
     admin.execute("update app.people set must_change_password = true where id = %s", (person,))
-    reset = await web.post("/v1/auth/password/reset", json={"token": auth_admin.recovery_token(email), "new_password": NEW})
+    token = auth_admin.recovery_token(email)
+    reset = await web.post("/v1/auth/password/reset", json={"token": token, "new_password": NEW})
     assert reset.status_code == 200, reset.text
     assert not flagged(admin, person)
