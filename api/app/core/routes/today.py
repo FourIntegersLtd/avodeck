@@ -38,6 +38,16 @@ class TodayOrganisation(BaseModel):
     open_count: int  # open cases in this organisation, ignoring `q`
 
 
+class Readiness(BaseModel):
+    """The first-visit steps (account secured, profile filled in, signature saved) and how many are done."""
+
+    account: bool
+    profile: bool
+    signature: bool
+    done_steps: int
+    total_steps: int
+
+
 class Today(BaseModel):
     cases: list[CaseCard]
     needs_you: list[NeedsYouItem]
@@ -45,6 +55,7 @@ class Today(BaseModel):
     closed_count: int
     open_count: int  # open cases matching `organisation_id` and `q`
     due_this_month: int  # open cases due in the current month in the person's timezone
+    readiness: Readiness
 
 
 def _like_escape(q: str) -> str:
@@ -104,6 +115,21 @@ async def today(
             (list(OPEN), organisation_id, organisation_id, _zone(person["timezone"] if person else None)),
         )
         due = await cur.fetchone()
+        await cur.execute(
+            "select exists (select 1 from app.experts where person_id = app.current_person_id()"
+            " and nullif(profession, '') is not null and nullif(registration_number, '') is not null"
+            " and cardinality(specialties) > 0) as profile,"
+            " exists (select 1 from app.signatures where expert_id = app.current_person_id()) as signature"
+        )
+        steps = await cur.fetchone()
+    flags = [
+        bool(request.state.identity.mfa_enrolled),
+        bool(steps and steps["profile"]),
+        bool(steps and steps["signature"]),
+    ]
+    readiness = Readiness(
+        account=flags[0], profile=flags[1], signature=flags[2], done_steps=sum(flags), total_steps=len(flags)
+    )
     registry: NeedsYouRegistry = request.app.state.needs_you
     shown = {card.case_id for card in cards}
     items: list[NeedsYouItem] = []
@@ -124,4 +150,5 @@ async def today(
         closed_count=closed["n"] if closed else 0,
         open_count=len(cards),
         due_this_month=due["n"] if due else 0,
+        readiness=readiness,
     )
