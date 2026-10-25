@@ -6859,14 +6859,31 @@ export interface components {
         };
         /** FactList */
         FactList: {
+            /**
+             * Done
+             * @description How many are dealt with: checked as right or changed (and not asked again), or marked not right.
+             * @default 0
+             */
+            done: number;
             /** Facts */
             facts: components["schemas"]["FactOut"][];
+            /**
+             * Highlights
+             * @description The words to mark on the page picture: every fact not marked not right.
+             */
+            highlights?: components["schemas"]["Highlight"][];
             /**
              * Reassigned
              * @description A fact on this page is suggested again because the case's named expert changed.
              * @default false
              */
             reassigned: boolean;
+            /**
+             * Total
+             * @description How many suggestions the page has.
+             * @default 0
+             */
+            total: number;
         };
         /** FactOut */
         FactOut: {
@@ -7174,6 +7191,20 @@ export interface components {
              * @enum {string}
              */
             topic: "case" | "account" | "billing" | "other";
+        };
+        /** Highlight */
+        Highlight: {
+            /** Bbox */
+            bbox: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Word Ids */
+            word_ids: string[];
         };
         /**
          * HoldCreate

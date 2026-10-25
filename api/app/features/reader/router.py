@@ -34,9 +34,9 @@ from app.features.reader import search as bundle_search
 from app.features.reader.schemas import (
     Box,
     FactList,
-    Highlight,
     FactOut,
     FlagOut,
+    Highlight,
     JobOut,
     MoveIn,
     MyNote,

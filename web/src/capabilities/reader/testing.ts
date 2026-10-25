@@ -47,6 +47,8 @@ export interface ReaderOpts {
   /** The case's period of interest, as dates (default: none). */
   period?: { start: string; end: string };
   facts?: Schemas["FactOut"][];
+  /** What the server says about the page's progress, when a test needs it to differ from the facts. */
+  counts?: { done: number; total: number };
   queue?: Schemas["UnreadablePage"][];
   /** The page's words (default: `pageWords()`). */
   words?: PageWord[];
@@ -152,7 +154,16 @@ export function mockReader(pack: Schemas["CasePack"], opts: ReaderOpts = {}): Re
     }),
     http.get(`${c}/pages/:n/facts`, () => {
       api.factRequests += 1;
-      return api.read ? json({ facts: api.facts, reassigned: opts.reassigned ?? false }) : apiError(423, "blind_read");
+      if (!api.read) return apiError(423, "blind_read");
+      // The server works these out (done: dealt with; highlights: every fact not marked not right).
+      const dealt = (f: Schemas["FactOut"]) => f.status === "rejected" || ((f.status === "verified" || f.status === "edited") && !f.needs_recheck);
+      return json({
+        facts: api.facts,
+        total: opts.counts?.total ?? api.facts.length,
+        done: opts.counts?.done ?? api.facts.filter(dealt).length,
+        highlights: api.facts.filter((f) => f.status !== "rejected").map((f) => ({ id: f.id, word_ids: f.word_ids, bbox: f.bbox })),
+        reassigned: opts.reassigned ?? false,
+      });
     }),
     http.get(`${c}/pages/:n/words`, ({ params }) => {
       api.wordRequests += 1;
