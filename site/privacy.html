@@ -231,8 +231,8 @@
           <h3 class="footer-h">Experts</h3>
           <ul>
             <li><a href="./#pilot">Join the pilot</a></li>
-            <li><a href="http://localhost:5173/sign-in" data-app-path="/sign-in">Sign in</a></li>
-            <li><a href="http://localhost:5173/today" data-app-path="/today">Open Avodeck</a></li>
+            <li><a href="/sign-in">Sign in</a></li>
+            <li><a href="/today">Open Avodeck</a></li>
           </ul>
         </div>
         <div>
@@ -248,11 +248,6 @@
 </footer>
 <script>
 (function () {
-  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  var appUrl = local ? 'http://localhost:5173' : location.origin;
-  document.querySelectorAll('[data-app-path]').forEach(function (a) {
-    if (appUrl) a.href = appUrl + a.getAttribute('data-app-path'); else a.hidden = true;
-  });
   // Phone menu: the hamburger opens the nav; choosing a link closes it.
   var header = document.querySelector('.site-header');
   var toggle = header.querySelector('.menu-toggle');

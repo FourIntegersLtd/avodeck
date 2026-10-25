@@ -6,22 +6,18 @@ S ?= $(SLICE)
 # Run a command in web/ only once the web app has been set up.
 in_web = if [ -f web/package.json ]; then cd web && $(1); else echo "web: not set up yet, skipped"; fi
 
-.PHONY: install dev test test-core test-slice test-api test-web api-client schemathesis eval site \
+.PHONY: install dev test test-core test-slice test-api test-web api-client schemathesis eval \
 	lint lint-api lint-web eval-data setup-fixtures check-spec
 
 install:        ## Poetry env for api/ (and pnpm for web/ once it exists)
 	$(MAKE) -C api install
 	@$(call in_web,pnpm install --frozen-lockfile)
 
-dev:            ## local Supabase, API, worker, web app (:5173) and landing page (:3000); secrets in api/.env
+dev:            ## local Supabase, API, worker, and the landing page with the app on http://localhost:5173; secrets in api/.env
 	supabase start
-	$(MAKE) site & \
 	$(MAKE) -C api start & \
 	if [ -f api/app/worker/handlers.py ]; then $(MAKE) -C api worker & fi; \
 	if [ -f web/package.json ]; then cd web && pnpm dev; else wait; fi
-
-site:           ## the landing page alone on http://localhost:3000 (`pnpm dev` also serves it at / beside the app)
-	python3 -m http.server 3000 --bind 127.0.0.1 -d site
 
 test: test-api test-web
 

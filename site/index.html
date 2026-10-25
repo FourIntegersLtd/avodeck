@@ -8,8 +8,6 @@
 <!-- Where pilot requests are POSTed (JSON: name, email, volume). Leave empty to fall back to email. -->
 <meta name="pilot-endpoint" content="">
 <meta name="pilot-email" content="">
-<!-- Where the Avodeck app lives. Links marked data-app-path open there (local dev: the Vite server). -->
-<meta name="app-url" content="">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -30,11 +28,11 @@
       <a href="#safeguards">Safeguards</a>
       <a href="#questions">Questions</a>
       <a href="#pilot" class="btn btn-primary menu-only">Join the pilot</a>
-      <a href="http://localhost:5173/sign-in" data-app-path="/sign-in" class="btn btn-ghost menu-only">Sign in</a>
+      <a href="/sign-in" class="btn btn-ghost menu-only">Sign in</a>
     </nav>
     <div class="header-actions">
       <a href="#pilot" class="btn btn-ghost btn-sm hide-sm">Join the pilot</a>
-      <a href="http://localhost:5173/sign-in" data-app-path="/sign-in" class="btn btn-primary btn-sm hide-sm">Sign in</a>
+      <a href="/sign-in" class="btn btn-primary btn-sm hide-sm">Sign in</a>
       <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="main-nav" aria-label="Menu">
       <svg class="icon-open" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
       <svg class="icon-close" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
@@ -387,8 +385,8 @@
           <h3 class="footer-h">Experts</h3>
           <ul>
             <li><a href="#pilot">Join the pilot</a></li>
-            <li><a href="http://localhost:5173/sign-in" data-app-path="/sign-in">Sign in</a></li>
-            <li><a href="http://localhost:5173/today" data-app-path="/today">Open Avodeck</a></li>
+            <li><a href="/sign-in">Sign in</a></li>
+            <li><a href="/today">Open Avodeck</a></li>
           </ul>
         </div>
         <div>
@@ -408,14 +406,6 @@
   var form = document.getElementById('pilot-form');
   var status = document.getElementById('form-status');
   var meta = function (n) { var m = document.querySelector('meta[name="' + n + '"]'); return m ? m.content.trim() : ''; };
-
-  // Sign-in links go to the web app: localhost:5173 when this page is served alone (`make site` on :3000),
-  // else app-url, else this site (the app is served beside it, in production and in `pnpm dev`).
-  var alone = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && location.port === '3000';
-  var appUrl = (alone ? 'http://localhost:5173' : meta('app-url') || location.origin).replace(/\/+$/, '');
-  document.querySelectorAll('[data-app-path]').forEach(function (a) {
-    if (appUrl) a.href = appUrl + a.getAttribute('data-app-path'); else a.hidden = true;
-  });
 
   // Phone menu: the hamburger opens the nav; choosing a link closes it.
   var header = document.querySelector('.site-header');
