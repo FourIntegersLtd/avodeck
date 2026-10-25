@@ -81,7 +81,7 @@ a:hover { color: var(--forest); }
 .hero { overflow: hidden; min-height: calc(100vh - 89px); min-height: calc(100svh - 89px); display: flex; align-items: center; }
 .hero .wrap { width: 100%; max-width: 1360px; padding: 48px 32px 56px; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(460px, 100%), 1fr)); gap: 72px; align-items: center; }
 .hero-copy { display: flex; flex-direction: column; gap: 28px; }
-.hero-h { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 80px; line-height: 1.02; letter-spacing: -0.015em; color: var(--forest); }
+.hero-h { margin: 0; font-family: var(--serif); font-weight: 400; font-size: 72px; line-height: 1.02; letter-spacing: -0.015em; color: var(--forest); white-space: nowrap; }
 .hero-h em { font-style: italic; }
 .hero-sub { font-size: 23px; color: var(--body); max-width: 38ch; }
 .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
@@ -416,7 +416,7 @@ a:hover { color: var(--forest); }
   .hero { min-height: 0; }
   .hero .wrap { padding: 0 16px 64px; gap: 40px; }
   .hero-copy { box-sizing: border-box; min-height: calc(100vh - 81px); min-height: calc(100svh - 81px); justify-content: center; padding: 24px 0; }
-  .hero-h { font-size: 44px; }
+  .hero-h { font-size: 40px; white-space: nowrap; }
   .sec-h, .showcase .sec-h, .faq .sec-h { font-size: 36px; }
   .founder blockquote { font-size: 23px; }
   .assurances .wrap { padding: 32px 16px; }
