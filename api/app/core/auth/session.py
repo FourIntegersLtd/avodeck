@@ -61,6 +61,7 @@ class Session:
     auth_access_token: str | None = field(repr=False)
     auth_refresh_token: str | None = field(repr=False)
     auth_expires_at: datetime | None
+    must_change_password: bool = False  # signed in with a temporary password from support (ADR 0024)
 
     @property
     def mfa_complete(self) -> bool:
@@ -184,13 +185,18 @@ async def store_auth_tokens(conn: AsyncConnection, session_id: uuid.UUID, auth: 
     )
 
 
-async def revoke(conn: AsyncConnection, reason: str, *, session_id: uuid.UUID | None = None) -> int:
-    """Ends one of the person's sessions, or all of them. Returns how many ended."""
+async def revoke(
+    conn: AsyncConnection, reason: str, *, session_id: uuid.UUID | None = None, keep: uuid.UUID | None = None
+) -> int:
+    """Ends one of the person's sessions, or all of them (but `keep`). Returns how many ended."""
     query = "update app.sessions set revoked_at = now(), revoked_reason = %s where revoked_at is null"
     params: tuple[object, ...] = (reason,)
     if session_id is not None:
         query += " and id = %s"
         params += (session_id,)
+    if keep is not None:
+        query += " and id <> %s"
+        params += (keep,)
     cur = await conn.execute(query, params)
     return cur.rowcount
 

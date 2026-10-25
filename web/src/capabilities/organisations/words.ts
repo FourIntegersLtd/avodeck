@@ -211,11 +211,10 @@ const WORDS = {
 
   // Support: create an account for a new person
   "accounts.title": "Create an account",
-  "accounts.intro": "For someone new to Avodeck. We email them a link to set their own password; you never see it. They set up their code the first time they sign in. The link lasts 1 hour. If it runs out, send the invite again.",
+  "accounts.intro": "For someone new to Avodeck. We make a temporary password and show it to you once. Tell it to them by phone or in person, never by email. The first time they sign in, they set up their code and choose their own password.",
   "accounts.name": "Full name",
   "accounts.email": "Email",
   "accounts.create": "Create the account",
-  "accounts.created": "We've emailed {{email}} a link to set their password. It lasts 1 hour.",
   "accounts.taken": "An account with this email already exists.",
   "accounts.check_email": "Check the email address and try again.",
   "accounts.wait": "Please wait a minute, then try again.",
@@ -224,8 +223,14 @@ const WORDS = {
   "accounts.none": "No accounts yet.",
   "accounts.status.invited": "Invited",
   "accounts.status.active": "Active",
-  "accounts.resend": "Send the invite again",
-  "accounts.resent": "We've sent the invite to {{email}} again. The new link lasts 1 hour.",
+  "accounts.renew": "Make a new temporary password",
+  "accounts.password_for": "Temporary password for {{email}}",
+  "accounts.password_title": "Temporary password",
+  "accounts.password_warning": "Write it down or copy it now. It won't be shown again. Tell it to them by phone or in person, not by email.",
+  "accounts.old_stops": "The old temporary password no longer works.",
+  "accounts.copy": "Copy the password",
+  "accounts.copied": "Copied",
+  "accounts.already_shown": "The temporary password was already shown. If it was lost, make a new one.",
   "console.accounts": "Create an account",
 
   // Support console

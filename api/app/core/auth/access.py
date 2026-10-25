@@ -154,7 +154,7 @@ class SocketCaseAccessDependency:
             session = await sessions.resolve(database, websocket.cookies.get(sessions.SESSION_COOKIE), touch=True)
         except ApiError as exc:
             raise _refuse(4401) from exc
-        if not session.mfa_complete or (self.step_up and not session.stepped_up):
+        if not session.mfa_complete or session.must_change_password or (self.step_up and not session.stepped_up):
             raise _refuse(4403)
         try:
             case = uuid.UUID(case_id)
