@@ -545,8 +545,7 @@ async def list_hearings(case_id: uuid.UUID, access: View, conn: DbConn) -> Heari
     out = [HearingOut(**r, live=_live(r)) for r in rows]
     live = [h for h in out if h.live]  # rows come ordered by starts_on
     trial = next((h for h in live if h.type == "trial"), None)
-    out.sort(key=lambda h: h.starts_on, reverse=True)
-    out.sort(key=lambda h: not h.live)
+    out.sort(key=lambda h: (h.live, h.starts_on), reverse=True)  # live first, then newest first
     return Hearings(
         hearings=out,
         next_hearing_id=live[0].id if live else None,
