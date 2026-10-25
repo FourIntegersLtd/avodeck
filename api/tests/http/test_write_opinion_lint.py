@@ -99,3 +99,41 @@ async def test_every_save_finds_the_warnings_again(
 async def test_a_clean_text_has_no_warnings(client_for: ClientFor, world: World) -> None:
     client = await client_for(world.expert)
     assert shown(await save(client, world, '"0"', "My view is that the plan [[cite:1]] was reasonable.")) == []
+
+
+async def test_the_lint_state_names_the_open_warnings_and_which_checks_passed(
+    client_for: ClientFor, world: World, combo: Combo
+) -> None:
+    client = await client_for(world.expert)
+    path = world.url(f"questions/{world.question}/opinion/lint")
+    await save(client, world, '"0"', "My view is that the plan [[cite:1]] was reasonable.")
+    clean = await client.get(path)
+    assert clean.status_code == 200 and clean.json()["open_issues"] == []
+    assert clean.json()["checks"] == [
+        {"type": t, "passed": True} for t in ("uncited_fact", "loaded_language", "outside_expertise")
+    ]
+    out = await save(client, world, '"1"', f"Review was due in 3 weeks. It was {loaded(combo)}.")
+    assert out["checks"] == [
+        {"type": "uncited_fact", "passed": False},
+        {"type": "loaded_language", "passed": False},
+        {"type": "outside_expertise", "passed": True},
+    ]
+    state = (await client.get(path)).json()
+    assert state["checks"] == out["checks"]
+    assert [i["type"] for i in state["open_issues"]] == ["uncited_fact", "loaded_language"]
+    assert state["issues"] == state["open_issues"]
+    outsider = await client_for(world.outsider)
+    assert (await outsider.get(path)).status_code == 404
+
+
+async def test_the_workspace_carries_the_checks_with_or_without_an_opinion(
+    client_for: ClientFor, world: World
+) -> None:
+    client = await client_for(world.expert)
+    path = world.url(f"questions/{world.question}/workspace")
+    first = (await client.get(path)).json()
+    assert [c["passed"] for c in first["checks"]] == [True, True, True]
+    await save(client, world, '"0"', "Review was due in 3 weeks.")
+    later = (await client.get(path)).json()
+    assert [(c["type"], c["passed"]) for c in later["checks"]][0] == ("uncited_fact", False)
+    assert later["opinion"]["checks"] == later["checks"]
