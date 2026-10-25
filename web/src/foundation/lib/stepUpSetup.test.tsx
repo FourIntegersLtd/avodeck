@@ -11,7 +11,9 @@ import { t } from "../i18n";
 import { api, unwrap } from "../platform-client";
 import { useStepUp } from "./stepUp";
 
-const revokeAll = () => unwrap(api.POST("/v1/me/sessions/revoke-all"));
+// revoke-all answers 204 (no body), so the probe returns its own value: useStepUp resolves undefined
+// only when the person cancels.
+const revokeAll = () => unwrap(api.POST("/v1/me/sessions/revoke-all")).then(() => "ok");
 
 function Probe({ wrapped }: { wrapped: boolean }) {
   const run = useStepUp();
