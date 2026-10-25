@@ -2,6 +2,14 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { stubApi } from "./helpers";
 
+test("Today shows what needs you and passes axe with colour contrast", async ({ page }) => {
+  await stubApi(page, { signedIn: true });
+  await page.goto("/today");
+  await expect(page.getByText("Mrs A · 127 pages left to read")).toBeVisible();
+  const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
+  expect(axe.violations).toEqual([]);
+});
+
 test("Cases shows the case card and passes axe with colour contrast", async ({ page }) => {
   await stubApi(page, { signedIn: true });
   await page.goto("/cases");

@@ -5746,8 +5746,6 @@ export interface components {
         };
         /** Cell */
         Cell: {
-            /** Help Form */
-            help_form: boolean;
             /** Storage Place */
             storage_place: string | null;
         };

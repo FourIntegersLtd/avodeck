@@ -74,9 +74,8 @@ async def test_it_needs_a_signed_in_person_and_csrf(seed: Seed, client_for: Clie
     assert (await no_csrf.post("/v1/help-requests", json=GOOD)).status_code == 403
 
 
-async def test_the_cell_says_a_help_form_exists_but_not_the_address(client_for: ClientFor) -> None:
+async def test_the_cell_never_gives_the_address(client_for: ClientFor) -> None:
     body = (await (await client_for(None)).get("/v1/cell")).json()
-    assert body["help_form"] is True
     assert SUPPORT not in str(body)
 
 
