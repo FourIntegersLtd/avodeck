@@ -1,7 +1,7 @@
 // Test stand-ins for slice C's screens: typed API bodies built from the generated schema, so a contract
 // change breaks these first. Imported by the setup tests only.
 import packFixtures from "../../foundation/platform-client/pack-fixtures.json";
-import type { Schemas } from "../../foundation/platform-client";
+import { api, type Schemas } from "../../foundation/platform-client";
 import { http, json, server, signedIn } from "../../test/api";
 import { CASE_A, me, PERSON_ID, PERSONAL_ORG } from "../../test/fixtures";
 
@@ -123,10 +123,21 @@ export function assumption(over: Partial<Schemas["AssumptionOut"]> = {}): Schema
   };
 }
 
+/** What the server works out from the set: the done count, the total and the cited paragraphs in order. */
 export function questions(over: Partial<Schemas["Questions"]> = {}): Schemas["Questions"] {
+  const qs = over.questions ?? [question()];
+  const as = over.assumptions ?? [assumption()];
+  const cited = [
+    ...qs.map((q) => ({ id: q.id, kind: "question" as const, para_ref: q.para_ref, text_verbatim: q.text_verbatim, outside_expertise: q.outside_expertise })),
+    ...as.map((a) => ({ id: a.id, kind: "assumption" as const, para_ref: a.para_ref, text_verbatim: a.text_verbatim, outside_expertise: false })),
+  ].filter((i): i is typeof i & { para_ref: string } => Boolean(i.para_ref));
+  cited.sort((a, b) => a.para_ref.localeCompare(b.para_ref, "en", { numeric: true }));
   return {
-    questions: [question()],
-    assumptions: [assumption()],
+    questions: qs,
+    assumptions: as,
+    confirmed_count: [...qs, ...as].filter((i) => i.status === "confirmed").length,
+    total: qs.length + as.length,
+    letter: cited,
     locked: false,
     reading: false,
     read_failed: false,
@@ -149,4 +160,22 @@ export function note(topic: Schemas["NoteDraft"]["topic"], over: Partial<Schemas
     recipients: [{ id: "d1111111-1111-4111-8111-111111111111", name: "Ms Rees", firm: "Rees & Co", email: null, type_key: "lawyer" }],
     ...over,
   };
+}
+
+/** After a change is saved the screen asks again: the server's next answer carries the changed items. */
+export function nowAsked(over: Partial<Schemas["Questions"]>): void {
+  server.use(http.get("/v1/cases/:caseId/questions", () => json(questions(over))));
+}
+
+/** What the server says is still to do on the profile, worked out from the other mocked endpoints. */
+export async function missingSteps(about: boolean): Promise<string[]> {
+  const some = async (path: "/v1/me/roles" | "/v1/me/training") => ((await api.GET(path)).data ?? []).length > 0;
+  const flags = [
+    about,
+    await some("/v1/me/roles"),
+    await some("/v1/me/training"),
+    (await api.GET("/v1/me/template")).response.ok,
+    (await api.GET("/v1/me/signature/image", { parseAs: "blob" })).response.ok,
+  ];
+  return ["about", "roles", "training", "template", "signature"].filter((_, i) => !flags[i]);
 }

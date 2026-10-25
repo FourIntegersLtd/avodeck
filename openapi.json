@@ -8323,6 +8323,45 @@
         "title": "LatestOut",
         "type": "object"
       },
+      "LetterItem": {
+        "description": "A cited paragraph of the letter, ready to show: the words the question or assumption came from.",
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "question",
+              "assumption"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "outside_expertise": {
+            "default": false,
+            "title": "Outside Expertise",
+            "type": "boolean"
+          },
+          "para_ref": {
+            "title": "Para Ref",
+            "type": "string"
+          },
+          "text_verbatim": {
+            "title": "Text Verbatim",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "para_ref",
+          "text_verbatim"
+        ],
+        "title": "LetterItem",
+        "type": "object"
+      },
       "LinkDecision": {
         "properties": {
           "status": {
@@ -13710,6 +13749,14 @@
             ],
             "title": "Hourly Rate"
           },
+          "missing_steps": {
+            "description": "Onboarding steps still to do, in order: about, roles, training, template, signature.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing Steps",
+            "type": "array"
+          },
           "profession": {
             "anyOf": [
               {
@@ -13766,7 +13813,8 @@
           "hourly_rate",
           "currency",
           "default_retention",
-          "default_jurisdiction"
+          "default_jurisdiction",
+          "missing_steps"
         ],
         "title": "Profile",
         "type": "object"
@@ -14343,6 +14391,11 @@
             "title": "Assumptions",
             "type": "array"
           },
+          "confirmed_count": {
+            "description": "Questions and assumptions confirmed, of `total`.",
+            "title": "Confirmed Count",
+            "type": "integer"
+          },
           "instruction_version_id": {
             "anyOf": [
               {
@@ -14354,6 +14407,14 @@
               }
             ],
             "title": "Instruction Version Id"
+          },
+          "letter": {
+            "description": "Items that cite a paragraph, in paragraph order (numbers count as numbers).",
+            "items": {
+              "$ref": "#/components/schemas/LetterItem"
+            },
+            "title": "Letter",
+            "type": "array"
           },
           "locked": {
             "title": "Locked",
@@ -14387,6 +14448,11 @@
             "title": "Reopened",
             "type": "boolean"
           },
+          "total": {
+            "description": "All questions and assumptions in the set, whatever `answerable` says.",
+            "title": "Total",
+            "type": "integer"
+          },
           "version_no": {
             "anyOf": [
               {
@@ -14416,7 +14482,10 @@
           "rejected",
           "warnings",
           "questions",
-          "assumptions"
+          "assumptions",
+          "confirmed_count",
+          "total",
+          "letter"
         ],
         "title": "Questions",
         "type": "object"
@@ -26659,6 +26728,18 @@
               "title": "Case Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only the versions that have their file attached.",
+            "in": "query",
+            "name": "letters_only",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the versions that have their file attached.",
+              "title": "Letters Only",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -30765,6 +30846,18 @@
               "title": "Case Id",
               "type": "string"
             }
+          },
+          {
+            "description": "Only the suggestions still waiting for the expert.",
+            "in": "query",
+            "name": "open",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the suggestions still waiting for the expert.",
+              "title": "Open",
+              "type": "boolean"
+            }
           }
         ],
         "responses": {
@@ -31208,6 +31301,18 @@
               "format": "uuid",
               "title": "Case Id",
               "type": "string"
+            }
+          },
+          {
+            "description": "Only the questions the expert has confirmed or edited, in number order.",
+            "in": "query",
+            "name": "answerable",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only the questions the expert has confirmed or edited, in number order.",
+              "title": "Answerable",
+              "type": "boolean"
             }
           }
         ],

@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { assumption, casePack, inCase, launchWords, note, question, questions, type PackRun } from "./testing";
+import { assumption, casePack, inCase, launchWords, note, nowAsked, question, questions, type PackRun } from "./testing";
 
 type Over = Parameters<typeof questions>[0];
 
@@ -44,7 +44,9 @@ test("confirming a question sends the version you saw", async () => {
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       sent = { body: await request.json(), ifMatch: request.headers.get("if-match") };
-      return HttpResponse.json(question({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ status: "confirmed", version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);
@@ -60,7 +62,9 @@ test("changing the wording keeps the letter's own words on show", async () => {
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       sent = await request.json();
-      return HttpResponse.json(question({ confirmed_text: "Were the February results acted on?", version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ confirmed_text: "Were the February results acted on?", version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
   );
   const { user } = renderAt(`/cases/${CASE_A}/questions`);
@@ -83,7 +87,9 @@ test("a question outside your field can be flagged, and a note drafted about it"
   server.use(
     http.patch("/v1/cases/:caseId/questions/:id", async ({ request }) => {
       flagged = await request.json();
-      return HttpResponse.json(question({ outside_expertise: true, version: 2 }), { headers: { etag: '"2"' } });
+      const next = question({ outside_expertise: true, version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
     }),
     http.post("/v1/cases/:caseId/instructing-party-notes/draft", async ({ request }) => {
       drafted = await request.json();
@@ -141,8 +147,16 @@ test("confirm questions stays off until every question and assumption is confirm
   expect(button).toBeDisabled();
   expect(screen.getByText(/Confirm the last 2 to continue/)).toBeInTheDocument();
   server.use(
-    http.patch("/v1/cases/:caseId/questions/:id", () => HttpResponse.json(question({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } })),
-    http.patch("/v1/cases/:caseId/assumptions/:id", () => HttpResponse.json(assumption({ status: "confirmed", version: 2 }), { headers: { etag: '"2"' } })),
+    http.patch("/v1/cases/:caseId/questions/:id", () => {
+      const next = question({ status: "confirmed", version: 2 });
+      nowAsked({ questions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
+    }),
+    http.patch("/v1/cases/:caseId/assumptions/:id", () => {
+      const next = assumption({ status: "confirmed", version: 2 });
+      nowAsked({ questions: [question({ status: "confirmed", version: 2 })], assumptions: [next] });
+      return HttpResponse.json(next, { headers: { etag: '"2"' } });
+    }),
   );
   await user.click(within(screen.getByRole("article", { name: "Question 1" })).getByRole("button", { name: "Confirm" }));
   await user.click(within(screen.getByRole("article", { name: "Assumption 1" })).getByRole("button", { name: "Confirm" }));

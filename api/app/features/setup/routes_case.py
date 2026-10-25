@@ -12,7 +12,7 @@ import uuid
 from datetime import date, datetime, timedelta
 from typing import Annotated, Any, Literal
 
-from fastapi import Depends, Request, Response
+from fastapi import Depends, Query, Request, Response
 from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -538,15 +538,19 @@ async def _new_version(
 
 @router.get("/cases/{case_id}/instructions", response_model=list[Instruction])
 async def list_instructions(
-    case_id: uuid.UUID, access: ViewContent, conn: DbConn, request: Request
+    case_id: uuid.UUID,
+    access: ViewContent,
+    conn: DbConn,
+    request: Request,
+    letters_only: Annotated[bool, Query(description="Only the versions that have their file attached.")] = False,
 ) -> list[Instruction]:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
             "select v.id, v.version_no, v.kind, v.document_id, coalesce(i.received_on, v.received_on) as received_on,"
             " v.locked_at is not null as locked, i.text, i.source from app.instruction_versions v"
             " left join app.case_instructions i on i.instruction_version_id = v.id"
-            " where v.case_id = %s order by v.version_no",
-            (case_id,),
+            " where v.case_id = %s and (not %s or v.document_id is not null) order by v.version_no",
+            (case_id, letters_only),
         )
         rows = await cur.fetchall()
     crypto: CaseCrypto | None = request.app.state.crypto

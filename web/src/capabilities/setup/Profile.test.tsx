@@ -6,7 +6,7 @@ import { describe, expect, test } from "vitest";
 import { http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { me } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { casePack, combination, jurisdiction, launchWords, type PackRun } from "./testing";
+import { casePack, combination, jurisdiction, launchWords, type PackRun, missingSteps } from "./testing";
 
 const ROLE = "e1111111-1111-4111-8111-111111111111";
 const TEMPLATE = {
@@ -32,7 +32,7 @@ function profile(run: PackRun, opts: { template?: boolean } = {}) {
   const j = jurisdiction(run);
   signedIn({ me: me(), pack });
   server.use(
-    http.get("/v1/me/profile", () =>
+    http.get("/v1/me/profile", async () =>
       withTag({
         full_name: "Dr Jane Morgan",
         profession: pack.profession,
@@ -43,6 +43,7 @@ function profile(run: PackRun, opts: { template?: boolean } = {}) {
         default_retention: null,
         hourly_rate: null,
         currency: null,
+        missing_steps: await missingSteps(true),
       }),
     ),
     http.get("/v1/packs", () => json([combination(run)])),

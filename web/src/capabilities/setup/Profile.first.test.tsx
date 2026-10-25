@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 import { http, HttpResponse, json, server, signedIn } from "../../test/api";
 import { me } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { casePack, combination, jurisdiction } from "./testing";
+import { casePack, combination, jurisdiction, missingSteps } from "./testing";
 
 const missing = () => HttpResponse.json({ error: { code: "not_found" } }, { status: 404 });
 
@@ -13,9 +13,9 @@ function openEmpty() {
   const pack = casePack("launch");
   signedIn({ me: me(), pack });
   server.use(
-    http.get("/v1/me/profile", () =>
+    http.get("/v1/me/profile", async () =>
       HttpResponse.json(
-        { full_name: "", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "", specialties: [], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null },
+        { full_name: "", profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "", specialties: [], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null, missing_steps: await missingSteps(false) },
         { headers: { etag: '"1"' } },
       ),
     ),

@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
+from fastapi import Query
 from psycopg.rows import dict_row
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -73,12 +74,18 @@ async def start_prefill(case_id: uuid.UUID, access: EditSetup, conn: DbConn) -> 
 
 
 @router.get("/cases/{case_id}/prefill", response_model=Prefill)
-async def get_prefill(case_id: uuid.UUID, access: ViewContent, conn: DbConn, crypto: Crypto) -> Prefill:
+async def get_prefill(
+    case_id: uuid.UUID,
+    access: ViewContent,
+    conn: DbConn,
+    crypto: Crypto,
+    open: Annotated[bool, Query(description="Only the suggestions still waiting for the expert.")] = False,  # noqa: A002
+) -> Prefill:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
             f"select {_COLUMNS} from app.prefill_suggestions where case_id = %s"  # noqa: S608
-            " order by array_position(%s::text[], field), created_at, id",
-            (case_id, list(PREFILL_FIELDS)),
+            " and (not %s or status = 'suggested') order by array_position(%s::text[], field), created_at, id",
+            (case_id, open, list(PREFILL_FIELDS)),
         )
         rows = await cur.fetchall()
     cur2 = await conn.execute(
