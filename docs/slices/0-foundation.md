@@ -3,7 +3,7 @@
 Owner: the founder (with one Claude session) · branch `slice/0-foundation` · Phase: before all slices · Migrations 0000–0099 · Estimate 4–6 weeks part-time, in two stages
 
 ## Goal
-A deployed, empty Avodeck that an expert can sign in to with MFA, create a case and upload a bundle, with every shared piece and safety rule in place so slices A–I and O can be built in parallel.
+A deployed, empty Avodeck that an expert can sign in to (password, then MFA at risky actions, ADR 0025), create a case and upload a bundle, with every shared piece and safety rule in place so slices A–I and O can be built in parallel.
 
 ## Two stages
 
@@ -210,7 +210,7 @@ Acceptance tests that need a cloud service are written in stage 1 against the st
 
 **Features:**
 - [x] Sign-in sets an httpOnly, Secure, SameSite=Strict cookie and never returns a token in the body
-- [x] First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified
+- [x] ~~First sign-in requires MFA enrolment; sign-in returns `mfa_required` until the code is verified~~ Superseded by ADR 0025 (2026-10-25): sign-in is password only (`signed_in` at `aal1`); a risky action answers 403 `mfa_required` (`mfa_enrolled` false: set up; true: enter a code) or `step_up_required`, and the web step-up prompt sets up the authenticator, shows the backup codes once and carries on (failure mode F41)
 - [x] Session expires after 30 minutes of inactivity; sign-in success and failure are written to `audit_log`
 - [x] Password reset responds the same whether or not the email exists, and revokes all sessions
 - [x] A 300 MB PDF uploads in 8 MB chunks, resumes after a dropped chunk, and is stored with a matching SHA-256

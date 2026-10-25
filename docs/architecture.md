@@ -440,7 +440,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 
 | Method | Path | Does | Notes |
 |---|---|---|---|
-| POST | `/auth/sign-in` | `{email, password, captcha}` → Supabase Auth → sets httpOnly session cookie | Rate-limited; returns `mfa_required` if MFA not yet completed |
+| POST | `/auth/sign-in` | `{email, password, captcha}` → Supabase Auth → sets httpOnly session cookie | Rate-limited; the password alone signs in (`status: signed_in`, `mfa_enrolled`) at `aal1`; the code is asked for at risky actions (ADR 0025) |
 | POST | `/auth/mfa/enroll` | Starts TOTP enrolment; returns QR code | First login |
 | POST | `/auth/mfa/verify` | `{code}` → session upgraded to `aal2` | Also used for step-up before 🔒 actions |
 | POST | `/auth/sign-out` | Revokes Supabase session, clears cookie | |
@@ -833,10 +833,10 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | POST | `/cases/{case_id}/support-access` | Named expert grants support 24-hour access to one case | 🔒; shown on the case |
 | DELETE | `/cases/{case_id}/support-access/{grant_id}` | Revoke | |
 | GET | `/cases/{case_id}/support-access` | The case's support grants and whether each is active now | Anyone who can see the case |
-| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA completed at sign-in for this session (ADR 0020) |
+| GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA completed in this session (ADR 0020, 0025) |
 | GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants, and where it is stuck (jobs, pages, suggestions, questions, report, close, offline copies, named expert changes, deadlines) in counts and codes only; the look is audited on the case | Support staff, as above |
 | POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
-| GET | `/support/accounts` | Accounts support created, with `invited` / `active` | Support staff, MFA completed at sign-in (ADR 0020) |
+| GET | `/support/accounts` | Accounts support created, with `invited` / `active` | Support staff, MFA completed in this session (ADR 0020, 0025) |
 | POST | `/support/accounts` | Create an account for a new person `{full_name, email}` (any other field 422; support adds nobody to a team): Supabase Auth login with a temporary password made by FastAPI (ADR 0024), `people` row (`must_change_password`) and own practice, and, when the cell has mail, after commit the set-password email (`account.created`: the link and that it lasts 1 hour, never the password); answers the account with `temporary_password` once (`no-store`; a repeat with the same key answers `temporary_password: null`, `password_shown: true`); any failure after the login is made deletes it; `Idempotency-Key` required | Support staff (no fresh MFA, ADR 0023); 409 `conflict` for an email that already has an account, 422 `invalid_email` for one Auth will not take; 429 `too_many_attempts` after 20 an hour, refused attempts counted (audited `support.account_refused`, a transaction of its own) and creates queued on the staff member's lock; audited `support.account_created` |
 | POST | `/support/accounts/{account_id}/temporary-password` | New temporary password, shown once like the first, for an account still `invited`; the old one stops working and the person is signed out everywhere; no email | Support staff; `Idempotency-Key`; 429 `sent_recently` within a minute; 409 once `active`; audited `support.account_password_renewed` |
 | POST | `/support/jobs/{job_id}/resume` | Put a paused job back on the queue (the worker moves it paused → running); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_resume`; audited `support.job_resumed` on the case; 409 `job_not_paused`, `case_on_hold` |
@@ -1179,7 +1179,7 @@ At every gate (before the MVP, each phase, each new country or specialty) run th
 
 ## 9. Security and compliance requirements that change the code
 
-- **Login:** MFA mandatory; session in an httpOnly, Secure, SameSite=Strict cookie; CSRF token on state changes; 30-minute inactivity timeout; sign-ins logged.
+- **Login:** password only (ADR 0025); every expert sets up MFA, asked for at the first risky action, and rule 10 step-up (`aal2` in the last 10 minutes) guards sign, send, export, delete and retention changes; a risky action from a session without a code answers 403 `mfa_required` (`mfa_enrolled` says whether to set it up) and after 10 minutes 403 `step_up_required`; session in an httpOnly, Secure, SameSite=Strict cookie; CSRF token on state changes; 30-minute inactivity timeout; sign-ins logged.
 - **Cloud credentials:** App Platform can't assume AWS IAM roles, so each service (api, worker, deletion job) has its own narrowly scoped IAM user: Bedrock invoke on the named London model ARNs only, KMS on the cell key only, every request restricted to eu-west-2 by policy condition. Keys live in App Platform encrypted environment variables, are rotated every 90 days, and CloudTrail alerts on any use outside eu-west-2 or any new key creation. Moving to IAM Roles Anywhere (short-lived certificate-based credentials) is in `docs/decisions/deferred.md`.
 - **Data:** encryption at rest (Supabase) plus per-case envelope keys for page text and images, wrapped by AWS KMS London (ADR 0010), so deletion can crypto-shred. Slices call `core/crypto.py` only.
 - **Status changes:** only those in `docs/spec/state-machines.md`, enforced in services and by database triggers.

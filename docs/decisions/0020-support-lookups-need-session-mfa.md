@@ -14,4 +14,6 @@ Date: 2026-10-24 · Status: accepted, partly superseded by ADR 0023 (no support 
 - Metadata only: the console never shows case content, names or page text; content needs a live grant from the named expert.
 - Every lookup is audited (`support.case_looked_up` on the case's audit trail).
 - MFA completed for the session at sign-in; idle 30 minutes and 12 hours at most, then sign in again.
+
+**Amendment (2026-10-25, ADR 0025).** Sign-in is password only, so the session MFA these gates need is no longer met at sign-in. It is met the first time a support call answers 403 `mfa_required`: the web app asks for the code, or sets the authenticator up, and sends the call again. The gates themselves (`check_session_mfa`) are unchanged, and still need no fresh code (ADR 0023).
 - `api/tests/guards/test_foundation_support_access.py` scans the route table: every `GET` support route uses the lookup gate, and every other support route needs the 10-minute step-up. (Superseded by ADR 0023: no support route asks for step-up.)

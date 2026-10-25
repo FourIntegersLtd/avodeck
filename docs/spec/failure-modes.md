@@ -44,5 +44,6 @@ What happens when things go wrong, so the code handles each case on purpose. Pri
 | F38 | Support needs to see a case | Support request | Metadata only unless the named expert grants access | Grant shown on the case and in its audit trail | O |
 | F39 | Someone guesses or replays authenticator codes | `mfa_attempts` | 5 wrong codes in 15 minutes lock MFA (429) on every device; a code already accepted is refused; a recovery code signs out every other device | "Too many tries. Wait 15 minutes and try again." | Foundation |
 | F40 | A stored file part is missing, moved or changed | Chunk sealed to its own path; whole-file SHA-256 re-checked while downloading | Download stops with an error; never sends a different file | "We couldn't open this file. Please contact support." | Foundation |
+| F41 | A risky action from a session with no code yet (sign-in is password only, ADR 0025) | 403 `mfa_required` with `mfa_enrolled` | Nothing is done; the web app asks for the code, or sets the authenticator up and shows the backup codes once, then sends the action again; cancelling changes nothing | "Set up the code on your phone" or "Please enter your code"; on cancel "Nothing was changed. You need your security code to do this." | Foundation |
 
 Each row becomes at least one test in the owning slice. F5, F6, F10, F11, F24 and F28 are tested in `api/tests/guards/`.
