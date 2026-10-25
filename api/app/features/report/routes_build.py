@@ -41,6 +41,7 @@ from app.features.report.common import (
     Storage,
     View,
     invalid,
+    is_served,
     not_found,
     refuse_if_served,
 )
@@ -81,6 +82,8 @@ class ChecklistItem(BaseModel):
 class Checklist(BaseModel):
     rule_ref: str
     items: list[ChecklistItem]
+    done: int = 0
+    total: int = 0
 
 
 class ReportOut(BaseModel):
@@ -89,6 +92,7 @@ class ReportOut(BaseModel):
     sections: list[SectionOut]
     checklist: Checklist
     court_track_label: str | None = None
+    locked: bool = False
 
 
 class SettingsOut(BaseModel):
@@ -178,8 +182,13 @@ async def report(case_id: uuid.UUID, access: View, conn: DbConn, pack: Pack, cry
         version.title = f"{report_name}: {label}" if report_name and label else version.display_name
     tracks = pack.vocabulary.get("court_tracks")
     track_label = (tracks.get(track) if isinstance(tracks, dict) else None) or track
+    items = [
+        ChecklistItem(key=i["key"], text=i.get("text"), text_key=i.get("text_key"), done=i["key"] in addressed)
+        for i in checklist["items"]
+    ]
     return ReportOut(
         court_track_label=track_label,
+        locked=await is_served(conn, case_id),
         version=versions[0] if versions else None,
         versions=versions,
         sections=[
@@ -194,10 +203,9 @@ async def report(case_id: uuid.UUID, access: View, conn: DbConn, pack: Pack, cry
         ],
         checklist=Checklist(
             rule_ref=str(checklist["rule_ref"]),
-            items=[
-                ChecklistItem(key=i["key"], text=i.get("text"), text_key=i.get("text_key"), done=i["key"] in addressed)
-                for i in checklist["items"]
-            ],
+            items=items,
+            done=sum(1 for i in items if i.done),
+            total=len(items),
         ),
     )
 

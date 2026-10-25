@@ -429,7 +429,16 @@ async def test_the_report_says_whether_it_is_locked_and_counts_its_checklist(
     assert body["checklist"]["total"] == len(items)
     assert body["checklist"]["done"] == sum(1 for i in items if i["done"])
 
-    admin.execute("update app.report_versions set status = 'served' where case_id = %s", (world.case,))
+    for status in ("locked", "served"):
+        admin.execute(
+            "update app.report_versions set status = %s, sha256 = coalesce(sha256, repeat('a', 64)) where case_id = %s",
+            (status, world.case),
+        )
+        assert (await client.get(world.url("report"))).json()["locked"] is (status == "served")
     assert (await client.get(world.url("report"))).json()["locked"] is True
-    admin.execute("update app.report_versions set status = 'withdrawn' where case_id = %s", (world.case,))
+    admin.execute(
+        "update app.report_versions set status = 'withdrawn', withdrawn_reason = 'factual_error',"
+        " withdrawn_at = now() where case_id = %s",
+        (world.case,),
+    )
     assert (await client.get(world.url("report"))).json()["locked"] is True

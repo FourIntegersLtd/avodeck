@@ -67,6 +67,11 @@ class FinalCheckOut(BaseModel):
     warnings_status: str
     pack_versions: dict[str, str]
     declaration_changed: bool
+    failed: list[CheckResult] = []
+    not_run: list[CheckResult] = []
+    passed_checks: list[CheckResult] = []
+    failed_count: int = 0
+    ready: bool = False
 
 
 class Acknowledged(BaseModel):
@@ -122,13 +127,20 @@ async def latest_final_check(
         if words:
             shown.append(Warning(**{k: v for k, v in w.items() if k not in ("start", "end")}, words=words))
     acknowledged = await _acknowledged(conn, case_id)
+    checks = [CheckResult.model_validate(r) for r in results]
+    current = newest is not None and newest[0] == version_id
     return FinalCheckOut(
         id=run_id,
         report_version_id=version_id,
         at=at,
         passed=passed,
-        current=newest is not None and newest[0] == version_id,
-        results=[CheckResult.model_validate(r) for r in results],
+        current=current,
+        results=checks,
+        failed=[c for c in checks if c.outcome == "failed"],
+        not_run=[c for c in checks if c.outcome == "not_run"],
+        passed_checks=[c for c in checks if c.outcome == "passed"],
+        failed_count=sum(1 for c in checks if c.outcome == "failed"),
+        ready=bool(passed) and current,
         warnings=shown,
         warnings_status=status,
         pack_versions=versions,
