@@ -1,6 +1,6 @@
 // S03 Today: what needs the expert now (NeedsYouItem rows slices produce) and their open cases.
-import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { formatDay, formatDue, hasMessage, hourIn, humanise, t } from "../../foundation/i18n";
 import { GLYPHS, needsYouIcon, type Glyph } from "../../foundation/lib/needsYouIcons";
 import { partyLine } from "../../foundation/lib/pack";
@@ -8,10 +8,17 @@ import { hasScreen, screenPath } from "../../foundation/lib/screens";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { IconTile, LinkButton, LoadError, Loading, ProgressRing, SegmentedControl, stepLabel } from "../../foundation/ui";
+import { IconTile, LinkButton, LoadError, Loading, ProgressRing, SegmentedControl, stepLabel, TextField } from "../../foundation/ui";
 
 type CasePack = Schemas["CasePack"];
 type CaseCard = Schemas["CaseCard"];
+
+function withParam(p: URLSearchParams, key: string, value: string) {
+  const next = new URLSearchParams(p);
+  if (value) next.set(key, value);
+  else next.delete(key);
+  return next;
+}
 
 function greetingKey(hour: number) {
   return hour < 12 ? "today.greeting.morning" : hour < 18 ? "today.greeting.afternoon" : "today.greeting.evening";
@@ -36,9 +43,23 @@ function usePacks(cases: CaseCard[] | undefined) {
 
 export function Today() {
   const { me } = useSession();
-  const today = useResource(() => unwrap(api.GET("/v1/today")), [], { cache: "today/Today#Today:today" });
+  // The server searches and filters; the address holds what was asked so a reload or a link keeps it.
+  const [params, setParams] = useSearchParams();
+  const org = params.get("organisation_id");
+  const q = params.get("q") ?? "";
+  const [typed, setTyped] = useState(q);
+  useEffect(() => {
+    if (typed === q) return;
+    const wait = setTimeout(() => setParams((p) => withParam(p, "q", typed), { replace: true }), 250);
+    return () => clearTimeout(wait);
+  }, [typed, q, setParams]);
+  const setOrg = (next: string | null) => setParams((p) => withParam(p, "organisation_id", next ?? ""), { replace: true });
+  const today = useResource(
+    () => unwrap(api.GET("/v1/today", { params: { query: { ...(org ? { organisation_id: org } : {}), ...(q ? { q } : {}) } } })),
+    [org, q],
+    { cache: "today/Today#Today:today" },
+  );
   const packs = usePacks(today.data?.cases);
-  const [org, setOrg] = useState<string | null>(null);
   const hasNeeds = (today.data?.needs_you.length ?? 0) > 0;
   const name = me.person.greeting_name || me.person.full_name || me.person.email;
   const locale = me.person.locale;
@@ -64,7 +85,7 @@ export function Today() {
       {today.data && (
         <>
           <NeedsYou items={today.data.needs_you} cases={today.data.cases} />
-          <Cases data={today.data} packs={packs.data} locale={locale} org={org} setOrg={setOrg} />
+          <Cases data={today.data} packs={packs.data} locale={locale} org={org} setOrg={setOrg} typed={typed} setTyped={setTyped} />
           <BalanceFooter packs={packs.data} />
         </>
       )}
@@ -90,7 +111,7 @@ function BalanceFooter({ packs }: { packs: Map<string, CasePack> | undefined }) 
 }
 
 function NeedsYou({ items, cases }: { items: Schemas["NeedsYouItem"][]; cases: CaseCard[] }) {
-  const ranked = [...items].sort((a, b) => a.rank - b.rank);
+  const ranked = items; // the API already ranks them
   const label = (id: string) => cases.find((c) => c.case_id === id)?.label ?? "";
   return (
     <section aria-labelledby="needs-you" className="av-section">
@@ -153,10 +174,12 @@ interface CasesProps {
   locale: string | null | undefined;
   org: string | null;
   setOrg: (org: string | null) => void;
+  typed: string;
+  setTyped: (q: string) => void;
 }
 
-function Cases({ data, packs, locale, org, setOrg }: CasesProps) {
-  const shown = org ? data.cases.filter((c) => c.organisation_id === org) : data.cases;
+function Cases({ data, packs, locale, org, setOrg, typed, setTyped }: CasesProps) {
+  const shown = data.cases;
   const orgName = (o: Schemas["TodayOrganisation"]) => (o.kind === "personal" ? t("today.filter.personal") : o.name);
   return (
     <section aria-labelledby="your-cases" className="av-section">
@@ -168,13 +191,14 @@ function Cases({ data, packs, locale, org, setOrg }: CasesProps) {
             value={org ?? "all"}
             onChange={(v) => setOrg(v === "all" ? null : v)}
             options={[
-              { value: "all", label: t("today.filter.option", { name: t("today.filter.all"), count: data.cases.length }) },
-              ...data.organisations.map((o) => ({ value: o.id, label: t("today.filter.option", { name: orgName(o), count: data.cases.filter((c) => c.organisation_id === o.id).length }) })),
+              { value: "all", label: t("today.filter.option", { name: t("today.filter.all"), count: data.organisations.reduce((n, o) => n + o.open_count, 0) }) },
+              ...data.organisations.map((o) => ({ value: o.id, label: t("today.filter.option", { name: orgName(o), count: o.open_count }) })),
             ]}
           />
         )}
-        <p className="av-muted">{t("today.cases.counts", { open: shown.length, closed: data.closed_count })}</p>
+        <p className="av-muted">{t("today.cases.counts", { open: data.open_count, closed: data.closed_count })}</p>
       </div>
+      <TextField type="search" name="q" label={t("today.search.label")} value={typed} onChange={(e) => setTyped(e.target.value)} maxLength={200} />
       {shown.length === 0 ? (
         <p>{t("today.cases.none")}</p>
       ) : (

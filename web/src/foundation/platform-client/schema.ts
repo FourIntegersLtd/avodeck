@@ -11515,8 +11515,12 @@ export interface components {
             cases: components["schemas"]["CaseCard"][];
             /** Closed Count */
             closed_count: number;
+            /** Due This Month */
+            due_this_month: number;
             /** Needs You */
             needs_you: components["schemas"]["NeedsYouItem"][];
+            /** Open Count */
+            open_count: number;
             /** Organisations */
             organisations: components["schemas"]["TodayOrganisation"][];
         };
@@ -11531,6 +11535,8 @@ export interface components {
             kind: string;
             /** Name */
             name: string;
+            /** Open Count */
+            open_count: number;
         };
         /** Training */
         Training: {
@@ -25040,6 +25046,7 @@ export interface operations {
         parameters: {
             query?: {
                 organisation_id?: string | null;
+                q?: string | null;
             };
             header?: never;
             path?: never;

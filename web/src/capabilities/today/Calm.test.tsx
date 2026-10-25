@@ -14,7 +14,7 @@ beforeAll(() => {
 });
 
 const full = today({
-  cases: [caseCard({ case_id: CASE_A, label: "Mrs A" }), caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_name: "Northgate", organisation_kind: "team", open_count: 1 })],
+  cases: [caseCard({ case_id: CASE_A, label: "Mrs A" }), caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_name: "Northgate", organisation_kind: "team" })],
   organisations: [
     { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 1 },
     { id: TEAM_ORG, name: "Northgate", kind: "team", open_count: 1 },

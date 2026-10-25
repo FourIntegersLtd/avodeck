@@ -3,7 +3,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, expect, test } from "vitest";
 import { registerScreen } from "../../foundation/lib/screens";
 import { registerMessages } from "../../foundation/i18n";
-import { signedIn } from "../../test/api";
+import { http, json, server, signedIn } from "../../test/api";
 import { CASE_A, CASE_B, caseCard, launchPack, me, PERSONAL_ORG, TEAM_ORG, today } from "../../test/fixtures";
 
 // Party words come from the pack (rule 11), so this file names none itself.
@@ -31,8 +31,8 @@ const twoOrgs = today({
   ],
   closed_count: 23,
   needs_you: [
-    { kind: "pages_to_read", case_id: CASE_A, rank: 20, label_key: "example.unread.label", action_key: "example.unread.action", screen: "example_reader", count: 127, minutes: 40, due_at: null, params: {} },
     { kind: "unknown_thing", case_id: CASE_B, rank: 10, label_key: "nobody.registered.this", action_key: "nobody.registered.action", screen: "nowhere", count: null, minutes: null, due_at: null, params: {} },
+    { kind: "pages_to_read", case_id: CASE_A, rank: 20, label_key: "example.unread.label", action_key: "example.unread.action", screen: "example_reader", count: 127, minutes: 40, due_at: null, params: {} },
   ],
 });
 
@@ -73,12 +73,21 @@ test("case cards show the step, party, due date, organisation badge and counts",
   expect(screen.getByText("2 open · 23 closed")).toBeInTheDocument();
 });
 
-test("the organisation filter narrows the cards", async () => {
+test("the organisation filter asks the server, which sends only that organisation's cases", async () => {
   signedIn({ today: twoOrgs });
+  const asked: Array<string | null> = [];
+  server.use(
+    http.get("/v1/today", ({ request }) => {
+      const org = new URL(request.url).searchParams.get("organisation_id");
+      asked.push(org);
+      return json(org ? { ...twoOrgs, cases: twoOrgs.cases.filter((c) => c.organisation_id === org), open_count: 1 } : twoOrgs);
+    }),
+  );
   const { user } = renderAt("/today");
   const filter = await screen.findByRole("group", { name: "Show cases for" });
   expect(within(filter).getByRole("button", { name: "All · 2" })).toHaveAttribute("aria-pressed", "true");
   await user.click(within(filter).getByRole("button", { name: "My practice · 1" }));
+  await waitFor(() => expect(asked).toContain(PERSONAL_ORG));
   await waitFor(() => expect(screen.queryByRole("link", { name: /Ms C/ })).toBeNull());
   expect(screen.getByRole("link", { name: /Mrs A/ })).toBeInTheDocument();
 });

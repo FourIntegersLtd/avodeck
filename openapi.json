@@ -18720,12 +18720,20 @@
             "title": "Closed Count",
             "type": "integer"
           },
+          "due_this_month": {
+            "title": "Due This Month",
+            "type": "integer"
+          },
           "needs_you": {
             "items": {
               "$ref": "#/components/schemas/NeedsYouItem"
             },
             "title": "Needs You",
             "type": "array"
+          },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
           },
           "organisations": {
             "items": {
@@ -18739,7 +18747,9 @@
           "cases",
           "needs_you",
           "organisations",
-          "closed_count"
+          "closed_count",
+          "open_count",
+          "due_this_month"
         ],
         "title": "Today",
         "type": "object"
@@ -18758,12 +18768,17 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "open_count": {
+            "title": "Open Count",
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "name",
-          "kind"
+          "kind",
+          "open_count"
         ],
         "title": "TodayOrganisation",
         "type": "object"
@@ -39417,6 +39432,23 @@
                 }
               ],
               "title": "Organisation Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Q"
             }
           }
         ],

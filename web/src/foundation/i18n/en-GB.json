@@ -147,6 +147,7 @@
   "today.cases.counts": "{{open}} open · {{closed}} closed",
   "today.cases.none": "You have no open cases.",
   "today.cases.new": "New case",
+  "today.search.label": "Search your cases",
   "today.filter.label": "Show cases for",
   "today.filter.all": "All",
   "today.filter.personal": "My practice",
