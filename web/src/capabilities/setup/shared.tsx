@@ -112,9 +112,9 @@ export function Select({ label, options, ...select }: { label: string; options: 
  * A section with a level-2 heading that names it (a landmark the tests and screen readers can find).
  * `mark` sits before the heading (a tick when the part is done) and `action` at the right of it.
  */
-export function Section({ id, title, intro, mark, action, children }: { id: string; title: string; intro?: string; mark?: ReactNode; action?: ReactNode; children: ReactNode }) {
+export function Section({ id, title, intro, mark, action, current, children }: { id: string; title: string; intro?: string; mark?: ReactNode; action?: ReactNode; current?: boolean; children: ReactNode }) {
   return (
-    <section aria-labelledby={id} className="av-card av-stack">
+    <section aria-labelledby={id} aria-current={current ? "step" : undefined} className={`av-card av-stack${current ? " av-setup-current" : ""}`}>
       <div className="av-stack av-setup-sechead">
         <div className="av-row av-row--spread">
           <div className="av-row">
@@ -127,6 +127,19 @@ export function Section({ id, title, intro, mark, action, children }: { id: stri
       </div>
       {children}
     </section>
+  );
+}
+
+/** A dashed box that explains an empty part in plain words, with one secondary button to start it. */
+export function EmptyBox({ title, text, children }: { title: string; text: string; children: ReactNode }) {
+  return (
+    <div className="av-setup-empty">
+      <div className="av-setup-empty__text">
+        <strong>{title}</strong>
+        <p className="av-muted">{text}</p>
+      </div>
+      {children}
+    </div>
   );
 }
 

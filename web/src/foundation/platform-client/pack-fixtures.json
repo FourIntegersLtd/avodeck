@@ -414,6 +414,7 @@
           ],
           "screens": [
             "new_case",
+            "case_details",
             "preparing",
             "bundle_ready"
           ]
@@ -1459,6 +1460,7 @@
           ],
           "screens": [
             "new_case",
+            "case_details",
             "conflicts",
             "questions",
             "preparing",

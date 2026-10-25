@@ -147,3 +147,83 @@ describe("the case bar is one bar", () => {
     expect(within(nav).getAllByRole("link")).toHaveLength(1);
   });
 });
+
+describe("the case home", () => {
+  afterEach(() => resetScreens());
+
+  function homeRouter() {
+    return createMemoryRouter(
+      [{ path: "/cases/:caseId", element: <CaseLayout />, children: [{ path: "home", handle: { screen: "case_home" }, element: <p>Home screen</p> }] }],
+      { initialEntries: [`/cases/${CASE_A}`] },
+    );
+  }
+
+  test("opening a case lands on its home when a slice registers one", async () => {
+    registerScreen("case_home", ({ caseId }) => `/cases/${caseId}/home`);
+    signedIn();
+    server.use(http.get(`/v1/cases/${CASE_A}`, () => json({ ...theCase, stage: "read" })));
+    const router = homeRouter();
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
+    expect(await screen.findByText("Home screen")).toBeInTheDocument();
+    expect(router.state.location.pathname).toBe(`/cases/${CASE_A}/home`);
+  });
+
+  test("the case name in the bar links to the home", async () => {
+    registerScreen("case_home", ({ caseId }) => `/cases/${caseId}/home`);
+    signedIn();
+    server.use(http.get(`/v1/cases/${CASE_A}`, () => json(theCase)));
+    const router = homeRouter();
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
+    await screen.findByText("Home screen");
+    const bar = await screen.findByRole("banner");
+    expect(await within(bar).findByRole("link", { name: "Mrs A" })).toHaveAttribute("href", `/cases/${CASE_A}/home`);
+  });
+
+  test("the case name is plain text when no slice registers a home", async () => {
+    signedIn();
+    server.use(http.get(`/v1/cases/${CASE_A}`, () => json(theCase)));
+    renderAt(`/cases/${CASE_A}`);
+    const bar = await screen.findByRole("banner");
+    expect(await within(bar).findByRole("heading", { level: 1, name: "Mrs A" })).toBeInTheDocument();
+    expect(within(bar).queryByRole("link", { name: "Mrs A" })).toBeNull();
+  });
+});
+
+describe.each([
+  { name: "launch packs", pack: launchPack },
+  { name: "fixture packs", pack: fixturePack },
+])("the step's screens row in the frame under the $name", ({ pack }) => {
+  afterEach(() => resetScreens());
+  const steps = pack.workflow_steps as Array<{ key: string; screens?: string[] }>;
+  const step = steps.find((s) => (s.screens ?? []).length >= 3)!;
+  const screens = step.screens!;
+
+  test("shows the current route's step screens, current one marked, others linked", async () => {
+    for (const key of screens) registerScreen(key, ({ caseId }) => `/cases/${caseId}/s-${key}`);
+    signedIn({ pack });
+    server.use(http.get(`/v1/cases/${CASE_A}`, () => json(theCase)));
+    const router = createMemoryRouter(
+      [{ path: "/cases/:caseId", element: <CaseLayout />, children: screens.map((k) => ({ path: `s-${k}`, handle: { screen: k }, element: <p>{`Screen ${k}`}</p> })) }],
+      { initialEntries: [`/cases/${CASE_A}/s-${screens[1]}`] },
+    );
+    render(
+      <AppProviders>
+        <RouterProvider router={router} />
+      </AppProviders>,
+    );
+    await screen.findByText(`Screen ${screens[1]}`);
+    const row = await screen.findByRole("navigation", { name: "Screens in this step" });
+    const links = within(row).getAllByRole("link");
+    expect(links).toHaveLength(screens.length);
+    expect(links[1]).toHaveAttribute("aria-current", "page");
+    expect(links[0]).toHaveAttribute("href", `/cases/${CASE_A}/s-${screens[0]}`);
+  });
+});

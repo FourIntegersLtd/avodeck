@@ -513,6 +513,17 @@ describe("the calm layout", () => {
     expect(screen.getByRole("list", { name: "What the dots mean" })).toBeInTheDocument();
   });
 
+  test("the key to the colours and marks starts folded away", async () => {
+    inCase("launch");
+    serve();
+    renderAt(`/cases/${CASE_A}/timeline`);
+    const dots = await screen.findByRole("list", { name: "What the dots mean" });
+    const fold = dots.closest("details")!;
+    expect(fold).not.toHaveAttribute("open");
+    expect(within(fold).getByText("What the colours and marks mean")).toBeInTheDocument();
+    expect(within(fold).getByRole("list", { name: "Kinds of record" })).toBeInTheDocument();
+  });
+
   test("kinds of record show the pack's words, never a raw key", async () => {
     inCase("launch");
     serve(timeline({ sources: [{ key: "out_of_hours", label: "out_of_hours", colour: "#2a6f97" }, { key: "witness_statement", label: "witness_statement", colour: "#b5651d" }, { key: "hospital", label: "Hospital notes", colour: null }] }));

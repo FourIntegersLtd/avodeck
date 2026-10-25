@@ -32,6 +32,8 @@
 .av-understand-keys { display: flex; flex-direction: column; gap: var(--space-2); }
 .av-understand-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); }
 .av-understand-legend li { display: inline-flex; align-items: center; gap: var(--space-2); }
+.av-understand-key-fold[open] { display: flex; flex-direction: column; gap: var(--space-3); }
+.av-understand-key-fold > summary { min-height: var(--button-min-height); }
 .av-understand-swatch { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
 .av-understand-key { width: 16px; height: 16px; border-radius: 50%; box-sizing: border-box; display: inline-block; }
 .av-understand-key--checked, .av-understand-key[data-state="checked"] { background: var(--green); }
@@ -225,7 +227,11 @@
 .av-story-lane-wrap { border-bottom-color: var(--hairline, var(--surface-muted)); }
 .av-story-card { border-radius: 10px; background: var(--well, var(--surface-soft)); }
 .av-story-card small { font-family: Georgia, serif; color: var(--ink-soft); }
-.av-calm-foot { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; }
+.av-calm-foot { display: flex; flex-direction: column; gap: var(--space-3); align-items: flex-start; padding: var(--space-5); }
+/* "Updating the timeline…" floats centred over the dimmed board, so nothing below it jumps. */
+.av-story-stage { position: relative; }
+.av-story-updating { position: absolute; top: var(--space-6); left: 0; right: 0; z-index: 5; display: flex; justify-content: center; pointer-events: none; }
+.av-story-updating .av-updating { background: var(--surface); padding: var(--space-3) var(--space-5); border-radius: 999px; box-shadow: var(--shadow-card); }
 .av-calm-foot p { margin: 0; }
 .av-calm-card .av-story-month__head { padding-left: var(--space-5); }
 .av-calm-rows { list-style: none; margin: 0; padding: 0; }

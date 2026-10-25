@@ -7,7 +7,7 @@ import { DevSkipCode, rememberDevEmail } from "../../foundation/lib/DevSkipCode"
 import { useResource } from "../../foundation/lib/useResource";
 import { errorMessage } from "../../foundation/lib/errors";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { Button, Checkbox, CodeField, Loading, Notice, SupportLine, TextField } from "../../foundation/ui";
+import { Button, Checkbox, CodeField, Loading, Notice, TextField } from "../../foundation/ui";
 import { AuthLayout } from "./AuthLayout";
 
 type Step = "password" | "code" | "enrol" | "codes" | "recover" | "forgot";
@@ -127,7 +127,6 @@ function PasswordStep({ onDone, go }: { onDone: (r: Schemas["SignInResult"]) => 
           {t("sign_in.note.link_end")} <PrivateNote />
         </p>
       </div>
-      <SupportLine />
     </>
   );
 }

@@ -1,10 +1,10 @@
 // Screen 08, Your bundle is ready: the bundle summary from the API, in the pack's source words and
 // colours, with a card for each thing the expert should know. Runs under both pack sets.
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, test } from "vitest";
 import { humanise } from "../../foundation/i18n";
 import type { Schemas } from "../../foundation/platform-client";
-import { http, json, server, signedIn } from "../../test/api";
+import { apiError, http, json, server, signedIn } from "../../test/api";
 import { fixturePack, launchPack } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { CASE_ID, missingItem, packWords, summary, theCase, VIEWER_ACTIONS } from "./testData";
@@ -118,7 +118,67 @@ describe.each([
     expect(rows[1]).toHaveTextContent("practice-records.pdf");
     expect(rows[1]).toHaveTextContent("600");
     expect(rows[1]).toHaveTextContent("Subject access request");
-    expect(rows[2]).toHaveTextContent("Not given");
+    expect(rows[2]).toHaveTextContent("Not added");
+  });
+
+  describe("file details", () => {
+    const docs = (): Schemas["BundleSummary"]["documents"] =>
+      [
+        { id: "d1000000-0000-4000-8000-0000000000a1", kind: "records", filename: "scan.pdf", pages: null, first_page_no: null, last_page_no: null, received_on: null, obtained_how: null, bundle_version: 1 },
+        { id: "d1000000-0000-4000-8000-0000000000a2", kind: "letter", filename: "mrs-a-letter-of-instruction.pdf", pages: null, first_page_no: null, last_page_no: null, received_on: null, obtained_how: null, bundle_version: 1 },
+      ] as unknown as Schemas["BundleSummary"]["documents"];
+    const LETTER = "d1000000-0000-4000-8000-0000000000a2";
+
+    test("a file that is not numbered says so; records without a count say not given", async () => {
+      mock(pack, { summary: { documents: docs() } });
+      renderAt(PATH);
+      const rows = within(await screen.findByRole("table")).getAllByRole("row");
+      expect(within(rows[1]!).getAllByRole("cell")[0]).toHaveTextContent("Not given");
+      expect(within(rows[2]!).getAllByRole("cell")[0]).toHaveTextContent("Not numbered");
+      expect(within(rows[2]!).getAllByText("Not added")).toHaveLength(2);
+    });
+
+    test("saving sends only what was typed, then shows the new values", async () => {
+      mock(pack, { summary: { documents: docs() } });
+      let body: unknown;
+      server.use(http.patch(`/v1/cases/${CASE_ID}/documents/${LETTER}`, async ({ request }) => { body = await request.json(); return json({}); }));
+      const { user } = renderAt(PATH);
+      await user.click(await screen.findByRole("button", { name: "Add details for mrs-a-letter-of-instruction.pdf" }));
+      await user.type(screen.getByLabelText("How it was obtained"), "By post");
+      expect(screen.getByLabelText("How it was obtained")).toHaveAttribute("maxlength", "200");
+      expect(screen.getByLabelText("Date received")).toBeVisible();
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      await waitFor(() => expect(body).toEqual({ obtained_how: "By post" }));
+    });
+
+    test("a refused save shows plain words and keeps the form", async () => {
+      mock(pack, { summary: { documents: docs() } });
+      server.use(http.patch(`/v1/cases/${CASE_ID}/documents/${LETTER}`, () => apiError(403, "forbidden")));
+      const { user } = renderAt(PATH);
+      await user.click(await screen.findByRole("button", { name: "Add details for mrs-a-letter-of-instruction.pdf" }));
+      await user.type(screen.getByLabelText("How it was obtained"), "By post");
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      expect(await screen.findByRole("alert")).toBeVisible();
+      expect(screen.getByLabelText("How it was obtained")).toHaveValue("By post");
+    });
+
+    test("cancel forgets what was typed", async () => {
+      mock(pack, { summary: { documents: docs() } });
+      const { user } = renderAt(PATH);
+      const add = await screen.findByRole("button", { name: "Add details for mrs-a-letter-of-instruction.pdf" });
+      await user.click(add);
+      await user.type(screen.getByLabelText("How it was obtained"), "Wrong");
+      await user.click(screen.getByRole("button", { name: "Cancel" }));
+      await user.click(screen.getByRole("button", { name: "Add details for mrs-a-letter-of-instruction.pdf" }));
+      expect(screen.getByLabelText("How it was obtained")).toHaveValue("");
+    });
+
+    test("a person who may not upload sees no buttons", async () => {
+      mock(pack, { summary: { documents: docs() }, item: theCase({ allowed_actions: VIEWER_ACTIONS }) });
+      renderAt(PATH);
+      await screen.findByRole("table");
+      expect(screen.queryByRole("button", { name: /Add details for/ })).toBeNull();
+    });
   });
 
   test("later deliveries are listed with their page numbers", async () => {

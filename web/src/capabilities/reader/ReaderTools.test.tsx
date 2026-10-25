@@ -12,6 +12,7 @@ import { forgetSearch } from "./search";
 import { CASE_ID, pageWords } from "./testData";
 import { mockReader, moreTools, openFind } from "./testing";
 import "./index";
+import { readFileSync } from "node:fs";
 
 beforeEach(() => {
   forgetPages();
@@ -117,7 +118,7 @@ describe.each([
   });
 
   describe("full screen", () => {
-    test("the Full screen button and F show only the page view; Escape comes back", async () => {
+    test("the Full screen button and F fill the window; Escape comes back", async () => {
       mockReader(pack);
       const { user, container } = renderAt(PATH);
       await screen.findByRole("toolbar", { name: "Page view" });
@@ -140,6 +141,14 @@ describe.each([
       // Not while typing.
       await user.type(screen.getByRole("textbox", { name: "Go to page" }), "f");
       expect(container.querySelector(".rd")).not.toHaveClass("rd--full");
+    });
+
+    test("full screen keeps what we found beside the page", () => {
+      const readerCss = readFileSync("src/capabilities/reader/reader.css", "utf8");
+      expect(readerCss).toContain(".rd--full");
+      const rules = readerCss.split("}").filter((r) => r.includes(".rd--full"));
+      expect(rules.some((r) => /\.rd-side|\.rd-split/.test(r) && /display:\s*none/.test(r))).toBe(false);
+      expect(rules.some((r) => r.includes(".rd-pane") && r.includes("100%"))).toBe(false);
     });
   });
 

@@ -3794,6 +3794,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/help-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send Help Request
+         * @description Emails the message to our support address; at most 5 per person per day.
+         */
+        post: operations["send_help_request_v1_help_requests_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/invites/{token}/accept": {
         parameters: {
             query?: never;
@@ -4643,6 +4663,53 @@ export interface paths {
         put?: never;
         /** Answer Spot Check */
         post: operations["answer_spot_check_v1_spot_checks__token__responses_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/accounts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Accounts
+         * @description The accounts support created: `invited` until the person first completes MFA, then `active`.
+         */
+        get: operations["list_accounts_v1_support_accounts_get"];
+        put?: never;
+        /**
+         * Create Account
+         * @description A new person's account, with no password and no team: they get an email to set their own, sent after
+         *     commit (409 `conflict` if the email already has an account, 422 `invalid_email` if Auth will not take it;
+         *     at most 20 an hour per staff member counting refused attempts, 429 `too_many_attempts`).
+         */
+        post: operations["create_account_v1_support_accounts_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/support/accounts/{account_id}/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resend Account Invite
+         * @description A new set-password link (1 hour) for an account still `invited`; at most once a minute (429
+         *     `sent_recently`).
+         */
+        post: operations["resend_account_invite_v1_support_accounts__account_id__resend_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5658,10 +5725,6 @@ export interface components {
         Cell: {
             /** Storage Place */
             storage_place: string | null;
-            /** Support Hours */
-            support_hours: string | null;
-            /** Support Phone */
-            support_phone: string | null;
         };
         /**
          * Certificate
@@ -7099,6 +7162,18 @@ export interface components {
             counted: boolean;
             /** Stage */
             stage?: string | null;
+        };
+        /** HelpRequest */
+        HelpRequest: {
+            /** Message */
+            message: string;
+            /** Page */
+            page: string;
+            /**
+             * Topic
+             * @enum {string}
+             */
+            topic: "case" | "account" | "billing" | "other";
         };
         /**
          * HoldCreate
@@ -11004,6 +11079,55 @@ export interface components {
         SupplementarySignIn: {
             /** Declaration Confirmed */
             declaration_confirmed: boolean;
+        };
+        /**
+         * SupportAccount
+         * @description An account support created: ids, email, codes and dates only (rule 6: no name).
+         */
+        SupportAccount: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Email */
+            email: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Last Sent At
+             * Format: date-time
+             */
+            last_sent_at: string;
+            /**
+             * Person Id
+             * Format: uuid
+             */
+            person_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "invited" | "active";
+        };
+        /**
+         * SupportAccountCreate
+         * @description A new person's account, made by Avodeck support: no password (the person sets their own) and no team
+         *     (a team's own owners and admins invite people; any other field is 422).
+         */
+        SupportAccountCreate: {
+            /** Email */
+            email: string;
+            /** Full Name */
+            full_name: string;
+        };
+        /** SupportAccountList */
+        SupportAccountList: {
+            /** Accounts */
+            accounts: components["schemas"]["SupportAccount"][];
         };
         /**
          * SupportCase
@@ -22380,6 +22504,48 @@ export interface operations {
             };
         };
     };
+    send_help_request_v1_help_requests_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HelpRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     accept_invite_v1_invites__token__accept_post: {
         parameters: {
             query?: never;
@@ -24814,6 +24980,121 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    list_accounts_v1_support_accounts_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportAccountList"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    create_account_v1_support_accounts_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SupportAccountCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    resend_account_invite_v1_support_accounts__account_id__resend_post: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
+            path: {
+                account_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SupportAccount"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
             };
             /** @description Error: the `code` says which (architecture 5.1) */
             default: {

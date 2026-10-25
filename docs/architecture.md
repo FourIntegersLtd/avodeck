@@ -19,7 +19,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 2. Every fact cites OCR word IDs on a numbered page; the server rejects anything else; only verified facts can be cited.
 3. Blind read is enforced by the server (facts return 423 until the page is read).
 4. The browser talks only to FastAPI.
-5. Processing stays in the home region (UK cell at launch).
+5. Data stays in the home region (UK cell at launch); the UK cell's compute runs on Railway, Amsterdam (ADR 0021).
 6. No patient text in logs.
 7. Identifiers are stripped before every AI call.
 8. Served reports are locked; changes go through a supplementary report.
@@ -36,7 +36,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 | Part | Service | Region | Patient data? |
 |---|---|---|---|
 | Frontend | React + TypeScript on Vercel; renders screens only | Global CDN | No |
-| API | FastAPI on DigitalOcean App Platform (no servers to manage) | London | Yes |
+| API | FastAPI on Railway (no servers to manage; ADR 0021) | Amsterdam, no data at rest | Yes |
 | Worker | Same codebase, App Platform worker component; Postgres job queue | London | Yes |
 | Scheduled jobs | App Platform scheduled component (deadlines, deletion) | London | Yes |
 | Database, auth, files | Supabase: Postgres + pgvector, Auth (called only by FastAPI), private Storage | London | Yes |
@@ -59,7 +59,7 @@ Each region is a complete, identical deployment with its own data. Nothing patie
 
 | Cell | App + worker | Database, auth, files | Claude | OCR + speech | Status |
 |---|---|---|---|---|---|
-| **uk** | DigitalOcean App Platform, London | Supabase, London | Bedrock, London in-region | Azure UK South | Launch |
+| **uk** | Railway, Amsterdam (ADR 0021) | Supabase, London | Bedrock, London in-region | Azure UK South | Launch |
 | **au** | DigitalOcean, Sydney | Supabase, Sydney | Bedrock, Sydney (check in-region models) | Azure Australia East | Later |
 | **ca** | DigitalOcean, Toronto | Supabase, Canada | Bedrock, Canada (check models) | Azure Canada Central | Later |
 | **nz** | Served from the **au** cell if NZ customers and law accept it; AWS and Azure have NZ regions but Supabase and DigitalOcean do not | — | — | — | Decide later |
@@ -235,6 +235,7 @@ Who owns cases and pays, who belongs, and how they want to be told about things.
 | `custody_transfers` | Support's record that a served case's records pass to a custodian (a person, or an organisation whose owners and admins then hold them) when the named expert dies or can no longer act; read-only access for the custodian. Created by foundation (migration 0032); slice O builds the route behind the flag `support_custody_transfer`. Kept after the case is deleted. | case_id, from_person_id, to_person_id or to_organisation_id, evidence_note (short, about the expert), transferred_by (staff), transferred_at, revoked_at |
 | `case_replacements` | A served case's replacement: the new case, the case it replaces and whether the instructing party consented to the bundle being copied. Written only by `app.create_replacement_case()` (foundation, migration 0033) for slice O's replacement route; never changed; kept after deletion as the record of consent. | case_id (the new case), replaces_case_id, instructing_party_consented, recorded_by, recorded_at |
 | `support_staff` | Who works for Avodeck support. Added and removed by hand in SQL (`docs/ops/support-staff.md`); no route writes it. | person_id, added_at, removed_at |
+| `support_accounts` | An account Avodeck support created for a new person (for example an expert trying Avodeck): no password (the person sets their own from an emailed link that lasts 1 hour, then MFA) and no team (a team's own owners and admins invite). `invited` until the person first completes MFA, then `active` (derived, not stored). Slice O, migration 1012; read and written only through staff-only database functions. | person_id, created_by, created_at, last_sent_at |
 
 ### 4.3 Case
 
@@ -444,7 +445,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | POST | `/auth/sign-out` | Revokes Supabase session, clears cookie | |
 | POST | `/auth/password/forgot` | `{email}` → Supabase sends reset email via Resend (custom SMTP) | Same response whether or not the email exists |
 | POST | `/auth/password/reset` | `{token, new_password}` → leaked-password check → all sessions revoked | |
-| GET | `/cell` | Public: `{support_phone, support_hours, storage_place}` from the cell's environment, null when unset (sign-in screen) | |
+| GET | `/cell` | Public: `{storage_place}` from the cell's environment, null when unset (sign-in screen) | |
 | GET | `/auth/session` | Is the session valid, MFA level, minutes until timeout | |
 | GET | `/me` | Person record (with the short greeting name from the jurisdiction pack's `professional_titles`, e.g. "Dr Morgan", and when the password was last reset), expert profile (if any), memberships (with how many people are in each organisation) and whether MFA is enrolled | Creates the `people` row and the personal organisation on first call |
 | POST | `/me/sessions/revoke-all` | Signs out all devices | 🔒 |
@@ -833,6 +834,9 @@ The rules in section 10 need these routes. Owner = the slice that builds them. A
 | GET | `/support/cases?q=` | Support console: find cases by id or named expert's email; metadata only | Support staff, MFA completed at sign-in for this session (ADR 0020) |
 | GET | `/support/cases/{case_id}` | Support console: one case's metadata and grants, and where it is stuck (jobs, pages, suggestions, questions, report, close, offline copies, named expert changes, deadlines) in counts and codes only; the look is audited on the case | Support staff, as above |
 | POST | `/support/custody-transfers` | Record that a served case's records pass, read-only, to the expert's named records custodian or to the case's team organisation, with a note of the evidence seen | Support staff, as above; flag `support_custody_transfer`; **(legal check)** |
+| GET | `/support/accounts` | Accounts support created, with `invited` / `active` | Support staff, MFA completed at sign-in (ADR 0020) |
+| POST | `/support/accounts` | Create an account for a new person `{full_name, email}` (any other field 422; support adds nobody to a team): Supabase Auth login with no password, `people` row and own practice, and after commit the set-password email (`account.created`: the link and that it lasts 1 hour); any failure after the login is made deletes it; `Idempotency-Key` required | Support staff 🔒; 409 `conflict` for an email that already has an account, 422 `invalid_email` for one Auth will not take; 429 `too_many_attempts` after 20 an hour, refused attempts counted (audited `support.account_refused`, a transaction of its own) and creates queued on the staff member's lock; audited `support.account_created` |
+| POST | `/support/accounts/{account_id}/resend` | New set-password link (1 hour) for an account still `invited` | Support staff 🔒; `Idempotency-Key`; 429 `sent_recently` within a minute; 409 once `active`; audited `support.account_invite_resent` |
 | POST | `/support/jobs/{job_id}/resume` | Put a paused job back on the queue (the worker moves it paused → running); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_resume`; audited `support.job_resumed` on the case; 409 `job_not_paused`, `case_on_hold` |
 | POST | `/support/jobs/{job_id}/requeue` | Put a failed job back on the queue (failed → queued, attempts reset; history kept in `job_support_actions`); body `{reason_code}`; the named expert gets a patient-free email | Support staff, as above; flag `support_job_requeue`; audited `support.job_requeued` on the case; 409 `job_not_failed` |
 

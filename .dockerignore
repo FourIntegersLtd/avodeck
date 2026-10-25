@@ -17,3 +17,9 @@ site
 evals
 docs
 *.md
+web
+supabase
+scripts
+DATA
+api/tests
+api/.venv

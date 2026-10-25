@@ -209,6 +209,25 @@ const WORDS = {
   "support.card.ended": "Ended {{date}}",
   "support.card.expired": "Ran out {{date}}",
 
+  // Support: create an account for a new person
+  "accounts.title": "Create an account",
+  "accounts.intro": "For someone new to Avodeck. We email them a link to set their own password; you never see it. They set up their code the first time they sign in. The link lasts 1 hour. If it runs out, send the invite again.",
+  "accounts.name": "Full name",
+  "accounts.email": "Email",
+  "accounts.create": "Create the account",
+  "accounts.created": "We've emailed {{email}} a link to set their password. It lasts 1 hour.",
+  "accounts.taken": "An account with this email already exists.",
+  "accounts.check_email": "Check the email address and try again.",
+  "accounts.wait": "Please wait a minute, then try again.",
+  "accounts.limit": "You have made a lot of accounts this hour. Please try again later.",
+  "accounts.list": "Accounts you've created",
+  "accounts.none": "No accounts yet.",
+  "accounts.status.invited": "Invited",
+  "accounts.status.active": "Active",
+  "accounts.resend": "Send the invite again",
+  "accounts.resent": "We've sent the invite to {{email}} again. The new link lasts 1 hour.",
+  "console.accounts": "Create an account",
+
   // Support console
   "console.title": "Support",
   "console.intro": "You can search every case by its details: its number or the expert's email. You see a case's pages only while its named expert has let support open it, for up to 24 hours. Every look is written down.",

@@ -124,7 +124,7 @@ const WORDS = {
   "fact.timeline_date_label": "Date on timeline",
   "fact.undo": "Undo",
   "fact.why_not": "Why not? (optional)",
-  "fact.say_why": "Add a reason",
+  "fact.mark_not_right": "Mark as not right",
   "fact.cuts_against": "This cuts against a likely view",
   "fact.right_words": "The right words",
   "fact.save_change": "Save change",

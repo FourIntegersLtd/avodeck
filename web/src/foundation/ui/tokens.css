@@ -69,10 +69,17 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --page-width: 1180px;
-  --page-width-narrow: 920px;
-  --page-width-wide: 1360px;
+  /* Pages run full width; their edges line up with the bar's logo and avatar (the gutter). */
+  --page-width: none;
+  --page-width-narrow: none;
+  --page-width-wide: none;
+  /* The one outer padding for every screen: bars and pages use these, screens never set their own. */
+  --gutter: 40px;
+  --page-top: 32px;
+  --page-bottom: 48px;
 }
+@media (max-width: 1024px) { :root { --gutter: 24px; --page-top: 24px; --page-bottom: 40px; } }
+@media (max-width: 700px) { :root { --gutter: 16px; --page-top: 16px; --page-bottom: 32px; } }
 
 /* Dark theme: every colour token again. Follows the device unless the person chose light. */
 @media (prefers-color-scheme: dark) {

@@ -23,6 +23,11 @@ FUNCTIONS = {
     "app.support_cases(uuid, text)": True,
     "app.support_case_grants(uuid)": True,
     "app.support_case_diagnostics(uuid)": True,
+    "app.support_account_check(text)": False,
+    "app.support_account_precheck(text)": True,
+    "app.support_create_account(uuid, text, text, text)": True,
+    "app.support_resend_account(uuid)": True,
+    "app.support_accounts_list()": True,
 }
 
 

@@ -14,8 +14,9 @@ test("a question chip is drawn dark, as on the boards", () => {
   renderUi(<QChip n={3} />);
 });
 
-test("the wide page is about 1360px, as on the boards", () => {
-  expect(read("tokens.css")).toMatch(/--page-width-wide:\s*1360px/);
+test("pages run full width to the bar's gutter, set once in the tokens", () => {
+  expect(read("tokens.css")).toMatch(/--page-width-wide:\s*none/);
+  expect(read("tokens.css")).toMatch(/--gutter:\s*\d+px/);
 });
 
 test("buttons and link buttons can point back", () => {
