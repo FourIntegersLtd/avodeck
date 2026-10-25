@@ -87,39 +87,38 @@ a:hover { color: var(--forest); }
 .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
 .hero-note { font-size: 16px; color: var(--muted); }
 
-/* Two tidy rows: a page on the left, what Avodeck found on it on the right. */
-.hero-visual { display: grid; grid-template-columns: minmax(0, 1fr) 232px; align-items: center; gap: 28px 0; }
-.record { position: relative; background: var(--white); border-radius: 6px; box-shadow: 0 1px 2px rgba(15,61,44,0.06), 0 24px 60px rgba(15,61,44,0.14); padding: 24px 40px 44px 22px; font-family: var(--mono); font-size: 13px; line-height: 1.8; color: #2A2F2C; }
+.hero-visual { position: relative; min-height: 640px; }
+.record { position: absolute; top: 18px; left: 0; right: 12%; bottom: 0; background: var(--white); border-radius: 6px; box-shadow: 0 1px 2px rgba(15,61,44,0.06), 0 24px 60px rgba(15,61,44,0.14); padding: 40px 44px 56px; font-family: var(--mono); font-size: 16px; line-height: 1.8; color: #2A2F2C; transform: rotate(-1.2deg); }
 .record-head { display: flex; justify-content: space-between; color: var(--faint); font-size: 13px; border-bottom: 1px solid #E3E6E4; padding-bottom: 10px; margin-bottom: 14px; }
 .record .dim { color: var(--faint); }
 .record .gap-b { margin-bottom: 12px; }
 .record .gap-t { margin-top: 12px; }
 .record .strong { font-weight: 500; }
-.record mark, .hand mark { color: inherit; border-radius: 2px; padding: 0 3px; background: linear-gradient(#FFF3B0, #FFF3B0) no-repeat 0 0 / 100% 100%; animation: hl-draw 0.7s ease-out 0.5s both; }
-.hand mark { animation-delay: 1.3s; }
-@keyframes hl-draw { from { background-size: 0 100%; } }
-@media (prefers-reduced-motion: reduce) { .record mark, .hand mark { animation: none; } }
+.record mark { background: #FFF3B0; box-shadow: 0 0 0 3px #FFF3B0; border-radius: 2px; color: inherit; }
 .record-foot { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; color: #8A928D; font-size: 11px; }
-.fact-card { position: relative; z-index: 1; margin-left: -24px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 44px rgba(15,61,44,0.16); display: flex; flex-direction: column; gap: 10px; }
-.fact-hand { border: 2px dashed #8A948E; box-shadow: 0 18px 44px rgba(15,61,44,0.12); }
-.hero-visual .fact-card { padding: 16px 18px; gap: 8px; }
-.hero-visual .fact-title { font-size: 18px; }
-.from-hand { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--muted); }
-/* A handwritten record card: ruled, with a margin line, read the same way as typed pages. */
-.note { position: relative; background: #F8F1DE linear-gradient(90deg, transparent 32px, rgba(190, 70, 70, 0.4) 32px, rgba(190, 70, 70, 0.4) 33.5px, transparent 33.5px); border-radius: 3px; padding: 12px 40px 18px 46px; box-shadow: 0 1px 2px rgba(15,61,44,0.08), 0 24px 50px rgba(15,61,44,0.16); }
-.note-head { display: flex; justify-content: space-between; align-items: center; font: 500 12px var(--mono); color: #85795F; margin-bottom: 4px; }
+/* The record page is handwritten: ruled card stock with a margin line, read like any typed page. */
+.record.handwritten { background: #F8F1DE linear-gradient(90deg, transparent 40px, rgba(190, 70, 70, 0.4) 40px, rgba(190, 70, 70, 0.4) 41.5px, transparent 41.5px); padding-left: 60px; }
+.record.handwritten .record-head { color: #85795F; border-bottom-color: rgba(70, 110, 170, 0.3); align-items: center; }
 .note-tag { font: 700 12px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: #8A3F06; background: #FDF1E3; border: 1px solid #E8C9A6; border-radius: 999px; padding: 2px 10px; }
-.hand { --lh: 31px; margin: 0; font-family: 'Reenie Beanie', 'Bradley Hand', 'Segoe Print', cursive; font-size: 25px; line-height: var(--lh); color: #23306A; background: repeating-linear-gradient(transparent 0 calc(var(--lh) - 1px), rgba(70, 110, 170, 0.25) calc(var(--lh) - 1px) var(--lh)); }
-.hand span { display: block; white-space: nowrap; }
-.hand .l2 { transform: rotate(-1.4deg) translateX(10px); }
-.hand .l3 { transform: rotate(0.9deg) translateX(-3px); letter-spacing: 0.02em; }
-.hand .l4 { transform: rotate(-0.6deg) translateX(14px); }
+.hand { --lh: 46px; display: flex; flex-direction: column; font-family: 'Reenie Beanie', 'Bradley Hand', 'Segoe Print', cursive; font-size: 34px; line-height: var(--lh); color: #23306A; background: repeating-linear-gradient(transparent 0 calc(var(--lh) - 1px), rgba(70, 110, 170, 0.25) calc(var(--lh) - 1px) var(--lh)); }
+.hand span { white-space: nowrap; }
+.hand .dim { color: #6E7591; }
+.hand .l-date { margin-top: 0; text-decoration: underline; text-decoration-thickness: 1.5px; text-underline-offset: 6px; }
+.hand .l2 { transform: rotate(-1.2deg) translateX(10px); }
+.hand .l3 { transform: rotate(0.8deg) translateX(-2px); letter-spacing: 0.02em; }
+.hand .l4 { transform: rotate(-0.5deg) translateX(16px); }
 .hand s { text-decoration-thickness: 2px; }
+.hero-visual .fact-card { top: 470px; }
+.record.handwritten .record-foot { text-align: left; left: 60px; }
+.hand mark { color: inherit; background: #FFF3B0; box-shadow: 0 0 0 3px #FFF3B0; border-radius: 2px; }
+.fact-card { position: absolute; top: 300px; right: 0; width: 320px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 44px rgba(15,61,44,0.16); display: flex; flex-direction: column; gap: 10px; }
 .fact-card-top { display: flex; justify-content: space-between; align-items: center; }
 .fact-kind { font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .page-chip { font-family: var(--mono); font-size: 14px; font-weight: 500; color: var(--forest); background: var(--mint); border-radius: 6px; padding: 2px 8px; }
 .fact-title { font-size: 21px; font-weight: 700; line-height: 1.3; }
 .checked { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--pit); }
+.connector { position: absolute; top: 262px; right: 210px; width: 2px; height: 38px; background: var(--pit); opacity: 0.55; }
+.connector-dot { position: absolute; top: 256px; right: 205px; width: 12px; height: 12px; border-radius: 50%; background: var(--pit); box-shadow: 0 0 0 5px rgba(30,107,78,0.15); }
 
 /* Assurances */
 .assurances { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--white); }
@@ -231,6 +230,8 @@ a:hover { color: var(--forest); }
 .footer-nav a { color: var(--on-dark); text-decoration: none; }
 .footer-nav a:hover { color: var(--white); text-decoration: underline; }
 
+/* The connector is placed for the full-width hero; hide it where the layout shifts. */
+@media (max-width: 1360px) { .connector, .connector-dot { display: none; } }
 
 /* Phone */
 /* Timeline swimlane (board S11), full width */
@@ -439,10 +440,12 @@ a:hover { color: var(--forest); }
   .site-footer .wrap { padding: 64px 16px 32px; }
   .hero-visual { min-height: 0; display: flex; flex-direction: column; gap: 20px; }
   .record { position: relative; inset: auto; transform: none; padding: 24px 20px 40px; font-size: 12.5px; }
-  .fact-card { margin-left: 0; }
-  .note { padding-right: 20px; }
-  .hand { font-size: 24px; --lh: 31px; }
-  .fact-typed { display: none; }
+  .record.handwritten { padding-left: 52px; background-image: linear-gradient(90deg, transparent 36px, rgba(190, 70, 70, 0.4) 36px, rgba(190, 70, 70, 0.4) 37.5px, transparent 37.5px); }
+  .hand { --lh: 33px; font-size: 23px; }
+  .hero-visual .fact-card { top: auto; }
+  .record.handwritten .record-foot { text-align: center; left: 0; }
+  .fact-card { position: relative; top: auto; right: auto; width: auto; }
+  .connector, .connector-dot { display: none; }
   .faq summary { font-size: 20px; }
 }
 
