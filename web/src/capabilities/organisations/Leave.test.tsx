@@ -2,26 +2,14 @@
 import { screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { apiError, http, json, server } from "../../test/api";
-import { caseCard, CASE_A, CASE_B } from "../../test/fixtures";
+import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
-import { TEAM_ORG, teamWorld } from "./testing";
+import { org, TEAM_ORG, teamWorld } from "./testing";
 
 const AT = `/organisations/${TEAM_ORG}/leave`;
 
-function cases() {
-  server.use(
-    http.get("/v1/today", () =>
-      json({
-        cases: [
-          caseCard({ case_id: CASE_A, label: "Mrs A", organisation_id: TEAM_ORG, organisation_kind: "team", organisation_name: "Northgate Medico-Legal", your_role: "named_expert" }),
-          caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_kind: "team", organisation_name: "Northgate Medico-Legal", your_role: "assistant" }),
-        ],
-        needs_you: [],
-        organisations: [],
-        closed_count: 0,
-      }),
-    ),
-  );
+function cases(blocking = [{ case_id: CASE_A, label: "Mrs A" }]) {
+  server.use(http.get(`/v1/organisations/${TEAM_ORG}`, () => json(org({ blocking_cases: blocking }))));
 }
 
 test("lists the cases the person keeps as named expert, and only those", async () => {
@@ -35,7 +23,7 @@ test("lists the cases the person keeps as named expert, and only those", async (
 
 test("says so when they keep nothing", async () => {
   teamWorld();
-  server.use(http.get("/v1/today", () => json({ cases: [], needs_you: [], organisations: [], closed_count: 0 })));
+  cases([]);
   renderAt(AT);
   expect(await screen.findByText(/not the named expert on any case here/)).toBeInTheDocument();
 });

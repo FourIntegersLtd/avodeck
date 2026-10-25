@@ -26,13 +26,16 @@ from app.core.http import stale
 from app.core.notifications import notify, send_mail
 from app.features.organisations import repo
 from app.features.organisations.schemas import (
+    BlockingCase,
     Invite,
     InviteAccepted,
+    InviteList,
     NamedExpert,
     NamedExpertCandidate,
     NamedExpertCandidates,
     Organisation,
     OrgMember,
+    OrgMemberList,
     OrgRole,
     Policy,
     PolicyUpdate,
@@ -68,7 +71,10 @@ async def organisation(conn: AsyncConnection, org_id: uuid.UUID) -> Organisation
     row = await repo.my_organisation(conn, org_id)
     if row is None:
         raise not_found()
-    return to_organisation(row)
+    found = to_organisation(row)
+    if found.kind == "team":
+        found.blocking_cases = [BlockingCase(**r) for r in await repo.blocking_cases(conn, org_id)]
+    return found
 
 
 async def create_team(conn: AsyncConnection, name: str, region: str) -> Organisation:
@@ -125,6 +131,11 @@ async def invites(conn: AsyncConnection, org_id: uuid.UUID) -> list[Invite]:
     return [Invite(**r) for r in await repo.invites(conn, org_id)]
 
 
+async def invite_list(conn: AsyncConnection, org_id: uuid.UUID) -> InviteList:
+    everything = await invites(conn, org_id)
+    return InviteList(invites=everything, pending_invites=[i for i in everything if i.status == "pending"])
+
+
 async def send_invite(
     conn: AsyncConnection, mailer: Mailer, access: OrgAccess, app_origin: str, email: str, role: str
 ) -> Invite:
@@ -169,6 +180,15 @@ def forbidden() -> ApiError:
 
 async def members(conn: AsyncConnection, org_id: uuid.UUID) -> list[OrgMember]:
     return [OrgMember(**r) for r in await repo.members(conn, org_id)]
+
+
+async def member_list(conn: AsyncConnection, org_id: uuid.UUID) -> OrgMemberList:
+    everyone = await members(conn, org_id)
+    return OrgMemberList(
+        members=everyone,
+        current_members=[m for m in everyone if m.ended_at is None],
+        former_members=[m for m in everyone if m.ended_at is not None],
+    )
 
 
 async def _target(

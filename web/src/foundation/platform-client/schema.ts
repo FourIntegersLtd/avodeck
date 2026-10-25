@@ -5233,6 +5233,16 @@ export interface components {
         BillingProfileOut: {
             profile: components["schemas"]["BillingProfile"] | null;
         };
+        /** BlockingCase */
+        BlockingCase: {
+            /**
+             * Case Id
+             * Format: uuid
+             */
+            case_id: string;
+            /** Label */
+            label: string;
+        };
         /** BuildQueued */
         BuildQueued: {
             /**
@@ -7463,6 +7473,11 @@ export interface components {
         InviteList: {
             /** Invites */
             invites: components["schemas"]["Invite"][];
+            /**
+             * Pending Invites
+             * @default []
+             */
+            pending_invites: components["schemas"]["Invite"][];
         };
         /** InvoiceIn */
         InvoiceIn: {
@@ -8886,6 +8901,16 @@ export interface components {
         };
         /** OrgMemberList */
         OrgMemberList: {
+            /**
+             * Current Members
+             * @default []
+             */
+            current_members: components["schemas"]["OrgMember"][];
+            /**
+             * Former Members
+             * @default []
+             */
+            former_members: components["schemas"]["OrgMember"][];
             /** Members */
             members: components["schemas"]["OrgMember"][];
         };
@@ -8901,6 +8926,11 @@ export interface components {
              * @default []
              */
             assignable_roles: ("owner" | "admin" | "expert" | "assistant" | "viewer")[];
+            /**
+             * Blocking Cases
+             * @default []
+             */
+            blocking_cases: components["schemas"]["BlockingCase"][];
             /**
              * Created At
              * Format: date-time
@@ -11313,6 +11343,11 @@ export interface components {
         SupportCaseList: {
             /** Cases */
             cases: components["schemas"]["SupportCase"][];
+            /**
+             * Served Case Ids
+             * @default []
+             */
+            served_case_ids: string[];
         };
         /** SupportClose */
         SupportClose: {
@@ -11413,6 +11448,12 @@ export interface components {
         };
         /** SupportGrantList */
         SupportGrantList: {
+            active?: components["schemas"]["SupportGrant"] | null;
+            /**
+             * Ended
+             * @default []
+             */
+            ended: components["schemas"]["SupportGrant"][];
             /** Grants */
             grants: components["schemas"]["SupportGrant"][];
         };

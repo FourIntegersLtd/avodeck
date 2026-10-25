@@ -27,7 +27,7 @@ function world(actions: string[], served = false) {
   server.use(
     http.get(`/v1/cases/${CASE_A}`, () => json(theCase(actions))),
     http.get(`/v1/cases/${CASE_A}/named-expert/candidates`, () => json({ served, candidates: CANDIDATES })),
-    http.get(`/v1/cases/${CASE_A}/support-access`, () => json({ grants: [] })),
+    http.get(`/v1/cases/${CASE_A}/support-access`, () => json({ grants: [], active: null, ended: [] })),
   );
 }
 
@@ -81,7 +81,7 @@ test("the named expert can let support open the case, sees the time left, and ca
   const grant = () => ({ id: OTHER, case_id: CASE_A, granted_by: PERSON_ID, granted_to: null, reason: "help", granted_at: new Date().toISOString(), expires_at: new Date(Date.now() + 23.5 * 3_600_000).toISOString(), revoked_at: null, active: true });
   server.use(
     http.get(`/v1/cases/${CASE_A}`, () => json(theCase(["case.view_metadata", "support_access.grant"]))),
-    http.get(`/v1/cases/${CASE_A}/support-access`, () => json({ grants })),
+    http.get(`/v1/cases/${CASE_A}/support-access`, () => json({ grants, active: grants.find((g) => g.active) ?? null, ended: grants.filter((g) => !g.active) })),
     http.post(`/v1/cases/${CASE_A}/support-access`, async ({ request }) => {
       await record(request);
       grants = [grant()];

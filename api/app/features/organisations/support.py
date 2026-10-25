@@ -26,11 +26,18 @@ from app.features.organisations.schemas import (
     SupportCaseGrant,
     SupportGrant,
     SupportGrantCreate,
+    SupportGrantList,
 )
 
 
 async def grants(conn: AsyncConnection, case_id: uuid.UUID) -> list[SupportGrant]:
     return [SupportGrant(**r) for r in await repo.grants(conn, case_id)]
+
+
+async def grant_list(conn: AsyncConnection, case_id: uuid.UUID) -> SupportGrantList:
+    every = await grants(conn, case_id)
+    live = [g for g in every if g.active]
+    return SupportGrantList(grants=every, active=live[-1] if live else None, ended=[g for g in every if not g.active])
 
 
 async def give(

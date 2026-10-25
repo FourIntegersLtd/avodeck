@@ -30,6 +30,7 @@ export function SupportConsole() {
   const { me } = useSession();
   const [query, setQuery] = useState("");
   const [cases, setCases] = useState<Found[] | null>(null);
+  const [servedIds, setServedIds] = useState<string[]>([]);
   const [hidden, setHidden] = useState(false);
   const [message, setMessage] = useState<Message>(null);
   const { busy, run } = useBusy();
@@ -42,12 +43,12 @@ export function SupportConsole() {
     try {
       const found = await unwrap(api.GET("/v1/support/cases", { params: { query: { q: query.trim() } } }));
       setCases(found.cases);
+      setServedIds(found.served_case_ids);
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) return setHidden(true);
       setMessage({ tone: "error", text: errorMessage(err, { ...OWN_ERRORS, server_error: "organisations.console.error" }) });
     }
   };
-  const served = (cases ?? []).filter((c) => c.served);
   return (
     <div className="av-page av-page--narrow av-stack">
       <h1>{w("console.title")}</h1>
@@ -83,7 +84,7 @@ export function SupportConsole() {
           ))}
         </ul>
       )}
-      {served.length > 0 && flag("support_custody_transfer") && <Custody cases={served.map((c) => c.case_id)} />}
+      {servedIds.length > 0 && flag("support_custody_transfer") && <Custody cases={servedIds} />}
     </div>
   );
 }

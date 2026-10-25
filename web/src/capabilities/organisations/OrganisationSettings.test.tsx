@@ -214,7 +214,7 @@ test("passes the automated accessibility checks", async () => {
 test("the page asks for no code and no invites on arrival", async () => {
   teamWorld();
   let asked = 0;
-  server.use(http.get(`/v1/organisations/${TEAM_ORG}/invites`, () => (asked += 1, json({ invites: [] }))));
+  server.use(http.get(`/v1/organisations/${TEAM_ORG}/invites`, () => (asked += 1, json({ invites: [], pending_invites: [] }))));
   renderAt(AT);
   await screen.findByRole("button", { name: "Show waiting invites" });
   expect(asked).toBe(0);

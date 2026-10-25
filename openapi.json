@@ -935,6 +935,25 @@
         "title": "BillingProfileOut",
         "type": "object"
       },
+      "BlockingCase": {
+        "properties": {
+          "case_id": {
+            "format": "uuid",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "case_id",
+          "label"
+        ],
+        "title": "BlockingCase",
+        "type": "object"
+      },
       "BuildQueued": {
         "properties": {
           "job_id": {
@@ -7084,6 +7103,14 @@
             },
             "title": "Invites",
             "type": "array"
+          },
+          "pending_invites": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Invite"
+            },
+            "title": "Pending Invites",
+            "type": "array"
           }
         },
         "required": [
@@ -11029,6 +11056,22 @@
       },
       "OrgMemberList": {
         "properties": {
+          "current_members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OrgMember"
+            },
+            "title": "Current Members",
+            "type": "array"
+          },
+          "former_members": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/OrgMember"
+            },
+            "title": "Former Members",
+            "type": "array"
+          },
           "members": {
             "items": {
               "$ref": "#/components/schemas/OrgMember"
@@ -11066,6 +11109,14 @@
               "type": "string"
             },
             "title": "Assignable Roles",
+            "type": "array"
+          },
+          "blocking_cases": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/BlockingCase"
+            },
+            "title": "Blocking Cases",
             "type": "array"
           },
           "created_at": {
@@ -17717,6 +17768,15 @@
             },
             "title": "Cases",
             "type": "array"
+          },
+          "served_case_ids": {
+            "default": [],
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Served Case Ids",
+            "type": "array"
           }
         },
         "required": [
@@ -17981,6 +18041,24 @@
       },
       "SupportGrantList": {
         "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SupportGrant"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ended": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/SupportGrant"
+            },
+            "title": "Ended",
+            "type": "array"
+          },
           "grants": {
             "items": {
               "$ref": "#/components/schemas/SupportGrant"
