@@ -14,10 +14,10 @@ beforeAll(() => {
 });
 
 const full = today({
-  cases: [caseCard({ case_id: CASE_A, label: "Mrs A" }), caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_name: "Northgate", organisation_kind: "team" })],
+  cases: [caseCard({ case_id: CASE_A, label: "Mrs A" }), caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_name: "Northgate", organisation_kind: "team", open_count: 1 })],
   organisations: [
-    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal" },
-    { id: TEAM_ORG, name: "Northgate", kind: "team" },
+    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 1 },
+    { id: TEAM_ORG, name: "Northgate", kind: "team", open_count: 1 },
   ],
   needs_you: [
     { kind: "pages", case_id: CASE_A, rank: 1, label_key: "calm.unread.label", action_key: "calm.unread.action", screen: "calm_reader", count: 127, minutes: null, due_at: null, params: {} },

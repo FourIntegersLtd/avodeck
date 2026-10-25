@@ -26,8 +26,8 @@ const twoOrgs = today({
     caseCard({ case_id: CASE_B, label: "Ms C", organisation_id: TEAM_ORG, organisation_name: "Northgate", organisation_kind: "team", stage: "court", party_role: "instructing_side", due_date: "2026-10-21" }),
   ],
   organisations: [
-    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal" },
-    { id: TEAM_ORG, name: "Northgate", kind: "team" },
+    { id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 1 },
+    { id: TEAM_ORG, name: "Northgate", kind: "team", open_count: 1 },
   ],
   closed_count: 23,
   needs_you: [
