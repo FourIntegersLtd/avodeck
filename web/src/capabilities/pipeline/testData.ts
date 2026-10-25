@@ -97,7 +97,7 @@ export function summary(pack: Schemas["CasePack"], over: Partial<Schemas["Bundle
     quarantine_confirmed: setAside.filter((q) => q.status === "confirmed"),
     suggested_count: suggested.length,
     set_aside_count: setAside.length,
-    ...merged,
+    ...(merged as object),
   } as Schemas["BundleSummary"];
 }
 
