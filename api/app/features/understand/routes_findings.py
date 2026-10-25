@@ -125,7 +125,9 @@ async def _one(request: Request, conn: DbConn, case_id: uuid.UUID, finding_id: u
 async def list_findings(case_id: uuid.UUID, access: View, request: Request, conn: DbConn) -> Findings:
     async with conn.cursor(row_factory=dict_row) as cur:
         await cur.execute(
-            f"{_F} where f.case_id = %s and {_SHOWN} order by (f.decision is not null), f.status desc, f.created_at, f.id", (case_id,)
+            f"{_F} where f.case_id = %s and {_SHOWN}"
+            " order by (f.decision is not null), f.status desc, f.created_at, f.id",
+            (case_id,),
         )
         rows = await cur.fetchall()
     out = await _with_evidence(conn, rows, await case_pack(request, conn, case_id))

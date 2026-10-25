@@ -191,7 +191,10 @@ async def test_each_event_carries_a_server_rank_and_whether_it_is_featured(clien
         (case.id, [looked]),
     )
     # a suggestion on an unread page is hidden, so mark the page read for the suggested fact
-    case.admin.execute("insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)", (case.id, case.page(1), case.expert))
+    case.admin.execute(
+        "insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)",
+        (case.id, case.page(1), case.expert),
+    )
     resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
     got = {e["fact_id"]: e for lane in resp.json()["lanes"] for e in lane["events"]}
     assert [(got[str(f)]["rank"], got[str(f)]["featured"]) for f in (looked, linked, check, done)] == [

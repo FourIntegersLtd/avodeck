@@ -13,7 +13,7 @@ import { useCardMotion } from "./useCardMotion";
 import { TimelineFooter } from "./TimelineFooter";
 import { DateMarkIcon, LaneIcon } from "./laneIcons";
 import { axisIso, kindWord, longDate, useKindWord } from "./shared";
-import { axisMarks, dayMs, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, type Level, type StoryGroup } from "./storyLayout";
+import { axisMarks, dayMs, foldChips, groupByDay, layoutLane, levelFor, type Level, type StoryGroup } from "./storyLayout";
 import { w, type WordKey } from "./words";
 
 type Event = Schemas["Event"];
@@ -126,9 +126,9 @@ type LaneLayout = { cards: { group: StoryGroup; x: number; row: number }[]; fold
 
 /** Far away only what matters most gets a card; everything else is a counted mark. */
 function layoutFor(groups: StoryGroup[], level: Level, rows: number, track: number, toX: (iso: string) => number): LaneLayout {
-  const eligible = level === "years" ? groups.filter((g) => g.rank <= 1) : groups;
+  const eligible = level === "years" ? groups.filter((g) => g.featured) : groups;
   const placed = layoutLane(eligible, { width: track, toX, card: CARD, gap: GAP, rows });
-  const rest = level === "years" ? groups.filter((g) => g.rank > 1).map((group) => ({ group, x: toX(group.date) })) : [];
+  const rest = level === "years" ? groups.filter((g) => !g.featured).map((group) => ({ group, x: toX(group.date) })) : [];
   const folded = [...placed.folded, ...rest];
   return { cards: placed.cards, folded, chips: foldChips(folded, CARD / 2) };
 }
@@ -215,6 +215,7 @@ export function TimelineBoard({
   to,
   numbers,
   selectedId,
+  windowed,
   onOpen,
 }: {
   caseId: string;
@@ -223,6 +224,8 @@ export function TimelineBoard({
   to: string;
   numbers?: Record<string, number>;
   selectedId?: string | null;
+  /** The server's per-lane monthly counts for this window (`/timeline/overview?from&to`). */
+  windowed?: Schemas["Overview"] | null;
   onOpen: (events: Event[], at?: string) => void;
 }) {
   const boardRef = useRef<HTMLDivElement>(null);
@@ -251,7 +254,7 @@ export function TimelineBoard({
   const total = all.reduce((n, g) => n + g.events.length, 0) + onBars;
   const shown = laid.reduce((n, l) => n + l.layout.cards.reduce((s, c) => s + c.group.events.length, 0), 0) + onBars;
   const marks = domain ? axisMarks(domain.start, domain.end, level, track) : [];
-  const density = useMemo(() => (domain && level === "years" ? monthlyCounts(lanes, domain.first, domain.last) : null), [domain?.first, domain?.last, level, lanes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const density = level === "years" && windowed && windowed.months.length > 0 ? windowed : null;
   const found = data.counts?.things_to_look ?? 0;
   const emptyLanes = lanes.filter((l) => l.events.length === 0);
 
@@ -277,15 +280,17 @@ export function TimelineBoard({
             </ul>
           )}
         </div>
-        {laid.filter(({ lane }) => lane.events.length > 0).map(({ lane, groups, layout }) => (
+        {laid.filter(({ lane }) => lane.events.length > 0).map(({ lane, groups, layout }) => {
+          const counts = density?.lanes.find((l) => l.key === lane.key)?.counts ?? [];
+          return (
           <div key={lane.key} className="av-story-lane-wrap">
             {density && groups.length > 0 && (
               <svg className="av-story-density" width={track} height="24" aria-hidden="true" focusable="false">
                 <path
                   fill={lane.colour ?? "var(--ink-soft)"}
-                  d={density.byLane[lane.key]!.map((n, i) => {
+                  d={counts.map((n, i) => {
                     if (!n) return "";
-                    const max = Math.max(...density.byLane[lane.key]!);
+                    const max = Math.max(...counts);
                     const x = (i / density.months.length) * track;
                     const h = Math.max(2, (n / max) * 22);
                     return `M${x.toFixed(1)} 24v-${h.toFixed(1)}h${Math.max(1.5, track / density.months.length - 1).toFixed(1)}v${h.toFixed(1)}z`;
@@ -295,7 +300,8 @@ export function TimelineBoard({
             )}
             <LaneRow lane={lane} layout={layout} all={all} gaps={data.gaps ?? []} track={track} toX={toX} numbers={numbers} selectedId={selectedId} onOpen={onOpen} />
           </div>
-        ))}
+          );
+        })}
         {emptyLanes.length > 0 && (
           <p className="av-story-nothing">{w("timeline.nothing_in_dates", { lanes: emptyLanes.map((l) => l.label).join(" · ") })}</p>
         )}

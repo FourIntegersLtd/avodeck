@@ -331,7 +331,9 @@ describe("the ribbon and the window", () => {
     renderAt(`/cases/${CASE_A}/timeline`);
     await screen.findByTestId("timeline-ribbon");
     await waitFor(() => expect(seenOverviews.length).toBeGreaterThan(0));
-    expect(seenOverviews.every((u) => !u.searchParams.has("from") && !u.searchParams.has("to"))).toBe(true);
+    expect(seenOverviews.some((u) => !u.searchParams.has("from") && !u.searchParams.has("to"))).toBe(true);
+    // the board's own counts ask for the window, the ribbon for everything
+    expect(seenOverviews.filter((u) => u.searchParams.has("from")).every((u) => u.searchParams.get("from") === "2024-02-01" && u.searchParams.get("to") === "2024-08-31")).toBe(true);
     await waitFor(() => expect(seen.length).toBeGreaterThan(0));
     // With an instruction period, the board waits for its window: it never asks for the whole record itself.
     expect(seen.every((u) => u.searchParams.get("from") === "2024-02-01" && u.searchParams.get("to") === "2024-08-31")).toBe(true);
@@ -393,7 +395,7 @@ describe("filters", () => {
 
   test("a status with nothing in the dates is left out of the Show menu", async () => {
     inCase("launch");
-    serve(timeline({ counts: { checked: 2, please_check: 0, things_to_look: 0, not_linked: 1, undated: 0, total: 2 } }));
+    serve(timeline({ status_options: ["verified", "not_linked"], counts: { checked: 2, please_check: 0, things_to_look: 0, not_linked: 1, undated: 0, total: 2 } }));
     const { user } = renderAt(`/cases/${CASE_A}/timeline`);
     await user.click(await screen.findByRole("button", { name: /^Show:/ }));
     const menu = screen.getByRole("group", { name: "Show" });

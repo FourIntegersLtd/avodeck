@@ -2676,6 +2676,42 @@
         "title": "Chip",
         "type": "object"
       },
+      "ChronologyRef": {
+        "description": "One row of the list view: the entry (by id) and the lane it sits in, already in date order.",
+        "properties": {
+          "fact_id": {
+            "format": "uuid",
+            "title": "Fact Id",
+            "type": "string"
+          },
+          "lane_icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lane Icon"
+          },
+          "lane_key": {
+            "default": "",
+            "title": "Lane Key",
+            "type": "string"
+          },
+          "lane_label": {
+            "default": "",
+            "title": "Lane Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "fact_id"
+        ],
+        "title": "ChronologyRef",
+        "type": "object"
+      },
       "ChunkReceived": {
         "properties": {
           "received": {
@@ -5177,6 +5213,11 @@
             "title": "Fact Id",
             "type": "string"
           },
+          "featured": {
+            "default": false,
+            "title": "Featured",
+            "type": "boolean"
+          },
           "first_word_n": {
             "anyOf": [
               {
@@ -5207,6 +5248,11 @@
             },
             "title": "Question Ids",
             "type": "array"
+          },
+          "rank": {
+            "default": 3,
+            "title": "Rank",
+            "type": "integer"
           },
           "series_key": {
             "anyOf": [
@@ -5866,12 +5912,22 @@
       },
       "Findings": {
         "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
           "findings": {
             "items": {
               "$ref": "#/components/schemas/FindingOut"
             },
             "title": "Findings",
             "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -18663,6 +18719,14 @@
             ],
             "title": "As Seen Title"
           },
+          "chronology": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ChronologyRef"
+            },
+            "title": "Chronology",
+            "type": "array"
+          },
           "counts": {
             "anyOf": [
               {
@@ -18718,6 +18782,14 @@
               "$ref": "#/components/schemas/TimelineSource"
             },
             "title": "Sources",
+            "type": "array"
+          },
+          "status_options": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Status Options",
             "type": "array"
           },
           "unplaced": {
@@ -34428,6 +34500,44 @@
               ],
               "description": "Only what had arrived by this day.",
               "title": "As Seen On"
+            }
+          },
+          {
+            "description": "Count only from this day.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Count only from this day.",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Count only up to this day.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Count only up to this day.",
+              "title": "To"
             }
           }
         ],
