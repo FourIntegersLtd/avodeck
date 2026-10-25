@@ -447,3 +447,25 @@ a:hover { color: var(--forest); }
 .policy-table table { width: 100%; border-collapse: collapse; font-size: 16px; }
 .policy-table th, .policy-table td { text-align: left; vertical-align: top; padding: 12px 14px; border-bottom: 1px solid var(--line); }
 .policy-table th { background: var(--mint); color: var(--forest); }
+
+/* Phones: full-width hero, tighter sections, shorter stacks */
+@media (max-width: 760px) {
+  .wrap { padding: 56px 16px; }
+  .pilot .wrap { padding: 56px 16px; }
+  .hero-copy { min-height: 0; padding: 40px 0 8px; gap: 22px; }
+  .hero-sub { max-width: none; font-size: 20px; }
+  .hero-actions { flex-direction: column; align-items: stretch; gap: 8px; }
+  .hero-actions .btn { justify-content: center; width: 100%; }
+  .split, .showcase, .feature { gap: 32px; }
+  .showcase .stack { order: -1; }
+  .feature-head { align-items: flex-start; text-align: left; }
+  .diff-list li { flex-direction: column; gap: 6px; padding: 20px 0; }
+  .diff-tag { padding-top: 0; }
+  .seen { padding: 22px; }
+  .trace-page { padding: 24px 20px; font-size: 14px; }
+  .steps { grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  .steps li { padding: 20px 0; gap: 8px; }
+  .step-h { font-size: 21px; }
+  .step-p { font-size: 16px; }
+  .footer-cols { grid-template-columns: repeat(2, 1fr); gap: 28px 16px; }
+}
