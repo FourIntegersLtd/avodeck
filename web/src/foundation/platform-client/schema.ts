@@ -5314,6 +5314,16 @@ export interface components {
             /** Pages */
             pages: number;
             /**
+             * Quarantine Confirmed
+             * @default []
+             */
+            quarantine_confirmed: components["schemas"]["QuarantinePage"][];
+            /**
+             * Quarantine Listed
+             * @default []
+             */
+            quarantine_listed: components["schemas"]["QuarantinePage"][];
+            /**
              * Quarantine Suggestions
              * @default []
              */
@@ -5324,6 +5334,11 @@ export interface components {
              */
             quarantined: components["schemas"]["QuarantinePage"][];
             /**
+             * Set Aside Count
+             * @default 0
+             */
+            set_aside_count: number;
+            /**
              * Splits
              * @default 0
              */
@@ -5333,6 +5348,21 @@ export interface components {
              * @default 0
              */
             straightened: number;
+            /**
+             * Suggested Count
+             * @default 0
+             */
+            suggested_count: number;
+            /**
+             * Unopened Count
+             * @default 0
+             */
+            unopened_count: number;
+            /**
+             * Unopened Documents
+             * @default []
+             */
+            unopened_documents: components["schemas"]["Document"][];
             /** Unreadable */
             unreadable: number;
             /** Versions */
@@ -8330,6 +8360,16 @@ export interface components {
         MissingItems: {
             /** Missing Items */
             missing_items: components["schemas"]["MissingItem"][];
+            /**
+             * Still Missing
+             * @default []
+             */
+            still_missing: components["schemas"]["MissingItem"][];
+            /**
+             * Still Missing Count
+             * @default 0
+             */
+            still_missing_count: number;
         };
         /** MissingPage */
         MissingPage: {

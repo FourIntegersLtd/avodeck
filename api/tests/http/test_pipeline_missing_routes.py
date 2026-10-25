@@ -223,3 +223,19 @@ async def test_anyone_without_access_to_the_case_gets_404(bundle: Harness) -> No
     got = await change(bundle, item_id(bundle), {"status": "not_available", "reason": "Lost"}, 0, headers=other)
     assert got.status_code == 404, got.status_code
     assert (await listed(bundle)).json()["missing_items"][0]["status"] == "open"
+
+
+
+async def test_the_list_says_which_items_are_still_missing(bundle: Harness) -> None:
+    """The server decides which items still count (open or requested); the screen filters nothing."""
+    item = item_id(bundle)
+    body = (await listed(bundle)).json()
+    assert [m["id"] for m in body["still_missing"]] == [str(item)] and body["still_missing_count"] == 1
+    set_requested(bundle)
+    body = (await listed(bundle)).json()
+    assert body["still_missing_count"] == 1, "a requested item stopped counting as missing"
+    done = await change(bundle, item, {"status": "not_available", "reason": "Destroyed"}, 0)
+    assert done.status_code == 200, done.status_code
+    body = (await listed(bundle)).json()
+    assert body["still_missing"] == [] and body["still_missing_count"] == 0
+    assert len(body["missing_items"]) == 1, "the full list must still hold every item"

@@ -86,9 +86,7 @@ export function AskInstructingParty() {
     summary.pages,
     ...summary.versions.map((v) => v.last_page_no ?? 0),
   );
-  const setAside = (summary.quarantined ?? [])
-    .filter((q) => q.status === "confirmed")
-    .map((q) => q.page_id);
+  const setAside = (summary.quarantine_confirmed ?? []).map((q) => q.page_id);
 
   async function send() {
     setBusy(true);

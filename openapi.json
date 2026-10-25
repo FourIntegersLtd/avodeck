@@ -1128,6 +1128,22 @@
             "title": "Pages",
             "type": "integer"
           },
+          "quarantine_confirmed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuarantinePage"
+            },
+            "title": "Quarantine Confirmed",
+            "type": "array"
+          },
+          "quarantine_listed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/QuarantinePage"
+            },
+            "title": "Quarantine Listed",
+            "type": "array"
+          },
           "quarantine_suggestions": {
             "default": [],
             "items": {
@@ -1144,6 +1160,11 @@
             "title": "Quarantined",
             "type": "array"
           },
+          "set_aside_count": {
+            "default": 0,
+            "title": "Set Aside Count",
+            "type": "integer"
+          },
           "splits": {
             "default": 0,
             "title": "Splits",
@@ -1153,6 +1174,24 @@
             "default": 0,
             "title": "Straightened",
             "type": "integer"
+          },
+          "suggested_count": {
+            "default": 0,
+            "title": "Suggested Count",
+            "type": "integer"
+          },
+          "unopened_count": {
+            "default": 0,
+            "title": "Unopened Count",
+            "type": "integer"
+          },
+          "unopened_documents": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/Document"
+            },
+            "title": "Unopened Documents",
+            "type": "array"
           },
           "unreadable": {
             "title": "Unreadable",
@@ -9344,6 +9383,19 @@
             },
             "title": "Missing Items",
             "type": "array"
+          },
+          "still_missing": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/MissingItem"
+            },
+            "title": "Still Missing",
+            "type": "array"
+          },
+          "still_missing_count": {
+            "default": 0,
+            "title": "Still Missing Count",
+            "type": "integer"
           }
         },
         "required": [
