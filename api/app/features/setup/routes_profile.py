@@ -32,7 +32,6 @@ class Profile(BaseModel):
     default_retention: str | None
     default_jurisdiction: str | None
     missing_steps: list[str] = Field(
-        default_factory=list,
         description="Onboarding steps still to do, in order: about, roles, training, template, signature.",
     )
 

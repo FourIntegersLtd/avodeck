@@ -13383,7 +13383,8 @@
           "hourly_rate",
           "currency",
           "default_retention",
-          "default_jurisdiction"
+          "default_jurisdiction",
+          "missing_steps"
         ],
         "title": "Profile",
         "type": "object"
@@ -13961,7 +13962,6 @@
             "type": "array"
           },
           "confirmed_count": {
-            "default": 0,
             "description": "Questions and assumptions confirmed, of `total`.",
             "title": "Confirmed Count",
             "type": "integer"
@@ -14019,7 +14019,6 @@
             "type": "boolean"
           },
           "total": {
-            "default": 0,
             "description": "All questions and assumptions in the set, whatever `answerable` says.",
             "title": "Total",
             "type": "integer"
@@ -14053,7 +14052,10 @@
           "rejected",
           "warnings",
           "questions",
-          "assumptions"
+          "assumptions",
+          "confirmed_count",
+          "total",
+          "letter"
         ],
         "title": "Questions",
         "type": "object"

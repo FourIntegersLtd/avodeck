@@ -93,10 +93,10 @@ class Questions(BaseModel):
     warnings: list[str] = Field(description="i18n keys.")
     questions: list[QuestionOut]
     assumptions: list[AssumptionOut]
-    confirmed_count: int = Field(default=0, description="Questions and assumptions confirmed, of `total`.")
-    total: int = Field(default=0, description="All questions and assumptions in the set, whatever `answerable` says.")
+    confirmed_count: int = Field(description="Questions and assumptions confirmed, of `total`.")
+    total: int = Field(description="All questions and assumptions in the set, whatever `answerable` says.")
     letter: list[LetterItem] = Field(
-        default_factory=list, description="Items that cite a paragraph, in paragraph order (numbers count as numbers)."
+        description="Items that cite a paragraph, in paragraph order (numbers count as numbers)."
     )
 
 
