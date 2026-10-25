@@ -43,8 +43,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
   }, [asked]);
   const party = pack.instructing_party_types[0]?.label ?? "";
   const kinds: Option[] = pack.question_types.map((q) => ({ value: String(q.key), label: t(String(q.label_key ?? ""), {}, humanise(String(q.key))) }));
-  const total = questions.length + assumptions.length;
-  const done = [...questions, ...assumptions].filter((i) => i.status === "confirmed").length;
+  const { total, confirmed_count: done } = asked;
   const path = { params: { path: { case_id: caseId } } };
 
   const confirmAll = async () => {
@@ -110,7 +109,7 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
         </Notice>
       )}
       <div className="av-setup-split">
-      <LetterPane questions={questions} assumptions={assumptions} />
+      <LetterPane letter={asked.letter} />
       <div className="av-stack">
       {questions.length > 0 && <h3>{t("setup.questions.questions")}</h3>}
       {questions.map((q, i) => (
@@ -120,7 +119,10 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           caseId={caseId}
           item={q}
           locked={asked.locked}
-          onChange={(next) => setQuestions(questions.map((x, j) => (j === i ? (next as QuestionItem) : x)))}
+          onChange={(next) => {
+            setQuestions(questions.map((x, j) => (j === i ? (next as QuestionItem) : x)));
+            reload();
+          }}
           pack={pack}
           party={party}
           onDraft={() => draft(q.id)}
@@ -146,7 +148,10 @@ function QuestionsView({ caseId, asked, pack, reload }: { caseId: string; asked:
           caseId={caseId}
           item={a}
           locked={asked.locked}
-          onChange={(next) => setAssumptions(assumptions.map((x, j) => (j === i ? (next as AssumptionItem) : x)))}
+          onChange={(next) => {
+            setAssumptions(assumptions.map((x, j) => (j === i ? (next as AssumptionItem) : x)));
+            reload();
+          }}
         />
       ))}
       {note && <NoteView note={note} />}
@@ -397,18 +402,15 @@ function OutsideExpertise({
 }
 
 /** The letter's cited paragraphs, in paragraph order, each highlighted: the words the questions came from. */
-function LetterPane({ questions, assumptions }: { questions: QuestionItem[]; assumptions: AssumptionItem[] }) {
-  const cited = [...questions, ...assumptions]
-    .filter((i) => i.para_ref)
-    .sort((a, b) => a.para_ref!.localeCompare(b.para_ref!, "en", { numeric: true }));
-  if (cited.length === 0) return null;
+function LetterPane({ letter }: { letter: Schemas["LetterItem"][] }) {
+  if (letter.length === 0) return null;
   return (
     <section aria-label={t("setup.questions.letter_title")} className="av-setup-letter av-stack">
       <span className="av-mono av-setup-letter__head">{t("setup.questions.letter_title")}</span>
-      {cited.map((i) => (
+      {letter.map((i) => (
         <p key={i.id}>
           <span className="av-mono av-setup-letter__ref">{i.para_ref}</span>{" "}
-          <mark className={"outside_expertise" in i && i.outside_expertise ? "av-setup-mark--outside" : undefined}>{i.text_verbatim}</mark>
+          <mark className={i.outside_expertise ? "av-setup-mark--outside" : undefined}>{i.text_verbatim}</mark>
         </p>
       ))}
     </section>

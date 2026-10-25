@@ -123,10 +123,21 @@ export function assumption(over: Partial<Schemas["AssumptionOut"]> = {}): Schema
   };
 }
 
+/** What the server works out from the set: the done count, the total and the cited paragraphs in order. */
 export function questions(over: Partial<Schemas["Questions"]> = {}): Schemas["Questions"] {
+  const qs = over.questions ?? [question()];
+  const as = over.assumptions ?? [assumption()];
+  const cited = [
+    ...qs.map((q) => ({ id: q.id, kind: "question" as const, para_ref: q.para_ref, text_verbatim: q.text_verbatim, outside_expertise: q.outside_expertise })),
+    ...as.map((a) => ({ id: a.id, kind: "assumption" as const, para_ref: a.para_ref, text_verbatim: a.text_verbatim, outside_expertise: false })),
+  ].filter((i): i is typeof i & { para_ref: string } => Boolean(i.para_ref));
+  cited.sort((a, b) => a.para_ref.localeCompare(b.para_ref, "en", { numeric: true }));
   return {
-    questions: [question()],
-    assumptions: [assumption()],
+    questions: qs,
+    assumptions: as,
+    confirmed_count: [...qs, ...as].filter((i) => i.status === "confirmed").length,
+    total: qs.length + as.length,
+    letter: cited,
     locked: false,
     reading: false,
     read_failed: false,
@@ -149,4 +160,21 @@ export function note(topic: Schemas["NoteDraft"]["topic"], over: Partial<Schemas
     recipients: [{ id: "d1111111-1111-4111-8111-111111111111", name: "Ms Rees", firm: "Rees & Co", email: null, type_key: "lawyer" }],
     ...over,
   };
+}
+
+/** After a change is saved the screen asks again: the server's next answer carries the changed items. */
+export function nowAsked(over: Partial<Schemas["Questions"]>): void {
+  server.use(http.get("/v1/cases/:caseId/questions", () => json(questions(over))));
+}
+
+/** What the server says is still to do on the profile, worked out from the other mocked endpoints. */
+export async function missingSteps(about: boolean): Promise<string[]> {
+  const get = (path: string) => fetch(new URL(path, window.location.href));
+  const some = async (path: string) => {
+    const r = await get(path);
+    return r.ok && ((await r.json()) as unknown[]).length > 0;
+  };
+  const exists = async (path: string) => (await get(path)).ok;
+  const flags = [about, await some("/v1/me/roles"), await some("/v1/me/training"), await exists("/v1/me/template"), await exists("/v1/me/signature/image")];
+  return ["about", "roles", "training", "template", "signature"].filter((_, i) => !flags[i]);
 }

@@ -9677,7 +9677,7 @@ export interface components {
              * Missing Steps
              * @description Onboarding steps still to do, in order: about, roles, training, template, signature.
              */
-            missing_steps?: string[];
+            missing_steps: string[];
             /** Profession */
             profession: string | null;
             /** Registration Body */
@@ -9863,7 +9863,6 @@ export interface components {
             /**
              * Confirmed Count
              * @description Questions and assumptions confirmed, of `total`.
-             * @default 0
              */
             confirmed_count: number;
             /** Instruction Version Id */
@@ -9872,7 +9871,7 @@ export interface components {
              * Letter
              * @description Items that cite a paragraph, in paragraph order (numbers count as numbers).
              */
-            letter?: components["schemas"]["LetterItem"][];
+            letter: components["schemas"]["LetterItem"][];
             /** Locked */
             locked: boolean;
             /** Questions */
@@ -9901,7 +9900,6 @@ export interface components {
             /**
              * Total
              * @description All questions and assumptions in the set, whatever `answerable` says.
-             * @default 0
              */
             total: number;
             /** Version No */

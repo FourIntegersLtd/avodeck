@@ -4,6 +4,7 @@ Questions `answerable`, `confirmed_count`/`total`, `letter` (cited paragraphs in
 `letters_only` and prefill `open`.
 """
 
+# ruff: noqa: F811  (the shared fixtures are imported from the questions tests)
 from __future__ import annotations
 
 import re

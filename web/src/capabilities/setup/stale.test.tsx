@@ -16,7 +16,7 @@ const USE_SAVED = "Keep the saved version";
 function profile() {
   const pack = casePack("launch");
   signedIn({ me: me(), pack });
-  const p = (name: string) => ({ version: 1, full_name: name, profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [combination("launch").specialty.code], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null });
+  const p = (name: string) => ({ version: 1, full_name: name, profession: pack.profession, registration_body: pack.registration_bodies[0], registration_number: "1234567", specialties: [combination("launch").specialty.code], default_jurisdiction: jurisdiction("launch").code, default_retention: null, hourly_rate: null, currency: null, missing_steps: ["training", "template", "signature"] });
   const role = (title: string, version: number) => ({ id: ROLE, version, specialty: combination("launch").specialty.code, role_title: title, setting: null, started_on: "2011-04-01", ended_on: null });
   server.use(
     http.get("/v1/packs", () => json([combination("launch")])),
