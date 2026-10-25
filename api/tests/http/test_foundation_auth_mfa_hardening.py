@@ -42,7 +42,7 @@ async def test_a_code_that_worked_cannot_be_used_again(
     reused = await client.post("/v1/auth/mfa/verify", json={"code": totp(first.secret)})
     assert reused.status_code == 400
     assert reused.json()["error"]["code"] == "invalid_code"
-    assert (await client.get("/v1/me")).json()["error"]["code"] == "mfa_required"
+    assert (await client.post("/v1/auth/mfa/recovery-codes")).json()["error"]["code"] == "mfa_required"
     failed = admin.execute(
         "select count(*) from app.audit_log where person_id = %s and action = 'auth.mfa_failed'", (first.person_id,)
     ).fetchone()
@@ -93,4 +93,6 @@ async def test_a_recovery_code_signs_out_every_other_device(
         "select revoked_reason from app.sessions where person_id = %s and revoked_at is not null", (signed.person_id,)
     ).fetchall()
     assert ("recovery",) in reasons
-    assert (await laptop.get("/v1/me")).json()["error"]["code"] == "mfa_required"
+    assert (await laptop.get("/v1/me")).status_code == 200  # signed in with the password (ADR 0025)
+    refused = (await laptop.post("/v1/auth/mfa/recovery-codes")).json()["error"]
+    assert (refused["code"], refused["mfa_enrolled"]) == ("mfa_required", False)  # the new phone is set up first

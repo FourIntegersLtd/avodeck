@@ -153,7 +153,7 @@ async def test_resetting_the_password_signs_out_every_device(
     old = await (await browser()).post("/v1/auth/sign-in", json={"email": signed.email, "password": PASSWORD})
     assert old.status_code == 401
     new = await (await browser()).post("/v1/auth/sign-in", json={"email": signed.email, "password": NEW_PASSWORD})
-    assert new.json() == {"status": "mfa_required", "mfa_enrolled": True}
+    assert new.json() == {"status": "signed_in", "mfa_enrolled": True}
 
     again = await (await browser()).post("/v1/auth/password/reset", json={"token": token, "new_password": NEW_PASSWORD})
     assert again.status_code == 400

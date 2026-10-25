@@ -1,5 +1,6 @@
-// S01 Sign in: password, then the 6-digit code; first sign-in sets up the code and shows the
-// backup codes once; a lost phone uses a backup code; a forgotten password sends a link.
+// S01 Sign in: the password alone opens Today (ADR 0025); the 6-digit code is asked for only at risky
+// actions (foundation/lib/stepUp). An older API that still answers mfa_required gets the code step. A lost
+// phone uses a backup code; a forgotten password sends a link.
 import { screen, waitFor } from "@testing-library/react";
 import { expect, test } from "vitest";
 import { apiError, http, json, server, signedIn } from "../../test/api";
@@ -44,40 +45,25 @@ test("show password reveals what was typed", async () => {
   expect(password).toHaveAttribute("type", "text");
 });
 
-test("password then code signs in and opens Today", async () => {
-  signedOutAtFirst();
-  let sent: unknown;
-  server.use(
-    http.post("/v1/auth/sign-in", async ({ request }) => {
-      sent = await request.json();
-      return json({ status: "mfa_required", mfa_enrolled: true });
-    }),
-    http.post("/v1/auth/mfa/verify", () => {
-      signedIn();
-      return json({ status: "signed_in", recovery_codes: null });
-    }),
-  );
-  const { user, router } = renderAt("/sign-in");
-  await enterPassword(user);
-  expect(sent).toEqual({ email: "j.morgan@example.test", password: "a long enough password" });
-  expect(await screen.findByRole("heading", { level: 1, name: "Enter your code" })).toBeInTheDocument();
-  await user.type(screen.getByLabelText("6-digit code"), "123456");
-  await user.click(screen.getByRole("button", { name: "Carry on" }));
-  await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
-});
-
-test("when the local API skips the code, the password alone opens Today", async () => {
-  signedOutAtFirst();
-  server.use(
-    http.post("/v1/auth/sign-in", () => {
-      signedIn();
-      return json({ status: "signed_in", mfa_enrolled: true });
-    }),
-  );
-  const { user, router } = renderAt("/sign-in");
-  await enterPassword(user);
-  await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
-});
+for (const enrolled of [true, false]) {
+  test(`the password alone opens Today, with no code screen (authenticator ${enrolled ? "set up" : "not set up yet"})`, async () => {
+    signedOutAtFirst();
+    let sent: unknown;
+    server.use(
+      http.post("/v1/auth/sign-in", async ({ request }) => {
+        sent = await request.json();
+        signedIn({ session: { aal: "aal1", mfa_enrolled: enrolled, mfa_complete: false } });
+        return json({ status: "signed_in", mfa_enrolled: enrolled });
+      }),
+    );
+    const { user, router } = renderAt("/sign-in");
+    await enterPassword(user);
+    expect(sent).toEqual({ email: "j.morgan@example.test", password: "a long enough password" });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
+    expect(await screen.findByRole("heading", { level: 1, name: /Good (morning|afternoon|evening)/ })).toBeInTheDocument();
+    expect(screen.queryByLabelText("6-digit code")).toBeNull();
+  });
+}
 
 test("a wrong password says so plainly, with no technical code", async () => {
   signedOutAtFirst();
@@ -102,7 +88,7 @@ test("a wrong code says so and lets the expert try again", async () => {
   expect(screen.getByLabelText("6-digit code")).toBeInTheDocument();
 });
 
-test("first sign-in sets up the code, then shows the backup codes once", async () => {
+test("an older API that asks to set up the code at sign-in still gets the set-up and the backup codes once", async () => {
   signedOutAtFirst();
   server.use(
     http.post("/v1/auth/sign-in", () => json({ status: "mfa_required", mfa_enrolled: false })),
@@ -129,17 +115,17 @@ test("first sign-in sets up the code, then shows the backup codes once", async (
   await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
 });
 
-test("a lost phone: email, password and a backup code, then set up the new phone", async () => {
+test("a lost phone: email, password and a backup code sign in; the new phone is set up at the next risky action", async () => {
   signedOutAtFirst();
   let sent: unknown;
   server.use(
     http.post("/v1/auth/mfa/recover", async ({ request }) => {
       sent = await request.json();
-      return json({ status: "mfa_required", mfa_enrolled: false });
+      signedIn({ session: { aal: "aal1", mfa_enrolled: false, mfa_complete: false } });
+      return json({ status: "signed_in", mfa_enrolled: false });
     }),
-    http.post("/v1/auth/mfa/enroll", () => json({ qr_code: "data:image/svg+xml;utf8,<svg/>", secret: "SECRET", uri: "otpauth://x" })),
   );
-  const { user } = renderAt("/sign-in");
+  const { user, router } = renderAt("/sign-in");
   await user.click(await screen.findByRole("button", { name: "Use a backup code" }));
   expect(screen.getByRole("heading", { level: 1, name: "Use a backup code" })).toBeInTheDocument();
   await user.type(screen.getByLabelText("Email address"), "j.morgan@example.test");
@@ -147,7 +133,7 @@ test("a lost phone: email, password and a backup code, then set up the new phone
   await user.type(screen.getByLabelText("Backup code"), "aaaa-bbbb");
   await user.click(screen.getByRole("button", { name: "Sign in" }));
   expect(sent).toEqual({ email: "j.morgan@example.test", password: "a long enough password", code: "aaaa-bbbb" });
-  expect(await screen.findByRole("heading", { level: 1, name: "Set up the code on your phone" })).toBeInTheDocument();
+  await waitFor(() => expect(router.state.location.pathname).toBe("/today"));
 });
 
 test("forgotten password sends a link and says the same thing whatever the address", async () => {
@@ -167,11 +153,11 @@ test("forgotten password sends a link and says the same thing whatever the addre
   expect(await screen.findByText("If that address has an Avodeck account, we've sent a link to it. The link works for one hour.")).toBeInTheDocument();
 });
 
-test("a person who signed in but has not entered a code is taken to the code step", async () => {
-  server.use(http.get("/v1/auth/session", () => json({ aal: "aal1", mfa_enrolled: true, mfa_complete: false, step_up_until: null, minutes_until_timeout: 30 })));
+test("a person signed in with the password only stays on Today, with no code step", async () => {
+  signedIn({ session: { aal: "aal1", mfa_enrolled: true, mfa_complete: false } });
   const { router } = renderAt("/today");
-  expect(await screen.findByRole("heading", { level: 1, name: "Enter your code" })).toBeInTheDocument();
-  expect(router.state.location.pathname).toBe("/sign-in");
+  expect(await screen.findByRole("heading", { level: 1, name: /Good (morning|afternoon|evening)/ })).toBeInTheDocument();
+  expect(router.state.location.pathname).toBe("/today");
 });
 
 test("a signed-out person who opens Today is sent to sign in", async () => {
