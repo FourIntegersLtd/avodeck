@@ -207,6 +207,35 @@ async def test_the_close_summary_carries_the_packs_retention_years(
     assert body["deletion_started"] is False and body["deleted_at"] is None
 
 
+async def test_the_close_summary_says_which_holds_are_active_and_until_when(
+    client_for: ClientFor, seed: Seed, admin: psycopg.Connection, team: dict[str, uuid.UUID]
+) -> None:
+    case = new_case(seed, team, "served")
+    client = await client_for(team["viewer"])
+    body = (await client.get(f"/v1/cases/{case}/close")).json()
+    assert body["active_holds"] == [] and body["paused_until"] is None
+    soon, later = date.today() + timedelta(days=5), date.today() + timedelta(days=40)
+    ids = []
+    for until in (soon, later):
+        row = admin.execute(
+            "insert into app.legal_holds (case_id, reason, until, set_by) values (%s, 'appeal', %s, %s) returning id",
+            (case, until, team["expert"]),
+        ).fetchone()
+        assert row is not None
+        ids.append(str(row[0]))
+    admin.execute(
+        "insert into app.legal_holds (case_id, reason, until, set_by, released_at, released_by)"
+        " values (%s, 'appeal', %s, %s, now(), %s)",
+        (case, date.today() + timedelta(days=400), team["expert"], team["expert"]),
+    )
+    body = (await client.get(f"/v1/cases/{case}/close")).json()
+    assert [h["id"] for h in body["active_holds"]] == ids
+    assert body["paused_until"] == str(later)
+    admin.execute("insert into app.legal_holds (case_id, reason, set_by) values (%s, 'appeal', %s)", (case, team["expert"]))
+    body = (await client.get(f"/v1/cases/{case}/close")).json()
+    assert len(body["active_holds"]) == 3 and body["paused_until"] is None  # open-ended: no date
+
+
 # --- settle, archive, reopen (acceptance 8) ---------------------------------------------------------
 
 
