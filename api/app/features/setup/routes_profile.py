@@ -31,6 +31,13 @@ class Profile(BaseModel):
     currency: str | None
     default_retention: str | None
     default_jurisdiction: str | None
+    missing_steps: list[str] = Field(
+        default_factory=list,
+        description="Onboarding steps still to do, in order: about, roles, training, template, signature.",
+    )
+
+
+_STEPS = ("about", "roles", "training", "template", "signature")
 
 
 class ProfileUpdate(BaseModel):
@@ -67,7 +74,13 @@ async def _profile(conn: DbConn) -> tuple[Profile, int]:
             "select p.full_name, e.profession, coalesce(e.specialties, '{}') as specialties, e.registration_body,"
             " e.registration_number, e.hourly_rate, e.currency, e.default_retention, e.default_jurisdiction,"
             " coalesce((extract(epoch from e.updated_at) * 1000000)::bigint, 0) as tag,"
-            " (e.person_id is null and app.is_support_staff(p.id)) as staff_only"
+            " (e.person_id is null and app.is_support_staff(p.id)) as staff_only,"
+            " array[coalesce(p.full_name <> '' and e.registration_number <> ''"
+            "   and cardinality(e.specialties) > 0, false),"
+            "  exists (select 1 from app.expert_roles r where r.expert_id = p.id),"
+            "  exists (select 1 from app.expert_training x where x.expert_id = p.id),"
+            "  exists (select 1 from app.report_templates t where t.owner_type = 'person' and t.owner_id = p.id),"
+            "  exists (select 1 from app.signatures g where g.expert_id = p.id)] as done_steps"
             " from app.people p left join app.experts e on e.person_id = p.id"
             " where p.id = app.current_person_id()"
         )
@@ -75,7 +88,9 @@ async def _profile(conn: DbConn) -> tuple[Profile, int]:
     if row is None or row.pop("staff_only"):
         raise not_found()
     tag = int(row.pop("tag"))
-    return Profile(**row, version=tag), tag
+    done = row.pop("done_steps")
+    missing = [step for step, ok in zip(_STEPS, done, strict=True) if not ok]
+    return Profile(**row, version=tag, missing_steps=missing), tag
 
 
 @router.get("/me/profile", response_model=Profile)

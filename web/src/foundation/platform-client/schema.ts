@@ -7730,6 +7730,31 @@ export interface components {
             pack: components["schemas"]["PackOut"] | null;
             settings: components["schemas"]["TrialPackSettingsOut"];
         };
+        /**
+         * LetterItem
+         * @description A cited paragraph of the letter, ready to show: the words the question or assumption came from.
+         */
+        LetterItem: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "question" | "assumption";
+            /**
+             * Outside Expertise
+             * @default false
+             */
+            outside_expertise: boolean;
+            /** Para Ref */
+            para_ref: string;
+            /** Text Verbatim */
+            text_verbatim: string;
+        };
         /** LinkDecision */
         LinkDecision: {
             /**
@@ -9648,6 +9673,11 @@ export interface components {
             full_name: string | null;
             /** Hourly Rate */
             hourly_rate: string | null;
+            /**
+             * Missing Steps
+             * @description Onboarding steps still to do, in order: about, roles, training, template, signature.
+             */
+            missing_steps?: string[];
             /** Profession */
             profession: string | null;
             /** Registration Body */
@@ -9830,8 +9860,19 @@ export interface components {
         Questions: {
             /** Assumptions */
             assumptions: components["schemas"]["AssumptionOut"][];
+            /**
+             * Confirmed Count
+             * @description Questions and assumptions confirmed, of `total`.
+             * @default 0
+             */
+            confirmed_count: number;
             /** Instruction Version Id */
             instruction_version_id: string | null;
+            /**
+             * Letter
+             * @description Items that cite a paragraph, in paragraph order (numbers count as numbers).
+             */
+            letter?: components["schemas"]["LetterItem"][];
             /** Locked */
             locked: boolean;
             /** Questions */
@@ -9857,6 +9898,12 @@ export interface components {
              * @description A new letter added a question to a confirmed set; confirm again.
              */
             reopened: boolean;
+            /**
+             * Total
+             * @description All questions and assumptions in the set, whatever `answerable` says.
+             * @default 0
+             */
+            total: number;
             /** Version No */
             version_no: number | null;
             /**
@@ -15859,7 +15906,10 @@ export interface operations {
     };
     list_instructions_v1_cases__case_id__instructions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only the versions that have their file attached. */
+                letters_only?: boolean;
+            };
             header?: never;
             path: {
                 case_id: string;
@@ -18506,7 +18556,10 @@ export interface operations {
     };
     get_prefill_v1_cases__case_id__prefill_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only the suggestions still waiting for the expert. */
+                open?: boolean;
+            };
             header?: never;
             path: {
                 case_id: string;
@@ -18831,7 +18884,10 @@ export interface operations {
     };
     list_questions_v1_cases__case_id__questions_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Only the questions the expert has confirmed or edited, in number order. */
+                answerable?: boolean;
+            };
             header?: never;
             path: {
                 case_id: string;
