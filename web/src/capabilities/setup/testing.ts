@@ -1,7 +1,7 @@
 // Test stand-ins for slice C's screens: typed API bodies built from the generated schema, so a contract
 // change breaks these first. Imported by the setup tests only.
 import packFixtures from "../../foundation/platform-client/pack-fixtures.json";
-import type { Schemas } from "../../foundation/platform-client";
+import { api, type Schemas } from "../../foundation/platform-client";
 import { http, json, server, signedIn } from "../../test/api";
 import { CASE_A, me, PERSON_ID, PERSONAL_ORG } from "../../test/fixtures";
 
@@ -169,12 +169,13 @@ export function nowAsked(over: Partial<Schemas["Questions"]>): void {
 
 /** What the server says is still to do on the profile, worked out from the other mocked endpoints. */
 export async function missingSteps(about: boolean): Promise<string[]> {
-  const get = (path: string) => fetch(new URL(path, window.location.href));
-  const some = async (path: string) => {
-    const r = await get(path);
-    return r.ok && ((await r.json()) as unknown[]).length > 0;
-  };
-  const exists = async (path: string) => (await get(path)).ok;
-  const flags = [about, await some("/v1/me/roles"), await some("/v1/me/training"), await exists("/v1/me/template"), await exists("/v1/me/signature/image")];
+  const some = async (path: "/v1/me/roles" | "/v1/me/training") => ((await api.GET(path)).data ?? []).length > 0;
+  const flags = [
+    about,
+    await some("/v1/me/roles"),
+    await some("/v1/me/training"),
+    (await api.GET("/v1/me/template")).response.ok,
+    (await api.GET("/v1/me/signature/image", { parseAs: "blob" })).response.ok,
+  ];
   return ["about", "roles", "training", "template", "signature"].filter((_, i) => !flags[i]);
 }

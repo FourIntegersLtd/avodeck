@@ -1,5 +1,6 @@
 """Rule 4: the profile reply names the onboarding steps still to do; the screen does not work them out."""
 
+# ruff: noqa: F811  (the shared fixtures are imported from the profile tests)
 from __future__ import annotations
 
 import uuid
