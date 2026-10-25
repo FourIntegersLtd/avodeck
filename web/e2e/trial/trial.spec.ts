@@ -30,6 +30,12 @@ const MEETING = {
   ],
   agenda_versions: [{ id: "a9777777-7777-4777-8777-777777777777", version_no: 1, read_at: "2027-02-10T09:00:00Z", item_count: 1, created_at: "2027-02-10T09:00:00Z" }],
 };
+const CONCORDANCE_ROWS = [
+    { id: "a9444444-4444-4444-8444-444444444441", page_no: 87, trial_page_no: 2376, status: "matched", method: "text", score: 0.97, confirmed: false, paragraphs: [12], source_type: "primary_care_record", document_date: "2024-03-01", version: 1 },
+    { id: "a9444444-4444-4444-8444-444444444442", page_no: 118, trial_page_no: 2407, status: "matched", method: "text", score: 0.97, confirmed: false, paragraphs: [13], source_type: "primary_care_record", document_date: "2024-05-15", version: 1 },
+    { id: "a9444444-4444-4444-8444-444444444443", page_no: 214, trial_page_no: null, status: "missing", method: "none", score: 0, confirmed: false, paragraphs: [11, 4], source_type: "letters", document_date: "2024-02-20", version: 1 },
+    { id: "a9444444-4444-4444-8444-444444444444", page_no: 1118, trial_page_no: 3102, status: "matched", method: "text", score: 0.97, confirmed: false, paragraphs: [19], source_type: "letters", document_date: "2024-09-24", version: 1 },
+];
 const BODIES: Record<string, unknown> = {
   [`/v1/cases/${CASE_A}`]: CASE,
   [`/v1/cases/${CASE_A}/pack`]: PACK,
@@ -39,12 +45,11 @@ const BODIES: Record<string, unknown> = {
   [`/v1/cases/${CASE_A}/expert-meetings/${MEETING.id}/participants`]: { participants: [{ id: "a9888888-8888-4888-8888-888888888888", name: "Dr R", discipline: null, side: "other_side", on_avodeck: false }] },
   [`/v1/cases/${CASE_A}/concordance`]: {
     bundle: { id: "a9333333-3333-4333-8333-333333333333", status: "matched", hearing_id: null, received_on: "2027-06-02", replaces_received_on: "2027-05-20", page_count: 3914, version: 2 },
-    rows: [
-      { id: "a9444444-4444-4444-8444-444444444441", page_no: 87, trial_page_no: 2376, status: "matched", method: "text", score: 0.97, confirmed: false, paragraphs: [12], source_type: "primary_care_record", document_date: "2024-03-01", version: 1 },
-      { id: "a9444444-4444-4444-8444-444444444442", page_no: 118, trial_page_no: 2407, status: "matched", method: "text", score: 0.97, confirmed: false, paragraphs: [13], source_type: "primary_care_record", document_date: "2024-05-15", version: 1 },
-      { id: "a9444444-4444-4444-8444-444444444443", page_no: 214, trial_page_no: null, status: "missing", method: "none", score: 0, confirmed: false, paragraphs: [11, 4], source_type: "letters", document_date: "2024-02-20", version: 1 },
-      { id: "a9444444-4444-4444-8444-444444444444", page_no: 1118, trial_page_no: 3102, status: "matched", method: "text", score: 0.97, confirmed: false, paragraphs: [19], source_type: "letters", document_date: "2024-09-24", version: 1 },
-    ],
+    rows: CONCORDANCE_ROWS,
+    display_rows: CONCORDANCE_ROWS,
+    hidden: 0,
+    missing_count: 1,
+    missing_rows: CONCORDANCE_ROWS.filter((r) => r.status === "missing"),
     counts: { matched: 3, to_confirm: 0, missing: 1 },
   },
   [`/v1/cases/${CASE_A}/trial-pack/settings`]: { sections: ["report", "chronology", "readiness", "joint_statement", "legal_tests"], include_guidance: false, hearing_id: null, version: 1 },
@@ -58,7 +63,7 @@ const BODIES: Record<string, unknown> = {
     case_label: "Mrs A",
     sheets: [{ number: 2, text: "The visit on 15 May 2024", answer: "Rectal bleeding with known iron-deficiency anaemia called for an abdominal and rectal examination and a two-week-wait referral. Neither happened. (para 6.13-6.14)", asked: "\"He may have examined her and not written it down.\"", agreed: true, reason: null, pages: [{ page_no: 118, trial_page_no: 2407, status: "matched" }], pack_page_no: 44, reply: "Referral was needed whatever an exam showed.", replied_at: "2027-06-01T08:00:00Z" }, { number: 3, text: "Next", answer: null, asked: null, agreed: null, reason: null, pages: [] }],
   },
-  [`/v1/cases/${CASE_A}/offline-packages`]: { packages: [] },
+  [`/v1/cases/${CASE_A}/offline-packages`]: { packages: [], live: [] },
 };
 
 async function stubTrial(page: Page) {
@@ -126,7 +131,7 @@ async function sealedCopy(id: string) {
 
 test("the witness-box search finds entries in the copy on this device, with no call to the API", async ({ page }) => {
   const id = "a9666666-6666-4666-8666-666666666666";
-  const copy = { id, device_label: "My tablet", hearing_id: null, format_version: 1, include_images: false, sha256: "d".repeat(64), status: "built", expires_at: "2099-07-01T09:00:00Z", downloaded_at: null, revoked_at: null, created_at: "2027-06-03T09:00:00Z" };
+  const copy = { id, device_label: "My tablet", hearing_id: null, format_version: 1, include_images: false, sha256: "d".repeat(64), status: "built", expires_at: "2099-07-01T09:00:00Z", downloaded_at: null, revoked_at: null, stale: false, created_at: "2027-06-03T09:00:00Z" };
   let made = false;
   await stubTrial(page);
   await page.route(`**/v1/cases/${CASE_A}/offline-packages**`, async (route) => {
@@ -135,7 +140,7 @@ test("the witness-box search finds entries in the copy on this device, with no c
     if (pathname.endsWith("/status")) return json({ status: "downloaded" });
     if (pathname.endsWith("/download")) { copy.status = "downloaded"; return json(await sealedCopy(id)); }
     if (route.request().method() === "POST") { made = true; return json(copy, 201); }
-    return json({ packages: made ? [copy] : [] });
+    return json({ packages: made ? [copy] : [], live: made && copy.status !== "revoked" ? [copy] : [] });
   });
   await page.goto(`/cases/${CASE_A}/trial-pack`);
   await page.getByRole("button", { name: "Copy for the witness box" }).click();

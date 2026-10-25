@@ -38,6 +38,13 @@ export async function stubPipeline(page: Page, pack: Pack) {
     versions: [{ bundle_version: 1, documents: 1, pages: 1231, first_page_no: 1, last_page_no: 1231, added_at: "2026-10-02T09:00:00Z" }],
     quarantine_suggestions: suggestions,
     quarantined: [],
+    quarantine_listed: suggestions,
+    quarantine_confirmed: [],
+    suggested_count: suggestions.length,
+    set_aside_count: 0,
+    unopened_documents: [],
+    unopened_count: 0,
+    straightened: 0,
     exhibits: [{ id: "e1", document_id: "d2", filename: "call.m4a", media_type: "audio/mp4", size: 1024, part_of: null, added_at: "2026-10-02T09:00:00Z" }],
     foreign_language: [{ page_id: pageId(903), page_no: 903, language: "cy" }],
   };

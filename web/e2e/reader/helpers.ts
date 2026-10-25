@@ -101,7 +101,7 @@ export async function stubReader(page: Page, pack: Pack): Promise<Seen> {
         return json(route, detail(n));
       }
       if (tail === "/words") return read ? json(route, { words: WORDS, reading: WORDS.map((x) => x.text).join(" ") }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
-      if (tail === "/facts") return read ? json(route, { facts }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
+      if (tail === "/facts") return read ? json(route, { facts, reassigned: false, done: 0, total: facts.length, highlights: facts.map((f) => ({ id: f.id, word_ids: f.word_ids, bbox: f.bbox })) }) : json(route, { error: { code: "blind_read", message: "" } }, 423);
       if (tail === "") return json(route, detail(n));
     }
     return json(route, { error: { code: "not_found", message: "" } }, 404);
