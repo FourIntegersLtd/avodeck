@@ -31,7 +31,7 @@ function theCase(over: Partial<Schemas["Case"]> = {}): Schemas["Case"] {
 function summary(over: Partial<Schemas["CloseSummary"]> = {}): Schemas["CloseSummary"] {
   return {
     case_id: CASE_A, status: "settled", settled_at: "2027-07-14T10:00:00Z", retention_policy: "keep_default",
-    delete_after: "2033-07-14", retention_years: launchPack.retention_years, ever_served: true, holds: [], held: false,
+    delete_after: "2033-07-14", retention_years: launchPack.retention_years, ever_served: true, holds: [], active_holds: [], paused_until: null, held: false,
     deletion_started: false, deleted_at: null, job_id: null, ...over,
   };
 }
@@ -67,7 +67,7 @@ function serve(opts: { item?: Schemas["Case"]; close?: Schemas["CloseSummary"]; 
     http.post(`/v1/cases/${CASE_A}/legal-holds`, async ({ request }) => {
       await record(request);
       const hold = { id: "66666666-6666-4666-8666-666666666666", reason: "appeal", until: null, set_by: theCase().named_expert_id, created_at: "2027-07-20T10:00:00Z", released_at: null };
-      close = { ...close, holds: [hold], held: true };
+      close = { ...close, holds: [hold], active_holds: [hold], paused_until: null, held: true };
       return json(hold, 201);
     }),
   );
@@ -438,7 +438,7 @@ test("pausing deletion shows busy on the confirm button and sends one request", 
 
 test("resuming deletion shows busy and releases once", async () => {
   const holdRow = { id: "66666666-6666-4666-8666-666666666666", reason: "appeal", until: null, set_by: theCase().named_expert_id, created_at: "2027-07-20T10:00:00Z", released_at: null };
-  serve({ close: summary({ holds: [holdRow], held: true }) });
+  serve({ close: summary({ holds: [holdRow], active_holds: [holdRow], paused_until: null, held: true }) });
   const { gate, release } = hold();
   let posts = 0;
   server.use(http.post(`/v1/cases/${CASE_A}/legal-holds/${holdRow.id}/release`, async () => {

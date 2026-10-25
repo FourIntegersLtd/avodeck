@@ -3011,6 +3011,14 @@
       "CloseSummary": {
         "description": "What screen 26 shows: where the case is, when it will be deleted, and what is holding it.",
         "properties": {
+          "active_holds": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/app__features__close__schemas__Hold"
+            },
+            "title": "Active Holds",
+            "type": "array"
+          },
           "case_id": {
             "format": "uuid",
             "title": "Case Id",
@@ -3081,6 +3089,18 @@
               }
             ],
             "title": "Max Retention Years"
+          },
+          "paused_until": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Paused Until"
           },
           "retention_policy": {
             "anyOf": [
