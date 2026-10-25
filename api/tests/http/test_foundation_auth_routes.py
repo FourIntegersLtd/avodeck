@@ -56,7 +56,7 @@ async def test_sign_in_sets_strict_httponly_secure_cookie_and_returns_no_token(
     client = await browser()
     resp = await client.post("/v1/auth/sign-in", json={"email": email, "password": PASSWORD})
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"status": "mfa_required", "mfa_enrolled": False}
+    assert resp.json() == {"status": "signed_in", "mfa_enrolled": False}
 
     cookies = set_cookies(resp)
     session = cookies[SESSION_COOKIE]
@@ -97,20 +97,28 @@ async def test_failed_sign_in_is_refused_alike_and_audited_without_the_email(
     assert audit_rows(admin, action="auth.sign_in_failed", target=target) == [(None, "auth.sign_in_failed", target)]
 
 
-async def test_until_mfa_is_verified_the_session_reaches_only_the_mfa_routes(
+RISKY = "/v1/auth/mfa/recovery-codes"  # a person-level step-up action (rule 10) that keeps the session
+
+
+def mfa_needed(resp: httpx.Response) -> tuple[int, str, object]:
+    error = resp.json()["error"]
+    return resp.status_code, error["code"], error.get("mfa_enrolled")
+
+
+async def test_the_password_alone_opens_ordinary_routes_but_not_risky_ones(
     browser: Browser, auth_admin: AuthAdmin
 ) -> None:
+    """ADR 0025: sign-in is password only; the authenticator is asked for at risky actions (rule 10)."""
     email = new_email()
     auth_admin.create_user(email)
     client = await browser()
     await client.post("/v1/auth/sign-in", json={"email": email, "password": PASSWORD})
 
-    resp = await client.get("/v1/me")
-    assert resp.status_code == 403
-    assert resp.json()["error"]["code"] == "mfa_required"
-    session = await client.get("/v1/auth/session")
-    assert session.status_code == 200
-    assert session.json()["aal"] == "aal1" and session.json()["mfa_complete"] is False
+    assert (await client.get("/v1/me")).status_code == 200
+    assert (await client.get("/v1/today")).status_code == 200
+    session = (await client.get("/v1/auth/session")).json()
+    assert session["aal"] == "aal1" and session["mfa_complete"] is False and session["step_up_until"] is None
+    assert mfa_needed(await client.post(RISKY)) == (403, "mfa_required", False)  # not set up yet
 
 
 # --- MFA ----------------------------------------------------------------------------------------
@@ -133,7 +141,7 @@ async def test_first_sign_in_enrols_mfa_and_issues_ten_recovery_codes(
     wrong = await client.post("/v1/auth/mfa/verify", json={"code": "000000" if totp(secret) != "000000" else "111111"})
     assert wrong.status_code == 400
     assert wrong.json()["error"]["code"] == "invalid_code"
-    assert (await client.get("/v1/me")).status_code == 403
+    assert mfa_needed(await client.post(RISKY)) == (403, "mfa_required", False)
     assert [r[1] for r in audit_rows(admin, person_id=person, action="auth.mfa_failed")] == ["auth.mfa_failed"]
 
     ok = await client.post("/v1/auth/mfa/verify", json={"code": totp(secret)})
@@ -154,6 +162,7 @@ async def test_first_sign_in_enrols_mfa_and_issues_ten_recovery_codes(
     assert auth_admin.verified_factors(person)
     session = (await client.get("/v1/auth/session")).json()
     assert session["aal"] == "aal2" and session["mfa_complete"] is True and session["step_up_until"]
+    assert (await client.post(RISKY)).status_code == 200  # the risky action that asked can now go ahead
 
 
 async def test_with_the_local_skip_a_password_alone_signs_in_fully(
@@ -201,19 +210,21 @@ async def test_mfa_verification_gives_a_new_session_cookie(browser: Browser, aut
     assert (await stale.get("/v1/auth/session")).status_code == 401
 
 
-async def test_later_sign_ins_ask_for_the_code_and_issue_no_new_recovery_codes(
+async def test_later_sign_ins_ask_for_the_code_only_at_a_risky_action_and_issue_no_new_recovery_codes(
     browser: Browser, auth_admin: AuthAdmin
 ) -> None:
     first = await sign_in_with_mfa(await browser(), auth_admin)
     client = await browser()
     resp = await client.post("/v1/auth/sign-in", json={"email": first.email, "password": PASSWORD})
-    assert resp.json() == {"status": "mfa_required", "mfa_enrolled": True}
+    assert resp.json() == {"status": "signed_in", "mfa_enrolled": True}
+    assert (await client.get("/v1/me")).status_code == 200
+    assert mfa_needed(await client.post(RISKY)) == (403, "mfa_required", True)  # set up: enter a code
     assert (await client.post("/v1/auth/mfa/enroll")).json()["error"]["code"] == "already_enrolled"
     # The next code: the one used to sign in first cannot be used again (RFC 6238 section 5.2).
     ok = await client.post("/v1/auth/mfa/verify", json={"code": totp(first.secret, at=time.time() + 30)})
     assert ok.status_code == 200, ok.text
     assert ok.json() == {"status": "signed_in", "recovery_codes": None}
-    assert (await client.get("/v1/me")).status_code == 200
+    assert (await client.post(RISKY)).status_code == 200
 
 
 # --- recovery codes -----------------------------------------------------------------------------
@@ -229,9 +240,10 @@ async def test_a_recovery_code_works_once_and_asks_to_enrol_again(
 
     resp = await client.post("/v1/auth/mfa/recover", json=body)
     assert resp.status_code == 200, resp.text
-    assert resp.json() == {"status": "mfa_required", "mfa_enrolled": False}
+    assert resp.json() == {"status": "signed_in", "mfa_enrolled": False}
     assert auth_admin.verified_factors(signed.person_id) == []
-    assert (await client.get("/v1/me")).json()["error"]["code"] == "mfa_required"
+    assert (await client.get("/v1/me")).status_code == 200
+    assert mfa_needed(await client.post(RISKY)) == (403, "mfa_required", False)  # set up the new phone first
     assert [r[1] for r in audit_rows(admin, person_id=signed.person_id, action="auth.recovery_code_used")] == [
         "auth.recovery_code_used"
     ]

@@ -21192,7 +21192,7 @@
   "paths": {
     "/v1/auth/mfa/enroll": {
       "post": {
-        "description": "First sign-in: a new authenticator app (QR code and the same secret as text).",
+        "description": "A new authenticator app (QR code and the same secret as text), from a signed-in session; usually at\nthe first risky action, which carries on once `/mfa/verify` accepts a code from it.",
         "operationId": "enroll_v1_auth_mfa_enroll_post",
         "responses": {
           "200": {
@@ -21224,7 +21224,7 @@
     },
     "/v1/auth/mfa/recover": {
       "post": {
-        "description": "Lost phone: password plus one recovery code. The code is used up, the old authenticator is\nremoved and the new session must enrol a new one (which issues a new set of codes).",
+        "description": "Lost phone: password plus one recovery code. The code is used up, the old authenticator is\nremoved and the new session is signed in; the new phone is set up at the next risky action (which\nissues a new set of codes).",
         "operationId": "recover_v1_auth_mfa_recover_post",
         "requestBody": {
           "content": {
@@ -21338,7 +21338,7 @@
     },
     "/v1/auth/mfa/verify": {
       "post": {
-        "description": "A code from the authenticator app: completes sign-in, or steps up for 10 minutes.\n\nThe session gets new cookies. Finishing enrolment issues the ten recovery codes, shown once.",
+        "description": "A code from the authenticator app: the session becomes aal2 and is stepped up for 10 minutes.\n\nThe session gets new cookies. Finishing enrolment issues the ten recovery codes, shown once.",
         "operationId": "verify_v1_auth_mfa_verify_post",
         "requestBody": {
           "content": {
@@ -21578,7 +21578,7 @@
     },
     "/v1/auth/sign-in": {
       "post": {
-        "description": "Password step. Sets the session cookies; the session stays at `mfa_required` until a code is verified.",
+        "description": "The password. Sets the session cookies; the session (aal1) can use every ordinary route. A code is\nasked for at risky actions (ADR 0025); `mfa_required` stays in the contract but is no longer answered.",
         "operationId": "sign_in_v1_auth_sign_in_post",
         "requestBody": {
           "content": {

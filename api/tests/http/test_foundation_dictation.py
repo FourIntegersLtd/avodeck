@@ -126,11 +126,10 @@ async def test_audio_the_speech_service_cannot_take_ends_with_a_code_not_an_exce
         ("nobody", {}, ORIGIN, 4401),
         ("outsider", {}, ORIGIN, 4404),
         ("viewer", {}, ORIGIN, 4403),
-        ("expert", {"aal": "aal1", "mfa_age": None}, ORIGIN, 4403),
         ("expert", {}, "https://elsewhere.example", 4403),
         ("expert", {}, None, 4403),
     ],
-    ids=["signed-out", "outsider", "viewer", "mfa-not-done", "other-origin", "no-origin"],
+    ids=["signed-out", "outsider", "viewer", "other-origin", "no-origin"],
 )
 async def test_the_relay_refuses_before_accepting(
     app: FastAPI,
@@ -147,6 +146,12 @@ async def test_the_relay_refuses_before_accepting(
     async with ws_connect(app, url(team["case"]), sent) as ws:
         assert not ws.accepted
         assert ws.close_code == code
+
+
+async def test_a_password_only_session_can_dictate(app: FastAPI, seed: Seed, team: dict[str, uuid.UUID]) -> None:
+    """Dictation is not a risky action, so it needs no code (ADR 0025)."""
+    async with ws_connect(app, url(team["case"]), headers(seed, team["expert"], aal="aal1", mfa_age=None)) as ws:
+        assert ws.accepted
 
 
 async def test_the_relay_refuses_a_context_that_is_not_a_short_code(

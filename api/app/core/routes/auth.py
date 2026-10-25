@@ -1,8 +1,9 @@
 """Sign-in, MFA, recovery codes, sign-out, password change and reset (architecture 5.2, 9 "Login"; S01).
 
 FastAPI is the only caller of Supabase Auth (rule 4). The browser gets an opaque session cookie
-and a CSRF cookie, never an Auth token. Every sign-in needs the password and then a code from an
-authenticator app (enrolled on first sign-in); ten one-use recovery codes cover a lost phone.
+and a CSRF cookie, never an Auth token. Sign-in needs the password only (ADR 0025); a code from an
+authenticator app is asked for at risky actions (rule 10, `core/auth/step_up.py`), and the app is set up
+the first time one is needed. Ten one-use recovery codes cover a lost phone.
 Nothing here logs an address, password, code or token; audit rows name a failed address only by
 its hash.
 """
@@ -21,7 +22,6 @@ from app.core import audit
 from app.core.auth import session as sessions
 from app.core.auth.step_up import require_step_up
 from app.core.auth.supabase import AuthError, AuthTokens, SupabaseAuth
-from app.core.config import local_mfa_skip
 from app.core.db import Database, RequestScope
 from app.core.email import RECOVERY_CODE_USED, Mail, Mailer
 from app.core.errors import ApiError
@@ -243,7 +243,8 @@ class ChangePassword(BaseModel):
 
 @auth_public.post("/sign-in", response_model=SignInResult)
 async def sign_in(body: SignIn, request: Request, response: Response) -> SignInResult:
-    """Password step. Sets the session cookies; the session stays at `mfa_required` until a code is verified."""
+    """The password. Sets the session cookies; the session (aal1) can use every ordinary route. A code is
+    asked for at risky actions (ADR 0025); `mfa_required` stays in the contract but is no longer answered."""
     database = _database(request)
     try:
         tokens = await _auth(request).sign_in_with_password(body.email, body.password)
@@ -252,13 +253,13 @@ async def sign_in(body: SignIn, request: Request, response: Response) -> SignInR
             await audit_anonymous(database, "auth.sign_in_failed", body.email)
         raise
     await _start_session(request, response, database, tokens, "auth.sign_in")
-    status: Literal["mfa_required", "signed_in"] = "signed_in" if local_mfa_skip() else "mfa_required"
-    return SignInResult(status=status, mfa_enrolled=tokens.mfa_enrolled)
+    return SignInResult(status="signed_in", mfa_enrolled=tokens.mfa_enrolled)
 
 
 @auth_pending.post("/mfa/enroll", response_model=Enrolment)
 async def enroll(request: Request, response: Response, session: CurrentSession, conn: DbConn) -> Enrolment:
-    """First sign-in: a new authenticator app (QR code and the same secret as text)."""
+    """A new authenticator app (QR code and the same secret as text), from a signed-in session; usually at
+    the first risky action, which carries on once `/mfa/verify` accepts a code from it."""
     if session.mfa_enrolled:
         raise ApiError("already_enrolled", "An authenticator app is already set up.", 409)
     auth = _auth(request)
@@ -269,7 +270,7 @@ async def enroll(request: Request, response: Response, session: CurrentSession, 
 
 @auth_pending.post("/mfa/verify", response_model=Verified)
 async def verify(body: Code, request: Request, response: Response, session: CurrentSession, conn: DbConn) -> Verified:
-    """A code from the authenticator app: completes sign-in, or steps up for 10 minutes.
+    """A code from the authenticator app: the session becomes aal2 and is stepped up for 10 minutes.
 
     The session gets new cookies. Finishing enrolment issues the ten recovery codes, shown once.
     """
@@ -346,7 +347,8 @@ async def regenerate_recovery_codes(response: Response, session: CurrentSession,
 @auth_public.post("/mfa/recover", response_model=SignInResult)
 async def recover(body: Recover, request: Request, response: Response) -> SignInResult:
     """Lost phone: password plus one recovery code. The code is used up, the old authenticator is
-    removed and the new session must enrol a new one (which issues a new set of codes)."""
+    removed and the new session is signed in; the new phone is set up at the next risky action (which
+    issues a new set of codes)."""
     database, auth = _database(request), _auth(request)
     try:
         tokens = await auth.sign_in_with_password(body.email, body.password)
@@ -374,7 +376,7 @@ async def recover(body: Recover, request: Request, response: Response) -> SignIn
     fresh = await auth.sign_in_with_password(body.email, body.password)
     await _start_session(request, response, database, fresh, "auth.sign_in")
     await _mailer(request).send(Mail(to=fresh.email, template=RECOVERY_CODE_USED))
-    return SignInResult(status="mfa_required", mfa_enrolled=False)
+    return SignInResult(status="signed_in", mfa_enrolled=False)
 
 
 @auth_pending.post("/sign-out", status_code=204)

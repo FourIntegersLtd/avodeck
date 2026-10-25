@@ -114,7 +114,7 @@ def require_case_access(action: str) -> CaseAccessDependency:
 
 # --- WebSocket routes ------------------------------------------------------------------------------
 # A WebSocket cannot answer with an HTTP status, so refusals close it before it is accepted with
-# 4000 + the status: 4401 not signed in, 4403 refused (origin, MFA, role, step-up), 4404 no access,
+# 4000 + the status: 4401 not signed in, 4403 refused (origin, role, step-up), 4404 no access,
 # 4422 a query value that is not a short code. Browsers always send Origin on a WebSocket, so it is
 # required here (there is no CSRF header; the origin check is what stops other sites).
 
@@ -154,7 +154,7 @@ class SocketCaseAccessDependency:
             session = await sessions.resolve(database, websocket.cookies.get(sessions.SESSION_COOKIE), touch=True)
         except ApiError as exc:
             raise _refuse(4401) from exc
-        if not session.mfa_complete or session.must_change_password or (self.step_up and not session.stepped_up):
+        if session.must_change_password or (self.step_up and not session.stepped_up):
             raise _refuse(4403)
         try:
             case = uuid.UUID(case_id)

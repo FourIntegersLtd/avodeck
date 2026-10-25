@@ -13,12 +13,18 @@ export const json = (body: JsonBodyType, status = 200) => HttpResponse.json(body
 
 /** A signed-in person with MFA done: session, me, today and case packs. */
 export function signedIn(
-  opts: { me?: Schemas["Me"]; today?: Schemas["Today"]; pack?: Schemas["CasePack"]; messages?: Messages } = {},
+  opts: {
+    me?: Schemas["Me"];
+    today?: Schemas["Today"];
+    pack?: Schemas["CasePack"];
+    messages?: Messages;
+    session?: Partial<Schemas["SessionStatus"]>;
+  } = {},
 ) {
   server.use(
     http.get("/v1/notifications", () => json(opts.messages ?? messages())),
     http.get("/v1/me/notification-preferences", () => json([])),
-    http.get("/v1/auth/session", () => json(sessionStatus())),
+    http.get("/v1/auth/session", () => json(sessionStatus(opts.session))),
     http.get("/v1/me", () => json(opts.me ?? me())),
     http.get("/v1/today", () => json(opts.today ?? today())),
     http.get("/v1/cases/:caseId/pack", () => json(opts.pack ?? launchPack)),

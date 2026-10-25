@@ -32,18 +32,24 @@ const card = (over: Record<string, unknown>) => ({
 
 export async function stubApi(page: Page, opts: { signedIn: boolean }) {
   let signedIn = opts.signedIn;
+  let aal: "aal1" | "aal2" = "aal2";
   await page.route("**/v1/**", async (route) => {
     const url = new URL(route.request().url());
     const path = url.pathname;
     const method = route.request().method();
     if (path === "/v1/auth/session") {
       return signedIn
-        ? json(route, { aal: "aal2", mfa_enrolled: true, mfa_complete: true, step_up_until: null, minutes_until_timeout: 30 })
+        ? json(route, { aal, mfa_enrolled: true, mfa_complete: aal === "aal2", step_up_until: null, minutes_until_timeout: 30 })
         : json(route, { error: { code: "not_signed_in", message: "" } }, 401);
     }
-    if (path === "/v1/auth/sign-in" && method === "POST") return json(route, { status: "mfa_required", mfa_enrolled: true });
+    if (path === "/v1/auth/sign-in" && method === "POST") {
+      signedIn = true; // password only (ADR 0025): the code is asked for at risky actions
+      aal = "aal1";
+      return json(route, { status: "signed_in", mfa_enrolled: true });
+    }
     if (path === "/v1/auth/mfa/verify" && method === "POST") {
       signedIn = true;
+      aal = "aal2";
       return json(route, { status: "signed_in", recovery_codes: null });
     }
     if (path === "/v1/cell") return json(route, { storage_place: "the UK" });
