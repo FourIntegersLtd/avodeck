@@ -170,7 +170,8 @@ async def list_questions(
         LetterItem(id=i, kind=k, para_ref=ref, text_verbatim=text, outside_expertise=out)  # type: ignore[arg-type]
         for ref, i, k, text, out in sorted(cited, key=lambda c: _para_key(str(c[0])))
     ]
-    confirmed_count = sum(1 for i in [*questions, *assumptions] if i.status == "confirmed")
+    done = sum(q.status == "confirmed" for q in questions)
+    confirmed_count = done + sum(a.status == "confirmed" for a in assumptions)
     total = len(questions) + len(assumptions)
     locked = bool(latest and latest["locked"])
     unread = bool(latest and latest["unread"])

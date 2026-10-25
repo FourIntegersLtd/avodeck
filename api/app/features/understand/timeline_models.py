@@ -26,7 +26,7 @@ class Event(BaseModel):
     date_basis: str | None = None
     first_word_n: int | None = None
     rank: int = 3
-    """How much the entry matters, lower first: 0 thing to look at, 1 linked to a question, 2 please check, 3 checked."""
+    """How much the entry matters, lower first: 0 thing to look at, 1 question link, 2 please check, 3 checked."""
     featured: bool = False
     """Worth a card even when the board is zoomed far out (a thing to look at or a question link)."""
 
