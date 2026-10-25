@@ -69,10 +69,13 @@ export async function stubApi(page: Page, opts: { signedIn: boolean }) {
           { kind: "understand_things_to_look_at", case_id: CASE_B, rank: 2, label_key: "understand.today.things_to_look_at", action_key: "understand.today.things_to_look_at_action", screen: "S13", count: 2, minutes: null, due_at: "2026-10-26T09:00:00Z", params: {} },
         ],
         organisations: [
-          { id: ORG, name: "Jane Morgan", kind: "personal" },
-          { id: TEAM, name: "Northgate Medico-Legal", kind: "team" },
+          { id: ORG, name: "Jane Morgan", kind: "personal", open_count: 1 },
+          { id: TEAM, name: "Northgate Medico-Legal", kind: "team", open_count: 1 },
         ],
         closed_count: 23,
+        open_count: 2,
+        due_this_month: 0,
+        readiness: { account: true, profile: true, signature: true, done_steps: 3, total_steps: 3 },
       });
     }
     if (path === "/v1/notifications") return json(route, { items: [], unread_count: 2, email_bounced: false });

@@ -2,12 +2,12 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { stubApi } from "./helpers";
 
-test("Today shows the case card and passes axe with colour contrast", async ({ page }) => {
+test("Cases shows the case card and passes axe with colour contrast", async ({ page }) => {
   await stubApi(page, { signedIn: true });
-  await page.goto("/today");
+  await page.goto("/cases");
   const card = page.getByRole("link", { name: /Mrs A/ });
   await expect(card).toBeVisible();
-  await expect(card.getByText("Due 30 Nov")).toBeVisible();
+  await expect(card.getByText("30 Nov")).toBeVisible();
   const axe = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).analyze();
   expect(axe.violations).toEqual([]);
 });
