@@ -29,6 +29,7 @@ export function me(over: Partial<Schemas["Person"]> = {}): Schemas["Me"] {
     expert: null,
     mfa_enrolled: true,
     is_support_staff: false,
+    must_change_password: false,
     memberships: [
       { organisation_id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", role: "owner", started_at: "2026-01-05T09:00:00Z", member_count: 1 },
     ],
@@ -36,7 +37,7 @@ export function me(over: Partial<Schemas["Person"]> = {}): Schemas["Me"] {
 }
 
 export function sessionStatus(over: Partial<Schemas["SessionStatus"]> = {}): Schemas["SessionStatus"] {
-  return { aal: "aal2", mfa_enrolled: true, mfa_complete: true, step_up_until: null, minutes_until_timeout: 30, ...over };
+  return { aal: "aal2", mfa_enrolled: true, mfa_complete: true, step_up_until: null, minutes_until_timeout: 30, must_change_password: false, ...over };
 }
 
 export function caseCard(over: Partial<Schemas["CaseCard"]> = {}): Schemas["CaseCard"] {

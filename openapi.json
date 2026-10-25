@@ -2445,6 +2445,30 @@
         "title": "ChangeEdit",
         "type": "object"
       },
+      "ChangePassword": {
+        "properties": {
+          "current_password": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "Current Password",
+            "type": "string"
+          },
+          "new_password": {
+            "maxLength": 256,
+            "minLength": 12,
+            "pattern": "^[^\\x00-\\x1f\\x7f]*$",
+            "title": "New Password",
+            "type": "string"
+          }
+        },
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "title": "ChangePassword",
+        "type": "object"
+      },
       "CheckResult": {
         "properties": {
           "checked": {
@@ -8337,6 +8361,11 @@
           },
           "mfa_enrolled": {
             "title": "Mfa Enrolled",
+            "type": "boolean"
+          },
+          "must_change_password": {
+            "default": false,
+            "title": "Must Change Password",
             "type": "boolean"
           },
           "person": {
@@ -16070,6 +16099,11 @@
             "title": "Minutes Until Timeout",
             "type": "integer"
           },
+          "must_change_password": {
+            "default": false,
+            "title": "Must Change Password",
+            "type": "boolean"
+          },
           "step_up_until": {
             "anyOf": [
               {
@@ -17369,7 +17403,7 @@
       },
       "SupportAccountCreate": {
         "additionalProperties": false,
-        "description": "A new person's account, made by Avodeck support: no password (the person sets their own) and no team\n(a team's own owners and admins invite people; any other field is 422).",
+        "description": "A new person's account, made by Avodeck support: support never chooses the password (Avodeck makes a\ntemporary one) and adds no team (a team's own owners and admins invite people; any other field is 422).",
         "properties": {
           "email": {
             "maxLength": 254,
@@ -17405,6 +17439,72 @@
           "accounts"
         ],
         "title": "SupportAccountList",
+        "type": "object"
+      },
+      "SupportAccountWithPassword": {
+        "description": "An account with its temporary password (ADR 0024): in this one answer only (`Cache-Control: no-store`).\nA repeat with the same Idempotency-Key answers `temporary_password: null` and `password_shown: true`.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "email": {
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+$",
+            "title": "Email",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "last_sent_at": {
+            "format": "date-time",
+            "title": "Last Sent At",
+            "type": "string"
+          },
+          "password_shown": {
+            "default": false,
+            "title": "Password Shown",
+            "type": "boolean"
+          },
+          "person_id": {
+            "format": "uuid",
+            "title": "Person Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "invited",
+              "active"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "temporary_password": {
+            "anyOf": [
+              {
+                "pattern": "^[A-HJ-NP-Za-hjkmnp-z2-9]{4}(-[A-HJ-NP-Za-hjkmnp-z2-9]{4}){4}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Temporary Password"
+          }
+        },
+        "required": [
+          "id",
+          "person_id",
+          "email",
+          "status",
+          "created_at",
+          "last_sent_at"
+        ],
+        "title": "SupportAccountWithPassword",
         "type": "object"
       },
       "SupportCase": {
@@ -20620,6 +20720,58 @@
           }
         },
         "summary": "Verify",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/v1/auth/password/change": {
+      "post": {
+        "description": "The signed-in person's current password and a new one (ADR 0024). Clears a temporary password's\nblock and signs out the person's other devices; this one stays signed in.",
+        "operationId": "change_password_v1_auth_password_change_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePassword"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordChanged"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Change Password",
         "tags": [
           "auth"
         ]
@@ -39314,7 +39466,7 @@
     },
     "/v1/support/accounts": {
       "get": {
-        "description": "The accounts support created: `invited` until the person first completes MFA, then `active`.",
+        "description": "The accounts support created: `invited` until the person has chosen their own password and completed\nMFA, then `active`.",
         "operationId": "list_accounts_v1_support_accounts_get",
         "responses": {
           "200": {
@@ -39344,7 +39496,7 @@
         ]
       },
       "post": {
-        "description": "A new person's account, with no password and no team: they get an email to set their own, sent after\ncommit (409 `conflict` if the email already has an account, 422 `invalid_email` if Auth will not take it;\nat most 20 an hour per staff member counting refused attempts, 429 `too_many_attempts`).",
+        "description": "A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set\nup, also a set-password email sent after commit (409 `conflict` if the email already has an account, 422\n`invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,\n429 `too_many_attempts`).",
         "operationId": "create_account_v1_support_accounts_post",
         "parameters": [
           {
@@ -39374,7 +39526,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SupportAccount"
+                  "$ref": "#/components/schemas/SupportAccountWithPassword"
                 }
               }
             },
@@ -39407,10 +39559,10 @@
         ]
       }
     },
-    "/v1/support/accounts/{account_id}/resend": {
+    "/v1/support/accounts/{account_id}/temporary-password": {
       "post": {
-        "description": "A new set-password link (1 hour) for an account still `invited`; at most once a minute (429\n`sent_recently`).",
-        "operationId": "resend_account_invite_v1_support_accounts__account_id__resend_post",
+        "description": "A new temporary password, shown once, for an account still `invited`; the old one stops working and the\nperson is signed out everywhere. At most once a minute (429 `sent_recently`); 409 `conflict` once active.",
+        "operationId": "new_temporary_password_v1_support_accounts__account_id__temporary_password_post",
         "parameters": [
           {
             "in": "path",
@@ -39439,7 +39591,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SupportAccount"
+                  "$ref": "#/components/schemas/SupportAccountWithPassword"
                 }
               }
             },
@@ -39466,7 +39618,7 @@
             "description": "Error: the `code` says which (architecture 5.1)"
           }
         },
-        "summary": "Resend Account Invite",
+        "summary": "New Temporary Password",
         "tags": [
           "organisations"
         ]

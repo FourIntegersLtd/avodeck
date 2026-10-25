@@ -369,8 +369,8 @@ AccountEmail = Annotated[str, StringConstraints(max_length=254, pattern=r"^[^@\s
 
 
 class SupportAccountCreate(Strict):
-    """A new person's account, made by Avodeck support: no password (the person sets their own) and no team
-    (a team's own owners and admins invite people; any other field is 422)."""
+    """A new person's account, made by Avodeck support: support never chooses the password (Avodeck makes a
+    temporary one) and adds no team (a team's own owners and admins invite people; any other field is 422)."""
 
     full_name: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)]
     email: Email
@@ -385,6 +385,18 @@ class SupportAccount(BaseModel):
     status: Literal["invited", "active"]
     created_at: datetime
     last_sent_at: datetime
+
+
+# Five groups of four from `accounts.ALPHABET` (no 0, O, 1, l or I): a code, not free text (rule 6 guard).
+TEMPORARY_PASSWORD = r"^[A-HJ-NP-Za-hjkmnp-z2-9]{4}(-[A-HJ-NP-Za-hjkmnp-z2-9]{4}){4}$"
+
+
+class SupportAccountWithPassword(SupportAccount):
+    """An account with its temporary password (ADR 0024): in this one answer only (`Cache-Control: no-store`).
+    A repeat with the same Idempotency-Key answers `temporary_password: null` and `password_shown: true`."""
+
+    temporary_password: str | None = Field(default=None, repr=False, pattern=TEMPORARY_PASSWORD)
+    password_shown: bool = False
 
 
 class SupportAccountList(BaseModel):

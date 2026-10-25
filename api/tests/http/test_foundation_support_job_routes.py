@@ -59,8 +59,7 @@ def job_in(seed: Seed, admin: psycopg.Connection, case: uuid.UUID, status: str, 
 
 def queue_rows(admin: psycopg.Connection, job: uuid.UUID) -> list[tuple[Any, ...]]:
     return admin.execute(
-        "select queue_name, status, lock from procrastinate.procrastinate_jobs where args->>'job_id' = %s"
-        " order by id",
+        "select queue_name, status, lock from procrastinate.procrastinate_jobs where args->>'job_id' = %s order by id",
         (str(job),),
     ).fetchall()
 

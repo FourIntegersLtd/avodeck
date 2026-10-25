@@ -1,8 +1,7 @@
 """Avodeck's support console (permissions.md "Avodeck staff"; S17, F38): metadata only.
 
-Current support staff only (anyone else 404). Read-only lookups (`require_support_lookup`) need a session
-whose MFA was completed at sign-in; changes (`require_support_staff`) need MFA in the last 10 minutes,
-checked first (one answer for everyone, so it says nothing about who is staff). ADR 0020. Content is
+Current support staff only (anyone else 404), in a session whose MFA was completed at sign-in; no support
+action needs a fresh code (ADR 0023; `require_support_lookup`, `require_support_staff`). ADR 0020. Content is
 never here: under a live grant from the named expert, staff open the case through the ordinary case
 routes, where `require_case_access` gives them the read-only `support` role and audits every view.
 """
@@ -12,21 +11,20 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import BackgroundTasks, Depends, Header, Query, Request
+from fastapi import BackgroundTasks, Depends, Header, Query, Request, Response
 
 from app.core.auth.support import SupportStaff, require_support_lookup, require_support_staff
 from app.core.flags import require_flag
-from app.core.http import DbConn
+from app.core.http import DbConn, keep_instead
 from app.features.organisations import accounts, custody, support
-from app.features.organisations.deps import STEP_UP_FIRST
 from app.features.organisations.router import router
 from app.features.organisations.routes_invites import _app_origin
 from app.features.organisations.schemas import (
     CustodyTransfer,
     CustodyTransferCreate,
-    SupportAccount,
     SupportAccountCreate,
     SupportAccountList,
+    SupportAccountWithPassword,
     SupportCaseDetail,
     SupportCaseList,
 )
@@ -34,7 +32,7 @@ from app.features.organisations.schemas import (
 Staff = Annotated[SupportStaff, Depends(require_support_staff)]
 Lookup = Annotated[SupportStaff, Depends(require_support_lookup)]
 CUSTODY_FLAG = "support_custody_transfer"
-# Required on account changes: a retried click must not make a second account or send a second email.
+# Required on account changes: a retried click must not make a second account or a second password.
 IdempotencyKey = Annotated[str, Header(alias="Idempotency-Key", min_length=8, max_length=128)]
 
 
@@ -49,7 +47,7 @@ async def search_cases(
     "/support/custody-transfers",
     response_model=CustodyTransfer,
     status_code=201,
-    dependencies=[*STEP_UP_FIRST, Depends(require_flag(CUSTODY_FLAG))],
+    dependencies=[Depends(require_flag(CUSTODY_FLAG))],
 )
 async def record_custody_transfer(body: CustodyTransferCreate, conn: DbConn, staff: Staff) -> CustodyTransfer:
     """(legal check) Behind the flag `support_custody_transfer` until the legal review of custody is done."""
@@ -64,28 +62,39 @@ async def look_up_case(case_id: uuid.UUID, request: Request, conn: DbConn, _: Lo
 
 @router.get("/support/accounts", response_model=SupportAccountList)
 async def list_accounts(conn: DbConn, _: Lookup) -> SupportAccountList:
-    """The accounts support created: `invited` until the person first completes MFA, then `active`."""
+    """The accounts support created: `invited` until the person has chosen their own password and completed
+    MFA, then `active`."""
     return SupportAccountList(accounts=await accounts.accounts(conn))
 
 
-@router.post("/support/accounts", response_model=SupportAccount, status_code=201, dependencies=STEP_UP_FIRST)
+def _shown_once(request: Request, response: Response, made: SupportAccountWithPassword) -> SupportAccountWithPassword:
+    """The temporary password is in this answer only: never cached, and a repeat gets the account without it."""
+    response.headers["Cache-Control"] = "no-store"
+    keep_instead(request, made.model_copy(update={"temporary_password": None, "password_shown": True}))
+    return made
+
+
+@router.post("/support/accounts", response_model=SupportAccountWithPassword, status_code=201)
 async def create_account(
-    body: SupportAccountCreate, request: Request, conn: DbConn, _: Staff, __: IdempotencyKey,
+    body: SupportAccountCreate, request: Request, response: Response, conn: DbConn, _: Staff, __: IdempotencyKey,
     after_commit: BackgroundTasks,
-) -> SupportAccount:  # fmt: skip
-    """A new person's account, with no password and no team: they get an email to set their own, sent after
-    commit (409 `conflict` if the email already has an account, 422 `invalid_email` if Auth will not take it;
-    at most 20 an hour per staff member counting refused attempts, 429 `too_many_attempts`)."""
+) -> SupportAccountWithPassword:  # fmt: skip
+    """A new person's account with a temporary password, shown once (ADR 0024), and no team; when mail is set
+    up, also a set-password email sent after commit (409 `conflict` if the email already has an account, 422
+    `invalid_email` if Auth will not take it; at most 20 an hour per staff member counting refused attempts,
+    429 `too_many_attempts`)."""
     state = request.app.state
-    return await accounts.create(conn, state.mailer, state.auth, _app_origin(request), state.region, body, after_commit)
+    made = await accounts.create(
+        conn, state.mailer, state.auth, _app_origin(request), state.region, body, after_commit,
+        mail=bool(getattr(state, "mail_configured", False)),
+    )  # fmt: skip
+    return _shown_once(request, response, made)
 
 
-@router.post("/support/accounts/{account_id}/resend", response_model=SupportAccount, dependencies=STEP_UP_FIRST)
-async def resend_account_invite(
-    account_id: uuid.UUID, request: Request, conn: DbConn, _: Staff, __: IdempotencyKey,
-    after_commit: BackgroundTasks,
-) -> SupportAccount:  # fmt: skip
-    """A new set-password link (1 hour) for an account still `invited`; at most once a minute (429
-    `sent_recently`)."""
-    state = request.app.state
-    return await accounts.resend(conn, state.mailer, state.auth, _app_origin(request), account_id, after_commit)
+@router.post("/support/accounts/{account_id}/temporary-password", response_model=SupportAccountWithPassword)
+async def new_temporary_password(
+    account_id: uuid.UUID, request: Request, response: Response, conn: DbConn, _: Staff, __: IdempotencyKey
+) -> SupportAccountWithPassword:
+    """A new temporary password, shown once, for an account still `invited`; the old one stops working and the
+    person is signed out everywhere. At most once a minute (429 `sent_recently`); 409 `conflict` once active."""
+    return _shown_once(request, response, await accounts.new_password(conn, request.app.state.auth, account_id))

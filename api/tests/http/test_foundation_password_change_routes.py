@@ -8,6 +8,8 @@
 - On success the old password stops working, `must_change_password` is cleared, the person's other
   devices are signed out (this one stays), and `auth.password_changed` is audited (ids only).
 - A password reset from the email link also clears `must_change_password`.
+- Five wrong current passwords in 15 minutes lock the change for the rest of the window (429
+  `too_many_attempts`, even with the right one); the count is kept though the refused request rolls back.
 """
 
 from __future__ import annotations
@@ -40,8 +42,9 @@ async def test_changing_the_password_clears_the_block_and_the_old_one_stops_work
     web = await browser()
     signed = await sign_in_with_mfa(web, auth_admin)
     other_device = await browser()
-    again = await other_device.post("/v1/auth/sign-in", json={"email": signed.email, "password": PASSWORD})
-    assert again.status_code == 200
+    assert (
+        await other_device.post("/v1/auth/sign-in", json={"email": signed.email, "password": PASSWORD})
+    ).status_code == 200
     admin.execute("update app.people set must_change_password = true where id = %s", (signed.person_id,))
     assert (await web.get("/v1/today")).status_code == 403
     with caplog.at_level(logging.DEBUG):
@@ -79,9 +82,7 @@ async def test_a_wrong_current_password_changes_nothing(
     ).fetchone() == (1,)
 
 
-@pytest.mark.parametrize(
-    ("new", "status", "code"), [("short-1", 422, "invalid"), (PASSWORD, 422, "same_password")]
-)
+@pytest.mark.parametrize(("new", "status", "code"), [("short-1", 422, "invalid"), (PASSWORD, 422, "same_password")])
 async def test_the_new_password_must_be_long_and_different(
     browser: Browser, auth_admin: AuthAdmin, admin: psycopg.Connection, new: str, status: int, code: str
 ) -> None:
@@ -112,7 +113,37 @@ async def test_a_reset_from_the_email_link_also_clears_the_block(
     web = await browser()
     assert (await web.post("/v1/auth/sign-in", json={"email": email, "password": PASSWORD})).status_code == 200
     admin.execute("update app.people set must_change_password = true where id = %s", (person,))
-    token = auth_admin.recovery_token(email)
-    reset = await web.post("/v1/auth/password/reset", json={"token": token, "new_password": NEW})
+    reset = await web.post(
+        "/v1/auth/password/reset", json={"token": auth_admin.recovery_token(email), "new_password": NEW}
+    )
     assert reset.status_code == 200, reset.text
     assert not flagged(admin, person)
+
+
+async def test_five_wrong_current_passwords_lock_the_change_for_15_minutes(
+    browser: Browser, auth_admin: AuthAdmin, admin: psycopg.Connection
+) -> None:
+    web = await browser()
+    signed = await sign_in_with_mfa(web, auth_admin)
+    admin.execute("update app.people set must_change_password = true where id = %s", (signed.person_id,))
+    for _ in range(5):
+        wrong = await web.post(URL, json={"current_password": "Not-my-password-1", "new_password": NEW})
+        assert (wrong.status_code, wrong.json()["error"]["code"]) == (400, "wrong_password")
+    locked = await web.post(URL, json={"current_password": PASSWORD, "new_password": NEW})
+    assert (locked.status_code, locked.json()["error"]["code"]) == (429, "too_many_attempts")
+    assert flagged(admin, signed.person_id)
+    fresh = await browser()
+    assert (await fresh.post("/v1/auth/sign-in", json={"email": signed.email, "password": PASSWORD})).status_code == 200
+    assert admin.execute(
+        "select failures from app.password_change_attempts where person_id = %s", (signed.person_id,)
+    ).fetchone() == (5,)
+    admin.execute(
+        "update app.password_change_attempts set window_started_at = now() - interval '16 minutes'"
+        " where person_id = %s",
+        (signed.person_id,),
+    )
+    done = await web.post(URL, json={"current_password": PASSWORD, "new_password": NEW})
+    assert done.status_code == 200, done.text
+    assert admin.execute(
+        "select failures from app.password_change_attempts where person_id = %s", (signed.person_id,)
+    ).fetchone() == (0,)

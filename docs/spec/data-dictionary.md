@@ -21,6 +21,7 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 | records_custodian | Someone they nominate to look after their served cases if they die or can't work (name and email, both or neither; `PUT /me/custodian`, step-up) |
 | closed_at | When they closed their account (empty if active). From then on they can only sign in to read the served cases they are named on |
 | email_bounced_at | When an email to them bounced; no more emails until the address changes |
+| must_change_password | They signed in with a temporary password from Avodeck support and must choose their own before anything else (cleared when they change or reset it; the app cannot set it directly) |
 | (shown, not stored) greeting_name | The short form Today greets them with ("Dr Morgan"): the title their jurisdiction's pack gives their profession plus their surname; empty when the pack has no title |
 | (shown, not stored) password_changed_at | When they last reset their password, read from the audit log; empty if they never have. Account and security says "Changed 3 months ago" |
 | (shown, not stored) member_count | On each of their memberships: how many people currently belong to that organisation (1 reads "just you") |
@@ -95,6 +96,11 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 |---|---|
 | code_hash | A scrambled copy of a one-time backup code (the real code is only shown once) |
 | used_at | When the code was used (each works once) |
+
+### password_change_attempts
+| Field | In plain words |
+|---|---|
+| failures / window_started_at | How many wrong current passwords were given when changing password in the current 15 minutes (5 lock it until the window ends) |
 
 ### mfa_attempts
 | Field | In plain words |
@@ -196,10 +202,11 @@ A field ending in `_id` points to a row in another table (e.g. `page_id` → a p
 ### support_accounts
 | Field | In plain words |
 |---|---|
-| person_id | The person whose account support created (they set their own password and MFA) |
+| person_id | The person whose account support created (they choose their own password and set up MFA at first sign-in) |
 | created_by | The support staff member who created it |
 | created_at | When the account was created |
-| last_sent_at | When the set-password email was last sent (its link lasts 1 hour; sent again at most once a minute) |
+| last_sent_at | When support last made a temporary password for the account (a new one at most once a minute) |
+| (shown once, not stored) temporary_password | The password Avodeck made, in the answer that created or renewed it only; a repeat of that request says `password_shown` instead |
 
 ## Case
 

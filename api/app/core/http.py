@@ -6,13 +6,18 @@ Build every signed-in router with `router()`. Each request on it:
   counts as activity unless the router says `touch=False`);
 - on a state-changing method, needs the CSRF token in `X-CSRF-Token` (403 `csrf_required`);
 - needs MFA completed for this session (403 `mfa_required`) unless the router says `mfa_pending=True`;
+- refuses a person still on a temporary password from support (403 `password_change_required`, ADR 0024)
+  unless the router says `mfa_pending=True` or `password_pending=True` (the guard
+  tests/guards/test_foundation_password_change.py names every such route);
 - runs inside one `Database.request()` transaction as the restricted role, committed only if
   the response is a success (an error or an exception rolls everything back);
 - with an `Idempotency-Key` on a state-changing method (F27): the first successful answer is
   kept for 24 hours and a repeat returns it with `Idempotent-Replayed: true`; the same key with
   a different request is 422 `idempotency_key_reused`. Keys belong to one person. A repeat runs the
   route's dependencies first (case access, step-up), so it is refused exactly as a first request
-  would be; the kept answer is sealed at rest (`SecretBox`) and names its case.
+  would be; the kept answer is sealed at rest (`SecretBox`) and names its case. A `Cache-Control: no-store`
+  answer is not kept, unless the route names what a repeat gets instead (`keep_instead`): an answer
+  carrying a one-time secret keeps a copy without it.
 
 Editable resources send `ETag: "<version>"`; updates take `IfMatch` (428 without it, 412 `stale`
 when it is not the current version, F26).
@@ -35,6 +40,7 @@ from fastapi import APIRouter, Depends, Header, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.routing import APIRoute
 from psycopg import AsyncConnection
+from pydantic import BaseModel
 
 from app.core import audit
 from app.core.auth import session as sessions
@@ -44,7 +50,7 @@ from app.core.db import RequestScope
 from app.core.errors import ApiError
 
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
-_KEPT_HEADERS = ("content-type", "etag", "location")
+_KEPT_HEADERS = ("content-type", "etag", "location", "cache-control")
 
 
 class _Discard(Exception):
@@ -93,8 +99,8 @@ async def _replay(conn: AsyncConnection, pending: _Pending) -> Response | None:
     return Response(content=body, status_code=status, headers={**headers, "idempotent-replayed": "true"})
 
 
-async def _remember(conn: AsyncConnection, pending: _Pending, response: Response) -> None:
-    body = getattr(response, "body", None)
+async def _remember(conn: AsyncConnection, pending: _Pending, response: Response, body: bytes | None = None) -> None:
+    body = body if body is not None else getattr(response, "body", None)
     if not isinstance(body, bytes):
         return  # streamed responses are not kept
     headers = {h: response.headers[h] for h in _KEPT_HEADERS if h in response.headers}
@@ -179,10 +185,17 @@ def _no_store(response: Response) -> bool:
     return "no-store" in response.headers.get("cache-control", "")
 
 
+def keep_instead(request: Request, body: BaseModel) -> None:
+    """For a `no-store` answer carrying a one-time secret: what a repeat with the same Idempotency-Key gets
+    instead (the same answer without the secret). Never pass anything holding the secret."""
+    request.state.idempotent_body = body.model_dump_json().encode()
+
+
 class SessionRoute(APIRoute):
     """A signed-in route. `router()` makes subclasses with these two switches set."""
 
     mfa_pending = False  # True: also reachable before MFA is completed (the MFA routes themselves)
+    password_pending = False  # True: also reachable while the person must change their password (ADR 0024)
     touch = True  # False: checking the session does not count as activity
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
@@ -209,6 +222,8 @@ class SessionRoute(APIRoute):
                 raise ApiError("csrf_required", "Reload the page and try again.", 403)
             if not self.mfa_pending and not session.mfa_complete:
                 raise ApiError("mfa_required", "Enter a code from your authenticator app to continue.", 403)
+            if session.must_change_password and not (self.mfa_pending or self.password_pending):
+                raise ApiError("password_change_required", "Choose your own password to continue.", 403)
             identity = Identity(session.person_id, session.email, session.full_name, session.mfa_enrolled)
             scope = RequestScope(
                 person_id=identity.person_id,
@@ -232,7 +247,10 @@ class SessionRoute(APIRoute):
                     if response.status_code >= 400:
                         raise _Discard(response)
                     if pending is not None and response.headers.get("idempotent-replayed") is None:
-                        if not _no_store(response):
+                        instead: bytes | None = getattr(request.state, "idempotent_body", None)
+                        if instead is not None:
+                            await _remember(conn, pending, response, body=instead)
+                        elif not _no_store(response):
                             await _remember(conn, pending, response)
                     return response
             except _Discard as discarded:
@@ -261,13 +279,14 @@ class PublicRoute(APIRoute):
         return run
 
 
-def router(*, mfa_pending: bool = False, touch: bool = True, **kwargs: Any) -> APIRouter:
+def router(
+    *, mfa_pending: bool = False, password_pending: bool = False, touch: bool = True, **kwargs: Any
+) -> APIRouter:
     """An APIRouter whose routes run signed in (session, CSRF, MFA), in one transaction, with Idempotency-Key."""
     route_class: type[SessionRoute] = SessionRoute
-    if mfa_pending or not touch:
-        route_class = cast(
-            "type[SessionRoute]", type("SessionRoute", (SessionRoute,), {"mfa_pending": mfa_pending, "touch": touch})
-        )
+    if mfa_pending or password_pending or not touch:
+        switches = {"mfa_pending": mfa_pending, "password_pending": password_pending, "touch": touch}
+        route_class = cast("type[SessionRoute]", type("SessionRoute", (SessionRoute,), switches))
     return APIRouter(route_class=route_class, **kwargs)
 
 

@@ -10,10 +10,11 @@ from fastapi import Request
 from psycopg.rows import dict_row
 from pydantic import BaseModel
 
-from app.core.http import CurrentIdentity, DbConn, router
+from app.core.http import CurrentIdentity, CurrentSession, DbConn, router
 from app.core.packs import PackError, PackLibrary
 
-me_router = router(prefix="/v1", tags=["me"])
+# Reachable on a temporary password (ADR 0024): the web app reads who is signed in before asking for a new one.
+me_router = router(prefix="/v1", tags=["me"], password_pending=True)
 
 
 class Person(BaseModel):
@@ -50,6 +51,7 @@ class Me(BaseModel):
     mfa_enrolled: bool
     memberships: list[Membership]
     is_support_staff: bool = False
+    must_change_password: bool = False  # still on a temporary password from support: choose one first
 
 
 def _greeting_name(library: PackLibrary, full_name: str | None, expert: dict[str, Any] | None) -> str | None:
@@ -66,7 +68,7 @@ def _greeting_name(library: PackLibrary, full_name: str | None, expert: dict[str
 
 
 @me_router.get("/me", response_model=Me)
-async def get_me(request: Request, identity: CurrentIdentity, conn: DbConn) -> Me:
+async def get_me(request: Request, identity: CurrentIdentity, session: CurrentSession, conn: DbConn) -> Me:
     region: str = request.app.state.region
     await conn.execute("select app.ensure_person(%s, %s, %s)", (identity.email, identity.full_name, region))
     async with conn.cursor(row_factory=dict_row) as cur:
@@ -91,7 +93,8 @@ async def get_me(request: Request, identity: CurrentIdentity, conn: DbConn) -> M
         memberships = await cur.fetchall()
         await cur.execute(
             "select max(at) as at from app.audit_log"
-            " where person_id = app.current_person_id() and action = 'auth.password_reset'"
+            " where person_id = app.current_person_id()"
+            " and action in ('auth.password_reset', 'auth.password_changed')"
         )
         reset = await cur.fetchone()
         await cur.execute("select app.is_support_staff(app.current_person_id()) as staff")
@@ -107,4 +110,5 @@ async def get_me(request: Request, identity: CurrentIdentity, conn: DbConn) -> M
         mfa_enrolled=identity.mfa_enrolled,
         memberships=[Membership(**m) for m in memberships],
         is_support_staff=bool(staff and staff["staff"]),
+        must_change_password=session.must_change_password,
     )

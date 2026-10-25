@@ -340,5 +340,5 @@ async def support_accounts(conn: AsyncConnection) -> list[dict[str, Any]]:
     return await rows(conn, "select * from app.support_accounts_list()")
 
 
-async def support_resend_account(conn: AsyncConnection, account_id: uuid.UUID) -> dict[str, Any] | None:
-    return await row(conn, "select * from app.support_resend_account(%s)", (account_id,))
+async def support_new_password(conn: AsyncConnection, account_id: uuid.UUID) -> dict[str, Any] | None:
+    return await row(conn, "select * from app.support_new_password(%s)", (account_id,))

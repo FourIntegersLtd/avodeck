@@ -27,3 +27,6 @@
 @media (max-width: 640px) {
   .av-org-result .av-button { width: 100%; }
 }
+
+.av-org-password { border: 2px solid var(--ink); }
+.av-org-password__value { font-size: 1.75rem; font-weight: 700; letter-spacing: 0.06em; word-break: break-all; user-select: all; margin: 0; }

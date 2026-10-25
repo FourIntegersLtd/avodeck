@@ -230,7 +230,7 @@ Root checklist, plus: deployed to staging in London; a test expert can sign in w
 
 These came out of the behaviour audit and are in scope. Each bullet is an acceptance test to write first. Permissions come from `docs/spec/permissions.md`; scenarios from `docs/spec/scenarios.md`.
 
-**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes), `mfa_attempts`, `job_kind_actions`.
+**Extra tables owned:** `people`, `sessions`, `mfa_recovery_codes`, `email_changes`, `organisations` (personal only), `memberships`, `case_members` (table and access check; screens in C), `notifications`, `notification_preferences`, `feature_flags`, `case_keys`, `deletion_ledger` (schema; H writes), `mfa_attempts`, `password_change_attempts`, `job_kind_actions`.
 
 **Extra endpoints:** `GET /v1/me/sessions`, `DELETE /v1/me/sessions/{session_id}`, `POST /v1/auth/mfa/recovery-codes` 🔒, `POST /v1/auth/mfa/recover`, `POST /v1/me/email-change` 🔒, `POST /v1/me/email-change/confirm`, `GET/PUT /v1/me/notification-preferences`, `GET /v1/notifications`, `POST /v1/notifications/{notification_id}/read`, `GET /v1/feature-flags`, `GET /v1/packs`, `GET /v1/jurisdictions`, `GET /v1/jurisdictions/{code}`, `GET /v1/cases/{case_id}/pack`, (The Stripe webhook moved to slice O, Phase 2.)
 
@@ -246,3 +246,4 @@ These came out of the behaviour audit and are in scope. Each bullet is an accept
 - [x] Email change needs confirmation from both addresses and step-up
 - [x] Audit rows carry person, organisation, case, action and target
 - [x] Only one case-changing job runs per case at a time; interactive jobs run before batch
+- [x] Temporary passwords (ADR 0024, migration 0036): `people.must_change_password`, enforced in `SessionRoute` (403 `password_change_required` except session, me, MFA steps, sign-out and `POST /v1/auth/password/change`; guard `test_foundation_password_change.py`); the S01 shell's "Choose your own password" screen. Support routes need no fresh MFA (ADR 0023).

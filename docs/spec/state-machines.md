@@ -255,7 +255,7 @@ active (support records it for a served case, migration 0032) → revoked (`revo
 
 ## Account created by support (`support_accounts`)
 
-invited (support creates it, migration 1012) → active, when the person first completes MFA in a session. Not stored: read from `sessions`. While invited, support may send the set-password email again (a new link that lasts 1 hour, at most once a minute, else 429 `sent_recently`); once active, 409.
+invited (support creates it with a temporary password, migrations 1012, 1013; ADR 0024) → active, when the person has chosen their own password (`people.must_change_password` cleared) and completed MFA in a session. Not stored: read from `people` and `sessions`. While invited, support may make a new temporary password (the old one stops working and the person is signed out everywhere; at most once a minute, else 429 `sent_recently`); once active, 409.
 
 ## Case replacement (`case_replacements`)
 
