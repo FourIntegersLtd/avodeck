@@ -1,5 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "vite",
+  "buildCommand": "pnpm build && sh scripts/add-landing.sh",
+  "outputDirectory": "dist",
   "headers": [
     {
       "source": "/(.*)",
@@ -29,8 +32,12 @@
       "destination": "https://api-production-0e15e.up.railway.app/v1/:path*"
     },
     {
+      "source": "/privacy",
+      "destination": "/privacy.html"
+    },
+    {
       "source": "/((?!v1/|assets/).*)",
-      "destination": "/index.html"
+      "destination": "/app.html"
     }
   ]
 }
