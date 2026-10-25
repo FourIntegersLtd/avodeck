@@ -293,3 +293,43 @@ async def test_due_this_month_ignores_q_and_counts_open_cases_only(
     )
     client = await client_for(named["expert"])
     assert (await client.get("/v1/today", params={"q": "brown"})).json()["due_this_month"] == 1
+
+
+async def _ready(client_for: ClientFor, person: uuid.UUID) -> dict[str, object]:
+    return (await (await client_for(person)).get("/v1/today")).json()["readiness"]
+
+
+async def test_readiness_counts_the_first_visit_steps_on_the_server(
+    client_for: ClientFor, world: dict[str, uuid.UUID], seed: Seed
+) -> None:
+    person = world["expert"]
+    assert await _ready(client_for, person) == {
+        "account": True,
+        "profile": False,
+        "signature": False,
+        "done_steps": 1,
+        "total_steps": 3,
+    }
+    seed.admin.execute(
+        "insert into app.experts (person_id, profession, registration_number, specialties)"
+        " values (%s, 'zz_profession', 'ZZ1', array['zz_specialty'])",
+        (person,),
+    )
+    assert (await _ready(client_for, person))["done_steps"] == 2
+    seed.admin.execute(
+        "insert into app.signatures (expert_id, method, storage_path, sha256) values (%s, 'drawn', 'zz/path', %s)",
+        (person, "0" * 64),
+    )
+    ready = await _ready(client_for, person)
+    assert (ready["profile"], ready["signature"], ready["done_steps"], ready["total_steps"]) == (True, True, 3, 3)
+
+
+async def test_an_incomplete_profile_is_not_ready(
+    client_for: ClientFor, world: dict[str, uuid.UUID], seed: Seed
+) -> None:
+    seed.admin.execute(
+        "insert into app.experts (person_id, profession, specialties) values (%s, 'zz_profession', '{}')",
+        (world["expert"],),
+    )
+    ready = await _ready(client_for, world["expert"])
+    assert (ready["profile"], ready["done_steps"]) == (False, 1)
