@@ -68,7 +68,7 @@ async def create_replacement(
 
 @router.get("/cases/{case_id}/support-access", response_model=SupportGrantList)
 async def list_support_access(case_id: uuid.UUID, conn: DbConn, _: ViewCase) -> SupportGrantList:
-    return SupportGrantList(grants=await support.grants(conn, case_id))
+    return await support.grant_list(conn, case_id)
 
 
 @router.post("/cases/{case_id}/support-access", response_model=SupportGrant, status_code=201)

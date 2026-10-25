@@ -44,6 +44,17 @@ async def my_organisation(conn: AsyncConnection, org_id: uuid.UUID) -> dict[str,
     return await row(conn, _ORG + " and o.id = %s", (org_id,))
 
 
+async def blocking_cases(conn: AsyncConnection, org_id: uuid.UUID) -> list[dict[str, Any]]:
+    """The organisation's cases on which I am the named expert (a case's label is not patient text)."""
+    return await rows(
+        conn,
+        "select c.id as case_id, c.label from app.cases c where c.organisation_id = %s"
+        " and c.named_expert_id = app.current_person_id() and c.status <> 'deleted'"
+        " and c.retention_policy is distinct from 'delete_now' order by c.created_at, c.id",
+        (org_id,),
+    )
+
+
 async def create_team(conn: AsyncConnection, name: str, region: str) -> uuid.UUID:
     org: uuid.UUID = await value(conn, "select app.create_team_organisation(%s, %s)", (name, region))
     return org

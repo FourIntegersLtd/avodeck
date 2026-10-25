@@ -29,6 +29,11 @@ class PolicyUpdate(Strict):
     max_retention_years: Annotated[int, Field(strict=True, ge=1, le=100)] | None = None
 
 
+class BlockingCase(BaseModel):
+    case_id: uuid.UUID
+    label: str
+
+
 class Organisation(BaseModel):
     id: uuid.UUID
     name: str
@@ -39,6 +44,8 @@ class Organisation(BaseModel):
     created_at: datetime
     allowed_actions: list[str] = []  # organisation actions this person may do here (permissions.md)
     assignable_roles: list[OrgRole] = []  # the roles this person may give
+    # Only on `GET /organisations/{id}`: the cases this person keeps as named expert if they leave (F31).
+    blocking_cases: list[BlockingCase] = []
 
 
 class OrganisationList(BaseModel):
@@ -65,7 +72,9 @@ class OrgMember(BaseModel):
 
 
 class OrgMemberList(BaseModel):
-    members: list[OrgMember]
+    members: list[OrgMember]  # everyone, kept for older callers
+    current_members: list[OrgMember] = []
+    former_members: list[OrgMember] = []
 
 
 class RoleChange(Strict):
@@ -131,6 +140,7 @@ class Invite(BaseModel):
 
 class InviteList(BaseModel):
     invites: list[Invite]
+    pending_invites: list[Invite] = []
 
 
 class InviteAccepted(BaseModel):
@@ -161,6 +171,8 @@ class SupportGrant(BaseModel):
 
 class SupportGrantList(BaseModel):
     grants: list[SupportGrant]
+    active: SupportGrant | None = None
+    ended: list[SupportGrant] = []
 
 
 # Support answers carry no free text (rule 6; tests/guards/test_organisations_support_rule6.py): every string
@@ -185,6 +197,7 @@ class SupportCase(BaseModel):
 
 class SupportCaseList(BaseModel):
     cases: list[SupportCase]
+    served_case_ids: list[uuid.UUID] = []
 
 
 class SupportCaseGrant(BaseModel):
