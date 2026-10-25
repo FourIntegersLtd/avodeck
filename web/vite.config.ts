@@ -2,6 +2,7 @@
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { cspPlugin } from "./csp";
+import { devLandingPlugin } from "./devLanding";
 import { devMfaPlugin } from "./devMfa";
 
 // The browser talks only to FastAPI (rule 4). In development the API runs on :8000 and Vite
@@ -9,7 +10,7 @@ import { devMfaPlugin } from "./devMfa";
 const API_DEV = process.env.API_DEV_ORIGIN ?? "http://127.0.0.1:8000";
 
 export default defineConfig({
-  plugins: [react(), cspPlugin(), devMfaPlugin()],
+  plugins: [react(), cspPlugin(), devMfaPlugin(), devLandingPlugin()],
   server: {
     host: true,
     port: 5173,

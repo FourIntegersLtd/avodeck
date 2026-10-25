@@ -411,9 +411,10 @@
   var status = document.getElementById('form-status');
   var meta = function (n) { var m = document.querySelector('meta[name="' + n + '"]'); return m ? m.content.trim() : ''; };
 
-  // Sign-in links go to the web app: localhost:5173 under `make dev`, else app-url, else this site (the app is served beside it).
-  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
-  var appUrl = (local ? 'http://localhost:5173' : meta('app-url') || location.origin).replace(/\/+$/, '');
+  // Sign-in links go to the web app: localhost:5173 when this page is served alone (`make site` on :3000),
+  // else app-url, else this site (the app is served beside it, in production and in `pnpm dev`).
+  var alone = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && location.port === '3000';
+  var appUrl = (alone ? 'http://localhost:5173' : meta('app-url') || location.origin).replace(/\/+$/, '');
   document.querySelectorAll('[data-app-path]').forEach(function (a) {
     if (appUrl) a.href = appUrl + a.getAttribute('data-app-path'); else a.hidden = true;
   });
