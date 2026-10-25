@@ -5,7 +5,8 @@ Build every signed-in router with `router()`. Each request on it:
 - resolves the device session from its cookie (401 `not_signed_in` or `session_expired`; a request
   counts as activity unless the router says `touch=False`);
 - on a state-changing method, needs the CSRF token in `X-CSRF-Token` (403 `csrf_required`);
-- needs MFA completed for this session (403 `mfa_required`) unless the router says `mfa_pending=True`;
+- does not need MFA: sign-in is password only (ADR 0025); risky actions need step-up (rule 10,
+  `core/auth/step_up.py`) and support routes need MFA this session (`core/auth/support.py`);
 - refuses a person still on a temporary password from support (403 `password_change_required`, ADR 0024)
   unless the router says `mfa_pending=True` or `password_pending=True` (the guard
   tests/guards/test_foundation_password_change.py names every such route);
@@ -194,7 +195,7 @@ def keep_instead(request: Request, body: BaseModel) -> None:
 class SessionRoute(APIRoute):
     """A signed-in route. `router()` makes subclasses with these two switches set."""
 
-    mfa_pending = False  # True: also reachable before MFA is completed (the MFA routes themselves)
+    mfa_pending = False  # True: the MFA routes themselves; also reachable on a temporary password (ADR 0024)
     password_pending = False  # True: also reachable while the person must change their password (ADR 0024)
     touch = True  # False: checking the session does not count as activity
 
@@ -220,8 +221,6 @@ class SessionRoute(APIRoute):
                 request.headers.get(sessions.CSRF_HEADER)
             ):
                 raise ApiError("csrf_required", "Reload the page and try again.", 403)
-            if not self.mfa_pending and not session.mfa_complete:
-                raise ApiError("mfa_required", "Enter a code from your authenticator app to continue.", 403)
             if session.must_change_password and not (self.mfa_pending or self.password_pending):
                 raise ApiError("password_change_required", "Choose your own password to continue.", 403)
             identity = Identity(session.person_id, session.email, session.full_name, session.mfa_enrolled)

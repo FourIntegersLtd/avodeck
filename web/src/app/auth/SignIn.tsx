@@ -1,5 +1,7 @@
-// S01 Sign in: password, then the 6-digit code. The first time, the expert sets up the code and
-// sees backup codes once. A lost phone uses a backup code; a forgotten password gets a link.
+// S01 Sign in: the password alone (ADR 0025); the 6-digit code is asked for at risky actions
+// (foundation/lib/stepUp.tsx), where the expert first sets it up and sees backup codes once. The code
+// and set-up steps stay for an API that still asks at sign-in. A lost phone uses a backup code; a
+// forgotten password gets a link.
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { t } from "../../foundation/i18n";
@@ -24,7 +26,7 @@ export function SignIn() {
   const go = (next: Step) => setStep(next);
   const finish = () => navigate(arrived.from && arrived.from !== "/sign-in" ? arrived.from : "/today", { replace: true });
   const afterPassword = (result: Schemas["SignInResult"]) => {
-    if (result.status === "signed_in") finish(); // the local API skips the code (DEV_SKIP_MFA)
+    if (result.status === "signed_in") finish();
     else go(result.mfa_enrolled ? "code" : "enrol");
   };
   const afterCode = (result: Schemas["Verified"]) => {
