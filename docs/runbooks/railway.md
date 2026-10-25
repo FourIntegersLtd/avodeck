@@ -1,17 +1,20 @@
 # Railway: how the API and worker are deployed
 
-ADR 0021. One Docker image (`api/Dockerfile`, built from the repository root), two services in one Railway project, region **europe-west4 (Amsterdam)**. There is no `railway.toml`; these are dashboard settings.
+ADR 0021. One Docker image (`api/Dockerfile`, built from the repository root), three services in one Railway project (`api`, `worker`, `cron`), region **europe-west4 (Amsterdam)**. There is no `railway.toml`. The same settings are written as config-as-code in `railway/api.json`, `railway/worker.json` and `railway/cron.json`; in the dashboard, set each service's config file path (Settings > Config-as-code) to its file, or copy the values below by hand.
 
-| Setting | `api` | `worker` |
-|---|---|---|
-| Source | this repo, branch `main` | same |
-| Dockerfile path | `api/Dockerfile` | `api/Dockerfile` |
-| Start command | (image default) | `python -m app.worker.main` |
-| Health check path | `/v1/cell` | none |
-| Public networking | yes (generate a domain) | no |
-| Pre-deploy command | none | none |
-| Volumes | none | none |
-| Replicas | 1 | 1 |
+| Setting | `api` | `worker` | `cron` |
+|---|---|---|---|
+| Source | this repo, branch `main` | same | same |
+| Dockerfile path | `api/Dockerfile` | `api/Dockerfile` | `api/Dockerfile` |
+| Start command | (image default) | `python -m app.worker.main` | `python -m app.worker.schedules` |
+| Cron schedule | none | none | `15 2 * * *` (UTC, daily) |
+| Health check path | `/v1/cell` | none | none |
+| Public networking | yes (generate a domain) | no | no |
+| Pre-deploy command | none | none | none |
+| Volumes | none | none | none |
+| Replicas | 1 | 1 | 1 (runs, then exits) |
+
+The `cron` service runs each daily schedule once for today's date and exits (code 1 if any schedule failed; the others still run). A schedule already run for a date is skipped, so a retry or a second start is harmless. Its logs list schedule names and counts only.
 
 ## Variables
 
@@ -41,4 +44,5 @@ Vercel rewrites do not carry WebSockets, so live dictation (`/v1/.../dictation`)
 ## Check a deploy
 
 - `curl https://<api-service>.up.railway.app/v1/cell` returns the cell.
+- The `cron` service's last run shows `exit 0` in its deployment list.
 - The worker's logs show it waiting for jobs; upload a small test bundle and watch it move through Preparing.
