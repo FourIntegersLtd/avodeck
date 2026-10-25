@@ -29,7 +29,13 @@ def _months(first: date, last: date) -> list[str]:
 
 
 async def build(
-    request: Request, conn: AsyncConnection, case_id: uuid.UUID, pack: MergedPack, as_seen_on: date | None
+    request: Request,
+    conn: AsyncConnection,
+    case_id: uuid.UUID,
+    pack: MergedPack,
+    as_seen_on: date | None,
+    since: date | None = None,
+    until: date | None = None,
 ) -> Overview:
     seen = await repo.visible_facts(request, conn, case_id)
     facts = [
@@ -38,13 +44,23 @@ async def build(
         if f.event_date is not None
         and (as_seen_on is None or (f.available_at is not None and f.available_at <= as_seen_on))
     ]
+    whole = [f.event_date for f in facts if f.event_date is not None]
+    whole_range = Range(first=min(whole), last=max(whole)) if whole else None
+    facts = [
+        f
+        for f in facts
+        if (since is None or (f.event_date is not None and f.event_date >= since))
+        and (until is None or (f.event_date is not None and f.event_date <= until))
+    ]
     links = await repo.linked_questions(conn, case_id)
     flagged = await repo.flagged_facts(conn, case_id)
     placed, _ = arrange(facts, pack.lanes(), kind=lambda f: f.kind, fields=lambda f: f.fields)
     days = [f.event_date for f in facts if f.event_date is not None]
     if not days:
-        return Overview(lanes=[OverviewLane(key=k, label=_label(pack, k), counts=[]) for k, _ in placed])
-    first, last = min(days), max(days)
+        return Overview(
+            range=whole_range, lanes=[OverviewLane(key=k, label=_label(pack, k), counts=[]) for k, _ in placed]
+        )
+    first, last = since or min(days), until or max(days)
     months = _months(first, last)
     index = {m: i for i, m in enumerate(months)}
     colour_of = {str(s["key"]): s.get("colour") for s in pack.source_types()}
@@ -68,7 +84,7 @@ async def build(
         colour = colour_of[tally.most_common(1)[0][0]] if tally else None
         lanes.append(OverviewLane(key=key, label=_label(pack, key), colour=colour, counts=counts))
     pins.sort(key=lambda p: (p[0], p[1]))
-    return Overview(range=Range(first=first, last=last), months=months, lanes=lanes, pins=[p for _, _, p in pins])
+    return Overview(range=whole_range, months=months, lanes=lanes, pins=[p for _, _, p in pins])
 
 
 def _label(pack: MergedPack, key: str) -> str:
