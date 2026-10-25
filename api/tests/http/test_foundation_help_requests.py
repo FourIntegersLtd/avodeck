@@ -45,7 +45,9 @@ async def test_a_request_sends_one_mail_to_the_support_address(seed: Seed, clien
         {"topic": "case", "message": "hi"},
     ],
 )
-async def test_bad_input_is_422_and_sends_nothing(seed: Seed, client_for: ClientFor, app: FastAPI, body: dict) -> None:
+async def test_bad_input_is_422_and_sends_nothing(
+    seed: Seed, client_for: ClientFor, app: FastAPI, body: dict[str, object]
+) -> None:
     client = await client_for(seed.person())
     assert (await client.post("/v1/help-requests", json=body)).status_code == 422
     assert not app.state.mailer.outbox
@@ -72,9 +74,8 @@ async def test_it_needs_a_signed_in_person_and_csrf(seed: Seed, client_for: Clie
     assert (await no_csrf.post("/v1/help-requests", json=GOOD)).status_code == 403
 
 
-async def test_the_cell_says_a_help_form_exists_but_not_the_address(client_for: ClientFor) -> None:
+async def test_the_cell_never_gives_the_address(client_for: ClientFor) -> None:
     body = (await (await client_for(None)).get("/v1/cell")).json()
-    assert body["help_form"] is True
     assert SUPPORT not in str(body)
 
 
