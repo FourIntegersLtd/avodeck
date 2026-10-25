@@ -108,7 +108,8 @@ a:hover { color: var(--forest); }
 .hand .l3 { transform: rotate(0.8deg) translateX(-2px); letter-spacing: 0.02em; }
 .hand .l4 { transform: rotate(-0.5deg) translateX(16px); }
 .hand s { text-decoration-thickness: 2px; }
-.hero-visual .fact-card { top: 470px; }
+.hero-visual .fact-card { top: 330px; right: -16px; width: 400px; padding: 26px 28px; gap: 14px; }
+.hero-visual .fact-title { font-size: 25px; }
 .record.handwritten .record-foot { text-align: left; left: 60px; }
 .hand mark { color: inherit; background: #FFF3B0; box-shadow: 0 0 0 3px #FFF3B0; border-radius: 2px; }
 .fact-card { position: absolute; top: 300px; right: 0; width: 320px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 44px rgba(15,61,44,0.16); display: flex; flex-direction: column; gap: 10px; }
@@ -443,7 +444,8 @@ a:hover { color: var(--forest); }
   .record.handwritten { padding-left: 52px; background-image: linear-gradient(90deg, transparent 36px, rgba(190, 70, 70, 0.4) 36px, rgba(190, 70, 70, 0.4) 37.5px, transparent 37.5px); }
   .hand { --lh: 33px; font-size: 23px; }
   .hero-visual .fact-card { top: auto; }
-  .record.handwritten .record-foot { text-align: center; left: 0; }
+  .hero-visual .fact-card { margin: -170px 0 0 28px; width: auto; right: auto; padding: 20px 22px; gap: 10px; }
+  .hero-visual .fact-title { font-size: 21px; }
   .fact-card { position: relative; top: auto; right: auto; width: auto; }
   .connector, .connector-dot { display: none; }
   .faq summary { font-size: 20px; }
