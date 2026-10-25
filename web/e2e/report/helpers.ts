@@ -44,6 +44,8 @@ export async function stubReport(page: Page, pack: Pack, stub: Stub = {}) {
     return {
       id: "f1111111-1111-4111-8111-111111111111", report_version_id: VERSION, at: "2026-10-18T10:00:00Z", passed: stub.check !== "failed", current: true,
       declaration_changed: false, pack_versions: {}, warnings: [], warnings_status: "done", results,
+      failed: results.filter((r) => r.outcome === "failed"), not_run: [], passed_checks: results.filter((r) => r.outcome === "passed"),
+      failed_count: results.filter((r) => r.outcome === "failed").length, ready: stub.check !== "failed",
     };
   };
   const invoice = {

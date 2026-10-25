@@ -32,14 +32,16 @@ export function versionOut(over: Partial<Schemas["VersionOut"]> = {}): Schemas["
 
 export function reportOut(run: PackRun, over: Partial<Schemas["ReportOut"]> = {}): Schemas["ReportOut"] {
   const version = versionOut();
-  const items = checklistItems(run);
-  return {
-    checklist: { rule_ref: "ref", items: items.map((item, i) => ({ key: item.key, text: item.text ?? null, text_key: item.text_key ?? null, done: i === 0 })) },
+  const items = checklistItems(run).map((item, i) => ({ key: item.key, text: item.text ?? null, text_key: item.text_key ?? null, done: i === 0 }));
+  const out = {
+    checklist: { rule_ref: "ref", items, done: items.filter((i) => i.done).length, total: items.length },
     sections: sectionKeys(run).map((key, i) => ({ key, written: i === 0, generated: i !== 0 })),
     version,
     versions: [version],
     ...over,
   };
+  // The server decides locked (the main report served or withdrawn); stand-ins mirror that.
+  return { locked: out.versions.some((v) => !["answers", "supplementary"].includes(v.type) && ["served", "withdrawn"].includes(v.status)), ...out };
 }
 
 export const settingsOut = (over: Partial<Schemas["SettingsOut"]> = {}): Schemas["SettingsOut"] => ({ addressed: [], citation_style: "page", job_id: null, version: 3, ...over });
@@ -49,11 +51,14 @@ export function checkResult(over: Partial<Schemas["CheckResult"]> = {}): Schemas
 }
 
 export function finalCheck(over: Partial<Schemas["FinalCheckOut"]> = {}): Schemas["FinalCheckOut"] {
-  return {
+  const out = {
     id: "f1111111-1111-4111-8111-111111111111", report_version_id: V1, at: "2026-10-18T10:00:00Z", passed: true, current: true,
     declaration_changed: false, pack_versions: {}, warnings: [], warnings_status: "done",
     results: [checkResult(), checkResult({ key: "citations_resolve", text: "Every fact traced to a page you checked", count: 214 })], ...over,
   };
+  // The server groups results by outcome and says whether the run is ready; stand-ins mirror that.
+  const by = (outcome: string) => out.results.filter((r) => r.outcome === outcome);
+  return { failed: by("failed"), not_run: by("not_run"), passed_checks: by("passed"), failed_count: by("failed").length, ready: out.passed && out.current, ...out };
 }
 
 export function failedCheck(): Schemas["FinalCheckOut"] {
@@ -68,10 +73,13 @@ export function failedCheck(): Schemas["FinalCheckOut"] {
   });
 }
 
-export const spotOut = (over: Partial<Schemas["SpotCheckOut"]> = {}): Schemas["SpotCheckOut"] => ({
+export const spotOut = (over: Partial<Schemas["SpotCheckOut"]> = {}): Schemas["SpotCheckOut"] => {
+  const out = {
   id: SPOT, created_at: "2026-10-18T10:00:00Z", expires_at: "2026-10-25T10:00:00Z", fact_count: 10, locked: false, opened_at: null,
   report_version_id: V1, responded_at: null, responses: [], reviewer_email: "colleague@example.test", ...over,
-});
+  };
+  return { agree_count: out.responses.filter((r) => r.agrees).length, total: out.responses.length, ...out };
+};
 
 export const invoiceOut = (over: Partial<Schemas["InvoiceOut"]> = {}): Schemas["InvoiceOut"] => ({
   id: INV, number_text: null, status: "draft", currency: "GBP", created_at: "2026-10-18T10:00:00Z", sent_at: null, sent_to: null,

@@ -16,7 +16,6 @@ import { w } from "./words";
 type Report = Schemas["ReportOut"];
 const STYLES = ["page", "paragraph"] as const;
 const ERRORS = { stale: "report.stale", not_built: "report.not_built" };
-const AFTER_SERVING_TYPES = ["answers", "supplementary"];
 
 export function ReportScreen() {
   const { caseId = "" } = useParams();
@@ -34,7 +33,7 @@ export function ReportScreen() {
 
   if (found.error || settings.error) return <div className="av-page"><LoadError onRetry={() => { found.reload(); settings.reload(); }} /></div>;
   if (found.data === undefined || !settings.data) return <div className="av-page"><Loading /></div>;
-  const data = (found.data ?? { version: null, versions: [], sections: [], checklist: { items: [] } }) as unknown as Report;
+  const data = (found.data ?? { version: null, versions: [], sections: [], checklist: { items: [], done: 0, total: 0 }, locked: false }) as unknown as Report;
   const version = data.version;
   const currentStyle = style ?? settings.data.citation_style;
   const currentVersion = styleVersion ?? settings.data.version;
@@ -72,8 +71,7 @@ export function ReportScreen() {
     });
 
   // Rule 8: once the main report is served (or withdrawn) it is locked; changes go in a supplementary report.
-  const served = refused || data.versions.some((v) => !AFTER_SERVING_TYPES.includes(v.type) && (v.status === "served" || v.status === "withdrawn"));
-  const done = data.checklist.items.filter((entry) => entry.done).length;
+  const served = refused || data.locked;
   const appendices = ((pack.report_appendices ?? []) as Array<{ key: string; label?: string }>).map((a) => a.label ?? humanise(a.key));
   const limits = ((pack.compliance_checklist as unknown as { page_limit?: Record<string, number> } | undefined)?.page_limit ?? {}) as Record<string, number>;
   const limit = item.court_track ? limits[item.court_track] : undefined;
@@ -122,7 +120,7 @@ export function ReportScreen() {
                 </li>
               ))}
             </ul>
-            <p className="av-muted rp-small">{w("report.checklist_done", { done, total: data.checklist.items.length })}</p>
+            <p className="av-muted rp-small">{w("report.checklist_done", { done: data.checklist.done, total: data.checklist.total })}</p>
           </section>
           <Methodology caseId={caseId} locale={locale} />
         </aside>

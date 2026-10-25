@@ -82,11 +82,11 @@ export function FinalCheck() {
   if (found.error) return <div className="av-page"><LoadError onRetry={found.reload} /></div>;
   if (found.loading && found.data === undefined) return <div className="av-page"><Loading /></div>;
   const check = found.data ?? null;
-  const failed = check?.results.filter((r) => r.outcome === "failed") ?? [];
-  const notRun = check?.results.filter((r) => r.outcome === "not_run") ?? [];
-  const passed = check?.results.filter((r) => r.outcome === "passed") ?? [];
-  const ready = !!check && check.passed && check.current;
-  const title = failed.length > 0 ? w("check.title_fix", { count: failed.length }) : ready ? w("check.title_ok") : w("check.title");
+  const failed = check?.failed ?? [];
+  const notRun = check?.not_run ?? [];
+  const passed = check?.passed_checks ?? [];
+  const ready = !!check?.ready;
+  const title = (check?.failed_count ?? 0) > 0 ? w("check.title_fix", { count: check?.failed_count }) : ready ? w("check.title_ok") : w("check.title");
 
   return (
     <div className="av-page rp-page rp-page--narrow">
@@ -258,10 +258,10 @@ function SpotCheck({ caseId }: { caseId: string }) {
 function SpotRow({ spot }: { spot: Schemas["SpotCheckOut"] }) {
   if (spot.locked) return <p>{w("check.spot_locked", { email: spot.reviewer_email })}</p>;
   if (spot.responses.length === 0) return <p>{w("check.spot_waiting", { email: spot.reviewer_email })}</p>;
-  const agree = spot.responses.filter((r) => r.agrees).length;
+  const agree = spot.agree_count;
   return (
     <>
-      <p>{w("check.spot_answered", { email: spot.reviewer_email, agree, total: spot.responses.length })}</p>
+      <p>{w("check.spot_answered", { email: spot.reviewer_email, agree, total: spot.total })}</p>
       {spot.responses.filter((r) => !r.agrees && r.reason).map((r) => (
         <p key={r.fact_id} className="av-muted">{w("check.spot_disagree", { reason: r.reason })}</p>
       ))}

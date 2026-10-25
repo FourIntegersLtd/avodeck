@@ -2602,6 +2602,11 @@
       },
       "Checklist": {
         "properties": {
+          "done": {
+            "default": 0,
+            "title": "Done",
+            "type": "integer"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/ChecklistItem"
@@ -2612,6 +2617,11 @@
           "rule_ref": {
             "title": "Rule Ref",
             "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -5708,10 +5718,31 @@
             "title": "Declaration Changed",
             "type": "boolean"
           },
+          "failed": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Failed",
+            "type": "array"
+          },
+          "failed_count": {
+            "default": 0,
+            "title": "Failed Count",
+            "type": "integer"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "not_run": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Not Run",
+            "type": "array"
           },
           "pack_versions": {
             "additionalProperties": {
@@ -5722,6 +5753,19 @@
           },
           "passed": {
             "title": "Passed",
+            "type": "boolean"
+          },
+          "passed_checks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/CheckResult"
+            },
+            "title": "Passed Checks",
+            "type": "array"
+          },
+          "ready": {
+            "default": false,
+            "title": "Ready",
             "type": "boolean"
           },
           "report_version_id": {
@@ -14685,6 +14729,11 @@
             ],
             "title": "Court Track Label"
           },
+          "locked": {
+            "default": false,
+            "title": "Locked",
+            "type": "boolean"
+          },
           "sections": {
             "items": {
               "$ref": "#/components/schemas/SectionOut"
@@ -16934,6 +16983,11 @@
       },
       "SpotCheckOut": {
         "properties": {
+          "agree_count": {
+            "default": 0,
+            "title": "Agree Count",
+            "type": "integer"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -16996,6 +17050,11 @@
           "reviewer_email": {
             "title": "Reviewer Email",
             "type": "string"
+          },
+          "total": {
+            "default": 0,
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [

@@ -5837,10 +5837,20 @@ export interface components {
         };
         /** Checklist */
         Checklist: {
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
             /** Items */
             items: components["schemas"]["ChecklistItem"][];
             /** Rule Ref */
             rule_ref: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** ChecklistItem */
         ChecklistItem: {
@@ -6977,16 +6987,41 @@ export interface components {
             /** Declaration Changed */
             declaration_changed: boolean;
             /**
+             * Failed
+             * @default []
+             */
+            failed: components["schemas"]["CheckResult"][];
+            /**
+             * Failed Count
+             * @default 0
+             */
+            failed_count: number;
+            /**
              * Id
              * Format: uuid
              */
             id: string;
+            /**
+             * Not Run
+             * @default []
+             */
+            not_run: components["schemas"]["CheckResult"][];
             /** Pack Versions */
             pack_versions: {
                 [key: string]: string;
             };
             /** Passed */
             passed: boolean;
+            /**
+             * Passed Checks
+             * @default []
+             */
+            passed_checks: components["schemas"]["CheckResult"][];
+            /**
+             * Ready
+             * @default false
+             */
+            ready: boolean;
             /**
              * Report Version Id
              * Format: uuid
@@ -10184,6 +10219,11 @@ export interface components {
             checklist: components["schemas"]["Checklist"];
             /** Court Track Label */
             court_track_label?: string | null;
+            /**
+             * Locked
+             * @default false
+             */
+            locked: boolean;
             /** Sections */
             sections: components["schemas"]["SectionOut"][];
             version: components["schemas"]["VersionOut"] | null;
@@ -11002,6 +11042,11 @@ export interface components {
         /** SpotCheckOut */
         SpotCheckOut: {
             /**
+             * Agree Count
+             * @default 0
+             */
+            agree_count: number;
+            /**
              * Created At
              * Format: date-time
              */
@@ -11033,6 +11078,11 @@ export interface components {
             responses: components["schemas"]["SpotCheckAnswer"][];
             /** Reviewer Email */
             reviewer_email: string;
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** SpotCheckStarted */
         SpotCheckStarted: {
