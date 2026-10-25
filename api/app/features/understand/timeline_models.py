@@ -25,6 +25,19 @@ class Event(BaseModel):
     series_key: str | None = None
     date_basis: str | None = None
     first_word_n: int | None = None
+    rank: int = 3
+    """How much the entry matters, lower first: 0 thing to look at, 1 linked to a question, 2 please check, 3 checked."""
+    featured: bool = False
+    """Worth a card even when the board is zoomed far out (a thing to look at or a question link)."""
+
+
+class ChronologyRef(BaseModel):
+    """One row of the list view: the entry (by id) and the lane it sits in, already in date order."""
+
+    fact_id: uuid.UUID
+    lane_key: str = ""
+    lane_label: str = ""
+    lane_icon: str | None = None
 
 
 class Series(BaseModel):
@@ -91,6 +104,10 @@ class Timeline(BaseModel):
     as_seen_title: str | None = None
     guidance_changed: list[str] = []
     gaps: list[Gap] | None = None
+    chronology: list[ChronologyRef] = []
+    """Every entry shown, in date order (undated last, then by page)."""
+    status_options: list[str] = []
+    """The status filters worth offering: those with something in them, and the one chosen."""
 
 
 class OverviewLane(BaseModel):

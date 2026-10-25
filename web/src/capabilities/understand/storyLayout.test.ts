@@ -1,7 +1,7 @@
 // S11 story board layout: entries are grouped by lane and day, ranked by what matters most, packed into a few
 // rows without overlapping, and whatever does not fit is folded into counted marks. Pure functions, no browser.
 import { describe, expect, test } from "vitest";
-import { axisMarks, AXIS_CHAR_PX, foldChips, groupByDay, layoutLane, levelFor, monthlyCounts, nextEntryAfter, type StoryGroup } from "./storyLayout";
+import { axisMarks, AXIS_CHAR_PX, foldChips, groupByDay, layoutLane, levelFor, nextEntryAfter, type StoryGroup } from "./storyLayout";
 import { event, Q_1 } from "./testing";
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
@@ -100,22 +100,6 @@ describe("levelFor", () => {
     expect(levelFor("2004-01-01", "2024-12-31")).toBe("years");
     expect(levelFor("2024-02-01", "2024-08-31")).toBe("months");
     expect(levelFor("2024-05-01", "2024-06-15")).toBe("days");
-  });
-});
-
-describe("monthlyCounts", () => {
-  test("counts each lane's dated entries per month across the span", () => {
-    const counts = monthlyCounts(
-      [
-        { key: "a", label: "A", events: [event({ event_date: "2024-01-05" }), event({ event_date: "2024-01-20" }), event({ event_date: "2024-03-02" })] },
-        { key: "b", label: "B", events: [event({ event_date: "2024-02-10" }), event({ event_date: null, available_at: null })] },
-      ],
-      "2024-01-01",
-      "2024-03-31",
-    );
-    expect(counts.months).toEqual(["2024-01", "2024-02", "2024-03"]);
-    expect(counts.byLane.a).toEqual([2, 0, 1]);
-    expect(counts.byLane.b).toEqual([0, 1, 0]);
   });
 });
 

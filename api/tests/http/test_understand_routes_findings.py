@@ -89,6 +89,16 @@ async def test_findings_show_their_evidence_pages_and_gentle_ones_say_so(client_
     assert got[str(plain)]["decision"] is None
 
 
+async def test_findings_come_undecided_first_with_the_done_and_total_counts(client_for: ClientFor, case: Case) -> None:
+    decided, first, second = case.finding(), case.finding(), case.finding()
+    expert = await client_for(case.expert)
+    url = f"/v1/cases/{case.id}/findings/{decided}"
+    assert (await expert.patch(url, json={"decision": "relevant"})).status_code == 200
+    body = (await expert.get(f"/v1/cases/{case.id}/findings")).json()
+    assert [f["id"] for f in body["findings"]] == [str(first), str(second), str(decided)]
+    assert (body["done"], body["total"]) == (1, 3)
+
+
 async def test_only_the_named_expert_decides_and_some_decisions_need_a_reason(
     client_for: ClientFor, case: Case
 ) -> None:

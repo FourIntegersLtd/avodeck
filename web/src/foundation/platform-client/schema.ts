@@ -5888,6 +5888,29 @@ export interface components {
             /** Value */
             value: string;
         };
+        /**
+         * ChronologyRef
+         * @description One row of the list view: the entry (by id) and the lane it sits in, already in date order.
+         */
+        ChronologyRef: {
+            /**
+             * Fact Id
+             * Format: uuid
+             */
+            fact_id: string;
+            /** Lane Icon */
+            lane_icon?: string | null;
+            /**
+             * Lane Key
+             * @default
+             */
+            lane_key: string;
+            /**
+             * Lane Label
+             * @default
+             */
+            lane_label: string;
+        };
         /** ChunkReceived */
         ChunkReceived: {
             /** Received */
@@ -6802,6 +6825,11 @@ export interface components {
              * Format: uuid
              */
             fact_id: string;
+            /**
+             * Featured
+             * @default false
+             */
+            featured: boolean;
             /** First Word N */
             first_word_n?: number | null;
             /** Has Finding */
@@ -6812,6 +6840,11 @@ export interface components {
             page_no: number;
             /** Question Ids */
             question_ids: string[];
+            /**
+             * Rank
+             * @default 3
+             */
+            rank: number;
             /** Series Key */
             series_key?: string | null;
             /** Source */
@@ -7085,8 +7118,18 @@ export interface components {
         };
         /** Findings */
         Findings: {
+            /**
+             * Done
+             * @default 0
+             */
+            done: number;
             /** Findings */
             findings: components["schemas"]["FindingOut"][];
+            /**
+             * Total
+             * @default 0
+             */
+            total: number;
         };
         /** Fix */
         Fix: {
@@ -11843,6 +11886,11 @@ export interface components {
             as_seen_on?: string | null;
             /** As Seen Title */
             as_seen_title?: string | null;
+            /**
+             * Chronology
+             * @default []
+             */
+            chronology: components["schemas"]["ChronologyRef"][];
             counts?: components["schemas"]["TimelineCounts"] | null;
             /** Gaps */
             gaps?: components["schemas"]["Gap"][] | null;
@@ -11859,6 +11907,11 @@ export interface components {
              * @default []
              */
             sources: components["schemas"]["TimelineSource"][];
+            /**
+             * Status Options
+             * @default []
+             */
+            status_options: string[];
             /** Unplaced */
             unplaced: components["schemas"]["Event"][];
         };
@@ -21738,6 +21791,10 @@ export interface operations {
             query?: {
                 /** @description Only what had arrived by this day. */
                 as_seen_on?: string | null;
+                /** @description Count only from this day. */
+                from?: string | null;
+                /** @description Count only up to this day. */
+                to?: string | null;
             };
             header?: never;
             path: {
