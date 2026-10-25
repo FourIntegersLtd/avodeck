@@ -140,7 +140,16 @@ a.av-step__hit:hover .av-step--current .av-step__pill { background: var(--surfac
 .av-sign-in__form { width: 100%; max-width: 440px; margin: 0 auto; }
 .av-codes { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); font-family: var(--font-mono); font-size: var(--text-large); }
 .av-qr { width: 200px; height: 200px; background: #FFFFFF; border: 1px solid var(--line); border-radius: var(--radius); }
-@media (max-width: 860px) { .av-sign-in { grid-template-columns: 1fr; } .av-sign-in__brand { padding: var(--space-5); } }
+/* Phones and narrow tablets: a short brand band, so the form is on the first screen. */
+@media (max-width: 860px) {
+  .av-sign-in { grid-template-columns: 1fr; align-content: start; }
+  .av-sign-in__brand { padding: 20px var(--gutter) 24px; gap: 14px; justify-content: flex-start; }
+  .av-sign-in__brand .av-logo svg { height: 36px; }
+  .av-sign-in__promise { gap: 0; }
+  .av-sign-in__tagline { font-size: 26px; max-width: none; }
+  .av-sign-in__points, .av-sign-in__footnote { display: none; }
+  .av-sign-in__main { padding: 32px var(--gutter) var(--page-bottom); align-items: flex-start; }
+}
 
 /* Today */
 .av-today__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); flex-wrap: wrap; margin-bottom: var(--space-5); }

@@ -20,7 +20,7 @@ dev:            ## local Supabase, API, worker, web app (:5173) and landing page
 	if [ -f api/app/worker/handlers.py ]; then $(MAKE) -C api worker & fi; \
 	if [ -f web/package.json ]; then cd web && pnpm dev; else wait; fi
 
-site:           ## the landing page on http://localhost:3000
+site:           ## the landing page alone on http://localhost:3000 (`pnpm dev` also serves it at / beside the app)
 	python3 -m http.server 3000 --bind 127.0.0.1 -d site
 
 test: test-api test-web
