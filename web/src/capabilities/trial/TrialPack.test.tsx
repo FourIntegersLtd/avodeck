@@ -213,7 +213,7 @@ test("a copy for the witness box is made, put on this device sealed, and can be 
   let copies: Schemas["PackageOut"][] = [];
   const download = await sealed();
   server.use(
-    http.get("/v1/cases/:caseId/offline-packages", () => json({ packages: copies })),
+    http.get("/v1/cases/:caseId/offline-packages", () => json({ packages: copies, live: copies.filter((c) => c.status === "built" || c.status === "downloaded") })),
     http.post("/v1/cases/:caseId/offline-packages", async ({ request }) => {
       await record(request);
       copies = [copyOut()];
