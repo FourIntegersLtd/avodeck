@@ -29,7 +29,7 @@
   "rewrites": [
     {
       "source": "/v1/:path*",
-      "destination": "https://api-production-0e15e.up.railway.app/v1/:path*"
+      "destination": "https://api.avodeck.com/v1/:path*"
     },
     {
       "source": "/privacy",

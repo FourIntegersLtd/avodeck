@@ -36,8 +36,11 @@ Not run by Railway. From the founder's Mac, before deploying code that needs the
 The browser must reach the API on its own origin (web/AGENTS.md). In `web/vercel.json`, add a rewrite once the Railway domain exists:
 
 ```json
-"rewrites": [{ "source": "/v1/:path*", "destination": "https://api-production-0e15e.up.railway.app/v1/:path*" }]
+"rewrites": [{ "source": "/v1/:path*", "destination": "https://api.avodeck.com/v1/:path*" }]
 ```
+
+The api service's public name is `api.avodeck.com` (Railway custom domain, target port 8000). In Cloudflare it is a CNAME `api` to the value Railway shows, DNS only (grey cloud), plus the TXT `_railway-verify.api` Railway shows. The Railway name `api-production-0e15e.up.railway.app` still works.
+
 
 One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: `web/scripts/add-landing.sh` puts the landing page (`site/`) at `/` and `/privacy`, the app's `index.html` becomes `app.html` (the fallback for every other path), and `/v1/*` goes to Railway. `APP_ORIGIN` on Railway is `https://avodeck.com`.
 
