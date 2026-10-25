@@ -415,3 +415,21 @@ async def test_the_report_names_its_document_and_the_court_track_from_the_pack_a
     assert body["versions"][0]["title"] == version["title"]
     tracks = vocabulary.get("court_tracks") or {}
     assert body["court_track_label"] == tracks.get("multi", "multi")
+
+
+@pytest.mark.usefixtures("services")
+async def test_the_report_says_whether_it_is_locked_and_counts_its_checklist(
+    client_for: ClientFor, worker_db: Database, admin: psycopg.Connection, world: World
+) -> None:
+    await build_now(client_for, worker_db, world)
+    client = await client_for(world.expert)
+    body = (await client.get(world.url("report"))).json()
+    assert body["locked"] is False
+    items = body["checklist"]["items"]
+    assert body["checklist"]["total"] == len(items)
+    assert body["checklist"]["done"] == sum(1 for i in items if i["done"])
+
+    admin.execute("update app.report_versions set status = 'served' where case_id = %s", (world.case,))
+    assert (await client.get(world.url("report"))).json()["locked"] is True
+    admin.execute("update app.report_versions set status = 'withdrawn' where case_id = %s", (world.case,))
+    assert (await client.get(world.url("report"))).json()["locked"] is True
