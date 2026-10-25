@@ -158,6 +158,50 @@ async def test_each_event_shows_its_status_and_questions_and_the_filters_narrow_
     assert set(events(await client.get(f"/v1/cases/{case.id}/timeline", params=linked))) == {str(edited)}
 
 
+async def test_chronology_lists_every_entry_in_date_order_undated_last_then_by_page(
+    client_for: ClientFor, seed: Seed
+) -> None:
+    case = Case(seed)
+    lanes = _plain_lanes(case.pack)
+    late = case.fact(lanes[0]["kinds"][0], date(2024, 5, 1), page=2)
+    early = case.fact(lanes[-1]["kinds"][0], date(2024, 2, 1), page=5)
+    same_day_p3 = case.fact(lanes[0]["kinds"][0], date(2024, 5, 1), page=3)
+    undated_p9 = case.fact(lanes[0]["kinds"][0], None, page=9)
+    undated_p4 = case.fact(lanes[-1]["kinds"][0], None, page=4)
+    resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
+    rows = resp.json()["chronology"]
+    assert [r["fact_id"] for r in rows] == [str(x) for x in (early, late, same_day_p3, undated_p4, undated_p9)]
+    by_key = {lane["key"]: lane for lane in case.pack.lanes()}
+    assert rows[0]["lane_key"] == lanes[-1]["key"]
+    assert rows[0]["lane_label"] == case.pack.vocabulary["lanes"][lanes[-1]["key"]]
+    assert rows[0]["lane_icon"] == by_key[lanes[-1]["key"]].get("icon")
+
+
+async def test_each_event_carries_a_server_rank_and_whether_it_is_featured(client_for: ClientFor, seed: Seed) -> None:
+    case = Case(seed)
+    kind = _plain_lanes(case.pack)[0]["kinds"][0]
+    looked = case.fact(kind, date(2024, 1, 1))
+    linked = case.fact(kind, date(2024, 1, 2))
+    check = case.fact(kind, date(2024, 1, 3), status="suggested")
+    done = case.fact(kind, date(2024, 1, 4))
+    case.link(linked, case.question())
+    case.admin.execute(
+        "insert into app.findings (case_id, check_key, rule, evidence_fact_ids, pack_version)"
+        " values (%s, 'zz_check', 'zz_rule', %s, 'zz')",
+        (case.id, [looked]),
+    )
+    # a suggestion on an unread page is hidden, so mark the page read for the suggested fact
+    case.admin.execute("insert into app.page_reads (case_id, page_id, person_id, dwell_seconds) values (%s, %s, %s, 20)", (case.id, case.page(1), case.expert))
+    resp = await (await client_for(case.expert)).get(f"/v1/cases/{case.id}/timeline")
+    got = {e["fact_id"]: e for lane in resp.json()["lanes"] for e in lane["events"]}
+    assert [(got[str(f)]["rank"], got[str(f)]["featured"]) for f in (looked, linked, check, done)] == [
+        (0, True),
+        (1, True),
+        (2, False),
+        (3, False),
+    ]
+
+
 async def test_suggestions_on_unread_pages_stay_hidden(client_for: ClientFor, seed: Seed) -> None:
     case = Case(seed)
     kind = _plain_lanes(case.pack)[0]["kinds"][0]
