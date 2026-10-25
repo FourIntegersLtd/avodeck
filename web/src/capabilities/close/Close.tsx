@@ -401,9 +401,8 @@ function Hold(props: { caseId: string; summary: Summary; locale: string; canHold
   const [asking, setAsking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const id = useId();
-  const active = summary.holds.filter((h) => h.released_at === null);
-  const until = active.map((h) => h.until).filter((u): u is string => u !== null).sort().at(-1);
-  const pausedText = active.some((h) => h.until === null) || !until ? w("hold.paused") : w("hold.paused_until", { date: formatDate(until, locale) });
+  const active = summary.active_holds ?? [];
+  const pausedText = summary.paused_until ? w("hold.paused_until", { date: formatDate(summary.paused_until, locale) }) : w("hold.paused");
 
   const resume = async () => {
     setError(null);

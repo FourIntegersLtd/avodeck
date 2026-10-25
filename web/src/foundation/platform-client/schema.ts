@@ -5925,6 +5925,11 @@ export interface components {
          */
         CloseSummary: {
             /**
+             * Active Holds
+             * @default []
+             */
+            active_holds: components["schemas"]["app__features__close__schemas__Hold"][];
+            /**
              * Case Id
              * Format: uuid
              */
@@ -5945,6 +5950,8 @@ export interface components {
             job_id?: string | null;
             /** Max Retention Years */
             max_retention_years?: number | null;
+            /** Paused Until */
+            paused_until?: string | null;
             /** Retention Policy */
             retention_policy: string | null;
             /** Retention Years */

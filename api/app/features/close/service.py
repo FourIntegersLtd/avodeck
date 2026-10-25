@@ -80,6 +80,12 @@ def delete_after(policy: str | None, status: str, base: date | None, today: date
     return plus_years(start, years) if policy == "keep_default" else start
 
 
+def _paused_until(holds: list[dict[str, Any]]) -> date | None:
+    if any(h["until"] is None for h in holds):
+        return None
+    return max((h["until"] for h in holds), default=None)
+
+
 def _held(holds: list[dict[str, Any]], today: date) -> bool:
     return any(h["until"] is None or h["until"] >= today for h in holds)
 
@@ -100,6 +106,8 @@ async def summary(
         max_retention_years=await max_years(conn, case),
         ever_served=case["ever_served"],
         holds=[Hold(**h) for h in holds],
+        active_holds=[Hold(**h) for h in holds],
+        paused_until=_paused_until(holds),
         held=_held(holds, await repo.today(conn)),
         deletion_started=await repo.deletion_started(conn, case_id),
         deleted_at=cert["deleted_at"] if cert else None,
