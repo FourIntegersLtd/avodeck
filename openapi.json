@@ -5691,6 +5691,12 @@
       },
       "FactList": {
         "properties": {
+          "done": {
+            "default": 0,
+            "description": "How many are dealt with: checked as right or changed (and not asked again), or marked not right.",
+            "title": "Done",
+            "type": "integer"
+          },
           "facts": {
             "items": {
               "$ref": "#/components/schemas/FactOut"
@@ -5698,11 +5704,25 @@
             "title": "Facts",
             "type": "array"
           },
+          "highlights": {
+            "description": "The words to mark on the page picture: every fact not marked not right.",
+            "items": {
+              "$ref": "#/components/schemas/Highlight"
+            },
+            "title": "Highlights",
+            "type": "array"
+          },
           "reassigned": {
             "default": false,
             "description": "A fact on this page is suggested again because the case's named expert changed.",
             "title": "Reassigned",
             "type": "boolean"
+          },
+          "total": {
+            "default": 0,
+            "description": "How many suggestions the page has.",
+            "title": "Total",
+            "type": "integer"
           }
         },
         "required": [
@@ -6595,6 +6615,41 @@
           "page"
         ],
         "title": "HelpRequest",
+        "type": "object"
+      },
+      "Highlight": {
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bbox"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "word_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Word Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "word_ids",
+          "bbox"
+        ],
+        "title": "Highlight",
         "type": "object"
       },
       "HoldCreate": {

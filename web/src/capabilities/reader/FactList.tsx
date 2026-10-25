@@ -32,19 +32,23 @@ function StatusMark({ mark }: { mark: Mark }) {
 export function FactList({
   pack,
   facts,
+  done,
+  total,
   focus,
   onFocus,
   children,
 }: {
   pack: Schemas["CasePack"];
   facts: Fact[];
+  /** The server's count of suggestions dealt with, out of `total`. */
+  done: number;
+  total: number;
   focus: string | null;
   onFocus: (id: string) => void;
   /** The fact card for the open row. */
   children: (fact: Fact) => ReactNode;
 }) {
   const list = useRef<HTMLUListElement>(null);
-  const done = facts.filter((f) => markOf(f) !== "please_check").length;
   const kinds = Array.from(new Set(facts.map((f) => f.kind)));
   const groups = kinds.map((kind) => ({ kind, facts: facts.filter((f) => f.kind === kind) }));
   const order = groups.flatMap((g) => g.facts);
@@ -85,9 +89,9 @@ export function FactList({
   return (
     <div className="rd-list">
       <div className="rd-list__count">
-        <p>{w("read.checked_of", { done, total: facts.length })}</p>
+        <p>{w("read.checked_of", { done, total })}</p>
         <div className="rd-list__prog">
-          <ProgressBar value={done} max={facts.length || 1} label={w("read.checked_of", { done, total: facts.length })} />
+          <ProgressBar value={done} max={total || 1} label={w("read.checked_of", { done, total })} />
         </div>
       </div>
       <ul ref={list} className="rd-list__rows" aria-label={w("read.found")} onKeyDown={onKey}>

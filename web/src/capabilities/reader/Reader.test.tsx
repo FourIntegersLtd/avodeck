@@ -288,4 +288,18 @@ describe.each([
     expect(api.verifies[0]!.body).toEqual({ action: "edit", fields: { date: "2024-05-15", plan: "Anaemia workup" } });
     expect(api.verifies[0]!.body).not.toHaveProperty("new_value");
   });
+
+  test("the progress figure is the server's count, not worked out on the screen", async () => {
+    mockReader(pack, { alreadyRead: true, facts: [fact(1), fact(2)], counts: { done: 5, total: 9 } });
+    renderAt(PATH);
+    expect(await screen.findByText("5 of 9 checked")).toBeVisible();
+  });
+
+  test("a suggestion marked not right has no highlight, because the server leaves it out", async () => {
+    mockReader(pack, { alreadyRead: true, facts: [fact(1), fact(2, { status: "rejected" })] });
+    renderAt(PATH);
+    await screen.findByTestId(`highlight-${factId(1)}`);
+    expect(screen.queryByTestId(`highlight-${factId(2)}`)).not.toBeInTheDocument();
+  });
+
 });

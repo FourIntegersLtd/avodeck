@@ -158,6 +158,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
   const queue = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/pages/unreadable", casePath(caseId))).catch(() => null), [caseId]);
   const [read, setRead] = useState(false);
   const [facts, setFacts] = useState<Fact[] | null>(null);
+  const [counts, setCounts] = useState<{ done: number; total: number; highlights: Schemas["Highlight"][] }>({ done: 0, total: 0, highlights: [] });
   const [reassigned, setReassigned] = useState(false);
   const [focus, setFocus] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditDraft | null>(null);
@@ -201,10 +202,11 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
 
   const loadFacts = useCallback(async () => {
     try {
-      const { facts: list, reassigned: again } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
+      const { facts: list, reassigned: again, done, total, highlights } = await unwrap(api.GET("/v1/cases/{case_id}/pages/{page_no}/facts", { params: { path: { case_id: caseId, page_no: String(pageNo) } } }));
       // The server answers only once the page was read, so the page counts as read from here.
       setRead(true);
       setFacts(list);
+      setCounts({ done: done ?? 0, total: total ?? 0, highlights: highlights ?? [] });
       setReassigned(again ?? false);
       setFocus((f) => {
         if (f) return f;
@@ -212,7 +214,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
         return list.find((x) => x.status === "suggested")?.id ?? list[0]?.id ?? null;
       });
     } catch (error) {
-      if (error instanceof ApiError && error.status === 423) { setFacts(null); setReassigned(false); }
+      if (error instanceof ApiError && error.status === 423) { setFacts(null); setCounts({ done: 0, total: 0, highlights: [] }); setReassigned(false); }
       else setNotice(errorMessage(error));
     }
   }, [caseId, pageNo, factFromUrl]);
@@ -302,6 +304,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       setEditing(null);
       setTimelineDraft(null);
       advanceFrom(list, next.id);
+      await loadFacts(); // the server recounts progress and highlights
     } catch (error) {
       if (error instanceof ApiError && error.status === 412) {
         setNotice(w("read.error.stale"));
@@ -412,6 +415,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
       setMoving(null);
       setInfo(w("read.moved", { page: moving.page }));
       setFocus(list.find((f) => f.status === "suggested")?.id ?? list[0]?.id ?? null);
+      await loadFacts();
     } catch (error) {
       if (error instanceof ApiError && error.status === 412) {
         setMoving(null);
@@ -935,7 +939,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
               </PageImage>
             ) : (
               <PageImage caseId={caseId} pageNo={pageNo} turn={turn} view={view} filter={filter} onZoom={zoomBy} onScale={setScale}>
-                <Highlights facts={facts ?? []} focus={focus} />
+                <Highlights highlights={counts.highlights} focus={focus} />
                 <SearchMarks result={found} pageNo={pageNo} />
                 {editing && pageWords && <WordToggles words={pageWords} chosen={editing.words} onToggle={toggleWord} />}
               </PageImage>
@@ -969,7 +973,7 @@ function ReadPage({ pageNo, find }: { pageNo: number; find: Find }) {
               </div>
               {facts?.length === 0 && <p className="rd-note">{w(page.source_type ? "read.none_found" : "read.still_reading")}</p>}
               {facts && facts.length > 0 && (
-                <FactList pack={pack} facts={facts} focus={focusedFact?.id ?? null} onFocus={setFocus}>
+                <FactList pack={pack} facts={facts} done={counts.done} total={counts.total} focus={focusedFact?.id ?? null} onFocus={setFocus}>
                   {renderCard}
                 </FactList>
               )}
