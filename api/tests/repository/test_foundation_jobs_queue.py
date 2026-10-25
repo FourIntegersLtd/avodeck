@@ -13,6 +13,7 @@ import asyncio
 import time
 import uuid
 from collections.abc import AsyncIterator
+from typing import Any
 
 import psycopg
 import pytest
@@ -199,6 +200,44 @@ async def test_a_job_that_keeps_failing_ends_failed_with_an_error_code_after_its
     assert calls == [1, 2, 3]
     row = admin.execute("select status, attempts, error_code from app.jobs where id = %s", (job,)).fetchone()
     assert row == ("failed", 3, "job_error")
+
+
+async def test_a_retried_job_never_passes_through_failed(
+    api_db: Database,
+    worker_db: Database,
+    worker_dsn: str,
+    admin: psycopg.Connection,
+    expert_cases: Cases,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failure with attempts left goes running -> queued in one step: nothing reading in between sees a
+    finally-failed job (the UI's "Try again", a test waiting for the end)."""
+    expert, case_a, _ = expert_cases
+    registry = isolated_registry()
+    calls: list[int] = []
+    finished_with: list[str] = []
+
+    @registry.kind("zz_flaky")
+    async def flaky(ctx: JobContext) -> None:
+        calls.append(ctx.attempt)
+        if ctx.attempt == 1:
+            raise RuntimeError("synthetic failure")
+
+    async with api_db.request(scope_for(expert)) as conn:
+        job = await registry.enqueue(conn, case_a, "zz_flaky")
+    async with open_worker(registry, worker_db, worker_dsn, max_attempts=3) as worker:
+        original = worker._finish
+
+        async def spy(case: uuid.UUID, job_id: uuid.UUID, status: str, **kwargs: Any) -> None:
+            finished_with.append(status)
+            await original(case, job_id, status, **kwargs)
+
+        monkeypatch.setattr(worker, "_finish", spy)
+        await run_until_finished(worker, admin, [job])
+    assert calls == [1, 2]
+    assert finished_with == ["done"]
+    row = admin.execute("select status, error_code, finished_at from app.jobs where id = %s", (job,)).fetchone()
+    assert row is not None and row[0] == "done" and row[2] is not None
 
 
 async def test_a_job_that_pauses_ends_paused_with_its_reason_and_is_not_retried(
