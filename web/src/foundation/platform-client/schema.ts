@@ -7063,6 +7063,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Live
+             * @description Not replaced and not adjourned.
+             */
+            live: boolean;
             /** Replaced By Hearing Id */
             replaced_by_hearing_id: string | null;
             /**
@@ -7081,8 +7086,21 @@ export interface components {
         };
         /** Hearings */
         Hearings: {
-            /** Hearings */
+            /**
+             * Hearings
+             * @description In the order the screen shows: live first, then newest first.
+             */
             hearings: components["schemas"]["HearingOut"][];
+            /**
+             * Next Hearing Id
+             * @description The earliest live hearing.
+             */
+            next_hearing_id: string | null;
+            /**
+             * Next Trial Hearing Id
+             * @description The earliest live trial hearing.
+             */
+            next_trial_hearing_id: string | null;
         };
         /** HeartbeatIn */
         HeartbeatIn: {
@@ -8370,8 +8388,17 @@ export interface components {
         };
         /** NewSinceServed */
         NewSinceServed: {
+            /** First Page */
+            first_page?: number | null;
+            /** Last Page */
+            last_page?: number | null;
             /** Pages */
             pages: components["schemas"]["NewPage"][];
+            /**
+             * Read Count
+             * @default 0
+             */
+            read_count: number;
             /** Served At */
             served_at: string | null;
         };
@@ -8647,6 +8674,11 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /**
+             * Needs Attention
+             * @description Checked, does not match and the expert has not yet confirmed it.
+             */
+            needs_attention: boolean;
             /** Our Page No */
             our_page_no: number | null;
             /** Our Quote */
@@ -8701,6 +8733,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Matching Claims */
+            matching_claims: components["schemas"]["OpposingClaimOut"][];
+            /** Needs Attention Count */
+            needs_attention_count: number;
+            /** Other Claims */
+            other_claims: components["schemas"]["OpposingClaimOut"][];
             /** Pages */
             pages?: number | null;
             /** Positions */
@@ -10233,10 +10271,20 @@ export interface components {
         RoundOut: {
             /** Answers Version Id */
             answers_version_id: string | null;
+            /**
+             * Days Left
+             * @description Days to the due date in the court's timezone.
+             */
+            days_left: number | null;
             /** Deadline Id */
             deadline_id: string | null;
             /** Document Id */
             document_id: string | null;
+            /**
+             * Due On
+             * @description When the answers are due, from the round's deadline.
+             */
+            due_on: string | null;
             /** Extracted At */
             extracted_at: string | null;
             /** From Party Id */
@@ -10249,6 +10297,11 @@ export interface components {
             /** Number */
             number: number;
             /**
+             * Open
+             * @description Still to be answered (not yet signed).
+             */
+            open: boolean;
+            /**
              * Received On
              * Format: date
              */
@@ -10258,8 +10311,23 @@ export interface components {
             /** Version */
             version: number;
         };
+        /** RoundQuestions */
+        RoundQuestions: {
+            /** Questions */
+            questions: components["schemas"]["WrittenQuestionOut"][];
+            /**
+             * Round Id
+             * Format: uuid
+             */
+            round_id: string;
+        };
         /** Rounds */
         Rounds: {
+            /**
+             * Next Due On
+             * @description The earliest due date among the open rounds.
+             */
+            next_due_on: string | null;
             /** Rounds */
             rounds: components["schemas"]["RoundOut"][];
         };
@@ -11948,6 +12016,11 @@ export interface components {
         };
         /** WrittenQuestions */
         WrittenQuestions: {
+            /**
+             * By Round
+             * @description The same questions under their round.
+             */
+            by_round: components["schemas"]["RoundQuestions"][];
             /** Questions */
             questions: components["schemas"]["WrittenQuestionOut"][];
         };
