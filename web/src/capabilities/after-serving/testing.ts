@@ -46,7 +46,7 @@ export const served = (over: Partial<Schemas["Served"]> = {}): Schemas["Served"]
 
 export const round = (over: Partial<Schemas["RoundOut"]> = {}): Schemas["RoundOut"] => ({
   id: ROUND, number: 1, from_party_id: null, received_on: "2026-12-01", document_id: DOC, deadline_id: D1, answers_version_id: null,
-  status: "open", extracted_at: "2026-12-01T10:00:00Z", version: 1, ...over,
+  status: "open", extracted_at: "2026-12-01T10:00:00Z", version: 1, open: true, due_on: "2026-12-26", days_left: 18, ...over,
 });
 
 export const question = (over: Partial<Schemas["WrittenQuestionOut"]> = {}): Schemas["WrittenQuestionOut"] => ({
@@ -57,7 +57,7 @@ export const question = (over: Partial<Schemas["WrittenQuestionOut"]> = {}): Sch
 
 export const claim = (over: Partial<Schemas["OpposingClaimOut"]> = {}): Schemas["OpposingClaimOut"] => ({
   id: CLAIM, claim_no: 1, text_verbatim: "Haemoglobin was 89 in February", paragraph_ref: "4.2", their_page_ref: "214", their_quote: "89", our_page_no: 214, our_quote: "98",
-  status: "wrong_value", reason: "number differs", checked_by: "code", discrepancy: true, expert_confirmed: false, confirmed_at: null, version: 1, ...over,
+  status: "wrong_value", reason: "number differs", checked_by: "code", discrepancy: true, expert_confirmed: false, confirmed_at: null, version: 1, needs_attention: true, ...over,
 }) as Schemas["OpposingClaimOut"];
 
 export const change = (over: Partial<Schemas["ReportChangeOut"]> = {}): Schemas["ReportChangeOut"] => ({
@@ -71,10 +71,43 @@ export function etagged(body: unknown, version: number, status = 200) {
   return HttpResponse.json(body as never, { status, headers: { etag: `"${version}"` } });
 }
 
+export type OpposingStub = Omit<Schemas["OpposingReport"], "matching_claims" | "other_claims" | "needs_attention_count">;
+// Stand-ins for what the server works out (rounds open, hearings live and ordered, claim groups, page range).
+const serverHearings = (list: Array<Omit<Schemas["HearingOut"], "live"> & { live?: boolean }>) => {
+  const all = list.map((h) => ({ ...h, live: h.live ?? (!h.replaced_by_hearing_id && h.status !== "adjourned") }));
+  const live = all.filter((h) => h.live).sort((a, b) => a.starts_on.localeCompare(b.starts_on));
+  const hearings = [...all].sort((a, b) => Number(b.live) - Number(a.live) || b.starts_on.localeCompare(a.starts_on));
+  return { hearings, next_hearing_id: live[0]?.id ?? null, next_trial_hearing_id: live.find((h) => h.type === "trial")?.id ?? null };
+};
+const serverRounds = (rounds: Schemas["RoundOut"][], deadlines: Schemas["DeadlineOut"][]) => {
+  const list = rounds.map((r) => {
+    const d = deadlines.find((x) => x.id === r.deadline_id);
+    return { ...r, open: r.status !== "answered", due_on: d ? d.due_on : r.due_on, days_left: d ? (d.days_left ?? null) : r.days_left };
+  });
+  const due = list.filter((r) => r.open && r.due_on).map((r) => r.due_on as string).sort();
+  return { rounds: list, next_due_on: due[0] ?? null };
+};
+const serverQuestions = (rounds: Schemas["RoundOut"][], questions: Schemas["WrittenQuestionOut"][]) => ({
+  questions,
+  by_round: rounds.map((r) => ({ round_id: r.id, questions: questions.filter((q) => q.round_id === r.id) })).filter((g) => g.questions.length > 0),
+});
+const serverNew = (pages: Schemas["NewPage"][]) => ({
+  pages, served_at: "2026-11-28T10:00:00Z",
+  first_page: pages.length ? Math.min(...pages.map((p) => p.page_no)) : null,
+  last_page: pages.length ? Math.max(...pages.map((p) => p.page_no)) : null,
+  read_count: pages.filter((p) => p.read).length,
+});
+export const serverReport = (r: OpposingStub) => ({
+  ...r,
+  matching_claims: r.claims.filter((c) => c.status === "matches"),
+  other_claims: r.claims.filter((c) => c.status !== "matches"),
+  needs_attention_count: r.claims.filter((c) => c.needs_attention).length,
+});
+
 /** Signed in under a pack, with a stub for every slice G read; `record` notes what a handler was sent. */
 export function serve(run: PackRun, opts: {
-  deadlines?: Schemas["DeadlineOut"][]; served?: Schemas["Served"]; hearings?: Schemas["HearingOut"][]; directions?: Schemas["DirectionOut"][]; steps?: Schemas["AfterServingSteps"];
-  rounds?: Schemas["RoundOut"][]; questions?: Schemas["WrittenQuestionOut"][]; pages?: Schemas["NewPage"][]; opposing?: Schemas["OpposingReport"] | null;
+  deadlines?: Schemas["DeadlineOut"][]; served?: Schemas["Served"]; hearings?: Array<Omit<Schemas["HearingOut"], "live"> & { live?: boolean }>; directions?: Schemas["DirectionOut"][]; steps?: Schemas["AfterServingSteps"];
+  rounds?: Schemas["RoundOut"][]; questions?: Schemas["WrittenQuestionOut"][]; pages?: Schemas["NewPage"][]; opposing?: OpposingStub | null;
   changes?: Schemas["ReportChangeOut"][]; supplementary?: Schemas["Supplementary"] | null; deadlineChanges?: Record<string, unknown[]>;
 } = {}) {
   inCase(run, { instructing_party_type: (casePack(run).instructing_party_types as Array<{ key: string }>)[0]!.key });
@@ -87,14 +120,14 @@ export function serve(run: PackRun, opts: {
     http.get("/v1/cases/:caseId/deadlines", () => json({ deadlines: opts.deadlines ?? [deadline()], served_on: "2026-11-28" })),
     http.get("/v1/cases/:caseId/deadlines/:id/changes", ({ params }) => json({ changes: opts.deadlineChanges?.[String(params.id)] ?? [] } as never)),
     http.get("/v1/cases/:caseId/report/served", () => json((opts.served ?? served()) as never)),
-    http.get("/v1/cases/:caseId/hearings", () => json({ hearings: opts.hearings ?? [] })),
+    http.get("/v1/cases/:caseId/hearings", () => json(serverHearings(opts.hearings ?? []) as never)),
     http.get("/v1/cases/:caseId/after-serving/steps", () => json((opts.steps ?? { meetings: [], pack: null }) as never)),
     http.get("/v1/cases/:caseId/court-directions", () => json({ directions: opts.directions ?? [] })),
-    http.get("/v1/cases/:caseId/written-question-rounds", () => json({ rounds: opts.rounds ?? [round()] })),
-    http.get("/v1/cases/:caseId/written-questions", () => json({ questions: opts.questions ?? [question()] })),
-    http.get("/v1/cases/:caseId/new-since-served", () => json({ pages: opts.pages ?? [], served_at: "2026-11-28T10:00:00Z" })),
+    http.get("/v1/cases/:caseId/written-question-rounds", () => json(serverRounds(opts.rounds ?? [round()], opts.deadlines ?? [deadline()]) as never)),
+    http.get("/v1/cases/:caseId/written-questions", () => json(serverQuestions(opts.rounds ?? [round()], opts.questions ?? [question()]) as never)),
+    http.get("/v1/cases/:caseId/new-since-served", () => json(serverNew(opts.pages ?? []) as never)),
     http.get("/v1/cases/:caseId/opposing-reports/:doc", () =>
-      opts.opposing ? json(opts.opposing as never) : HttpResponse.json({ error: { code: "not_found", message: "x" } }, { status: 404 })),
+      opts.opposing ? json(serverReport(opts.opposing) as never) : HttpResponse.json({ error: { code: "not_found", message: "x" } }, { status: 404 })),
     http.get("/v1/cases/:caseId/report-changes", () => json({ changes: opts.changes ?? [], supplementary: opts.supplementary ?? null } as never)),
   );
   return { sent, record };

@@ -303,3 +303,31 @@ async def test_reminders_three_days_ahead_carry_only_the_deadline_kind(
     assert len([m for m in mailer.outbox if m.params.get("kind") == "deadline.written_questions"]) == 1, "once"
     row = admin.execute("select last_reminded_on from app.deadlines where id = %s", (deadline["id"],)).fetchone()
     assert row is not None and row[0] == due - timedelta(days=3)
+
+
+async def test_hearings_say_which_are_live_in_the_order_shown_and_which_is_next(
+    client_for: ClientFor, served: World
+) -> None:
+    client = await client_for(served.expert)
+    first = (
+        await client.post(
+            served.url("hearings"), json={"type": "trial", "starts_on": "2026-06-01", "ends_on": "2026-06-03"}
+        )
+    ).json()
+    other = (
+        await client.post(
+            served.url("hearings"), json={"type": "trial", "starts_on": "2026-07-01", "ends_on": "2026-07-02"}
+        )
+    ).json()
+    moved = await client.patch(
+        served.url(f"hearings/{first['id']}"),
+        json={"status": "adjourned", "starts_on": "2026-09-07", "ends_on": "2026-09-09"},
+        headers={"If-Match": etag(first["version"])},
+    )
+    assert moved.status_code == 200, moved.text
+    replacement = moved.json()["replaced_by_hearing_id"]
+    body = (await client.get(served.url("hearings"))).json()
+    assert [h["id"] for h in body["hearings"]] == [replacement, other["id"], first["id"]], "live first, newest first"
+    assert [h["live"] for h in body["hearings"]] == [True, True, False]
+    assert body["next_hearing_id"] == other["id"], "the earliest live hearing"
+    assert body["next_trial_hearing_id"] == other["id"]

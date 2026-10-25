@@ -6,15 +6,15 @@ import { registerScreen } from "../../foundation/lib/screens";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import type { Schemas } from "../../foundation/platform-client";
-import { claim, DOC, P1, Q1, serve } from "./testing";
+import { claim, DOC, P1, Q1, serve, type OpposingStub } from "./testing";
 
 const url = `/cases/${CASE_A}/new-material?document=${DOC}`;
 const page = (no: number, read: boolean, may: Schemas["NewPage"]["may_matter"] = []): Schemas["NewPage"] => ({ page_id: `p${no}`, page_no: no, read, may_matter: may });
-const report = (claims: Schemas["OpposingClaimOut"][]): Schemas["OpposingReport"] => ({
+const report = (claims: Schemas["OpposingClaimOut"][]): OpposingStub => ({
   id: "r1", document_id: DOC, received_on: "2026-12-09", checked_at: "2026-12-09T10:00:00Z", claims_found: claims.length, claims,
   positions: [{ question_id: Q1, own: [{ paragraph_id: P1, para_no: 614, text: "Ours." }], theirs: [{ paragraph_ref: "5.1", text_verbatim: "Theirs." }] }],
 });
-const match = (n: number) => claim({ id: `m${n}`, claim_no: n, status: "matches", discrepancy: false, text_verbatim: `Matching statement ${n}` });
+const match = (n: number) => claim({ id: `m${n}`, claim_no: n, status: "matches", discrepancy: false, needs_attention: false, text_verbatim: `Matching statement ${n}` });
 
 beforeEach(() => registerScreen("expert_meeting", ({ caseId }) => `/cases/${caseId}/joint-statement`));
 

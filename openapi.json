@@ -6267,6 +6267,11 @@
             "title": "Id",
             "type": "string"
           },
+          "live": {
+            "description": "Not replaced and not adjourned.",
+            "title": "Live",
+            "type": "boolean"
+          },
           "replaced_by_hearing_id": {
             "anyOf": [
               {
@@ -6318,7 +6323,8 @@
           "replaced_by_hearing_id",
           "direction_id",
           "version",
-          "changed_at"
+          "changed_at",
+          "live"
         ],
         "title": "HearingOut",
         "type": "object"
@@ -6326,15 +6332,44 @@
       "Hearings": {
         "properties": {
           "hearings": {
+            "description": "In the order the screen shows: live first, then newest first.",
             "items": {
               "$ref": "#/components/schemas/HearingOut"
             },
             "title": "Hearings",
             "type": "array"
+          },
+          "next_hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest live hearing.",
+            "title": "Next Hearing Id"
+          },
+          "next_trial_hearing_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest live trial hearing.",
+            "title": "Next Trial Hearing Id"
           }
         },
         "required": [
-          "hearings"
+          "hearings",
+          "next_hearing_id",
+          "next_trial_hearing_id"
         ],
         "title": "Hearings",
         "type": "object"
@@ -9920,12 +9955,39 @@
       },
       "NewSinceServed": {
         "properties": {
+          "first_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Page"
+          },
+          "last_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Page"
+          },
           "pages": {
             "items": {
               "$ref": "#/components/schemas/NewPage"
             },
             "title": "Pages",
             "type": "array"
+          },
+          "read_count": {
+            "default": 0,
+            "title": "Read Count",
+            "type": "integer"
           },
           "served_at": {
             "anyOf": [
@@ -10729,6 +10791,11 @@
             "title": "Id",
             "type": "string"
           },
+          "needs_attention": {
+            "description": "Checked, does not match and the expert has not yet confirmed it.",
+            "title": "Needs Attention",
+            "type": "boolean"
+          },
           "our_page_no": {
             "anyOf": [
               {
@@ -10823,7 +10890,8 @@
           "expert_confirmed",
           "confirmed_at",
           "discrepancy",
-          "version"
+          "version",
+          "needs_attention"
         ],
         "title": "OpposingClaimOut",
         "type": "object"
@@ -10912,6 +10980,24 @@
             "title": "Id",
             "type": "string"
           },
+          "matching_claims": {
+            "items": {
+              "$ref": "#/components/schemas/OpposingClaimOut"
+            },
+            "title": "Matching Claims",
+            "type": "array"
+          },
+          "needs_attention_count": {
+            "title": "Needs Attention Count",
+            "type": "integer"
+          },
+          "other_claims": {
+            "items": {
+              "$ref": "#/components/schemas/OpposingClaimOut"
+            },
+            "title": "Other Claims",
+            "type": "array"
+          },
           "pages": {
             "anyOf": [
               {
@@ -10943,7 +11029,10 @@
           "checked_at",
           "claims_found",
           "claims",
-          "positions"
+          "positions",
+          "matching_claims",
+          "other_claims",
+          "needs_attention_count"
         ],
         "title": "OpposingReport",
         "type": "object"
@@ -15264,6 +15353,18 @@
             ],
             "title": "Answers Version Id"
           },
+          "days_left": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Days to the due date in the court's timezone.",
+            "title": "Days Left"
+          },
           "deadline_id": {
             "anyOf": [
               {
@@ -15287,6 +15388,19 @@
               }
             ],
             "title": "Document Id"
+          },
+          "due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "When the answers are due, from the round's deadline.",
+            "title": "Due On"
           },
           "extracted_at": {
             "anyOf": [
@@ -15321,6 +15435,11 @@
             "title": "Number",
             "type": "integer"
           },
+          "open": {
+            "description": "Still to be answered (not yet signed).",
+            "title": "Open",
+            "type": "boolean"
+          },
           "received_on": {
             "format": "date",
             "title": "Received On",
@@ -15345,13 +15464,51 @@
           "answers_version_id",
           "status",
           "extracted_at",
-          "version"
+          "version",
+          "open",
+          "due_on",
+          "days_left"
         ],
         "title": "RoundOut",
         "type": "object"
       },
+      "RoundQuestions": {
+        "properties": {
+          "questions": {
+            "items": {
+              "$ref": "#/components/schemas/WrittenQuestionOut"
+            },
+            "title": "Questions",
+            "type": "array"
+          },
+          "round_id": {
+            "format": "uuid",
+            "title": "Round Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "round_id",
+          "questions"
+        ],
+        "title": "RoundQuestions",
+        "type": "object"
+      },
       "Rounds": {
         "properties": {
+          "next_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The earliest due date among the open rounds.",
+            "title": "Next Due On"
+          },
           "rounds": {
             "items": {
               "$ref": "#/components/schemas/RoundOut"
@@ -15361,7 +15518,8 @@
           }
         },
         "required": [
-          "rounds"
+          "rounds",
+          "next_due_on"
         ],
         "title": "Rounds",
         "type": "object"
@@ -20378,6 +20536,14 @@
       },
       "WrittenQuestions": {
         "properties": {
+          "by_round": {
+            "description": "The same questions under their round.",
+            "items": {
+              "$ref": "#/components/schemas/RoundQuestions"
+            },
+            "title": "By Round",
+            "type": "array"
+          },
           "questions": {
             "items": {
               "$ref": "#/components/schemas/WrittenQuestionOut"
@@ -20387,7 +20553,8 @@
           }
         },
         "required": [
-          "questions"
+          "questions",
+          "by_round"
         ],
         "title": "WrittenQuestions",
         "type": "object"

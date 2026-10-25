@@ -67,9 +67,12 @@ class NewPage(BaseModel):
 class NewSinceServed(BaseModel):
     served_at: datetime | None
     pages: list[NewPage]
+    first_page: int | None = None
+    last_page: int | None = None
+    read_count: int = 0
 
 
-@router.get("/cases/{case_id}/new-since-served", response_model=NewSinceServed)
+@router.get("/cases/{case_id}/new-since-served", response_model=NewSinceServed, response_model_exclude_unset=True)
 async def new_since_served(case_id: uuid.UUID, access: View, conn: DbConn, reads: Reads) -> NewSinceServed:
     cur = await conn.execute("select app.after_serving_served_at(%s)", (case_id,))
     row = await cur.fetchone()
@@ -97,7 +100,14 @@ async def new_since_served(case_id: uuid.UUID, access: View, conn: DbConn, reads
         pages.append(
             NewPage(page_id=r["id"], page_no=page_no, read=read, may_matter=flagged.get(r["id"], []) if read else [])
         )
-    return NewSinceServed(served_at=served_at, pages=pages)
+    numbers = [p.page_no for p in pages]
+    return NewSinceServed(
+        served_at=served_at,
+        pages=pages,
+        first_page=min(numbers) if numbers else None,
+        last_page=max(numbers) if numbers else None,
+        read_count=sum(1 for p in pages if p.read),
+    )
 
 
 @router.post("/cases/{case_id}/new-since-served/check", status_code=202, response_model=Queued)
@@ -136,6 +146,9 @@ class OpposingClaimOut(BaseModel):
     confirmed_at: datetime | None
     discrepancy: bool
     version: int
+    needs_attention: bool = Field(
+        description="Checked, does not match and the expert has not yet confirmed it."
+    )
 
 
 class OwnParagraph(BaseModel):
@@ -167,6 +180,9 @@ class OpposingReport(BaseModel):
     claims_found: int | None
     claims: list[OpposingClaimOut]
     positions: list[Position]
+    matching_claims: list[OpposingClaimOut]
+    other_claims: list[OpposingClaimOut]
+    needs_attention_count: int
 
 
 class OpposingClaimChange(BaseModel):
@@ -233,6 +249,7 @@ async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, A
             confirmed_at=row["confirmed_at"],
             discrepancy=False,
             version=row["version"],
+            needs_attention=False,
         )
     if row["evidence_page_id"] is not None:
         wanted = set(row["evidence_word_ids"] or [])
@@ -255,6 +272,7 @@ async def claim_out(conn: Any, crypto: Any, case_id: uuid.UUID, row: dict[str, A
         confirmed_at=row["confirmed_at"],
         discrepancy=bool(row["expert_confirmed"] and row["status"] != "matches"),
         version=row["version"],
+        needs_attention=not row["expert_confirmed"] and row["status"] not in ("matches", READ_FIRST, "unchecked"),
     )
 
 
@@ -321,6 +339,9 @@ async def opposing_report(
         checked_at=report["checked_at"],
         claims_found=report["claims_found"],
         claims=claims,
+        matching_claims=[c for c in claims if c.status == "matches"],
+        other_claims=[c for c in claims if c.status != "matches"],
+        needs_attention_count=sum(1 for c in claims if c.needs_attention),
         positions=await _positions(conn, crypto, case_id, report["positions"], claims),
     )
 

@@ -39,6 +39,7 @@ from app.features.after_serving.common import (
     check_citations,
     citations_json,
     conflict,
+    days_left,
     fetch_all,
     fetch_one,
     invalid,
@@ -86,10 +87,14 @@ class RoundOut(BaseModel):
     status: str
     extracted_at: datetime | None
     version: int
+    open: bool = Field(description="Still to be answered (not yet signed).")
+    due_on: date | None = Field(description="When the answers are due, from the round's deadline.")
+    days_left: int | None = Field(description="Days to the due date in the court's timezone.")
 
 
 class Rounds(BaseModel):
     rounds: list[RoundOut]
+    next_due_on: date | None = Field(description="The earliest due date among the open rounds.")
 
 
 class ImportIn(BaseModel):
@@ -118,8 +123,14 @@ class WrittenQuestionOut(BaseModel):
     version: int
 
 
+class RoundQuestions(BaseModel):
+    round_id: uuid.UUID
+    questions: list[WrittenQuestionOut]
+
+
 class WrittenQuestions(BaseModel):
     questions: list[WrittenQuestionOut]
+    by_round: list[RoundQuestions] = Field(description="The same questions under their round.")
 
 
 class QuestionChange(BaseModel):
@@ -201,7 +212,18 @@ async def open_round(
     assert row is not None
     await audit.record(conn, action="written_questions.received", target=f"round:{round_id}", case_id=case_id)
     response.headers["etag"] = etag(row["version"])
-    return RoundOut(**row)
+    return _round_out(row, deadline)
+
+
+def _round_out(row: dict[str, Any], deadline: dict[str, Any] | None) -> RoundOut:
+    due = deadline["due_on"] if deadline else None
+    zone = deadline["timezone"] if deadline else None
+    return RoundOut(
+        **row,
+        open=row["status"] != "answered",
+        due_on=due,
+        days_left=days_left(due, zone) if due is not None and zone else None,
+    )
 
 
 @router.get("/cases/{case_id}/written-question-rounds", response_model=Rounds)
@@ -209,7 +231,13 @@ async def list_rounds(case_id: uuid.UUID, access: View, conn: DbConn) -> Rounds:
     rows = await fetch_all(
         conn, f"select {_ROUND} from app.written_question_rounds where case_id = %s order by number", (case_id,)
     )
-    return Rounds(rounds=[RoundOut(**r) for r in rows])
+    deadlines = {
+        d["id"]: d
+        for d in await fetch_all(conn, "select id, due_on, timezone from app.deadlines where case_id = %s", (case_id,))
+    }
+    rounds = [_round_out(r, deadlines.get(r["deadline_id"])) for r in rows]
+    due = [r.due_on for r in rounds if r.open and r.due_on is not None]
+    return Rounds(rounds=rounds, next_due_on=min(due) if due else None)
 
 
 @router.post("/cases/{case_id}/written-questions/import", status_code=202, response_model=Queued)
@@ -258,7 +286,13 @@ async def list_questions(
         " where q.case_id = %s and (%s::uuid is null or q.round_id = %s) order by r.number, q.number",
         (case_id, round_id, round_id),
     )
-    return WrittenQuestions(questions=[await question_out(conn, crypto, case_id, r) for r in rows])
+    questions = [await question_out(conn, crypto, case_id, r) for r in rows]
+    groups: dict[uuid.UUID, list[WrittenQuestionOut]] = {}
+    for q in questions:
+        groups.setdefault(q.round_id, []).append(q)
+    return WrittenQuestions(
+        questions=questions, by_round=[RoundQuestions(round_id=rid, questions=qs) for rid, qs in groups.items()]
+    )
 
 
 async def _question(conn: Any, case_id: uuid.UUID, question_id: uuid.UUID) -> dict[str, Any]:

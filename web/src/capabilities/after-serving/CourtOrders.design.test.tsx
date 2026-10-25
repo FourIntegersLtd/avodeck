@@ -10,7 +10,7 @@ import type { Schemas } from "../../foundation/platform-client";
 import { D1, deadline, serve } from "./testing";
 
 const url = `/cases/${CASE_A}/court-orders`;
-const hearing = (over: Partial<Schemas["HearingOut"]>): Schemas["HearingOut"] => ({
+const hearing = (over: Partial<Schemas["HearingOut"]>): Omit<Schemas["HearingOut"], "live"> & { live?: boolean } => ({
   id: "h1", type: "trial", starts_on: "2027-06-14", ends_on: "2027-06-16", status: "scheduled", venue: "Court 4", direction_id: null, replaced_by_hearing_id: null, changed_at: null, version: 1, ...over,
 });
 const moved = [hearing({ id: "h0", starts_on: "2027-03-03", ends_on: "2027-03-05", status: "adjourned", replaced_by_hearing_id: "h1" }), hearing({})];

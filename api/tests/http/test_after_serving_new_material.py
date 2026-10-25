@@ -443,3 +443,42 @@ async def test_a_report_registered_without_a_name_has_none(
 ) -> None:
     _, report = await checked_report(client_for, storage, admin, aconn, worker_db, model, served)
     assert (report["expert_name"], report["expert_role"], report["pages"]) == (None, None, None)
+
+
+async def test_new_since_served_gives_the_page_range_and_the_number_read(
+    client_for: ClientFor, seed: Seed, admin: psycopg.Connection, aconn: AsyncConnection, served: World
+) -> None:
+    expert = await client_for(served.expert)
+    none = (await expert.get(served.url("new-since-served"))).json()
+    assert (none["first_page"], none["last_page"], none["read_count"]) == (None, None, 0)
+    await add_new_pages(seed, admin, aconn, served)
+    listed = (await expert.get(served.url("new-since-served"))).json()
+    assert (listed["first_page"], listed["last_page"], listed["read_count"]) == (4, 17, 0)
+
+
+async def test_claims_come_grouped_with_the_server_counting_those_needing_attention(
+    client_for: ClientFor,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    document, report = await checked_report(client_for, storage, admin, aconn, worker_db, model, served)
+    claims = report["claims"]
+    assert [c["id"] for c in report["matching_claims"]] == [c["id"] for c in claims if c["status"] == "matches"]
+    assert [c["id"] for c in report["other_claims"]] == [c["id"] for c in claims if c["status"] != "matches"]
+    flagged = [c for c in claims if c["needs_attention"]]
+    assert flagged and report["needs_attention_count"] == len(flagged)
+    assert all(c["status"] not in ("matches", "read_first") and not c["expert_confirmed"] for c in flagged)
+    target = flagged[0]
+    expert = await client_for(served.expert)
+    done = await expert.patch(
+        served.url(f"opposing-claims/{target['id']}"),
+        json={"confirm": True},
+        headers={"If-Match": etag(target["version"])},
+    )
+    assert done.status_code == 200 and done.json()["needs_attention"] is False
+    again = (await expert.get(served.url(f"opposing-reports/{document}"))).json()
+    assert again["needs_attention_count"] == len(flagged) - 1
