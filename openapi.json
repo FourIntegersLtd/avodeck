@@ -8498,6 +8498,24 @@
         "title": "Links",
         "type": "object"
       },
+      "LintCheck": {
+        "properties": {
+          "passed": {
+            "title": "Passed",
+            "type": "boolean"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "passed"
+        ],
+        "title": "LintCheck",
+        "type": "object"
+      },
       "LintDismiss": {
         "additionalProperties": false,
         "properties": {
@@ -8577,16 +8595,32 @@
       },
       "LintOut": {
         "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "issues": {
             "items": {
               "$ref": "#/components/schemas/LintIssueOut"
             },
             "title": "Issues",
             "type": "array"
+          },
+          "open_issues": {
+            "items": {
+              "$ref": "#/components/schemas/LintIssueOut"
+            },
+            "title": "Open Issues",
+            "type": "array"
           }
         },
         "required": [
-          "issues"
+          "issues",
+          "open_issues",
+          "checks"
         ],
         "title": "LintOut",
         "type": "object"
@@ -10751,6 +10785,13 @@
               "type": "integer"
             },
             "title": "Changed Citations",
+            "type": "array"
+          },
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
             "type": "array"
           },
           "citation_refs": {
@@ -13281,6 +13322,13 @@
             "title": "Claims",
             "type": "array"
           },
+          "live": {
+            "items": {
+              "$ref": "#/components/schemas/PointOut"
+            },
+            "title": "Live",
+            "type": "array"
+          },
           "points": {
             "items": {
               "$ref": "#/components/schemas/PointOut"
@@ -13319,6 +13367,7 @@
         "required": [
           "sides",
           "points",
+          "live",
           "unused",
           "relevant",
           "claims",
@@ -20518,6 +20567,13 @@
       },
       "Workspace": {
         "properties": {
+          "checks": {
+            "items": {
+              "$ref": "#/components/schemas/LintCheck"
+            },
+            "title": "Checks",
+            "type": "array"
+          },
           "chips": {
             "items": {
               "$ref": "#/components/schemas/Chip"
@@ -20586,6 +20642,7 @@
           "views",
           "legal_test",
           "opinion",
+          "checks",
           "question"
         ],
         "title": "Workspace",
@@ -31641,6 +31698,68 @@
       }
     },
     "/v1/cases/{case_id}/questions/{question_id}/opinion/lint": {
+      "get": {
+        "description": "The opinion's open warnings and which checks passed, without asking the model again.",
+        "operationId": "lint_state_v1_cases__case_id__questions__question_id__opinion_lint_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "question_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Question Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LintOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Lint State",
+        "tags": [
+          "write"
+        ]
+      },
       "post": {
         "description": "Ask the model which words in the saved opinion to check; the warnings open after it answers.",
         "operationId": "lint_opinion_v1_cases__case_id__questions__question_id__opinion_lint_post",

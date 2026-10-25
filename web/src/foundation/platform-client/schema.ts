@@ -2521,7 +2521,11 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * Lint State
+         * @description The opinion's open warnings and which checks passed, without asking the model again.
+         */
+        get: operations["lint_state_v1_cases__case_id__questions__question_id__opinion_lint_get"];
         put?: never;
         /**
          * Lint Opinion
@@ -8039,6 +8043,13 @@ export interface components {
             /** Links */
             links: components["schemas"]["LinkOut"][];
         };
+        /** LintCheck */
+        LintCheck: {
+            /** Passed */
+            passed: boolean;
+            /** Type */
+            type: string;
+        };
         /** LintDismiss */
         LintDismiss: {
             /** Dismissed Reason */
@@ -8068,8 +8079,12 @@ export interface components {
         };
         /** LintOut */
         LintOut: {
+            /** Checks */
+            checks: components["schemas"]["LintCheck"][];
             /** Issues */
             issues: components["schemas"]["LintIssueOut"][];
+            /** Open Issues */
+            open_issues: components["schemas"]["LintIssueOut"][];
         };
         /** Made */
         Made: {
@@ -8905,6 +8920,8 @@ export interface components {
             body: string;
             /** Changed Citations */
             changed_citations?: number[];
+            /** Checks */
+            checks?: components["schemas"]["LintCheck"][];
             /** Citation Refs */
             citation_refs: components["schemas"]["Citation"][];
             /**
@@ -9814,6 +9831,8 @@ export interface components {
         Points: {
             /** Claims */
             claims: components["schemas"]["ClaimOut"][];
+            /** Live */
+            live: components["schemas"]["PointOut"][];
             /** Points */
             points: components["schemas"]["PointOut"][];
             question: components["schemas"]["QuestionHeader"];
@@ -12437,6 +12456,8 @@ export interface components {
         };
         /** Workspace */
         Workspace: {
+            /** Checks */
+            checks: components["schemas"]["LintCheck"][];
             /** Chips */
             chips: components["schemas"]["Chip"][];
             /** Guidance */
@@ -19542,6 +19563,47 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OpinionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    lint_state_v1_cases__case_id__questions__question_id__opinion_lint_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                question_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LintOut"];
                 };
             };
             /** @description Validation Error */

@@ -6,7 +6,7 @@ import { apiError, http, json, server } from "../../test/api";
 import { CASE_A } from "../../test/fixtures";
 import { axeViolations, renderAt } from "../../test/render";
 import { launchWords } from "../setup/testing";
-import { chip, FACT_1, lintIssue, ok, opinionOut, PAGE_1, progress, Q1, serve, views, workspace, type PackRun } from "./testing";
+import { checksFor, chip, FACT_1, lintIssue, ok, opinionOut, PAGE_1, progress, Q1, serve, views, workspace, type PackRun } from "./testing";
 import { WRITE_MESSAGES as M } from "./words";
 
 const url = `/cases/${CASE_A}/opinion?q=${Q1}`;
@@ -114,7 +114,7 @@ test("open checks are listed, and dismissing one asks for a reason", async () =>
 test("leaving the box asks for the checks again", async () => {
   const { sent, record } = serve("launch", { workspace: workspace("launch", { opinion: opinionOut({ body: "Old" }) }) });
   save(sent, record);
-  server.use(http.post("/v1/cases/:caseId/questions/:q/opinion/lint", () => json({ issues: [lintIssue({ words: "a new thing" })] })));
+  server.use(http.post("/v1/cases/:caseId/questions/:q/opinion/lint", () => json({ issues: [lintIssue({ words: "a new thing" })], open_issues: [lintIssue({ words: "a new thing" })], checks: checksFor([lintIssue()]) })));
   const { user } = renderAt(url);
   await user.type(await screen.findByLabelText(M["write.opinion.editor"]!), " more");
   await user.tab();

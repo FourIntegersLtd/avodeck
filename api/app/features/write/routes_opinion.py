@@ -30,7 +30,15 @@ from app.core.packs import MergedPack
 from app.features.write.citations import Citation, changed_citations, check_citations, stamp_versions
 from app.features.write.common import Crypto, View, Write, case_pack, citable, invalid, not_found, require_question
 from app.features.write.lint_regex import lint, sentences
-from app.features.write.lint_store import BODY, LintIssueOut, dismissed_issues, lint_purpose, open_issues
+from app.features.write.lint_store import (
+    BODY,
+    LintCheck,
+    LintIssueOut,
+    checks_for,
+    dismissed_issues,
+    lint_purpose,
+    open_issues,
+)
 from app.features.write.quotes import locate, same_words
 from app.features.write.router import router
 
@@ -59,6 +67,7 @@ class OpinionOut(BaseModel):
     version: int
     updated_at: datetime
     lint: list[LintIssueOut] = Field(default_factory=list)
+    checks: list[LintCheck] = Field(default_factory=list)
     changed_citations: list[int] = Field(default_factory=list)
     stale: bool = False
 
@@ -161,6 +170,7 @@ async def _relint(
         )
     out = await opinion_out(conn, crypto, row, facts)
     out.lint = await open_issues(conn, crypto, case_id, opinion_id)
+    out.checks = checks_for(out.lint)
     return out
 
 
