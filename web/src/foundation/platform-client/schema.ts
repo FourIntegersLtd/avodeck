@@ -6152,6 +6152,26 @@ export interface components {
         ConcordanceOut: {
             bundle: components["schemas"]["BundleOut"] | null;
             counts: components["schemas"]["Counts"];
+            /**
+             * Display Rows
+             * @default []
+             */
+            display_rows: components["schemas"]["RowOut"][];
+            /**
+             * Hidden
+             * @default 0
+             */
+            hidden: number;
+            /**
+             * Missing Count
+             * @default 0
+             */
+            missing_count: number;
+            /**
+             * Missing Rows
+             * @default []
+             */
+            missing_rows: components["schemas"]["RowOut"][];
             /** Rows */
             rows: components["schemas"]["RowOut"][];
         };
@@ -9321,6 +9341,11 @@ export interface components {
         };
         /** PackagesOut */
         PackagesOut: {
+            /**
+             * Live
+             * @default []
+             */
+            live: components["schemas"]["PackageOut"][];
             /** Packages */
             packages: components["schemas"]["PackageOut"][];
         };
@@ -13585,6 +13610,7 @@ export interface operations {
         parameters: {
             query?: {
                 status?: ("matched" | "to_confirm" | "missing") | null;
+                limit?: "all" | null;
             };
             header?: never;
             path: {

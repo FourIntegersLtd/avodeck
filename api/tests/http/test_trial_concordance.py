@@ -191,3 +191,20 @@ async def test_rows_carry_the_source_type_and_document_date_and_the_bundle_says_
     await run_job(worker_db, world, "match_trial_bundle", resp.json()["job_id"])
     after = await concordance(client_for, world)
     assert after["bundle"]["replaces_received_on"] == "2026-11-01"
+
+
+async def test_the_server_says_the_missing_count_and_which_rows_show_first(
+    client_for: ClientFor, world: World, worker_db: Database
+) -> None:
+    pdf, _ = trial_bundle()
+    await upload_bundle(await client_for(world.expert), worker_db, world, pdf)
+    body = await concordance(client_for, world)
+    assert body["missing_count"] == 3 == body["counts"]["missing"]
+    assert [r["page_no"] for r in body["missing_rows"]] == REMOVED
+    check = [r["page_no"] for r in body["rows"] if r["status"] == "to_confirm" and not r["confirmed"]]
+    shown = [r["page_no"] for r in body["display_rows"]]
+    assert set(check) <= set(shown) and shown == sorted(shown)
+    assert len(shown) == len(check) + 4
+    assert body["hidden"] == len(body["rows"]) - len(shown)
+    everything = await concordance(client_for, world, limit="all")
+    assert everything["hidden"] == 0 and len(everything["display_rows"]) == len(body["rows"])
