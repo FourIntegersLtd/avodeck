@@ -231,7 +231,9 @@ async def test_the_close_summary_says_which_holds_are_active_and_until_when(
     body = (await client.get(f"/v1/cases/{case}/close")).json()
     assert [h["id"] for h in body["active_holds"]] == ids
     assert body["paused_until"] == str(later)
-    admin.execute("insert into app.legal_holds (case_id, reason, set_by) values (%s, 'appeal', %s)", (case, team["expert"]))
+    admin.execute(
+        "insert into app.legal_holds (case_id, reason, set_by) values (%s, 'appeal', %s)", (case, team["expert"])
+    )
     body = (await client.get(f"/v1/cases/{case}/close")).json()
     assert len(body["active_holds"]) == 3 and body["paused_until"] is None  # open-ended: no date
 
