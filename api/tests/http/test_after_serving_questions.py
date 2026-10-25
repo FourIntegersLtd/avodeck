@@ -534,3 +534,55 @@ async def test_each_question_names_the_pages_its_linked_paragraphs_rest_on(
     assert resp.json()["page_nos"] == [1, 2], "paragraph 3 cites facts on pages 1 and 2, once each, in order"
     listed = (await client.get(served.url("written-questions"))).json()["questions"]
     assert {q["number"]: q["page_nos"] for q in listed}[3] == [1, 2]
+
+
+async def test_the_server_says_which_rounds_are_open_when_each_is_due_and_which_is_next(
+    client_for: ClientFor,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    first, _ = await imported(client_for, storage, admin, aconn, worker_db, model, served, due="2026-05-11")
+    second, again = await imported(
+        client_for, storage, admin, aconn, worker_db, model, served, due="2026-04-20", text="More\n1. " + QUESTIONS[1]
+    )
+    client = await client_for(served.expert)
+    body = (await client.get(served.url("written-question-rounds"))).json()
+    rounds = {r["id"]: r for r in body["rounds"]}
+    assert (rounds[first["id"]]["open"], rounds[first["id"]]["due_on"]) == (True, "2026-05-11")
+    assert (rounds[second["id"]]["open"], rounds[second["id"]]["due_on"]) == (True, "2026-04-20")
+    assert body["next_due_on"] == "2026-04-20", "the earliest due date of the open rounds"
+    await answer_all(client, served, again)
+    signed = await client.post(
+        served.url("written-questions/answers/sign"), json={"round_id": second["id"], "declaration_confirmed": True}
+    )
+    assert signed.status_code == 200, signed.text
+    body = (await client.get(served.url("written-question-rounds"))).json()
+    rounds = {r["id"]: r for r in body["rounds"]}
+    assert rounds[second["id"]]["open"] is False and rounds[first["id"]]["open"] is True
+    assert body["next_due_on"] == "2026-05-11", "an answered round no longer counts"
+
+
+async def test_questions_come_nested_under_their_round(
+    client_for: ClientFor,
+    storage: SupabaseStorage,
+    admin: psycopg.Connection,
+    aconn: AsyncConnection,
+    worker_db: Database,
+    model: Scripted,
+    served: World,
+) -> None:
+    first, one = await imported(client_for, storage, admin, aconn, worker_db, model, served)
+    second, two = await imported(
+        client_for, storage, admin, aconn, worker_db, model, served, due="2026-05-11", text="More\n1. " + QUESTIONS[1]
+    )
+    body = (await (await client_for(served.expert)).get(served.url("written-questions"))).json()
+    assert [g["round_id"] for g in body["by_round"]] == [first["id"], second["id"]]
+    assert [[q["id"] for q in g["questions"]] for g in body["by_round"]] == [
+        [q["id"] for q in one],
+        [q["id"] for q in two],
+    ]
+    assert len(body["questions"]) == len(one) + len(two), "the flat list stays"
