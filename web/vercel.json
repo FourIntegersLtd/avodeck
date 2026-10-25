@@ -39,5 +39,11 @@
       "source": "/((?!v1/|assets/).*)",
       "destination": "/app.html"
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "**": false
+    }
+  }
 }
