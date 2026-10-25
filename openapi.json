@@ -2305,6 +2305,10 @@
       },
       "Cell": {
         "properties": {
+          "help_form": {
+            "title": "Help Form",
+            "type": "boolean"
+          },
           "storage_place": {
             "anyOf": [
               {
@@ -2318,7 +2322,8 @@
           }
         },
         "required": [
-          "storage_place"
+          "storage_place",
+          "help_form"
         ],
         "title": "Cell",
         "type": "object"
