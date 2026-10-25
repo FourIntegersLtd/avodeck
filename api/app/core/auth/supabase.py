@@ -8,6 +8,7 @@ a password, a code or a token.
 
 from __future__ import annotations
 
+import base64
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -151,7 +152,10 @@ class SupabaseAuth:
                 self._check(await self._call("DELETE", f"/factors/{factor['id']}", token=access_token))
         body = self._check(await self._call("POST", "/factors", token=access_token, json={"factor_type": "totp"}))
         totp = body.get("totp") or {}
-        return {"factor_id": str(body["id"]), "qr_code": totp["qr_code"], "secret": totp["secret"], "uri": totp["uri"]}
+        qr_code = totp["qr_code"]
+        if not qr_code.startswith("data:"):  # the REST API sends bare SVG; supabase-js adds the prefix
+            qr_code = "data:image/svg+xml;base64," + base64.b64encode(qr_code.encode()).decode()
+        return {"factor_id": str(body["id"]), "qr_code": qr_code, "secret": totp["secret"], "uri": totp["uri"]}
 
     async def factors(self, access_token: str) -> list[dict[str, Any]]:
         body = self._check(await self._call("GET", "/user", token=access_token))
