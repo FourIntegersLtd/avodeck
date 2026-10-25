@@ -98,10 +98,16 @@ Always go through `core/ai/`. Never call Bedrock or Azure directly from a slice.
 from app.core.ai import provenance
 from app.core.ai.kit import AiKit, AiTask
 
-TASK = AiTask(task_id="T-07b", prompt_version="2026-10-16.1", model="sonnet",  # cell allow-list resolves the ID
-              system=NEUTRAL_TEMPLATE, schema=schema_from_pack_registries)
-out = await kit.run(conn, TASK, pack=pack, case_id=case_id, text=page_text,
-                    names=case_names, dates_of_birth=case_dobs)   # pii.strip runs inside run()
+TASK = AiTask(
+    task_id="T-07b",
+    prompt_version="2026-10-16.1",
+    model="sonnet",  # cell allow-list resolves the ID
+    system=NEUTRAL_TEMPLATE,
+    schema=schema_from_pack_registries,
+)
+out = await kit.run(
+    conn, TASK, pack=pack, case_id=case_id, text=page_text, names=case_names, dates_of_birth=case_dobs
+)  # pii.strip runs inside run()
 accepted, rejected = provenance.check_items(out["items"], ocr_words)  # values not in cited word_ids are rejected
 ```
 
@@ -146,10 +152,12 @@ The worker is part of this package (`app/worker/`, run with `make -C api worker`
 ```python
 from app.core.jobs import JobContext, registry
 
+
 @registry.kind("process_bundle", interactive=False, changes_case=True)  # changes_case: one at a time per case
 async def process_bundle(ctx: JobContext) -> None:
-    await ctx.step("split", split)              # skipped if it finished on an earlier attempt (F6)
+    await ctx.step("split", split)  # skipped if it finished on an earlier attempt (F6)
     await ctx.progress(40, eta_seconds=120, step="ocr")
+
 
 job_id = await registry.enqueue(conn, case_id, "process_bundle")  # in the request's transaction; 202 + job_id
 ```

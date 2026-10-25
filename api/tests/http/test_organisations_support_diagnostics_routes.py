@@ -115,8 +115,7 @@ def _stuck_case(world: World) -> dict[str, uuid.UUID]:
     a.execute("update app.jobs set status = 'running' where id = %s", (export,))
     a.execute("update app.jobs set status = 'done' where id = %s", (export,))
     a.execute(
-        "insert into app.audit_log (case_id, person_id, action, target) values (%s, %s, 'case.export_downloaded',"
-        " %s)",
+        "insert into app.audit_log (case_id, person_id, action, target) values (%s, %s, 'case.export_downloaded', %s)",
         (case, expert, f"export:{export}"),
     )
     package = uuid.uuid4()

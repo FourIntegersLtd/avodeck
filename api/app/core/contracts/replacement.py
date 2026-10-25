@@ -43,15 +43,11 @@ class ReplacementCase(BaseModel):
 
 
 def replacement_exists() -> ApiError:
-    return ApiError(
-        "replacement_exists", "This case already has a replacement, with another expert or consent.", 409
-    )
+    return ApiError("replacement_exists", "This case already has a replacement, with another expert or consent.", 409)
 
 
 def not_served() -> ApiError:
-    return ApiError(
-        "not_served", "This case has not been served, so its expert can be changed instead.", 409
-    )
+    return ApiError("not_served", "This case has not been served, so its expert can be changed instead.", 409)
 
 
 async def create_replacement_case(
@@ -100,9 +96,7 @@ async def create_replacement_case(
         if (expert, consented) != (named_expert_id, instructing_party_consented):
             raise replacement_exists()
         return replacement
-    await audit.record(
-        conn, action=CASE_CREATED, target=f"case:{made}", case_id=made, organisation_id=organisation_id
-    )
+    await audit.record(conn, action=CASE_CREATED, target=f"case:{made}", case_id=made, organisation_id=organisation_id)
     await audit.record(
         conn, action=REPLACEMENT_CREATED, target=f"case:{made}", case_id=case_id, organisation_id=organisation_id
     )
