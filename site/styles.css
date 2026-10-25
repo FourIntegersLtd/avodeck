@@ -87,8 +87,9 @@ a:hover { color: var(--forest); }
 .hero-actions { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
 .hero-note { font-size: 16px; color: var(--muted); }
 
-.hero-visual { position: relative; min-height: 650px; }
-.record { position: absolute; top: 0; left: 0; right: 20%; background: var(--white); border-radius: 6px; box-shadow: 0 1px 2px rgba(15,61,44,0.06), 0 24px 60px rgba(15,61,44,0.14); padding: 28px 32px 48px; font-family: var(--mono); font-size: 14px; line-height: 1.8; color: #2A2F2C; transform: rotate(-1.2deg); }
+/* Two tidy rows: a page on the left, what Avodeck found on it on the right. */
+.hero-visual { display: grid; grid-template-columns: minmax(0, 1fr) 232px; align-items: center; gap: 28px 0; }
+.record { position: relative; background: var(--white); border-radius: 6px; box-shadow: 0 1px 2px rgba(15,61,44,0.06), 0 24px 60px rgba(15,61,44,0.14); padding: 24px 40px 44px 22px; font-family: var(--mono); font-size: 13px; line-height: 1.8; color: #2A2F2C; }
 .record-head { display: flex; justify-content: space-between; color: var(--faint); font-size: 13px; border-bottom: 1px solid #E3E6E4; padding-bottom: 10px; margin-bottom: 14px; }
 .record .dim { color: var(--faint); }
 .record .gap-b { margin-bottom: 12px; }
@@ -99,15 +100,16 @@ a:hover { color: var(--forest); }
 @keyframes hl-draw { from { background-size: 0 100%; } }
 @media (prefers-reduced-motion: reduce) { .record mark, .hand mark { animation: none; } }
 .record-foot { position: absolute; bottom: 18px; left: 0; right: 0; text-align: center; color: #8A928D; font-size: 11px; }
-.fact-card { position: absolute; top: 300px; right: 0; width: 320px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 44px rgba(15,61,44,0.16); display: flex; flex-direction: column; gap: 10px; }
-.fact-typed { top: 92px; width: 290px; }
-.fact-hand { top: 476px; width: 290px; border: 2px dashed #8A948E; box-shadow: 0 18px 44px rgba(15,61,44,0.12); }
+.fact-card { position: relative; z-index: 1; margin-left: -24px; background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; box-shadow: 0 18px 44px rgba(15,61,44,0.16); display: flex; flex-direction: column; gap: 10px; }
+.fact-hand { border: 2px dashed #8A948E; box-shadow: 0 18px 44px rgba(15,61,44,0.12); }
+.hero-visual .fact-card { padding: 16px 18px; gap: 8px; }
+.hero-visual .fact-title { font-size: 18px; }
 .from-hand { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700; color: var(--muted); }
 /* A handwritten record card: ruled, with a margin line, read the same way as typed pages. */
-.note { position: absolute; top: 300px; left: 4%; right: 24%; transform: rotate(-2.2deg); background: #F8F1DE linear-gradient(90deg, transparent 40px, rgba(190, 70, 70, 0.4) 40px, rgba(190, 70, 70, 0.4) 41.5px, transparent 41.5px); border-radius: 3px; padding: 14px 20px 22px 54px; box-shadow: 0 1px 2px rgba(15,61,44,0.08), 0 24px 50px rgba(15,61,44,0.16); }
+.note { position: relative; background: #F8F1DE linear-gradient(90deg, transparent 32px, rgba(190, 70, 70, 0.4) 32px, rgba(190, 70, 70, 0.4) 33.5px, transparent 33.5px); border-radius: 3px; padding: 12px 40px 18px 46px; box-shadow: 0 1px 2px rgba(15,61,44,0.08), 0 24px 50px rgba(15,61,44,0.16); }
 .note-head { display: flex; justify-content: space-between; align-items: center; font: 500 12px var(--mono); color: #85795F; margin-bottom: 4px; }
 .note-tag { font: 700 12px var(--sans); letter-spacing: 0.08em; text-transform: uppercase; color: #8A3F06; background: #FDF1E3; border: 1px solid #E8C9A6; border-radius: 999px; padding: 2px 10px; }
-.hand { --lh: 35px; margin: 0; font-family: 'Reenie Beanie', 'Bradley Hand', 'Segoe Print', cursive; font-size: 28px; line-height: var(--lh); color: #23306A; background: repeating-linear-gradient(transparent 0 calc(var(--lh) - 1px), rgba(70, 110, 170, 0.25) calc(var(--lh) - 1px) var(--lh)); }
+.hand { --lh: 31px; margin: 0; font-family: 'Reenie Beanie', 'Bradley Hand', 'Segoe Print', cursive; font-size: 25px; line-height: var(--lh); color: #23306A; background: repeating-linear-gradient(transparent 0 calc(var(--lh) - 1px), rgba(70, 110, 170, 0.25) calc(var(--lh) - 1px) var(--lh)); }
 .hand span { display: block; white-space: nowrap; }
 .hand .l2 { transform: rotate(-1.4deg) translateX(10px); }
 .hand .l3 { transform: rotate(0.9deg) translateX(-3px); letter-spacing: 0.02em; }
@@ -437,8 +439,8 @@ a:hover { color: var(--forest); }
   .site-footer .wrap { padding: 64px 16px 32px; }
   .hero-visual { min-height: 0; display: flex; flex-direction: column; gap: 20px; }
   .record { position: relative; inset: auto; transform: none; padding: 24px 20px 40px; font-size: 12.5px; }
-  .fact-card { position: relative; top: auto; right: auto; width: auto; }
-  .note { position: relative; inset: auto; transform: rotate(-1deg); margin: 0 4px; }
+  .fact-card { margin-left: 0; }
+  .note { padding-right: 20px; }
   .hand { font-size: 24px; --lh: 31px; }
   .fact-typed { display: none; }
   .faq summary { font-size: 20px; }
