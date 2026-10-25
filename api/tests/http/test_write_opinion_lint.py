@@ -126,9 +126,7 @@ async def test_the_lint_state_names_the_open_warnings_and_which_checks_passed(
     assert (await outsider.get(path)).status_code == 404
 
 
-async def test_the_workspace_carries_the_checks_with_or_without_an_opinion(
-    client_for: ClientFor, world: World
-) -> None:
+async def test_the_workspace_carries_the_checks_with_or_without_an_opinion(client_for: ClientFor, world: World) -> None:
     client = await client_for(world.expert)
     path = world.url(f"questions/{world.question}/workspace")
     first = (await client.get(path)).json()
