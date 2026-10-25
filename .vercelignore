@@ -1,3 +1,6 @@
-# CLI deploys upload only the landing page (avodeck-site, root directory site/).
+# Vercel (avodeck-site, root directory web/) builds the app and copies in the landing page from site/.
 /*
+!/web
 !/site
+/web/node_modules
+/web/dist
