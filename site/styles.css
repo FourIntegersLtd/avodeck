@@ -494,3 +494,45 @@ a:hover { color: var(--forest); }
   .step-p { font-size: 16px; }
   .footer-cols { grid-template-columns: repeat(2, 1fr); gap: 28px 16px; }
 }
+
+/* Audience label beside the logo */
+.for-tag { font-size: 14px; font-weight: 700; color: var(--pit); background: var(--mint); border-radius: 999px; padding: 4px 12px; white-space: nowrap; }
+
+/* Ready for court: report pages matched to trial bundle numbers */
+.court-card { background: var(--white); border: 1px solid var(--line); border-radius: 20px; padding: 32px; box-shadow: 0 20px 50px rgba(15,61,44,0.08); display: flex; flex-direction: column; gap: 18px; }
+.court-cols { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.court-list { list-style: none; margin: 0; padding: 0; font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 17px; }
+.court-list li { display: grid; grid-template-columns: 1fr auto auto; gap: 16px; align-items: center; padding: 14px 0; border-top: 1px solid #EEF1EF; }
+.court-list .what { font-family: var(--sans); color: var(--body); }
+.court-list .from { color: var(--muted); }
+.court-list .to { color: var(--forest); font-weight: 700; background: var(--mint); border-radius: 6px; padding: 2px 10px; }
+.court-pack { display: flex; align-items: center; gap: 12px; background: var(--ground); border-radius: 12px; padding: 14px 16px; font-size: 16px; color: var(--forest); font-weight: 700; }
+.court-note { font-size: 14px; color: var(--muted); }
+
+/* Optional free-text field in the pilot form */
+.field textarea { font-family: inherit; font-size: 18px; padding: 14px 18px; border: 1.5px solid #B9C3BD; border-radius: 12px; color: var(--ink); background: var(--white); min-height: 96px; resize: vertical; }
+.field textarea:focus { border-color: var(--pit); outline: 3px solid rgba(30,107,78,0.25); outline-offset: 0; }
+.field .opt { font-weight: 400; color: var(--muted); }
+
+@media (max-width: 760px) {
+  .for-tag { display: none; }
+  .court-card { padding: 22px; }
+  .court-list { font-size: 15px; }
+  .court-list li { grid-template-columns: 1fr auto; }
+  .court-list .what { grid-column: 1 / -1; }
+}
+
+/* Trust strip: heading above its line */
+.assurance { flex-direction: column; align-items: flex-start; gap: 4px; }
+
+/* And the rest: same grid as the steps, no numbers */
+.steps.rest li { padding-top: 22px; }
+
+/* Final check rows and decorative buttons in example visuals */
+.check-list li { align-items: center; }
+.trace-actions .btn { cursor: default; }
+.court-card .court-pack + .court-pack { margin-top: -8px; }
+.steps.rest .step-h { line-height: 1.25; }
+
+/* Icons above the trust strip, safeguards and "and the rest" items */
+.assurance .ico, .steps.rest .ico { margin-bottom: 4px; }
