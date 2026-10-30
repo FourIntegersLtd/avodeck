@@ -293,10 +293,12 @@ async def harness(
     names: Sequence[str] = (),
     dates_of_birth: Sequence[Any] = (),
     embedder: Any = None,
+    wired_identity: bool = False,
 ) -> AsyncIterator[Harness]:
     """The pipeline wired to stand-ins, its job kinds on a registry of their own."""
     from app.core.packs import default_library
     from app.features import pipeline
+    from app.features.pipeline import wiring as wiring_module
     from app.features.pipeline.wiring import Identity, PipelineServices
 
     crypto = CaseCrypto(LocalKeyProvider.generate())
@@ -317,7 +319,7 @@ async def harness(
         kit=AiKit(cell(), bedrock),
         packs=default_library(),
         registry=registry,
-        identity=identity,
+        identity=wiring_module.identity_with(crypto) if wired_identity else identity,
         **({"embedder": embedder} if embedder is not None else {}),
     )
     app = build_app(api_db, auth_env, storage=storage, crypto=crypto)
