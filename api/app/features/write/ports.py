@@ -4,10 +4,10 @@
   The cell reads `core/contracts/fact_flags`.
 - `QuestionLinks` (D): the citable facts linked to one question. The cell keeps only the facts the expert
   confirmed for the question (`core/contracts/fact_links`); `AllLinked` is the stand-in tests use.
-- `CaseNames` (C): the names of the case's parties, so `pii.strip` takes them out before a model call
-  (rule 7), from `core/contracts/case_names`.
-- `BirthDates`: the subject's dates of birth, taken out the same way. No slice stores one yet, so the
-  cell has none (the pipeline does the same); tests pass their own.
+- `CaseNames` (C): the names of the case's parties and of the subject, so `pii.strip` takes them out before
+  a model call (rule 7), from `core/contracts/case_identity`.
+- `BirthDates`: the subject's date of birth, taken out the same way, from the same contract; tests may
+  pass their own.
 - `StatementWords` (A): a document's words in reading order, for T-14c, from
   `core/contracts/document_words`; each word's reference is `<page_id>/<word_id>`.
 - `GuidanceInForce` (D, screen 12): the guidance in force on a date. The cell reads the overlay pack's
@@ -24,7 +24,7 @@ from typing import Protocol
 from psycopg import AsyncConnection
 from pydantic import BaseModel, ConfigDict
 
-from app.core.contracts.case_names import party_names
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import document_words
 from app.core.contracts.fact_flags import flagged_fact_ids
 from app.core.contracts.fact_links import confirmed_links
@@ -107,11 +107,6 @@ class NoGuidance:
         return []
 
 
-class NoBirthDates:
-    async def dates_of_birth(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[date]:
-        return []
-
-
 class PointFlags:
     async def flagged_for_points(self, conn: AsyncConnection, case_id: uuid.UUID) -> set[uuid.UUID]:
         return await flagged_fact_ids(conn, case_id)
@@ -157,7 +152,16 @@ class PartyNames:
         self.crypto = crypto
 
     async def case_names(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[str]:
-        return await party_names(conn, self.crypto, case_id)
+        """The parties' names and the subject's, each with its parts (rule 7)."""
+        return list((await identity_for(conn, self.crypto, case_id)).names)
+
+
+class SubjectBirthDates:
+    def __init__(self, crypto: CaseCrypto) -> None:
+        self.crypto = crypto
+
+    async def dates_of_birth(self, conn: AsyncConnection, case_id: uuid.UUID) -> list[date]:
+        return list((await identity_for(conn, self.crypto, case_id)).dates_of_birth)
 
 
 class OcrWords:

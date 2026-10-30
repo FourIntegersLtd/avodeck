@@ -17,6 +17,7 @@ import uuid
 
 from psycopg import AsyncConnection
 
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.served import latest_served
 from app.core.jobs import JobContext, registry
@@ -57,8 +58,16 @@ async def read_agenda(ctx: JobContext) -> None:
         flat = [w for page in await page_texts(services, pdf) for w in page]
         words = {f"w{n}": text for n, text in enumerate(flat, start=1)}
         request = "\n".join(f"{ref}\t{text}" for ref, text in words.items())
+        who = await identity_for(conn, crypto, ctx.case_id)
         answer = await kit.run(
-            conn, ai_tasks.t22a(pack), pack=pack, text=request, case_id=ctx.case_id, subject="agenda"
+            conn,
+            ai_tasks.t22a(pack),
+            pack=pack,
+            text=request,
+            case_id=ctx.case_id,
+            subject="agenda",
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
         )
         copied = agenda_reading.copied_items(answer, words)
         earlier = await repo.one(

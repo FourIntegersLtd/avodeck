@@ -23,7 +23,7 @@ from psycopg import AsyncConnection
 
 from app.core.ai.kit import AiKit, InvalidOutput
 from app.core.contracts import opinions, profile, questions
-from app.core.contracts.case_names import party_names
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.citations import CitationProblem, citation_problems, markers, quote_within
 from app.core.contracts.facts import Fact, citable_facts
 from app.core.contracts.reading import PageReadLog
@@ -552,6 +552,7 @@ async def tone_warnings(i: Inputs, kit: AiKit | None) -> tuple[list[dict[str, An
     context = json.dumps(i.pack.prompt_context("T-15a"), ensure_ascii=False, sort_keys=True)
     lines = [f"context\t{context}", *(f"sentence\t{n}\t{' '.join(p.text.split())}" for n, p in enumerate(paragraphs))]
     task = ai_tasks.t17(i.pack, len(paragraphs))
+    who = await identity_for(i.conn, i.crypto, i.case_id)
     try:
         answer = await kit.run(
             i.conn,
@@ -559,7 +560,8 @@ async def tone_warnings(i: Inputs, kit: AiKit | None) -> tuple[list[dict[str, An
             pack=i.pack,
             text="\n".join(lines),
             case_id=i.case_id,
-            names=await party_names(i.conn, i.crypto, i.case_id),
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
             subject=f"report:{i.version_id}",
         )
     except (InvalidOutput, ProcessingPaused):

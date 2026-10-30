@@ -29,7 +29,8 @@ from psycopg.types.json import Jsonb
 
 from app.core.ai import pii
 from app.core.contracts import availability as evidence
-from app.core.contracts import case_names, document_words, questions
+from app.core.contracts import document_words, questions
+from app.core.contracts.case_identity import Identity, identity_for
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
 from app.features.understand import ai_tasks, availability, guidelines, links
@@ -84,9 +85,14 @@ async def write_availability(conn: AsyncConnection, case_id: uuid.UUID, pack: Me
         )
 
 
-async def party_names(conn: AsyncConnection, case_id: uuid.UUID) -> list[str]:
-    """The case's party names and their parts (words reach the model one per line), for `pii.strip`."""
-    return await case_names.party_names(conn, current().words(), case_id, with_parts=True)
+async def identity(conn: AsyncConnection, case_id: uuid.UUID) -> Identity:
+    """The case's party and subject names (with their parts: words reach the model one per line) and the
+    subject's date of birth, for `pii.strip` (rule 7)."""
+    services = current()
+    who = await identity_for(conn, services.words(), case_id)
+    if services.dates_of_birth is None:
+        return who
+    return Identity(names=who.names, dates_of_birth=await services.dates_of_birth(conn, case_id))
 
 
 async def cited_words(
@@ -139,11 +145,16 @@ async def _labels(
         words = {f: w for f, w in (await cited_words(conn, ctx.case_id, wanted)).items() if w}
         if not words:
             return {}
-        names = await party_names(conn, ctx.case_id)
-        born = await current().dates_of_birth(conn, ctx.case_id)
+        who = await identity(conn, ctx.case_id)
         text = ai_tasks.t13a_text(str(check["key"]), list(words.items()))
         out = await kit.run(
-            conn, ai_tasks.t13a(pack), pack=pack, text=text, case_id=ctx.case_id, names=names, dates_of_birth=born
+            conn,
+            ai_tasks.t13a(pack),
+            pack=pack,
+            text=text,
+            case_id=ctx.case_id,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
         )
     return ai_tasks.accept_labels(out, {f: [wid for wid, _ in w] for f, w in words.items()})
 
@@ -221,14 +232,13 @@ async def suggest_links(ctx: JobContext) -> None:
         pack = await _case_pack(conn, ctx.case_id)
         questions = await _confirmed_questions(conn, ctx.case_id)
         facts = [f for f in await _checked_facts(conn, ctx.case_id) if f.value]
-        names = await party_names(conn, ctx.case_id)
-        born = await services.dates_of_birth(conn, ctx.case_id)
+        who = await identity(conn, ctx.case_id)
     if not questions or not facts:
         return
     kit, embedder = services.ai(), services.embed()
 
     def stripped(text: str) -> pii.Stripped:
-        return pii.strip(text, pack=pack, names=names, dates_of_birth=born)
+        return pii.strip(text, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
 
     fact_vectors = embedder.embed([stripped(f"{f.kind} {f.value}") for f in facts])
     question_vectors = embedder.embed([stripped(words) for _, words in questions])
@@ -242,7 +252,13 @@ async def suggest_links(ctx: JobContext) -> None:
     await ctx.progress(50, step="links")
     async with ctx.transaction() as conn:
         out = await kit.run(
-            conn, ai_tasks.t11(pack), pack=pack, text=text, case_id=ctx.case_id, names=names, dates_of_birth=born
+            conn,
+            ai_tasks.t11(pack),
+            pack=pack,
+            text=text,
+            case_id=ctx.case_id,
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
         )
         for fact_id, question_id, reason in ai_tasks.accept_links(out, offered):
             await conn.execute(

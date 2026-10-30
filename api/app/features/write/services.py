@@ -12,6 +12,7 @@ The A, B, C and D ports are in `ports.py`.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from app.core.ai.bedrock import RecordedBedrock
 from app.core.ai.clients import live_or_recorded
@@ -28,7 +29,6 @@ from app.features.write.ports import (
     ConfirmedLinks,
     FactFlags,
     GuidanceInForce,
-    NoBirthDates,
     NoFlags,
     NoGuidance,
     OcrWords,
@@ -37,6 +37,7 @@ from app.features.write.ports import (
     PointFlags,
     QuestionLinks,
     StatementWords,
+    SubjectBirthDates,
 )
 
 
@@ -51,7 +52,7 @@ class WriteServices:
     names: CaseNames | None = None
     statements: StatementWords | None = None
     packs: PackLibrary = field(default_factory=default_library)
-    births: BirthDates = field(default_factory=NoBirthDates)
+    births: BirthDates | None = None
 
     def ai(self) -> AiKit:
         if self.kit is None:
@@ -68,10 +69,22 @@ class WriteServices:
             return self.names
         return PartyNames(self.case_crypto())
 
+    def birth_dates(self) -> BirthDates:
+        if self.births is not None:
+            return self.births
+        if self.names is not None and self.crypto is None:
+            return _NoBirths()  # a test that supplies its own names and no key service
+        return SubjectBirthDates(self.case_crypto())
+
     def statement_words(self) -> StatementWords:
         if self.statements is not None:
             return self.statements
         return OcrWords(self.case_crypto())
+
+
+class _NoBirths:
+    async def dates_of_birth(self, conn: Any, case_id: Any) -> list[Any]:
+        return []
 
 
 _current: WriteServices | None = None

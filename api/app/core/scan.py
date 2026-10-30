@@ -25,6 +25,11 @@ class ScanResult:
     signature: str | None = None
 
 
+class ScanUnavailable(Exception):
+    """The scanner could not be reached or gave no verdict. Never treated as clean: the caller fails
+    closed, the job is retried and the document is not accepted (failure mode F3)."""
+
+
 class VirusScanner(Protocol):
     async def scan(self, chunks: AsyncIterable[bytes]) -> ScanResult: ...
 

@@ -5,8 +5,8 @@ the cell config on first use; tests and the eval harness call `configure()` with
 for the cell (no cloud accounts yet, unless `AI_RECORDINGS_DIR` names recorded responses) a job that needs
 one pauses with `model_unavailable` instead of guessing (F24).
 
-`dates_of_birth` is the seam for the case's known dates of birth, stripped before T-11 and T-13a (rule 7).
-No slice records them for a case yet, so it finds none until one does (docs/decisions/deferred.md).
+The names and the date of birth stripped before T-11 and T-13a (rule 7) come from `identity_for`, opened
+with this crypto.
 """
 
 from __future__ import annotations
@@ -30,10 +30,6 @@ from app.features.understand.links import IdentityReranker, Reranker
 BirthDates = Callable[[AsyncConnection, uuid.UUID], Awaitable[Sequence[date]]]
 
 
-async def no_birth_dates(conn: AsyncConnection, case_id: uuid.UUID) -> Sequence[date]:
-    return ()
-
-
 @dataclass
 class UnderstandServices:
     kit: AiKit | None
@@ -41,7 +37,7 @@ class UnderstandServices:
     embedder: Embedder | None
     packs: PackLibrary
     reranker: Reranker = field(default_factory=IdentityReranker)
-    dates_of_birth: BirthDates = no_birth_dates
+    dates_of_birth: BirthDates | None = None  # replaces the recorded date of birth (tests); None: `identity_for`
 
     def ai(self) -> AiKit:
         if self.kit is None:

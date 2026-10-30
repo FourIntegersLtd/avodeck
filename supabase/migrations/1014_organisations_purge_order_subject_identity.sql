@@ -1,4 +1,4 @@
--- 1014 foundation: slice C's `case_subject_identity` rejoins the purge order (app.case_purge_order(), migration
+-- 1014 (foundation work, numbered in the organisations range): slice C's `case_subject_identity` rejoins the purge order (app.case_purge_order(), migration
 -- 0017), just before `case_subject_keys`, as in `PURGE_ORDER` in api/app/core/contracts/case_tables.py.
 -- Migration 0397 spliced it in, but 0499, 0599, 0699 and 0799 each replaced the order with a fixed list
 -- and dropped it. Written here in the 10xx range because it must run after all of them (a lower number

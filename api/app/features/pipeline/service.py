@@ -49,6 +49,7 @@ from app.core.contracts.pipeline import PROCESS_BUNDLE, PROCESS_PAGES, transcrip
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.pdf import split_pages
+from app.core.scan import ScanUnavailable
 from app.features.pipeline import (
     convert,
     date_repair,
@@ -108,7 +109,12 @@ async def scan_document(ctx: JobContext) -> None:
         waiting = await repo.unscanned_documents(conn, ctx.case_id)
     for doc in waiting:
         async with ctx.transaction() as conn:
-            result = await services.scanner.scan(_chunks(conn, services, ctx.case_id, doc.storage_path))
+            try:
+                result = await services.scanner.scan(_chunks(conn, services, ctx.case_id, doc.storage_path))
+            except ScanUnavailable:
+                # Fail closed (F42): nothing is recorded, so the file is not accepted; the queue retries.
+                log.warning("virus scanner unreachable; the document stays unscanned")
+                raise
             added = await repo.record_scan(conn, ctx.case_id, doc.id, result.clean, result.signature)
             if added and not result.clean:
                 await audit.record(conn, action="document.infected", target=f"document:{doc.id}", case_id=ctx.case_id)

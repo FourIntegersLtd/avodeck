@@ -95,7 +95,7 @@ async def _sort(
     text = "\n".join([f"question\t{' '.join(question.split())}", *(_fact_line(r, f) for r, f in refs.items())])
     task = ai_tasks.t14a(pack, list(refs))
     names = await services.party_names().case_names(conn, ctx.case_id)
-    births = await services.births.dates_of_birth(conn, ctx.case_id)
+    births = await services.birth_dates().dates_of_birth(conn, ctx.case_id)
     try:
         out: dict[str, Any] = await kit.run(
             conn,
@@ -160,7 +160,7 @@ async def _relevant(
     text = "\n".join([f"draft\t{' '.join(body.split())}", *(_fact_line(r, f) for r, f in refs.items())])
     task = ai_tasks.t14b(pack, list(refs))
     names = await services.party_names().case_names(conn, ctx.case_id)
-    births = await services.births.dates_of_birth(conn, ctx.case_id)
+    births = await services.birth_dates().dates_of_birth(conn, ctx.case_id)
     try:
         out: dict[str, Any] = await kit.run(
             conn,
@@ -244,7 +244,7 @@ async def _compare(
     text = "\n".join([f"statement\t{statement}", *(_fact_line(r, f) for r, f in refs.items())])
     task = ai_tasks.t14c(pack, list(refs))
     names = await services.party_names().case_names(conn, ctx.case_id)
-    births = await services.births.dates_of_birth(conn, ctx.case_id)
+    births = await services.birth_dates().dates_of_birth(conn, ctx.case_id)
     try:
         out: dict[str, Any] = await kit.run(
             conn,

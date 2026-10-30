@@ -25,6 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.core import audit
 from app.core.ai.kit import InvalidOutput
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import ServedReport, latest_served
 from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -475,10 +476,13 @@ async def list_agenda_versions(
     return AgendaVersionsOut(versions=[AgendaVersionOut(**v) for v in await repo.agenda_versions(conn, meeting_id)])
 
 
-async def _check_position(conn: Any, pack: Any, case_id: uuid.UUID, served: str, draft: str) -> tuple[str, str]:
+async def _check_position(
+    conn: Any, crypto: Any, pack: Any, case_id: uuid.UUID, served: str, draft: str
+) -> tuple[str, str]:
     """T-22c's label for a drafted position against the served one (unclear if the check cannot run)."""
     try:
         kit = current().model()
+        who = await identity_for(conn, crypto, case_id)
         answer = await kit.run(
             conn,
             ai_tasks.t22c(pack),
@@ -486,6 +490,8 @@ async def _check_position(conn: Any, pack: Any, case_id: uuid.UUID, served: str,
             text=f"served\t{' '.join(served.split())}\ndraft\t{' '.join(draft.split())}",
             case_id=case_id,
             subject="position",
+            names=who.names,
+            dates_of_birth=who.dates_of_birth,
         )
     except (ProcessingPaused, InvalidOutput):
         return "unclear", "check_unavailable"
@@ -527,7 +533,7 @@ async def change_item(
             sets["deviation"], sets["deviation_reason"] = "consistent", "copied_from_report"
         else:
             sets["deviation"], sets["deviation_reason"] = await _check_position(
-                conn, pack, case_id, original, body.own_position
+                conn, crypto, pack, case_id, original, body.own_position
             )
         row["deviation"] = sets["deviation"]
     if "other_positions" in given:

@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.core import audit
 from app.core.ai.kit import InvalidOutput
 from app.core.auth.step_up import require_step_up
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.served import latest_served
 from app.core.errors import ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
@@ -314,6 +315,7 @@ async def check_new_note(
     if sentences and sources:
         try:
             kit = current().model()
+            who = await identity_for(conn, crypto, case_id)
             result = await kit.run(
                 conn,
                 ai_tasks.t24(pack, len(sentences), list(sources)),
@@ -321,6 +323,8 @@ async def check_new_note(
                 text="\n".join(lines),
                 case_id=case_id,
                 subject="note",
+                names=who.names,
+                dates_of_birth=who.dates_of_birth,
             )
             for s in result["sentences"]:
                 found[int(s["sentence_index"])] = (s["source"], str(s["reason"]))

@@ -110,7 +110,7 @@ async def _ask(
     task = ai_tasks.t15a(pack, len(said))
     current = services.current()
     names = await current.party_names().case_names(conn, case_id)
-    births = await current.births.dates_of_birth(conn, case_id)
+    births = await current.birth_dates().dates_of_birth(conn, case_id)
     try:
         out: dict[str, Any] = await current.ai().run(
             conn,

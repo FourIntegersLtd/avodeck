@@ -34,7 +34,7 @@ from PIL import Image, ImageDraw, ImageFont
 from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
-from app.core.contracts.case_names import party_names
+from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack
@@ -264,7 +264,7 @@ async def prepare(
     token: str,
 ) -> None:
     """Draw and seal the colleague's items for a new spot-check."""
-    names = await party_names(conn, crypto, case_id, with_parts=True)
+    names = (await identity_for(conn, crypto, case_id)).names  # parties and the subject, with parts
     recognise = pack.identifier_recognisers()
     label = word(pack.language, "spot_check_watermark", ref=str(check_id)[:8])
     cur = await conn.execute(
