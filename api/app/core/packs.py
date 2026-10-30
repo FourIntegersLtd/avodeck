@@ -20,6 +20,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import logging
 import os
 import re
 import sys
@@ -34,6 +35,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import jsonschema_rs
 import yaml
 
+log = logging.getLogger(__name__)
 REPO = Path(__file__).resolve().parents[3]
 LAYERS = ("jurisdiction", "case-type", "specialty")
 
@@ -94,6 +96,10 @@ END_OF_DAY = time(23, 59, 59)
 
 class PackError(Exception):
     """A pack is missing, invalid or breaks a lint rule. The app does not start with one."""
+
+
+class PackNotApproved(PackError):
+    """A production cell (`PACKS_APPROVED_ONLY=1`) found wording a lawyer has not yet checked."""
 
 
 class DeadlineError(Exception):
@@ -870,6 +876,7 @@ class PackLibrary:
                 _validate(pack, self.schema_dir)
                 if approved_only:
                     _check_approved(pack)
+                _check_declaration_verified(pack, approved_only)
         self._check_overlays()
         self._lint()
         self._combined: dict[tuple[str, str, str], MergedPack] = {}
@@ -1014,6 +1021,17 @@ def _check_approved(pack: Pack) -> None:
     meta = pack.meta
     if meta.get("status") != "approved" or not meta.get("approved_by") or not meta.get("approved_on"):
         raise PackError(f"{pack.rel('pack.yaml')}: not approved (needs status approved, approved_by and approved_on)")
+
+
+def _check_declaration_verified(pack: Pack, approved_only: bool) -> None:
+    """`verify_before_launch: true` blocks a production cell; elsewhere it is a warning naming the key only."""
+    declaration = pack.files.get("declarations.md")
+    if declaration is None or declaration["front"].get("verify_before_launch") is not True:
+        return
+    key = declaration["front"]["key"]
+    if approved_only:
+        raise PackNotApproved(f"{pack.rel('declarations.md')}: declaration '{key}' is not yet checked by a lawyer")
+    log.warning("declaration '%s' in %s/%s is not yet checked by a lawyer", key, pack.layer, pack.code)
 
 
 @cache

@@ -212,3 +212,25 @@ SUPPORT_EMAIL = "hello@fourintegers.com"
 def support_email() -> str:
     """Our own support address, where Help form messages go. Never sent to the browser."""
     return SUPPORT_EMAIL
+
+
+@dataclass(frozen=True)
+class ClamdSettings:
+    """The virus scanner (clamd) on the private network, found only through the cell config."""
+
+    host: str
+    port: int = 3310
+    timeout_s: float = 60.0
+
+
+def clamd_settings(env: Mapping[str, str] | None = None) -> ClamdSettings:
+    source = os.environ if env is None else env
+    host = source.get("CLAMD_HOST", "").strip()
+    if not host:
+        raise ConfigError("CLAMD_HOST is not set")
+    try:
+        port = int(source.get("CLAMD_PORT", "").strip() or 3310)
+        timeout_s = float(source.get("CLAMD_TIMEOUT_S", "").strip() or 60)
+    except ValueError as exc:
+        raise ConfigError("CLAMD_PORT and CLAMD_TIMEOUT_S must be numbers") from exc
+    return ClamdSettings(host=host, port=port, timeout_s=timeout_s)

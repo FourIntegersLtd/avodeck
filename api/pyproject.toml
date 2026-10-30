@@ -30,7 +30,10 @@ build-backend = "poetry.core.masonry.api"
 # "." first so a checkout (or a check_red_green worktree) imports its own `app`
 pythonpath = ["."]
 testpaths = ["tests"]
-markers = ["slow: the whole-bundle acceptance run; set RUN_SLOW=1 to include it"]
+markers = [
+  "slow: the whole-bundle acceptance run; set RUN_SLOW=1 to include it",
+  "clamd: needs a real clamd (CLAMD_HOST, CLAMD_PORT); skipped when it is not reachable",
+]
 
 [tool.ruff]
 target-version = "py312"

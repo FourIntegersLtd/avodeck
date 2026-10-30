@@ -225,7 +225,6 @@ async def test_anyone_without_access_to_the_case_gets_404(bundle: Harness) -> No
     assert (await listed(bundle)).json()["missing_items"][0]["status"] == "open"
 
 
-
 async def test_the_list_says_which_items_are_still_missing(bundle: Harness) -> None:
     """The server decides which items still count (open or requested); the screen filters nothing."""
     item = item_id(bundle)

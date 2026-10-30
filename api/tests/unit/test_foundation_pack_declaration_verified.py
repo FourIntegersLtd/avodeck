@@ -24,7 +24,9 @@ def prepared(tmp_path: Path, front: str) -> tuple[Path, Path]:
     for pack_yaml in fixtures.glob("*/*/pack.yaml"):
         pack_yaml.write_text(pack_yaml.read_text().rstrip("\n") + "\n" + APPROVAL)
     declaration = fixtures / "jurisdiction" / "zz-test" / "declarations.md"
-    declaration.write_text(f"---\nkey: affirmation\nrule_ref: \"Rule Z.9\"\nversion: 0.0.1\n{front}---\n{SECRET_WORDING}\n")
+    declaration.write_text(
+        f'---\nkey: affirmation\nrule_ref: "Rule Z.9"\nversion: 0.0.1\n{front}---\n{SECRET_WORDING}\n'
+    )
     return fixtures, declaration
 
 
@@ -39,7 +41,9 @@ def test_pack_not_approved_is_a_pack_error(tmp_path: Path) -> None:
 
 
 def test_approved_only_loads_a_verified_declaration(tmp_path: Path) -> None:
-    fixtures, _ = prepared(tmp_path, "verify_before_launch: false\nverified_by: Barrister, Example Chambers\nverified_on: 2026-10-20\n")
+    fixtures, _ = prepared(
+        tmp_path, "verify_before_launch: false\nverified_by: Barrister, Example Chambers\nverified_on: 2026-10-20\n"
+    )
     packs.PackLibrary((fixtures,), approved_only=True)
 
 
@@ -71,6 +75,6 @@ def test_the_schema_rejects_false_without_verified_by(tmp_path: Path) -> None:
 
 
 def test_the_schema_rejects_a_verified_on_that_is_not_a_date(tmp_path: Path) -> None:
-    fixtures, _ = prepared(tmp_path, "verify_before_launch: false\nverified_by: Barrister\nverified_on: \"last week\"\n")
+    fixtures, _ = prepared(tmp_path, 'verify_before_launch: false\nverified_by: Barrister\nverified_on: "last week"\n')
     with pytest.raises(packs.PackError):
         packs.PackLibrary((fixtures,))
