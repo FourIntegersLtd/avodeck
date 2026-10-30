@@ -1,4 +1,4 @@
-# 0026 ClamAV as a private Railway service
+# 0027 ClamAV as a private Railway service
 
 Date: 2026-10-30 · Status: accepted · Decided by: the founder (plan "lazy-mapping-waterfall", item 2) · Builds on: ADR 0021
 

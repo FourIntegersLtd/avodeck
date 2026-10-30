@@ -1,4 +1,4 @@
-# ClamAV for virus scanning (ADR 0026): the official image plus the size limits that match the upload
+# ClamAV for virus scanning (ADR 0027): the official image plus the size limits that match the upload
 # maximum (NFR C1, 500 MB). Pin the digest of this tag in the dashboard build once the first image is chosen.
 FROM clamav/clamav:1.4
 

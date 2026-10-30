@@ -2,7 +2,7 @@
 
 Files are scanned as a stream of chunks, as they sit in Storage. The stand-in flags the standard
 EICAR test file (also when it spans chunks) and passes everything else; `ClamdScanner` talks to
-clamd (ADR 0026) with the zINSTREAM protocol. The cell config (`VIRUS_SCANNER`) chooses the scanner.
+clamd (ADR 0027) with the zINSTREAM protocol. The cell config (`VIRUS_SCANNER`) chooses the scanner.
 A reply that is not a clear verdict raises `ScanUnavailable`: callers fail closed.
 """
 
@@ -27,11 +27,6 @@ EICAR_SIGNATURE = "Eicar-Test-Signature"
 class ScanResult:
     clean: bool
     signature: str | None = None
-
-
-class ScanUnavailable(Exception):
-    """The scanner could not be reached or gave no verdict. Never treated as clean: the caller fails
-    closed, the job is retried and the document is not accepted (failure mode F3)."""
 
 
 class VirusScanner(Protocol):
