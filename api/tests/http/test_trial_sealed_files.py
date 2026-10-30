@@ -63,7 +63,7 @@ async def opened(
 
 
 def one(admin: psycopg.Connection, query: str, *params: object) -> str:
-    row = admin.execute(query, params).fetchone()  # type: ignore[arg-type]
+    row = admin.execute(query, params).fetchone()
     assert row is not None and row[0] is not None
     return str(row[0])
 
@@ -253,6 +253,8 @@ async def test_the_reseal_job_runs_for_one_case(
 
     created = await create(client_for, world)
     files = await plain_files(admin, storage, world, created["id"])
-    await reseal_trial_files(JobContext(worker_db, seed.job(world.case, kind="reseal_trial_files"), world.case, "reseal_trial_files", 1))
+    await reseal_trial_files(
+        JobContext(worker_db, seed.job(world.case, kind="reseal_trial_files"), world.case, "reseal_trial_files", 1)
+    )
     path = next(p for p in files if "/bundles/" in p)
     await opened(storage, aconn, world, path, files[path])

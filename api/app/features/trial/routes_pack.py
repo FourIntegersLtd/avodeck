@@ -45,6 +45,7 @@ from app.features.trial.pdfs import render_counted
 from app.features.trial.ports import answers_of
 from app.features.trial.router import router
 from app.features.trial.services import current
+from app.features.trial.storage import Sealer, get_sealed
 
 Section = Literal["report", "chronology", "readiness", "joint_statement", "written_answers", "legal_tests", "guidance"]
 _SENTENCE = re.compile(r"(?<=[.!?])\s+")
@@ -276,13 +277,13 @@ async def preview_pack(case_id: uuid.UUID, conn: DbConn, access: View, pack: Pac
     dependencies=[Depends(require_step_up)],
     responses={200: {"content": {"application/pdf": {}}}},
 )
-async def download_pack(case_id: uuid.UUID, conn: DbConn, access: View, storage: Storage) -> Response:
+async def download_pack(case_id: uuid.UUID, conn: DbConn, access: View, storage: Storage, crypto: Crypto) -> Response:
     row = await _latest_pack(conn, case_id)
     if row is None:
         raise not_found()
     await audit.record(conn, action="trial.pack_downloaded", target=str(row["id"]), case_id=case_id)
     return Response(
-        content=await storage.get(row["storage_path"]),
+        content=await get_sealed(Sealer(crypto, storage), conn, case_id, row["storage_path"]),
         media_type="application/pdf",
         headers={**NO_STORE, "Content-Disposition": 'attachment; filename="trial-pack.pdf"'},
     )
