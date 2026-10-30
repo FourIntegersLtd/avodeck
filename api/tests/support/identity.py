@@ -5,6 +5,7 @@ Used by the tests that prove no identifier reaches a model (rule 7). The values 
 
 from __future__ import annotations
 
+import re
 import uuid
 from datetime import date
 
@@ -19,10 +20,10 @@ BORN = date(1960, 2, 1)
 PARTY = "Zebedee Quillfeather"
 
 # Strings that must never reach a model once the identity is recorded (compared lower-cased).
-FORBIDDEN = ("testperson", "oldname", "01/02/1960", "1 february 1960", "1960-02-01", "quillfeather")
+FORBIDDEN = ("testperson", "oldname", "01/02/1960", "1 february 1960", "01 feb 1960", "1960-02-01", "quillfeather")
 
 # One sentence with every form of the identifiers, for a page or a request.
-SENTENCE = "Jane Testperson (also Jane Oldname) born 01/02/1960, again 1 February 1960. Seen with Zebedee Quillfeather."
+SENTENCE = "Jane Testperson (also Jane Oldname) born 01/02/1960, again 1 February 1960 or 01 Feb 1960. Seen with Zebedee Quillfeather."
 
 
 async def record_identity(aconn: psycopg.AsyncConnection, crypto: CaseCrypto, case: uuid.UUID) -> None:
@@ -34,7 +35,11 @@ async def record_identity(aconn: psycopg.AsyncConnection, crypto: CaseCrypto, ca
     )
 
 
+# Prompts that send one word per line start each line with an id; the id and the line breaks are not part of the words.
+_WORD_ID = re.compile(r"(?m)^[A-Za-z]+\d+(?:[A-Za-z]+\d+)*[\t ]")
+
+
 def leaked(texts: list[str]) -> list[str]:
     """Which forbidden strings appear in any text (the strings are synthetic)."""
-    folded = [t.casefold() for t in texts]
+    folded = [" ".join(_WORD_ID.sub("", t).casefold().split()) for t in texts]
     return [bad for bad in FORBIDDEN if any(bad in t for t in folded)]

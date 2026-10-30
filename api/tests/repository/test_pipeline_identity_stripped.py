@@ -30,6 +30,7 @@ LINES = [
     "also Jane Oldname",
     "born 01/02/1960",
     "again 1 February 1960",
+    "or 01 Feb 1960",
     "Seen with Zebedee Quillfeather",
     "Synthetic chest review",
 ]
