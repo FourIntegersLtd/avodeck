@@ -49,7 +49,10 @@ async def test_t22_never_carries_the_subject(
         worker_db,
         world,
         created["id"],
-        [*AGENDA, f"{AGENDA[0]} Jane Testperson also Jane Oldname born 01/02/1960, again 1 February 1960 or 01 Feb 1960?"],
+        [
+            *AGENDA,
+            f"{AGENDA[0]} Jane Testperson also Jane Oldname born 01/02/1960, again 1 February 1960 or 01 Feb 1960?",
+        ],
     )
 
     sent = [r.text for r in scripted.requests if r.task_id in ("T-22a", "T-22b")]

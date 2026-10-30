@@ -185,9 +185,7 @@ def test_an_active_account_gets_no_new_temporary_password(seed: Seed, api_dsn: s
     assert refused.value.diag.message_primary == "already_active"
 
 
-def test_the_flag_changes_only_through_the_named_functions(
-    seed: Seed, api_dsn: str, admin: psycopg.Connection
-) -> None:
+def test_the_flag_changes_only_through_the_named_functions(seed: Seed, api_dsn: str, admin: psycopg.Connection) -> None:
     """The app role cannot clear (or set) `must_change_password` by writing the row: only
     `app.password_changed()` (the person, after a new password) and support's functions change it."""
     person = seed.person()

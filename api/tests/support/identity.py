@@ -23,7 +23,10 @@ PARTY = "Zebedee Quillfeather"
 FORBIDDEN = ("testperson", "oldname", "01/02/1960", "1 february 1960", "01 feb 1960", "1960-02-01", "quillfeather")
 
 # One sentence with every form of the identifiers, for a page or a request.
-SENTENCE = "Jane Testperson (also Jane Oldname) born 01/02/1960, again 1 February 1960 or 01 Feb 1960. Seen with Zebedee Quillfeather."
+SENTENCE = (
+    "Jane Testperson (also Jane Oldname) born 01/02/1960, again 1 February 1960 or 01 Feb 1960."
+    " Seen with Zebedee Quillfeather."
+)
 
 
 async def record_identity(aconn: psycopg.AsyncConnection, crypto: CaseCrypto, case: uuid.UUID) -> None:
