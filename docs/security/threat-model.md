@@ -45,6 +45,7 @@ Browser ↔ FastAPI (internet) · FastAPI/worker ↔ Supabase (London) · worker
 | T22 | Restored backup brings a deleted case back | Info disclosure | Deletion ledger replayed before reopening; destroyed case keys make the content unreadable anyway | Restore drill (S14) |
 | T23 | Wrong patient's pages used or disclosed | Info disclosure | Identifier mismatch suggests quarantine; quarantined pages excluded everywhere and deleted after notice | S5 scenario test |
 | T28 | The Help form carries free text that may hold patient details to the email provider and our inbox | Info disclosure | ADR 0022: the form warns the expert not to include patient details; the text goes only into the email (never stored, logged, audited or sent to Sentry); the one recipient is our own fixed address (never sent to the browser); reply-to is the expert; at most 5 per person per day; signed-in, CSRF-protected | `api/tests/http/test_foundation_help_requests.py`; `test_foundation_email_free_text.py` |
+| T29 | The stored name and date of birth of the person a case is about are read by the wrong person or leak | Info disclosure | `case_subject_identity` (ADR 0026): sealed with the case key (purposes `subject_name`, `subject_other_names`, `subject_dob`); the API writes for the named expert only and never returns the values; only the worker role reads, inside a job for the case; no value in logs or audit rows; crypto-shredded with the case | `test_setup_subject_identity_tables.py`, `test_setup_subject_identity_routes.py` |
 
 ## Residual risks we accept (and say so to customers)
 

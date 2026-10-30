@@ -15,6 +15,7 @@ create table app.case_subject_identity (
   name bytea not null,
   other_names bytea,
   date_of_birth bytea,
+  created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 

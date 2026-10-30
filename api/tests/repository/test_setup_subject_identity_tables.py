@@ -39,6 +39,7 @@ def test_the_columns_are_sealed_bytes(admin: psycopg.Connection) -> None:
     ).fetchall()
     assert rows == [
         ("case_id", "uuid", "NO"),
+        ("created_at", "timestamp with time zone", "NO"),
         ("date_of_birth", "bytea", "YES"),
         ("name", "bytea", "NO"),
         ("other_names", "bytea", "YES"),
@@ -73,11 +74,11 @@ async def test_nobody_else_writes_or_reads_the_sealed_values(
 async def test_case_members_learn_only_whether_it_is_recorded(
     api_db: Database, admin: psycopg.Connection, world: dict[str, uuid.UUID]
 ) -> None:
-    async def recorded(who: str) -> bool | None:
+    async def recorded(who: str) -> bool:
         async with api_db.request(scope_for(world[who])) as conn:
             row = await (await conn.execute("select app.case_identity_recorded(%s)", (world["case"],))).fetchone()
         assert row is not None
-        return row[0]
+        return bool(row[0])
 
     assert await recorded("viewer") is False
     admin.execute(INSERT, {"c": world["case"]})
