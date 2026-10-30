@@ -37,7 +37,7 @@ test("once recorded there is no banner and the form says so without showing the 
   mockCase(true);
   renderAt(`/cases/${CASE_A}/details`);
   const region = await screen.findByRole("region", { name: "Who is this about?" });
-  expect(within(region).getByText("Their name and date of birth are saved.")).toBeInTheDocument();
+  expect(await within(region).findByText("Their name and date of birth are saved.")).toBeInTheDocument();
   expect(screen.queryByText(BANNER)).not.toBeInTheDocument();
 });
 

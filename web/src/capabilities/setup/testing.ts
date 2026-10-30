@@ -83,6 +83,9 @@ export function inCase(run: PackRun, over: Partial<Schemas["Case"]> = {}) {
   server.use(
     http.get("/v1/cases/:caseId", () => json(caseItem(run, over), 200)),
     http.get("/v1/jurisdictions/:code", () => json(jurisdiction(run))),
+    http.get("/v1/cases/:caseId/subject", () =>
+      json({ status: null, label: "person", representative: null, identity_recorded: true }),
+    ),
     http.get("/v1/cases/:caseId/process", () => json({ job: null })),
     http.get("/v1/me/stats/balance", () => json({ counts: { other_side: 14, instructing_side: 9 }, months: 12 })),
   );
