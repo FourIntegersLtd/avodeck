@@ -11,6 +11,50 @@
         "output": {
           "actions_requested_of_clinician": [],
           "availability_evidence": [],
+          "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w9",
+              "kind": "consultation",
+              "last_word_id": "p1w14",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w26",
+              "kind": "consultation",
+              "last_word_id": "p1w28",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w35",
+              "kind": "consultation",
+              "last_word_id": "p1w39",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w49",
+              "kind": "consultation",
+              "last_word_id": "p1w52",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w57",
+              "kind": "consultation",
+              "last_word_id": "p1w59",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w64",
+              "kind": "consultation",
+              "last_word_id": "p1w68",
+              "specialty": null
+            }
+          ],
           "facts": [
             {
               "clinician_role": null,

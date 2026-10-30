@@ -1,0 +1,8 @@
+entry_kinds:
+  - {key: zz_session, label: zz.entry.session, transcript: include}
+  - {key: zz_reading, label: zz.entry.reading, transcript: include}
+  - {key: zz_message, label: zz.entry.message, transcript: include, letter: true}
+  - {key: zz_booking, label: zz.entry.booking, transcript: exclude}
+author_roles:
+  - {key: zz_practitioner, label: zz.author.practitioner}
+  - {key: zz_supervisor, label: zz.author.supervisor}

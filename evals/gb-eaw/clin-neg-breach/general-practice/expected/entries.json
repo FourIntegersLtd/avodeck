@@ -1,0 +1,242 @@
+[
+ {
+  "page": 1,
+  "kind": "letter",
+  "first_n": 59,
+  "last_n": 62
+ },
+ {
+  "page": 23,
+  "kind": "letter",
+  "first_n": 48,
+  "last_n": 49
+ },
+ {
+  "page": 34,
+  "kind": "consultation",
+  "first_n": 9,
+  "last_n": 14
+ },
+ {
+  "page": 34,
+  "kind": "consultation",
+  "first_n": 26,
+  "last_n": 28
+ },
+ {
+  "page": 34,
+  "kind": "consultation",
+  "first_n": 35,
+  "last_n": 39
+ },
+ {
+  "page": 34,
+  "kind": "consultation",
+  "first_n": 49,
+  "last_n": 52
+ },
+ {
+  "page": 34,
+  "kind": "consultation",
+  "first_n": 57,
+  "last_n": 59
+ },
+ {
+  "page": 34,
+  "kind": "consultation",
+  "first_n": 64,
+  "last_n": 68
+ },
+ {
+  "page": 37,
+  "kind": "consultation",
+  "first_n": 20,
+  "last_n": 21
+ },
+ {
+  "page": 37,
+  "kind": "consultation",
+  "first_n": 25,
+  "last_n": 27
+ },
+ {
+  "page": 54,
+  "kind": "phone_consultation",
+  "first_n": 29,
+  "last_n": 29
+ },
+ {
+  "page": 93,
+  "kind": "letter",
+  "first_n": 45,
+  "last_n": 47
+ },
+ {
+  "page": 99,
+  "kind": "letter",
+  "first_n": 27,
+  "last_n": 29
+ },
+ {
+  "page": 113,
+  "kind": "prescription",
+  "first_n": 97,
+  "last_n": 99
+ },
+ {
+  "page": 113,
+  "kind": "prescription",
+  "first_n": 109,
+  "last_n": 112
+ },
+ {
+  "page": 113,
+  "kind": "prescription",
+  "first_n": 122,
+  "last_n": 125
+ },
+ {
+  "page": 113,
+  "kind": "prescription",
+  "first_n": 136,
+  "last_n": 138
+ },
+ {
+  "page": 236,
+  "kind": "letter",
+  "first_n": 27,
+  "last_n": 29
+ },
+ {
+  "page": 306,
+  "kind": "phone_consultation",
+  "first_n": 29,
+  "last_n": 29
+ },
+ {
+  "page": 390,
+  "kind": "letter",
+  "first_n": 59,
+  "last_n": 65
+ },
+ {
+  "page": 461,
+  "kind": "result",
+  "first_n": 61,
+  "last_n": 62
+ },
+ {
+  "page": 463,
+  "kind": "consultation",
+  "first_n": 76,
+  "last_n": 83
+ },
+ {
+  "page": 463,
+  "kind": "consultation",
+  "first_n": 99,
+  "last_n": 102
+ },
+ {
+  "page": 463,
+  "kind": "consultation",
+  "first_n": 127,
+  "last_n": 132
+ },
+ {
+  "page": 687,
+  "kind": "result",
+  "first_n": 29,
+  "last_n": 30
+ },
+ {
+  "page": 687,
+  "kind": "result",
+  "first_n": 34,
+  "last_n": 35
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 28,
+  "last_n": 29
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 36,
+  "last_n": 37
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 42,
+  "last_n": 43
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 50,
+  "last_n": 51
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 56,
+  "last_n": 57
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 62,
+  "last_n": 63
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 68,
+  "last_n": 69
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 74,
+  "last_n": 75
+ },
+ {
+  "page": 701,
+  "kind": "result",
+  "first_n": 80,
+  "last_n": 81
+ },
+ {
+  "page": 864,
+  "kind": "result",
+  "first_n": 28,
+  "last_n": 29
+ },
+ {
+  "page": 864,
+  "kind": "result",
+  "first_n": 34,
+  "last_n": 35
+ },
+ {
+  "page": 864,
+  "kind": "result",
+  "first_n": 40,
+  "last_n": 41
+ },
+ {
+  "page": 864,
+  "kind": "result",
+  "first_n": 46,
+  "last_n": 47
+ },
+ {
+  "page": 864,
+  "kind": "result",
+  "first_n": 57,
+  "last_n": 57
+ }
+]

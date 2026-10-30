@@ -22,7 +22,7 @@ After upload, the expert gets a numbered, sorted bundle: every page read by OCR,
 - `GET /v1/cases/{id}/pages/{page_no}/thumbnail` (for duplicate review)
 
 ## Tables owned
-`ocr_words`, `missing_items`, `record_gaps`, `instructing_party_requests`. Writes the OCR/source/duplicate columns of `pages` and inserts `facts` with status `suggested` (contract owned by foundation).
+`ocr_words`, `missing_items`, `record_gaps`, `record_entries`, `instructing_party_requests`. Writes the OCR/source/duplicate columns of `pages` and inserts `facts` with status `suggested` (contract owned by foundation).
 
 ## Worker job: `process_bundle` / `process_pages`
 split (pikepdf) → render 150–200 dpi (pypdfium2) → hashes → text-layer check (born-digital pages: words from pypdfium2, no OCR) → **T-07a** OCR (Azure DI Layout) for the rest → low-confidence flag → `pii.strip` → **T-07b** per-page extraction (Sonnet 5, batch, cached prompt) → `provenance.check` → date normalisation (dateparser, date order from the pack) → duplicates (pHash + MinHash + rapidfuzz, with date/value equality) → record gaps (monthly density per source) → **T-07c** missing documents (references matched to inventory) → embeddings (bge-small) → email via Resend ("Your bundle is ready", no patient details).
@@ -97,3 +97,7 @@ Showing facts to the expert (B), verifying facts (B), Gmail/Outlook sending (Pha
 
 ## Definition of done
 Root checklist, plus: the synthetic bundle processes end to end on staging; `make eval` baseline recorded.
+
+## Records transcript (ADR 0028)
+- T-07b returns `entries[]` (kind, first and last word id, author role, specialty); stored in `record_entries` (0121, purge order 1015). Job `extract_entries` backfills pages read before this change. Slice B reads through `core/contracts/record_entries.py` (`entries_for_case`, `entries_ready`, `entries_status`, `request_entries`).
+- Packs gain `entries.yaml`, `specialties.yaml`, `result_groups.yaml`, `reading_prompts.yaml`.

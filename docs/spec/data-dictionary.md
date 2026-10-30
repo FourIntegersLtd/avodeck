@@ -575,6 +575,17 @@ A joint expert is one with two or more current instructing parties; no separate 
 | confirmed_by / confirmed_at | Who reviewed it and when |
 | version | Changes each time it is changed (If-Match) |
 
+### record_entries
+| Field | In plain words |
+|---|---|
+| page_id | The page the entry is on |
+| kind | What sort of entry it is (from the pack's list) |
+| first_n / last_n | Where the entry starts and ends, as the number of its first and last word on the page |
+| author_role / specialty | Who wrote it and which speciality, when the page says (from the pack's lists) |
+| event_date | The date printed inside the entry, read by code in the pack's date order (empty when none) |
+| date_basis | Whether the date is plainly printed or needs the expert to check it |
+| extraction_version | Which version of the reading produced it |
+
 ### instructing_party_requests
 | Field | In plain words |
 |---|---|

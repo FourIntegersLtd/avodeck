@@ -202,6 +202,11 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         (w.case,),
     )
     admin.execute(
+        "insert into app.record_entries (case_id, page_id, kind, first_n, last_n, extraction_version)"
+        " values (%s, %s, 'zz_kind', 1, 1, 'zz')",
+        (w.case, page),
+    )
+    admin.execute(
         "insert into app.document_parts (case_id, parent_document_id, document_id, part_no, media_type)"
         " values (%s, %s, %s, 1, 'application/pdf')",
         (w.case, doc, part),
@@ -228,6 +233,7 @@ def _pipeline_tables(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dic
         "page_replacements": 1,
         "missing_items": 1,
         "record_gaps": 1,
+        "record_entries": 1,
         "document_parts": 1,
         "document_scans": 1,
         "exhibits": 1,

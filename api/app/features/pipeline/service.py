@@ -29,6 +29,7 @@ import json
 import logging
 import uuid
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
+from dataclasses import dataclass
 from datetime import date, timedelta
 from typing import Any
 
@@ -70,6 +71,7 @@ from app.features.pipeline.words import assess, turned, typed, usable_text_layer
 
 SCAN_DOCUMENT = "scan_document"
 REPROCESS_CASE = "reprocess_case"  # the expert's opt-in to extract every page again
+EXTRACT_ENTRIES = "extract_entries"  # read entries only, for a case extracted before entries existed (ADR 0028)
 REPAIR_FACT_DATES = "repair_fact_dates"  # fill event_date from printed words when extraction left it null
 PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily deletion of quarantined pages' images and text
 CONCURRENCY = 3  # pages read or sent to a model at once
@@ -449,6 +451,81 @@ async def _ask(
             return None
 
 
+@dataclass(frozen=True)
+class _LoadedPage:
+    stored: list[Any]
+    size: tuple[float, float] | None
+    latest: Any
+    texts: dict[str, str]
+    ordered: list[tuple[str, str]]
+    struck: set[str]
+    text: str
+    subject: str
+
+
+async def _load_page(
+    ctx: JobContext, services: PipelineServices, pack: Any, who: Any, page_id: uuid.UUID
+) -> _LoadedPage:
+    """A page's words opened, and the identifier-stripped one-word-per-line text T-07b is asked about."""
+    async with ctx.transaction() as conn:
+        stored = await repo.words_of(conn, page_id)
+        size = await repo.page_size(conn, page_id)
+        latest = await latest_printed_date(conn, ctx.case_id)
+        texts = {
+            w.word_id: (
+                await services.crypto.decrypt(
+                    conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
+                )
+            ).decode()
+            for w in stored
+        }
+        header = ""
+        before = await repo.previous_page_words(conn, page_id, extract.HEADER_WORDS)
+        if before is not None:
+            before_id, top = before
+            header = " ".join(
+                [
+                    (
+                        await services.crypto.decrypt(
+                            conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(before_id, w.word_id)
+                        )
+                    ).decode()
+                    for w in top
+                ]
+            )
+    ordered = [(w.word_id, texts[w.word_id]) for w in stored]
+    struck = {w.word_id for w in stored if w.struck}
+    stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+    text = extract.page_text(ordered, stripped.text) if ordered else ""
+    if header:
+        cap = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
+        text = extract.with_header(text, cap.text)
+    return _LoadedPage(stored, size, latest, texts, ordered, struck, text, page_subject(ordered))
+
+
+def _entries_of(
+    output: dict[str, Any] | None, ordered: list[tuple[str, str]], struck: set[str], pack: Any
+) -> tuple[list[repo.NewEntry], int]:
+    """The page's entries that pass provenance, each dated from the dates printed inside it, and the count dropped."""
+    positions = {word_id: n for n, (word_id, _) in enumerate(ordered, start=1)}
+    sorted_entries = extract.sort_entries(output, positions, pack)
+    entries = []
+    for e in sorted_entries.kept:
+        when, basis = extract.entry_date(e, ordered, struck, pack)
+        entries.append(
+            repo.NewEntry(
+                kind=e.kind,
+                first_n=e.first_n,
+                last_n=e.last_n,
+                author_role=e.author_role,
+                specialty=e.specialty,
+                event_date=when,
+                date_basis=basis,
+            )
+        )
+    return entries, sorted_entries.rejected
+
+
 async def _extract(ctx: JobContext, services: PipelineServices) -> int:
     """Extracts every page waiting for it; returns how many."""
     async with ctx.transaction() as conn:
@@ -466,40 +543,9 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
 
     async def one(page_id: uuid.UUID) -> None:
         nonlocal done
-        async with ctx.transaction() as conn:
-            stored = await repo.words_of(conn, page_id)
-            size = await repo.page_size(conn, page_id)
-            latest = await latest_printed_date(conn, ctx.case_id)
-            texts = {
-                w.word_id: (
-                    await services.crypto.decrypt(
-                        conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(page_id, w.word_id)
-                    )
-                ).decode()
-                for w in stored
-            }
-            header = ""
-            before = await repo.previous_page_words(conn, page_id, extract.HEADER_WORDS)
-            if before is not None:
-                before_id, top = before
-                header = " ".join(
-                    [
-                        (
-                            await services.crypto.decrypt(
-                                conn, ctx.case_id, w.sealed, purpose=paths.word_purpose(before_id, w.word_id)
-                            )
-                        ).decode()
-                        for w in top
-                    ]
-                )
-        ordered = [(w.word_id, texts[w.word_id]) for w in stored]
-        struck = {w.word_id for w in stored if w.struck}
-        stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
-        text = extract.page_text(ordered, stripped.text) if ordered else ""
-        if header:
-            cap = pii.strip(header, pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
-            text = extract.with_header(text, cap.text)
-        subject = page_subject(ordered)
+        loaded = await _load_page(ctx, services, pack, who, page_id)
+        stored, size, latest, texts = loaded.stored, loaded.size, loaded.latest, loaded.texts
+        ordered, struck, text, subject = loaded.ordered, loaded.struck, loaded.text, loaded.subject
         output: dict[str, Any] | None = None
         kept: list[Any] = []
         reason: str | None = None
@@ -521,6 +567,7 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
         )
         evidence = extract.sort_evidence(output, ordered, struck, pack)
+        entries, entries_rejected = _entries_of(output, ordered, struck, pack)
         facts = []
         lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
         anchor = dates.bundle_anchor(
@@ -562,6 +609,8 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
                 prompt_version=task.prompt_version,
                 printed_dates=dates.printed_dates(found),
                 availability_evidence=evidence,
+                entries=entries,
+                entries_rejected=entries_rejected,
             )
         done += 1
         if done % 25 == 0:
@@ -832,6 +881,40 @@ async def reprocess_case(ctx: JobContext) -> None:
     await ctx.progress(40, step="sort")
     await _sort(ctx, services)
     await ctx.progress(100, step="sort")
+
+
+async def extract_entries(ctx: JobContext) -> None:
+    """Reads entries for pages that have none yet; facts and the page's notes are left as they are.
+
+    Idempotent: a page whose entries are read is skipped, so a rerun asks the model about nothing."""
+    services = current()
+    async with ctx.transaction() as conn:
+        waiting = await repo.pages_to_read_entries(conn, ctx.case_id)
+        if not waiting:
+            await ctx.progress(100, step="entries")
+            return
+        pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
+        who = await services.identity(conn, ctx.case_id)
+    if services.kit is None:
+        raise ProcessingPaused("model_unavailable")
+    task = extract.task_for(pack)
+    done = 0
+
+    async def one(page_id: uuid.UUID) -> None:
+        nonlocal done
+        loaded = await _load_page(ctx, services, pack, who, page_id)
+        output = await _ask(ctx, services, task, pack, who, loaded.text, loaded.subject) if loaded.stored else None
+        entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack)
+        async with ctx.transaction() as conn:
+            await repo.store_entries(
+                conn, ctx.case_id, page_id, entries, rejected=rejected, version=task.prompt_version
+            )
+        done += 1
+        if done % 25 == 0:
+            await ctx.progress(min(95, 95 * done // len(waiting)), step="entries")
+
+    await bounded(waiting, one, stop=_stop(ctx))
+    await ctx.progress(100, step="entries")
 
 
 async def repair_fact_dates(ctx: JobContext) -> None:

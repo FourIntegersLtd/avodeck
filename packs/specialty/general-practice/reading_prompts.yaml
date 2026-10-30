@@ -1,0 +1,8 @@
+# Words that point the reader at places in the record to look (ADR 0028). An index of where words
+# appear, never a judgement about what they mean.
+term_groups:
+  - {key: pain, label: reading.prompt.pain, terms: [pain, ache, aching, sore, discomfort]}
+  - {key: injury, label: reading.prompt.injury, terms: [injury, injured, fracture, sprain, wound, bruise]}
+  - {key: accident, label: reading.prompt.accident, terms: [accident, fall, fell, collision, "road traffic"]}
+  - {key: disability, label: reading.prompt.disability, terms: [disability, disabled, "walking aid", wheelchair, mobility]}
+  - {key: psychological, label: reading.prompt.psychological, terms: [anxiety, anxious, depression, "low mood", flashbacks, nightmares]}

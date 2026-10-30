@@ -291,6 +291,7 @@ async def test_the_schema_and_facts_follow_the_case_packs(
             "references_out": [],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
     opened = await _open(
@@ -352,6 +353,7 @@ async def test_instructions_printed_on_a_page_cannot_add_fields_or_values(
         "references_out": [],
         "availability_evidence": [],
         "actions_requested_of_clinician": [],
+        "entries": [],
     }
     opened = await _open(
         LAUNCH,

@@ -66,6 +66,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `page_notes` | B | Each person for themselves (`page.read`), bookmarking or noting a page on screen 09 | One per person and page | Replaced by the next save; removed when bookmark and note are both cleared; only its owner sees it | Goes with its page on case deletion (no case_id, like `page_turns`) |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
+| `record_entries` | A | Worker (`extract_entries`, T-07b) | Many per page | Replaced when the page is read again | Case deletion |
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |

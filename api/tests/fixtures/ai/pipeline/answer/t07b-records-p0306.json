@@ -23,6 +23,15 @@
               ]
             }
           ],
+          "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w29",
+              "kind": "phone_consultation",
+              "last_word_id": "p1w29",
+              "specialty": null
+            }
+          ],
           "facts": [
             {
               "clinician_role": null,

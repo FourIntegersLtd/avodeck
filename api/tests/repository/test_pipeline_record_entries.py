@@ -96,7 +96,9 @@ def test_the_columns_hold_no_text(admin: psycopg.Connection) -> None:
         "extraction_version",
         "created_at",
     }
-    assert "text" not in {cols[c] for c in cols if c not in ("kind", "author_role", "specialty", "date_basis", "extraction_version")}
+    assert "text" not in {
+        cols[c] for c in cols if c not in ("kind", "author_role", "specialty", "date_basis", "extraction_version")
+    }
 
 
 def test_an_entry_cannot_run_backwards_or_name_another_cases_page(admin: psycopg.Connection, seed: Seed) -> None:
@@ -140,14 +142,7 @@ async def test_entries_come_back_in_date_order_with_undated_last_and_no_text(
     async with api_db.request(scope_for(expert)) as conn:
         rows = await record_entries.entries_for_case(conn, case)
         only = await record_entries.entries_for_case(conn, case, page_ids=[p2])
-    assert [r.id for r in rows] == [same_page, early_b, early_a, late, none_a, none_b][:0] or [r.id for r in rows] == [
-        early_a,
-        same_page,
-        early_b,
-        late,
-        none_a,
-        none_b,
-    ]
+    assert [r.id for r in rows] == [early_a, same_page, early_b, late, none_b, none_a]
     assert [r.id for r in only] == [early_a, none_a]
     first = rows[0]
     assert isinstance(first, record_entries.RecordEntry)
@@ -189,7 +184,7 @@ async def test_ready_means_every_extracted_page_has_had_its_entries_read(
 
 def test_deleting_the_case_leaves_no_entries(admin: psycopg.Connection, worker_dsn: str, seed: Seed) -> None:
     expert = seed.person()
-    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    case = seed.case(seed.org(members={expert: "owner"}), expert, status="active", packs=LAUNCH.case_row())
     page = seed.page(case, seed.document(case), 1)
     add_entry(admin, case, page, 1)
     admin.execute("update app.cases set status = 'served' where id = %s", (case,))
@@ -249,9 +244,21 @@ def two_entries(pack: Any, words: list[Any]) -> list[dict[str, Any]]:
     kind = pack.entry_kinds()[0]["key"]
     role = pack.author_roles()[0]["key"]
     return [
-        {"kind": kind, "first_word_id": words[0].id, "last_word_id": words[1].id, "author_role": role, "specialty": None},
+        {
+            "kind": kind,
+            "first_word_id": words[0].id,
+            "last_word_id": words[2].id,
+            "author_role": role,
+            "specialty": None,
+        },
         {"kind": kind, "first_word_id": "nope", "last_word_id": words[2].id, "author_role": None, "specialty": None},
-        {"kind": kind, "first_word_id": words[2].id, "last_word_id": words[3].id, "author_role": None, "specialty": None},
+        {
+            "kind": kind,
+            "first_word_id": words[3].id,
+            "last_word_id": words[4].id,
+            "author_role": None,
+            "specialty": None,
+        },
     ]
 
 
@@ -277,7 +284,7 @@ async def test_extraction_stores_the_entries_that_pass_provenance_and_counts_the
             " where page_id = %s order by first_n",
             (page["id"],),
         ).fetchall()
-        assert [(r[1], r[2]) for r in rows] == [(1, 2), (3, 4)]
+        assert [(r[1], r[2]) for r in rows] == [(1, 3), (4, 5)]
         assert rows[0][3] == pack.author_roles()[0]["key"] and rows[1][3] is None
         assert rows[0][4] == dt.date(2024, 3, 12), "dated from the words inside the span"
         assert rows[0][5] == extract.PROMPT_VERSION
@@ -290,6 +297,7 @@ async def test_extraction_stores_the_entries_that_pass_provenance_and_counts_the
 
 
 async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_once(
+    monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
     admin: psycopg.Connection,
     api_db: Database,
@@ -306,6 +314,7 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
     async with await opened(tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage) as h:
         await h.upload(document)
         await h.drain()
+        monkeypatch.setattr(record_entries, "registry", h.registry)  # the harness runs its own queue
         facts_before = admin.execute("select count(*) from app.facts where case_id = %s", (h.case_id,)).fetchone()
         # A case extracted before entries existed: no entries, nothing marked.
         admin.execute("delete from app.record_entries where case_id = %s", (h.case_id,))
@@ -317,7 +326,9 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
         assert set((await h.drain()).values()) == {"done"}
         count = admin.execute("select count(*) from app.record_entries where case_id = %s", (h.case_id,)).fetchone()
         assert count == (2,)
-        assert admin.execute("select count(*) from app.facts where case_id = %s", (h.case_id,)).fetchone() == facts_before
+        assert (
+            admin.execute("select count(*) from app.facts where case_id = %s", (h.case_id,)).fetchone() == facts_before
+        )
         async with api_db.request(scope_for(h.expert)) as conn:
             assert await record_entries.entries_ready(conn, h.case_id) is True
             assert await record_entries.entries_status(conn, h.case_id) == "ready"
@@ -325,7 +336,9 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
         await h.enqueue("extract_entries")
         await h.drain()
         assert len(bedrock.requests) == asked, "a case that has its entries is not asked again"
-        assert admin.execute("select count(*) from app.record_entries where case_id = %s", (h.case_id,)).fetchone() == (2,)
+        assert admin.execute("select count(*) from app.record_entries where case_id = %s", (h.case_id,)).fetchone() == (
+            2,
+        )
 
 
 def test_the_entries_job_needs_the_read_action(admin: psycopg.Connection) -> None:

@@ -74,6 +74,7 @@ def answer(pack: Any) -> Any:
             "references_out": [],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
 

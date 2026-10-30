@@ -197,6 +197,7 @@ def empty_answer(source_key: str) -> ModelResponse:
             "references_out": [],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
 
