@@ -78,7 +78,7 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 | From → to | Trigger | Guard |
 |---|---|---|
 | suggested → confirmed / edited | Expert, screen 06 | Edited questions keep `text_verbatim` |
-| question set: open → locked | `confirm-all` | Every question confirmed or edited |
+| question set: open → locked | `confirm-all` | Every question and assumption confirmed or edited; the server refuses with `questions_not_reviewed` while any item is still `suggested` |
 | locked → open | Expert "Change the questions": a new `instruction_versions` row (the old lock is never undone) | Not yet served; questions moved to the new version return to suggested; drafts keep their links; warning shown |
 
 Writing (screens 14 and 15) requires a locked question set (409 otherwise). A set locks once (`instruction_versions.locked_at`, `confirm-all`; 409 if already locked or nothing to confirm). A newer letter that adds nothing moves the confirmed questions to the new version and locks it straight away; one that adds a question returns them to suggested with the warning `setup.questions.warning.reopened`. After serving, nothing moves.

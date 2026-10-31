@@ -31,7 +31,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `fact.verify` (also flag a fact for points against, move it to a clearer copy) | ✓ | — | — | — | — | — | — | — |
 | `link.suggest` (ask for suggested links between entries and the questions) | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
 | `link.decide` (accept or reject a suggested link), `finding.decide` (keep or dismiss a thing to look at; run the checks again), `availability.override` (correct when an entry reached the clinician), `consultation.note` (private notes on one consultation) | ✓ | — | — | — | — | — | — | — |
-| `question.confirm` | ✓ | — | — | — | — | — | — | — |
+| `question.confirm` (confirm, edit, add a question; lock the set) | ✓ | — | — | — | — | — | — | — |
 | `opinion.write` | ✓ | — | — | — | — | — | — | — |
 | `comment.write` | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
 | `report.build` | ✓ | — | — | ✓ | — | — | — | — |
