@@ -55,11 +55,10 @@ test("Start your first case is the one primary button", async () => {
   expect([...container.querySelectorAll(".av-button")].filter((el) => ![...el.classList].some((c) => /^av-button--/.test(c)))).toHaveLength(1);
 });
 
-test("have these to hand, need a hand, and five steps for how a case works", async () => {
+test("have these to hand and need a hand, with no how-a-case-works section on the page", async () => {
   setup();
   renderAt("/today");
   expect(await screen.findByRole("heading", { name: "Have these to hand" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Need a hand?" })).toBeInTheDocument();
-  const how = screen.getByRole("region", { name: "How a case works" });
-  expect(within(how).getAllByRole("listitem")).toHaveLength(5);
+  expect(screen.queryByRole("region", { name: "How a case works" })).toBeNull();
 });
