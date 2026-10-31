@@ -5,7 +5,9 @@ stage 1; AWS KMS in the home region from stage 2, behind the same `KeyProvider` 
 the wrapped key is stored, in `case_keys`. Unwrapped keys are cached for at most 5 minutes. When the
 provider cannot be reached and the cached key has expired, processing pauses: nothing falls back to
 another key or region (fail closed, F24). Destroying a case's key (case deletion) makes everything
-encrypted under it unreadable.
+encrypted under it unreadable. That holds for what is stored under the key, not for copies made
+before deletion: backups and Storage objects are unreadable only once the wrapped key is gone from
+them too, and the upload job holds plaintext in memory (never on disk) while it checks a file.
 
 `SecretBox` seals short server-side secrets (Supabase Auth tokens on a device session) the same
 way, bound to their purpose and subject.
@@ -229,6 +231,10 @@ class CaseCrypto:
     def _case_aad(case_id: uuid.UUID, purpose: str) -> bytes:
         # Bound to the case and, when given, to where the blob belongs (e.g. its storage path).
         return case_id.bytes + (b"|" + purpose.encode() if purpose else b"")
+
+    async def warm(self, conn: AsyncConnection, case_id: uuid.UUID) -> None:
+        """Load the case's key into the cache (raises as `decrypt` would if it is missing or destroyed)."""
+        await self._key(conn, case_id, create=False)
 
     async def encrypt(self, conn: AsyncConnection, case_id: uuid.UUID, data: bytes, *, purpose: str = "") -> bytes:
         return _seal(await self._key(conn, case_id, create=True), data, self._case_aad(case_id, purpose))

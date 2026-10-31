@@ -15,6 +15,7 @@ from collections.abc import Mapping
 
 import app.core.housekeeping  # noqa: F401 - registers the foundation's daily schedules
 import app.core.notifications  # noqa: F401 - the daily messages schedule
+import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
 from app.core.config import ConfigError, database_settings
 from app.core.db import Database
