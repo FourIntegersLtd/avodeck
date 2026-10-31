@@ -54,6 +54,7 @@ EXCUSED = {
     "282b451a2c7a370ac1b2f3b0f2e08bbc17f969ee": "feat/embedder: the links floor test in 1097d950 failed here (recall 0.26, the spike 4(a) miss); fixed by the wider links pool in 9ff576a5, branch head tested as a whole, history kept (no force push)",
     "3c3b9653c94ce089fd977e51faa3cf34ef062425": "feat/embedder: image and CI model-cache wiring covered by 1097d950's tests, no test commit of its own; history kept (no force push)",
     "5a67267d770e14c474cc89695dff1e7c8e0de916": "feat/embedder: links ground-truth data only, covered by 1097d950's tests; history kept (no force push)",
+    "f7b3c6bf883d1eec1b3e2d930fe114e685f2c5d8": "fix/upload-hardening: the audit assertion for a repeat claim arrived in this same commit (test_foundation_uploads.py, 7 lines) rather than one before it; it fails without the code beside it, history kept (no force push)",
 }
 
 
