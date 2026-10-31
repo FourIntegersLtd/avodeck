@@ -8,7 +8,12 @@ from __future__ import annotations
 from datetime import date
 
 _WORDS: dict[str, dict[str, str]] = {
-    "en": {"title": "Records transcript", "page": "Page {number}", "undated": "No date"},
+    "en": {
+        "title": "Records transcript",
+        "page": "Page {number}",
+        "undated": "No date",
+        "unread": "This page couldn't be read by the computer; look at the picture.",
+    },
 }
 
 

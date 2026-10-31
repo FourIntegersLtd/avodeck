@@ -26,7 +26,7 @@ from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.contracts.facts import citable_facts
 from app.core.contracts.reading import PageReads
-from app.core.contracts.record_entries import RecordEntry, entries_for_case, entries_ready
+from app.core.contracts.record_entries import RecordEntry, entries_for_case, entries_ready, entries_unread_pages
 from app.core.crypto import CaseCrypto
 from app.core.packs import PackLibrary
 from app.features.reader import repo
@@ -91,6 +91,7 @@ class Listing:
     entries: list[TranscriptEntry]
     total: int
     picture_pages: list[int] = field(default_factory=list)  # pages with no entries: read by opening the picture
+    unread_pages: list[int] = field(default_factory=list)  # the computer could not read these: look at the picture
 
 
 async def _pages_to_read(conn: AsyncConnection, case_id: uuid.UUID) -> dict[uuid.UUID, int]:
@@ -178,10 +179,14 @@ async def entries(
     everything = await entries_for_case(conn, case_id)
     wanted: list[RecordEntry] = [e for e in everything if e.page_id in pages]
     with_entries = {e.page_id for e in everything}
-    picture = sorted(n for p, n in pages.items() if p not in with_entries) if only_read_by is None else []
+    failed = set(await entries_unread_pages(conn, case_id))
+    unread = sorted(n for p, n in pages.items() if n in failed and p not in with_entries)
+    picture = (
+        sorted(n for p, n in pages.items() if p not in with_entries and n not in failed) if only_read_by is None else []
+    )
     chosen = wanted[offset : offset + limit]
     if not chosen:
-        return Listing([], len(wanted), picture)
+        return Listing([], len(wanted), picture, unread)
     included = pack.transcript_entry_kinds()
     kind_labels = {k["key"]: str(k.get("label", k["key"])) for k in pack.entry_kinds()}
     role_labels = {r["key"]: str(r.get("label", r["key"])) for r in pack.author_roles()}
@@ -210,7 +215,7 @@ async def entries(
                 lines, [str(g["key"]) for g in named], [str(g.get("label", g["key"])) for g in named],
             )
         )  # fmt: skip
-    return Listing(out, len(wanted), picture)
+    return Listing(out, len(wanted), picture, unread)
 
 
 async def record_seen(

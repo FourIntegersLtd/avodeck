@@ -60,6 +60,7 @@ async def transcript_entries(
         status="ready",
         total=got.total,
         picture_pages=got.picture_pages,
+        unread_pages=got.unread_pages,
         entries=[
             TranscriptEntryOut(**{f: getattr(e, f) for f in TranscriptEntryOut.model_fields}) for e in got.entries
         ],

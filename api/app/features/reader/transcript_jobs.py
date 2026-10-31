@@ -59,7 +59,9 @@ def transcript_path(case_id: uuid.UUID, job_id: uuid.UUID) -> str:
     return f"{case_prefix(case_id)}/exports/{job_id}/transcript.docx"
 
 
-def build(entries: list[transcript.TranscriptEntry], *, date_order: str, language: str) -> bytes:
+def build(
+    entries: list[transcript.TranscriptEntry], *, date_order: str, language: str, unread_pages: list[int] | None = None
+) -> bytes:
     document = docx.Document()
     document.add_heading(word(language, "title"), level=0)
     for e in entries:
@@ -70,6 +72,9 @@ def build(entries: list[transcript.TranscriptEntry], *, date_order: str, languag
         document.add_heading(", ".join(parts), level=2)
         for line in e.lines:
             document.add_paragraph(line)
+    for number in unread_pages or []:
+        document.add_heading(word(language, "page", number=number), level=2)
+        document.add_paragraph(word(language, "unread"))
     out = io.BytesIO()
     document.save(out)
     return out.getvalue()
@@ -93,15 +98,17 @@ async def export_transcript(ctx: JobContext) -> None:
             return
         pack = library.for_case(codes)
         everything: list[transcript.TranscriptEntry] = []
+        unread: list[int] = []
         while True:
             got = await transcript.entries(
                 conn, crypto, library, ctx.case_id, offset=len(everything), limit=PAGE, only_read_by=named
             )
             everything += got.entries
+            unread = got.unread_pages
             if not got.entries or len(everything) >= got.total:
                 break
         path = transcript_path(ctx.case_id, ctx.job_id)
-        document = build(everything, date_order=pack.date_order, language=pack.language)
+        document = build(everything, date_order=pack.date_order, language=pack.language, unread_pages=unread)
         await storage.put(path, await crypto.encrypt(conn, ctx.case_id, document, purpose=path))
 
 

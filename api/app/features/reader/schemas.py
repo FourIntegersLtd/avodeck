@@ -289,6 +289,7 @@ class TranscriptList(BaseModel):
     total: int
     entries: list[TranscriptEntryOut]
     picture_pages: list[int] = []  # pages with no entries: read by opening the picture
+    unread_pages: list[int] = []  # pages the computer could not read: read by opening the picture
 
 
 class SeenIn(BaseModel):

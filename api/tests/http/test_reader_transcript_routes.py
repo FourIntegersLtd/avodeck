@@ -97,11 +97,70 @@ async def test_entries_not_read_yet_queue_the_job_once(
     client = await client_for(world["expert"])
     for _ in range(2):
         body = (await client.get(f"{base(world)}/transcript/entries")).json()
-        assert body == {"status": "preparing", "total": 0, "entries": [], "picture_pages": []}
+        assert body == {"status": "preparing", "total": 0, "entries": [], "picture_pages": [], "unread_pages": []}
     row = admin.execute(
         "select count(*) from app.jobs where case_id = %s and kind = 'extract_entries'", (world["case"],)
     ).fetchone()
     assert row is not None and row[0] == 1
+
+
+async def _failed_entries_job(admin: psycopg.Connection, aconn: psycopg.AsyncConnection, w: dict[str, Any]) -> None:
+    doc = await add_document(aconn, w["case"])
+    await add_page(aconn, CRYPTO, w["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    admin.execute(
+        "insert into app.page_analysis (page_id, case_id, extracted_at) select id, case_id, now() from app.pages"
+        " where case_id = %s",
+        (w["case"],),
+    )
+    admin.execute(
+        "insert into app.jobs (case_id, kind, status, error_code) values (%s, 'extract_entries', 'failed', 'x')",
+        (w["case"],),
+    )
+
+
+def _jobs(admin: psycopg.Connection, w: dict[str, Any]) -> int:
+    row = admin.execute(
+        "select count(*) from app.jobs where case_id = %s and kind = 'extract_entries'", (w["case"],)
+    ).fetchone()
+    assert row is not None
+    return int(row[0])
+
+
+async def test_polling_after_a_failed_job_reports_failed_and_does_not_queue_again(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    await _failed_entries_job(admin, aconn, world)
+    client = await client_for(world["expert"])
+    for _ in range(3):
+        assert (await client.get(f"{base(world)}/transcript/entries")).json()["status"] == "failed"
+    assert _jobs(admin, world) == 1
+
+
+async def test_an_explicit_retry_queues_the_job_once(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    await _failed_entries_job(admin, aconn, world)
+    client = await client_for(world["expert"])
+    for _ in range(2):
+        resp = await client.post(f"{base(world)}/transcript/retry")
+        assert resp.status_code == 202 and resp.json()["status"] == "preparing"
+    assert _jobs(admin, world) == 2
+    assert (await client.get(f"{base(world)}/transcript/entries")).json()["status"] == "preparing"
+
+
+async def test_a_viewer_cannot_retry_and_a_stranger_gets_404(
+    client_for: Any,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    seed: Seed,
+    world: dict[str, Any],
+) -> None:
+    viewer = seed.person()
+    seed.case_member(world["case"], viewer, "viewer", added_by=world["expert"])
+    await _failed_entries_job(admin, aconn, world)
+    assert (await (await client_for(viewer)).post(f"{base(world)}/transcript/retry")).status_code == 403
+    assert (await (await client_for(world["stranger"])).post(f"{base(world)}/transcript/retry")).status_code == 404
+    assert _jobs(admin, world) == 1
 
 
 async def test_a_stranger_gets_404_on_every_transcript_route(client_for: Any, world: dict[str, Any]) -> None:
