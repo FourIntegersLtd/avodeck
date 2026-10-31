@@ -116,11 +116,14 @@ def _plain(embedder: Embedder, texts: Sequence[Stripped]) -> list[tuple[float, .
 
 
 def embedder_from_env(env: Mapping[str, str] | None = None) -> Embedder:
-    """`EMBEDDER=recorded` (stand-in) or `onnx` (in-process model; files in `MODELS_DIR`)."""
+    """Auto-detect: `onnx` when model files exist at MODELS_DIR, else `recorded`."""
     source = os.environ if env is None else env
     kind = source.get("EMBEDDER", "").strip()
+    models_dir = source.get("MODELS_DIR", "/opt/models")
+    if not kind:
+        kind = "onnx" if Path(models_dir).joinpath("bge-small-en-v1.5-int8").is_dir() else "recorded"
     if kind == "onnx":
-        return OnnxEmbedder(source.get("MODELS_DIR", "/opt/models"))
+        return OnnxEmbedder(models_dir)
     if kind != "recorded":
-        raise ConfigError("EMBEDDER must be 'recorded' or 'onnx'")
+        raise ConfigError("EMBEDDER must be 'recorded', 'onnx' or unset (auto-detect)")
     return RecordedEmbedder()

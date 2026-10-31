@@ -107,12 +107,14 @@ class RecordedScanner:
 
 
 def scanner_from_env(env: Mapping[str, str] | None = None) -> VirusScanner:
-    """`VIRUS_SCANNER=clamd` (the cell) or `recorded` (tests and local)."""
+    """Auto-detect: `clamd` when CLAMD_HOST is set, else `recorded` (tests and local)."""
     source = os.environ if env is None else env
     kind = source.get("VIRUS_SCANNER", "").strip()
+    if not kind:
+        kind = "clamd" if source.get("CLAMD_HOST", "").strip() else "recorded"
     if kind == "recorded":
         return RecordedScanner()
     if kind == "clamd":
         settings = clamd_settings(source)
         return ClamdScanner(settings.host, settings.port, settings.timeout_s)
-    raise ConfigError("VIRUS_SCANNER must be 'clamd' or 'recorded'")
+    raise ConfigError("VIRUS_SCANNER must be 'clamd', 'recorded' or unset (auto-detect)")

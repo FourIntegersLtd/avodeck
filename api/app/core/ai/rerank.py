@@ -33,11 +33,14 @@ class OnnxReranker:
 
 
 def reranker_from_env(env: Mapping[str, str] | None = None) -> OnnxReranker | None:
-    """`RERANKER=onnx` for the in-process model; unset keeps the embedding order."""
+    """Auto-detect: `onnx` when model files exist at MODELS_DIR, else off (embedding order)."""
     source = os.environ if env is None else env
     kind = source.get("RERANKER", "").strip()
+    models_dir = source.get("MODELS_DIR", DEFAULT_MODELS_DIR)
+    if not kind:
+        kind = "onnx" if Path(models_dir).joinpath("bge-reranker-base-int8").is_dir() else ""
     if not kind:
         return None
     if kind != "onnx":
-        raise ConfigError("RERANKER must be 'onnx' or unset")
-    return OnnxReranker(source.get("MODELS_DIR", DEFAULT_MODELS_DIR))
+        raise ConfigError("RERANKER must be 'onnx' or unset (auto-detect)")
+    return OnnxReranker(models_dir)
