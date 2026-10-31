@@ -11,7 +11,7 @@ Method: STRIDE over the data flows in architecture section 2. Review this file w
 
 ## Trust boundaries
 
-Browser ↔ FastAPI (internet) · FastAPI/worker ↔ Supabase (London) · worker ↔ Bedrock London and Azure UK South · FastAPI ↔ Resend, Stripe, Sentry (no patient data) · spot-check colleagues and e-sign counterparts (external people) · the expert's own device for the offline package.
+Browser ↔ FastAPI (internet, straight to the API's own origin: Vercel serves static files only and carries no patient data, ADR 0031; credentialed CORS with an `APP_ORIGIN` allow-list, the server's own origin check on top, and `av_csrf` scoped to the shared registrable domain while the session cookie stays host-only and `SameSite=Strict`) · FastAPI/worker ↔ Supabase (London) · worker ↔ Bedrock London and Azure UK South · FastAPI ↔ Resend, Stripe, Sentry (no patient data) · spot-check colleagues and e-sign counterparts (external people) · the expert's own device for the offline package.
 
 ## Threats and mitigations
 

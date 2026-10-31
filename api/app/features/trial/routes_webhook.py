@@ -23,7 +23,8 @@ from app.core.db import Database
 from app.core.errors import ApiError
 from app.core.http import public_router
 
-webhook_router = public_router(prefix="/v1", tags=["trial"])
+# The provider's server calls this, so it sends no browser `Origin`; the signature is its proof.
+webhook_router = public_router(prefix="/v1", tags=["trial"], machine=True)
 
 MAX_BODY = 512 * 1024
 

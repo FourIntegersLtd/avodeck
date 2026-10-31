@@ -26,11 +26,15 @@ from app.core.http import CurrentScope, DbConn, router
 
 jobs_router = router(prefix="/v1/jobs", tags=["jobs"])
 
-# Vercel cuts any proxied request at 120 s on every plan (measured 2026-10-31, docs/runbooks/railway.md),
-# and the browser reaches this stream through that rewrite. The stream ends itself well under it so the
-# browser reconnects on a clean end, not on a proxy error.
-PROXY_TIMEOUT_SECONDS = 120.0
-JOB_STREAM_SECONDS = 90.0
+# The browser reaches this stream straight from the API's own origin (ADR 0031), so Railway's edge is
+# the only one in the way: it closes a request idle for 5 minutes, and community reports put a cutoff at
+# around a minute on a request that sends nothing at all. So the stream feeds the edge a comment frame
+# every HEARTBEAT_SECONDS even when the job has not moved, and ends itself well before the idle close so
+# the browser reconnects on a clean end rather than on an edge error.
+EDGE_IDLE_SECONDS = 300.0
+EDGE_SILENT_SECONDS = 60.0
+HEARTBEAT_SECONDS = 20.0
+JOB_STREAM_SECONDS = 240.0
 
 _PROGRESS = ("status", "step", "pct", "eta_seconds", "error_code")  # the stream keeps these
 _FINISHED = {"done", "failed"}
@@ -86,18 +90,25 @@ async def job_events(job_id: uuid.UUID, request: Request, conn: DbConn, scope: C
     database: Database = request.app.state.database
     poll = float(request.app.state.job_poll_seconds)
     limit = float(request.app.state.job_stream_seconds)
+    heartbeat = float(request.app.state.job_heartbeat_seconds)
 
     async def events() -> AsyncIterator[str]:
         loop = asyncio.get_running_loop()
         deadline = loop.time() + limit
         last: dict[str, object] | None = None
+        sent_at = loop.time()
         while True:
             current = await _progress(database, scope, job_id)
             if current is None:  # the job (or access to its case) is gone
                 return
             if current != last:
                 last = current
+                sent_at = loop.time()
                 yield f"data: {json.dumps(current)}\n\n"
+            elif loop.time() - sent_at >= heartbeat:
+                # A comment frame: it keeps the connection fed without the browser seeing an event.
+                sent_at = loop.time()
+                yield ": keepalive\n\n"
             if current["status"] in _FINISHED or loop.time() >= deadline:
                 return
             await asyncio.sleep(min(poll, max(deadline - loop.time(), 0)))

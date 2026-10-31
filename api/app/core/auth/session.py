@@ -201,24 +201,33 @@ async def revoke(
     return cur.rowcount
 
 
-def _cookie(response: Response, name: str, value: str, *, http_only: bool) -> None:
+def _cookie(response: Response, name: str, value: str, *, http_only: bool, domain: str | None = None) -> None:
     response.set_cookie(
         name,
         value,
         max_age=int(MAX_AGE.total_seconds()),
         path="/",
+        domain=domain,
         secure=True,
         httponly=http_only,
         samesite="strict",
     )
 
 
-def set_cookies(response: Response, tokens: NewTokens) -> None:
+def set_cookies(response: Response, tokens: NewTokens, domain: str | None = None) -> None:
+    """Sets both cookies. `domain` (the cell's `COOKIE_DOMAIN`) widens the CSRF cookie only.
+
+    With the API on its own host (ADR 0031), a host-only CSRF cookie would be invisible to page
+    script on the web app's origin, which has to read it to send it back in `X-CSRF-Token`. The
+    session cookie stays host-only: it is httpOnly, nothing reads it, and narrower is better. Both
+    hosts are the same site, so `SameSite=Strict` is sent to either way.
+    """
     _cookie(response, SESSION_COOKIE, tokens.session, http_only=True)
-    _cookie(response, CSRF_COOKIE, tokens.csrf, http_only=False)
+    _cookie(response, CSRF_COOKIE, tokens.csrf, http_only=False, domain=domain)
     response.headers["cache-control"] = "no-store"
 
 
-def clear_cookies(response: Response) -> None:
-    for name, http_only in ((SESSION_COOKIE, True), (CSRF_COOKIE, False)):
-        response.delete_cookie(name, path="/", secure=True, httponly=http_only, samesite="strict")
+def clear_cookies(response: Response, domain: str | None = None) -> None:
+    """Deletes both cookies. A cookie only goes when the `Set-Cookie` matches the domain it was set on."""
+    for name, http_only, on_domain in ((SESSION_COOKIE, True, None), (CSRF_COOKIE, False, domain)):
+        response.delete_cookie(name, path="/", domain=on_domain, secure=True, httponly=http_only, samesite="strict")

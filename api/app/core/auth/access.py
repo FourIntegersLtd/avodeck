@@ -33,7 +33,7 @@ from app.core.auth.session import current_session
 from app.core.auth.step_up import check_step_up
 from app.core.db import RequestScope
 from app.core.errors import ApiError
-from app.core.http import DbConn
+from app.core.http import DbConn, allowed_origins, origin_allowed
 
 
 @dataclass(frozen=True)
@@ -143,9 +143,11 @@ class SocketCaseAccessDependency:
         self.step_up = CASE_ACTIONS[action].step_up
 
     async def __call__(self, websocket: WebSocket, case_id: str) -> SocketCaseAccess:
-        app_origin = websocket.app.state.app_origin
+        # A WebSocket handshake is not subject to CORS, so this check is the only thing standing between
+        # another site's page and this socket (ADR 0031).
         origin = websocket.headers.get("origin")
-        if origin is None or app_origin is None or origin.rstrip("/") != app_origin:
+        allowed = allowed_origins(websocket.app)
+        if origin is None or not allowed or not origin_allowed(origin, allowed):
             raise _refuse(4403)
         database = websocket.app.state.database
         if database is None:

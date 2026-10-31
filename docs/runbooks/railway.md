@@ -23,7 +23,8 @@ Copy every name from `api/.env.example` into both services (Railway "shared vari
 - `DATABASE_URL` and `DATABASE_URL_DIRECT`: the Supabase **session pooler**, not the direct host (IPv6 only):
   `postgresql://<role>.<project-ref>:<password>@aws-0-eu-west-2.pooler.supabase.com:5432/postgres?sslmode=require`
   with `app_api` for `DATABASE_URL` and `app_worker` for `DATABASE_URL_DIRECT`.
-- `APP_ORIGIN`: the web app's public origin (the Vercel domain).
+- `APP_ORIGIN`: the web app's public origins, comma-separated (`https://avodeck.com`). Never a wildcard; start-up refuses one.
+- `COOKIE_DOMAIN`: `avodeck.com`, so the page on `avodeck.com` can read the `av_csrf` cookie the API sets (ADR 0031). Empty locally.
 - `PACKS_APPROVED_ONLY=1` once the launch packs are approved.
 
 ## Migrations
@@ -33,46 +34,66 @@ Not run by Railway. From the founder's Mac, before deploying code that needs the
 
 ## Web app (Vercel)
 
-The browser must reach the API on its own origin (web/AGENTS.md). In `web/vercel.json`, add a rewrite once the Railway domain exists:
+The browser calls the API **directly** on `https://api.avodeck.com` (ADR 0031). Vercel serves static files
+only and proxies nothing, so Vercel's 120 s limit on a proxied request no longer applies to anything.
 
-```json
-"rewrites": [{ "source": "/v1/:path*", "destination": "https://api.avodeck.com/v1/:path*" }]
+Required on the Vercel project (Production, and any preview that should work):
+
+```
+VITE_API_ORIGIN=https://api.avodeck.com
 ```
 
-The api service's public name is `api.avodeck.com` (Railway custom domain, target port 8000). In Cloudflare it is a CNAME `api` to the value Railway shows, DNS only (grey cloud), plus the TXT `_railway-verify.api` Railway shows. The Railway name `api-production-0e15e.up.railway.app` still works.
+It is baked into the bundle at build time by `cspPlugin` (`web/csp.ts`), so a change needs a redeploy, and
+an empty value ships a build that calls a dead `/v1` path on the web host.
 
+One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: `web/scripts/add-landing.sh`
+puts the landing page (`site/`) at `/` and `/privacy`, and the app's `index.html` becomes `app.html`, the
+fallback for every other path. `web/vercel.json` holds no rewrite to the API.
 
-One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: `web/scripts/add-landing.sh` puts the landing page (`site/`) at `/` and `/privacy`, the app's `index.html` becomes `app.html` (the fallback for every other path), and `/v1/*` goes to Railway. `APP_ORIGIN` on Railway is `https://avodeck.com`.
+The api service's public name is `api.avodeck.com` (Railway custom domain, target port 8000). In Cloudflare
+it is a CNAME `api` to the value Railway shows, **DNS only (grey cloud)** — proxying it would put a 125 s
+read and a 30 s write timeout back in the way, plus Cloudflare's history of buffering server-sent events.
+The Railway name `api-production-0e15e.up.railway.app` still works.
 
-Vercel rewrites do not carry WebSockets, so live dictation (`/v1/.../dictation`) needs the API on a subdomain of the web domain (for example `api.avodeck.com` behind the same site) before it works in the cloud. Everything else works through the rewrite.
+**Rollback** (if a cross-origin problem appears in production): revert the `web/vercel.json` and
+`VITE_API_ORIGIN` change and redeploy the web app. The API's CORS, cookie domain and stream heartbeats all
+work unchanged on the same-origin setup, so they stay in place.
 
-## Proxy limits (measured 2026-10-31)
+## Proxy limits
 
-Every API call, every chunk `PUT` and the job event stream pass through the Vercel rewrite
-(`web/vercel.json`, `/v1/:path*` to `https://api.avodeck.com`), because the web app and API share an origin.
+Measured 2026-10-31, when every call still went through the Vercel rewrite — the reason it was removed:
 
-- **Body size: no cap at 9 MiB.** A 9 MiB `PUT` (9437184 bytes) reached FastAPI intact through `avodeck.com` and
-  was answered 401 `not_signed_in` by the app (about 13 s on a domestic connection). The 4.5 MB body limit in
-  Vercel's docs applies to Vercel Functions, not to a rewrite to an external destination. `CHUNK_SIZE` (8 MiB) is safe.
-- **Direct to `api.avodeck.com`** the same `PUT` is answered 401 after about 130 KB: auth rejects before the body is read.
-  `GET /v1/cell` returns 200 on both hosts.
-- **Proxied request timeout: 120 s on every plan** (`https://vercel.com/docs/limits`; not raisable). A request not
-  finished by then gets `ROUTER_EXTERNAL_TARGET_ERROR`.
-- **Railway's own request timeout was not measured and is still unknown.**
+- **Body size: no cap at 9 MiB.** A 9 MiB `PUT` (9437184 bytes) reached FastAPI intact through
+  `avodeck.com` and was answered 401 `not_signed_in` (about 13 s on a domestic connection). The 4.5 MB
+  body limit in Vercel's docs applies to Vercel Functions, not to a rewrite to an external destination.
+- **Proxied request timeout: 120 s on every plan** (`https://vercel.com/docs/limits`; not raisable). A
+  request not finished by then gets `ROUTER_EXTERNAL_TARGET_ERROR`. An 8 MiB chunk therefore needed about
+  560 kbit/s sustained upstream, which a rural connection does not have.
+- **Direct to `api.avodeck.com`** the same `PUT` is answered 401 after about 130 KB: auth rejects before
+  the body is read. `GET /v1/cell` returns 200 on both hosts.
 
-To re-measure, send the unauthenticated 9 MiB `PUT` from "Uploads" below to both `https://avodeck.com` and
-`https://api.avodeck.com`. Auth rejects it, so no data is created.
+What applies now (Railway's documented limits, `docs.railway.com/networking/public-networking/specs-and-limits`):
+
+| Limit | Railway |
+|---|---|
+| Request active | 15 minutes |
+| Request idle (nothing sent either way) | 5 minutes |
+| Request body must finish within | 5 minutes |
+| Request body size | none documented |
+| Headers, combined | 32 KB |
 
 Consequences:
 
-1. **The job stream must end under 120 s.** `JOB_STREAM_SECONDS` (90) in `api/app/core/routes/jobs.py` is below
-   `PROXY_TIMEOUT_SECONDS` (120), pinned by a test. It was 300, so Vercel cut every stream first as a proxy error.
-   Keep it under the proxy limit; `EventSource` reconnects on the clean end.
-2. **Known limit: slow upstream.** An 8 MiB chunk must finish within 120 s, so it needs about 560 kbit/s sustained
-   upstream (8 x 1048576 x 8 bits / 120 s is roughly 559 kbit/s). On a slower rural connection every chunk times out
-   and the retry does too. `CHUNK_SIZE` is a server contract carried on the upload row, so it is not changed here.
-   Options for later: a smaller chunk size (a contract change, needs a decision record), or a separate API origin so
-   uploads skip the Vercel edge (`web/AGENTS.md`: needs a decision record first). Logged in `docs/decisions/deferred.md`.
+1. **The job stream is fed and ends early.** `api/app/core/routes/jobs.py` emits a `: keepalive` comment
+   every `HEARTBEAT_SECONDS` (20) and ends at `JOB_STREAM_SECONDS` (240), both pinned by a test against
+   `EDGE_SILENT_SECONDS` (60, community reports of a cutoff on a silent request) and `EDGE_IDLE_SECONDS`
+   (300, Railway's idle close). `EventSource` reconnects on the clean end.
+2. **An 8 MiB chunk now needs about 225 kbit/s** sustained upstream (8 x 1048576 x 8 bits / 300 s), so
+   `CHUNK_SIZE` stays as it is.
+
+**Still to measure on the live deployment** (the probes below are unauthenticated, so they create no data):
+a 9 MiB `PUT` straight to `api.avodeck.com`; a request that takes longer than 120 s; and a job stream alive
+past 120 s with heartbeats arriving. Write the numbers here.
 
 ## Uploads: limits to confirm before the first real bundle
 
@@ -83,9 +104,7 @@ waits on finalisation. Confirm these on the real deployment and write the number
 
 | Limit | Where | Needs | Measured |
 |---|---|---|---|
-| Request body size | Vercel rewrite `/v1/:path*` | ≥ 9 MiB | 9 MiB passes (2026-10-31) |
 | Request body size | Railway `api` | ≥ 9 MiB | |
-| Response timeout | Vercel rewrite | ≥ 120 s | 120 s exactly, every plan (2026-10-31); see Proxy limits |
 | Response timeout | Railway `api` | ≥ 120 s | |
 | Storage object size | Supabase Storage | ≥ 9 MiB per part | |
 | Storage request rate | Supabase Storage | ~15 PUTs per 100 MB bundle, 3 at a time | |

@@ -59,13 +59,53 @@ class AuthSettings:
     """Supabase Auth for this cell, called only by FastAPI (rule 4). Keys hidden from repr.
 
     The service-role key is used only for Auth admin calls (ADR 0013), never for the database.
-    `app_origin` is the web app's origin: the only one allowed to send requests with cookies.
+
+    `app_origins` is every origin allowed to send this API a request with cookies: `APP_ORIGIN`, one
+    or several separated by commas. The API lives on its own origin (ADR 0031), so each of those is
+    cross-origin and needs CORS; a wildcard is refused, since a browser ignores one on a credentialed
+    request anyway. `app_origin` is the first of them, the one the API builds links in email from.
+
+    `cookie_domain` widens the CSRF cookie so page script on the web app's origin can read it when the
+    API is on a different host (`COOKIE_DOMAIN`, e.g. `avodeck.com`). It must cover every allowed
+    origin, so a cell cannot scope its cookie to a domain it does not serve. Unset (same-origin
+    hosting and local development) leaves every cookie host-only.
     """
 
     url: str
     anon_key: str = field(repr=False)
     service_role_key: str = field(repr=False)
-    app_origin: str
+    app_origins: tuple[str, ...]
+    cookie_domain: str | None = None
+
+    @property
+    def app_origin(self) -> str:
+        return self.app_origins[0]
+
+
+def _app_origins(value: str) -> tuple[str, ...]:
+    origins = tuple(part.strip().rstrip("/") for part in value.split(",") if part.strip())
+    if not origins:
+        raise ConfigError("APP_ORIGIN is not set")
+    for origin in origins:
+        if "*" in origin:
+            raise ConfigError(f"APP_ORIGIN must name each origin in full, not a pattern: {origin!r}")
+        parts = urlsplit(origin)
+        if parts.scheme not in ("http", "https") or not parts.hostname or parts.path:
+            raise ConfigError(f"APP_ORIGIN is not an origin: {origin!r}")
+    return origins
+
+
+def _cookie_domain(value: str, origins: tuple[str, ...]) -> str | None:
+    domain = value.strip().lstrip(".").rstrip(".").lower()
+    if not domain:
+        return None
+    if "." not in domain:
+        raise ConfigError(f"COOKIE_DOMAIN must be a domain name: {domain!r}")
+    for origin in origins:
+        host = (urlsplit(origin).hostname or "").lower()
+        if host != domain and not host.endswith(f".{domain}"):
+            raise ConfigError(f"COOKIE_DOMAIN {domain!r} does not cover APP_ORIGIN {origin!r}")
+    return domain
 
 
 def auth_settings(env: Mapping[str, str] | None = None) -> AuthSettings:
@@ -75,11 +115,13 @@ def auth_settings(env: Mapping[str, str] | None = None) -> AuthSettings:
     missing = [name for name, value in values.items() if not value]
     if missing:
         raise ConfigError(f"{', '.join(missing)} not set")
+    origins = _app_origins(values["APP_ORIGIN"])
     return AuthSettings(
         url=values["SUPABASE_URL"].rstrip("/"),
         anon_key=values["SUPABASE_ANON_KEY"],
         service_role_key=values["SUPABASE_SERVICE_ROLE_KEY"],
-        app_origin=values["APP_ORIGIN"].rstrip("/"),
+        app_origins=origins,
+        cookie_domain=_cookie_domain(source.get("COOKIE_DOMAIN", ""), origins),
     )
 
 

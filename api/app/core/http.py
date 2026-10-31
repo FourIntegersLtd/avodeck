@@ -1,7 +1,7 @@
 """Signed-in routes: session, CSRF, MFA, one database transaction per request, Idempotency-Key and If-Match.
 
 Build every signed-in router with `router()`. Each request on it:
-- refuses a browser `Origin` other than the web app's (403 `bad_origin`);
+- refuses an `Origin` other than the web app's, and a change with none at all (403 `bad_origin`);
 - resolves the device session from its cookie (401 `not_signed_in` or `session_expired`; a request
   counts as activity unless the router says `touch=False`);
 - on a state-changing method, needs the CSRF token in `X-CSRF-Token` (403 `csrf_required`);
@@ -171,14 +171,36 @@ def _local_dev_origin_alias(origin: str, allowed: str) -> bool:
     return False
 
 
-def check_origin(request: Request) -> None:
-    """A browser sends Origin on state-changing requests; only the web app's own is accepted."""
+def allowed_origins(app: Any) -> tuple[str, ...]:
+    """The cell's `APP_ORIGIN` list: every origin allowed to send a request with cookies."""
+    origins = getattr(getattr(app, "state", None), "app_origins", ())
+    return tuple(origins or ())
+
+
+def origin_matches(origin: str, allowed: str) -> bool:
+    return origin == allowed or _local_dev_origin_alias(origin, allowed)
+
+
+def origin_allowed(origin: str, allowed: tuple[str, ...]) -> bool:
+    return any(origin_matches(origin.rstrip("/"), candidate) for candidate in allowed)
+
+
+def check_origin(request: Request, *, require: bool = False) -> None:
+    """Only the web app's own origins may send this API a request; a browser always names itself.
+
+    This runs whatever CORS says: CORS is what the browser enforces, this is what the server does.
+    With `require`, a change arriving with no `Origin` at all is refused as well. That is for the
+    routes a cookie signs in: the API is on its own origin now (ADR 0031), so a browser always sends
+    one, and without it there is no way to tell where the request came from. Routes that carry their
+    own proof instead of a cookie — a signed webhook, a health check — have no cookie to abuse, so a
+    missing `Origin` is fine there; a foreign one is still refused.
+    """
     origin = request.headers.get("origin")
     if origin is None:
+        if require and request.method not in SAFE_METHODS:
+            raise ApiError("bad_origin", "Request refused.", 403)
         return
-    normalised = origin.rstrip("/")
-    allowed = request.app.state.app_origin
-    if normalised != allowed and not _local_dev_origin_alias(normalised, allowed):
+    if not origin_allowed(origin, allowed_origins(request.app)):
         raise ApiError("bad_origin", "Request refused.", 403)
 
 
@@ -212,7 +234,7 @@ class SessionRoute(APIRoute):
                 self.dependant = plain
 
         async def run(request: Request) -> Response:
-            check_origin(request)
+            check_origin(request, require=True)
             database = request.app.state.database
             if database is None:
                 raise ApiError("unavailable", "The service is not ready.", 503)
@@ -265,14 +287,17 @@ class PublicRoute(APIRoute):
     """A route used before anyone is signed in (sign-in, recovery, password reset, email links).
 
     Only the Origin check runs here; each handler opens its own transactions. The CSRF guard
-    (tests/guards/test_foundation_csrf.py) names every such route.
+    (tests/guards/test_foundation_csrf.py) names every such route. `require_origin` is off only for
+    the routes a machine calls (a signed webhook), which send no `Origin` at all.
     """
+
+    require_origin = True
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
         handler = super().get_route_handler()
 
         async def run(request: Request) -> Response:
-            check_origin(request)
+            check_origin(request, require=self.require_origin)
             return await handler(request)
 
         return run
@@ -289,9 +314,17 @@ def router(
     return APIRouter(route_class=route_class, **kwargs)
 
 
-def public_router(**kwargs: Any) -> APIRouter:
-    """Only for the signed-out steps; adding a route here needs the foundation owner (CSRF guard)."""
-    return APIRouter(route_class=PublicRoute, **kwargs)
+def public_router(*, machine: bool = False, **kwargs: Any) -> APIRouter:
+    """Only for the signed-out steps; adding a route here needs the foundation owner (CSRF guard).
+
+    `machine=True` is for a caller that is not a browser and proves itself some other way (a signed
+    webhook): it may send no `Origin`. A browser route must not use it — a change with no `Origin`
+    there has nothing left saying where it came from.
+    """
+    route_class: type[PublicRoute] = PublicRoute
+    if machine:
+        route_class = cast("type[PublicRoute]", type("MachinePublicRoute", (PublicRoute,), {"require_origin": False}))
+    return APIRouter(route_class=route_class, **kwargs)
 
 
 def _connection(request: Request) -> AsyncConnection:

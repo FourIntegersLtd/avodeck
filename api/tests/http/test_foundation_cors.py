@@ -104,3 +104,12 @@ async def test_a_read_without_an_origin_still_works() -> None:
 def test_the_header_lists_are_not_wildcards() -> None:
     """A browser ignores `*` on a credentialed request, so a wildcard here would fail silently."""
     assert "*" not in ALLOW_HEADERS and "*" not in EXPOSE_HEADERS
+
+
+def test_only_a_machine_route_may_skip_the_origin_requirement() -> None:
+    """A browser route refused without an `Origin`; a signed webhook has its signature instead."""
+    from app.core.http import PublicRoute, public_router
+
+    assert PublicRoute.require_origin is True
+    machine = public_router(machine=True).route_class
+    assert issubclass(machine, PublicRoute) and machine.require_origin is False

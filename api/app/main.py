@@ -15,6 +15,7 @@ from app.core.config import ConfigError, auth_settings, cell_settings, database_
 from app.core.contracts.reading import PageReadLog
 from app.core.contracts.today import NeedsYouRegistry
 from app.core.contracts.today import needs_you as default_needs_you
+from app.core.cors import Cors
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.db import Database
 from app.core.email import Mailer, OutboxMailer, mail_configured
@@ -28,7 +29,7 @@ from app.core.routes.cases import cases_router
 from app.core.routes.cell import cell_public_router
 from app.core.routes.dictation import dictation_socket, transcripts_router
 from app.core.routes.help import help_router
-from app.core.routes.jobs import JOB_STREAM_SECONDS, jobs_router
+from app.core.routes.jobs import HEARTBEAT_SECONDS, JOB_STREAM_SECONDS, jobs_router
 from app.core.routes.me import me_router
 from app.core.routes.notifications import notifications_router
 from app.core.routes.packs import case_pack_router, packs_router
@@ -44,6 +45,14 @@ from app.features.trial.routes_webhook import webhook_router as esign_webhook_ro
 
 # Slice B's read log is the app's own; a test passing `page_reads=None` gets a gate that stays shut.
 READER_LOG = ReaderPageReadLog()
+
+
+def _origins(app: FastAPI, settings: object | None) -> None:
+    """Put the cell's allowed web origins on app state: the one source of truth for CORS and the
+    origin checks, with `app_origin` kept as the one used to build links."""
+    app.state.app_origins = tuple(getattr(settings, "app_origins", ()) or ())
+    app.state.app_origin = getattr(settings, "app_origin", None)
+    app.state.cookie_domain = getattr(settings, "cookie_domain", None)
 
 
 def create_app(
@@ -84,7 +93,7 @@ def create_app(
             logs.init_sentry(dsn, environment=os.environ.get("SENTRY_ENVIRONMENT", app.state.region))
         if app.state.auth is None:
             app.state.auth = SupabaseAuth(auth_settings())
-            app.state.app_origin = app.state.auth.settings.app_origin
+            _origins(app, app.state.auth.settings)
         if app.state.database is None:
             owned = Database(database_settings().url)
             await owned.open()
@@ -119,7 +128,7 @@ def create_app(
     app.state.database = database
     app.state.region = region
     app.state.auth = auth
-    app.state.app_origin = auth.settings.app_origin if auth is not None else None
+    _origins(app, auth.settings if auth is not None else None)
     app.state.mailer = mailer if mailer is not None else OutboxMailer()
     # Mail that is only a convenience (support's set-password link) is skipped when no mail service is set up.
     app.state.mail_configured = mailer is not None or mail_configured()
@@ -130,9 +139,15 @@ def create_app(
     app.state.needs_you = needs_you if needs_you is not None else default_needs_you
     app.state.page_reads = page_reads
     app.state.job_poll_seconds = 1.0  # how often a progress stream looks at its job
-    app.state.job_stream_seconds = JOB_STREAM_SECONDS  # then it ends and the browser reconnects; under Vercel's 120 s
+    # Then the stream ends and the browser reconnects, under Railway's idle close; the heartbeat keeps a
+    # quiet stream from looking silent to the edge (ADR 0031).
+    app.state.job_stream_seconds = JOB_STREAM_SECONDS
+    app.state.job_heartbeat_seconds = HEARTBEAT_SECONDS
     logs.configure(app.state.packs.identifier_finders())
     app.add_middleware(logs.RequestLog)
+    # Added last, so it is outermost: a preflight is answered before the session, CSRF and transaction
+    # machinery, and every response carries its CORS headers however it was produced.
+    app.add_middleware(Cors)
     install_error_handlers(app)
     routers = (
         cell_public_router,

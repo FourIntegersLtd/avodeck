@@ -27,7 +27,11 @@ class Storage(SimpleNamespace):
 
 
 def an_app(storage: Any) -> Any:
-    auth = SimpleNamespace(settings=SimpleNamespace(app_origin="https://zz.invalid"))
+    auth = SimpleNamespace(
+        settings=SimpleNamespace(
+            app_origin="https://zz.invalid", app_origins=("https://zz.invalid",), cookie_domain=None
+        )
+    )
     return create_app(
         database=SimpleNamespace(),  # type: ignore[arg-type]
         region="zz",
