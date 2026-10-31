@@ -49,7 +49,12 @@ API_URL ?= http://localhost:8000
 schemathesis:
 	poetry run schemathesis run ../openapi.json --url $(API_URL)
 
-eval:           ## live models against synthetic bundles
+eval: eval-links  ## live models against synthetic bundles (and the in-process links models)
 	poetry run python -m app.evals.run --threshold 0.95
+
+# No cloud account needed: the in-process embedder, then embedder plus reranker, each against the recall floor.
+eval-links:     ## T-11 links recall@10 with the in-process models (MODELS_DIR; scripts/fetch_models.py)
+	EMBEDDER=onnx poetry run python -m app.evals.run --task links
+	EMBEDDER=onnx RERANKER=onnx poetry run python -m app.evals.run --task links
 
 ci: lint typecheck packs guards test

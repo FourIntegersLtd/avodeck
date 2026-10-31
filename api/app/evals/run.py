@@ -9,8 +9,10 @@ the run stops with exit 2 and says it needs cloud accounts. It prints counts onl
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 
 from app.core.config import ConfigError, cell_settings
 
@@ -32,6 +34,22 @@ def _links(env: Mapping[str, str] | None) -> int:
     from app.evals import links
 
     expected = REPO / "evals" / "gb-eaw" / "clin-neg-breach" / "general-practice" / "expected"
+    source = os.environ if env is None else env
+    folders = {"EMBEDDER": "bge-small-en-v1.5-int8", "RERANKER": "ms-marco-minilm-l6-int8"}
+    models_dir = Path(source.get("MODELS_DIR", "/opt/models"))
+    absent = [
+        f"{folder}/{name}"
+        for setting, folder in folders.items()
+        if source.get(setting, "").strip() == "onnx"
+        for name in ("model_quantized.onnx", "tokenizer.json")
+        if not (models_dir / folder / name).is_file() or (models_dir / folder / name).stat().st_size == 0
+    ]
+    if absent:
+        print(
+            f"make eval --task links needs the model files in MODELS_DIR (scripts/fetch_models.py): missing {absent}",
+            file=sys.stderr,
+        )
+        return NEEDS_CLOUD
     try:
         result = links.evaluate(embedder_from_env(env), expected, reranker=reranker_from_env(env))
     except ConfigError as problem:

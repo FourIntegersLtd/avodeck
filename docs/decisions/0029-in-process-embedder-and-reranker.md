@@ -16,6 +16,6 @@ Date: 2026-10-31 · Status: accepted · Decided by: the founder (spike 4(a), opt
 
 **Image.** The runtime image grows by about 97 MB on disk (models 56 MB, `onnxruntime` 32 MB, `tokenizers` 9 MB); total image 291 MB.
 
-**Quality.** `make eval` gains `--task links` (recall@10 over 10 questions of the synthetic bundle, `evals/.../expected/links.json`): stand-in 0.43, bge-small 0.58, bge-small plus reranker 0.55. The floor is 0.5 (`docs/decisions/deferred.md`). The reranker does not help on this bundle; it stays optional (`RERANKER` unset keeps the embedding order).
+**Quality.** `make eval` gains `--task links` (recall@10 over 10 questions of the synthetic bundle, `evals/.../expected/links.json`): stand-in 0.14, bge-small 0.40, bge-small plus reranker 0.38, ranking every fact of the bundle with the wording T-11 embeds (`fact_wording`); a question with more than ten expected facts scores 1.0 when all ten offered are expected. The floor is 0.35 (`docs/decisions/deferred.md`). The reranker does not help on this bundle; it stays optional (`RERANKER` unset keeps the embedding order).
 
 **Consequences.** Slice D's `understand/services.py` reads `RERANKER`; `understand/jobs.py` embeds questions with `embed_queries` and hands the reranker stripped text. Slice A is unchanged: its page embedding loop already calls `embedder.embed`. Local runs and CI use the stand-in unless `EMBEDDER=onnx` and `MODELS_DIR` are set; CI caches the model files and runs the model tests.

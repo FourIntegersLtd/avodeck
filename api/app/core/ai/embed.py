@@ -7,6 +7,7 @@ text (rule 7); a plain string is refused. The cell config (`EMBEDDER`) chooses t
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import math
 import os
@@ -96,6 +97,22 @@ def embed_queries(embedder: Embedder, texts: Sequence[Stripped]) -> list[tuple[f
     """Questions to search with: the embedder's query form when it has one, else plain `embed`."""
     query_form = getattr(embedder, "embed_queries", None)
     return query_form(texts) if query_form else embedder.embed(texts)
+
+
+async def embed_batches(
+    embedder: Embedder, texts: Sequence[Stripped], *, queries: bool = False
+) -> list[tuple[float, ...]]:
+    """Embeds `texts` in batches of `BATCH`, each forward pass in a worker thread so the event loop
+    keeps serving (ADR 0029). `queries=True` uses the query form when the embedder has one."""
+    out: list[tuple[float, ...]] = []
+    for start in range(0, len(texts), BATCH):
+        chunk = texts[start : start + BATCH]
+        out.extend(await asyncio.to_thread(embed_queries if queries else _plain, embedder, chunk))
+    return out
+
+
+def _plain(embedder: Embedder, texts: Sequence[Stripped]) -> list[tuple[float, ...]]:
+    return embedder.embed(texts)
 
 
 def embedder_from_env(env: Mapping[str, str] | None = None) -> Embedder:

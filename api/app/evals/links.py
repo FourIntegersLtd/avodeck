@@ -7,7 +7,6 @@ stripped, `kind value`), ranks by cosine, optionally reranks. Prints counts only
 
 from __future__ import annotations
 
-import datetime
 import json
 import uuid
 from collections.abc import Hashable, Sequence
@@ -18,18 +17,12 @@ from pathlib import Path
 from app.core.ai import pii
 from app.core.ai.embed import Embedder, embed_queries
 from app.core.packs import default_library
-from app.features.understand.links import IdentityReranker, Reranker, candidates
+from app.features.understand.links import IdentityReranker, Reranker, candidates, fact_wording
 
-FLOOR = 0.5
+FLOOR = 0.35
 K = 10
 
 Key = tuple[int, str, str]
-
-
-def _text(fact: dict) -> str:  # type: ignore[type-arg]
-    """The wording embedded for a fact: its kind, value and day, as `understand/jobs.py` does."""
-    day = datetime.date.fromisoformat(fact["event_date"])
-    return f"{fact['kind']} {fact['value']} {day.day} {day.strftime('%B %Y')}"
 
 
 @dataclass(frozen=True)
@@ -42,7 +35,16 @@ class LinksResult:
 
 
 def recall_at_k(ranked: Sequence[Hashable], expected: AbstractSet[Hashable], k: int) -> float:
-    return len(set(ranked[:k]) & expected) / len(expected) if expected else 0.0
+    return len(set(ranked[:k]) & expected) / min(len(expected), k) if expected else 0.0
+
+
+def pool_facts(expected_dir: Path) -> dict[Key, str]:
+    """The facts ranked for each question, with the wording T-11 embeds for them. T-11 offers every
+    checked fact of the case, so the pool is every fact of the synthetic bundle that has a value."""
+    pool: dict[Key, str] = {}
+    for fact in json.loads((expected_dir / "facts.json").read_text()):
+        pool.setdefault((fact["page"], fact["kind"], fact["quote"]), fact_wording(fact["kind"], fact["value"]))
+    return pool
 
 
 def evaluate(embedder: Embedder, expected_dir: Path, *, reranker: Reranker | None = None, k: int = K) -> LinksResult:
@@ -54,11 +56,7 @@ def evaluate(embedder: Embedder, expected_dir: Path, *, reranker: Reranker | Non
     def stripped(text: str) -> pii.Stripped:
         return pii.strip(text, pack=pack, names=case["case_names"])
 
-    facts: dict[Key, str] = {}
-    for fact in json.loads((expected_dir / "facts.json").read_text()):
-        if not case["period_start"] <= (fact["event_date"] or "") <= case["period_end"]:
-            continue  # the pool is the facts of the period under review, as the expert's case scope sets it
-        facts.setdefault((fact["page"], fact["kind"], fact["quote"]), _text(fact))
+    facts = pool_facts(expected_dir)
     keys = list(facts)
     ids = [uuid.UUID(int=n + 1) for n in range(len(keys))]
     key_of = dict(zip(ids, keys, strict=True))

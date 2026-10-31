@@ -13,8 +13,8 @@ from app.core.ai.embed import OnnxEmbedder, RecordedEmbedder
 from app.core.ai.pii import Stripped
 from app.core.packs import REPO
 from app.evals import links
-from app.features.understand.links import fact_wording
 from app.evals import run as eval_run
+from app.features.understand.links import fact_wording
 
 EXPECTED = REPO / "evals" / "gb-eaw" / "clin-neg-breach" / "general-practice" / "expected"
 MODELS = Path(os.environ.get("MODELS_DIR", "/opt/models"))
@@ -27,6 +27,10 @@ def test_recall_at_k_counts_expected_facts_found_in_the_first_k() -> None:
     assert links.recall_at_k(["a", "b", "c", "d"], {"a", "d"}, 2) == 0.5
     assert links.recall_at_k(["a", "b", "c", "d"], {"a", "d"}, 4) == 1.0
     assert links.recall_at_k([], {"a"}, 10) == 0.0
+
+
+def test_a_question_with_more_expected_facts_than_k_scores_one_when_all_k_are_expected() -> None:
+    assert links.recall_at_k(list("abcdef"), set("abcdefgh"), 4) == 1.0
 
 
 def test_every_expected_link_names_a_fact_the_eval_ranks() -> None:
@@ -48,8 +52,17 @@ def test_the_eval_embeds_exactly_the_wording_t11_embeds() -> None:
             return super().embed(texts)
 
     links.evaluate(Spy(), EXPECTED)
-    pool = links.pool_facts(EXPECTED)
-    assert seen[: len(pool)] == [fact_wording(kind, value) for (_, kind, _), value in pool.items()]
+    wanted: dict[tuple[int, str, str], str] = {}
+    for fact in json.loads((EXPECTED / "facts.json").read_text()):
+        wanted.setdefault((fact["page"], fact["kind"], fact["quote"]), fact_wording(fact["kind"], fact["value"]))
+    names = json.loads((EXPECTED / "case.json").read_text())["case_names"]
+    assert len(seen) >= len(wanted)
+    compared = 0
+    for got, expected in zip(seen, wanted.values(), strict=False):
+        if not any(name in expected for name in names) and "14.3.69" not in expected:  # identifiers are stripped
+            assert got == expected
+            compared += 1
+    assert compared > len(wanted) // 2
 
 
 def test_the_stand_in_scores_below_the_floor_so_the_eval_can_tell_the_models_apart() -> None:

@@ -19,6 +19,7 @@ No text reaches a log or a job row (rule 6); identifiers are stripped before T-1
 
 from __future__ import annotations
 
+import asyncio
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
 from datetime import UTC, date, datetime
@@ -28,7 +29,7 @@ from psycopg import AsyncConnection
 from psycopg.types.json import Jsonb
 
 from app.core.ai import pii
-from app.core.ai.embed import embed_queries
+from app.core.ai.embed import embed_batches
 from app.core.contracts import availability as evidence
 from app.core.contracts import case_names, document_words, questions
 from app.core.jobs import JobContext, registry
@@ -231,15 +232,17 @@ async def suggest_links(ctx: JobContext) -> None:
     def stripped(text: str) -> pii.Stripped:
         return pii.strip(text, pack=pack, names=names, dates_of_birth=born)
 
-    fact_texts = [stripped(f"{f.kind} {f.value}") for f in facts]
+    fact_texts = [stripped(links.fact_wording(f.kind, f.value or "")) for f in facts]
     question_texts = [stripped(words) for _, words in questions]
-    fact_vectors = embedder.embed(fact_texts)
-    question_vectors = embed_queries(embedder, question_texts)
+    fact_vectors = await embed_batches(embedder, fact_texts)
+    question_vectors = await embed_batches(embedder, question_texts, queries=True)
     pool = [(f.fact_id, vector, text.text) for f, vector, text in zip(facts, fact_vectors, fact_texts, strict=True)]
     by_id = {f.fact_id: f for f in facts}
     offered: dict[uuid.UUID, list[uuid.UUID]] = {}
     for (question_id, _), asked, vector in zip(questions, question_texts, question_vectors, strict=True):
-        offered[question_id] = links.candidates((vector, asked.text), pool, k=TOP_K, reranker=services.reranker)
+        offered[question_id] = await asyncio.to_thread(
+            links.candidates, (vector, asked.text), pool, k=TOP_K, reranker=services.reranker
+        )
     shown = list(dict.fromkeys(f for ids in offered.values() for f in ids))
     text = ai_tasks.t11_text(questions, [(f, by_id[f].kind, _day(by_id[f].event_date), by_id[f].value) for f in shown])
     await ctx.progress(50, step="links")

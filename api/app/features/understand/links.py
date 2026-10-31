@@ -24,6 +24,11 @@ class IdentityReranker:
         return [fid for fid, _ in ranked]
 
 
+def fact_wording(kind: str, value: str) -> str:
+    """What is embedded for a fact. T-11 and the links evaluation both use this."""
+    return f"{kind} {value}"
+
+
 def _cosine(a: Vector, b: Vector) -> float:
     norm = math.sqrt(sum(x * x for x in a)) * math.sqrt(sum(y * y for y in b))
     return sum(x * y for x, y in zip(a, b, strict=True)) / norm if norm else 0.0
