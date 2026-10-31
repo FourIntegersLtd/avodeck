@@ -22,7 +22,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_quarantine import answer, audited
 from tests.repository.test_pipeline_support import Harness, facts_of, harness, text_pdf
 from tests.support.ai import ScriptedBedrock
@@ -39,7 +39,7 @@ CLEARER = [["Synthetic bravo entry clearer"]]
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -55,7 +55,7 @@ async def h(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     """Three pages read; the fact on page 2 is verified."""
     combo: Combo = request.param

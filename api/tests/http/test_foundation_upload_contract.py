@@ -19,7 +19,7 @@ from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -39,7 +39,7 @@ def only(cur: psycopg.Cursor[Any]) -> Any:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -48,7 +48,7 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=CaseCrypto(LocalKeyProvider.generate()))
 
 

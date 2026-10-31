@@ -19,7 +19,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.http.test_pipeline_duplicates_routes import member, stranger
 from tests.repository.test_pipeline_support import Harness, harness
 from tests.support.contracts import add_fact
@@ -31,7 +31,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -47,7 +47,7 @@ async def h(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     combo: Combo = request.param
     expert = seed.person()

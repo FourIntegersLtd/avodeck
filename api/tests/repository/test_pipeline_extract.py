@@ -28,7 +28,7 @@ from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
 from app.core.packs import default_library
 from app.core.pdf import embedded_words, split_pages
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import (
     Harness,
     expected,
@@ -60,7 +60,7 @@ STRUCK = 463  # an answer cites crossed-out words
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -83,7 +83,7 @@ async def _open(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     names: list[str] | None = None,
     dates_of_birth: list[dt.date] | None = None,
 ) -> Any:
@@ -113,7 +113,7 @@ async def subset(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     """The 18-page subset uploaded and processed under the launch packs, with the case's names."""
     case = expected("case.json")
@@ -273,7 +273,7 @@ async def test_the_schema_and_facts_follow_the_case_packs(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     pack = default_library().combine(*combo.codes)
     source = pack.source_types()[-1]["key"]
@@ -333,7 +333,7 @@ async def test_instructions_printed_on_a_page_cannot_add_fields_or_values(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     """F9: a page that tells the model to ignore its instructions gets nothing past the schema and the
     words check, whatever the model then answers."""

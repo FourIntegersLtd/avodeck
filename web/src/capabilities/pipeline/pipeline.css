@@ -152,7 +152,8 @@
 .pl-group__name strong { display: block; font-size: 21px; }
 .pl-group__name span { font-size: 17px; color: var(--ink-soft); }
 .pl-group__chev { font-size: 17px; color: var(--ink-soft); }
-.pl-file { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 16px; padding: 12px 24px; border-top: 1px solid var(--surface-muted); }
+.pl-file { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; align-items: center; gap: 16px; padding: 12px 24px; border-top: 1px solid var(--surface-muted); }
+.pl-file__remove { min-height: 36px; padding: 0 12px; font-size: 14px; }
 .pl-file__name { min-width: 0; }
 .pl-file__name strong { display: block; overflow-wrap: anywhere; }
 .pl-file__name span, .pl-file__meta { font-size: 17px; color: var(--ink-soft); }

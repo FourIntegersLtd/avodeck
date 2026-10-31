@@ -23,7 +23,7 @@ import pytest
 from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import (
     BUNDLE,
     Harness,
@@ -48,7 +48,7 @@ MORE = [["Synthetic more one"]]
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -64,7 +64,7 @@ async def h(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     combo: Combo = request.param
     expert = seed.person()
@@ -162,7 +162,7 @@ async def test_fourteen_appended_pages_become_901_to_914_and_only_they_are_proce
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())

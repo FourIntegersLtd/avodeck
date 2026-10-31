@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from app.core.case_files import StoredFileCorrupt
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -38,7 +38,7 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=CaseCrypto(LocalKeyProvider.generate()))
 
 
@@ -80,7 +80,7 @@ async def download(client_for: ClientFor, team: dict[str, uuid.UUID], path: str)
 
 
 async def test_chunks_swapped_in_storage_do_not_download(
-    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: CaseFileStorage
 ) -> None:
     path, prefix = await uploaded(client_for, team, admin)
     first, second = sorted(await storage.list(prefix))[:2]
@@ -92,7 +92,7 @@ async def test_chunks_swapped_in_storage_do_not_download(
 
 
 async def test_a_chunk_missing_from_storage_does_not_download(
-    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: CaseFileStorage
 ) -> None:
     path, prefix = await uploaded(client_for, team, admin)
     await storage.delete([sorted(await storage.list(prefix))[-1]])

@@ -20,7 +20,7 @@ import pytest
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from app.core.db import Database
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.fixtures.trial.fixtures import (  # noqa: F401
     aconn,
     app,
@@ -84,7 +84,7 @@ async def test_the_package_is_encrypted_and_its_key_is_released_once(
     client_for: ClientFor,
     world: World,
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
 ) -> None:
     pdf, where = trial_bundle()

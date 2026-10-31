@@ -4,10 +4,11 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { t } from "../../foundation/i18n";
 import { useCaseFrame } from "../../foundation/lib/caseFrame";
+import { errorMessage } from "../../foundation/lib/errors";
 import { firstScreenInCase, screenPath } from "../../foundation/lib/screens";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
-import { LinkButton, LoadError, Loading, ProgressBar, SectionIcon, StatusMark, stepLabel } from "../../foundation/ui";
+import { Button, LinkButton, LoadError, Loading, ProgressBar, SectionIcon, StatusMark, stepLabel } from "../../foundation/ui";
 import { can, casePath, documentsOf, kindWord } from "./data";
 import { formatDate, formatNumber } from "./format";
 import { w, wn } from "./words";
@@ -33,7 +34,27 @@ export function CaseHome() {
   const stepProgress = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/steps/progress", casePath(caseId))), [caseId]);
   const questions = useResource(() => unwrap(api.GET("/v1/cases/{case_id}/questions", casePath(caseId))), [caseId]);
   const [shut, setShut] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState<Set<string>>(new Set());
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const num = (n: number) => formatNumber(n, locale);
+
+  const removeFile = async (documentId: string) => {
+    if (!confirm(w("home.delete_confirm"))) return;
+    setDeleting((prev) => new Set(prev).add(documentId));
+    setDeleteError(null);
+    try {
+      await unwrap(
+        api.DELETE("/v1/cases/{case_id}/documents/{document_id}", {
+          params: { path: { case_id: caseId, document_id: documentId } },
+        }),
+      );
+      summary.reload();
+    } catch (err) {
+      setDeleteError(errorMessage(err));
+    } finally {
+      setDeleting((prev) => { const next = new Set(prev); next.delete(documentId); return next; });
+    }
+  };
 
   if (summary.error) return <div className="av-page"><LoadError onRetry={summary.reload} /></div>;
   if (!summary.data) return <div className="av-page"><Loading /></div>;
@@ -103,6 +124,15 @@ export function CaseHome() {
                         ) : (
                           <span className="pl-file__meta">{w("home.not_numbered")}</span>
                         )}
+                        {can(item, "case.upload") && (
+                          <Button
+                            variant="danger"
+                            className="pl-file__remove"
+                            busy={deleting.has(f.id)}
+                            onClick={() => removeFile(f.id)}
+                            aria-label={w("home.delete_file", { name: f.filename })}
+                          >{w("home.delete")}</Button>
+                        )}
                       </li>
                     );
                   })}
@@ -112,6 +142,7 @@ export function CaseHome() {
           );
         })}
 
+        {deleteError && <p className="av-error" role="alert">{deleteError}</p>}
         <p className="pl-file__meta">{w("home.keep_numbers")}</p>
       </div>
 

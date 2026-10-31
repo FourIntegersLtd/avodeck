@@ -82,3 +82,47 @@ def test_no_migration_alters_a_table_a_later_one_creates() -> None:
             if created.get(table, number) > number:
                 early.append(f"{p.name} alters app.{table}, created in {created[table]:04d}")
     assert early == [], f"a fresh database runs these in order: {early}"
+
+
+ADD_COLUMN = re.compile(
+    r"alter table (?:if exists )?(?:only )?app\.([a-z_0-9]+)\s+add column (?:if not exists )?([a-z_0-9]+)"
+)
+CREATE_BODY = re.compile(r"create table (?:if not exists )?app\.([a-z_0-9]+)\s*\(([\s\S]*?)\n\);", re.MULTILINE)
+COLUMN_LINE = re.compile(r"^\s{2,}([a-z_0-9]+)\s+[a-z\"]")
+NOT_A_COLUMN = {"constraint", "primary", "unique", "foreign", "check", "exclude", "like", "references"}
+ALTER_STATEMENT = re.compile(r"alter table (?:if exists )?(?:only )?app\.([a-z_0-9]+)([\s\S]*?);")
+FK_COLUMN = re.compile(r"foreign key \(([a-z_0-9]+)\)")
+
+
+def _column_added_at() -> dict[tuple[str, str], int]:
+    """Each (table, column) with the number of the migration that first adds it."""
+    where: dict[tuple[str, str], int] = {}
+    for p in _ups():
+        number = int(p.name[:4])
+        text = p.read_text()
+        for table, body in CREATE_BODY.findall(text):
+            for line in body.splitlines():
+                m = COLUMN_LINE.match(line)
+                if m and m[1] not in NOT_A_COLUMN:
+                    where.setdefault((table, m[1]), number)
+        for table, column in ADD_COLUMN.findall(text):
+            where.setdefault((table, column), number)
+    return where
+
+
+def test_no_migration_constrains_a_column_a_later_one_adds() -> None:
+    """A fresh database runs these in order, so a foreign key can only name a column that exists yet.
+
+    An `alter table` against a column added in a higher range passes on a database that already has
+    the column and fails every `db reset` and every fresh cell (0038 against 0119, 2026-10-31).
+    """
+    added = _column_added_at()
+    early = []
+    for p in _ups():
+        number = int(p.name[:4])
+        for table, statement in ALTER_STATEMENT.findall(p.read_text()):
+            for column in FK_COLUMN.findall(statement):
+                at = added.get((table, column))
+                if at is not None and at > number:
+                    early.append(f"{p.name} constrains app.{table}.{column}, added in {at:04d}")
+    assert early == [], f"a fresh database runs these in order: {early}"

@@ -24,7 +24,7 @@ from psycopg import AsyncConnection
 from app.core.ai.bedrock import ModelRequest
 from app.core.db import Database
 from app.core.http import etag
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.fixtures.test_after_serving_world import (  # noqa: F401
     PAGE_TEXT,
     SERVED_ON,
@@ -108,7 +108,7 @@ def t20b_for(kinds: list[str], paragraphs: list[uuid.UUID]) -> Any:
 
 async def open_round(
     client: Any,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     w: World,
@@ -128,7 +128,7 @@ async def open_round(
 
 async def imported(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -148,7 +148,7 @@ async def imported(
 
 
 async def test_a_round_has_its_own_deadline_and_only_the_expert_or_assistant_opens_one(
-    client_for: ClientFor, storage: SupabaseStorage, admin: psycopg.Connection, aconn: AsyncConnection, served: World
+    client_for: ClientFor, storage: CaseFileStorage, admin: psycopg.Connection, aconn: AsyncConnection, served: World
 ) -> None:
     document = await store_document(storage, admin, aconn, served.case, DOCUMENT, "written_questions")
     body = {"received_on": "2026-03-16", "document_id": str(document), "answers_due_on": "2026-04-20"}
@@ -172,7 +172,7 @@ async def test_a_round_has_its_own_deadline_and_only_the_expert_or_assistant_ope
 
 async def test_t20a_finds_the_six_questions_as_exact_words_of_the_document(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -195,7 +195,7 @@ async def test_t20a_finds_the_six_questions_as_exact_words_of_the_document(
 
 async def test_words_the_model_did_not_copy_exactly_are_dropped(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -223,7 +223,7 @@ async def test_words_the_model_did_not_copy_exactly_are_dropped(
 
 async def test_t20b_suggests_the_beyond_classification_and_links_but_decides_nothing(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -257,7 +257,7 @@ async def test_t20b_suggests_the_beyond_classification_and_links_but_decides_not
 
 async def test_telling_the_instructing_party_drafts_a_note_without_patient_words(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -286,7 +286,7 @@ async def test_telling_the_instructing_party_drafts_a_note_without_patient_words
 
 async def test_answers_cite_only_citable_facts(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -362,7 +362,7 @@ async def answer_all(client: Any, w: World, questions: list[dict[str, Any]]) -> 
 
 async def test_signing_the_answers_needs_step_up_and_locks_a_new_version(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -414,7 +414,7 @@ async def test_signing_the_answers_needs_step_up_and_locks_a_new_version(
 
 async def test_the_signed_answers_hold_each_question_its_answer_and_the_declaration(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -448,7 +448,7 @@ async def test_the_signed_answers_hold_each_question_its_answer_and_the_declarat
 
 async def test_serving_the_answers_serves_the_round(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -477,7 +477,7 @@ async def test_serving_the_answers_serves_the_round(
 
 async def test_a_second_round_has_its_own_deadline_numbers_and_answers(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -513,7 +513,7 @@ async def test_a_second_round_has_its_own_deadline_numbers_and_answers(
 
 async def test_each_question_names_the_pages_its_linked_paragraphs_rest_on(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -538,7 +538,7 @@ async def test_each_question_names_the_pages_its_linked_paragraphs_rest_on(
 
 async def test_the_server_says_which_rounds_are_open_when_each_is_due_and_which_is_next(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -568,7 +568,7 @@ async def test_the_server_says_which_rounds_are_open_when_each_is_due_and_which_
 
 async def test_questions_come_nested_under_their_round(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,

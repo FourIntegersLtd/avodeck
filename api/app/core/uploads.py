@@ -34,7 +34,7 @@ from app.core.contracts.events import DocumentUploaded, events
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext, registry
-from app.core.storage import SupabaseStorage, storage_settings, upload_prefix
+from app.core.storage import CaseFileStorage, storage_settings, upload_prefix
 
 FINALIZE_UPLOAD = "finalize_upload"
 _log = logging.getLogger(__name__)
@@ -42,20 +42,20 @@ _log = logging.getLogger(__name__)
 # Two verifies at once at most per worker process: each streams a whole file through memory a part at a time.
 _verifying = asyncio.Semaphore(2)
 
-_files: tuple[SupabaseStorage, CaseCrypto] | None = None
+_files: tuple[CaseFileStorage, CaseCrypto] | None = None
 
 
-def configure(files: tuple[SupabaseStorage, CaseCrypto] | None) -> None:
+def configure(files: tuple[CaseFileStorage, CaseCrypto] | None) -> None:
     """Use this storage and crypto from now on (None: build from the cell config on next use)."""
     global _files
     _files = files
 
 
-def _services() -> tuple[SupabaseStorage, CaseCrypto]:
+def _services() -> tuple[CaseFileStorage, CaseCrypto]:
     global _files
     if _files is None:
         try:
-            _files = (SupabaseStorage(storage_settings()), CaseCrypto(key_provider_from_env()))
+            _files = (CaseFileStorage(storage_settings()), CaseCrypto(key_provider_from_env()))
         except ConfigError:
             raise ProcessingPaused("storage_unavailable") from None
     return _files
@@ -76,7 +76,7 @@ def _part_number(path: str) -> int:
     return int(path.rsplit("/", 1)[1])
 
 
-async def _verify(conn: Any, storage: SupabaseStorage, crypto: CaseCrypto, row: dict[str, Any]) -> _Verdict:
+async def _verify(conn: Any, storage: CaseFileStorage, crypto: CaseCrypto, row: dict[str, Any]) -> _Verdict:
     document = StoredDocument.for_upload(storage, crypto, row["case_id"], row["id"], row["chunk_count"])
     kept: dict[str, str] = row["chunk_sha256"]
     digest = hashlib.sha256()
@@ -113,7 +113,7 @@ class _KeyOnDemand:
             return await conn.execute(query, params)  # the result is already buffered client-side
 
 
-async def finalize(ctx: JobContext, storage: SupabaseStorage, crypto: CaseCrypto) -> None:
+async def finalize(ctx: JobContext, storage: CaseFileStorage, crypto: CaseCrypto) -> None:
     async with ctx.transaction() as conn:  # short: load the row, warm the case key, commit
         cur = await conn.execute(
             "select id, case_id, person_id, kind, filename, size, sha256, chunk_count, chunk_sha256, append"

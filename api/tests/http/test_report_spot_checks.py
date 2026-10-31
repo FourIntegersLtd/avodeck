@@ -32,7 +32,7 @@ from app.core.contracts.case_names import PARTY_NAME_PURPOSE
 from app.core.contracts.document_words import word_purpose
 from app.core.db import Database
 from app.core.jobs import JobContext
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.report.jobs import build_report
 from app.features.report.services import ReportServices, configure, current
 from app.features.report.spot_checks import MAX_FACTS, open_check, respond, sample
@@ -68,14 +68,14 @@ def reads() -> Reads:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     yield store
     await store.aclose()
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage) -> FastAPI:
     return app_for(api_db, auth_env, combo, reads, storage)
 
 
@@ -87,7 +87,7 @@ def fresh_address_counts(admin: psycopg.Connection) -> None:
 
 
 @pytest.fixture(autouse=True)
-def services(reads: Reads, storage: SupabaseStorage) -> Iterator[None]:
+def services(reads: Reads, storage: CaseFileStorage) -> Iterator[None]:
     configure(ReportServices(crypto=CRYPTO, storage=storage, reads=reads))
     yield
     configure(None)
@@ -119,7 +119,7 @@ def world(seed: Seed, admin: psycopg.Connection, combo: Combo, reads: Reads) -> 
     return build(seed, admin, combo, reads)
 
 
-async def paint(storage: SupabaseStorage, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, w: World) -> None:
+async def paint(storage: CaseFileStorage, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, w: World) -> None:
     """A picture of pages 1 and 2 with grey blocks where the words are, the words sealed as slice A seals
     them, the page size in the words' units, and a party whose surname is one of the words."""
     for page in w.pages[:2]:
@@ -156,7 +156,7 @@ async def built(
     aconn: psycopg.AsyncConnection,
     world: World,
     reads: Reads,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     client_for: ClientFor,
     worker_db: Database,
 ) -> World:

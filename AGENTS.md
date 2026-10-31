@@ -26,7 +26,8 @@ These are enforced by tests in `api/tests/guards/` and `web/src/foundation/guard
 |---|---|
 | Frontend | React + TypeScript on Vercel; renders screens only; typed client generated from OpenAPI |
 | API + worker | FastAPI (Python 3.12) on DigitalOcean App Platform, London; worker consumes a Postgres job queue |
-| Database, auth, files | Supabase (London): Postgres + pgvector, Auth (called only by FastAPI), private Storage |
+| Database, auth | Supabase (London): Postgres + pgvector, Auth (called only by FastAPI) |
+| Case files | AWS S3 (London, eu-west-2): private bucket, SSE-S3 + per-case envelope encryption (ADR 0032) |
 | LLM | Claude Sonnet 5 / Opus 5.5 via AWS Bedrock, London in-region |
 | OCR | Azure AI Document Intelligence (Layout, Read), UK South |
 | Dictation | Azure Speech en-GB, UK South, relayed through FastAPI over WebSocket |

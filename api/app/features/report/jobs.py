@@ -26,7 +26,7 @@ from app.core.contracts import profile
 from app.core.contracts.reports import AFTER_SERVING_TYPES
 from app.core.crypto import CaseCrypto, SecretBox
 from app.core.jobs import JobContext, registry
-from app.core.storage import SupabaseStorage, case_prefix
+from app.core.storage import CaseFileStorage, case_prefix
 from app.features.report.assemble import (
     PARAGRAPH_PURPOSE,
     QUOTE_PURPOSE,
@@ -52,7 +52,7 @@ def file_path(case_id: uuid.UUID, version_id: uuid.UUID, name: str) -> str:
 
 
 async def _template_file(
-    storage: SupabaseStorage, crypto: CaseCrypto, template: profile.ReportTemplate
+    storage: CaseFileStorage, crypto: CaseCrypto, template: profile.ReportTemplate
 ) -> bytes | None:
     """The template as slice C sealed it (cell box, subject owner:template); None if it cannot be opened."""
     try:

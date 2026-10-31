@@ -36,7 +36,7 @@ from app.core.errors import ProcessingPaused
 from app.core.http import router as http_router
 from app.core.jobs import JobContext
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.setup.jobs import extract_questions
 from app.features.setup.services import SetupServices, configure
 from app.main import mount
@@ -69,14 +69,14 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     yield store
     await store.aclose()
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     from app.core.auth.supabase import SupabaseAuth
     from app.core.config import auth_settings
     from app.core.email import OutboxMailer
@@ -101,7 +101,7 @@ def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, cr
     return built
 
 
-def services(storage: SupabaseStorage, crypto: CaseCrypto, root: str = "recordings") -> RecordedBedrock:
+def services(storage: CaseFileStorage, crypto: CaseCrypto, root: str = "recordings") -> RecordedBedrock:
     settings = cell()
     store = FixtureStore(FIXTURES / root)
     model = RecordedBedrock(settings, store)
@@ -118,7 +118,7 @@ def services(storage: SupabaseStorage, crypto: CaseCrypto, root: str = "recordin
 
 
 @pytest.fixture
-def model(storage: SupabaseStorage, crypto: CaseCrypto) -> Iterator[RecordedBedrock]:
+def model(storage: CaseFileStorage, crypto: CaseCrypto) -> Iterator[RecordedBedrock]:
     yield services(storage, crypto)
     configure(None)
 
@@ -230,7 +230,7 @@ async def test_a_reworded_question_is_refused(
     client_for: ClientFor,
     world: dict[str, uuid.UUID],
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
 ) -> None:
     services(storage, crypto, root="recordings-paraphrased")
@@ -245,7 +245,7 @@ async def test_a_reworded_question_is_refused(
 
 
 async def test_without_a_model_the_job_pauses(
-    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, storage: SupabaseStorage
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, storage: CaseFileStorage
 ) -> None:
     configure(SetupServices(kit=None, ocr=None, storage=storage, crypto=None, packs=default_library()))
     try:

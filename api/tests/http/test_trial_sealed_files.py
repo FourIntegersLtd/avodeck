@@ -18,7 +18,7 @@ import pytest
 from app.core.crypto import CaseKeyDestroyed
 from app.core.db import Database
 from app.core.jobs import JobContext
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.trial.common import trial_path
 from app.features.trial.reseal import reseal_plain_files
 from app.features.trial.services import current
@@ -50,7 +50,7 @@ def sha(data: bytes) -> str:
 
 
 async def opened(
-    storage: SupabaseStorage, aconn: psycopg.AsyncConnection, w: World, path: str, original: bytes | None = None
+    storage: CaseFileStorage, aconn: psycopg.AsyncConnection, w: World, path: str, original: bytes | None = None
 ) -> bytes:
     """The stored object must not be a PDF; opened with the case key (purpose: its path) it is the original."""
     blob = await storage.get(path)
@@ -72,7 +72,7 @@ async def test_the_trial_pack_is_stored_sealed_and_downloads_as_the_same_pdf(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -88,7 +88,7 @@ async def test_the_agenda_is_stored_sealed_and_still_read(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
     model: Callable[..., Scripted],
@@ -107,7 +107,7 @@ async def test_the_prepared_statement_is_stored_sealed_and_sent_with_its_plain_h
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
     model: Callable[..., Scripted],
@@ -131,7 +131,7 @@ async def test_the_prepared_statement_is_stored_sealed_and_sent_with_its_plain_h
 async def test_a_statement_signed_elsewhere_is_stored_sealed_under_its_plain_hash(
     client_for: ClientFor,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -152,7 +152,7 @@ async def test_the_court_bundle_is_stored_sealed_and_still_matched(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -180,7 +180,7 @@ async def test_reading_after_the_case_key_is_destroyed_fails(
             await get_sealed(current(), conn, world.case, path)
 
 
-async def plain_files(admin: psycopg.Connection, storage: SupabaseStorage, w: World, meeting: str) -> dict[str, bytes]:
+async def plain_files(admin: psycopg.Connection, storage: CaseFileStorage, w: World, meeting: str) -> dict[str, bytes]:
     """Plain PDFs at trial paths named by trial rows, as files written before sealing were."""
     signed = pdf_of([["zz", "signed", "on", "paper"]])
     bundle, _ = trial_bundle()
@@ -217,7 +217,7 @@ async def test_older_plain_files_are_sealed_once_and_a_second_run_changes_nothin
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -244,7 +244,7 @@ async def test_the_reseal_job_runs_for_one_case(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
     seed: Seed,

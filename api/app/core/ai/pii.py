@@ -65,6 +65,11 @@ _WORD_DAY_YEAR = re.compile(r"\b([^\W\d_]{3,})\.?\s+(\d{1,2})(?:st|nd|rd|th)?,?\
 # only the words are matched, with a line break counting as a space, so a name or date spread over lines is found.
 _WORD_LINE = re.compile(r"^([A-Za-z]+\d+(?:[A-Za-z]+\d+)*[\t ])")
 
+# A prompt names each row by its id so the model can point back at it (architecture 6.2). A digit run
+# inside an id can look like a phone or record number: keep ids whole, or the model is shown an id that
+# belongs to nothing. An id holds no identifier of its own, so nothing is kept that should go.
+_ID = re.compile(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b")
+
 
 @dataclass(frozen=True)
 class Stripped:
@@ -206,6 +211,8 @@ def _chosen(text: str, *, pack: MergedPack, names: Sequence[str], dates_of_birth
     recognisers: list[EntityRecognizer] = [_Found(kind, language, spans) for kind, spans in found.items() if spans]
 
     results = _analyzer(language).analyze(text=text, language=language, ad_hoc_recognizers=recognisers)
+    ids = [(m.start(), m.end()) for m in _ID.finditer(text)]
+    results = [r for r in results if all(r.end <= start or r.start >= end for start, end in ids)]
     spans = [
         _Span(
             r.start,

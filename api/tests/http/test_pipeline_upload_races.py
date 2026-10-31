@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.routes import uploads
-from app.core.storage import SupabaseStorage, upload_prefix
+from app.core.storage import CaseFileStorage, upload_prefix
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -42,7 +42,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -56,7 +56,7 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -79,7 +79,7 @@ async def test_a_repeat_complete_with_a_different_file_hash_is_refused_and_the_d
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -114,7 +114,7 @@ async def test_a_stored_part_that_no_longer_matches_its_own_hash_fails_the_uploa
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -150,7 +150,7 @@ async def test_the_database_refuses_changes_to_the_chunk_data_of_a_finished_uplo
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     finished: str,
@@ -185,7 +185,7 @@ async def test_two_correct_completes_at_once_make_one_job_one_document_and_keep_
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -211,7 +211,7 @@ async def test_a_wrong_hash_complete_after_a_correct_one_leaves_the_upload_final
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -234,7 +234,7 @@ async def test_a_correct_complete_after_a_wrong_hash_one_still_succeeds_and_the_
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -256,7 +256,7 @@ async def test_a_part_queued_behind_completing_is_refused_and_the_document_match
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -286,7 +286,7 @@ async def test_a_part_that_lands_before_the_claim_makes_the_job_fail_on_the_whol
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -311,7 +311,7 @@ async def test_a_part_that_lands_before_the_claim_makes_the_job_fail_on_the_whol
 
 
 async def test_failing_completes_at_once_do_not_exhaust_the_connection_pool(
-    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: CaseFileStorage
 ) -> None:
     """The shared test pool holds two connections: a failing call that needed a second one would starve."""
     one, two = await client_for(team["expert"]), await client_for(team["expert"])
@@ -367,7 +367,7 @@ async def test_an_upload_expired_by_the_sweep_part_way_through_the_job_makes_no_
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     monkeypatch: pytest.MonkeyPatch,

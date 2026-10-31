@@ -36,7 +36,7 @@ from app.core.contracts.case_identity import Identity, identity_for
 from app.core.crypto import CaseCrypto
 from app.core.jobs import JobContext, registry
 from app.core.packs import MergedPack
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.setup import ai_tasks
 from app.features.setup.letter import Found, Letter, checked_items, short_title
 from app.features.setup.services import current
@@ -49,7 +49,7 @@ _ISO = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
 
 
 async def read_document(
-    conn: AsyncConnection, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str
+    conn: AsyncConnection, storage: CaseFileStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str
 ) -> bytes:
     parts = []
     for path in sorted(await storage.list(prefix)):

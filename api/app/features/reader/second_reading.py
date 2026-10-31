@@ -30,7 +30,7 @@ from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.packs import PackLibrary, default_library
-from app.core.storage import StorageError, SupabaseStorage, storage_settings
+from app.core.storage import CaseFileStorage, StorageError, storage_settings
 
 KIND = "second_reading"
 log = logging.getLogger(__name__)
@@ -77,15 +77,15 @@ class _Services:
     """Storage, keys, packs, the model kit and OCR, made from the cell config on first use (tests set them)."""
 
     def __init__(self) -> None:
-        self.storage: SupabaseStorage | None = None
+        self.storage: CaseFileStorage | None = None
         self.crypto: CaseCrypto | None = None
         self.packs: PackLibrary | None = None
         self.kit: AiKit | None = _UNSET
         self.ocr: OcrClient | None = _UNSET
 
-    def get_storage(self) -> SupabaseStorage:
+    def get_storage(self) -> CaseFileStorage:
         if self.storage is None:
-            self.storage = SupabaseStorage(storage_settings())
+            self.storage = CaseFileStorage(storage_settings())
         return self.storage
 
     def get_crypto(self) -> CaseCrypto:
@@ -142,7 +142,7 @@ async def _stored_words(
 
 async def _fresh_words(
     conn: AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     case_id: uuid.UUID,
     page_id: uuid.UUID,

@@ -15,13 +15,17 @@ import uuid
 from psycopg import AsyncConnection
 
 from app.core.email import Mail, Mailer
-from app.core.notifications import NOTIFY_TEMPLATE, send_mail
+from app.core.notifications import NOTIFY_TEMPLATE, emails_at_once, send_mail
 
 
 async def release_case_hold(conn: AsyncConnection, mailer: Mailer, case_id: uuid.UUID) -> int:
     """Releases the case's held jobs and messages; returns how many emails went."""
     cur = await conn.execute("select email, kind from app.release_case_hold(%s)", (case_id,))
     rows = await cur.fetchall()
+    sent = 0
     for email, kind in rows:
+        if not emails_at_once(kind):
+            continue
+        sent += 1
         await send_mail(mailer, Mail(to=email, template=NOTIFY_TEMPLATE, params={"kind": kind}))
-    return len(rows)
+    return sent
