@@ -88,7 +88,8 @@ class Letter:
                     token.append(placeholder)
                 pos = min(b, end)
             token.append(plain[pos:end])
-            self.masked[w.id] = "".join(token)
+            masked = "".join(token)
+            self.masked[w.id] = masked if masked else "\u00b7"
 
     def prompt_text(self) -> str:
         """The letter as the model sees it: one line per OCR line, each word as `{id}token`."""

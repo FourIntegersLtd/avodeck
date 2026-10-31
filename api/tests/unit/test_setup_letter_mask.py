@@ -29,13 +29,13 @@ def test_prompt_shows_a_token_for_the_continuation_word() -> None:
     assert "{p1w5}[PERSON_1] {p1w6}·" in _letter().prompt_text()
 
 
-def test_full_name_still_verifies() -> None:
-    found = _letter().verify("Jane Smith", ["p1w5", "p1w6"])
+def test_full_name_as_the_model_sees_it_still_verifies() -> None:
+    found = _letter().verify("[PERSON_1]", ["p1w5", "p1w6"])
     assert isinstance(found, Found)
 
 
-def test_first_name_alone_still_verifies() -> None:
-    found = _letter().verify("Jane", ["p1w5"])
+def test_first_word_alone_still_verifies() -> None:
+    found = _letter().verify("[PERSON_1]", ["p1w5"])
     assert isinstance(found, Found)
 
 
