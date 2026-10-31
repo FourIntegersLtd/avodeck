@@ -15,6 +15,9 @@ from pathlib import Path
 from typing import Any
 
 DEFAULT_DB_PORT = "55322"
+# The main checkout's app database and the founder's manual-testing database: a worktree whose
+# config.toml keeps the main project id would otherwise be handed one of them by `supabase status`.
+SHARED_DB_PORTS = frozenset({DEFAULT_DB_PORT, "56322"})
 _DB_URL = re.compile(r'^DB_URL="?postgresql://[^@]+@[^:/]+:(\d+)/', re.MULTILINE)
 
 # The local-only role passwords set in supabase/seed.sql; never real credentials.
@@ -43,9 +46,10 @@ def local_db_port(repo: Path, run: Callable[..., Any] = subprocess.run) -> str:
             port = db_port_from_status(done.stdout or "")
     except OSError:
         pass
-    if port:
+    linked = is_linked_worktree(repo)
+    if port and not (linked and port in SHARED_DB_PORTS):
         return port
-    if is_linked_worktree(repo):
+    if linked:
         raise RuntimeError(
             f"No local Supabase found for the worktree {repo}, and the default port ({DEFAULT_DB_PORT}) is the "
             "main checkout's database. Set TEST_DATABASE_ADMIN_URL, TEST_DATABASE_URL and "
