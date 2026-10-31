@@ -40,6 +40,10 @@ Upload = Annotated[CaseAccess, Depends(require_case_access("case.upload"))]
 class QuestionOut(BaseModel):
     id: uuid.UUID
     instruction_version_id: uuid.UUID | None
+    source_instruction_version_id: uuid.UUID | None = Field(
+        default=None, description="The instruction version this question was extracted from (immutable)."
+    )
+    source: str = Field(default="letter", description="Who found this question: 'letter' or 'expert'.")
     number: int
     text_verbatim: str
     confirmed_text: str | None
@@ -48,6 +52,7 @@ class QuestionOut(BaseModel):
     )
     source_word_ids: list[str]
     para_ref: str | None
+    page: int | None = Field(default=None, description="The first page in source_word_ids (e.g. p2w14 → 2).")
     kind: str
     outside_expertise: bool
     outside_expertise_source: Literal["pack", "expert"] | None = Field(
@@ -109,19 +114,37 @@ def _para_key(ref: str) -> list[tuple[int, int, str]]:
 
 
 _Q = (
-    "select id, instruction_version_id, number, text_verbatim, confirmed_text, short_title, source_word_ids, para_ref,"
+    "select id, instruction_version_id, source_instruction_version_id, source,"
+    " number, text_verbatim, confirmed_text, short_title, source_word_ids, para_ref,"
     " kind,"
     " outside_expertise, outside_expertise_source, answer_parts, status, version from app.questions"
 )
 _A = (
-    "select id, instruction_version_id, number, text_verbatim, confirmed_text, source_word_ids, para_ref, status,"
+    "select id, instruction_version_id, source_instruction_version_id,"
+    " number, text_verbatim, confirmed_text, source_word_ids, para_ref, status,"
     " version from app.assumptions"
 )
 
 
+_PAGE_RE = re.compile(r"^p(\d+)w")
+
+
+def _page(word_ids: list[str]) -> int | None:
+    """The first page number from source_word_ids (e.g. 'p2w14' → 2)."""
+    if word_ids:
+        m = _PAGE_RE.match(word_ids[0])
+        if m:
+            return int(m.group(1))
+    return None
+
+
 def _question(row: dict[str, Any]) -> QuestionOut:
     """A stored question; one read before short titles existed gets its first clause."""
-    return QuestionOut(**{**row, "short_title": short_title(row["text_verbatim"], row["short_title"])})
+    return QuestionOut(**{
+        **row,
+        "short_title": short_title(row["text_verbatim"], row["short_title"]),
+        "page": _page(row.get("source_word_ids") or []),
+    })
 
 
 async def _latest(conn: DbConn, case_id: uuid.UUID) -> dict[str, Any] | None:

@@ -170,11 +170,13 @@ async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, 
         for item, found in sorted(new_q, key=lambda q: q[1].start):
             kind = str(item["kind"])
             await conn.execute(
-                "insert into app.questions (case_id, instruction_version_id, number, text_verbatim, source_word_ids,"
+                "insert into app.questions (case_id, instruction_version_id, source_instruction_version_id,"
+                " number, text_verbatim, source_word_ids,"
                 " para_ref, kind, outside_expertise, answer_parts, outside_expertise_source, short_title)"
-                " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                " values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     ctx.case_id,
+                    version_id,
                     version_id,
                     number,
                     found.text,
@@ -191,9 +193,10 @@ async def _extract_one(ctx: JobContext, version_id: uuid.UUID, version_no: int, 
         number = await _next_number(conn, "assumptions", ctx.case_id)
         for _, found in sorted(new_a, key=lambda a: a[1].start):
             await conn.execute(
-                "insert into app.assumptions (case_id, instruction_version_id, number, text_verbatim, source_word_ids,"
-                " para_ref) values (%s, %s, %s, %s, %s, %s)",
-                (ctx.case_id, version_id, number, found.text, found.word_ids, letter.para_ref(found.start)),
+                "insert into app.assumptions (case_id, instruction_version_id, source_instruction_version_id,"
+                " number, text_verbatim, source_word_ids,"
+                " para_ref) values (%s, %s, %s, %s, %s, %s, %s)",
+                (ctx.case_id, version_id, version_id, number, found.text, found.word_ids, letter.para_ref(found.start)),
             )
             number += 1
         if was_locked and not new_q and not new_a and not served:

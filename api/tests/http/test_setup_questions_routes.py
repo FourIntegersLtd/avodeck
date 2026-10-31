@@ -209,6 +209,10 @@ async def test_the_letter_gives_four_questions_and_one_assumption_in_its_own_wor
     assert {q["status"] for q in got["questions"] + got["assumptions"]} == {"suggested"}
     assert all(q["instruction_version_id"] == added["id"] for q in got["questions"])
     assert all(q["source_word_ids"] for q in got["questions"])
+    # Fix 2: each question remembers which letter it came from
+    assert all(q["source_instruction_version_id"] == added["id"] for q in got["questions"])
+    assert all(q["source"] == "letter" for q in got["questions"])
+    assert all(isinstance(q["page"], int) and q["page"] >= 1 for q in got["questions"])
     assert "setup.questions.warning.outside_expertise" in got["warnings"]
 
 
@@ -449,6 +453,10 @@ async def test_a_supplementary_letter_reopens_the_set_and_keeps_the_questions(
     assert (new["number"], new["text_verbatim"], new["para_ref"]) == (5, SECOND["new_question"], SECOND["para_ref"])
     assert {q["status"] for q in got["questions"]} == {"suggested"}
     assert {q["instruction_version_id"] for q in got["questions"]} == {added["id"]}
+    # Fix 2: old questions keep their source letter even after re-pointing
+    old_qs = got["questions"][:4]
+    assert all(q["source_instruction_version_id"] == first["instruction_version_id"] for q in old_qs)
+    assert got["questions"][4]["source_instruction_version_id"] == added["id"]
     gate = await client.get(url(world, "probe-questions-locked"))
     assert gate.status_code == 409
 
