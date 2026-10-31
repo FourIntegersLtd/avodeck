@@ -365,6 +365,7 @@ A joint expert is one with two or more current instructing parties; no separate 
 | kind | What it is: records, instructions, witness statement, written questions, agenda, other expert's report, court bundle, other |
 | filename / storage_path | The file's name and where it's kept (encrypted) |
 | sha256 | Fingerprint proving the file is exactly as received |
+| sha256_verified_at | When the server last re-read the stored parts and confirmed they match the fingerprint (set when the upload finished; empty for older documents) |
 | pages | How many pages it has |
 | received_on / obtained_how | When it arrived and from whom/how |
 | bundle_version | Which delivery of records it came in (v1, v2…) |
@@ -1081,7 +1082,8 @@ Also: `court_bundles.missing_told_at` (when the expert told the instructing part
 | case_id / person_id | Which case the file is for and who is sending it |
 | kind / filename / size / sha256 | What the file is (a kind from the case's packs), its name, size and checksum |
 | chunk_size / chunk_count / received | The 8 MB parts it is sent in, how many, and which have arrived |
-| status | `open`, `complete` or `expired` |
+| chunk_sha256 | The fingerprint the server worked out for each part it received, by part number; a part sent again replaces its entry |
+| status | `open`, `complete`, `expired` or `failed` (the stored file did not match its fingerprint; closed for good) |
 | document_id | The document it became when complete |
 | append | Whether these are later records added to a case that already has its bundle (their pages are numbered after the last page) |
 | expires_at / completed_at | When an unfinished upload is given up (7 days) and when it finished |

@@ -55,9 +55,15 @@ async def uploaded(client_for: ClientFor, team: dict[str, uuid.UUID], admin: psy
     for n, data in file.chunks():
         headers = {"content-type": "application/octet-stream"}
         assert (
-            await client.put(f"/v1/uploads/{upload_id}/chunks/{n}", content=data, headers={**headers, "x-chunk-sha256": hashlib.sha256(data).hexdigest()})
+            await client.put(
+                f"/v1/uploads/{upload_id}/chunks/{n}",
+                content=data,
+                headers={**headers, "x-chunk-sha256": hashlib.sha256(data).hexdigest()},
+            )
         ).status_code == 200
-    document = (await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": file.sha256()})).json()["document_id"]
+    document = (await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": file.sha256()})).json()[
+        "document_id"
+    ]
     row = admin.execute("select storage_path from app.documents where id = %s", (document,)).fetchone()
     assert row is not None
     return f"/v1/cases/{team['case']}/documents/{document}/file", row[0]

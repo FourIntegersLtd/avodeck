@@ -59,7 +59,11 @@ async def put_chunk(client: httpx.AsyncClient, upload: str, n: int, data: bytes,
     return await client.put(
         f"/v1/uploads/{upload}/chunks/{n}",
         content=data,
-        headers={"content-type": "application/octet-stream", "x-chunk-sha256": hashlib.sha256(data).hexdigest(), **headers},
+        headers={
+            "content-type": "application/octet-stream",
+            "x-chunk-sha256": hashlib.sha256(data).hexdigest(),
+            **headers,
+        },
     )
 
 

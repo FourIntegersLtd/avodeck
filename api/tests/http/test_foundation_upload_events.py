@@ -77,7 +77,10 @@ async def upload(client_for: ClientFor, team: dict[str, uuid.UUID], **extra: obj
     sent = await client.put(
         f"/v1/uploads/{upload_id}/chunks/1",
         content=file.chunk(1),
-        headers={"content-type": "application/octet-stream", "x-chunk-sha256": hashlib.sha256(file.chunk(1)).hexdigest()},
+        headers={
+            "content-type": "application/octet-stream",
+            "x-chunk-sha256": hashlib.sha256(file.chunk(1)).hexdigest(),
+        },
     )
     assert sent.status_code == 200
     return client, upload_id

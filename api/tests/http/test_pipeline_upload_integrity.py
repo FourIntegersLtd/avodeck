@@ -137,7 +137,10 @@ async def test_sending_a_chunk_again_keeps_one_entry_and_replaces_its_hash(
         assert resp.json()["received"] == [2]
     other = b"x" * len(file.chunk(2))  # a different part sent under the same number: its hash replaces the old one
     assert (await put(client, upload, 2, other, sha(other))).status_code == 200
-    assert row(admin, "select received, chunk_sha256 from app.uploads where id = %s", upload) == ([2], {"2": sha(other)})
+    assert row(admin, "select received, chunk_sha256 from app.uploads where id = %s", upload) == (
+        [2],
+        {"2": sha(other)},
+    )
 
 
 async def test_receiving_a_chunk_touches_only_its_own_upload(
