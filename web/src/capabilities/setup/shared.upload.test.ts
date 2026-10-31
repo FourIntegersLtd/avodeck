@@ -39,8 +39,8 @@ test("a part is tried up to three more times and then the failure is thrown", as
 
 test("a refusal (4xx) is not retried", async () => {
   let tries = 0;
-  server_(() => (++tries, HttpResponse.json({ error: { code: "chunk_corrupted" } }, { status: 400 })));
-  await expect(uploadFile(CASE_A, file("a.pdf"), "records")).rejects.toMatchObject({ code: "chunk_corrupted" });
+  server_(() => (++tries, HttpResponse.json({ error: { code: "chunk_size_wrong" } }, { status: 400 })));
+  await expect(uploadFile(CASE_A, file("a.pdf"), "records")).rejects.toMatchObject({ code: "chunk_size_wrong" });
   expect(tries).toBe(1);
 });
 

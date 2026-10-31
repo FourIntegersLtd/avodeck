@@ -18,6 +18,9 @@ const SHARED: Record<string, string> = {
   chunk_corrupted: "errors.upload_part_failed",
   chunks_missing: "errors.chunks_missing",
   sha256_mismatch: "errors.sha256_mismatch",
+  file_hash_mismatch: "errors.file_hash_mismatch",
+  chunk_sha_missing: "errors.upload_part_failed",
+  file_sha_missing: "errors.upload_part_failed",
   not_checked: "errors.not_checked",
   stale_link: "errors.stale_link",
 };

@@ -36,7 +36,7 @@ import pikepdf
 from psycopg import AsyncConnection
 
 from app.core import audit, notifications
-from app.core.ai import pii, provenance
+from app.core.ai import embed, pii, provenance
 from app.core.ai.answers import page_subject, reference_subject
 from app.core.ai.bedrock import ServiceBusy
 from app.core.ai.cell import model_for
@@ -769,7 +769,7 @@ async def _embed(ctx: JobContext, services: PipelineServices) -> None:
         pack = services.packs.for_case(await repo.case_codes(conn, ctx.case_id))
         who = await services.identity(conn, ctx.case_id)
 
-    async def one(page_id: uuid.UUID) -> None:
+    async def prepare(page_id: uuid.UUID) -> pii.Stripped:
         async with ctx.transaction() as conn:
             stored = await repo.words_of(conn, page_id)
             ordered = [
@@ -783,12 +783,22 @@ async def _embed(ctx: JobContext, services: PipelineServices) -> None:
                 )
                 for w in stored
             ]
-        stripped = pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
-        [vector] = embedder.embed([stripped])
-        async with ctx.transaction() as conn:
-            await repo.store_embedding(conn, ctx.case_id, page_id, embedder.model, vector)
+        return pii.strip(extract.plain_text(ordered), pack=pack, names=who.names, dates_of_birth=who.dates_of_birth)
 
-    await bounded(waiting, one, stop=_stop(ctx))
+    texts: dict[uuid.UUID, pii.Stripped] = {}
+
+    async def read(page_id: uuid.UUID) -> None:
+        texts[page_id] = await prepare(page_id)
+
+    for start in range(0, len(waiting), embed.BATCH):
+        chunk = waiting[start : start + embed.BATCH]
+        texts.clear()
+        await bounded(chunk, read, stop=_stop(ctx))
+        ready = [page_id for page_id in chunk if page_id in texts]
+        vectors = await embed.embed_batches(embedder, [texts[page_id] for page_id in ready])
+        async with ctx.transaction() as conn:
+            for page_id, vector in zip(ready, vectors, strict=True):
+                await repo.store_embedding(conn, ctx.case_id, page_id, embedder.model, vector)
 
 
 async def _ready(ctx: JobContext, services: PipelineServices) -> None:

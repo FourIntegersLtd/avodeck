@@ -3,9 +3,10 @@
 import { useId, type ButtonHTMLAttributes, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
+import { uploadInParts } from "../../foundation/lib/chunkedUpload";
 import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
-import { ApiError, api, unwrap, type Schemas } from "../../foundation/platform-client";
+import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { ChoicePills, Segmented, Spinner, StackedBar } from "../../foundation/ui";
 
 /** Waits for a client call and returns its body with the ETag it carried (for If-Match later). */
@@ -238,47 +239,9 @@ async function bytesOf(file: Blob): Promise<ArrayBuffer> {
   });
 }
 
-const hex = (buffer: ArrayBuffer) => [...new Uint8Array(buffer)].map((b) => b.toString(16).padStart(2, "0")).join("");
-
-const PART_RETRIES = 3;
-const RETRY_PAUSE_MS = 150;
-
-/** Sends one part again after a short, growing wait, but only for a dropped connection or a 5xx. */
-async function withRetries<D>(send: () => Promise<D>): Promise<D> {
-  for (let attempt = 1; ; attempt += 1) {
-    try {
-      return await send();
-    } catch (err) {
-      const again = err instanceof ApiError && (err.status === 0 || err.status >= 500);
-      if (!again || attempt > PART_RETRIES) throw err;
-      await new Promise((resolve) => setTimeout(resolve, RETRY_PAUSE_MS * attempt));
-    }
-  }
-}
-
-/** Sends a file to the API in parts and returns the document it became. */
+/** Sends a file to the API in parts and returns the document it became (checks and retries: foundation/lib/chunkedUpload). */
 export async function uploadFile(caseId: string, file: File, kind: string): Promise<string> {
-  const bytes = await bytesOf(file);
-  // A typed array view: a FileReader result can come from another realm, which digest refuses as a bare ArrayBuffer.
-  const sha256 = hex(await crypto.subtle.digest("SHA-256", new Uint8Array(bytes)));
-  const started = await unwrap(
-    api.POST("/v1/cases/{case_id}/uploads", { params: { path: { case_id: caseId } }, body: { filename: file.name, kind, sha256, size: bytes.byteLength } }),
-  );
-  for (let n = 1; n <= started.chunk_count; n += 1) {
-    const part = bytes.slice((n - 1) * started.chunk_size, n * started.chunk_size);
-    await withRetries(() =>
-      unwrap(
-        api.PUT("/v1/uploads/{upload_id}/chunks/{n}", {
-          params: { path: { upload_id: started.upload_id, n } },
-          body: part as never,
-          bodySerializer: (b: unknown) => b as BodyInit,
-          headers: { "Content-Type": "application/octet-stream" },
-        }),
-      ),
-    );
-  }
-  const done = await unwrap(api.POST("/v1/uploads/{upload_id}/complete", { params: { path: { upload_id: started.upload_id } } }));
-  return String(done.document_id);
+  return uploadInParts(caseId, file, kind);
 }
 
 export interface UploadOutcome {

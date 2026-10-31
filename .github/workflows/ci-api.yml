@@ -16,7 +16,52 @@ jobs:
       - name: Documents agree (tables, endpoints, state machines, behaviour index, data dictionary)
         run: make check-spec
 
-  api:
+  # The old single `api` job (about 45 minutes) is split: 4 test shards in parallel, each on its own runner with its own
+  # local Supabase (never shared), one job for everything that runs once, and a final `api` job so the required check
+  # name is unchanged. Shards split by test file (scripts/shard_api_tests.py), balanced by api/.test_durations.json.
+  api-shard:
+    name: api-shard-${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/api-install
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.121.0 }  # pinned: "latest" asks the GitHub API and hits its rate limit
+      # retried: five jobs pull images at once and Docker Hub sometimes answers "toomanyrequests"
+      - run: |
+          for i in 1 2 3 4; do
+            supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy && exit 0
+            supabase stop --no-backup > /dev/null 2>&1 || true
+            sleep $((i * 30))
+          done
+          exit 1
+      - name: This shard's test files and the test ids it collects
+        run: |
+          python3 scripts/shard_api_tests.py ${{ matrix.shard }} 4 > "$RUNNER_TEMP/files.txt"
+          wc -l < "$RUNNER_TEMP/files.txt"
+          mkdir -p out
+          (cd api && poetry run pytest --collect-only -q $(cat "$RUNNER_TEMP/files.txt") | grep '::' | sort) > out/collected-${{ matrix.shard }}.txt
+          wc -l < out/collected-${{ matrix.shard }}.txt
+      - name: Tests of this shard, with coverage (the floor is applied to the combined data)
+        working-directory: api
+        env:
+          COVERAGE_FILE: cov-${{ matrix.shard }}.dat
+        run: poetry run pytest -q --cov=app --junitxml="../out/junit-${{ matrix.shard }}.xml" $(cat "$RUNNER_TEMP/files.txt")
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: shard-${{ matrix.shard }}
+          path: |
+            out/
+            api/cov-${{ matrix.shard }}.dat
+          include-hidden-files: true
+
+  # Runs once: lint, types, packs, guards, OpenAPI fuzzing, Red-then-green, and the full collection for the split check.
+  api-once:
     runs-on: ubuntu-latest
     # A real clamd for the one `@pytest.mark.clamd` test (EICAR); other tests use the recorded scanner.
     services:
@@ -33,20 +78,36 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: ./.github/actions/api-install
+      # The in-process embedder and reranker files (ADR 0029): cached on the lock file, checked by SHA-256.
+      # The model tests skip without them; MODELS_DIR points the tests at this folder.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/models
+          key: models-${{ hashFiles('api/models.lock.json') }}
+      - run: python3 scripts/fetch_models.py "$RUNNER_TEMP/models" && echo "MODELS_DIR=$RUNNER_TEMP/models" >> "$GITHUB_ENV"
       - uses: supabase/setup-cli@v1
-        with: { version: 2.121.0 }  # pinned: "latest" asks the GitHub API and hits its rate limit
-      # Postgres with every migration and supabase/seed.sql, plus Auth, Storage and the mailer the tests use.
-      - run: supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy
+        with: { version: 2.121.0 }
+      # retried: five jobs pull images at once and Docker Hub sometimes answers "toomanyrequests"
+      - run: |
+          for i in 1 2 3 4; do
+            supabase start -x studio,postgres-meta,edge-runtime,logflare,vector,realtime,supavisor,imgproxy && exit 0
+            supabase stop --no-backup > /dev/null 2>&1 || true
+            sleep $((i * 30))
+          done
+          exit 1
       # Node and pnpm: the red-then-green check runs web test commits with vitest.
       - uses: pnpm/action-setup@v4
         with: { package_json_file: web/package.json }
       - uses: actions/setup-node@v4
-        with: { node-version: "20", cache: pnpm, cache-dependency-path: web/pnpm-lock.yaml }
+        with: { node-version: "20" }  # no pnpm cache: nothing here installs web packages, and an empty cache path fails the post step
       - run: make -C api lint typecheck
       - name: Packs valid (schemas, lint, every combination)
         run: make -C api packs
       - run: make -C api guards
-      - run: make -C api test
+      - name: Every test id, unsharded (the split check compares the shards to this)
+        run: (cd api && poetry run pytest --collect-only -q | grep '::' | sort) > collected-all.txt
+      - uses: actions/upload-artifact@v4
+        with: { name: collected-all, path: collected-all.txt }
       - name: OpenAPI fuzzing (Schemathesis) against the API on the local Supabase
         if: hashFiles('openapi.json') != ''
         run: |
@@ -57,3 +118,45 @@ jobs:
       - name: Red-then-green check
         if: github.event_name == 'pull_request'
         run: poetry -P api run python scripts/check_red_green.py origin/${{ github.base_ref }}
+
+  # The shards together ran every collected test exactly once, and the combined coverage meets the floor (85, as `make -C api test`).
+  api-verify:
+    needs: [api-shard, api-once]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/api-install
+      - uses: actions/download-artifact@v4
+        with: { path: dl }
+      - name: Union of the shards equals the full collection, no id twice
+        run: |
+          cat dl/shard-*/out/collected-*.txt | sort > union.txt
+          sort -u union.txt | diff - union.txt > /dev/null || { echo "ids collected by more than one shard:"; uniq -d union.txt | head; exit 1; }
+          # a few parametrised tests put a random uuid in their id, so compare with uuids masked
+          mask() { sed -E 's/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/<uuid>/g' "$1" | sort; }
+          diff <(mask dl/collected-all/collected-all.txt) <(mask union.txt) > diff.txt || { echo "shards differ from the full collection:"; head -40 diff.txt; exit 1; }
+          echo "$(wc -l < union.txt) test ids, each in exactly one shard"
+      - name: Combined coverage floor
+        working-directory: api
+        run: |
+          cp ../dl/shard-*/api/cov-*.dat .
+          poetry run coverage combine cov-*.dat
+          poetry run coverage report --fail-under=85 | tail -5
+      - name: Durations for api/.test_durations.json (commit it to rebalance)
+        if: always()
+        run: python3 scripts/shard_api_tests.py --durations dl/shard-*/out/junit-*.xml > durations.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: test-durations, path: durations.json }
+
+  # The required check keeps its name.
+  api:
+    if: always()
+    needs: [api-shard, api-once, api-verify]
+    runs-on: ubuntu-latest
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          if echo "$NEEDS" | grep -Eq '"result": "(failure|cancelled|skipped)"'; then echo "a needed job did not succeed"; exit 1; fi
+          echo ok

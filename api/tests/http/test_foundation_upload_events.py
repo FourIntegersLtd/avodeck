@@ -8,6 +8,7 @@ document is registered and the upload can be completed again. Uploads of later r
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from collections.abc import AsyncIterator, Iterator
 
@@ -26,6 +27,7 @@ from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
+FILE_SHA = SyntheticFile(1 * MB, seed=23).sha256()
 
 
 @pytest.fixture
@@ -73,7 +75,12 @@ async def upload(client_for: ClientFor, team: dict[str, uuid.UUID], **extra: obj
     assert started.status_code == 201, started.text
     upload_id = started.json()["upload_id"]
     sent = await client.put(
-        f"/v1/uploads/{upload_id}/chunks/1", content=file.chunk(1), headers={"content-type": "application/octet-stream"}
+        f"/v1/uploads/{upload_id}/chunks/1",
+        content=file.chunk(1),
+        headers={
+            "content-type": "application/octet-stream",
+            "x-chunk-sha256": hashlib.sha256(file.chunk(1)).hexdigest(),
+        },
     )
     assert sent.status_code == 200
     return client, upload_id
@@ -83,9 +90,9 @@ async def test_completing_publishes_the_event_once_on_the_request_connection(
     client_for: ClientFor, team: dict[str, uuid.UUID], seen: list[tuple[DocumentUploaded, uuid.UUID | None]]
 ) -> None:
     client, upload_id = await upload(client_for, team)
-    done = await client.post(f"/v1/uploads/{upload_id}/complete")  # type: ignore[attr-defined]
+    done = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
     assert done.status_code == 201, done.text
-    again = await client.post(f"/v1/uploads/{upload_id}/complete")  # type: ignore[attr-defined]
+    again = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
     assert again.status_code == 200
     document = uuid.UUID(done.json()["document_id"])
     assert seen == [(DocumentUploaded(case_id=team["case"], document_id=document, appended=False), team["expert"])]
@@ -95,7 +102,7 @@ async def test_an_upload_of_later_records_says_so_in_the_event(
     client_for: ClientFor, team: dict[str, uuid.UUID], seen: list[tuple[DocumentUploaded, uuid.UUID | None]]
 ) -> None:
     client, upload_id = await upload(client_for, team, append=True)
-    done = await client.post(f"/v1/uploads/{upload_id}/complete")  # type: ignore[attr-defined]
+    done = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
     assert done.status_code == 201, done.text
     [(event, _)] = seen
     assert event.appended is True
@@ -111,11 +118,11 @@ async def test_a_failing_subscriber_fails_the_request_and_nothing_is_registered(
     client, upload_id = await upload(client_for, team)
     events.subscribe_in_transaction(DocumentUploaded)(broken)
     try:
-        failed = await client.post(f"/v1/uploads/{upload_id}/complete")  # type: ignore[attr-defined]
+        failed = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
     finally:
         events.unsubscribe(DocumentUploaded, broken)
     assert failed.status_code == 503
     assert admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone() == (0,)
     assert admin.execute("select status from app.uploads where id = %s", (upload_id,)).fetchone() == ("open",)
-    retried = await client.post(f"/v1/uploads/{upload_id}/complete")  # type: ignore[attr-defined]
+    retried = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
     assert retried.status_code == 201, "once the subscriber works, completing again succeeds"
