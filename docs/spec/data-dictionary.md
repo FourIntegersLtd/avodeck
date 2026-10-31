@@ -515,6 +515,15 @@ A joint expert is one with two or more current instructing parties; no separate 
 | via | How the page was read: `page` (on its own screen) or `transcript` (by reading its entries, 0215) |
 | prev_hash / hash | Links to the previous entry so any tampering is obvious |
 
+### second_readings
+| Field | In plain words |
+|---|---|
+| page_id | The page that was read again; one row per page |
+| status | `queued` (waiting), `done`, `refused` (we could not hide the names safely, so nothing was sent) or `failed` |
+| reason | A short code for a refusal or failure; never any text from the page |
+| lines | The model's copy of the handwriting, sealed with the case key; shown beside the page, never merged into the expert's words |
+| requested_by / requested_at / finished_at | Who asked, when, and when it ended (0216) |
+
 ### transcript_views
 | Field | In plain words |
 |---|---|

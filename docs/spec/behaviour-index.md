@@ -59,6 +59,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
 | `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion; `date_basis` is `printed`, `printed_century`, `line_above` or `please_check`; the expert's verify or correct overrides it (ADR 0017) |
 | `fact_verifications` | B | Named expert (append only); the reading job adds `remapped` rows with no person (0207) | Many per fact | Append only | Case deletion; chain head on certificate |
+| `second_readings` | B | The expert who asked (page.transcribe) | One per page; asking again resets it | Status moves queued to done, refused or failed; lines sealed | Case deletion (just after `transcript_views`) |
 | `transcript_views` | B | The person reading by transcript (own rows) | Many per entry per person | Append only | Case deletion (just after `page_reads`) |
 | `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
 | `fact_flags` | B | Named expert (`points`); the reading job adds `recheck` with no person (0205), removed when the expert checks the fact again | Many | Add or remove | Case deletion |

@@ -28,7 +28,7 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance? (relevant | background | nothing), needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned
-`page_reads` (append-only, hash-chained; `via` page|transcript), `transcript_views` (append-only; 0215, purge splice 1016), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209), `page_turns` (how a page is turned for reading, display only; page-owned, no case_id; migration 0213), `page_notes` (the person's own bookmarks and private notes; page-owned, no case_id; migration 0214).
+`page_reads` (append-only, hash-chained; `via` page|transcript), `transcript_views` (append-only; 0215, purge splice 1016), `second_readings` (one per page; T-10 lines sealed; 0216, purge splice 1018), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209), `page_turns` (how a page is turned for reading, display only; page-owned, no case_id; migration 0213), `page_notes` (the person's own bookmarks and private notes; page-owned, no case_id; migration 0214).
 
 Writes on contract tables: `facts.status` and `facts.value` / `fields` on edit (the original stays in `fact_verifications.old_value`); `pages.relevance`, `pages.transcribed_by_expert_text`, `pages.needs_clearer_copy`. Reads `pages`, `facts`, `ocr_words` (A).
 
@@ -69,8 +69,8 @@ The expert's text is authoritative. Machine words for that page are kept but no 
 - [x] Facts on duplicate pages are shown on the original, not twice.
 - [x] Unreadable queue lists the planted low-confidence handwriting pages (`expected/unreadable.json`) with a done count.
 - [x] Saving a transcription queues re-extraction. Resulting facts cite `source = 'expert'` words and start as `suggested`. The page counts as read.
-- [ ] (deferred, needs foundation vision) T-10 is refused (409) before a transcription exists unless `?on_request=true`. The recorded vision request contains no unmasked identifier region (checked against the M9 boxes).
-- [ ] (deferred) T-10 output is never written into `transcribed_by_expert_text`.
+- [x] T-10 is refused (409) before a transcription exists unless `?on_request=true`. The recorded vision request contains no unmasked identifier region (checked against the M9 boxes).
+- [x] T-10 output is never written into `transcribed_by_expert_text`.
 - [x] `needs_clearer_copy = true` makes the page appear in slice A's instructing-party request draft.
 - [x] Progress returns pages read / total and a time estimate from the expert's own median seconds per page by source (default 20 s before there's history).
 - [x] Keyboard: `J`/`K` move page, `R` marks read, `1`/`2`/`3` act on the focused suggestion. All actions are also reachable by 52 px buttons.
