@@ -241,11 +241,12 @@ export async function uploadInParts(caseId: string, file: File, kind: string, ap
       gone(); // a cancel made while that was reported must stop here, before the finish is asked for
       // Each time we ask to finish is its own operation, so it has its own key; retries of it share one.
       const completeKey = round === 0 ? pending.completeKey : key();
-      const answer: { document_id?: string | null } = await withRetries(
+      // The server answers either the finished document or `{status:"finalizing"}`, so narrow before reading.
+      const answer: { document_id?: string | null } | { status: string } = await withRetries(
         () => unwrap(api.POST("/v1/uploads/{upload_id}/complete", { params: { path: { upload_id: started.upload_id } }, headers: withKey(completeKey), body: { sha256 } })),
         signal,
       );
-      if (answer.document_id) return finished(answer.document_id);
+      if ("document_id" in answer && answer.document_id) return finished(answer.document_id);
       // The finish was accepted: the server cannot cancel it now, so a failure from here sends no cancel.
       pending.closed = true;
       const reopened = await pollUntilSettled(started.upload_id, started.chunk_count);
