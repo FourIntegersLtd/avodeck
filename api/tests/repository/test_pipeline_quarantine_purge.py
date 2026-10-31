@@ -24,7 +24,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import paths
 from tests.repository.test_pipeline_quarantine import (
     OTHER_PAGE,
@@ -48,7 +48,7 @@ PURGE_QUARANTINED = "purge_quarantined_pages"  # the daily schedule's name
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -64,7 +64,7 @@ async def h(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     """Page 4 (another person's) is quarantined by the named expert."""
     combo: Combo = request.param

@@ -36,7 +36,7 @@ from app.core.db import Database
 from app.core.jobs import JobRegistry
 from app.core.pdf import split_pages
 from app.core.scan import RecordedScanner
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.ai import FIXTURES, ScriptedBedrock, cell, response
 from tests.support.db import ClientFor
 from tests.support.files import CHUNK, build_app
@@ -219,7 +219,7 @@ class Harness:
     client: httpx.AsyncClient
     expert: uuid.UUID
     case_id: uuid.UUID
-    storage: SupabaseStorage
+    storage: CaseFileStorage
     crypto: CaseCrypto
     registry: JobRegistry
     ocr: CountingOcr | None
@@ -295,7 +295,7 @@ async def harness(
     worker_dsn: str,
     auth_env: dict[str, str],
     client_for: ClientFor | None,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     expert: uuid.UUID,
     case_id: uuid.UUID,
     ocr_store: FixtureStore | None = None,

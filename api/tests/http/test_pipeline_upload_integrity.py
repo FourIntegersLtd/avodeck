@@ -18,7 +18,7 @@ from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.storage import SupabaseStorage, upload_prefix
+from app.core.storage import CaseFileStorage, upload_prefix
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -28,7 +28,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -42,7 +42,7 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -66,7 +66,7 @@ async def test_a_chunk_with_the_right_hash_is_accepted_and_its_hash_is_kept(
 
 
 async def test_a_chunk_with_the_wrong_hash_is_refused_and_nothing_is_stored(
-    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: SupabaseStorage
+    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection, storage: CaseFileStorage
 ) -> None:
     file = SyntheticFile(17 * MB, seed=32)
     client = await client_for(team["expert"])
@@ -136,7 +136,7 @@ async def test_completing_with_the_right_file_hash_claims_the_upload_and_the_job
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -165,7 +165,7 @@ async def test_completing_with_a_wrong_file_hash_is_refused_at_once_and_the_uplo
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -193,7 +193,7 @@ async def test_the_right_size_but_wrong_bytes_are_caught_by_the_whole_file_hash_
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -252,7 +252,7 @@ async def test_completing_twice_gives_one_job_then_the_same_document_without_a_s
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:

@@ -1,0 +1,30 @@
+/* S03 "How a case works": a walkthrough, one step at a time. */
+.av-today__actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.av-today__actions--centre { justify-content: center; }
+
+.av-dialog--how { max-width: 600px; animation: av-how-rise 280ms ease-out both; }
+.av-dialog-backdrop:has(.av-dialog--how) { animation: av-how-fade 200ms ease-out both; }
+.av-how-walk { display: grid; gap: var(--space-4); }
+.av-how-walk p { margin: 0; }
+.av-how-walk__bar { display: flex; gap: var(--space-2); }
+.av-how-walk__seg { flex: 1; height: 8px; border-radius: 4px; background: var(--track); transition: background-color 300ms ease; }
+.av-how-walk__seg--on { background: var(--green); }
+.av-how-walk__count { color: var(--ink-soft); font-weight: 700; }
+.av-how-walk__step { display: flex; gap: var(--space-4); align-items: flex-start; min-height: 150px; padding: var(--space-5); border-radius: var(--radius-card); background: var(--green-tint); }
+.av-how-walk__step--forward { animation: av-how-in-forward 320ms ease-out both; }
+.av-how-walk__step--back { animation: av-how-in-back 320ms ease-out both; }
+.av-how-walk__step h3 { margin: 0 0 var(--space-2); font-size: var(--text-h2); color: var(--green-dark); }
+.av-how-walk__number { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 50%; background: var(--green); color: var(--on-accent); font-size: var(--text-large); font-weight: 700; }
+.av-how-walk__never { font-size: var(--text-small); color: var(--ink-soft); animation: av-how-fade 400ms ease-out both; }
+.av-how-walk__actions { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-3); }
+.av-how-walk__nav { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+
+@keyframes av-how-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes av-how-rise { from { opacity: 0; transform: translateY(16px) scale(0.98); } to { opacity: 1; transform: none; } }
+@keyframes av-how-in-forward { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: none; } }
+@keyframes av-how-in-back { from { opacity: 0; transform: translateX(-32px); } to { opacity: 1; transform: none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .av-dialog--how, .av-dialog-backdrop:has(.av-dialog--how), .av-how-walk__step, .av-how-walk__never { animation: none; }
+  .av-how-walk__seg { transition: none; }
+}

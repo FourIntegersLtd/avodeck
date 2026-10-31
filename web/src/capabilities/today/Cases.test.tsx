@@ -92,14 +92,14 @@ test("New case is the one primary button, and the footer counts the year's sides
   expect(await screen.findByTestId("today-balance")).toHaveTextContent("This year: 2 for the");
 });
 
-test("with no cases: faded rows, No cases yet, one primary button and three info cards", async () => {
+test("with no cases: No cases yet, one primary button and three info cards", async () => {
   const { registerScreen } = await import("../../foundation/lib/screens");
   registerScreen("new_case", () => "/cases/new");
   signedIn({ today: today({ cases: [], needs_you: [], closed_count: 0, organisations: [{ id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 0 }] }) });
   const { container } = renderAt("/cases");
   expect(await screen.findByRole("heading", { level: 2, name: "No cases yet" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Start your first case" })).toHaveAttribute("href", "/cases/new");
-  expect(container.querySelectorAll(".av-cases-empty__ghost")).toHaveLength(3);
+  expect(container.querySelectorAll(".av-cases-empty__ghost")).toHaveLength(0);
   expect(screen.getAllByRole("heading", { level: 3 })).toHaveLength(3);
   expect(screen.queryByRole("searchbox")).toBeNull();
   expect([...container.querySelectorAll(".av-button")].filter((el) => ![...el.classList].some((c) => /^av-button--/.test(c)))).toHaveLength(1);

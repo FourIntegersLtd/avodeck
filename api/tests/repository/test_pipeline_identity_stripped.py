@@ -14,7 +14,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import Harness, empty_answer, harness, t07b_requests, text_pdf
 from tests.support.ai import ScriptedBedrock
 from tests.support.files import local_storage
@@ -37,7 +37,7 @@ LINES = [
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -58,7 +58,7 @@ async def h(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())

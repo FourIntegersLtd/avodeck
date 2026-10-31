@@ -23,7 +23,7 @@ from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
 from app.core.packs import default_library
 from app.core.pdf import embedded_words, split_pages
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import (
     Harness,
     harness,
@@ -45,7 +45,7 @@ UNREADABLE_BELOW = 0.6  # mean word confidence under which a page goes to screen
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -68,7 +68,7 @@ async def _open(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> Any:
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=combo.case_row())
@@ -94,7 +94,7 @@ async def subset(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     """The 18-page subset uploaded as one file and processed under the launch packs."""
     opened = await _open(
@@ -219,7 +219,7 @@ async def test_a_typed_file_makes_no_ocr_call_under_either_pack(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     from tests.repository.test_pipeline_support import empty_answer
 

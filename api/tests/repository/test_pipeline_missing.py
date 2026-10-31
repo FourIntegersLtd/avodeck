@@ -23,7 +23,7 @@ import pytest
 from app.core.ai.bedrock import ModelRequest, ModelResponse
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import paths
 from tests.repository.test_pipeline_support import (
     Harness,
@@ -58,7 +58,7 @@ ULTRASOUND_WORDS = ["p1w17", "p1w18"]
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -74,7 +74,7 @@ async def subset(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     recordings = rekeyed_store(tmp_path / "recordings", subset_document(), subset_page_bytes())
     case = expected("case.json")
@@ -213,7 +213,7 @@ async def test_a_reference_with_no_page_is_missing_and_one_with_a_page_is_not(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     pack = default_library().combine(*combo.codes)
     expert = seed.person()

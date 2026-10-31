@@ -25,7 +25,7 @@ from app.core.ai.kit import AiKit
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.report.assemble import PARAGRAPH_PURPOSE
 from app.features.report.jobs import build_report, final_check
 from app.features.report.services import ReportServices, configure
@@ -99,19 +99,19 @@ def reads() -> Reads:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     yield store
     await store.aclose()
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage) -> FastAPI:
     return app_for(api_db, auth_env, combo, reads, storage)
 
 
 @pytest.fixture
-def model(reads: Reads, storage: SupabaseStorage) -> Iterator[Callable[..., Answering]]:
+def model(reads: Reads, storage: CaseFileStorage) -> Iterator[Callable[..., Answering]]:
     def use(answer: Callable[[ModelRequest], dict[str, Any]] = quiet, *, kit: bool = True) -> Answering:
         answering = Answering(answer)
         configure(

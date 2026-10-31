@@ -39,7 +39,7 @@ from app.core.contracts.case_identity import identity_for
 from app.core.contracts.document_words import apply_corrections, current_corrections, word_purpose
 from app.core.crypto import CaseCrypto
 from app.core.packs import MergedPack
-from app.core.storage import SupabaseStorage, case_prefix
+from app.core.storage import CaseFileStorage, case_prefix
 from app.features.report.assemble import VALUE_PURPOSE
 from app.features.report.words import word
 
@@ -229,7 +229,7 @@ async def hidden_words(
 
 
 async def _page(
-    conn: AsyncConnection, crypto: CaseCrypto, storage: SupabaseStorage, case_id: uuid.UUID, page_id: uuid.UUID
+    conn: AsyncConnection, crypto: CaseCrypto, storage: CaseFileStorage, case_id: uuid.UUID, page_id: uuid.UUID
 ) -> tuple[bytes | None, tuple[float, float] | None, list[tuple[str, str]], dict[str, list[float]]]:
     cur = await conn.execute(
         "select p.image_path, a.width, a.height from app.pages p left join app.page_analysis a on a.page_id = p.id"
@@ -267,7 +267,7 @@ async def _page(
 async def prepare(
     conn: AsyncConnection,
     crypto: CaseCrypto,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     pack: MergedPack,
     case_id: uuid.UUID,
     check_id: uuid.UUID,
@@ -308,7 +308,7 @@ async def prepare(
     await storage.put(items_path(case_id, check_id), seal(token, check_id, data))
 
 
-async def open_check(conn: AsyncConnection, storage: SupabaseStorage, token: str, code: str) -> Opened:
+async def open_check(conn: AsyncConnection, storage: CaseFileStorage, token: str, code: str) -> Opened:
     """The colleague opens the link with the emailed code; items only when the code is right."""
     hashed = token_hash(token)
     cur = await conn.execute("select * from app.spot_check_unlock(%s, %s)", (hashed, code_hash(hashed, code)))

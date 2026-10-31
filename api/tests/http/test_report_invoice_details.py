@@ -27,7 +27,7 @@ from pypdf import PdfReader
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.report.services import ReportServices, configure, current
 from app.features.report.words import word
 from tests.fixtures.report.world import CRYPTO, Reads, World, app_for, build
@@ -67,21 +67,21 @@ def reads() -> Reads:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     yield store
     await store.aclose()
 
 
 @pytest.fixture(autouse=True)
-def services(reads: Reads, storage: SupabaseStorage) -> Iterator[None]:
+def services(reads: Reads, storage: CaseFileStorage) -> Iterator[None]:
     configure(ReportServices(crypto=CRYPTO, storage=storage, reads=reads))
     yield
     configure(None)
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage) -> FastAPI:
     return app_for(api_db, auth_env, combo, reads, storage)
 
 

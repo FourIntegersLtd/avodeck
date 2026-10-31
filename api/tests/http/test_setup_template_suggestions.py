@@ -23,7 +23,7 @@ from app.core.ai.recordings import FixtureStore
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.setup.services import SetupServices, configure
 from tests.support.ai import cell
 from tests.support.db import ClientFor
@@ -52,7 +52,7 @@ EXPECTED = {
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -61,7 +61,7 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage) -> FastAPI:
     from app.core.auth.supabase import SupabaseAuth
     from app.core.config import auth_settings
     from app.core.email import OutboxMailer
@@ -77,7 +77,7 @@ def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) ->
     )
 
 
-def services(storage: SupabaseStorage, root: str = "recordings") -> RecordedBedrock:
+def services(storage: CaseFileStorage, root: str = "recordings") -> RecordedBedrock:
     settings = cell()
     model = RecordedBedrock(settings, FixtureStore(FIXTURES / root))
     kit = AiKit(settings, model)
@@ -86,7 +86,7 @@ def services(storage: SupabaseStorage, root: str = "recordings") -> RecordedBedr
 
 
 @pytest.fixture
-def model(storage: SupabaseStorage) -> Iterator[RecordedBedrock]:
+def model(storage: CaseFileStorage) -> Iterator[RecordedBedrock]:
     yield services(storage)
     configure(None)
 
@@ -147,7 +147,7 @@ async def test_the_call_is_logged_against_the_person_without_its_content(
 
 
 async def test_a_suggestion_for_no_heading_or_a_second_one_for_a_heading_is_refused(
-    client_for: ClientFor, expert: uuid.UUID, storage: SupabaseStorage
+    client_for: ClientFor, expert: uuid.UUID, storage: CaseFileStorage
 ) -> None:
     services(storage, root="recordings-paraphrased")
     try:
@@ -171,7 +171,7 @@ async def test_without_a_template_there_is_nothing_to_suggest(
 
 
 async def test_without_a_model_processing_is_paused(
-    client_for: ClientFor, expert: uuid.UUID, storage: SupabaseStorage
+    client_for: ClientFor, expert: uuid.UUID, storage: CaseFileStorage
 ) -> None:
     configure(SetupServices(kit=None, ocr=None, storage=storage, crypto=None, packs=default_library()))
     try:

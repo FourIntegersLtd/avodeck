@@ -25,7 +25,7 @@ from PIL import Image
 from app.core.contracts.pipeline import extract_page_text, process_pages, transcription_purpose
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import paths
 from tests.repository.test_pipeline_support import Harness, empty_answer, harness, page_words, t07b_requests, text_pdf
 from tests.support.ai import ScriptedBedrock
@@ -41,7 +41,7 @@ TYPED = "Seen today chest clear review in two weeks"
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store

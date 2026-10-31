@@ -29,7 +29,7 @@ from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.reader import second_reading
 from tests.support.ai import ScriptedBedrock, cell, response
 from tests.support.files import build_app, local_storage
@@ -54,7 +54,7 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -74,7 +74,7 @@ def model() -> ScriptedBedrock:
 
 @pytest.fixture(autouse=True)
 def services(
-    monkeypatch: pytest.MonkeyPatch, storage: SupabaseStorage, crypto: CaseCrypto, model: ScriptedBedrock
+    monkeypatch: pytest.MonkeyPatch, storage: CaseFileStorage, crypto: CaseCrypto, model: ScriptedBedrock
 ) -> None:
     monkeypatch.setattr(second_reading.services, "storage", storage)
     monkeypatch.setattr(second_reading.services, "crypto", crypto)
@@ -84,7 +84,7 @@ def services(
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -101,7 +101,7 @@ def box(x: float, text: str) -> tuple[float, ...]:
 
 async def make_page(
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     case: uuid.UUID,
     texts: list[str],
@@ -164,7 +164,7 @@ async def run(worker_db: Database, admin: psycopg.Connection, w: dict[str, Any],
 async def test_asking_before_the_page_is_typed_out_is_a_conflict_unless_on_request(
     client_for: Any,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     world: dict[str, Any],
 ) -> None:
@@ -178,7 +178,7 @@ async def test_asking_before_the_page_is_typed_out_is_a_conflict_unless_on_reque
 async def test_a_typed_out_page_can_be_read_again_without_asking_twice(
     client_for: Any,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     world: dict[str, Any],
 ) -> None:
@@ -190,7 +190,7 @@ async def test_a_typed_out_page_can_be_read_again_without_asking_twice(
 async def test_a_viewer_is_forbidden_and_a_stranger_finds_nothing(
     client_for: Any,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     world: dict[str, Any],
 ) -> None:
@@ -208,7 +208,7 @@ async def test_the_masked_picture_is_read_and_the_lines_come_back_without_touchi
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -248,7 +248,7 @@ async def test_an_unsafe_mask_refuses_and_nothing_is_sent(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -282,7 +282,7 @@ async def test_a_typed_out_page_is_read_again_for_boxes_before_masking(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -304,7 +304,7 @@ async def test_a_typed_out_page_with_no_way_to_find_the_boxes_is_refused(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -322,7 +322,7 @@ async def test_a_busy_model_leaves_the_request_waiting(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     world: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
@@ -355,7 +355,7 @@ async def test_a_page_turned_since_it_was_asked_for_is_refused_even_when_the_fra
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -374,7 +374,7 @@ async def test_a_page_job_still_pending_refuses_because_the_picture_may_be_redra
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -403,7 +403,7 @@ async def test_a_name_in_the_experts_text_that_the_fresh_reading_missed_is_refus
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -425,7 +425,7 @@ async def test_an_unexpected_error_marks_the_request_failed_with_a_code(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     world: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
@@ -443,7 +443,7 @@ async def test_a_job_that_began_before_a_new_request_cannot_overwrite_it(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     world: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
@@ -478,7 +478,7 @@ async def test_a_surname_the_expert_typed_twice_but_the_fresh_reading_found_once
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -500,7 +500,7 @@ async def test_a_failed_page_job_after_a_turn_refuses_because_the_picture_may_no
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],
@@ -525,7 +525,7 @@ async def test_a_picture_replaced_since_it_was_asked_for_refuses(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     model: ScriptedBedrock,
     world: dict[str, Any],

@@ -201,9 +201,9 @@ export function CaseHeader({
   return (
     <>
       <header className="av-case-bar">
-        <Link to="/" className="av-case-bar__home" aria-label={t("ui.case_header.home")}>
+        <span className="av-case-bar__home">
           <Logo />
-        </Link>
+        </span>
         <span className="av-case-bar__divider" aria-hidden="true" />
         <div className="av-case-bar__name">
           {title}

@@ -26,7 +26,7 @@ from psycopg import AsyncConnection
 from app.core.ai.bedrock import ModelRequest
 from app.core.db import Database
 from app.core.http import etag
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.fixtures.test_after_serving_world import (  # noqa: F401
     CRYPTO,
     PARAGRAPHS,
@@ -175,7 +175,7 @@ async def test_a_change_is_edited_with_if_match(
 
 async def test_a_supplementary_report_holds_only_the_changes_and_is_signed_with_step_up(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,

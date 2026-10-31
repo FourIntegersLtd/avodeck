@@ -22,7 +22,7 @@ from psycopg.types.json import Jsonb
 
 from app.core.db import Database
 from app.core.jobs import JobContext
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.report.jobs import build_report
 from app.features.report.services import ReportServices, configure
 from tests.fixtures.report.world import (
@@ -64,19 +64,19 @@ def reads() -> Reads:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     yield store
     await store.aclose()
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage) -> FastAPI:
     return app_for(api_db, auth_env, combo, reads, storage)
 
 
 @pytest.fixture
-def services(reads: Reads, storage: SupabaseStorage) -> Iterator[None]:
+def services(reads: Reads, storage: CaseFileStorage) -> Iterator[None]:
     configure(ReportServices(crypto=CRYPTO, storage=storage, reads=reads))
     yield
     configure(None)
@@ -123,7 +123,7 @@ async def build_now(client_for: ClientFor, worker_db: Database, w: World, person
 
 
 async def latest_docx(
-    admin: psycopg.Connection, storage: SupabaseStorage, aconn: psycopg.AsyncConnection, w: World
+    admin: psycopg.Connection, storage: CaseFileStorage, aconn: psycopg.AsyncConnection, w: World
 ) -> bytes:
     row = admin.execute(
         "select docx_path from app.report_versions where case_id = %s order by version_no desc limit 1", (w.case,)
@@ -137,7 +137,7 @@ async def test_build_keeps_the_template_styles_and_follows_the_confirmed_heading
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -180,7 +180,7 @@ async def test_every_citation_renders_and_maps_to_a_row_whose_fact_is_citable(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -202,7 +202,7 @@ async def test_changing_the_citation_style_rebuilds_as_a_new_draft_and_keeps_the
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -241,7 +241,7 @@ async def test_the_methodology_appendix_lists_ai_tasks_and_pages_read_and_no_con
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -268,7 +268,7 @@ async def test_a_template_that_cannot_be_used_falls_back_to_the_standard_layout(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -291,7 +291,7 @@ async def test_a_team_case_builds_in_the_organisations_required_template(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     aconn: psycopg.AsyncConnection,
     world: World,
 ) -> None:
@@ -319,7 +319,7 @@ async def test_without_a_required_template_the_experts_own_is_used(
     client_for: ClientFor,
     worker_db: Database,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     world: World,
 ) -> None:
     mapping, _ = template_mapping(world.combo)

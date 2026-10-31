@@ -19,7 +19,7 @@ import pytest
 from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import (
     BUNDLE,
     Harness,
@@ -53,7 +53,7 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(scope="module")
-async def bundle_storage(anyio_backend: str, auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def bundle_storage(anyio_backend: str, auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -78,7 +78,7 @@ async def bundle(
     bundle_api_db: Database,
     worker_dsn: str,
     auth_env: dict[str, str],
-    bundle_storage: SupabaseStorage,
+    bundle_storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     """records.pdf uploaded and processed once under the launch packs."""
     seed = Seed(admin)

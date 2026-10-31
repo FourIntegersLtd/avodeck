@@ -58,7 +58,7 @@ from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, router, stale
 from app.core.jobs import BATCH_PRIORITY, INTERACTIVE_PRIORITY
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import missing, paths, repo, split, wiring
 from app.features.pipeline.schemas import (
     Appended,
@@ -207,7 +207,7 @@ async def page_thumbnail(
     request: Request,
     conn: DbConn,
 ) -> Response:
-    storage: SupabaseStorage | None = getattr(request.app.state, "storage", None)
+    storage: CaseFileStorage | None = getattr(request.app.state, "storage", None)
     crypto: CaseCrypto | None = getattr(request.app.state, "crypto", None)
     if storage is None or crypto is None:
         raise ApiError("unavailable", "File storage is not ready.", 503)
@@ -464,6 +464,31 @@ async def change_provenance(
     assert after is not None
     response.headers["cache-control"] = "private, no-store"
     return _document(after)
+
+
+@pipeline_router.delete("/{case_id}/documents/{document_id}", status_code=204)
+async def delete_document(
+    case_id: uuid.UUID,
+    document_id: uuid.UUID,
+    access: Annotated[CaseAccess, Depends(require_case_access("case.upload"))],
+    request: Request,
+    conn: DbConn,
+) -> None:
+    if await repo.document(conn, case_id, document_id) is None:
+        raise _not_found()
+    storage_path, page_ids = await repo.document_storage_paths(conn, case_id, document_id)
+    if not await repo.delete_document(conn, case_id, document_id):
+        raise _not_found()
+    await audit.record(conn, action="document.deleted", target=f"document:{document_id}", case_id=case_id)
+    storage: CaseFileStorage | None = getattr(request.app.state, "storage", None)
+    if storage is not None:
+        to_remove: list[str] = []
+        if storage_path:
+            to_remove.extend(await storage.list_recursive(storage_path))
+        for page_id in page_ids:
+            to_remove.extend(await storage.list_recursive(paths.page_prefix(case_id, page_id)))
+        if to_remove:
+            await storage.delete(to_remove)
 
 
 @pipeline_router.post("/{case_id}/documents/append", status_code=202, response_model=Appended)

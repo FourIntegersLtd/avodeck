@@ -77,3 +77,15 @@ def test_the_same_value_gets_the_same_placeholder(library: PackLibrary) -> None:
 def test_stripping_result_never_shows_the_original_in_its_repr(library: PackLibrary) -> None:
     out = pii.strip(f"{NAME} seen.", pack=merged(library, LAUNCH), names=[NAME])
     assert "Pemberton" not in repr(out)
+
+
+def test_the_ids_a_prompt_uses_to_name_rows_survive_stripping(library: PackLibrary) -> None:
+    """A prompt names each row by its id so the model can point back at it (architecture 6.2). A digit
+    run inside an id can look like a phone or record number: if it is replaced the model is shown an id
+    that belongs to nothing, and its answer cannot be linked back. Both ids below are made up."""
+    ids = ("add18449-b555-4514-84d1-030772676465", "3c9f0e21-7d44-4a66-9b10-020773441620")
+    text = "\n".join(f"[paragraph {one}] The later visit is noted." for one in ids)
+    out = pii.strip(text, pack=merged(library, LAUNCH), names=[NAME])
+    for one in ids:
+        assert one in out.text, "an id was mangled by stripping"
+    assert sum(out.counts.values()) == 0

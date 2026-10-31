@@ -16,7 +16,7 @@ import psycopg
 from app.core.crypto import CaseCrypto
 from app.core.db import Database
 from app.core.jobs import JobContext
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.files import SyntheticFile
 
 
@@ -68,7 +68,7 @@ async def run_finalize(
     worker_dsn: str,
     admin: psycopg.Connection,
     upload: str,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     *,
     attempt: int = 1,

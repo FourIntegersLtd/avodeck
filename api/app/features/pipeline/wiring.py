@@ -85,12 +85,12 @@ def from_env() -> PipelineServices:
     from app.core.crypto import key_provider_from_env
     from app.core.packs import default_library
     from app.core.scan import scanner_from_env
-    from app.core.storage import SupabaseStorage, storage_settings
+    from app.core.storage import CaseFileStorage, storage_settings
 
     ai = live_or_recorded()
     crypto = CaseCrypto(key_provider_from_env())
     return PipelineServices(
-        storage=SupabaseStorage(storage_settings()),
+        storage=CaseFileStorage(storage_settings()),
         crypto=crypto,
         scanner=scanner_from_env(),
         ocr=ai.ocr,

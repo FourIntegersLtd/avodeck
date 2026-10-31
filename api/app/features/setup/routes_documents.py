@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from app.core.crypto import CaseCrypto
 from app.core.http import DbConn
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.setup import pdf
 from app.features.setup.router import router
 from app.features.setup.routes_case import ViewContent
@@ -36,7 +36,7 @@ async def _count(request: Request, conn: DbConn, case_id: uuid.UUID, prefix: str
     known, count = pdf.remembered(sha256)
     if known:
         return count
-    storage: SupabaseStorage | None = request.app.state.storage
+    storage: CaseFileStorage | None = request.app.state.storage
     crypto: CaseCrypto | None = request.app.state.crypto
     if storage is None or crypto is None:
         return None

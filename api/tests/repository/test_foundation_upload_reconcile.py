@@ -17,8 +17,8 @@ import pytest
 
 from app.core.db import Database
 from app.core.housekeeping import ReconcileResult, reconcile_upload_objects
-from app.core.storage import StorageError, SupabaseStorage, case_prefix, upload_prefix
-from tests.support.files import STORAGE_BUCKET, local_storage
+from app.core.storage import CaseFileStorage, StorageError, case_prefix, upload_prefix
+from tests.support.files import age_objects, local_storage
 from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
@@ -35,7 +35,7 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     store.list_page_size = 2  # more folders and objects than one page, so paging is exercised
     try:
@@ -70,28 +70,20 @@ def add_upload(
     return uid
 
 
-async def put_chunks(storage: SupabaseStorage, case: uuid.UUID, folder: str, count: int = 3) -> list[str]:
+async def put_chunks(storage: CaseFileStorage, case: uuid.UUID, folder: str, count: int = 3) -> list[str]:
     paths = [f"{case_prefix(case)}/uploads/{folder}/{n:05d}" for n in range(1, count + 1)]
     for path in paths:
         await storage.put(path, b"chunk")
     return paths
 
 
-def age(admin: psycopg.Connection, paths: list[str], *, days: int) -> None:
-    admin.execute(
-        "update storage.objects set created_at = now() - make_interval(days => %s)"
-        " where bucket_id = %s and name = any(%s)",
-        (days, STORAGE_BUCKET, paths),
-    )
-
-
-async def reconcile(worker_db: Database, storage: SupabaseStorage, case: uuid.UUID) -> object:
+async def reconcile(worker_db: Database, storage: CaseFileStorage, case: uuid.UUID) -> object:
     async with worker_db.job(case) as conn:
         return await reconcile_upload_objects(conn, storage, case)
 
 
 async def test_deletes_verified_orphans_only(
-    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID, seed: Seed
+    worker_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID, seed: Seed
 ) -> None:
     seed.document(case)
     cancelled = add_upload(admin, case, "cancelled")
@@ -105,9 +97,9 @@ async def test_deletes_verified_orphans_only(
         unknown_young: await put_chunks(storage, case, str(unknown_young)),
     }
     old_paths = await put_chunks(storage, case, str(unknown_old))
-    age(admin, old_paths, days=9)
+    age_objects(old_paths, days=9)
     stray = await put_chunks(storage, case, "not-a-uuid", 1)
-    age(admin, stray, days=30)
+    age_objects(stray, days=30)
 
     await reconcile(worker_db, storage, case)
 
@@ -124,11 +116,11 @@ async def test_deletes_verified_orphans_only(
 
 
 async def test_a_live_open_upload_is_left_alone(
-    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+    worker_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID
 ) -> None:
     live = add_upload(admin, case)
     paths = await put_chunks(storage, case, str(live))
-    age(admin, paths, days=30)  # old objects, but the row is live: the row decides
+    age_objects(paths, days=30)  # old objects, but the row is live: the row decides
     await reconcile(worker_db, storage, case)
     assert len(await storage.list(upload_prefix(case, live))) == 3
     row = admin.execute("select status, cleaned_at from app.uploads where id = %s", (live,)).fetchone()
@@ -136,29 +128,29 @@ async def test_a_live_open_upload_is_left_alone(
 
 
 async def test_a_young_folder_without_a_row_is_left_alone(
-    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+    worker_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID
 ) -> None:
     folder = uuid.uuid4()  # an upload being created right now may not have its row visible yet
     paths = await put_chunks(storage, case, str(folder))
-    age(admin, paths[:2], days=30)  # one young object is enough to keep the whole folder
+    age_objects(paths[:2], days=30)  # one young object is enough to keep the whole folder
     await reconcile(worker_db, storage, case)
     assert len(await storage.list(upload_prefix(case, folder))) == 3
 
 
 async def test_a_folder_of_a_row_with_a_document_is_never_deleted(
-    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID, seed: Seed
+    worker_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID, seed: Seed
 ) -> None:
     seed.document(case)
     done = add_upload(admin, case, "complete", document=True)
     paths = await put_chunks(storage, case, str(done))
-    age(admin, paths, days=30)
+    age_objects(paths, days=30)
     await reconcile(worker_db, storage, case)
     assert len(await storage.list(upload_prefix(case, done))) == 3
 
 
 async def test_marked_cleaned_only_after_the_delete_succeeded(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     case: uuid.UUID,
     monkeypatch: pytest.MonkeyPatch,
@@ -183,7 +175,7 @@ async def test_marked_cleaned_only_after_the_delete_succeeded(
 
 async def test_logs_counts_only(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     case: uuid.UUID,
     caplog: pytest.LogCaptureFixture,
@@ -197,36 +189,36 @@ async def test_logs_counts_only(
 
 
 async def test_a_completed_documents_prefix_is_never_deleted_even_without_its_upload_row(
-    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID, seed: Seed
+    worker_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID, seed: Seed
 ) -> None:
     doc = seed.document(case)
     folder = uuid.uuid4()  # the upload row is gone from view, but the document's bytes live at this path
     paths = await put_chunks(storage, case, str(folder))
-    age(admin, paths, days=30)
+    age_objects(paths, days=30)
     admin.execute("update app.documents set storage_path = %s where id = %s", (upload_prefix(case, folder), doc))
     await reconcile(worker_db, storage, case)
     assert len(await storage.list(upload_prefix(case, folder))) == 3
 
 
 async def test_a_connection_not_scoped_to_the_case_deletes_nothing(
-    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+    worker_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID
 ) -> None:
     folder = uuid.uuid4()
     paths = await put_chunks(storage, case, str(folder))
-    age(admin, paths, days=30)
+    age_objects(paths, days=30)
     async with worker_db.anonymous() as conn:  # sees no rows at all: every folder would look row-less
         await reconcile_upload_objects(conn, storage, case)
     assert len(await storage.list(upload_prefix(case, folder))) == 3
 
 
 async def test_the_api_role_deletes_nothing_even_with_the_case_setting_set(
-    api_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+    api_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID
 ) -> None:
     """`app.job_case_id` is a plain session setting any role can set (migration 0027), so the setting alone
     is no proof: on `app_api` every row stays hidden and each folder would look like an orphan."""
     folder = uuid.uuid4()
     paths = await put_chunks(storage, case, str(folder))
-    age(admin, paths, days=30)
+    age_objects(paths, days=30)
     async with api_db.anonymous() as conn:
         await conn.execute("select set_config('app.job_case_id', %s, true)", (str(case),))
         assert await reconcile_upload_objects(conn, storage, case) == ReconcileResult()
@@ -234,7 +226,7 @@ async def test_the_api_role_deletes_nothing_even_with_the_case_setting_set(
 
 
 async def test_the_sweep_leaves_the_connection_unscoped_afterwards(
-    worker_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+    worker_db: Database, storage: CaseFileStorage, admin: psycopg.Connection, case: uuid.UUID
 ) -> None:
     from datetime import date
 
@@ -302,7 +294,7 @@ async def test_an_object_time_that_is_not_aware_utc_is_never_a_reason_to_delete(
 
 async def test_reconciling_logs_the_upload_reconciled_event_with_counts_only(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     case: uuid.UUID,
     caplog: pytest.LogCaptureFixture,

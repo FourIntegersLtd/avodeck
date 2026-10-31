@@ -22,7 +22,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import paths
 from tests.repository.test_pipeline_support import Harness, expected, harness
 from tests.support.db import ClientFor, scope_for
@@ -37,7 +37,7 @@ DOB = dt.date(1961, 7, 14)
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -76,7 +76,7 @@ async def world(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[dict[str, Any]]:
     combo: Combo = request.param
     expert = seed.person()

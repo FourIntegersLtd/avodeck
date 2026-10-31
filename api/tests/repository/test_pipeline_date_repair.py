@@ -12,7 +12,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import MergedPack, default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import date_repair, dates
 from tests.repository.test_pipeline_support import harness
 from tests.support.db import scope_for
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -39,7 +39,7 @@ async def test_repair_job_sets_event_date_from_printed_words(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
@@ -251,7 +251,7 @@ async def test_repair_job_reads_century_and_line_above_for_suggested_facts(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     expert = seed.person()
     case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())

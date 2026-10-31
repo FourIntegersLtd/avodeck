@@ -26,7 +26,7 @@ from psycopg import AsyncConnection
 from app.core.ai.bedrock import ModelRequest
 from app.core.db import Database
 from app.core.http import etag
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.fixtures.test_after_serving_world import (  # noqa: F401
     PARAGRAPHS,
     Reads,
@@ -217,7 +217,7 @@ def t21d_for(w: World) -> Any:
 
 async def checked_report(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -264,7 +264,7 @@ async def test_t21a_is_never_offered_a_fact_the_expert_rejected(
 
 async def test_code_settles_nine_claims_and_only_three_go_to_the_larger_model(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -284,7 +284,7 @@ async def test_code_settles_nine_claims_and_only_three_go_to_the_larger_model(
 
 async def test_every_result_shows_both_quotes_and_nothing_is_a_discrepancy_until_confirmed(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -334,7 +334,7 @@ async def test_every_result_shows_both_quotes_and_nothing_is_a_discrepancy_until
 
 async def test_positions_link_paragraphs_by_id_and_show_both_texts_verbatim(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -352,7 +352,7 @@ async def test_positions_link_paragraphs_by_id_and_show_both_texts_verbatim(
 
 
 async def test_registering_their_report_needs_upload_rights_and_happens_once(
-    client_for: ClientFor, storage: SupabaseStorage, admin: psycopg.Connection, aconn: AsyncConnection, served: World
+    client_for: ClientFor, storage: CaseFileStorage, admin: psycopg.Connection, aconn: AsyncConnection, served: World
 ) -> None:
     document = await store_document(storage, admin, aconn, served.case, THEIR_REPORT, "opposing_report")
     body = {"document_id": str(document), "received_on": "2026-04-02"}
@@ -373,7 +373,7 @@ async def test_registering_their_report_needs_upload_rights_and_happens_once(
 
 async def test_a_claims_check_stays_hidden_until_the_viewer_has_read_its_page(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -410,7 +410,7 @@ async def test_a_claims_check_stays_hidden_until_the_viewer_has_read_its_page(
 
 async def test_the_other_experts_name_role_and_page_count_come_with_their_report(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -434,7 +434,7 @@ async def test_the_other_experts_name_role_and_page_count_come_with_their_report
 
 async def test_a_report_registered_without_a_name_has_none(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
@@ -458,7 +458,7 @@ async def test_new_since_served_gives_the_page_range_and_the_number_read(
 
 async def test_claims_come_grouped_with_the_server_counting_those_needing_attention(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,
