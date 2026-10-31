@@ -7,6 +7,7 @@ import { CaseTeam } from "./CaseTeam";
 import { flag } from "./flags";
 import { Leave } from "./Leave";
 import { OrganisationSettings } from "./OrganisationSettings";
+import { StartTeam, StartTeamBody } from "./StartTeam";
 import { SupportCase } from "./SupportCase";
 import { SupportAccounts } from "./SupportAccounts";
 import { SupportConsole } from "./SupportConsole";
@@ -15,12 +16,14 @@ import "./words";
 /** Slice O: S27 and its Leave page, S28's custodian and closing sections, and the support console. */
 registerScreen("organisation_settings", ({ params }) => `/organisations/${String(params.organisation_id)}`);
 registerScreen("S27", ({ params }) => `/organisations/${String(params.organisation_id)}`);
+registerScreen("organisation_new", () => "/organisations/new");
 registerScreen("organisation_leave", ({ params }) => `/organisations/${String(params.organisation_id)}/leave`);
 registerScreen("account_custodian", () => "/account/custodian");
 registerScreen("account_close", () => "/account/close");
 registerScreen("case_team", ({ caseId }) => `/cases/${caseId}/team`);
 registerScreen("support_console", () => "/support");
 
+registerAccountSection({ key: "organisations.start_team", order: 5, titleKey: "organisations.start_team.title", component: StartTeamBody });
 registerAccountSection({ key: "organisations.custodian", order: 10, titleKey: "organisations.custodian.title", component: CustodianBody });
 registerAccountSection({ key: "organisations.close", order: 20, titleKey: "organisations.close_account.title", component: CloseAccountBody });
 
@@ -38,6 +41,8 @@ registerCaseAction({
 });
 
 export const organisationsRoutes: RouteObject[] = [
+  // Before ":orgId", or the settings screen would swallow "new".
+  { path: "organisations/new", element: <StartTeam /> },
   { path: "organisations/:orgId", element: <OrganisationSettings /> },
   { path: "organisations/:orgId/leave", element: <Leave /> },
   { path: "account/custodian", element: <Custodian /> },
