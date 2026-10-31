@@ -24,10 +24,11 @@ The expert reads every page of the bundle themselves. AI suggestions for a page 
 - `GET /v1/cases/{id}/pages/unreadable` (each page also says `is_copy` and `has_clearer_copy`; `pages/{n}/facts` rows carry `related`: other suggestions on the same page and day, shown as "the record found with it") The facts list also says `reassigned` (true when a fact on the page is suggested again because the named expert changed; screen 09 then explains it, nothing lost).
 - `PUT /v1/cases/{id}/pages/{page_no}/transcription` `{text, relevance?}` → 202 job (re-extraction through `core/contracts/pipeline.py` `extract_page_text`, which A implements)
 - `GET /v1/cases/{id}/pages/{page_no}/second-reading`
+- Reading by transcript (S09b, ADR 0028, migration 0215): `GET /v1/cases/{id}/transcript/entries?offset&limit` (`{status, total, entries, picture_pages, unread_pages}`, no facts; `unread_pages` are pages the computer could not read, read by opening the picture; a failed entries job is not re-queued by polling), `POST …/transcript/retry` (202 `{status}`, `page.read`; the reader's own "Try again"), `POST …/transcript/seen` (`{entry_id, dwell_ms}` or `{page_no, picture_opened}` returns `{pages_read}`; the server decides when a page is read, 1.5 s per entry, and logs it in `page_reads` with `via = 'transcript'`), `POST …/transcript/download` (202 `{job_id}`, step-up, job `export_transcript`) and `GET …/transcript/download/{job_id}` (the Word file once)
 - `PATCH /v1/cases/{id}/pages/{page_no}` `{relevance? (relevant | background | nothing), needs_clearer_copy?}` (setting a page aside as a copy is A's `PATCH …/pages/{page_id}/duplicate`)
 
 ## Tables owned
-`page_reads` (append-only, hash-chained), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209), `page_turns` (how a page is turned for reading, display only; page-owned, no case_id; migration 0213), `page_notes` (the person's own bookmarks and private notes; page-owned, no case_id; migration 0214).
+`page_reads` (append-only, hash-chained; `via` page|transcript), `transcript_views` (append-only; 0215, purge splice 1016), `second_readings` (one per page; T-10 lines sealed; 0216, purge splice 1018), `fact_verifications` (append-only), `fact_flags` (fact_id, flagged_for: points, at), `word_corrections` (the expert's reading of misread words; page-owned, no case_id; decision 0018, migration 0209), `page_turns` (how a page is turned for reading, display only; page-owned, no case_id; migration 0213), `page_notes` (the person's own bookmarks and private notes; page-owned, no case_id; migration 0214).
 
 Writes on contract tables: `facts.status` and `facts.value` / `fields` on edit (the original stays in `fact_verifications.old_value`); `pages.relevance`, `pages.transcribed_by_expert_text`, `pages.needs_clearer_copy`. Reads `pages`, `facts`, `ocr_words` (A).
 
@@ -68,8 +69,8 @@ The expert's text is authoritative. Machine words for that page are kept but no 
 - [x] Facts on duplicate pages are shown on the original, not twice.
 - [x] Unreadable queue lists the planted low-confidence handwriting pages (`expected/unreadable.json`) with a done count.
 - [x] Saving a transcription queues re-extraction. Resulting facts cite `source = 'expert'` words and start as `suggested`. The page counts as read.
-- [ ] (deferred, needs foundation vision) T-10 is refused (409) before a transcription exists unless `?on_request=true`. The recorded vision request contains no unmasked identifier region (checked against the M9 boxes).
-- [ ] (deferred) T-10 output is never written into `transcribed_by_expert_text`.
+- [x] T-10 is refused (409) before a transcription exists unless `?on_request=true`. The recorded vision request contains no unmasked identifier region (checked against the M9 boxes).
+- [x] T-10 output is never written into `transcribed_by_expert_text`.
 - [x] `needs_clearer_copy = true` makes the page appear in slice A's instructing-party request draft.
 - [x] Progress returns pages read / total and a time estimate from the expert's own median seconds per page by source (default 20 s before there's history).
 - [x] Keyboard: `J`/`K` move page, `R` marks read, `1`/`2`/`3` act on the focused suggestion. All actions are also reachable by 52 px buttons.

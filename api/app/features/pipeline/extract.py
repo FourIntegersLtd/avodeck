@@ -6,6 +6,8 @@
   the identifier-stripped text, so a masked word keeps its ID but never its text (rule 7).
 - `sort_facts(output, words, struck)`: facts citing a crossed-out word are dropped; the rest are
   checked against the words they cite (rule 2) and split into kept and refused.
+- `sort_entries(output, positions, pack)`: the page's entries (ADR 0028) whose first and last words are on
+  the page, in order, outside each other and in the pack's vocabulary; the rest are counted, never logged.
 - `box(word_ids, polygons, width, height)`: the cited words' box as a share of the page.
 """
 
@@ -25,7 +27,7 @@ from app.core.packs import MergedPack
 from app.features.pipeline import dates
 
 TASK_ID = "T-07b"
-PROMPT_VERSION = "2026-10-22.1"
+PROMPT_VERSION = "2026-10-30.1"
 MODEL_ROLE = "sonnet"
 AVAILABILITY = ("received", "filed", "seen", "sent_to_clinician")
 _FIELD_TYPES = {"date": ["string", "null"], "string": ["string", "null"], "boolean": ["boolean", "null"]}
@@ -86,6 +88,18 @@ def output_schema(pack: MergedPack) -> dict[str, Any]:
         "required": ["text", "word_ids"],
         "properties": {"text": {"type": "string", "maxLength": _SPAN}, "word_ids": _ids()},
     }
+    entry = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["kind", "first_word_id", "last_word_id", "author_role", "specialty"],
+        "properties": {
+            "kind": {"enum": [k["key"] for k in pack.entry_kinds()]},
+            "first_word_id": {"type": "string", "minLength": 1, "maxLength": 40},
+            "last_word_id": {"type": "string", "minLength": 1, "maxLength": 40},
+            "author_role": {"enum": [*(r["key"] for r in pack.author_roles()), None]},
+            "specialty": {"enum": [*(s["key"] for s in pack.entry_specialties()), None]},
+        },
+    }
     properties = {
         "source_type": {"enum": [*(s["key"] for s in pack.source_types()), None]},  # null: cannot tell
         "printed_dates": {"type": "array", "items": {"type": "string", "maxLength": 40}},
@@ -96,6 +110,7 @@ def output_schema(pack: MergedPack) -> dict[str, Any]:
         },
         "availability_evidence": {"type": "array", "items": _dated(kind={"enum": list(AVAILABILITY)})},
         "actions_requested_of_clinician": {"type": "array", "items": action},
+        "entries": {"type": "array", "items": entry, **({} if pack.entry_kinds() else {"maxItems": 0})},
     }
     return {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
 
@@ -191,3 +206,78 @@ def sort_evidence(
             {"kind": item["kind"], "date": value.isoformat() if value else None, "date_text": text, "word_ids": ids}
         )
     return kept
+
+
+@dataclass(frozen=True)
+class Entry:
+    kind: str
+    first_word_id: str
+    last_word_id: str
+    first_n: int
+    last_n: int
+    author_role: str | None
+    specialty: str | None
+
+
+@dataclass(frozen=True)
+class SortedEntries:
+    kept: list[Entry]
+    rejected: int
+
+
+def sort_entries(output: Mapping[str, Any] | None, positions: Mapping[str, int], pack: MergedPack) -> SortedEntries:
+    """The entries worth keeping, in page order, and how many were dropped.
+
+    An entry is kept when its kind, author role and specialty are in the pack, both ends are words on the
+    page (`positions`: word id to its number, from 1), the first is not after the last, and it does not
+    overlap an entry already kept. Nothing about a dropped entry is logged but the count."""
+    kinds = {k["key"] for k in pack.entry_kinds()}
+    roles = {r["key"] for r in pack.author_roles()}
+    specialties = {s["key"] for s in pack.entry_specialties()}
+    kept: list[Entry] = []
+    rejected = 0
+    for item in (output or {}).get("entries", []):
+        first, last = positions.get(item.get("first_word_id")), positions.get(item.get("last_word_id"))
+        role, specialty = item.get("author_role"), item.get("specialty")
+        ok = (
+            item.get("kind") in kinds
+            and first is not None
+            and last is not None
+            and first <= last
+            and (role is None or role in roles)
+            and (specialty is None or specialty in specialties)
+            and not any(first <= e.last_n and e.first_n <= last for e in kept)
+        )
+        if not ok:
+            rejected += 1
+            continue
+        assert first is not None and last is not None
+        kept.append(
+            Entry(
+                kind=str(item["kind"]),
+                first_word_id=str(item["first_word_id"]),
+                last_word_id=str(item["last_word_id"]),
+                first_n=first,
+                last_n=last,
+                author_role=role,
+                specialty=specialty,
+            )
+        )
+    return SortedEntries(kept=sorted(kept, key=lambda e: e.first_n), rejected=rejected)
+
+
+def entry_date(
+    entry: Entry, ordered: Sequence[tuple[str, str]], struck: set[str], pack: MergedPack
+) -> tuple[Any, str | None]:
+    """An entry's date from the dates printed inside its words: one readable date is used, a date that reads
+    more than one way is left for the reader to check, and none gives no date."""
+    inside = [
+        (w, t) for n, (w, t) in enumerate(ordered, start=1) if entry.first_n <= n <= entry.last_n and w not in struck
+    ]
+    found = dates.find(inside, pack)
+    readable = {d.value for d in found if not d.ambiguous}
+    if len(readable) == 1 and len(found) == 1:
+        return readable.pop(), dates.PRINTED
+    if found and not readable:
+        return None, dates.PLEASE_CHECK
+    return None, None

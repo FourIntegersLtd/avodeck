@@ -6,6 +6,8 @@ Use these words in the interface. Users are GPs aged roughly 50–60 who are not
 |---|---|
 | Pages you've read | Coverage, read progress |
 | Pages we couldn't read | OCR failures, low-confidence pages |
+| We couldn't get your transcript ready / Try again | Entries job failed, retry |
+| This page couldn't be read by the computer; look at the picture. | Entries extraction failed for the page |
 | Turn left, Turn right, Upside down | Rotate, orientation |
 | Make it clearer | Brightness/contrast filter, image enhancement |
 | Go to page, Pages (the page strip) | Jump to, thumbnails, navigator |

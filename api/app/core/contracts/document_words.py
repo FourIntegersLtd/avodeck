@@ -30,6 +30,11 @@ def word_purpose(page_id: uuid.UUID, word_id: str) -> str:
     return f"ocr_words/{page_id}/{word_id}"
 
 
+def page_pdf_path(case_id: uuid.UUID, page_id: uuid.UUID) -> str:
+    """Where a page's one-page PDF is kept (the same as slice A's)."""
+    return f"cases/{case_id}/pages/{page_id}/page.pdf"
+
+
 type Correction = tuple[list[str], str]  # (word ids of the corrected run, the expert's reading)
 
 

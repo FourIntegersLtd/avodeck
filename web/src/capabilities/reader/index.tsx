@@ -3,6 +3,7 @@ import type { RouteObject } from "react-router-dom";
 import { registerScreen } from "../../foundation/lib/screens";
 import { CouldntRead } from "./CouldntRead";
 import { Reader } from "./Reader";
+import { TranscriptRead } from "./TranscriptRead";
 import "./reader.css";
 import "./words";
 
@@ -17,6 +18,7 @@ registerScreen("couldnt_read", unreadable);
 
 export const readerCaseRoutes: RouteObject[] = [
   { path: "read", element: <Reader />, handle: { screen: "reader" } },
+  { path: "read/transcript", element: <TranscriptRead />, handle: { screen: "reader" } },
   { path: "read/:pageNo", element: <Reader />, handle: { screen: "reader" } },
   { path: "read/couldnt-read", element: <CouldntRead />, handle: { screen: "couldnt_read" } },
 ];

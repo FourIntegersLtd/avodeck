@@ -34,8 +34,8 @@ fact_kinds:
   - key: letter
     label: Letter
     arrives: true
-    fields: {date: date, from: string, to: string, received_on: date, actions_requested: string, acknowledges_referral_dated: date}
-    field_labels: {date: Date, from: From, to: To, received_on: Received on, actions_requested: Actions asked for, acknowledges_referral_dated: Replies to referral dated}
+    fields: {date: date, from: string, to: string, specialty: string, received_on: date, actions_requested: string, acknowledges_referral_dated: date}
+    field_labels: {date: Date, from: From, to: To, specialty: Author's specialty, received_on: Received on, actions_requested: Actions asked for, acknowledges_referral_dated: Replies to referral dated}
   - key: examination
     label: Examination
     fields: {date: date, finding: string, value: string, unit: string}

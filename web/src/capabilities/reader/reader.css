@@ -268,3 +268,13 @@
 .rd-notes__list li { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: baseline; }
 .rd-notes__list a { display: inline-flex; align-items: center; min-height: 52px; font-family: var(--font-mono); }
 .rd-notes__what { color: var(--ink-soft); }
+
+.rd-transcript { max-width: 860px; margin: 0 auto; padding: 24px 16px; font-size: 17px; }
+.rd-transcript__bar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+.rd-transcript__progress { flex: 1 1 240px; }
+.rd-entry { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px 20px; margin: 14px 0; }
+.rd-entry__head { font-size: 17px; margin: 0 0 6px; color: var(--ink-soft); }
+.rd-entry__page { font-family: "IBM Plex Mono", monospace; }
+.rd-entry__chip { display: inline-block; background: var(--green-tint); color: var(--green-dark); border-radius: 999px; padding: 2px 12px; margin-left: 8px; }
+.rd-entry__line { margin: 0; font-size: 19px; }
+.rd-entry--folded .rd-entry__line { color: var(--ink-soft); font-size: 17px; }

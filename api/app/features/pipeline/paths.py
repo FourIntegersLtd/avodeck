@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import uuid
 
+from app.core.contracts.document_words import page_pdf_path as page_pdf_path
 from app.core.contracts.document_words import word_purpose as word_purpose  # shared with slices B, D and E
 
 
@@ -14,10 +15,6 @@ def page_prefix(case_id: uuid.UUID, page_id: uuid.UUID) -> str:
 def part_prefix(case_id: uuid.UUID, document_id: uuid.UUID) -> str:
     """Where a file taken out of an email or a zip is kept, as a document of its own."""
     return f"cases/{case_id}/parts/{document_id}"
-
-
-def page_pdf_path(case_id: uuid.UUID, page_id: uuid.UUID) -> str:
-    return f"{page_prefix(case_id, page_id)}/page.pdf"
 
 
 def page_image_path(case_id: uuid.UUID, page_id: uuid.UUID) -> str:

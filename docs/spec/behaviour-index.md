@@ -59,6 +59,8 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `ocr_words` | A | Worker; re-run on rotation | Many per page | Replaced only by rotation or opt-in reprocessing | Case deletion |
 | `facts` | Foundation (A writes, B verifies) | Worker suggests; only named expert verifies | Many per page | Never deleted; `version` rises on change; state machine in the database; citable only when verified or edited on a page the named expert has read | Case deletion; `date_basis` is `printed`, `printed_century`, `line_above` or `please_check`; the expert's verify or correct overrides it (ADR 0017) |
 | `fact_verifications` | B | Named expert (append only); the reading job adds `remapped` rows with no person (0207) | Many per fact | Append only | Case deletion; chain head on certificate |
+| `second_readings` | B | The expert who asked (page.transcribe) | One per page; asking again resets it | Status moves queued to done, refused or failed; lines sealed | Case deletion (just after `transcript_views`) |
+| `transcript_views` | B | The person reading by transcript (own rows) | Many per entry per person | Append only | Case deletion (just after `page_reads`) |
 | `page_reads` | B | Anyone who reads; only named expert's count for citing | Many per page per person | Append only, hash-chained | Case deletion; chain head on certificate |
 | `fact_flags` | B | Named expert (`points`); the reading job adds `recheck` with no person (0205), removed when the expert checks the fact again | Many | Add or remove | Case deletion |
 | `word_corrections` | B | Named expert only (`fact.verify`), while changing a fact | Many per page; one current per word | Never deleted by the app; a later reading of the same words, or new words for the page (slice A's reading job, 0211), sets `superseded_at`; other checked facts on the words of either reading that it no longer shows are flagged `recheck`; refused (409) on words a served fact cites | Goes with its page on case deletion (no case_id, decision 0018); deleted by `purge_quarantined_page` (0211) |
@@ -66,6 +68,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `page_notes` | B | Each person for themselves (`page.read`), bookmarking or noting a page on screen 09 | One per person and page | Replaced by the next save; removed when bookmark and note are both cleared; only its owner sees it | Goes with its page on case deletion (no case_id, like `page_turns`) |
 | `missing_items` | A | Worker suggests; named expert or assistant updates | Many | State machine | Case deletion |
 | `record_gaps` | A | Worker; named expert confirms | Many | Recalculated when records are appended | Case deletion |
+| `record_entries` | A | Worker (`extract_entries`, T-07b) | Many per page | Replaced when the page is read again | Case deletion |
 | `instructing_party_requests` | A | Named expert or assistant drafts; named expert sends | Many | Sent ones never edited (append only, hash-chained) | Case deletion |
 | `case_processing` | A | Named expert or assistant (case.upload) | One per case | Cancel and reprocess opt-in set and cleared | Case deletion |
 | `fact_question_links` | D | Named expert | Many | State machine; stale when fact or question changes | Case deletion |

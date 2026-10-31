@@ -53,7 +53,10 @@ OPTIONAL: dict[str, frozenset[str]] = {
         {"meetings.yaml", "legal_tests.md", "final_checks.yaml", "conflicts.yaml", "invoice.yaml"}
     ),
     "case-type": frozenset({"final_checks.yaml", "declarations.md", "opinion.yaml"}),
-    "specialty": frozenset({"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}),
+    "specialty": frozenset(
+        {"checks.yaml", "final_checks.yaml", "vocabulary.yaml"}
+        | {"entries.yaml", "specialties.yaml", "result_groups.yaml", "reading_prompts.yaml"}
+    ),
     "overlay": frozenset(
         {"records.yaml", "guidelines.yaml", "vocabulary.yaml", "speech_phrases.yaml", "drug_monitoring.yaml"}
         | {"checks.yaml", "lanes.yaml", "sources.yaml", "final_checks.yaml", "facts.yaml"}
@@ -63,6 +66,7 @@ OPTIONAL: dict[str, frozenset[str]] = {
 REGISTRIES = frozenset(
     {"fact_kinds", "source_types", "lanes", "checks", "sections", "appendices", "question_types", "steps"}
     | {"required_contents", "types", "deadlines", "sources"}
+    | {"entry_kinds", "author_roles", "specialties", "result_groups", "term_groups"}
 )
 _SCREEN_ONLY_VOCABULARY = frozenset(
     {
@@ -611,6 +615,32 @@ class MergedPack:
     def source_types(self) -> list[dict[str, Any]]:
         return self._registry("sources.yaml", "source_types")
 
+    def entry_kinds(self) -> list[dict[str, Any]]:
+        """What one entry in a record can be (`entries.yaml`), each with `transcript` include|exclude."""
+        return self._registry("entries.yaml", "entry_kinds")
+
+    def transcript_entry_kinds(self) -> frozenset[str]:
+        """Entry kinds the records transcript lays out; the rest are administrative and fold to a line."""
+        return frozenset(k["key"] for k in self.entry_kinds() if k.get("transcript") == "include")
+
+    def letter_entry_kind(self) -> str | None:
+        """The entry kind marked `letter: true`, or None."""
+        return next((k["key"] for k in self.entry_kinds() if k.get("letter") is True), None)
+
+    def author_roles(self) -> list[dict[str, Any]]:
+        return self._registry("entries.yaml", "author_roles")
+
+    def entry_specialties(self) -> list[dict[str, Any]]:
+        return self._registry("specialties.yaml", "specialties")
+
+    def result_groups(self) -> list[dict[str, Any]]:
+        """Named results with the words a page uses for them (`result_groups.yaml`)."""
+        return self._registry("result_groups.yaml", "result_groups")
+
+    def reading_prompt_groups(self) -> list[dict[str, Any]]:
+        """Word groups that point the reader at places in the record (`reading_prompts.yaml`): an index only."""
+        return self._registry("reading_prompts.yaml", "term_groups")
+
     def lanes(self) -> list[dict[str, Any]]:
         """Lanes top to bottom, each with its `kinds` (empty if none) and optional `when` (lanes.schema.json)."""
         return [{**lane, "kinds": lane.get("kinds", [])} for lane in self._registry("lanes.yaml", "lanes")]
@@ -778,14 +808,18 @@ class MergedPack:
         if task == "T-02":
             sections = [s["key"] for s in self.report_sections()]
             return {**base, "report_sections": [*sections, *([] if "other" in sections else ["other"])]}
-        return {
+        default: dict[str, Any] = {
             "date_order": self.date_order,
             "language": self.language,
             "fact_kinds": [{"key": f["key"], "fields": f.get("fields", {})} for f in self.fact_kinds()],
             "source_types": [{"key": s["key"]} for s in self.source_types()],
             "vocabulary": self._prompt_vocabulary(),
             "record_hints": self.record_hints(),
+            "entry_kinds": [{"key": k["key"]} for k in self.entry_kinds()],
+            "author_roles": [r["key"] for r in self.author_roles()],
+            "specialties": [s["key"] for s in self.entry_specialties()],
         }
+        return default
 
     # deadlines
     def deadline(self, kind: str, served: date | datetime) -> Deadline:

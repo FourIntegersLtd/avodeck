@@ -49,6 +49,7 @@ def _answer(evidence: list[dict[str, Any]]) -> Any:
             "references_out": [],
             "availability_evidence": evidence,
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
 

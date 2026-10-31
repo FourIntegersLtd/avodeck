@@ -83,6 +83,10 @@ verified/edited ──not right──▶ rejected        rejected ──correct�
 
 Writing (screens 14 and 15) requires a locked question set (409 otherwise). A set locks once (`instruction_versions.locked_at`, `confirm-all`; 409 if already locked or nothing to confirm). A newer letter that adds nothing moves the confirmed questions to the new version and locks it straight away; one that adds a question returns them to suggested with the warning `setup.questions.warning.reopened`. After serving, nothing moves.
 
+## Second reading (`second_readings.status`)
+
+queued → done / refused / failed (the `second_reading` job, T-10, ADR 0030). A new request by the named expert or assistant puts any status back to queued (the old lines are cleared). `refused` means the picture could not be masked safely and nothing was sent; the reason is a code (`low_confidence`, `doubtful_word`, `identifier_unmatched`, `page_changed` and others). `failed` carries `invalid_output` or `unexpected_error`. A job writes only for the request it read. A busy model leaves the row queued and the job pauses.
+
 ## Prefill suggestion (`prefill_suggestions.status`)
 
 suggested → accepted / dismissed (named expert or assistant, screen 04; once, 409 after). Also suggested → dismissed by the server when the case's packs change (`PATCH /jurisdiction`) for suggestions holding a pack key (party role, instructing party type, court track), since they were checked against the old packs' words. Enforced by `app.prefill_suggestions_guard`. Accepting records the choice only; the case changes when the expert saves the screen 04 form.

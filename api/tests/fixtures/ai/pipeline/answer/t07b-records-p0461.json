@@ -11,6 +11,15 @@
         "output": {
           "actions_requested_of_clinician": [],
           "availability_evidence": [],
+          "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w61",
+              "kind": "result",
+              "last_word_id": "p1w62",
+              "specialty": null
+            }
+          ],
           "facts": [
             {
               "clinician_role": null,

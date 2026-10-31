@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Entry specialties",
+  "type": "object",
+  "properties": {
+    "specialties": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "enabled": {"type": "boolean"},
+          "label": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$", "description": "An i18n key, never display text."}
+        },
+        "additionalProperties": false,
+        "required": ["key", "label"]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": ["specialties"]
+}
