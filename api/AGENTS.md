@@ -10,7 +10,7 @@ api/app/
   core/                   # foundation-owned
     auth/                 # cookie session, Supabase Auth calls, MFA, step-up, CSRF
     db.py                 # async Postgres (psycopg 3 pool), restricted roles, SET LOCAL per request/job (ADR 0013)
-    storage.py            # Supabase Storage streaming upload/download
+    storage.py            # S3 object store for case files (ADR 0032)
     jobs.py               # Postgres job queue, progress, server-sent events
     audit.py              # append-only, hash-chained audit log
     ai/                   # AI kit: pii.py, bedrock.py, ocr.py, provenance.py, cell.py, kit.py, recordings.py

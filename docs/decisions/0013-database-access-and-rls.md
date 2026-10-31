@@ -11,7 +11,7 @@ Date: 2026-10-16 · Status: accepted
   - `app_migrator`: runs migrations only, in CI and deploys. It is never available to the running app.
 - **Every request runs in one transaction** that starts with `SET LOCAL app.person_id = '<uuid>'`, `SET LOCAL app.org_ids = '<uuid,…>'` and `SET LOCAL app.request_id = …`, set by `core/db.py` from the verified session. RLS policies call `app.can_access_case(case_id, action)`, a `SECURITY DEFINER` SQL function that reads `case_members`, `memberships` and `cases.named_expert_id`. It mirrors `require_case_access` and is tested against the same permissions matrix.
 - **Every job runs in a transaction** that starts with `SET LOCAL app.job_case_id = '<uuid>'`. Worker policies allow rows only for that case. Jobs that span cases (the deletion run, reminders) go through named `SECURITY DEFINER` functions that are audited.
-- **The service-role key is used only for Supabase Auth admin calls and Storage.** Storage paths are opaque, and FastAPI always runs `require_case_access` before streaming a file.
+- **The service-role key is used only for Supabase Auth admin calls (Storage moved to S3, ADR 0032).** Storage paths are opaque, and FastAPI always runs `require_case_access` before streaming a file.
 - **Without the session settings, nothing is visible.** A query run with `app.person_id` unset returns zero rows, so a forgotten setting fails closed.
 
 **Consequences.**
