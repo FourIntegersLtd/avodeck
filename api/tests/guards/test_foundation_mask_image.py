@@ -314,3 +314,87 @@ async def test_run_image_checks_the_hash_again_before_sending(
         with pytest.raises(TypeError):
             await AiKit(cell(), model).run_image(conn, TASK, m, pack=pack, case_id=case_id)
     assert model.requests == []
+
+
+# --- second review of PR 172 ---
+
+
+def _doubtful(pack: MergedPack, *cells: tuple[str, float]) -> str | None:
+    """The refusal reason (or None) for a short page of (text, confidence) words with nothing to paint."""
+    words, x = [word(1, "Seen", 0.1)], 0.9
+    for n, (text, confidence) in enumerate(cells, start=2):
+        words.append(word(n, text, x, confidence=confidence))
+        x += 0.1 * max(len(text), 2) + 0.1
+    try:
+        mask.mask_page(picture(), words, (WIDTH_IN, HEIGHT_IN), [], pad_px=2, names=[NAME], pack=pack)
+    except MaskUnsafe as unsafe:
+        return unsafe.reason
+    return None
+
+
+def test_low_confidence_digit_words_are_doubtful_because_they_may_be_an_identifier_number(pack: MergedPack) -> None:
+    assert _doubtful(pack, ("943", 0.3), ("476", 0.3)) == "doubtful_word"
+    assert _doubtful(pack, ("59l9", 0.3)) == "doubtful_word"  # an l for a 1
+
+
+def test_a_run_of_short_low_confidence_digit_groups_is_doubtful_when_it_adds_up_to_a_number(pack: MergedPack) -> None:
+    assert _doubtful(pack, ("94", 0.3), ("34", 0.3), ("76", 0.3)) == "doubtful_word"  # six digits in all
+    assert _doubtful(pack, ("94", 0.3), ("34", 0.9), ("chest", 0.9)) is None
+
+
+def test_a_misread_month_next_to_digits_is_doubtful(pack: MergedPack) -> None:
+    assert _doubtful(pack, ("12", 0.9), ("Narch", 0.3), ("196O", 0.3)) == "doubtful_word"
+    assert _doubtful(pack, ("12", 0.9), ("Narch", 0.3), ("1961", 0.9)) == "doubtful_word"
+    assert _doubtful(pack, ("Narch", 0.3), ("chest", 0.9)) is None, "a month with no digits beside it"
+
+
+def test_a_realistic_handwritten_page_with_no_name_on_it_is_not_refused(pack: MergedPack) -> None:
+    page = [
+        ("pt", 0.3),
+        ("c/o", 0.7),
+        ("cough", 0.3),
+        ("x", 0.7),
+        ("3", 0.3),
+        ("days", 0.7),
+        ("chest", 0.3),
+        ("clear", 0.7),
+        ("no", 0.3),
+        ("wheeze", 0.7),
+        ("500mg", 0.3),
+    ]
+    assert _doubtful(pack, *page) is None
+
+
+def test_short_name_tokens_only_match_exactly_and_longer_ones_need_a_close_spelling(pack: MergedPack) -> None:
+    def refused(text: str, name: str) -> bool:
+        words = [word(1, "Seen", 0.1), word(2, text, 0.8, confidence=0.3), word(3, "chest", 2.0)]
+        try:
+            mask.mask_page(picture(), words, (WIDTH_IN, HEIGHT_IN), [], pad_px=2, names=[name])
+        except MaskUnsafe:
+            return True
+        return False
+
+    assert not refused("Ab", "Al Vale"), "a two-letter token is exact only"
+    assert refused("Al", "Al Vale")
+    assert refused("Smyth", "Smith Jones")  # five letters, one change
+    assert not refused("Sharp", "Smith Jones"), "the same first letter and length alone is not enough"
+    assert refused("Pemberten", "Pemberton Vale")
+    assert not refused("Pavements", "Pemberton Vale")
+
+
+async def test_run_image_checks_the_seal_again_before_sending(
+    api_db: Database, admin: psycopg.Connection, pack: MergedPack, seed: Seed
+) -> None:
+    expert = seed.person()
+    case_id = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    m = masked(page_words_on_a_line(), pack)
+    other = masked(page_words_on_a_line()[:3], pack)
+    object.__setattr__(m, "_seal", "0" * 64)  # a seal that was never made here
+    model = ScriptedBedrock([response({"lines": []})])
+    async with api_db.request(scope_for(expert)) as conn:
+        with pytest.raises(TypeError):
+            await AiKit(cell(), model).run_image(conn, TASK, m, pack=pack, case_id=case_id)
+        object.__setattr__(m, "_seal", other._seal)  # another picture's seal
+        with pytest.raises(TypeError):
+            await AiKit(cell(), model).run_image(conn, TASK, m, pack=pack, case_id=case_id)
+    assert model.requests == []

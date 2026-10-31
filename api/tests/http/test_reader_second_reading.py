@@ -459,3 +459,79 @@ async def test_a_job_that_began_before_a_new_request_cannot_overwrite_it(
     job = await _asked(client, world)
     await run(worker_db, admin, world, job)
     assert (await client.get(url(world))).json() == {"status": "queued", "reason": None, "lines": []}
+
+
+# --- second review of PR 172 ---
+
+
+class FindsTheNameOnce:
+    """Fresh OCR that finds the surname once, where the expert's own text has it twice (header and footer)."""
+
+    async def analyse(self, document: bytes, model: str) -> OcrResult:
+        _, last = NAME.split()
+        words = tuple(OcrWord(f"p1w{n}", t, box(0.1 + n * 1.0, t), 0.8) for n, t in enumerate([last, "Seen"], 1))
+        return OcrResult(model="layout", pages=(OcrPage(1, 4.0, 2.0, words),))
+
+
+async def test_a_surname_the_expert_typed_twice_but_the_fresh_reading_found_once_is_refused(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(second_reading.services, "ocr", FindsTheNameOnce())
+    await record_identity(aconn, crypto, world["case"])
+    _, last = NAME.split()
+    await make_page(aconn, storage, crypto, world["case"], [last, "Seen", last], source="expert", typed=True)
+    client = await client_for(world["expert"])
+    job = (await client.post(url(world))).json()["job_id"]
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json()["reason"] == "identifier_unmatched"
+    assert model.requests == []
+
+
+async def test_a_failed_page_job_after_a_turn_refuses_because_the_picture_may_not_have_been_redrawn(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+) -> None:
+    page = await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
+    admin.execute("update app.pages set rotation = 180 where id = %s", (page,))
+    admin.execute("insert into app.jobs (case_id, kind, status) values (%s, 'process_pages', 'failed')", (world["case"],))
+    client = await client_for(world["expert"])
+    job = await _asked(client, world)
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json()["reason"] == "page_changed"
+    assert model.requests == []
+
+
+async def test_a_picture_replaced_since_it_was_asked_for_refuses(
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    model: ScriptedBedrock,
+    world: dict[str, Any],
+) -> None:
+    page = await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
+    client = await client_for(world["expert"])
+    job = await _asked(client, world)
+    path = f"cases/{world['case']}/pages/{page}/image.jpg"
+    again = io.BytesIO()
+    Image.new("RGB", (4 * DPI, 2 * DPI), "grey").save(again, format="JPEG")
+    await storage.put(path, await crypto.encrypt(aconn, world["case"], again.getvalue(), purpose=path))
+    await run(worker_db, admin, world, job)
+    assert (await client.get(url(world))).json()["reason"] == "page_changed"
+    assert model.requests == []
