@@ -60,15 +60,28 @@ async def entries_for_case(
 
 
 async def entries_ready(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    """No page the entries job reads is still waiting: every page that is not set aside has been extracted
+    and has had its entries read or failed (a person reads those). No such pages at all is ready."""
     cur = await conn.execute(
-        "select count(*) filter (where extracted_at is not null),"
-        " count(*) filter (where extracted_at is not null and entries_extracted_at is null)"
-        " from app.page_analysis where case_id = %s",
+        "select count(*) from app.pages p left join app.page_analysis a on a.page_id = p.id"
+        " where p.case_id = %s and not p.quarantined and (a.extracted_at is null or"
+        " (a.entries_extracted_at is null and a.entries_failed_at is null))",
         (case_id,),
     )
     row = await cur.fetchone()
     assert row is not None
-    return bool(row[0] > 0 and row[1] == 0)
+    return bool(row[0] == 0)
+
+
+async def entries_unread_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[int]:
+    """Page numbers whose entries could not be read (the model failed); a person reads them, they are not empty."""
+    cur = await conn.execute(
+        "select p.bundle_page_no from app.page_analysis a join app.pages p on p.id = a.page_id"
+        " where a.case_id = %s and a.extracted_at is not null and not p.quarantined"
+        " and a.entries_extracted_at is null and a.entries_failed_at is not null order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [r[0] for r in await cur.fetchall()]
 
 
 async def entries_status(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesStatus:

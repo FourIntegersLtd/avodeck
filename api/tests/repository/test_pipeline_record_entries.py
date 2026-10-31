@@ -344,3 +344,182 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
 def test_the_entries_job_needs_the_read_action(admin: psycopg.Connection) -> None:
     row = admin.execute("select action from app.job_kind_actions where kind = 'extract_entries'").fetchone()
     assert row == ("page.read",)
+
+
+# Which pages count (review fixes) ---------------------------------------------------------------
+
+
+def _analysed(
+    admin: psycopg.Connection,
+    case: uuid.UUID,
+    page: uuid.UUID,
+    *,
+    read: bool,
+    needs_human: bool = False,
+    failed: bool = False,
+    reason: str | None = None,
+) -> None:
+    admin.execute(
+        "insert into app.page_analysis (page_id, case_id, stage, extracted_at, needs_human, reason,"
+        " entries_extracted_at, entries_failed_at)"
+        " values (%s, %s, 'extract', now(), %s, %s, case when %s then now() end, case when %s then now() end)",
+        (page, case, needs_human, reason, read, failed),
+    )
+
+
+async def test_a_quarantined_page_does_not_hold_the_case_back_and_no_empty_job_is_queued(
+    monkeypatch: pytest.MonkeyPatch, api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    doc = seed.document(case)
+    read, held = seed.page(case, doc, 1), seed.page(case, doc, 2)
+    _analysed(admin, case, read, read=True)
+    _analysed(admin, case, held, read=False)
+    admin.execute("update app.pages set quarantined = true where id = %s", (held,))
+    queued: list[Any] = []
+
+    class Registry:
+        async def enqueue(self, *args: Any, **kw: Any) -> None:
+            queued.append(args)
+
+    monkeypatch.setattr(record_entries, "registry", Registry())
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_ready(conn, case) is True
+        assert await record_entries.entries_status(conn, case) == "ready"
+        assert await record_entries.request_entries(conn, case) is None
+        assert await record_entries.request_entries(conn, case) is None
+    assert queued == []
+
+
+async def test_a_page_that_could_not_be_read_is_counted_and_does_not_block_ready(
+    api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    doc = seed.document(case)
+    read, failed = seed.page(case, doc, 1), seed.page(case, doc, 2)
+    _analysed(admin, case, read, read=True)
+    _analysed(admin, case, failed, read=False, needs_human=True, failed=True, reason="invalid_output")
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_ready(conn, case) is True
+        assert await record_entries.entries_unread_pages(conn, case) == [2]
+
+
+async def test_a_failed_answer_leaves_the_page_unread_and_for_a_person(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: SupabaseStorage,
+) -> None:
+    document = text_pdf([["Seen on 12/03/2024", "by the nurse", "blood pressure fine"]])
+    bedrock = ScriptedBedrock([response({"unexpected": "shape"})])  # never valid
+    async with await opened(tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage) as h:
+        await h.upload(document)
+        assert set((await h.drain()).values()) == {"done"}
+        (page,) = h.pages()
+        row = admin.execute(
+            "select entries_extracted_at is null, needs_human, reason from app.page_analysis where page_id = %s",
+            (page["id"],),
+        ).fetchone()
+        assert row == (True, True, "invalid_output")
+        assert admin.execute("select count(*) from app.record_entries where case_id = %s", (h.case_id,)).fetchone() == (
+            0,
+        )
+        async with api_db.request(scope_for(h.expert)) as conn:
+            assert await record_entries.entries_unread_pages(conn, h.case_id) == [page["bundle_page_no"]]
+            assert await record_entries.entries_ready(conn, h.case_id) is True
+
+
+async def test_the_entries_job_asks_a_failing_page_twice_then_leaves_it_for_a_person(
+    tmp_path: Path,
+    admin: psycopg.Connection,
+    api_db: Database,
+    worker_dsn: str,
+    auth_env: dict[str, str],
+    seed: Seed,
+    storage: SupabaseStorage,
+) -> None:
+    document = text_pdf([["Seen on 12/03/2024", "by the nurse", "blood pressure fine"]])
+    bedrock = ScriptedBedrock([response({"unexpected": "shape"})])
+    async with await opened(tmp_path, bedrock, admin, api_db, worker_dsn, auth_env, seed, storage) as h:
+        await h.upload(document)
+        await h.drain()
+        # A page extracted before entries existed: no flag, nothing read.
+        admin.execute(
+            "update app.page_analysis set needs_human = false, reason = null, entries_failed_at = null"
+            " where case_id = %s",
+            (h.case_id,),
+        )
+        asked = len(bedrock.requests)
+        await h.enqueue("extract_entries")
+        assert set((await h.drain()).values()) == {"done"}
+        assert len(bedrock.requests) - asked == 2
+        (page,) = h.pages()
+        row = admin.execute(
+            "select entries_extracted_at is null, needs_human, reason from app.page_analysis where page_id = %s",
+            (page["id"],),
+        ).fetchone()
+        assert row == (True, True, "invalid_output")
+        await h.enqueue("extract_entries")
+        await h.drain()
+        assert len(bedrock.requests) - asked == 2, "a page left for a person is not asked again"
+
+
+async def test_an_older_page_flagged_by_fact_extraction_is_still_asked_for_entries(
+    api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    from app.features.pipeline import repo
+
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    doc = seed.document(case)
+    older, failed = seed.page(case, doc, 1), seed.page(case, doc, 2)
+    _analysed(admin, case, older, read=False, needs_human=True, reason="not_in_words")
+    _analysed(admin, case, failed, read=False, needs_human=True, failed=True, reason="invalid_output")
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_unread_pages(conn, case) == [2]
+        assert await record_entries.entries_ready(conn, case) is False
+        assert await repo.pages_to_read_entries(conn, case) == [older]
+
+
+async def test_a_case_part_way_through_the_pipeline_is_not_ready(
+    api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    doc = seed.document(case)
+    done, waiting, unseen = (seed.page(case, doc, n) for n in (1, 2, 3))
+    _analysed(admin, case, done, read=True)
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_ready(conn, case) is False  # pages 2 and 3 have no analysis
+    admin.execute("insert into app.page_analysis (page_id, case_id, stage) values (%s, %s, 'ocr')", (waiting, case))
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_ready(conn, case) is False
+    admin.execute("update app.pages set quarantined = true where id in (%s, %s)", (waiting, unseen))
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_ready(conn, case) is True
+
+
+async def test_a_case_with_every_page_set_aside_is_ready_and_queues_nothing(
+    monkeypatch: pytest.MonkeyPatch, api_db: Database, admin: psycopg.Connection, seed: Seed
+) -> None:
+    expert = seed.person()
+    case = seed.case(seed.org(members={expert: "owner"}), expert, packs=LAUNCH.case_row())
+    page = seed.page(case, seed.document(case), 1)
+    _analysed(admin, case, page, read=False)
+    admin.execute("update app.pages set quarantined = true where id = %s", (page,))
+    queued: list[Any] = []
+
+    class Registry:
+        async def enqueue(self, *args: Any, **kw: Any) -> None:
+            queued.append(args)
+
+    monkeypatch.setattr(record_entries, "registry", Registry())
+    async with api_db.request(scope_for(expert)) as conn:
+        assert await record_entries.entries_ready(conn, case) is True
+        assert await record_entries.request_entries(conn, case) is None
+    assert queued == []

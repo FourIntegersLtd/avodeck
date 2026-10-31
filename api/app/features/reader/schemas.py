@@ -272,19 +272,28 @@ class TranscriptEntryOut(BaseModel):
     id: uuid.UUID
     page_no: int
     kind: str
+    kind_label: str  # the pack's i18n key for the kind
     folded: bool
     author_role: str | None
+    author_label: str | None  # the pack's i18n key for the author's role
     specialty: str | None
     event_date: date | None
     date_basis: str | None
     lines: list[str]
-    results: list[str]
+    results: list[str]  # result groups of checked facts only
+    result_labels: list[str]  # the pack's i18n keys, same order
 
 
 class TranscriptList(BaseModel):
     status: Literal["idle", "preparing", "ready", "failed"]
     total: int
     entries: list[TranscriptEntryOut]
+    picture_pages: list[int] = []  # pages with no entries: read by opening the picture
+    unread_pages: list[int] = []  # pages the computer could not read: read by opening the picture
+
+
+class RetryOut(BaseModel):
+    status: Literal["idle", "preparing", "ready", "failed"]
 
 
 class SeenIn(BaseModel):

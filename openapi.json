@@ -15496,6 +15496,25 @@
         "title": "RetentionChange",
         "type": "object"
       },
+      "RetryOut": {
+        "properties": {
+          "status": {
+            "enum": [
+              "idle",
+              "preparing",
+              "ready",
+              "failed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "RetryOut",
+        "type": "object"
+      },
       "Role": {
         "properties": {
           "ended_on": {
@@ -19906,6 +19925,17 @@
       },
       "TranscriptEntryOut": {
         "properties": {
+          "author_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Label"
+          },
           "author_role": {
             "anyOf": [
               {
@@ -19953,6 +19983,10 @@
             "title": "Kind",
             "type": "string"
           },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
           "lines": {
             "items": {
               "type": "string"
@@ -19963,6 +19997,13 @@
           "page_no": {
             "title": "Page No",
             "type": "integer"
+          },
+          "result_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Result Labels",
+            "type": "array"
           },
           "results": {
             "items": {
@@ -19987,13 +20028,16 @@
           "id",
           "page_no",
           "kind",
+          "kind_label",
           "folded",
           "author_role",
+          "author_label",
           "specialty",
           "event_date",
           "date_basis",
           "lines",
-          "results"
+          "results",
+          "result_labels"
         ],
         "title": "TranscriptEntryOut",
         "type": "object"
@@ -20036,6 +20080,14 @@
             "title": "Entries",
             "type": "array"
           },
+          "picture_pages": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Picture Pages",
+            "type": "array"
+          },
           "status": {
             "enum": [
               "idle",
@@ -20049,6 +20101,14 @@
           "total": {
             "title": "Total",
             "type": "integer"
+          },
+          "unread_pages": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unread Pages",
+            "type": "array"
           }
         },
         "required": [
@@ -36164,6 +36224,60 @@
           }
         },
         "summary": "Transcript Entries",
+        "tags": [
+          "reader"
+        ]
+      }
+    },
+    "/v1/cases/{case_id}/transcript/retry": {
+      "post": {
+        "description": "The reader asks again after the entries job failed; queues once, nothing while one is waiting.",
+        "operationId": "transcript_retry_v1_cases__case_id__transcript_retry_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "case_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Case Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            },
+            "description": "Error: the `code` says which (architecture 5.1)"
+          }
+        },
+        "summary": "Transcript Retry",
         "tags": [
           "reader"
         ]

@@ -11,11 +11,12 @@ import uuid
 from collections.abc import Iterator
 from typing import Annotated
 
-from fastapi import Depends, Query, Request
+from fastapi import BackgroundTasks, Depends, Query, Request
 from fastapi.responses import StreamingResponse
 
 from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
+from app.core.contracts.reading import PageReads
 from app.core.contracts.record_entries import entries_ready, entries_status, request_entries
 from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
@@ -25,7 +26,7 @@ from app.core.packs import PackLibrary
 from app.core.storage import SupabaseStorage
 from app.features.reader import transcript, transcript_jobs
 from app.features.reader.router import router
-from app.features.reader.schemas import JobOut, SeenIn, SeenOut, TranscriptEntryOut, TranscriptList
+from app.features.reader.schemas import JobOut, RetryOut, SeenIn, SeenOut, TranscriptEntryOut, TranscriptList
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Read = Annotated[CaseAccess, Depends(require_case_access("page.read"))]
@@ -49,18 +50,31 @@ async def transcript_entries(
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> TranscriptList:
     if not await entries_ready(conn, case_id):
-        await request_entries(conn, case_id)  # queues once; nothing while one is waiting
-        return TranscriptList(status=await entries_status(conn, case_id), total=0, entries=[])
+        status = await entries_status(conn, case_id)
+        # A failed job is not queued again by a poll; the reader asks again (`/transcript/retry`).
+        if status == "idle" and "page.read" in access.allowed_actions:  # others do not start the work
+            await request_entries(conn, case_id)  # queues once; nothing while one is waiting
+            status = await entries_status(conn, case_id)
+        return TranscriptList(status=status, total=0, entries=[])
     crypto: CaseCrypto = request.app.state.crypto
     library: PackLibrary = request.app.state.packs
     got = await transcript.entries(conn, crypto, library, case_id, offset=offset, limit=limit)
     return TranscriptList(
         status="ready",
         total=got.total,
+        picture_pages=got.picture_pages,
+        unread_pages=got.unread_pages,
         entries=[
             TranscriptEntryOut(**{f: getattr(e, f) for f in TranscriptEntryOut.model_fields}) for e in got.entries
         ],
     )
+
+
+@router.post("/transcript/retry", status_code=202, response_model=RetryOut)
+async def transcript_retry(case_id: uuid.UUID, access: Read, conn: DbConn) -> RetryOut:
+    """The reader asks again after the entries job failed; queues once, nothing while one is waiting."""
+    await request_entries(conn, case_id)
+    return RetryOut(status=await entries_status(conn, case_id))
 
 
 @router.post("/transcript/seen", response_model=SeenOut)
@@ -77,11 +91,17 @@ async def transcript_seen(case_id: uuid.UUID, body: SeenIn, access: Read, conn: 
         )
     except transcript.UnknownEntry:
         raise _not_found() from None
+    except transcript.NotReady:
+        raise ApiError("not_ready", "The record is still being prepared.", 409) from None
     return SeenOut(pages_read=pages)
 
 
 @router.post("/transcript/download", status_code=202, response_model=JobOut)
-async def transcript_download_request(case_id: uuid.UUID, access: Export, conn: DbConn) -> JobOut:
+async def transcript_download_request(case_id: uuid.UUID, access: Export, view: View, conn: DbConn) -> JobOut:
+    cur = await conn.execute("select named_expert_id from app.cases where id = %s", (case_id,))
+    named = (await cur.fetchone() or (None,))[0]
+    if named is None or not await PageReads().read_page_ids(conn, case_id, named):
+        raise ApiError("nothing_read", "No pages have been read yet.", 409)
     job = await registry.enqueue(conn, case_id, transcript_jobs.KIND)
     await audit.record(conn, action="case.transcript_requested", target=f"export:{job}", case_id=case_id)
     return JobOut(job_id=job)
@@ -95,7 +115,7 @@ def _chunks(data: bytes) -> Iterator[bytes]:
 
 @router.get("/transcript/download/{job_id}", response_class=StreamingResponse, responses={200: {"content": {DOCX: {}}}})
 async def transcript_download(
-    case_id: uuid.UUID, job_id: uuid.UUID, request: Request, access: Export, conn: DbConn
+    case_id: uuid.UUID, job_id: uuid.UUID, request: Request, access: Export, conn: DbConn, after: BackgroundTasks
 ) -> StreamingResponse:
     cur = await conn.execute(
         "select status, requested_by is not distinct from app.current_person_id() from app.jobs"
@@ -112,7 +132,7 @@ async def transcript_download(
     if storage is None or crypto is None:
         raise ApiError("unavailable", "File storage is not ready.", 503)
     data = await transcript_jobs.take(conn, storage, crypto, case_id, job_id)
-    await audit.record(conn, action="case.transcript_downloaded", target=f"export:{job_id}", case_id=case_id)
+    after.add_task(transcript_jobs.remove, storage, case_id, job_id)  # runs once the audit row is committed
     return StreamingResponse(
         _chunks(data),
         media_type=DOCX,
