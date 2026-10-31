@@ -30,6 +30,23 @@ NOTIFY_TEMPLATE = NOTIFICATION_NEW
 DIGEST_TEMPLATE = NOTIFICATION_DIGEST
 DAILY = "notifications_daily"
 
+# Email is for what matters: something the person must act on, their own security or account, or a
+# permanent record. Most have their own templates and are sent where they happen (invite, invoice, email
+# change, backup code, account created, support access, spot-check code, certificate of deletion, a case
+# newly assigned). A notification `kind` reaches email at once only if it is listed here or starts with a
+# listed prefix. Deadline reminders do: a court deadline a few days away is worth an email. The kind after
+# the prefix is the pack's own word, so only the prefix is named here (rule 11). Stage and progress news
+# (bundle_ready, deletion_paused, case.reassigned) stays in the app, and in the daily email for people who
+# chose one. Add a kind only with foundation's approval.
+EMAIL_KINDS: frozenset[str] = frozenset()
+EMAIL_KIND_PREFIXES: frozenset[str] = frozenset({"deadline."})
+
+
+def emails_at_once(kind: str) -> bool:
+    return kind in EMAIL_KINDS or any(
+        kind.startswith(prefix) and len(kind) > len(prefix) for prefix in EMAIL_KIND_PREFIXES
+    )
+
 
 async def send_mail(mailer: Mailer, mail: Mail) -> None:
     """Email is best effort: a failure is logged by type only and the message stays in the app."""
@@ -60,7 +77,7 @@ async def notify(
     if row is None:
         return None
     message_id, email = row
-    if email:
+    if email and emails_at_once(kind):
         await send_mail(mailer, Mail(to=email, template=NOTIFY_TEMPLATE, params={"kind": kind}))
     return message_id  # type: ignore[no-any-return]
 
@@ -82,10 +99,10 @@ async def mark_bounced(conn: AsyncConnection, email: str) -> bool:
 
 
 def default_mailer() -> Mailer:
-    """The worker's mailer: the local stand-in until the cell has the email service (stage 2)."""
-    from app.core.email import OutboxMailer
+    """The worker's mailer: Resend when the cell has a key, the local outbox otherwise."""
+    from app.core.email_live import mailer_from_env
 
-    return OutboxMailer()
+    return mailer_from_env()
 
 
 @registry.schedule(DAILY)

@@ -186,3 +186,17 @@ async def client_for(seed: Seed, client_with: Callable[..., Awaitable[httpx.Asyn
         return await client_with(session, csrf=csrf, **kwargs)
 
     return make
+
+
+# Notification kinds that reach email at once are a short list (app.core.notifications.EMAIL_KINDS). The
+# database tests use their own `zz.*` kinds to prove the channel choices, so those kinds are on the list
+# for them alone; the unit tests see the real list.
+_ZZ_EMAIL_KINDS = frozenset({"zz.held", "zz.org", "zz.other", "zz.ping", "zz.ready"})
+
+
+@pytest.fixture(autouse=True)
+def _zz_kinds_email_in_database_tests(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    if {"repository", "http"} & set(request.node.path.parts):
+        from app.core import notifications
+
+        monkeypatch.setattr(notifications, "EMAIL_KINDS", notifications.EMAIL_KINDS | _ZZ_EMAIL_KINDS)

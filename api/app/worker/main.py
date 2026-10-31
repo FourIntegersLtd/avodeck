@@ -19,7 +19,8 @@ import app.core.uploads  # noqa: F401 - the finalize_upload job
 import app.features.pipeline  # noqa: F401 - slice A's job kinds and its DocumentUploaded subscriber
 from app.core.config import ConfigError, database_settings
 from app.core.db import Database
-from app.core.email import Mailer, OutboxMailer
+from app.core.email import Mailer
+from app.core.email_live import mailer_from_env
 from app.core.features import DEFAULT_PACKAGE, WORKER_HOOK, load_features, start_features
 from app.core.jobs import JobWorker, registry
 
@@ -36,7 +37,7 @@ def build_worker(
         registry,
         database=Database(settings.url_direct),
         dsn=settings.url_direct,
-        mailer=mailer if mailer is not None else OutboxMailer(),
+        mailer=mailer if mailer is not None else mailer_from_env(env),
     )
 
 

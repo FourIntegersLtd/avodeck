@@ -18,7 +18,8 @@ from app.core.contracts.today import needs_you as default_needs_you
 from app.core.cors import Cors
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.db import Database
-from app.core.email import Mailer, OutboxMailer, mail_configured
+from app.core.email import Mailer, mail_configured
+from app.core.email_live import mailer_from_env
 from app.core.errors import install_error_handlers
 from app.core.features import DEFAULT_PACKAGE as DEFAULT_FEATURES
 from app.core.features import feature_routers, start_features
@@ -75,7 +76,8 @@ def create_app(
     missing them, file routes answer 503 until it has them. Speech has no live client yet (no cloud
     accounts): without one, dictation answers `speech_unavailable` and the expert types.
 
-    Without a mailer, mail goes to the in-memory stand-in (`OutboxMailer`) until the cell has Resend.
+    Without a mailer, mail goes to the in-memory stand-in (`OutboxMailer`) unless the cell has a Resend key
+    (then `EMAIL_FROM` is required, or start-up fails).
     Today lists the "needs you" items registered on `needs_you` (the app's own registry unless a test
     passes one). `page_reads` is slice B's read log unless a test passes another; with `None` the
     blind-read gate stays shut (rule 3).
@@ -129,7 +131,7 @@ def create_app(
     app.state.region = region
     app.state.auth = auth
     _origins(app, auth.settings if auth is not None else None)
-    app.state.mailer = mailer if mailer is not None else OutboxMailer()
+    app.state.mailer = mailer if mailer is not None else mailer_from_env()
     # Mail that is only a convenience (support's set-password link) is skipped when no mail service is set up.
     app.state.mail_configured = mailer is not None or mail_configured()
     app.state.packs = packs if packs is not None else default_library()

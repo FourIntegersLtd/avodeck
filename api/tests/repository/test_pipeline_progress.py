@@ -124,18 +124,17 @@ async def test_jobs_and_logs_hold_no_page_words(h: Harness, caplog: pytest.LogCa
     assert not any(MARKER.casefold() in r.getMessage().casefold() for r in caplog.records)
 
 
-async def test_the_named_expert_is_told_once_and_the_email_holds_the_kind_only(h: Harness) -> None:
+async def test_the_named_expert_is_told_once_in_the_app_and_not_by_email(h: Harness) -> None:
     await h.upload(text_pdf(PAGES))
     await h.drain()
     assert notices(h) == [("bundle_ready", h.case_id)]
     outbox = h.mailer.outbox  # type: ignore[attr-defined]
-    assert len(outbox) == 1
-    assert outbox[0].params == {"kind": "bundle_ready"}
+    assert outbox == [], "stage news stays in the app; it is not emailed"
 
     await h.enqueue("process_bundle")
     await h.drain()
     assert len(notices(h)) == 1
-    assert len(outbox) == 1
+    assert outbox == []
 
 
 async def test_a_processing_case_becomes_active_when_the_bundle_is_ready(h: Harness) -> None:
