@@ -67,6 +67,13 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
       - uses: ./.github/actions/api-install
+      # The in-process embedder and reranker files (ADR 0029): cached on the lock file, checked by SHA-256.
+      # The model tests skip without them; MODELS_DIR points the tests at this folder.
+      - uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/models
+          key: models-${{ hashFiles('api/models.lock.json') }}
+      - run: python3 scripts/fetch_models.py "$RUNNER_TEMP/models" && echo "MODELS_DIR=$RUNNER_TEMP/models" >> "$GITHUB_ENV"
       - uses: supabase/setup-cli@v1
         with: { version: 2.121.0 }
       # retried: five jobs pull images at once and Docker Hub sometimes answers "toomanyrequests"

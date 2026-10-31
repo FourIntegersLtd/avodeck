@@ -21,6 +21,7 @@ from psycopg import AsyncConnection
 from app.core.ai.clients import live_or_recorded
 from app.core.ai.embed import Embedder, embedder_from_env
 from app.core.ai.kit import AiKit
+from app.core.ai.rerank import reranker_from_env
 from app.core.config import ConfigError
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
@@ -78,7 +79,13 @@ def from_env() -> UnderstandServices:
         embedder: Embedder | None = embedder_from_env()
     except ConfigError:
         embedder = None
-    return UnderstandServices(kit=kit, crypto=crypto, embedder=embedder, packs=default_library())
+    return UnderstandServices(
+        kit=kit,
+        crypto=crypto,
+        embedder=embedder,
+        packs=default_library(),
+        reranker=reranker_from_env() or IdentityReranker(),
+    )
 
 
 def current() -> UnderstandServices:

@@ -41,9 +41,11 @@ class SpyEmbedder(RecordedEmbedder):
 
     def __init__(self) -> None:
         self.given: list[Any] = []
+        self.calls: list[int] = []
 
     def embed(self, texts: Sequence[pii.Stripped]) -> list[tuple[float, ...]]:
         self.given.extend(texts)
+        self.calls.append(len(texts))
         return super().embed(texts)
 
 
@@ -159,3 +161,7 @@ async def test_a_page_embedded_by_another_model_is_embedded_again(h: Harness) ->
     await h.drain()
     assert len(h.spy.given) == before + 1  # type: ignore[attr-defined]
     assert {r["model"] for r in embeddings(h)} == {RecordedEmbedder.model}
+
+
+async def test_the_pages_are_embedded_in_one_batch_not_one_call_each(h: Harness) -> None:
+    assert h.spy.calls == [len(PAGES)]  # type: ignore[attr-defined]
