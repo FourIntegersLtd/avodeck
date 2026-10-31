@@ -12,7 +12,10 @@ async function emptyCases() {
   registerScreen("new_case", () => "/cases/new");
   signedIn({ today: today({ cases: [], needs_you: [], closed_count: 0, organisations: [{ id: PERSONAL_ORG, name: "Jane Morgan", kind: "personal", open_count: 0 }] }) });
   const view = renderAt("/cases");
-  const trigger = await screen.findByRole("button", { name: "How a case works" });
+  // The page settles once after it loads and replaces its buttons; take the button after that.
+  await screen.findByRole("button", { name: "How a case works" });
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const trigger = screen.getByRole("button", { name: "How a case works" });
   return { ...view, trigger };
 }
 
