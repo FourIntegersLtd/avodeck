@@ -26,6 +26,12 @@ from app.core.http import CurrentScope, DbConn, router
 
 jobs_router = router(prefix="/v1/jobs", tags=["jobs"])
 
+# Vercel cuts any proxied request at 120 s on every plan (measured 2026-10-31, docs/runbooks/railway.md),
+# and the browser reaches this stream through that rewrite. The stream ends itself well under it so the
+# browser reconnects on a clean end, not on a proxy error.
+PROXY_TIMEOUT_SECONDS = 120.0
+JOB_STREAM_SECONDS = 90.0
+
 _PROGRESS = ("status", "step", "pct", "eta_seconds", "error_code")  # the stream keeps these
 _FINISHED = {"done", "failed"}
 

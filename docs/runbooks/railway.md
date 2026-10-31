@@ -46,6 +46,34 @@ One Vercel project (`avodeck-site`, root directory `web`) serves `avodeck.com`: 
 
 Vercel rewrites do not carry WebSockets, so live dictation (`/v1/.../dictation`) needs the API on a subdomain of the web domain (for example `api.avodeck.com` behind the same site) before it works in the cloud. Everything else works through the rewrite.
 
+## Proxy limits (measured 2026-10-31)
+
+Every API call, every chunk `PUT` and the job event stream pass through the Vercel rewrite
+(`web/vercel.json`, `/v1/:path*` to `https://api.avodeck.com`), because the web app and API share an origin.
+
+- **Body size: no cap at 9 MiB.** A 9 MiB `PUT` (9437184 bytes) reached FastAPI intact through `avodeck.com` and
+  was answered 401 `not_signed_in` by the app (about 13 s on a domestic connection). The 4.5 MB body limit in
+  Vercel's docs applies to Vercel Functions, not to a rewrite to an external destination. `CHUNK_SIZE` (8 MiB) is safe.
+- **Direct to `api.avodeck.com`** the same `PUT` is answered 401 after about 130 KB: auth rejects before the body is read.
+  `GET /v1/cell` returns 200 on both hosts.
+- **Proxied request timeout: 120 s on every plan** (`https://vercel.com/docs/limits`; not raisable). A request not
+  finished by then gets `ROUTER_EXTERNAL_TARGET_ERROR`.
+- **Railway's own request timeout was not measured and is still unknown.**
+
+To re-measure, send the unauthenticated 9 MiB `PUT` from "Uploads" below to both `https://avodeck.com` and
+`https://api.avodeck.com`. Auth rejects it, so no data is created.
+
+Consequences:
+
+1. **The job stream must end under 120 s.** `JOB_STREAM_SECONDS` (90) in `api/app/core/routes/jobs.py` is below
+   `PROXY_TIMEOUT_SECONDS` (120), pinned by a test. It was 300, so Vercel cut every stream first as a proxy error.
+   Keep it under the proxy limit; `EventSource` reconnects on the clean end.
+2. **Known limit: slow upstream.** An 8 MiB chunk must finish within 120 s, so it needs about 560 kbit/s sustained
+   upstream (8 x 1048576 x 8 bits / 120 s is roughly 559 kbit/s). On a slower rural connection every chunk times out
+   and the retry does too. `CHUNK_SIZE` is a server contract carried on the upload row, so it is not changed here.
+   Options for later: a smaller chunk size (a contract change, needs a decision record), or a separate API origin so
+   uploads skip the Vercel edge (`web/AGENTS.md`: needs a decision record first). Logged in `docs/decisions/deferred.md`.
+
 ## Uploads: limits to confirm before the first real bundle
 
 A bundle is sent as 8 MiB chunks (`PUT /v1/uploads/{id}/chunks/{n}`), so every hop must carry a
@@ -55,9 +83,9 @@ waits on finalisation. Confirm these on the real deployment and write the number
 
 | Limit | Where | Needs | Measured |
 |---|---|---|---|
-| Request body size | Vercel rewrite `/v1/:path*` | ≥ 9 MiB | |
+| Request body size | Vercel rewrite `/v1/:path*` | ≥ 9 MiB | 9 MiB passes (2026-10-31) |
 | Request body size | Railway `api` | ≥ 9 MiB | |
-| Response timeout | Vercel rewrite | ≥ 120 s | |
+| Response timeout | Vercel rewrite | ≥ 120 s | 120 s exactly, every plan (2026-10-31); see Proxy limits |
 | Response timeout | Railway `api` | ≥ 120 s | |
 | Storage object size | Supabase Storage | ≥ 9 MiB per part | |
 | Storage request rate | Supabase Storage | ~15 PUTs per 100 MB bundle, 3 at a time | |

@@ -28,7 +28,7 @@ from app.core.routes.cases import cases_router
 from app.core.routes.cell import cell_public_router
 from app.core.routes.dictation import dictation_socket, transcripts_router
 from app.core.routes.help import help_router
-from app.core.routes.jobs import jobs_router
+from app.core.routes.jobs import JOB_STREAM_SECONDS, jobs_router
 from app.core.routes.me import me_router
 from app.core.routes.notifications import notifications_router
 from app.core.routes.packs import case_pack_router, packs_router
@@ -130,7 +130,7 @@ def create_app(
     app.state.needs_you = needs_you if needs_you is not None else default_needs_you
     app.state.page_reads = page_reads
     app.state.job_poll_seconds = 1.0  # how often a progress stream looks at its job
-    app.state.job_stream_seconds = 300.0  # then the stream ends and the browser reconnects
+    app.state.job_stream_seconds = JOB_STREAM_SECONDS  # then it ends and the browser reconnects; under Vercel's 120 s
     logs.configure(app.state.packs.identifier_finders())
     app.add_middleware(logs.RequestLog)
     install_error_handlers(app)
