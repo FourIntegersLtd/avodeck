@@ -37,6 +37,7 @@ from app.features.report.jobs import build_report
 from app.features.report.services import ReportServices, configure, current
 from app.features.report.spot_checks import MAX_FACTS, open_check, respond, sample
 from tests.fixtures.report.world import CRYPTO, Reads, World, app_for, build, make_ready
+from tests.support.auth import APP_ORIGIN
 from tests.support.db import ClientFor
 from tests.support.files import local_storage
 from tests.support.packs import BOTH, Combo
@@ -420,7 +421,11 @@ ADDRESS_LIMIT = 20  # tries from one address in 15 minutes, across every link
 
 
 async def from_address(app: FastAPI, address: str) -> httpx.AsyncClient:
-    return httpx.AsyncClient(transport=httpx.ASGITransport(app=app, client=(address, 1)), base_url="https://test")
+    return httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app, client=(address, 1)),
+        base_url="https://test",
+        headers={"origin": APP_ORIGIN},
+    )
 
 
 async def test_one_address_is_refused_after_too_many_tries(app: FastAPI, admin: psycopg.Connection) -> None:

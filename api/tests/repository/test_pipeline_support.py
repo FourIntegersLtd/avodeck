@@ -339,9 +339,9 @@ async def harness(
     from tests.support.seed import Seed
 
     session = Seed(admin).session(expert)
-    from tests.support.auth import CSRF_HEADER, cookie_header
+    from tests.support.auth import APP_ORIGIN, CSRF_HEADER, cookie_header
 
-    headers = {"cookie": cookie_header(session), CSRF_HEADER: session.csrf}
+    headers = {"cookie": cookie_header(session), CSRF_HEADER: session.csrf, "origin": APP_ORIGIN}
     try:
         with pipeline.wiring.use(services):
             async with httpx.AsyncClient(

@@ -22,7 +22,7 @@ import httpx
 import psycopg
 import pytest
 
-from tests.support.auth import CSRF_HEADER, AuthAdmin, add_csrf, cookie_header
+from tests.support.auth import APP_ORIGIN, CSRF_HEADER, AuthAdmin, add_csrf, cookie_header
 from tests.support.db import ClientFor
 from tests.support.local_supabase import local_db_port, test_dsns
 from tests.support.seed import Seed, SeededSession
@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from app.core.db import Database
 
 REPO = Path(__file__).resolve().parents[2]
-APP_ORIGIN = "https://app.test"
 
 # Test apps load the launch packs and the fixture packs (`packs/_fixtures/`); a real cell loads only its own.
 os.environ.setdefault("PACKS_DIR", os.pathsep.join(str(REPO / p) for p in ("packs", "packs/_fixtures")))

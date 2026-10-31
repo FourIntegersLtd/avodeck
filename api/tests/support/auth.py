@@ -22,6 +22,8 @@ from tests.support.seed import SeededSession
 SESSION_COOKIE = "av_session"
 CSRF_COOKIE = "av_csrf"
 CSRF_HEADER = "x-csrf-token"
+# Every browser request carries an Origin; the API now requires one on a change (ADR 0031).
+APP_ORIGIN = "https://app.test"
 PASSWORD = "Correct-horse-battery-9"
 
 

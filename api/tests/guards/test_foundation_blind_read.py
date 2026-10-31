@@ -81,13 +81,18 @@ Client = Callable[..., Awaitable[httpx.AsyncClient]]
 
 
 async def _client(app: FastAPI, seed: Seed, person: uuid.UUID) -> httpx.AsyncClient:
-    from tests.support.auth import CSRF_HEADER, cookie_header
+    from tests.support.auth import APP_ORIGIN, CSRF_HEADER, cookie_header
 
     session = seed.session(person)
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="https://test",
-        headers={"cookie": cookie_header(session), CSRF_HEADER: session.csrf, "idempotency-key": uuid.uuid4().hex},
+        headers={
+            "cookie": cookie_header(session),
+            CSRF_HEADER: session.csrf,
+            "idempotency-key": uuid.uuid4().hex,
+            "origin": APP_ORIGIN,
+        },
     )
 
 
