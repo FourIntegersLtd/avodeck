@@ -41,6 +41,8 @@ async def stream(*parts: bytes) -> AsyncIterator[bytes]:
 async def test_real_clamd_flags_eicar_and_passes_a_clean_file() -> None:
     scanner = ClamdScanner(HOST, PORT, timeout_s=30)
     await scanner.ping()
-    found = await scanner.scan(stream(b"%PDF-1.7 ", EICAR))
+    # ClamAV knows EICAR by the hash of the exact 68-byte file, so nothing may come before it; sent in two
+    # parts so the INSTREAM chunking is exercised too.
+    found = await scanner.scan(stream(EICAR[:20], EICAR[20:]))
     assert not found.clean and found.signature
     assert (await scanner.scan(stream(b"%PDF-1.7 synthetic page"))).clean
