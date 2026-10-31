@@ -504,7 +504,8 @@ async def _put_entries(
             ],
         )
     await conn.execute(
-        "update app.page_analysis set entries_extracted_at = now(), entries_rejected = %s, updated_at = now()"
+        "update app.page_analysis set entries_extracted_at = now(), entries_failed_at = null, entries_rejected = %s,"
+        " updated_at = now()"
         " where page_id = %s",
         (rejected, page_id),
     )
@@ -528,7 +529,7 @@ async def pages_to_read_entries(conn: AsyncConnection, case_id: uuid.UUID) -> li
     cur = await conn.execute(
         "select p.id from app.pages p join app.page_analysis a on a.page_id = p.id"
         " where p.case_id = %s and a.extracted_at is not null and a.entries_extracted_at is null"
-        " and not a.needs_human and not p.quarantined order by p.bundle_page_no",
+        " and a.entries_failed_at is null and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]
@@ -538,7 +539,7 @@ async def leave_entries_for_person(conn: AsyncConnection, page_id: uuid.UUID) ->
     """The entries could not be read after the retry: not marked read, flagged `needs_human`."""
     await conn.execute(
         "update app.page_analysis set needs_human = true, reason = coalesce(reason, 'invalid_output'),"
-        " updated_at = now() where page_id = %s",
+        " entries_failed_at = now(), updated_at = now() where page_id = %s",
         (page_id,),
     )
 
@@ -609,8 +610,10 @@ async def store_extraction(
             Jsonb(availability_evidence or []),
         ),
     )
-    if entries is not None:  # None: the model gave no usable answer; the page stays unread, for a person
+    if entries is not None:
         await _put_entries(conn, case_id, page_id, entries, entries_rejected, prompt_version)
+    else:  # the model gave no usable answer: the page stays unread, for a person
+        await conn.execute("update app.page_analysis set entries_failed_at = now() where page_id = %s", (page_id,))
 
 
 # Copies set aside (increment 5) -----------------------------------------------------------------
