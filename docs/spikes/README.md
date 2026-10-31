@@ -20,3 +20,18 @@ Run spikes 1–4 and 8 before foundation **stage 2** (the cloud parts); foundati
 ## Results
 
 *(Append one section per spike: date, what was run, numbers, pass or fail, decision.)*
+
+### Spike 4(a): bge-small-en-v1.5 and bge-reranker-base as ONNX int8 (2026-10-31)
+
+Run: `python:3.12-slim`, `docker run --memory 1g --cpus 4`, `onnxruntime` 1.20.1 + `tokenizers` 0.21.0 (no torch), 2 intra-op threads, Apple-silicon Mac host, so a Railway worker will differ. Models: Xenova ONNX int8 exports (`onnx/model_quantized.onnx`, 34 MB embedder, 279 MB reranker; tokenizer.json 0.7 MB and 17 MB). Median of 10 runs after a warm-up, synthetic clinical sentences only.
+
+| Model | Batch | Tokens per text | Median per batch | Peak memory |
+|---|---|---|---|---|
+| bge-small int8 | 32 | 28 (a fact or a question) | 123 ms | 138 MB |
+| bge-small int8 | 32 | 106 | 545 ms | 203 MB |
+| bge-small int8 (2 CPUs) | 32 | 106 | 585 ms | 193 MB |
+| bge-reranker-base int8 | 8 | 31 | 127 ms | 777 MB |
+| bge-reranker-base int8 | 32 | 31 | 423 ms | 757 MB |
+| bge-reranker-base int8 | 32 | 106 | killed at the 1 GB limit | over 1 GB |
+
+Result: **fail** against "under 1 GB, under 150 ms per batch of 32" for the real workload. Facts and questions (short) pass for the embedder (123 ms), but pages are embedded (`pages_to_embed`), pages run to hundreds of tokens, and latency grows with length (545 ms at 106 tokens, so several seconds at 512). The reranker alone takes about 760 MB; with the embedder loaded in the same worker it sits near the 1 GB ceiling and is killed on longer texts. Decision: the ONNX path was not built. Open choices for the founder: (a) relax the bar to a throughput bar (a 4,000-page bundle embeds in minutes in the background, which the pipeline can absorb) and embed with the smaller int8 bge-small only, truncated to 256 tokens, with a 1 GB+ worker; (b) a smaller reranker (bge-reranker-v2-m3 is larger; MiniLM cross-encoder is about 90 MB); (c) Bedrock Titan or Cohere embeddings, only after a check that they are listed in London in-region (rule 5).
