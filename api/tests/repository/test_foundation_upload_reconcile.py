@@ -16,7 +16,7 @@ import psycopg
 import pytest
 
 from app.core.db import Database
-from app.core.housekeeping import reconcile_upload_objects
+from app.core.housekeeping import ReconcileResult, reconcile_upload_objects
 from app.core.storage import StorageError, SupabaseStorage, case_prefix, upload_prefix
 from tests.support.files import STORAGE_BUCKET, local_storage
 from tests.support.seed import Seed
@@ -216,6 +216,20 @@ async def test_a_connection_not_scoped_to_the_case_deletes_nothing(
     age(admin, paths, days=30)
     async with worker_db.anonymous() as conn:  # sees no rows at all: every folder would look row-less
         await reconcile_upload_objects(conn, storage, case)
+    assert len(await storage.list(upload_prefix(case, folder))) == 3
+
+
+async def test_the_api_role_deletes_nothing_even_with_the_case_setting_set(
+    api_db: Database, storage: SupabaseStorage, admin: psycopg.Connection, case: uuid.UUID
+) -> None:
+    """`app.job_case_id` is a plain session setting any role can set (migration 0027), so the setting alone
+    is no proof: on `app_api` every row stays hidden and each folder would look like an orphan."""
+    folder = uuid.uuid4()
+    paths = await put_chunks(storage, case, str(folder))
+    age(admin, paths, days=30)
+    async with api_db.anonymous() as conn:
+        await conn.execute("select set_config('app.job_case_id', %s, true)", (str(case),))
+        assert await reconcile_upload_objects(conn, storage, case) == ReconcileResult()
     assert len(await storage.list(upload_prefix(case, folder))) == 3
 
 
