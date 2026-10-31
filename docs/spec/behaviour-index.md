@@ -132,7 +132,7 @@ One line per table, answering the behaviour questions in plain words: who owns i
 | `job_steps` | Foundation | Worker | Many per job | Insert only; a finished step is skipped on retry | With the job |
 | `job_support_actions` | Foundation | Support staff, through `app.support_job_action()` only | Many per job | Insert only; written only with a resume or requeue that happened | With the job |
 | `scheduled_runs` | Foundation | Worker | One per schedule per date | Insert only; claimed once per date | Kept (no patient data) |
-| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete or expired); chunks only while open; daily sweep expires unfinished uploads after 7 days and deletes their chunks; completing publishes `DocumentUploaded` (with `append`) in the same transaction | Case deletion |
+| `uploads` | Foundation | Case uploaders (`case.upload`) | Many per case | State machine (open → complete, expired or failed); chunks only while open, each with its SHA-256; a whole-file mismatch closes it as failed; daily sweep expires unfinished uploads after 7 days and deletes their chunks; completing publishes `DocumentUploaded` (with `append`) in the same transaction | Case deletion |
 | `notifications` | Foundation | System; the person marks read | Many | Read state only; held while the case is on hold | Deleted after 1 year; case ones with the case |
 | `feature_flags` | Foundation | Avodeck staff | One per key per scope | Edit; audited | Removed when the feature ships |
 | `audit_log` | Foundation | System (append only) | Many | Hash-chained | Pseudonymised metadata kept 6 years after case deletion |

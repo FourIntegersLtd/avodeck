@@ -1,0 +1,316 @@
+{
+ "note": "Facts a reasonable reader would offer for each question (T-11 link candidates); a fact is {page, kind, quote}. Questions 1-4 are the case questions (questions.json); 5-10 are issue questions the expert might ask, with their own text.",
+ "questions": [
+  {
+   "number": 1,
+   "expected": [
+    {
+     "page": 111,
+     "kind": "consultation",
+     "quote": "Lower abdominal pain and loose stools for 4 weeks"
+    },
+    {
+     "page": 116,
+     "kind": "consultation",
+     "quote": "Rectal bleeding"
+    },
+    {
+     "page": 117,
+     "kind": "consultation",
+     "quote": "Change in bowel habit"
+    },
+    {
+     "page": 117,
+     "kind": "phone_consultation",
+     "quote": "Iron deficiency anaemia"
+    },
+    {
+     "page": 117,
+     "kind": "consultation",
+     "quote": "Tiredness symptom"
+    },
+    {
+     "page": 119,
+     "kind": "phone_consultation",
+     "quote": "Change in bowel habit"
+    },
+    {
+     "page": 119,
+     "kind": "consultation",
+     "quote": "Tiredness symptom"
+    }
+   ]
+  },
+  {
+   "number": 2,
+   "expected": [
+    {
+     "page": 117,
+     "kind": "consultation",
+     "quote": "Tiredness symptom"
+    },
+    {
+     "page": 117,
+     "kind": "examination",
+     "quote": "Abdo soft, mild LIF tenderness, no masses. PR declined. Wt 64.2kg."
+    },
+    {
+     "page": 118,
+     "kind": "examination",
+     "quote": "64.2 kg"
+    },
+    {
+     "page": 118,
+     "kind": "safety_netting",
+     "quote": "review 3/52 if no better"
+    }
+   ]
+  },
+  {
+   "number": 3,
+   "expected": [
+    {
+     "page": 112,
+     "kind": "referral",
+     "quote": "SUSPECTED LOWER GASTROINTESTINAL CANCER REFERRAL"
+    },
+    {
+     "page": 116,
+     "kind": "referral",
+     "quote": "Suspected cancer referral (lower GI), Westvale University Hospitals"
+    },
+    {
+     "page": 117,
+     "kind": "referral",
+     "quote": "Routine referral to Gastroenterology, Northam General Hospital"
+    },
+    {
+     "page": 117,
+     "kind": "safety_netting",
+     "quote": "Advised to call back or 111 if black stools, bleeding from back passage, breathless or worsening tiredness."
+    },
+    {
+     "page": 118,
+     "kind": "safety_netting",
+     "quote": "review 3/52 if no better"
+    },
+    {
+     "page": 451,
+     "kind": "referral",
+     "quote": "Advice and Guidance request - Haematology"
+    },
+    {
+     "page": 454,
+     "kind": "referral",
+     "quote": "Advice and Guidance conversation (printed from e-RS)"
+    },
+    {
+     "page": 458,
+     "kind": "referral",
+     "quote": "Referral letter - Gastroenterology (routine)"
+    },
+    {
+     "page": 460,
+     "kind": "referral",
+     "quote": "Referral letter - Suspected lower GI cancer (urgent)"
+    }
+   ]
+  },
+  {
+   "number": 4,
+   "expected": [
+    {
+     "page": 114,
+     "kind": "consultation",
+     "quote": "Adenocarcinoma of sigmoid colon"
+    },
+    {
+     "page": 115,
+     "kind": "phone_consultation",
+     "quote": "Adenocarcinoma of sigmoid colon"
+    },
+    {
+     "page": 115,
+     "kind": "letter",
+     "quote": "Colorectal clinic letter 12/09/2024"
+    },
+    {
+     "page": 390,
+     "kind": "letter",
+     "quote": "Adenocarcinoma of the sigmoid colon (biopsy confirmed)"
+    },
+    {
+     "page": 448,
+     "kind": "consultation",
+     "quote": "Colorectal clinic. Seen with husband."
+    },
+    {
+     "page": 448,
+     "kind": "consultation",
+     "quote": "Results clinic. CT: T3 N1 M0."
+    },
+    {
+     "page": 510,
+     "kind": "letter",
+     "quote": "MDT outcome: Lap anterior resection"
+    },
+    {
+     "page": 511,
+     "kind": "letter",
+     "quote": "MDT outcome: CT 12 and 24 months, CEA 3-monthly"
+    }
+   ]
+  },
+  {
+   "number": 5,
+   "text": "What did the blood tests show about iron or anaemia?",
+   "expected": [
+    {
+     "page": 118,
+     "kind": "result",
+     "quote": "Haemoglobin 104 g/L"
+    },
+    {
+     "page": 119,
+     "kind": "result",
+     "quote": "Haemoglobin 112 g/L"
+    },
+    {
+     "page": 119,
+     "kind": "result",
+     "quote": "Ferritin 9 ug/L"
+    },
+    {
+     "page": 402,
+     "kind": "result",
+     "quote": "Ferritin 9 ug/L"
+    },
+    {
+     "page": 402,
+     "kind": "result",
+     "quote": "Haemoglobin 112 g/L"
+    },
+    {
+     "page": 452,
+     "kind": "result",
+     "quote": "Ferritin 9 ug/L"
+    },
+    {
+     "page": 459,
+     "kind": "result",
+     "quote": "Ferritin 9 ug/L"
+    },
+    {
+     "page": 461,
+     "kind": "result",
+     "quote": "Ferritin 9 ug/L"
+    },
+    {
+     "page": 899,
+     "kind": "result",
+     "quote": "Haemoglobin 104"
+    },
+    {
+     "page": 117,
+     "kind": "phone_consultation",
+     "quote": "Iron deficiency anaemia"
+    }
+   ]
+  },
+  {
+   "number": 6,
+   "text": "Was a suspected cancer referral made, and when?",
+   "expected": [
+    {
+     "page": 116,
+     "kind": "referral",
+     "quote": "Suspected cancer referral (lower GI), Westvale University Hospitals"
+    },
+    {
+     "page": 460,
+     "kind": "referral",
+     "quote": "Referral letter - Suspected lower GI cancer (urgent)"
+    }
+   ]
+  },
+  {
+   "number": 7,
+   "text": "What safety-netting advice was given to call back if symptoms got worse?",
+   "expected": [
+    {
+     "page": 117,
+     "kind": "safety_netting",
+     "quote": "Advised to call back or 111 if black stools, bleeding from back passage, breathless or worsening tiredness."
+    },
+    {
+     "page": 118,
+     "kind": "safety_netting",
+     "quote": "review 3/52 if no better"
+    }
+   ]
+  },
+  {
+   "number": 8,
+   "text": "What was the cancer diagnosis and its stage?",
+   "expected": [
+    {
+     "page": 114,
+     "kind": "consultation",
+     "quote": "Adenocarcinoma of sigmoid colon"
+    },
+    {
+     "page": 115,
+     "kind": "phone_consultation",
+     "quote": "Adenocarcinoma of sigmoid colon"
+    },
+    {
+     "page": 390,
+     "kind": "letter",
+     "quote": "Adenocarcinoma of the sigmoid colon (biopsy confirmed)"
+    },
+    {
+     "page": 448,
+     "kind": "consultation",
+     "quote": "Results clinic. CT: T3 N1 M0."
+    }
+   ]
+  },
+  {
+   "number": 9,
+   "text": "Was there rectal bleeding or a rectal examination?",
+   "expected": [
+    {
+     "page": 116,
+     "kind": "consultation",
+     "quote": "Rectal bleeding"
+    },
+    {
+     "page": 116,
+     "kind": "examination",
+     "quote": "Abdo soft. PR: no palpable mass, blood on glove. Wt 61.8kg."
+    },
+    {
+     "page": 117,
+     "kind": "examination",
+     "quote": "Abdo soft, mild LIF tenderness, no masses. PR declined. Wt 64.2kg."
+    }
+   ]
+  },
+  {
+   "number": 10,
+   "text": "What happened at the out-of-hours contact at the end of March 2024?",
+   "expected": [
+    {
+     "page": 111,
+     "kind": "consultation",
+     "quote": "Lower abdominal pain and loose stools for 4 weeks"
+    },
+    {
+     "page": 118,
+     "kind": "letter",
+     "quote": "Out of hours case report NUC-24-033187"
+    }
+   ]
+  }
+ ]
+}
