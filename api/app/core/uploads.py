@@ -25,7 +25,7 @@ import hmac
 import logging
 import uuid
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from app.core import audit
 from app.core.case_files import StoredDocument, StoredFileCorrupt, StoredFileMissing
@@ -100,8 +100,21 @@ async def _verify(conn: Any, storage: SupabaseStorage, crypto: CaseCrypto, row: 
     return _Verdict("verified", sha256=whole)
 
 
+class _KeyOnDemand:
+    """Stands in for the connection while streaming: `CaseCrypto` only reads the case key through it, and only
+    when its cached key has expired (at most once in 5 minutes), so each call gets its own short transaction
+    and no connection is held while the parts are read from Storage."""
+
+    def __init__(self, ctx: JobContext) -> None:
+        self._ctx = ctx
+
+    async def execute(self, query: str, params: Any = None) -> Any:
+        async with self._ctx.transaction() as conn:
+            return await conn.execute(query, params)  # the result is already buffered client-side
+
+
 async def finalize(ctx: JobContext, storage: SupabaseStorage, crypto: CaseCrypto) -> None:
-    async with ctx.transaction() as conn:
+    async with ctx.transaction() as conn:  # short: load the row, warm the case key, commit
         cur = await conn.execute(
             "select id, case_id, person_id, kind, filename, size, sha256, chunk_count, chunk_sha256, append"
             " from app.uploads where finalize_job_id = %s and status = 'finalizing'",
@@ -112,8 +125,9 @@ async def finalize(ctx: JobContext, storage: SupabaseStorage, crypto: CaseCrypto
             return  # another attempt already moved it on
         names = [c.name for c in cur.description or []]
         row = dict(zip(names, found, strict=True))
-        async with _verifying:
-            verdict = await _verify(conn, storage, crypto, row)
+        await crypto.warm(conn, row["case_id"])
+    async with _verifying:  # no transaction is open while the parts stream
+        verdict = await _verify(cast(Any, _KeyOnDemand(ctx)), storage, crypto, row)
     ids = {"upload_id": str(row["id"]), "case_id": str(row["case_id"]), "job_id": str(ctx.job_id)}
     if verdict.outcome == "missing":
         await _reopen(ctx, row, verdict, ids)

@@ -232,6 +232,10 @@ class CaseCrypto:
         # Bound to the case and, when given, to where the blob belongs (e.g. its storage path).
         return case_id.bytes + (b"|" + purpose.encode() if purpose else b"")
 
+    async def warm(self, conn: AsyncConnection, case_id: uuid.UUID) -> None:
+        """Load the case's key into the cache (raises as `decrypt` would if it is missing or destroyed)."""
+        await self._key(conn, case_id, create=False)
+
     async def encrypt(self, conn: AsyncConnection, case_id: uuid.UUID, data: bytes, *, purpose: str = "") -> bytes:
         return _seal(await self._key(conn, case_id, create=True), data, self._case_aad(case_id, purpose))
 
