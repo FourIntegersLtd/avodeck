@@ -4871,6 +4871,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/uploads/{upload_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Upload
+         * @description Cancel an open upload. Its stored parts are left to the daily sweep (`cleaned_at` null).
+         */
+        post: operations["cancel_upload_v1_uploads__upload_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/uploads/{upload_id}/chunks/{n}": {
         parameters: {
             query?: never;
@@ -12289,10 +12309,35 @@ export interface components {
             chunk_size: number;
             /** Document Id */
             document_id: string | null;
+            /**
+             * Expires At
+             * @description ISO 8601 expiry time.
+             */
+            expires_at?: string | null;
+            /**
+             * Failure
+             * @description Why the upload failed (code only).
+             */
+            failure?: string | null;
+            /**
+             * Filename
+             * @description Original filename.
+             */
+            filename?: string | null;
+            /**
+             * Kind
+             * @description Document kind from the case's packs.
+             */
+            kind?: string | null;
             /** Missing */
             missing: number[];
             /** Received */
             received: number[];
+            /**
+             * Sha256
+             * @description The whole file's SHA-256 sent at upload start.
+             */
+            sha256?: string | null;
             /** Size */
             size: number;
             /** Status */
@@ -25957,6 +26002,46 @@ export interface operations {
         };
     };
     get_upload_v1_uploads__upload_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                upload_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Upload"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    cancel_upload_v1_uploads__upload_id__cancel_post: {
         parameters: {
             query?: never;
             header?: never;
