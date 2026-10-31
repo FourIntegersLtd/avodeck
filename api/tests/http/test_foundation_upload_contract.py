@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import AsyncIterator
+from typing import Any
 
 import httpx
 import psycopg
@@ -27,6 +28,13 @@ pytestmark = pytest.mark.anyio
 
 def sha(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
+
+
+def only(cur: psycopg.Cursor[Any]) -> Any:
+    """The first column of the single row a statement returned."""
+    row = cur.fetchone()
+    assert row is not None
+    return row[0]
 
 
 @pytest.fixture
@@ -50,11 +58,12 @@ def team(seed: Seed) -> dict[str, uuid.UUID]:
     return {"expert": expert, "case": seed.case(org, expert)}
 
 
-async def start(client: httpx.AsyncClient, case: uuid.UUID, file: SyntheticFile) -> dict:
+async def start(client: httpx.AsyncClient, case: uuid.UUID, file: SyntheticFile) -> dict[str, Any]:
     body = {"kind": "records", "filename": "bundle.pdf", "size": file.size, "sha256": file.sha256()}
     resp = await client.post(f"/v1/cases/{case}/uploads", json=body)
     assert resp.status_code == 201, resp.text
-    return resp.json()
+    out: dict[str, Any] = resp.json()
+    return out
 
 
 # --- Upload response schema (new fields) ---
@@ -153,16 +162,16 @@ async def test_cancel_prevents_further_chunks(
 async def test_db_allows_open_to_finalizing(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
     """The guard allows open → finalizing when job id and time are set."""
     # Create a job row first
-    job_id = admin.execute(
+    job_id = only(admin.execute(
         "insert into app.jobs (case_id, kind) values (%s, 'finalize_upload') returning id",
         (team["case"],),
-    ).fetchone()[0]
+    ))
     # Create an upload
-    upload_id = admin.execute(
+    upload_id = only(admin.execute(
         "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
         " values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1) returning id",
         (team["case"], team["expert"], "a" * 64, 8 * MB),
-    ).fetchone()[0]
+    ))
     admin.commit()
     admin.execute(
         "update app.uploads set status = 'finalizing', finalize_job_id = %s, finalizing_at = now() where id = %s",
@@ -170,6 +179,7 @@ async def test_db_allows_open_to_finalizing(admin: psycopg.Connection, team: dic
     )
     admin.commit()
     row = admin.execute("select status from app.uploads where id = %s", (upload_id,)).fetchone()
+    assert row is not None
     assert row[0] == "finalizing"
 
 
@@ -177,11 +187,11 @@ async def test_db_refuses_open_to_finalizing_without_job(
     admin: psycopg.Connection, team: dict[str, uuid.UUID]
 ) -> None:
     """The guard refuses open → finalizing if finalize_job_id is null."""
-    upload_id = admin.execute(
+    upload_id = only(admin.execute(
         "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count)"
         " values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1) returning id",
         (team["case"], team["expert"], "b" * 64, 8 * MB),
-    ).fetchone()[0]
+    ))
     admin.commit()
     with pytest.raises(psycopg.errors.RaiseException, match="finalizing needs a job"):
         admin.execute("update app.uploads set status = 'finalizing' where id = %s", (upload_id,))
@@ -191,15 +201,15 @@ async def test_db_allows_finalizing_to_open_reopen(
     admin: psycopg.Connection, team: dict[str, uuid.UUID]
 ) -> None:
     """The guard allows finalizing → open (repair: a missing part is removed from received)."""
-    job_id = admin.execute(
+    job_id = only(admin.execute(
         "insert into app.jobs (case_id, kind) values (%s, 'finalize_upload') returning id",
         (team["case"],),
-    ).fetchone()[0]
-    upload_id = admin.execute(
+    ))
+    upload_id = only(admin.execute(
         "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count, received)"
         " values (%s, %s, 'records', 'test.pdf', 16000000, %s, %s, 2, '{1,2}') returning id",
         (team["case"], team["expert"], "c" * 64, 8 * MB),
-    ).fetchone()[0]
+    ))
     admin.commit()
     admin.execute(
         "update app.uploads set status = 'finalizing', finalize_job_id = %s, finalizing_at = now() where id = %s",
@@ -213,6 +223,7 @@ async def test_db_allows_finalizing_to_open_reopen(
     )
     admin.commit()
     row = admin.execute("select status, received from app.uploads where id = %s", (upload_id,)).fetchone()
+    assert row is not None
     assert row[0] == "open"
     assert row[1] == [1]
 
@@ -237,12 +248,12 @@ async def test_empty_file_is_refused(
 
 async def test_expire_returns_status_column(admin: psycopg.Connection, team: dict[str, uuid.UUID]) -> None:
     """expire_uploads now returns (case_id, upload_id, status) not just two columns."""
-    upload_id = admin.execute(
+    upload_id = only(admin.execute(
         "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count,"
         " expires_at) values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1, now() - interval '1 hour')"
         " returning id",
         (team["case"], team["expert"], "d" * 64, 8 * MB),
-    ).fetchone()[0]
+    ))
     admin.commit()
     rows = admin.execute("select * from app.expire_uploads(current_date)").fetchall()
     found = [r for r in rows if r[1] == upload_id]
@@ -257,12 +268,12 @@ async def test_expire_returns_status_column(admin: psycopg.Connection, team: dic
 async def test_mark_upload_cleaned_sets_timestamp(
     admin: psycopg.Connection, team: dict[str, uuid.UUID]
 ) -> None:
-    upload_id = admin.execute(
+    upload_id = only(admin.execute(
         "insert into app.uploads (case_id, person_id, kind, filename, size, sha256, chunk_size, chunk_count,"
         " status, expires_at) values (%s, %s, 'records', 'test.pdf', 1000, %s, %s, 1, 'expired',"
         " now() - interval '1 hour') returning id",
         (team["case"], team["expert"], "e" * 64, 8 * MB),
-    ).fetchone()[0]
+    ))
     admin.commit()
     # Switch to worker role for the security definer function
     admin.execute("set role app_worker")
@@ -270,6 +281,7 @@ async def test_mark_upload_cleaned_sets_timestamp(
     admin.execute("reset role")
     admin.commit()
     row = admin.execute("select cleaned_at from app.uploads where id = %s", (upload_id,)).fetchone()
+    assert row is not None
     assert row[0] is not None
 
 
@@ -281,16 +293,10 @@ def test_case_files_stub_imports() -> None:
     from app.core.case_files import StoredDocument, StoredFileCorrupt, StoredFileMissing  # noqa: F401
 
 
-def test_spool_raises_not_implemented() -> None:
+async def test_spool_raises_not_implemented() -> None:
     """spool() raises NotImplementedError (stub)."""
-    import asyncio
-
     from app.core.case_files import StoredDocument
-    from app.core.crypto import LocalKeyProvider, CaseCrypto
-    from app.core.storage import SupabaseStorage, StorageSettings
 
-    # Can't actually call spool without a real connection, but the stub path raises immediately
-    # We just verify the interface exists and the stub contract.
     doc = StoredDocument(
         storage=None,  # type: ignore[arg-type]
         crypto=None,  # type: ignore[arg-type]
@@ -299,4 +305,4 @@ def test_spool_raises_not_implemented() -> None:
         paths=[],
     )
     with pytest.raises(NotImplementedError):
-        asyncio.get_event_loop().run_until_complete(doc.spool(None))  # type: ignore[arg-type]
+        await doc.spool(None)  # type: ignore[arg-type]

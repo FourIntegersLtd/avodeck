@@ -10,7 +10,7 @@ from app.features.setup.letter import Found, Letter, Word
 
 
 def _letter() -> Letter:
-    words = [Word(f"p1w{i}", t, i == 3) for i, t in zip((3, 4, 5, 6), ("in", "treating", "Jane", "Smith"))]
+    words = [Word(f"p1w{i}", t, i == 3) for i, t in zip((3, 4, 5, 6), ("in", "treating", "Jane", "Smith"), strict=True)]
     letter = Letter(words)
     fake = lambda text, **_: SimpleNamespace(text=text.replace("Jane Smith", "[PERSON_1]"))  # noqa: E731
     with patch("app.features.setup.letter.pii.strip", side_effect=fake):

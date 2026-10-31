@@ -132,7 +132,7 @@ def _upload(row: dict[str, object]) -> Upload:
         missing=sorted(set(range(1, count + 1)) - set(received)),
         document_id=row["document_id"],  # type: ignore[arg-type]
         failure=row.get("failure"),  # type: ignore[arg-type]
-        expires_at=expires_at.isoformat() if expires_at else None,  # type: ignore[union-attr]
+        expires_at=expires_at.isoformat() if expires_at else None,  # type: ignore[attr-defined]
         sha256=row.get("sha256"),  # type: ignore[arg-type]
         filename=row.get("filename"),  # type: ignore[arg-type]
         kind=row.get("kind"),  # type: ignore[arg-type]
@@ -374,7 +374,12 @@ async def cancel_upload(upload_id: uuid.UUID, conn: DbConn) -> Upload:
     )
     if await cur.fetchone() is None:
         raise ApiError("upload_closed", "This upload has already finished.", 409)
-    await audit.record(conn, action="upload.cancelled", target=f"upload:{upload_id}", case_id=row["case_id"])
+    await audit.record(
+        conn,
+        action="upload.cancelled",
+        target=f"upload:{upload_id}",
+        case_id=row["case_id"],  # type: ignore[arg-type]
+    )
     return _upload({**row, "status": "cancelled"})
 
 
