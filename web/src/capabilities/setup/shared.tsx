@@ -3,7 +3,7 @@
 import { useId, type ButtonHTMLAttributes, type ChangeEvent, type ReactNode, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
 import { hasMessage, humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
-import { uploadInParts } from "../../foundation/lib/chunkedUpload";
+import { uploadInParts, type UploadOptions } from "../../foundation/lib/chunkedUpload";
 import { sw } from "./words";
 import { useResource } from "../../foundation/lib/useResource";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
@@ -240,8 +240,8 @@ async function bytesOf(file: Blob): Promise<ArrayBuffer> {
 }
 
 /** Sends a file to the API in parts and returns the document it became (checks and retries: foundation/lib/chunkedUpload). */
-export async function uploadFile(caseId: string, file: File, kind: string): Promise<string> {
-  return uploadInParts(caseId, file, kind);
+export async function uploadFile(caseId: string, file: File, kind: string, options?: UploadOptions): Promise<string> {
+  return uploadInParts(caseId, file, kind, false, options);
 }
 
 export interface UploadOutcome {
@@ -255,11 +255,12 @@ export async function uploadFiles(
   files: File[],
   kind: string,
   after?: (file: File, documentId: string) => Promise<void>,
+  options?: UploadOptions,
 ): Promise<UploadOutcome> {
   const out: UploadOutcome = { saved: [], failed: [] };
   for (const file of files) {
     try {
-      const documentId = await uploadFile(caseId, file, kind);
+      const documentId = await uploadFile(caseId, file, kind, options);
       await after?.(file, documentId);
       out.saved.push({ file, documentId });
     } catch (err) {
