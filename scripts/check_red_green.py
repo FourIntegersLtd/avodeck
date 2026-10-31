@@ -51,6 +51,9 @@ EXCUSED = {
     "fb186aa3df5d4bce72dc4dc4023abb2da79b4cc5": "feat/records-transcript: 0215 redefined close_stale_exports before 0802 creates it, so the database at this commit cannot be built; fixed by 0805 in 48a1df0f, history kept (no force push)",
     "7866441c790a11a5c467262f8aa25cf02631952d": "feat/records-transcript: 0215 redefined close_stale_exports before 0802 creates it, so the database at this commit cannot be built; fixed by 0805 in 48a1df0f, history kept (no force push)",
     "d448bd97773827b69f3fa66c5c8fc55c9253e8eb": "feat/records-transcript: transcript review fixes followed a test commit for a different change; the test file pass on this commit (16 passed), history kept (no force push)",
+    "282b451a2c7a370ac1b2f3b0f2e08bbc17f969ee": "feat/embedder: the links floor test in 1097d950 failed here (recall 0.26, the spike 4(a) miss); fixed by the wider links pool in 9ff576a5, branch head tested as a whole, history kept (no force push)",
+    "3c3b9653c94ce089fd977e51faa3cf34ef062425": "feat/embedder: image and CI model-cache wiring covered by 1097d950's tests, no test commit of its own; history kept (no force push)",
+    "5a67267d770e14c474cc89695dff1e7c8e0de916": "feat/embedder: links ground-truth data only, covered by 1097d950's tests; history kept (no force push)",
 }
 
 
