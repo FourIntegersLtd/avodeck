@@ -280,8 +280,8 @@ test("a poll that says open resends only the missing parts, then completes again
 });
 
 test("a failed upload shows the reason the server gave and does not send a cancel", async () => {
-  const calls = polled([view({ status: "failed", failure: "file_hash_mismatch" })]);
-  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "file_hash_mismatch" });
+  const calls = polled([view({ status: "failed", failure: "sha256_mismatch" })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "sha256_mismatch" });
   expect(calls.cancels).toEqual([]);
 });
 
@@ -314,4 +314,107 @@ test("a part that fails for good cancels the upload", async () => {
   const calls = polled([view({ status: "complete", document_id: DOC })], (n) => (n === 2 ? fail(422, "chunk_size_wrong") : ok204()));
   await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "chunk_size_wrong" });
   expect(calls.cancels).toHaveLength(1);
+});
+
+// ---- review fixes ----------------------------------------------------------------------------------
+
+test("an upload still finalizing after five minutes gives up with a plain failure and no cancel", async () => {
+  const calls = polled([view({ status: "finalizing" })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "upload_failed" });
+  expect(clock).toBeGreaterThanOrEqual(5 * 60_000);
+  expect(calls.cancels).toEqual([]);
+});
+
+test.each([{ document_id: null }, {}])("a complete upload with no document id is a failure, not a reason to keep polling (%j)", async (extra) => {
+  const calls = polled([view({ status: "complete", ...extra })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "upload_failed" });
+  expect(calls.polls).toBe(1);
+});
+
+test("open with nothing missing is not a reopen: keep polling, resend nothing, never complete twice", async () => {
+  const calls = polled([view({ status: "open", received: [1, 2, 3], missing: [] }), view({ status: "open", received: [1, 2, 3], missing: [] }), view({ status: "complete", document_id: DOC })]);
+  await expect(uploadInParts(CASE, file(), "records")).resolves.toBe(DOC);
+  expect(calls.puts).toHaveLength(3);
+  expect(calls.completes).toHaveLength(1);
+  expect(calls.cancels).toEqual([]);
+});
+
+test("a poll that leaves out received and missing is unknown, not empty: the whole file is not resent", async () => {
+  const calls = polled([{ upload_id: UP, status: "open" }, view({ status: "complete", document_id: DOC })]);
+  await expect(uploadInParts(CASE, file(), "records")).resolves.toBe(DOC);
+  expect(calls.puts).toHaveLength(3);
+  expect(calls.completes).toHaveLength(1);
+});
+
+test.each(["sha256_mismatch", "size_mismatch", "chunk_unreadable"])("the %s reason the database allows is passed on", async (failure) => {
+  polled([view({ status: "failed", failure })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: failure });
+});
+
+test.each(["file_hash_mismatch", "chunks_missing", "file_sha_missing", "chunk_corrupted"])("%s can never be a stored reason, so it falls back to the plain one", async (failure) => {
+  polled([view({ status: "failed", failure })]);
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "upload_failed" });
+});
+
+test("cancelling while the upload is being opened sends no parts, then cancels", async () => {
+  const calls = polled([view({ status: "complete", document_id: DOC })]);
+  const abort = new AbortController();
+  server.use(
+    http.post("/v1/cases/:caseId/uploads", () => {
+      abort.abort();
+      return json({ upload_id: UP, chunk_size: CHUNK, chunk_count: 3 }, 201);
+    }),
+  );
+  await expect(uploadInParts(CASE, file(), "records", false, { signal: abort.signal })).rejects.toMatchObject({ name: "AbortError" });
+  expect(calls.puts).toEqual([]);
+  expect(calls.cancels).toHaveLength(1);
+});
+
+test("cancelling as missing parts are about to be resent sends none of them", async () => {
+  const abort = new AbortController();
+  const calls = polled([view({ status: "open", received: [1, 3], missing: [2] })]);
+  await expect(
+    uploadInParts(CASE, file(), "records", false, { signal: abort.signal, onProgress: (p) => p.phase === "resuming" && abort.abort() }),
+  ).rejects.toMatchObject({ name: "AbortError" });
+  expect(calls.puts).toHaveLength(3);
+});
+
+test("cancelling after the finish was accepted sends no cancel, which the server would refuse", async () => {
+  const calls = polled([view({ status: "finalizing" })]);
+  const abort = new AbortController();
+  server.use(
+    http.post("/v1/uploads/:id/complete", () => {
+      abort.abort();
+      return json({ status: "finalizing" }, 202);
+    }),
+  );
+  await expect(uploadInParts(CASE, file(), "records", false, { signal: abort.signal })).rejects.toMatchObject({ name: "AbortError" });
+  expect(calls.cancels).toEqual([]);
+});
+
+test("a part count larger than the file allows fails with a real code, not a TypeError, and cancels", async () => {
+  const calls = polled([view({ status: "complete", document_id: DOC })]);
+  server.use(http.post("/v1/cases/:caseId/uploads", () => json({ upload_id: UP, chunk_size: CHUNK, chunk_count: 5 }, 201)));
+  const err = await uploadInParts(CASE, file(), "records").catch((e) => e);
+  expect(err).toBeInstanceOf(ApiError);
+  expect(err).toMatchObject({ code: "upload_failed" });
+  expect(calls.puts).toEqual([]);
+  expect(calls.cancels).toHaveLength(1);
+});
+
+test("the bar does not go backwards when the server asks for parts again", async () => {
+  polled([view({ status: "open", received: [1], missing: [2, 3] }), view({ status: "complete", document_id: DOC })]);
+  const seen: UploadProgress[] = [];
+  await uploadInParts(CASE, file(), "records", false, { onProgress: (p) => seen.push({ ...p }) });
+  const from = seen.findIndex((p) => p.phase === "finalizing");
+  const after = seen.slice(from).filter((p) => p.phase !== "done");
+  for (let i = 1; i < after.length; i += 1) expect(after[i]!.fraction).toBeGreaterThanOrEqual(after[i - 1]!.fraction);
+});
+
+test("the last cancel attempt does not wait afterwards", async () => {
+  server.use(http.post("/v1/uploads/:id/cancel", () => fail(503, "unavailable")));
+  polled([view({ status: "complete", document_id: DOC })], (n) => (n === 2 ? fail(422, "chunk_size_wrong") : ok204()));
+  server.use(http.post("/v1/uploads/:id/cancel", () => fail(503, "unavailable")));
+  await expect(uploadInParts(CASE, file(), "records")).rejects.toMatchObject({ code: "chunk_size_wrong" });
+  expect(pauses).toHaveLength(1);
 });
