@@ -82,10 +82,10 @@ async def mark_bounced(conn: AsyncConnection, email: str) -> bool:
 
 
 def default_mailer() -> Mailer:
-    """The worker's mailer: the local stand-in until the cell has the email service (stage 2)."""
-    from app.core.email import OutboxMailer
+    """The worker's mailer: Resend when the cell has a key, the local outbox otherwise."""
+    from app.core.email_live import mailer_from_env
 
-    return OutboxMailer()
+    return mailer_from_env()
 
 
 @registry.schedule(DAILY)

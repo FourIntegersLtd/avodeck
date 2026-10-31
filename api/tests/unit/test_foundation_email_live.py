@@ -13,8 +13,8 @@ import httpx
 import pytest
 
 from app.core.config import ConfigError
-from app.core.email import TEMPLATES, TEMPLATE_PARAMS, Mail, OutboxMailer
-from app.core.email_live import ResendMailer, mail_settings, mailer_from_env, render
+from app.core.email import TEMPLATE_PARAMS, TEMPLATES, Mail, OutboxMailer
+from app.core.email_live import MailSendError, ResendMailer, mail_settings, mailer_from_env, render
 from tests.support.packs import LAUNCH_ROOT
 
 pytestmark = pytest.mark.anyio
@@ -60,7 +60,10 @@ SAMPLES = {
 
 def params_for(template: str) -> dict[str, str]:
     if template in TEMPLATE_PARAMS:
-        return {name: SAMPLES[name] for name in TEMPLATE_PARAMS[template]}
+        found = {name: SAMPLES[name] for name in TEMPLATE_PARAMS[template]}
+        if template == "account.created":
+            found["link"] = "https://app.example.test/reset-password?token=" + "d" * 24
+        return found
     return dict(OTHER_PARAMS[template])
 
 
@@ -142,7 +145,7 @@ async def test_a_429_then_a_200_sends_once() -> None:
 
 async def test_a_500_throughout_raises_after_one_retry() -> None:
     script = Script(httpx.Response(500, text="boom"))
-    with pytest.raises(Exception) as caught:
+    with pytest.raises(MailSendError) as caught:
         await mailer(script).send(Mail("a@example.test", "mfa.recovery_code_used"))
     assert len(script.requests) == 2
     assert "boom" not in str(caught.value) and "a@example.test" not in str(caught.value)
@@ -150,7 +153,7 @@ async def test_a_500_throughout_raises_after_one_retry() -> None:
 
 async def test_a_400_is_not_retried() -> None:
     script = Script(httpx.Response(422, text="bad"))
-    with pytest.raises(Exception):
+    with pytest.raises(MailSendError):
         await mailer(script).send(Mail("a@example.test", "mfa.recovery_code_used"))
     assert len(script.requests) == 1
 
