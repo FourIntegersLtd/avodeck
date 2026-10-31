@@ -1,17 +1,19 @@
-"""Completing an upload publishes `DocumentUploaded` inside the request's transaction.
+"""Registering a document publishes `DocumentUploaded` inside the transaction that makes it.
 
-Slice A subscribes to queue the virus scan and processing; the subscriber gets the same connection,
-so its jobs commit with the document or not at all. A failing subscriber fails the request: no
-document is registered and the upload can be completed again. Uploads of later records say so
-(`append`), and the event carries it.
+Completing an upload only claims it (202) and queues `finalize_upload`; the job verifies the stored
+parts and registers the document, so the event is published on the job's connection, in the same
+transaction as the document row. Slice A subscribes there to queue the virus scan and processing, so
+its jobs commit with the document or not at all. A failing subscriber fails the job: no document is
+registered, the upload stays `finalizing`, and the next attempt succeeds once the subscriber works.
+Uploads of later records say so (`append`), and the event carries it.
 """
 
 from __future__ import annotations
 
-import hashlib
 import uuid
 from collections.abc import AsyncIterator, Iterator
 
+import httpx
 import psycopg
 import pytest
 from fastapi import FastAPI
@@ -25,6 +27,7 @@ from app.core.storage import SupabaseStorage
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
+from tests.support.uploads import complete, put_all, row, run_finalize
 
 pytestmark = pytest.mark.anyio
 FILE_SHA = SyntheticFile(1 * MB, seed=23).sha256()
@@ -40,8 +43,13 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
-    return build_app(api_db, auth_env, storage=storage, crypto=CaseCrypto(LocalKeyProvider.generate()))
+def crypto() -> CaseCrypto:
+    return CaseCrypto(LocalKeyProvider.generate())
+
+
+@pytest.fixture
+def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+    return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
 @pytest.fixture
@@ -52,13 +60,18 @@ def team(seed: Seed) -> dict[str, uuid.UUID]:
 
 
 @pytest.fixture
-def seen() -> Iterator[list[tuple[DocumentUploaded, uuid.UUID | None]]]:
-    got: list[tuple[DocumentUploaded, uuid.UUID | None]] = []
+def seen() -> Iterator[list[tuple[DocumentUploaded, int | None]]]:
+    """Each event, with the number of document rows its own connection can see for that id.
+
+    One means the subscriber is inside the transaction that inserted the document: no other
+    connection can see that row until it commits.
+    """
+    got: list[tuple[DocumentUploaded, int | None]] = []
 
     async def listener(conn: AsyncConnection, event: DocumentUploaded) -> None:
-        cur = await conn.execute("select app.current_person_id()")
-        row = await cur.fetchone()
-        got.append((event, row[0] if row else None))
+        cur = await conn.execute("select count(*) from app.documents where id = %s", (event.document_id,))
+        counted = await cur.fetchone()
+        got.append((event, counted[0] if counted else None))
 
     events.subscribe_in_transaction(DocumentUploaded)(listener)
     try:
@@ -67,62 +80,81 @@ def seen() -> Iterator[list[tuple[DocumentUploaded, uuid.UUID | None]]]:
         events.unsubscribe(DocumentUploaded, listener)
 
 
-async def upload(client_for: ClientFor, team: dict[str, uuid.UUID], **extra: object) -> tuple[object, str]:
+async def upload(
+    client_for: ClientFor, team: dict[str, uuid.UUID], **extra: object
+) -> tuple[httpx.AsyncClient, str]:
+    """Start an upload, send its one part, and claim it: the job is queued and the upload is finalizing."""
     file = SyntheticFile(1 * MB, seed=23)
     client = await client_for(team["expert"])
     body = {"kind": "records", "filename": "bundle.pdf", "size": file.size, "sha256": file.sha256(), **extra}
     started = await client.post(f"/v1/cases/{team['case']}/uploads", json=body)
     assert started.status_code == 201, started.text
-    upload_id = started.json()["upload_id"]
-    sent = await client.put(
-        f"/v1/uploads/{upload_id}/chunks/1",
-        content=file.chunk(1),
-        headers={
-            "content-type": "application/octet-stream",
-            "x-chunk-sha256": hashlib.sha256(file.chunk(1)).hexdigest(),
-        },
-    )
-    assert sent.status_code == 200
+    upload_id = str(started.json()["upload_id"])
+    await put_all(client, upload_id, file)
+    claimed = await complete(client, upload_id, FILE_SHA)
+    assert claimed.status_code == 202, claimed.text
     return client, upload_id
 
 
-async def test_completing_publishes_the_event_once_on_the_request_connection(
-    client_for: ClientFor, team: dict[str, uuid.UUID], seen: list[tuple[DocumentUploaded, uuid.UUID | None]]
+async def test_registering_publishes_the_event_once_on_the_jobs_connection(
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_dsn: str,
+    seen: list[tuple[DocumentUploaded, int | None]],
 ) -> None:
     client, upload_id = await upload(client_for, team)
-    done = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
-    assert done.status_code == 201, done.text
-    again = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
-    assert again.status_code == 200
-    document = uuid.UUID(done.json()["document_id"])
-    assert seen == [(DocumentUploaded(case_id=team["case"], document_id=document, appended=False), team["expert"])]
+    await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
+    document = row(admin, "select document_id from app.uploads where id = %s", upload_id)
+    assert document is not None and document[0] is not None
+    expected = DocumentUploaded(case_id=team["case"], document_id=uuid.UUID(str(document[0])), appended=False)
+    assert seen == [(expected, 1)]
+    again = await complete(client, upload_id, FILE_SHA)
+    assert again.status_code == 200, "a repeat call gives the same document, with nothing re-read"
+    assert seen == [(expected, 1)], "and publishes nothing a second time"
 
 
 async def test_an_upload_of_later_records_says_so_in_the_event(
-    client_for: ClientFor, team: dict[str, uuid.UUID], seen: list[tuple[DocumentUploaded, uuid.UUID | None]]
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_dsn: str,
+    seen: list[tuple[DocumentUploaded, int | None]],
 ) -> None:
-    client, upload_id = await upload(client_for, team, append=True)
-    done = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
-    assert done.status_code == 201, done.text
+    _, upload_id = await upload(client_for, team, append=True)
+    await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
     [(event, _)] = seen
     assert event.appended is True
-    assert event.document_id == uuid.UUID(done.json()["document_id"])
+    document = row(admin, "select document_id from app.uploads where id = %s", upload_id)
+    assert document is not None
+    assert event.document_id == uuid.UUID(str(document[0]))
 
 
-async def test_a_failing_subscriber_fails_the_request_and_nothing_is_registered(
-    client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
+async def test_a_failing_subscriber_fails_the_job_and_nothing_is_registered(
+    client_for: ClientFor,
+    team: dict[str, uuid.UUID],
+    admin: psycopg.Connection,
+    storage: SupabaseStorage,
+    crypto: CaseCrypto,
+    worker_dsn: str,
 ) -> None:
     async def broken(conn: AsyncConnection, event: DocumentUploaded) -> None:
         raise ApiError("unavailable", "Processing could not be queued.", 503)
 
-    client, upload_id = await upload(client_for, team)
+    _, upload_id = await upload(client_for, team)
     events.subscribe_in_transaction(DocumentUploaded)(broken)
     try:
-        failed = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
+        with pytest.raises(ApiError):  # raised out of the job, so the queue retries it
+            await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
     finally:
         events.unsubscribe(DocumentUploaded, broken)
-    assert failed.status_code == 503
-    assert admin.execute("select count(*) from app.documents where case_id = %s", (team["case"],)).fetchone() == (0,)
-    assert admin.execute("select status from app.uploads where id = %s", (upload_id,)).fetchone() == ("open",)
-    retried = await client.post(f"/v1/uploads/{upload_id}/complete", json={"sha256": FILE_SHA})  # type: ignore[attr-defined]
-    assert retried.status_code == 201, "once the subscriber works, completing again succeeds"
+    assert row(admin, "select count(*) from app.documents where case_id = %s", team["case"]) == (0,)
+    assert row(admin, "select status from app.uploads where id = %s", upload_id) == ("finalizing",)
+    await run_finalize(worker_dsn, admin, upload_id, storage, crypto, attempt=2)
+    document = row(admin, "select status, document_id from app.uploads where id = %s", upload_id)
+    assert document is not None and document[0] == "complete"
+    assert document[1] is not None, "once the subscriber works, the next attempt registers the document"
