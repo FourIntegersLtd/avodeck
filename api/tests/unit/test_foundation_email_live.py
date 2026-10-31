@@ -297,7 +297,7 @@ def test_the_pill_button_is_eventtzs_and_at_least_52px_tall() -> None:
     for piece in (
         f'href="{LINK_PARAM}"',
         "display: inline-block",
-        "background: #0F3D2C",
+        "background: #1E6B4E",
         "color: #ffffff",
         "text-decoration: none",
         "padding: 14px 28px",
