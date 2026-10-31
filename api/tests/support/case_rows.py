@@ -256,7 +256,19 @@ def _reader_logs(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[st
         "insert into app.fact_flags (case_id, fact_id, flagged_for, person_id) values (%s, %s, 'points', %s)",
         (w.case, fact, w.expert),
     )
-    return {"documents": 1, "pages": 1, "facts": 1, "page_reads": 1, "fact_verifications": 1, "fact_flags": 1}
+    admin.execute(
+        "insert into app.transcript_views (case_id, page_id, person_id, picture_opened) values (%s, %s, %s, true)",
+        (w.case, page, w.expert),
+    )
+    return {
+        "documents": 1,
+        "pages": 1,
+        "facts": 1,
+        "page_reads": 1,
+        "transcript_views": 1,
+        "fact_verifications": 1,
+        "fact_flags": 1,
+    }
 
 
 def _understand_rows(admin: psycopg.Connection, seed: Seed, w: CaseWorld) -> dict[str, int]:
