@@ -146,9 +146,7 @@ class OpposingClaimOut(BaseModel):
     confirmed_at: datetime | None
     discrepancy: bool
     version: int
-    needs_attention: bool = Field(
-        description="Checked, does not match and the expert has not yet confirmed it."
-    )
+    needs_attention: bool = Field(description="Checked, does not match and the expert has not yet confirmed it.")
 
 
 class OwnParagraph(BaseModel):

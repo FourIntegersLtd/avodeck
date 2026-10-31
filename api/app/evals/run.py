@@ -24,10 +24,31 @@ def _threshold(value: str) -> float:
     return number
 
 
+def _links(env: Mapping[str, str] | None) -> int:
+    """T-11 recall@10 with the cell's embedder (and reranker, if configured) against `links.FLOOR`."""
+    from app.core.ai.embed import embedder_from_env
+    from app.core.ai.rerank import reranker_from_env
+    from app.core.packs import REPO
+    from app.evals import links
+
+    expected = REPO / "evals" / "gb-eaw" / "clin-neg-breach" / "general-practice" / "expected"
+    try:
+        result = links.evaluate(embedder_from_env(env), expected, reranker=reranker_from_env(env))
+    except ConfigError as problem:
+        print(f"make eval --task links needs EMBEDDER (recorded or onnx): {problem}", file=sys.stderr)
+        return NEEDS_CLOUD
+    scores = [round(r, 2) for r in result.per_question]
+    print(f"links recall@{links.K} = {result.recall:.2f} (floor {links.FLOOR:.2f}); per question {scores}")
+    return 0 if result.recall >= links.FLOOR else 1
+
+
 def main(argv: Sequence[str] | None = None, env: Mapping[str, str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m app.evals.run", description=__doc__)
     parser.add_argument("--threshold", type=_threshold, default=0.95, help="lowest extraction precision allowed")
-    parser.parse_args(argv)
+    parser.add_argument("--task", choices=["extraction", "links"], default="extraction")
+    args = parser.parse_args(argv)
+    if args.task == "links":
+        return _links(env)
     try:
         cell_settings(env)
     except ConfigError as missing:

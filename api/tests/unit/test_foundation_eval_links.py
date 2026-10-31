@@ -29,7 +29,7 @@ def test_recall_at_k_counts_expected_facts_found_in_the_first_k() -> None:
 def test_every_expected_link_names_a_fact_of_the_synthetic_bundle() -> None:
     corpus = {(f["page"], f["kind"], f["quote"]) for f in json.loads((EXPECTED / "facts.json").read_text())}
     questions = json.loads((EXPECTED / "links.json").read_text())["questions"]
-    assert [q["number"] for q in questions] == [1, 2, 3, 4]
+    assert [q["number"] for q in questions] == list(range(1, 11))
     for question in questions:
         assert question["expected"]
         for fact in question["expected"]:

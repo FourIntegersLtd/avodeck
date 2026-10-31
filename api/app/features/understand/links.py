@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from typing import Protocol
 
 Vector = Sequence[float]
+RERANK_POOL = 50
 
 
 class Reranker(Protocol):
@@ -36,5 +37,8 @@ def candidates(
     reranker: Reranker,
 ) -> list[uuid.UUID]:
     vector, text = query
-    scored = sorted(facts, key=lambda f: -_cosine(vector, f[1]))[:k]
-    return reranker.rerank(text, [(fid, words) for fid, _, words in scored]) if scored else []
+    wide = (
+        k if isinstance(reranker, IdentityReranker) else max(k, RERANK_POOL)
+    )  # a real reranker sees more than it keeps
+    scored = sorted(facts, key=lambda f: -_cosine(vector, f[1]))[:wide]
+    return reranker.rerank(text, [(fid, words) for fid, _, words in scored])[:k] if scored else []
