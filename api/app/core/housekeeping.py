@@ -18,7 +18,7 @@ from psycopg import AsyncConnection
 
 from app.core.config import ConfigError
 from app.core.jobs import registry
-from app.core.storage import StorageError, SupabaseStorage, case_prefix, storage_settings, upload_prefix
+from app.core.storage import SupabaseStorage, case_prefix, storage_settings, upload_prefix
 
 UPLOAD_SWEEP = "expire_uploads"
 _log = logging.getLogger(__name__)
@@ -72,7 +72,8 @@ async def reconcile_upload_objects(
 ) -> ReconcileResult:
     """Delete a case's orphaned upload folders; leave everything not certainly orphaned.
 
-    `conn` is the worker's job connection for `case_id` (RLS shows only that case's upload rows). A folder
+    `conn` must be the worker's job connection for `case_id` (RLS shows only that case's upload rows);
+    anything else gets a warning and zero counts, since hidden rows look exactly like orphans. A folder
     `cases/{case}/uploads/{name}/` is deleted only when `name` is a UUID and either its row is terminal
     without a `document_id` (then marked cleaned, once the delete is confirmed) or there is no row and
     every object in it is older than 8 days. A row with a `document_id` is never touched. Counts only are
@@ -80,11 +81,13 @@ async def reconcile_upload_objects(
     """
     root = f"{case_prefix(case_id)}/uploads"
     # A connection not scoped to this case sees no rows at all, so every folder would look row-less and
-    # old enough to delete. Refuse to do anything unless the scoping is proven.
-    cur = await conn.execute("select app.current_job_case_id() = %s", (case_id,))
+    # old enough to delete. Refuse to do anything unless the scoping is proven. `app.job_case_id` is a plain
+    # session setting that any role can set (migration 0027), so the role is part of the proof: on `app_api`
+    # the setting means nothing, every row is hidden, and each folder would look like an orphan.
+    cur = await conn.execute("select session_user = 'app_worker' and app.current_job_case_id() = %s", (case_id,))
     scoped = await cur.fetchone()
     if scoped is None or scoped[0] is not True:
-        _log.warning("upload reconcile skipped: connection is not scoped to the case")
+        _log.warning("upload reconcile skipped: the connection is not the worker scoped to this case")
         return ReconcileResult()
     cur = await conn.execute("select id, status, document_id from app.uploads where case_id = %s", (case_id,))
     rows = {upload_id: (status, document_id) for upload_id, status, document_id in await cur.fetchall()}
@@ -105,6 +108,11 @@ async def reconcile_upload_objects(
             continue
         row = rows.get(upload_id)
         prefix = f"{root}/{name}"
+        # Checked for every folder, not only the row-less ones: if row visibility were ever wrong, this
+        # alone still keeps a live document's bytes.
+        if any(path == prefix or path.startswith(prefix + "/") for path in document_paths):
+            left += 1
+            continue
         try:
             if row is not None:
                 status, document_id = row
@@ -112,9 +120,6 @@ async def reconcile_upload_objects(
                     left += 1
                     continue
             else:
-                if any(path == prefix or path.startswith(prefix + "/") for path in document_paths):
-                    left += 1
-                    continue
                 times = await storage.list_object_times(prefix)
                 if not times or any(t is None or t.tzinfo is None or t > cutoff for t in times.values()):
                     left += 1
@@ -133,7 +138,7 @@ async def reconcile_upload_objects(
                 deleted += 1
             else:
                 left += 1
-        except StorageError:
+        except Exception:  # noqa: BLE001 - a timeout or connection error is not a StorageError; next run retries
             failed += 1
     _log.info("upload objects reconciled: deleted=%d left=%d failed=%d", deleted, left, failed)
     return ReconcileResult(deleted=deleted, left=left, failed=failed)
