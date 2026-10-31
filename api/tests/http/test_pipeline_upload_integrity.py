@@ -72,7 +72,7 @@ async def put_all(client: httpx.AsyncClient, upload: str, file: SyntheticFile) -
 
 
 def row(admin: psycopg.Connection, sql: str, *args: object) -> tuple[object, ...] | None:
-    return admin.execute(sql, args).fetchone()  # type: ignore[arg-type]
+    return admin.execute(sql, args).fetchone()
 
 
 async def test_a_chunk_with_the_right_hash_is_accepted_and_its_hash_is_kept(
@@ -213,7 +213,8 @@ async def test_completing_without_a_well_formed_file_hash_is_refused(
     client = await client_for(team["expert"])
     upload = await start(client, team["case"], file)
     await put_all(client, upload, file)
-    resp = await client.post(f"/v1/uploads/{upload}/complete", **({"json": body} if body is not None else {}))
+    url = f"/v1/uploads/{upload}/complete"
+    resp = await (client.post(url) if body is None else client.post(url, json=body))
     assert resp.status_code == 422, resp.text
     assert resp.json()["error"]["code"] == "file_sha_missing"
     assert row(admin, "select status from app.uploads where id = %s", upload) == ("open",)
