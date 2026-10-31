@@ -1,7 +1,7 @@
 // An upload survives a refresh: a small record (never the file name, the contents or a token) is kept in
 // localStorage while it runs, and on return the server is asked first, then the same file is asked for again.
 import { createHash } from "node:crypto";
-import { afterEach, beforeEach, expect, test } from "vitest";
+import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { http, HttpResponse, json, server } from "../../test/api";
 import { timing, uploadInParts } from "./chunkedUpload";
 import { findResumable, resumeUpload } from "./uploadResume";
@@ -32,15 +32,22 @@ const record = (over: Partial<StoredUpload> = {}): StoredUpload => ({
   lastModified: 1000,
   sha256: sha(bytes),
   keys: { startKey: "s", completeKey: "c", cancelKey: "x" },
+  kind: "records",
+  append: true,
+  slot: "slot-1",
   expiresAt: new Date(Date.now() + 3600_000).toISOString(),
   ...over,
 });
 
-function serve(parts: number[] = [], got: { complete: number; cancel: number } = { complete: 0, cancel: 0 }, status = view()) {
+function serve(parts: number[] = [], got: { complete: number; cancel: number; keys: string[] } = { complete: 0, cancel: 0, keys: [] }, status = view()) {
   server.use(
-    http.get("/v1/uploads/:id", () => json(status)),
+    http.get("/v1/uploads/:id", () => {
+      // After the finish was asked for, the upload settles as complete.
+      return json(got.complete > 0 ? view({ status: "complete", document_id: DOC }) : status);
+    }),
     http.put("/v1/uploads/:id/chunks/:n", ({ params }) => (parts.push(Number(params.n)), ok())),
-    http.post("/v1/uploads/:id/complete", () => (got.complete++, json({ document_id: DOC }, 201))),
+    // The real contract: finishing answers 202 and the document is read from the polled upload.
+    http.post("/v1/uploads/:id/complete", ({ request }) => (got.complete++, got.keys.push(request.headers.get("idempotency-key") ?? ""), json({ status: "finalizing" }, 202))),
     http.post("/v1/uploads/:id/cancel", () => (got.cancel++, json({ status: "cancelled" }))),
   );
   return got;
@@ -57,7 +64,7 @@ test("the record is written before the start request goes out and holds only ids
   serve();
   await uploadInParts(CASE, file(), "records", false, opts);
   expect(atStart).toHaveLength(1);
-  expect(Object.keys(atStart[0]!).sort()).toEqual(["expiresAt", "keys", "lastModified", "sha256", "size", "uploadId"]);
+  expect(Object.keys(atStart[0]!).sort()).toEqual(["append", "expiresAt", "keys", "kind", "lastModified", "sha256", "size", "slot", "uploadId"]);
   expect(JSON.stringify(atStart)).not.toContain("secret-name");
 });
 
@@ -103,7 +110,59 @@ test("on return the server is asked first; an open upload asks for the file, the
   await expect(resumeUpload(CASE, found!, file("renamed.pdf"), opts)).resolves.toBe(DOC);
   expect(parts.sort()).toEqual([2, 3]);
   expect(got.complete).toBe(1);
+  expect(got.keys[0]).not.toBe("c"); // a stored key would replay the earlier 202 and enqueue no new job
   expect(listUploads(PERSON, CASE)).toEqual([]);
+});
+
+test("a finalizing upload the server reopens asks for the file again and keeps the record", async () => {
+  saveUpload(PERSON, CASE, record());
+  let looks = 0;
+  server.use(http.get("/v1/uploads/:id", () => json(++looks === 1 ? view({ status: "finalizing" }) : view({ status: "open", received: [1], missing: [2, 3] }))));
+  const found = await findResumable(PERSON, CASE);
+  await expect(resumeUpload(CASE, found!, null, opts)).rejects.toMatchObject({ code: "upload_needs_file" });
+  expect(listUploads(PERSON, CASE)).toHaveLength(1);
+});
+
+test("a resumed upload keeps the kind and append it started with, and a start replay sends the same body", async () => {
+  saveUpload(PERSON, CASE, record({ uploadId: null, kind: "instructions", append: false }));
+  let body: Record<string, unknown> = {};
+  server.use(http.post("/v1/cases/:caseId/uploads", async ({ request }) => ((body = (await request.json()) as Record<string, unknown>), json(view({ status: "open", received: [] }), 201))));
+  serve();
+  const found = await findResumable(PERSON, CASE);
+  await resumeUpload(CASE, found!, file(), opts);
+  expect(body).toMatchObject({ kind: "instructions" });
+  expect(body.append).toBeUndefined();
+});
+
+test("only records of the kind the screen asks for are offered", async () => {
+  saveUpload(PERSON, CASE, record({ kind: "instructions", append: false }));
+  serve();
+  expect(await findResumable(PERSON, CASE, { append: true })).toBeNull();
+  saveUpload(PERSON, CASE, record({ kind: "instructions", append: false }));
+  expect(await findResumable(PERSON, CASE, { append: false })).not.toBeNull();
+});
+
+test("two uploads started at once on one case keep separate records before the server answers", async () => {
+  const seen: number[] = [];
+  let release!: () => void;
+  const gate = new Promise<void>((r) => (release = r));
+  server.use(
+    http.post("/v1/cases/:caseId/uploads", async () => {
+      seen.push(listUploads(PERSON, CASE).length);
+      await gate;
+      return json(view({ status: "open", upload_id: crypto.randomUUID() }), 201);
+    }),
+  );
+  serve();
+  server.use(http.put("/v1/uploads/:id/chunks/:n", () => new Promise<Response>(() => undefined)));
+  const a = new AbortController();
+  void uploadInParts(CASE, file("a.pdf"), "records", false, { ...opts, signal: a.signal }).catch(() => undefined);
+  void uploadInParts(CASE, file("b.pdf", Uint8Array.from(bytes, (b) => b ^ 3)), "other", false, { ...opts, signal: a.signal }).catch(() => undefined);
+  await vi.waitFor(() => expect(seen).toHaveLength(2));
+  expect(Math.max(...seen)).toBe(2);
+  release();
+  await vi.waitFor(() => expect(listUploads(PERSON, CASE)).toHaveLength(2));
+  a.abort();
 });
 
 test("a different file is refused with a clear code, nothing is sent and the record is kept", async () => {
