@@ -14,7 +14,7 @@ export function StartTeamBody() {
     <div className="av-stack">
       <p>{w("start_team.section_body")}</p>
       <div>
-        <LinkButton to={screenPath("organisation_new")} variant="secondary">
+        <LinkButton to={screenPath("organisation_new") ?? "/organisations/new"} variant="secondary">
           {w("start_team.link")}
         </LinkButton>
       </div>
@@ -35,7 +35,7 @@ export function StartTeam() {
     void run(async () => {
       try {
         const created = await unwrap(api.POST("/v1/organisations", { body: { name: trimmed } }));
-        navigate(screenPath("organisation_settings", { params: { organisation_id: created.id } }));
+        navigate(screenPath("organisation_settings", { params: { organisation_id: created.id } }) ?? `/organisations/${created.id}`);
       } catch (err) {
         setMessage({ tone: "error", text: errorMessage(err, OWN_ERRORS) });
       }
