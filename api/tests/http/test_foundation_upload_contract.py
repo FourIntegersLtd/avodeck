@@ -290,18 +290,3 @@ async def test_mark_upload_cleaned_sets_timestamp(
 def test_case_files_stub_imports() -> None:
     """The StoredDocument stub is importable."""
     from app.core.case_files import StoredDocument, StoredFileCorrupt, StoredFileMissing  # noqa: F401
-
-
-async def test_spool_raises_not_implemented() -> None:
-    """spool() raises NotImplementedError (stub)."""
-    from app.core.case_files import StoredDocument
-
-    doc = StoredDocument(
-        storage=None,  # type: ignore[arg-type]
-        crypto=None,  # type: ignore[arg-type]
-        case_id=uuid.uuid4(),
-        prefix="test/prefix",
-        paths=[],
-    )
-    with pytest.raises(NotImplementedError):
-        await doc.spool(None)  # type: ignore[arg-type]
