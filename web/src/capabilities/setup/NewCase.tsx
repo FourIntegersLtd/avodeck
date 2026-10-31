@@ -14,6 +14,7 @@ import { humanise, t } from "../../foundation/i18n";
 import { errorMessage } from "../../foundation/lib/errors";
 import { useSession } from "../../foundation/lib/session";
 import { useResource } from "../../foundation/lib/useResource";
+import { useUpload } from "../../foundation/lib/useUpload";
 import {
   api,
   ApiError,
@@ -207,6 +208,7 @@ function NewCaseForm({
   const [made, setMade] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const upload = useUpload();
   const etag = useRef("");
   const sent = useRef({
     instructing: new Set<number>(),
@@ -340,7 +342,7 @@ function NewCaseForm({
         } else {
           setAdded((a) => ({ ...a, [kind]: [...a[kind], document_id] }));
         }
-      });
+      }, upload.options());
       const summary = uploadSummary(out);
       if (summary) setError(summary);
       await countPages(id);
@@ -460,6 +462,7 @@ function NewCaseForm({
             </DropZone>
           </div>
         </section>
+        {upload.status && <p role="status" className="av-muted">{upload.status}</p>}
         {made && (
           <FoundInLetter
             caseId={made}
@@ -938,6 +941,7 @@ function Letter({ caseId }: { caseId: string }) {
     [caseId],
   );
   const [reading, setReading] = useState(false);
+  const upload = useUpload();
   const [error, setError] = useState<string | null>(null);
   const letters = found.data ?? [];
 
@@ -946,7 +950,7 @@ function Letter({ caseId }: { caseId: string }) {
     if (!file) return;
     setError(null);
     try {
-      const document_id = await uploadFile(caseId, file, "instructions");
+      const document_id = await uploadFile(caseId, file, "instructions", upload.options());
       const kind = letters.length > 0 ? "supplementary" : "letter";
       await unwrap(
         api.POST("/v1/cases/{case_id}/instructions", {
@@ -993,6 +997,7 @@ function Letter({ caseId }: { caseId: string }) {
         accept="application/pdf,.pdf,.docx"
         onChange={(e) => void add(e)}
       />
+      {upload.status && <p role="status" className="av-muted">{upload.status}</p>}
       {reading && (
         <Notice>
           <p>{t("setup.letter.reading")}</p>

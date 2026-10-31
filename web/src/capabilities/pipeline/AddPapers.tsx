@@ -6,6 +6,7 @@ import { useCaseFrame } from "../../foundation/lib/caseFrame";
 import { errorMessage } from "../../foundation/lib/errors";
 import { screenPath } from "../../foundation/lib/screens";
 import { uploadInParts } from "../../foundation/lib/upload";
+import { useUpload } from "../../foundation/lib/useUpload";
 import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { Button, ChoicePills, DropZone, LinkButton, Notice, ProgressBar, Spinner, TextField } from "../../foundation/ui";
 import { can, casePath, kindWord } from "./data";
@@ -29,6 +30,7 @@ export function AddPapers() {
   const [error, setError] = useState<string | null>(null);
   const [job, setJob] = useState<{ id: string; latest: Partial<Job> } | null>(null);
   const saved = useRef(new Map<File, string>());
+  const upload = useUpload();
 
   const jobId = job?.id;
   const status = job?.latest.status;
@@ -70,7 +72,7 @@ export function AddPapers() {
     for (const file of files) {
       if (saved.current.has(file)) continue;
       try {
-        saved.current.set(file, await uploadInParts(caseId, file, kind, true));
+        saved.current.set(file, await uploadInParts(caseId, file, kind, true, upload.options()));
       } catch {
         failed.push(file.name);
       }
@@ -137,7 +139,7 @@ export function AddPapers() {
       <ChoicePills label={w("add.how")} name="how" value={how} onChange={setHow} options={hows} />
       <TextField label={w("add.when")} name="received_on" type="date" value={when} max={today()} onChange={(e) => setWhen(e.currentTarget.value)} />
       <div className="pl-actions">
-        <Button onClick={send} disabled={files.length === 0} busy={busy}>{busy ? w("add.sending") : w("add.go")}</Button>
+        <Button onClick={send} disabled={files.length === 0} busy={busy}>{busy ? (upload.status ?? w("add.sending")) : w("add.go")}</Button>
       </div>
     </div>
   );
