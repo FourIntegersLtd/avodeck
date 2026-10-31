@@ -144,7 +144,7 @@ $$;
 -- Old exports ------------------------------------------------------------------------------------------
 -- Finished between `p_days + p_window` and `p_days` days before the run date (each day's run looks
 -- back over the window, so a missed or failed day is caught up; removing a removed file is harmless).
-create function app.close_stale_exports(p_run_date date, p_days integer, p_window integer)
+create or replace function app.close_stale_exports(p_run_date date, p_days integer, p_window integer)
   returns table (case_id uuid, job_id uuid)
   language sql stable
   security definer

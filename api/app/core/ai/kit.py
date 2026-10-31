@@ -28,6 +28,7 @@ import jsonschema_rs
 from psycopg import AsyncConnection
 
 from app.core.ai import pii
+from app.core.ai.mask import MaskedImage
 from app.core.ai.bedrock import BedrockClient, ModelRequest, ModelResponse, ModelUnavailable, ServiceBusy
 from app.core.ai.cell import check_endpoint, model_for
 from app.core.config import AiSettings
@@ -97,14 +98,52 @@ class AiKit:
         if case_id is not None:
             await self._cost_guard(conn, case_id)
         stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
+        return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, None)
+
+    async def run_image(
+        self,
+        conn: AsyncConnection,
+        task: AiTask,
+        masked: MaskedImage,
+        *,
+        pack: MergedPack,
+        text: str = "",
+        case_id: uuid.UUID | None = None,
+        names: Sequence[str] = (),
+        dates_of_birth: Sequence[date] = (),
+        subject: str | None = None,
+    ) -> dict[str, Any]:
+        """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused."""
+        if not isinstance(masked, MaskedImage):
+            raise TypeError("run_image takes a MaskedImage made by mask.mask_page")
+        check_endpoint(self.settings, self.bedrock.endpoint)
+        model_id = model_for(self.settings, task.model)
+        if case_id is not None:
+            await self._cost_guard(conn, case_id)
+        stripped = pii.strip(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
+        return await self._ask(conn, task, model_id, case_id, pack, stripped.text, subject, masked)
+
+    async def _ask(
+        self,
+        conn: AsyncConnection,
+        task: AiTask,
+        model_id: str,
+        case_id: uuid.UUID | None,
+        pack: MergedPack,
+        text: str,
+        subject: str | None,
+        masked: MaskedImage | None,
+    ) -> dict[str, Any]:
         request = ModelRequest(
             model_id=model_id,
             system=task.system,
             context=pack.prompt_context(task.task_id),
-            text=stripped.text,
+            text=text,
             schema=task.schema,
             task_id=task.task_id,
             subject=subject,
+            image_sha256=masked.sha256 if masked else None,
+            image=masked,
         )
         validator = jsonschema_rs.validator_for(dict(task.schema))
         for _ in range(2):

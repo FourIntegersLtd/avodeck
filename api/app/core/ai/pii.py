@@ -181,20 +181,20 @@ def _pack_spans(text: str, finder: Callable[[str], list[tuple[int, int, str]]]) 
     return found
 
 
-def strip(
-    text: str,
-    *,
-    pack: MergedPack,
-    names: Sequence[str] = (),
-    dates_of_birth: Sequence[date] = (),
-) -> Stripped:
-    """Replace every identifier in `text` with a placeholder. Never logs or returns the originals."""
+@dataclass(frozen=True)
+class Span:
+    """Where an identifier sits in the text it was found in (character offsets, `end` exclusive)."""
+
+    start: int
+    end: int
+    kind: str
+
+
+def _chosen(
+    text: str, *, pack: MergedPack, names: Sequence[str], dates_of_birth: Sequence[date]
+) -> list[_Span]:
+    """The identifiers in `text` with overlaps resolved (the longest wins), in text order."""
     language = pack.language
-    lines = text.split("\n")
-    prefixes = [m.group(1) if (m := _WORD_LINE.match(line)) else "" for line in lines]
-    layered = any(prefixes)
-    if layered:
-        text = "\n".join(line[len(prefix) :] for line, prefix in zip(lines, prefixes, strict=True))
     person_of: dict[tuple[int, int], int] = {}
     name_spans: list[tuple[int, int]] = []
     for pattern, person in _name_patterns(names):
@@ -222,6 +222,34 @@ def strip(
         if all(span.end <= c.start or span.start >= c.end for c in chosen):
             chosen.append(span)
     chosen.sort(key=lambda s: s.start)
+    return chosen
+
+
+def spans(
+    text: str,
+    *,
+    pack: MergedPack,
+    names: Sequence[str] = (),
+    dates_of_birth: Sequence[date] = (),
+) -> list[Span]:
+    """Where `strip` would replace identifiers in plain `text` (not word lines), found the same way."""
+    return [Span(s.start, s.end, s.kind) for s in _chosen(text, pack=pack, names=names, dates_of_birth=dates_of_birth)]
+
+
+def strip(
+    text: str,
+    *,
+    pack: MergedPack,
+    names: Sequence[str] = (),
+    dates_of_birth: Sequence[date] = (),
+) -> Stripped:
+    """Replace every identifier in `text` with a placeholder. Never logs or returns the originals."""
+    lines = text.split("\n")
+    prefixes = [m.group(1) if (m := _WORD_LINE.match(line)) else "" for line in lines]
+    layered = any(prefixes)
+    if layered:
+        text = "\n".join(line[len(prefix) :] for line, prefix in zip(lines, prefixes, strict=True))
+    chosen = _chosen(text, pack=pack, names=names, dates_of_birth=dates_of_birth)
 
     numbers: dict[tuple[str, str], int] = {}
     per_kind: Counter[str] = Counter()
