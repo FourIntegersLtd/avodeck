@@ -54,7 +54,17 @@ NOT_YET_AVAILABLE: tuple[tuple[str, str], ...] = ()
 
 
 REQUEST_HEADER = ["seq", "sent_at", "sent_via", "follow_up_on", "missing_item_count", "page_count", "subject", "body"]
-READ_HEADER = ["seq", "page_no", "person_id", "read_at", "dwell_seconds", "counts_for_citing", "prev_hash", "hash"]
+READ_HEADER = [
+    "seq",
+    "page_no",
+    "person_id",
+    "read_at",
+    "dwell_seconds",
+    "counts_for_citing",
+    "via",
+    "prev_hash",
+    "hash",
+]
 
 
 class _Services:
@@ -341,7 +351,7 @@ async def export_case(ctx: JobContext) -> None:
                 add("logs/page-reads.csv", None, _csv(
                     READ_HEADER,
                     [[e.seq, e.page_no, e.person_id, e.read_at.isoformat(), e.dwell_seconds, e.counts_for_citing,
-                      e.prev_hash, e.hash] for e in await page_read_log(conn, ctx.case_id)],
+                      e.via, e.prev_hash, e.hash] for e in await page_read_log(conn, ctx.case_id)],
                 ))  # fmt: skip
             if "invoice" in kinds:
                 add("invoices.csv", None, _csv(
@@ -463,7 +473,9 @@ async def close_daily(reg: JobRegistry, conn: AsyncConnection, run_date: date) -
     )
     for row in stale:
         try:
-            await services.get_storage().delete([export_path(row["case_id"], row["job_id"], v) for v in VARIANTS])
+            doomed = [export_path(row["case_id"], row["job_id"], v) for v in VARIANTS]
+            doomed.append(f"{case_prefix(row['case_id'])}/exports/{row['job_id']}/transcript.docx")  # slice B's copy
+            await services.get_storage().delete(doomed)
         except Exception as exc:  # noqa: BLE001 - as above
             logger.error("close daily: removing an old export failed: %s", type(exc).__name__)
 

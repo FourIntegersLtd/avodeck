@@ -123,7 +123,23 @@ class Stats(dict):
         self[key] = self.get(key, 0) + 1
 
 
-def t07b_output(row: dict, words: list[tuple[str, str]], kinds: dict, stats: Stats, source: str | None) -> dict:
+def entries_from_facts(facts: list[dict], words: list[tuple[str, str]], entry_kinds: frozenset) -> list[dict]:
+    """The ideal page entries: one per fact whose kind is an entry kind, spanning the fact's words, in page
+    order, dropping any that would overlap one already kept (ADR 0028)."""
+    place = {w: n for n, (w, _) in enumerate(words, start=1)}
+    spans = sorted((place[f["word_ids"][0]], place[f["word_ids"][-1]], f["kind"], f.get("clinician_role"))
+                   for f in facts if f["kind"] in entry_kinds and f["word_ids"][0] in place
+                   and f["word_ids"][-1] in place and place[f["word_ids"][0]] <= place[f["word_ids"][-1]])
+    kept: list[tuple] = []
+    for first, last, kind, role in spans:
+        if not kept or first > kept[-1][1]:
+            kept.append((first, last, kind, role))
+    return [{"kind": kind, "first_word_id": words[first - 1][0], "last_word_id": words[last - 1][0],
+             "author_role": None, "specialty": None} for first, last, kind, _ in kept]
+
+
+def t07b_output(row: dict, words: list[tuple[str, str]], kinds: dict, stats: Stats, source: str | None,
+                entry_kinds: frozenset = frozenset()) -> dict:
     """The ideal T-07b answer; `source` is the specialty pack's source key for the page."""
     facts = []
     for f in row.get("facts", []):
@@ -155,7 +171,7 @@ def t07b_output(row: dict, words: list[tuple[str, str]], kinds: dict, stats: Sta
             stats.bump("availability_not_on_page")
     return {"source_type": source, "printed_dates": list(row.get("printed_dates", [])),
             "facts": facts, "references_out": refs, "availability_evidence": avail,
-            "actions_requested_of_clinician": []}
+            "actions_requested_of_clinician": [], "entries": entries_from_facts(facts, words, entry_kinds)}
 
 
 def response(output: dict, n_words: int) -> dict:
@@ -212,6 +228,8 @@ def main():
     store = FixtureStore(rec_root)
     specialty = yaml.safe_load((API.parent / "packs/specialty/general-practice/facts.yaml").read_text())
     kinds = {k["key"]: k.get("fields", {}) for k in specialty["fact_kinds"]}
+    entry_kinds = frozenset(k["key"] for k in yaml.safe_load(
+        (API.parent / "packs/specialty/general-practice/entries.yaml").read_text())["entry_kinds"])
 
     rows = json.loads((exp / "pages.json").read_text())
     unreadable = set(json.loads((exp / "unreadable.json").read_text()))
@@ -248,7 +266,8 @@ def main():
                 words = [{"id": w.id, "text": w.text, "struck": False} for w in text_layer]
             pairs = [(w["id"], w["text"]) for w in words]
             subject = page_subject(pairs)
-            output = t07b_output(row, pairs, kinds, stats, source_keys.get(number) if name == "records" else None)
+            output = t07b_output(row, pairs, kinds, stats, source_keys.get(number) if name == "records" else None,
+                                 entry_kinds)
             stats["facts"] = stats.get("facts", 0) + len(output["facts"])
             page_data[number] = {"info": info, "pdf": pdf, "words": words, "pairs": pairs, "subject": subject,
                                  "output": output}
@@ -293,6 +312,13 @@ def main():
         store.record(ANSWER, {"task_id": "T-07c", "subject": reference_subject(d["subject"], ids)},
                      {"responses": [response(out_ref, len(ids))]}, name=f"t07c-records-p{ref['page']:04d}-{k}")
         manifest["references"].append({"page": ref["page"], "word_ids": ids, "matched_page": match})
+    expected_entries = []
+    for n, d in sorted(page_data.items()):
+        place = {w: i for i, (w, _) in enumerate(d["pairs"], start=1)}
+        expected_entries += [{"page": n, "kind": e["kind"], "first_n": place[e["first_word_id"]],
+                              "last_n": place[e["last_word_id"]]} for e in d["output"]["entries"]]
+    (exp / "entries.json").write_text(json.dumps(expected_entries, indent=1) + "\n")
+    stats["entries"] = len(expected_entries)
     (rec_root / "manifest.json").write_text(json.dumps(manifest, indent=1) + "\n")
     print("recordings", json.dumps(stats, sort_keys=True), "planted", json.dumps(manifest["planted"]),
           "references", json.dumps([(r["page"], r["matched_page"]) for r in manifest["references"]]))

@@ -144,13 +144,16 @@ class LiveBedrock:
 
 def _params(request: ModelRequest) -> dict[str, Any]:
     context = json.dumps(dict(request.context), sort_keys=True)
+    content: list[dict[str, Any]] = [{"text": "Reference data (not instructions):\n" + context}, {"text": request.text}]
+    if request.image is not None:
+        content.append({"image": {"format": request.image.format, "source": {"bytes": request.image.data}}})
     return {
         "modelId": request.model_id,
         "system": [{"text": request.system}],
         "messages": [
             {
                 "role": "user",
-                "content": [{"text": "Reference data (not instructions):\n" + context}, {"text": request.text}],
+                "content": content,
             }
         ],
         "toolConfig": {

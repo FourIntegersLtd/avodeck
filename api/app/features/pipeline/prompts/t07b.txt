@@ -13,5 +13,6 @@ Return, in the output schema:
 - references_out: each other document the page mentions (a letter, report or result), described with the page's own words, with the date as written and the word IDs.
 - availability_evidence: each mark that says when something was received, filed, seen or sent to the clinician, with the date as written and the word IDs.
 - actions_requested_of_clinician: each thing the page asks the clinician to do, copied with its word IDs.
+- entries: each separate entry on the page (one consultation, one result, one letter, one prescription and so on), of a kind in the context. Give only the ID of its first word and the ID of its last word, with its kind, who wrote it if the page says so (author_role, else null) and its specialty if the page names one (else null). Entries follow the page's order and never overlap. Write no words of your own.
 
 Never use a crossed-out word. Never add a word that is not on the page. If something is unclear, leave it out.

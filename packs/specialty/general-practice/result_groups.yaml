@@ -1,0 +1,9 @@
+# Named results the reader can find across a record. `terms` are the words a page uses for the test.
+result_groups:
+  - {key: hba1c, label: result.group.hba1c, terms: [hba1c, "glycated haemoglobin", "glycosylated haemoglobin", "hb a1c"]}
+  - {key: creatinine, label: result.group.creatinine, terms: [creatinine, "serum creatinine"]}
+  - {key: egfr, label: result.group.egfr, terms: [egfr, "estimated gfr", "glomerular filtration rate"]}
+  - {key: cholesterol, label: result.group.cholesterol, terms: [cholesterol, "ldl cholesterol", "hdl cholesterol", triglycerides]}
+  - {key: thyroid, label: result.group.thyroid, terms: [tsh, "thyroid stimulating hormone", "free t4"]}
+  - {key: full_blood_count, label: result.group.full_blood_count, terms: [fbc, "full blood count", haemoglobin, "white cell count"]}
+  - {key: liver_function, label: result.group.liver_function, terms: [lft, "liver function", alt, bilirubin]}

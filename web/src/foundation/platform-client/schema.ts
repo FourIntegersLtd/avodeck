@@ -2174,6 +2174,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/pages/{page_no}/second-reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Second Reading */
+        get: operations["get_second_reading_v1_cases__case_id__pages__page_no__second_reading_get"];
+        put?: never;
+        /** Ask Second Reading */
+        post: operations["ask_second_reading_v1_cases__case_id__pages__page_no__second_reading_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/pages/{page_no}/thumbnail": {
         parameters: {
             query?: never;
@@ -3427,6 +3445,94 @@ export interface paths {
         get: operations["timeline_overview_v1_cases__case_id__timeline_overview_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/download": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transcript Download Request */
+        post: operations["transcript_download_request_v1_cases__case_id__transcript_download_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/download/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Transcript Download */
+        get: operations["transcript_download_v1_cases__case_id__transcript_download__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Transcript Entries */
+        get: operations["transcript_entries_v1_cases__case_id__transcript_entries_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Transcript Retry
+         * @description The reader asks again after the entries job failed; queues once, nothing while one is waiting.
+         */
+        post: operations["transcript_retry_v1_cases__case_id__transcript_retry_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/transcript/seen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Transcript Seen */
+        post: operations["transcript_seen_v1_cases__case_id__transcript_seen_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -10660,6 +10766,14 @@ export interface components {
              */
             policy: "keep_default" | "return_then_delete" | "delete_now";
         };
+        /** RetryOut */
+        RetryOut: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "preparing" | "ready" | "failed";
+        };
         /** Role */
         Role: {
             /** Ended On */
@@ -10866,6 +10980,28 @@ export interface components {
             /** Page No */
             page_no: number;
         };
+        /** SecondReadingLine */
+        SecondReadingLine: {
+            /** Confidence */
+            confidence: number;
+            /** Text */
+            text: string;
+        };
+        /** SecondReadingOut */
+        SecondReadingOut: {
+            /**
+             * Lines
+             * @default []
+             */
+            lines: components["schemas"]["SecondReadingLine"][];
+            /** Reason */
+            reason?: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "none" | "queued" | "done" | "refused" | "failed";
+        };
         /** SectionIn */
         SectionIn: {
             /** Body */
@@ -10925,6 +11061,28 @@ export interface components {
             key: string;
             /** Version */
             version: number;
+        };
+        /** SeenIn */
+        SeenIn: {
+            /**
+             * Dwell Ms
+             * @default 0
+             */
+            dwell_ms: number;
+            /** Entry Id */
+            entry_id?: string | null;
+            /** Page No */
+            page_no?: number | null;
+            /**
+             * Picture Opened
+             * @default false
+             */
+            picture_opened: boolean;
+        };
+        /** SeenOut */
+        SeenOut: {
+            /** Pages Read */
+            pages_read: number[];
         };
         /** SendIn */
         SendIn: {
@@ -12241,6 +12399,38 @@ export interface components {
             /** Year */
             year?: number | null;
         };
+        /** TranscriptEntryOut */
+        TranscriptEntryOut: {
+            /** Author Label */
+            author_label: string | null;
+            /** Author Role */
+            author_role: string | null;
+            /** Date Basis */
+            date_basis: string | null;
+            /** Event Date */
+            event_date: string | null;
+            /** Folded */
+            folded: boolean;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Kind */
+            kind: string;
+            /** Kind Label */
+            kind_label: string;
+            /** Lines */
+            lines: string[];
+            /** Page No */
+            page_no: number;
+            /** Result Labels */
+            result_labels: string[];
+            /** Results */
+            results: string[];
+            /** Specialty */
+            specialty: string | null;
+        };
         /** TranscriptIn */
         TranscriptIn: {
             /**
@@ -12252,6 +12442,28 @@ export interface components {
             duration_seconds: number;
             /** Text */
             text: string;
+        };
+        /** TranscriptList */
+        TranscriptList: {
+            /** Entries */
+            entries: components["schemas"]["TranscriptEntryOut"][];
+            /**
+             * Picture Pages
+             * @default []
+             */
+            picture_pages: number[];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "idle" | "preparing" | "ready" | "failed";
+            /** Total */
+            total: number;
+            /**
+             * Unread Pages
+             * @default []
+             */
+            unread_pages: number[];
         };
         /** TranscriptSaved */
         TranscriptSaved: {
@@ -18764,6 +18976,90 @@ export interface operations {
             };
         };
     };
+    get_second_reading_v1_cases__case_id__pages__page_no__second_reading_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecondReadingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    ask_second_reading_v1_cases__case_id__pages__page_no__second_reading_post: {
+        parameters: {
+            query?: {
+                on_request?: boolean;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+                page_no: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     page_thumbnail_v1_cases__case_id__pages__page_no__thumbnail_get: {
         parameters: {
             query?: never;
@@ -22184,6 +22480,214 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Overview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_download_request_v1_cases__case_id__transcript_download_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_download_v1_cases__case_id__transcript_download__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_entries_v1_cases__case_id__transcript_entries_get: {
+        parameters: {
+            query?: {
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_retry_v1_cases__case_id__transcript_retry_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RetryOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    transcript_seen_v1_cases__case_id__transcript_seen_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SeenIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SeenOut"];
                 };
             };
             /** @description Validation Error */

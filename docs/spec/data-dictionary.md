@@ -513,7 +513,27 @@ A joint expert is one with two or more current instructing parties; no separate 
 | seq | Its place in the case's list of reads |
 | at / dwell_seconds | When, and how long they spent on it |
 | counts_for_citing | Whether it was the named expert's read (only those let a fact be cited) |
+| via | How the page was read: `page` (on its own screen) or `transcript` (by reading its entries, 0215) |
 | prev_hash / hash | Links to the previous entry so any tampering is obvious |
+
+### second_readings
+| Field | In plain words |
+|---|---|
+| page_id | The page that was read again; one row per page |
+| status | `queued` (waiting), `done`, `refused` (we could not hide the names safely, so nothing was sent) or `failed` |
+| reason | A short code for a refusal or failure; never any text from the page |
+| lines | The model's copy of the handwriting, sealed with the case key; shown beside the page, never merged into the expert's words |
+| requested_by / requested_at / finished_at | Who asked, when, and when it ended (0216). A job records its outcome only for the request it read, so asking again is never overwritten by an older job |
+| page_rotation | How the page was turned when the expert asked; if it differs when the job runs, the request is refused (`page_changed`, 0217) |
+| image_sha256 | A fingerprint of the page picture as stored when the expert asked; if the picture was redrawn since, the request is refused (`page_changed`, 0218) |
+
+### transcript_views
+| Field | In plain words |
+|---|---|
+| page_id / person_id / entry_id | Which page, whose view, and which entry of the records transcript was on screen |
+| dwell_ms | How long the entry was on screen (milliseconds); the server adds these up to decide a page is read (1.5 seconds per entry) |
+| picture_opened | True when the person opened the picture of a page that has no entries; that also counts as reading it |
+| at | When it was reported. Never edited or removed (0215) |
 
 ### fact_flags
 | Field | In plain words |
@@ -575,6 +595,17 @@ A joint expert is one with two or more current instructing parties; no separate 
 | confirmed | Whether the expert agrees it's a real gap (empty until reviewed; reviewed gaps are not recalculated) |
 | confirmed_by / confirmed_at | Who reviewed it and when |
 | version | Changes each time it is changed (If-Match) |
+
+### record_entries
+| Field | In plain words |
+|---|---|
+| page_id | The page the entry is on |
+| kind | What sort of entry it is (from the pack's list) |
+| first_n / last_n | Where the entry starts and ends, as the number of its first and last word on the page |
+| author_role / specialty | Who wrote it and which speciality, when the page says (from the pack's lists) |
+| event_date | The date printed inside the entry, read by code in the pack's date order (empty when none) |
+| date_basis | Whether the date is plainly printed or needs the expert to check it |
+| extraction_version | Which version of the reading produced it |
 
 ### instructing_party_requests
 | Field | In plain words |

@@ -9,6 +9,7 @@ import { api, unwrap, type Schemas } from "../../foundation/platform-client";
 import { BackLink, Button, ChoicePills, DictationBar, LoadError, Loading, Notice, ProgressBar } from "../../foundation/ui";
 import { casePath, count, sourceLabel } from "./data";
 import { PageImage } from "./PageImage";
+import { SecondReading } from "./SecondReading";
 import { forgetPage } from "./pageImageCache";
 import { uploadLaterRecords } from "./upload";
 import { w } from "./words";
@@ -221,6 +222,7 @@ export function CouldntRead() {
                 options={(["relevant", "background"] as const).map((r) => ({ value: r, label: w(`unreadable.${r}`) }))}
               />
             </div>
+            <SecondReading caseId={caseId} pageNo={current.page_no} />
             {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
             {current.needs_clearer_copy && !notice && <p className="rd-note">{w("unreadable.clearer_asked")}</p>}
             <p className="rd-label rd-label--small">{w("unreadable.choose")}</p>

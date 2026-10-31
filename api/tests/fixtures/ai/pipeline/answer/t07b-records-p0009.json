@@ -11,6 +11,7 @@
         "output": {
           "actions_requested_of_clinician": [],
           "availability_evidence": [],
+          "entries": [],
           "facts": [],
           "printed_dates": [
             "2012-07-02"
