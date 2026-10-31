@@ -13,7 +13,7 @@ from __future__ import annotations
 import dataclasses
 import datetime as dt
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -202,7 +202,7 @@ def test_deleting_the_case_leaves_no_entries(admin: psycopg.Connection, worker_d
 # Extraction ------------------------------------------------------------------------------------
 
 
-def answer_with(pack: Any, kind: str, words: list[Any], entries: list[dict[str, Any]]) -> Any:
+def answer_with(pack: Any, kind: str, words: Sequence[Any], entries: list[dict[str, Any]]) -> Any:
     return response(
         {
             "source_type": pack.source_types()[0]["key"],
@@ -240,7 +240,7 @@ async def opened(
     )
 
 
-def two_entries(pack: Any, words: list[Any]) -> list[dict[str, Any]]:
+def two_entries(pack: Any, words: Sequence[Any]) -> list[dict[str, Any]]:
     kind = pack.entry_kinds()[0]["key"]
     role = pack.author_roles()[0]["key"]
     return [
