@@ -67,7 +67,9 @@ any body limit applies, so a 413 or 502 is the proxy, not the API):
 
 ```
 head -c 9437184 /dev/zero > /tmp/9mib.bin
-curl -i -X PUT --data-binary @/tmp/9mib.bin   -H 'content-type: application/octet-stream'   https://avodeck.com/v1/uploads/00000000-0000-4000-8000-000000000000/chunks/1
+curl -i -X PUT --data-binary @/tmp/9mib.bin \
+  -H 'content-type: application/octet-stream' \
+  https://avodeck.com/v1/uploads/00000000-0000-4000-8000-000000000000/chunks/1
 ```
 
 A `413` or an HTML error page from the edge means the body limit is below 9 MiB: raise it, or lower
