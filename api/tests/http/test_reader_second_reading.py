@@ -347,7 +347,7 @@ async def _no_sleep(_: float) -> None:
 
 
 async def _asked(client: Any, w: dict[str, Any]) -> str:
-    return (await client.post(url(w, "?on_request=true"))).json()["job_id"]
+    return str((await client.post(url(w, "?on_request=true"))).json()["job_id"])
 
 
 async def test_a_page_turned_since_it_was_asked_for_is_refused_even_when_the_frame_would_pass(

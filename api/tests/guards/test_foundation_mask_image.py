@@ -178,7 +178,7 @@ def test_a_turned_page_is_masked_in_the_turned_frame(pack: MergedPack) -> None:
 
 def test_a_masked_picture_cannot_be_made_outside_the_mask_module() -> None:
     with pytest.raises(TypeError):
-        MaskedImage(data=b"x", sha256="0", format="png", masked_words=0, boxes=())  # type: ignore[call-arg]
+        MaskedImage(data=b"x", sha256="0", format="png", masked_words=0, boxes=())
     assert MaskedImage.__dataclass_fields__["data"].repr is False
 
 
