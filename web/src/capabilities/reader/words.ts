@@ -195,6 +195,13 @@ const WORDS = {
   "transcript.see_page": "See the page",
   "transcript.undated": "No date",
   "transcript.entry_label": "Entry on page {{page}}",
+  "transcript.unfold": "Show this entry",
+  "transcript.open_picture": "Open the picture of page {{page}}",
+  "transcript.picture_alt": "Picture of page {{page}}",
+  "transcript.picture_failed": "We couldn't open the picture. Please try again.",
+  "transcript.picture_pages": "Pages with no entries",
+  "transcript.picture_pages_lead": "These pages have no entries to read. Open the picture of each to read it.",
+  "transcript.picture_page_label": "Page {{page}}, no entries",
 } as const;
 
 // Today's items use `reader.today.*`, which live in the base file (en-GB.json).

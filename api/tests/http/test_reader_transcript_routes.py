@@ -57,6 +57,14 @@ def base(w: dict[str, Any]) -> str:
     return f"/v1/cases/{w['case']}"
 
 
+async def read_one_page(client: httpx.AsyncClient, aconn: psycopg.AsyncConnection, w: dict[str, Any]) -> None:
+    """The expert reads a page, so there is something for the Word copy."""
+    doc = await add_document(aconn, w["case"])
+    built = await add_page(aconn, CRYPTO, w["case"], doc, 9, [Spec("zz_session", ("note",))])
+    body = {"entry_id": str(built.entry_ids[0]), "dwell_ms": transcript.SEEN_MS}
+    assert (await client.post(f"{base(w)}/transcript/seen", json=body)).json() == {"pages_read": [9]}
+
+
 async def test_entries_are_listed_without_any_fact(
     client_for: Any, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:
@@ -70,8 +78,10 @@ async def test_entries_are_listed_without_any_fact(
     entry = body["entries"][0]
     assert entry["page_no"] == 1 and entry["lines"] == ["hello there"] and entry["event_date"] == "2020-01-02"
     assert set(entry) == {
-        "id", "page_no", "kind", "folded", "author_role", "specialty", "event_date", "date_basis", "lines", "results",
+        "id", "page_no", "kind", "kind_label", "folded", "author_role", "author_label", "specialty", "event_date",
+        "date_basis", "lines", "results", "result_labels",
     }  # fmt: skip
+    assert body["picture_pages"] == []
 
 
 async def test_entries_not_read_yet_queue_the_job_once(
@@ -87,7 +97,7 @@ async def test_entries_not_read_yet_queue_the_job_once(
     client = await client_for(world["expert"])
     for _ in range(2):
         body = (await client.get(f"{base(world)}/transcript/entries")).json()
-        assert body == {"status": "preparing", "total": 0, "entries": []}
+        assert body == {"status": "preparing", "total": 0, "entries": [], "picture_pages": []}
     row = admin.execute(
         "select count(*) from app.jobs where case_id = %s and kind = 'extract_entries'", (world["case"],)
     ).fetchone()
@@ -153,9 +163,10 @@ async def test_the_download_needs_a_recent_second_factor(client_for: Any, world:
 
 
 async def test_the_download_queues_a_job_for_the_requester(
-    client_for: Any, admin: psycopg.Connection, world: dict[str, Any]
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, world: dict[str, Any]
 ) -> None:
     client: httpx.AsyncClient = await client_for(world["expert"])
+    await read_one_page(client, aconn, world)
     resp = await client.post(f"{base(world)}/transcript/download")
     assert resp.status_code == 202, resp.text
     job = resp.json()["job_id"]
@@ -169,12 +180,54 @@ async def test_the_download_queues_a_job_for_the_requester(
 
 
 async def test_a_download_that_is_not_ready_is_409_and_someone_elses_is_404(
-    client_for: Any, admin: psycopg.Connection, seed: Seed, world: dict[str, Any]
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, seed: Seed, world: dict[str, Any]
 ) -> None:
     client = await client_for(world["expert"])
+    await read_one_page(client, aconn, world)
     job = (await client.post(f"{base(world)}/transcript/download")).json()["job_id"]
     assert (await client.get(f"{base(world)}/transcript/download/{job}")).status_code == 409
     other = seed.job(world["case"], kind="export_transcript", requested_by=world["stranger"])
     admin.execute("update app.jobs set status = 'running' where id = %s", (other,))
     admin.execute("update app.jobs set status = 'done' where id = %s", (other,))
     assert (await client.get(f"{base(world)}/transcript/download/{other}")).status_code == 404
+
+
+async def test_a_viewer_who_cannot_read_pages_does_not_queue_the_entries_job(
+    client_for: Any, admin: psycopg.Connection, aconn: psycopg.AsyncConnection, seed: Seed, world: dict[str, Any]
+) -> None:
+    viewer = seed.person()
+    seed.case_member(world["case"], viewer, "viewer", added_by=world["expert"])
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("x",))], analysed=False)
+    admin.execute(
+        "insert into app.page_analysis (page_id, case_id, extracted_at) select id, case_id, now() from app.pages"
+        " where case_id = %s",
+        (world["case"],),
+    )
+    client = await client_for(viewer)
+    resp = await client.get(f"{base(world)}/transcript/entries")
+    assert resp.status_code == 200 and resp.json()["entries"] == []
+    row = admin.execute(
+        "select count(*) from app.jobs where case_id = %s and kind = 'extract_entries'", (world["case"],)
+    ).fetchone()
+    assert row is not None and row[0] == 0
+
+
+async def test_a_picture_is_refused_while_the_entries_are_not_ready(
+    client_for: Any, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [], analysed=False)
+    client = await client_for(world["expert"])
+    resp = await client.post(f"{base(world)}/transcript/seen", json={"page_no": 2, "picture_opened": True})
+    assert resp.status_code == 409 and resp.json()["error"]["code"] == "not_ready"
+
+
+async def test_the_listing_names_the_pages_that_need_their_picture_opened(
+    client_for: Any, aconn: psycopg.AsyncConnection, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, CRYPTO, world["case"], doc, 1, [Spec("zz_session", ("fine",))])
+    await add_page(aconn, CRYPTO, world["case"], doc, 2, [])
+    client = await client_for(world["expert"])
+    assert (await client.get(f"{base(world)}/transcript/entries")).json()["picture_pages"] == [2]

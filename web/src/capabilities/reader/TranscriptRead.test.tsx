@@ -17,13 +17,16 @@ const entry = (n: number, over: Record<string, unknown> = {}) => ({
   id: `00000000-0000-0000-0000-00000000000${n}`,
   page_no: 10 + n,
   kind: "consultation",
+  kind_label: "zz.entry.session",
   folded: false,
   author_role: null,
+  author_label: null,
   specialty: null,
   event_date: "2021-03-03",
   date_basis: null,
   lines: [`line ${n}`],
   results: [],
+  result_labels: [],
   ...over,
 });
 
@@ -32,10 +35,14 @@ interface Seen {
   downloads: number;
 }
 
-function mockTranscript(status: "ready" | "preparing" | "failed", entries = [entry(1), entry(2, { folded: true })]): Seen {
+function mockTranscript(
+  status: "ready" | "preparing" | "failed",
+  entries = [entry(1), entry(2, { folded: true })],
+  picture_pages: number[] = [],
+): Seen {
   const log: Seen = { seen: [], downloads: 0 };
   server.use(
-    http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries })),
+    http.get(`${C}/transcript/entries`, () => json({ status, total: entries.length, entries, picture_pages })),
     http.post(`${C}/transcript/seen`, async ({ request }) => {
       log.seen.push(await request.json());
       return json({ pages_read: [] });
@@ -49,7 +56,24 @@ function mockTranscript(status: "ready" | "preparing" | "failed", entries = [ent
   return log;
 }
 
+type Watcher = { el: Element; fire: (hit: Partial<IntersectionObserverEntry>) => void };
+let watchers: Watcher[] = [];
+
+class FakeObserver {
+  constructor(private cb: IntersectionObserverCallback) {}
+  observe(el: Element) {
+    watchers.push({ el, fire: (hit) => this.cb([{ target: el, ...hit } as IntersectionObserverEntry], this as unknown as IntersectionObserver) });
+  }
+  disconnect() {}
+  unobserve() {}
+  takeRecords() {
+    return [];
+  }
+}
+
 beforeEach(() => {
+  watchers = [];
+  vi.stubGlobal("IntersectionObserver", FakeObserver);
   vi.stubGlobal("URL", Object.assign(URL, { createObjectURL: vi.fn(() => "blob:docx"), revokeObjectURL: vi.fn() }));
 });
 
@@ -100,5 +124,61 @@ describe.each([
     await waitFor(() =>
       expect(screen.getByRole("link", { name: "Read by transcript" })).toHaveAttribute("href", `/cases/${CASE_ID}/read/transcript`),
     );
+  });
+
+  test("a tall entry that fills the screen counts as seen though little of it is in view by ratio", async () => {
+    mockReader(pack);
+    const log = mockTranscript("ready", [entry(1)]);
+    renderAt(PATH);
+    await screen.findByLabelText("Entry on page 11");
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(1000);
+    watchers[0]?.fire({ isIntersecting: true, intersectionRatio: 0.2, intersectionRect: { height: 700 } as DOMRectReadOnly, rootBounds: { height: 800 } as DOMRectReadOnly });
+    now.mockReturnValue(3000);
+    watchers[0]?.fire({ isIntersecting: false, intersectionRatio: 0 });
+    await waitFor(() => expect(log.seen).toEqual([{ entry_id: "00000000-0000-0000-0000-000000000001", dwell_ms: 2000, picture_opened: false }]));
+    now.mockRestore();
+  });
+
+  test("an entry only a little in view is not reported", async () => {
+    mockReader(pack);
+    const log = mockTranscript("ready", [entry(1)]);
+    renderAt(PATH);
+    await screen.findByLabelText("Entry on page 11");
+    const now = vi.spyOn(Date, "now");
+    now.mockReturnValue(1000);
+    watchers[0]?.fire({ isIntersecting: true, intersectionRatio: 0.2, intersectionRect: { height: 100 } as DOMRectReadOnly, rootBounds: { height: 800 } as DOMRectReadOnly });
+    now.mockReturnValue(5000);
+    watchers[0]?.fire({ isIntersecting: false, intersectionRatio: 0 });
+    expect(log.seen).toEqual([]);
+    now.mockRestore();
+  });
+
+  test("a folded entry is not watched until it is unfolded", async () => {
+    mockReader(pack);
+    mockTranscript("ready", [entry(2, { folded: true })]);
+    const { user } = renderAt(PATH);
+    await screen.findByLabelText("Entry on page 12");
+    expect(watchers).toHaveLength(0);
+    await user.click(screen.getByRole("button", { name: "Show this entry" }));
+    expect(watchers).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Show this entry" })).toBeNull();
+  });
+
+  test("opening the picture of a page with no entries reports it", async () => {
+    mockReader(pack);
+    const log = mockTranscript("ready", [], [3]);
+    server.use(http.get(`${C}/pages/3/image`, () => new HttpResponse(new Blob(["png"]), { status: 200 })));
+    const { user } = renderAt(PATH);
+    await user.click(await screen.findByRole("button", { name: "Open the picture of page 3" }));
+    expect(await screen.findByAltText("Picture of page 3")).toBeVisible();
+    expect(log.seen).toEqual([{ page_no: 3, dwell_ms: 0, picture_opened: true }]);
+  });
+
+  test("a result chip uses the pack's label key and falls back to plain words", async () => {
+    mockReader(pack);
+    mockTranscript("ready", [entry(1, { results: ["zz_level"], result_labels: ["zz.result.level"] })]);
+    renderAt(PATH);
+    expect(await screen.findByText("Zz level")).toBeVisible();
   });
 });

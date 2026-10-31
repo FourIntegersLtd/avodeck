@@ -22,7 +22,8 @@ from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.storage import StorageError, SupabaseStorage
-from app.features.reader import transcript_jobs
+from app.features.reader import repo, transcript_jobs
+from tests.support.db import scope_for
 from tests.support.files import build_app, local_storage
 from tests.support.identity import SENTENCE, leaked, record_identity
 from tests.support.packs import LAUNCH
@@ -80,6 +81,13 @@ def world(seed: Seed) -> dict[str, Any]:
     return {"case": case, "expert": expert}
 
 
+async def read(api_db: Database, w: dict[str, Any], *pages: Any) -> None:
+    """The named expert has read these pages."""
+    for built in pages:
+        async with api_db.request(scope_for(w["expert"])) as conn:
+            await repo.record_read(conn, w["case"], built.page_id, w["expert"], 30)
+
+
 def paragraphs(data: bytes) -> list[str]:
     return [p.text for p in docx.Document(io.BytesIO(data)).paragraphs]
 
@@ -93,6 +101,7 @@ async def build(client: Any, worker_db: Database, admin: psycopg.Connection, w: 
 
 
 async def test_the_file_holds_the_entries_in_order_without_names_or_birth_dates(
+    api_db: Database,
     client_for: Any,
     worker_db: Database,
     admin: psycopg.Connection,
@@ -105,8 +114,11 @@ async def test_the_file_holds_the_entries_in_order_without_names_or_birth_dates(
     world = {"case": case, "expert": expert}
     await record_identity(aconn, crypto, world["case"])
     doc = await add_document(aconn, world["case"])
-    await add_page(aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("second entry",), day=date(2020, 2, 1))])
-    await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", (SENTENCE,), day=date(2020, 1, 1))])
+    two = await add_page(
+        aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("second entry",), day=date(2020, 2, 1))]
+    )
+    one = await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", (SENTENCE,), day=date(2020, 1, 1))])
+    await read(api_db, world, one, two)
     client = await client_for(world["expert"])
     job = await build(client, worker_db, admin, world)
     resp = await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
@@ -119,6 +131,7 @@ async def test_the_file_holds_the_entries_in_order_without_names_or_birth_dates(
 
 
 async def test_the_copy_is_downloaded_once_and_audited(
+    api_db: Database,
     client_for: Any,
     worker_db: Database,
     admin: psycopg.Connection,
@@ -127,7 +140,8 @@ async def test_the_copy_is_downloaded_once_and_audited(
     world: dict[str, Any],
 ) -> None:
     doc = await add_document(aconn, world["case"])
-    await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))])
+    page = await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))])
+    await read(api_db, world, page)
     client = await client_for(world["expert"])
     job = await build(client, worker_db, admin, world)
     assert (await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")).status_code == 200
@@ -149,6 +163,7 @@ async def test_a_job_nobody_asked_for_builds_nothing(
 
 
 async def test_the_stored_copy_is_sealed(
+    api_db: Database,
     client_for: Any,
     worker_db: Database,
     admin: psycopg.Connection,
@@ -158,8 +173,102 @@ async def test_the_stored_copy_is_sealed(
     world: dict[str, Any],
 ) -> None:
     doc = await add_document(aconn, world["case"])
-    await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("plainword",))])
+    page = await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("plainword",))])
+    await read(api_db, world, page)
     client = await client_for(world["expert"])
     job = await build(client, worker_db, admin, world)
     blob = await storage.get(transcript_jobs.transcript_path(world["case"], job))
     assert b"plainword" not in blob and not blob.startswith(b"PK")
+
+
+async def test_the_file_holds_only_pages_the_named_expert_has_read(
+    api_db: Database,
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    world: dict[str, Any],
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    seen_page = await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("readword",))])
+    await add_page(aconn, crypto, world["case"], doc, 2, [Spec("zz_session", ("unreadword",))])
+    await read(api_db, world, seen_page)
+    client = await client_for(world["expert"])
+    job = await build(client, worker_db, admin, world)
+    resp = await client.get(f"/v1/cases/{world['case']}/transcript/download/{job}")
+    joined = " ".join(paragraphs(resp.content))
+    assert "readword" in joined and "unreadword" not in joined
+
+
+async def test_nothing_is_built_while_the_named_expert_has_read_nothing(
+    client_for: Any, aconn: psycopg.AsyncConnection, crypto: CaseCrypto, world: dict[str, Any]
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("unreadword",))])
+    client = await client_for(world["expert"])
+    resp = await client.post(f"/v1/cases/{world['case']}/transcript/download")
+    assert resp.status_code == 409 and resp.json()["error"]["code"] == "nothing_read"
+
+
+async def test_an_organisation_admin_cannot_ask_for_the_file(
+    client_for: Any, aconn: psycopg.AsyncConnection, crypto: CaseCrypto, seed: Seed
+) -> None:
+    expert, boss = seed.person(), seed.person()
+    case = seed.case(seed.org(members={expert: "owner", boss: "admin"}), expert, status="active")
+    doc = await add_document(aconn, case)
+    await add_page(aconn, crypto, case, doc, 1, [Spec("zz_session", ("unreadword",))])
+    client = await client_for(boss)
+    assert (await client.post(f"/v1/cases/{case}/transcript/download")).status_code == 403
+
+
+async def test_a_storage_fault_is_not_reported_as_already_downloaded(
+    api_db: Database,
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    storage: SupabaseStorage,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await read(api_db, world, await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))]))
+    client = await client_for(world["expert"])
+    job = await build(client, worker_db, admin, world)
+    real = storage.get
+
+    async def broken(path: str) -> bytes:
+        raise StorageError("storage answered 500")
+
+    monkeypatch.setattr(storage, "get", broken)
+    url = f"/v1/cases/{world['case']}/transcript/download/{job}"
+    assert (await client.get(url)).status_code == 503
+    monkeypatch.setattr(storage, "get", real)
+    assert (await client.get(url)).status_code == 200  # the copy was not lost, nor counted as taken
+
+
+async def test_the_copy_is_handed_over_once_even_if_removing_it_fails(
+    api_db: Database,
+    client_for: Any,
+    worker_db: Database,
+    admin: psycopg.Connection,
+    aconn: psycopg.AsyncConnection,
+    crypto: CaseCrypto,
+    storage: SupabaseStorage,
+    world: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    doc = await add_document(aconn, world["case"])
+    await read(api_db, world, await add_page(aconn, crypto, world["case"], doc, 1, [Spec("zz_session", ("note",))]))
+    client = await client_for(world["expert"])
+    job = await build(client, worker_db, admin, world)
+
+    async def broken(paths: Any) -> None:
+        raise StorageError("storage answered 500")
+
+    monkeypatch.setattr(storage, "delete", broken)
+    url = f"/v1/cases/{world['case']}/transcript/download/{job}"
+    assert (await client.get(url)).status_code == 200
+    assert (await client.get(url)).status_code == 404  # the audit row, not the file, says it was taken

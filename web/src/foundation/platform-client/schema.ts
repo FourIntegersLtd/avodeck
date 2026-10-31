@@ -12293,6 +12293,8 @@ export interface components {
         };
         /** TranscriptEntryOut */
         TranscriptEntryOut: {
+            /** Author Label */
+            author_label: string | null;
             /** Author Role */
             author_role: string | null;
             /** Date Basis */
@@ -12308,10 +12310,14 @@ export interface components {
             id: string;
             /** Kind */
             kind: string;
+            /** Kind Label */
+            kind_label: string;
             /** Lines */
             lines: string[];
             /** Page No */
             page_no: number;
+            /** Result Labels */
+            result_labels: string[];
             /** Results */
             results: string[];
             /** Specialty */
@@ -12333,6 +12339,11 @@ export interface components {
         TranscriptList: {
             /** Entries */
             entries: components["schemas"]["TranscriptEntryOut"][];
+            /**
+             * Picture Pages
+             * @default []
+             */
+            picture_pages: number[];
             /**
              * Status
              * @enum {string}

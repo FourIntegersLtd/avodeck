@@ -19831,6 +19831,17 @@
       },
       "TranscriptEntryOut": {
         "properties": {
+          "author_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Author Label"
+          },
           "author_role": {
             "anyOf": [
               {
@@ -19878,6 +19889,10 @@
             "title": "Kind",
             "type": "string"
           },
+          "kind_label": {
+            "title": "Kind Label",
+            "type": "string"
+          },
           "lines": {
             "items": {
               "type": "string"
@@ -19888,6 +19903,13 @@
           "page_no": {
             "title": "Page No",
             "type": "integer"
+          },
+          "result_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Result Labels",
+            "type": "array"
           },
           "results": {
             "items": {
@@ -19912,13 +19934,16 @@
           "id",
           "page_no",
           "kind",
+          "kind_label",
           "folded",
           "author_role",
+          "author_label",
           "specialty",
           "event_date",
           "date_basis",
           "lines",
-          "results"
+          "results",
+          "result_labels"
         ],
         "title": "TranscriptEntryOut",
         "type": "object"
@@ -19959,6 +19984,14 @@
               "$ref": "#/components/schemas/TranscriptEntryOut"
             },
             "title": "Entries",
+            "type": "array"
+          },
+          "picture_pages": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Picture Pages",
             "type": "array"
           },
           "status": {
