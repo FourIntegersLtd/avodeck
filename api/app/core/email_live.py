@@ -58,7 +58,7 @@ class RenderedMail:
 
 # Markup ported from eventtz's transactional layout (read-only reference). Colours are Avodeck's
 # (web/src/foundation/ui/tokens.css): brand, ink, and a muted grey for the footer.
-_BRAND, _INK, _MUTED = "#0F3D2C", "#16201B", "#5F6964"
+_BRAND, _GREEN, _INK, _MUTED = "#0F3D2C", "#1E6B4E", "#16201B", "#5F6964"
 _FONT = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 _DATETIME_PARAMS = frozenset({"deleted_at", "expires_at"})
 _DATE_PARAMS = frozenset({"backup_expiry_on", "expires_on"})
@@ -107,7 +107,7 @@ def _layout(subject: str, headline: str, paragraphs: list[str], action: tuple[st
         label, url = action
         button = (
             f'<p style="margin: 24px 0 0"><a href="{html.escape(url, quote=True)}" style="display: inline-block; '
-            f"background: {_BRAND}; color: #ffffff; text-decoration: none; padding: 14px 28px; line-height: 24px; "
+            f"background: {_GREEN}; color: #ffffff; text-decoration: none; padding: 14px 28px; line-height: 24px; "
             f'border-radius: 980px; font-size: 15px; font-weight: 600">{html.escape(label)}</a></p>'
         )
     return (
