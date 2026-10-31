@@ -117,7 +117,7 @@ async def test_deletes_verified_orphans_only(
     assert set(stray) <= remaining  # a name that is not a UUID is never touched
     for paths in kept.values():
         assert set(paths) <= remaining
-    cleaned = dict(
+    cleaned: dict[uuid.UUID, bool] = dict(
         admin.execute("select id, cleaned_at is not null from app.uploads where case_id = %s", (case,)).fetchall()
     )
     assert cleaned == {cancelled: True, failed: True, complete: False}

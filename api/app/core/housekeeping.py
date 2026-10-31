@@ -11,20 +11,39 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, timedelta
 
 from psycopg import AsyncConnection
 
 from app.core.config import ConfigError
 from app.core.jobs import registry
-from app.core.storage import SupabaseStorage, storage_settings, upload_prefix
+from app.core.storage import StorageError, SupabaseStorage, case_prefix, storage_settings, upload_prefix
 
 UPLOAD_SWEEP = "expire_uploads"
 _log = logging.getLogger(__name__)
+ORPHAN_AGE = timedelta(days=8)
+TERMINAL_WITHOUT_DOCUMENT = ("expired", "cancelled", "failed")
+
+
+@dataclass(frozen=True)
+class ReconcileResult:
+    """Counts only: upload folders deleted, left alone, or failed (retried by the next run)."""
+
+    deleted: int = 0
+    left: int = 0
+    failed: int = 0
 
 
 async def expire_uploads(conn: AsyncConnection, run_date: date, storage: SupabaseStorage | None) -> list[uuid.UUID]:
     """Expire what was due by the end of `run_date`, clean terminal rows; returns affected upload ids."""
+    return [upload_id for _, upload_id in await _expire_uploads(conn, run_date, storage)]
+
+
+async def _expire_uploads(
+    conn: AsyncConnection, run_date: date, storage: SupabaseStorage | None
+) -> list[tuple[uuid.UUID, uuid.UUID]]:
+    """As `expire_uploads`, as (case id, upload id) pairs."""
     cur = await conn.execute(
         "select expired_case_id, expired_upload_id, expired_status from app.expire_uploads(%s)", (run_date,)
     )
@@ -45,7 +64,61 @@ async def expire_uploads(conn: AsyncConnection, run_date: date, storage: Supabas
                     await conn.execute("select app.mark_upload_cleaned(%s)", (upload_id,))
             except Exception:  # noqa: BLE001
                 _log.warning("upload cleanup failed, will retry", extra={"upload_id": str(upload_id)})
-    return [upload_id for _, upload_id, _ in rows]
+    return [(case_id, upload_id) for case_id, upload_id, _ in rows]
+
+
+async def reconcile_upload_objects(
+    conn: AsyncConnection, storage: SupabaseStorage, case_id: uuid.UUID
+) -> ReconcileResult:
+    """Delete a case's orphaned upload folders; leave everything not certainly orphaned.
+
+    `conn` is the worker's job connection for `case_id` (RLS shows only that case's upload rows). A folder
+    `cases/{case}/uploads/{name}/` is deleted only when `name` is a UUID and either its row is terminal
+    without a `document_id` (then marked cleaned, once the delete is confirmed) or there is no row and
+    every object in it is older than 8 days. A row with a `document_id` is never touched. Counts only are
+    logged: never a path, a filename or any patient text.
+    """
+    cur = await conn.execute("select id, status, document_id from app.uploads where case_id = %s", (case_id,))
+    rows = {upload_id: (status, document_id) for upload_id, status, document_id in await cur.fetchall()}
+    root = f"{case_prefix(case_id)}/uploads"
+    cutoff = datetime.now(UTC) - ORPHAN_AGE
+    deleted = left = failed = 0
+    for name in await storage.list_folders(root):
+        try:
+            upload_id = uuid.UUID(name)
+        except ValueError:
+            upload_id = None
+        if upload_id is None or str(upload_id) != name:
+            left += 1
+            continue
+        row = rows.get(upload_id)
+        prefix = f"{root}/{name}"
+        try:
+            if row is not None:
+                status, document_id = row
+                if document_id is not None or status not in TERMINAL_WITHOUT_DOCUMENT:
+                    left += 1
+                    continue
+            else:
+                times = await storage.list_object_times(prefix)
+                if any(t is None or t > cutoff for t in times.values()):
+                    left += 1
+                    continue
+            paths = await storage.list_recursive(prefix)
+            if paths:
+                await storage.delete(paths)
+                if await storage.list_recursive(prefix):
+                    failed += 1
+                    continue
+            if row is not None:
+                # A savepoint: a database error here must not abort the caller's transaction.
+                async with conn.transaction():
+                    await conn.execute("select app.mark_upload_cleaned(%s)", (upload_id,))
+            deleted += 1
+        except StorageError:
+            failed += 1
+    _log.info("upload objects reconciled: deleted=%d left=%d failed=%d", deleted, left, failed)
+    return ReconcileResult(deleted=deleted, left=left, failed=failed)
 
 
 @registry.schedule(UPLOAD_SWEEP)
@@ -55,7 +128,15 @@ async def sweep_uploads(conn: AsyncConnection, run_date: date) -> None:
     except ConfigError:
         storage = None  # no Storage in this cell: nothing was stored, only the rows expire
     try:
-        await expire_uploads(conn, run_date, storage)
+        touched = await _expire_uploads(conn, run_date, storage)
+        if storage is not None:
+            for case_id in sorted({case_id for case_id, _ in touched}, key=str):
+                try:
+                    # The same worker connection, scoped to one case the way `Database.job` scopes it.
+                    await conn.execute("select set_config('app.job_case_id', %s, true)", (str(case_id),))
+                    await reconcile_upload_objects(conn, storage, case_id)
+                except Exception:  # noqa: BLE001
+                    _log.warning("upload reconcile failed, will retry")
     finally:
         if storage is not None:
             await storage.aclose()
