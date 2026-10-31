@@ -298,6 +298,16 @@ async def _job_is_live(conn: AsyncConnection, job_id: uuid.UUID | None) -> bool:
     return bool(found and found[0])
 
 
+async def _audit_claim(conn: AsyncConnection, row: dict[str, object]) -> None:
+    """Who asked for the file to be added, kept under the person (the job's own row has none)."""
+    await audit.record(
+        conn,
+        action="upload.completed",
+        target=f"upload:{row['id']}",
+        case_id=row["case_id"],  # type: ignore[arg-type]
+    )
+
+
 async def _claim(
     conn: AsyncConnection, row: dict[str, object], claimed: str, response: Response
 ) -> UploadedDocument | Finalizing:
@@ -322,6 +332,7 @@ async def _claim(
                     (job, row["id"]),
                 )
             if await cur.fetchone() is not None:
+                await _audit_claim(conn, row)
                 return Finalizing(status="finalizing")
         elif status == "open" and not row["expired"]:
             upload = _upload(row)
@@ -337,6 +348,7 @@ async def _claim(
                     (job, row["id"]),
                 )
             if await cur.fetchone() is not None:
+                await _audit_claim(conn, row)
                 return Finalizing(status="finalizing")
         else:
             raise _closed()

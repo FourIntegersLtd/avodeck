@@ -183,6 +183,13 @@ async def test_completing_records_an_audit_row_and_a_second_complete_returns_the
     assert (await put_chunk(client, upload_id, 1, file.chunk(1))).status_code == 200
     claimed = await finish(client, upload_id, file)
     assert claimed.status_code == 202, claimed.text
+    again_early = await finish(client, upload_id, file)  # a repeat while the job is queued: not a new claim
+    assert again_early.status_code == 202, again_early.text
+    claims = admin.execute(
+        "select person_id from app.audit_log where action = 'upload.completed' and target = %s",
+        (f"upload:{upload_id}",),
+    ).fetchall()
+    assert claims == [(team["expert"],)]
     await run_finalize(worker_dsn, admin, upload_id, storage, crypto)
     first = await finish(client, upload_id, file)
     assert first.status_code == 200, first.text
