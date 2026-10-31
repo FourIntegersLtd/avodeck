@@ -94,7 +94,14 @@ def _html_value(value: str) -> str:
     return html.escape(value, quote=True).replace("\n", "<br>")
 
 
-def _layout(subject: str, headline: str, paragraphs: list[str], action: tuple[str, str] | None, footer: str) -> str:
+def _layout(
+    subject: str,
+    headline: str,
+    paragraphs: list[str],
+    action: tuple[str, str] | None,
+    footer: str,
+    logo_url: str | None = None,
+) -> str:
     """eventtz's transactional layout, element for element, in Avodeck's colours (see the module notes).
 
     Body text is 17px, not eventtz's 15px (readers are 50 to 60); the button is 52px tall in all.
@@ -102,6 +109,16 @@ def _layout(subject: str, headline: str, paragraphs: list[str], action: tuple[st
     table = 'role="presentation" cellpadding="0" cellspacing="0" border="0"'
     p = f"margin: 0 0 16px; color: {_INK}; font-size: 17px; line-height: 1.65"
     body = "".join(f'<p style="{p}">{para}</p>' for para in paragraphs)
+    if logo_url:
+        mark = (
+            f'<img src="{html.escape(logo_url, quote=True)}" width="134" height="40" alt="Avodeck" '
+            'style="display:block;border:0;outline:none;text-decoration:none;">'
+        )
+    else:
+        mark = (
+            f'<p style="margin: 0; color: {_BRAND}; font-size: 22px; font-weight: 700; letter-spacing: 0.02em">'
+            "Avodeck</p>"
+        )
     button = ""
     if action is not None:
         label, url = action
@@ -120,8 +137,7 @@ def _layout(subject: str, headline: str, paragraphs: list[str], action: tuple[st
         '<td align="center" style="padding: 0; margin: 0">'
         f'<table {table} width="100%" style="max-width: 600px; width: 100%; background-color: #ffffff">'
         '<tr><td style="background-color: #ffffff; padding: 16px 20px; text-align: center">'
-        f'<p style="margin: 0; color: {_BRAND}; font-size: 22px; font-weight: 700; letter-spacing: 0.02em">'
-        "Avodeck</p></td></tr>"
+        f"{mark}</td></tr>"
         '<tr><td style="padding: 8px 20px 24px; background-color: #ffffff">'
         f'<h1 style="margin: 0 0 12px; color: {_INK}; font-size: 26px; line-height: 1.25; font-weight: 600">'
         f"{html.escape(headline)}</h1>{body}{button}</td></tr>"
@@ -133,7 +149,9 @@ def _layout(subject: str, headline: str, paragraphs: list[str], action: tuple[st
     )
 
 
-def render(mail: Mail, language: str = "en-GB", *, app_origin: str | None = None) -> RenderedMail:
+def render(
+    mail: Mail, language: str = "en-GB", *, app_origin: str | None = None, logo_url: str | None = None
+) -> RenderedMail:
     """The subject, plain-text part and HTML part for a mail; raises for an unknown template.
 
     The headline and paragraphs come from the words file; the one button goes to the mail's `link`, or
@@ -169,7 +187,7 @@ def render(mail: Mail, language: str = "en-GB", *, app_origin: str | None = None
     return RenderedMail(
         subject=subject,
         text="\n".join(lines).strip() + "\n",
-        html=_layout(subject, headline, rich, action, w["email.footer"]),
+        html=_layout(subject, headline, rich, action, w["email.footer"], logo_url),
     )
 
 
@@ -181,6 +199,7 @@ class MailSettings:
     api_key: str = field(repr=False)
     sender: str
     app_origin: str | None = None
+    logo_url: str | None = None
 
 
 def mail_settings(env: Mapping[str, str] | None = None) -> MailSettings | None:
@@ -199,7 +218,10 @@ def mail_settings(env: Mapping[str, str] | None = None) -> MailSettings | None:
     if not _SENDER.match(sender):
         raise ConfigError("EMAIL_FROM is not an address or Name <address>")
     origin = source.get("APP_ORIGIN", "").split(",")[0].strip().rstrip("/") or None
-    return MailSettings(api_key=key, sender=sender, app_origin=origin)
+    logo = source.get("EMAIL_LOGO_URL", "").strip() or None
+    if logo is not None and not _SAFE_URL.match(logo):
+        raise ConfigError("EMAIL_LOGO_URL is not a web address")
+    return MailSettings(api_key=key, sender=sender, app_origin=origin, logo_url=logo)
 
 
 class ResendMailer:
@@ -216,6 +238,7 @@ class ResendMailer:
         sleep: Callable[[float], Awaitable[None]] = asyncio.sleep,
         retry_delay: float = 1.0,
         app_origin: str | None = None,
+        logo_url: str | None = None,
     ) -> None:
         self._key = api_key
         self._sender = sender
@@ -223,12 +246,13 @@ class ResendMailer:
         self._sleep = sleep
         self._retry_delay = retry_delay
         self._app_origin = app_origin
+        self._logo_url = logo_url
 
     def __repr__(self) -> str:
         return "ResendMailer()"
 
     async def send(self, mail: Mail) -> None:
-        rendered = render(mail, app_origin=self._app_origin)
+        rendered = render(mail, app_origin=self._app_origin, logo_url=self._logo_url)
         payload: dict[str, object] = {
             "from": self._sender,
             "to": [mail.to],
@@ -265,4 +289,4 @@ def mailer_from_env(env: Mapping[str, str] | None = None) -> Mailer:
     settings = mail_settings(env)
     if settings is None:
         return OutboxMailer()
-    return ResendMailer(settings.api_key, settings.sender, app_origin=settings.app_origin)
+    return ResendMailer(settings.api_key, settings.sender, app_origin=settings.app_origin, logo_url=settings.logo_url)
