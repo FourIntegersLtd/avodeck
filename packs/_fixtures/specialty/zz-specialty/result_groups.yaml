@@ -1,0 +1,3 @@
+result_groups:
+  - {key: zz_level, label: zz.result.level, terms: [zzlevel, "zz level"]}
+  - {key: zz_count, label: zz.result.count, terms: [zzcount]}

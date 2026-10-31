@@ -72,6 +72,7 @@ async def bundle(
             ],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
     unmatched = response({"reference_id": "p1-r1", "matched_page": None, "confidence": 0.9})

@@ -194,6 +194,7 @@ def _dated_answer(combo: Combo) -> Any:
             "references_out": [],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
 
@@ -301,6 +302,7 @@ def _answer_with(combo: Combo, facts: list[tuple[str, str | None, list[str]]]) -
             "references_out": [],
             "availability_evidence": [],
             "actions_requested_of_clinician": [],
+            "entries": [],
         }
     )
 

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Reading prompts",
+  "type": "object",
+  "properties": {
+    "term_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {"type": "string", "pattern": "^[a-z][a-z0-9_]*$"},
+          "enabled": {"type": "boolean"},
+          "label": {"type": "string", "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$", "description": "An i18n key, never display text."},
+          "terms": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "\\S"}, "description": "Words that point the reader at places in the record. An index, never a judgement."}
+        },
+        "additionalProperties": false,
+        "required": ["key", "label", "terms"]
+      }
+    }
+  },
+  "additionalProperties": false,
+  "required": ["term_groups"]
+}

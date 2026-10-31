@@ -1,0 +1,3 @@
+term_groups:
+  - {key: zz_alpha, label: zz.prompt.alpha, terms: [alphaword, "alpha phrase"]}
+  - {key: zz_beta, label: zz.prompt.beta, terms: [betaword]}

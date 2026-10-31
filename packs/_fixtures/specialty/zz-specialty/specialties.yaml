@@ -1,0 +1,3 @@
+specialties:
+  - {key: zz_field_a, label: zz.specialty.field_a}
+  - {key: zz_field_b, label: zz.specialty.field_b}

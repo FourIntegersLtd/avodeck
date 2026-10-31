@@ -21,10 +21,12 @@ from app.core.contracts.pipeline import (
 from app.features.pipeline import date_repair, record_gaps_reader, repo, wiring
 from app.features.pipeline.router import pipeline_router
 from app.features.pipeline.service import (
+    EXTRACT_ENTRIES,
     PURGE_QUARANTINED,
     REPAIR_FACT_DATES,
     REPROCESS_CASE,
     SCAN_DOCUMENT,
+    extract_entries,
     process_bundle,
     purge_quarantined,
     queue_page_text,
@@ -43,6 +45,7 @@ def register(registry: jobs.JobRegistry) -> None:
     registry.kind(PROCESS_PAGES)(process_bundle)
     registry.kind(REPROCESS_CASE)(reprocess_case)
     registry.kind(REPAIR_FACT_DATES)(repair_fact_dates)
+    registry.kind(EXTRACT_ENTRIES)(extract_entries)
     registry.schedule(PURGE_QUARANTINED)(purge_quarantined)
 
 

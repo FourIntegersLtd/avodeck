@@ -11,6 +11,71 @@
         "output": {
           "actions_requested_of_clinician": [],
           "availability_evidence": [],
+          "entries": [
+            {
+              "author_role": null,
+              "first_word_id": "p1w28",
+              "kind": "result",
+              "last_word_id": "p1w29",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w36",
+              "kind": "result",
+              "last_word_id": "p1w37",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w42",
+              "kind": "result",
+              "last_word_id": "p1w43",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w50",
+              "kind": "result",
+              "last_word_id": "p1w51",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w56",
+              "kind": "result",
+              "last_word_id": "p1w57",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w62",
+              "kind": "result",
+              "last_word_id": "p1w63",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w68",
+              "kind": "result",
+              "last_word_id": "p1w69",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w74",
+              "kind": "result",
+              "last_word_id": "p1w75",
+              "specialty": null
+            },
+            {
+              "author_role": null,
+              "first_word_id": "p1w80",
+              "kind": "result",
+              "last_word_id": "p1w81",
+              "specialty": null
+            }
+          ],
           "facts": [
             {
               "clinician_role": null,

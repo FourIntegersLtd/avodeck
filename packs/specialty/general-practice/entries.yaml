@@ -1,0 +1,26 @@
+# What one entry in a record can be (ADR 0028). `transcript: include` entries are laid out in the records
+# transcript; `exclude` entries are administrative and fold to a line (kind label + first words). `label`
+# is an i18n key. `letter: true` marks the one kind the transcript lays out as a letter.
+entry_kinds:
+  - {key: consultation, label: entry.kind.consultation, transcript: include}
+  - {key: phone_consultation, label: entry.kind.phone_consultation, transcript: include}
+  - {key: home_visit, label: entry.kind.home_visit, transcript: include}
+  - {key: result, label: entry.kind.result, transcript: include}
+  - {key: prescription, label: entry.kind.prescription, transcript: include}
+  - {key: referral, label: entry.kind.referral, transcript: include}
+  - {key: letter, label: entry.kind.letter, transcript: include, letter: true}
+  - {key: examination, label: entry.kind.examination, transcript: include}
+  - {key: note, label: entry.kind.note, transcript: include}
+  - {key: appointment_booking, label: entry.kind.appointment_booking, transcript: exclude}
+  - {key: registration, label: entry.kind.registration, transcript: exclude}
+  - {key: administrative_task, label: entry.kind.administrative_task, transcript: exclude}
+  - {key: repeat_prescription_request, label: entry.kind.repeat_prescription_request, transcript: exclude}
+  - {key: appointment_letter, label: entry.kind.appointment_letter, transcript: exclude}
+# Who wrote an entry, when the page says so.
+author_roles:
+  - {key: doctor, label: entry.author.doctor}
+  - {key: nurse, label: entry.author.nurse}
+  - {key: healthcare_assistant, label: entry.author.healthcare_assistant}
+  - {key: pharmacist, label: entry.author.pharmacist}
+  - {key: receptionist, label: entry.author.receptionist}
+  - {key: other, label: entry.author.other}
