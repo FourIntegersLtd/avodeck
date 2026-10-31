@@ -34,7 +34,7 @@ create table app.transcript_views (
   entry_id uuid,  -- the record entry seen; null for a picture opened (no foreign key: entries are re-read)
   dwell_ms integer not null default 0 check (dwell_ms between 0 and 600000),
   picture_opened boolean not null default false,
-  seen_at timestamptz not null default now(),
+  at timestamptz not null default now(),
   check ((entry_id is not null) <> picture_opened)
 );
 create index transcript_views_page on app.transcript_views (case_id, page_id, person_id);

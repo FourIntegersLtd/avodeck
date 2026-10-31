@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import re
 import uuid
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
@@ -26,13 +27,36 @@ from app.core.contracts.document_words import apply_corrections, current_correct
 from app.core.contracts.record_entries import RecordEntry, entries_for_case
 from app.core.crypto import CaseCrypto
 from app.core.packs import PackLibrary
-from app.features.pipeline.dates import line_numbers
 from app.features.reader import repo
 
 # How long an entry must be on the reader's screen, in all, for it to count as seen.
 SEEN_MS = 1500
 # An administrative entry is folded to this many words.
 FOLD_WORDS = 8
+
+
+def line_numbers(boxes: Iterable[tuple[str, Sequence[float]]]) -> dict[str, int]:
+    """Which printed line each word is on, from its box (`x1,y1,x2,y2,...`) in reading order: a word starts a
+    new line when its middle is further from the word before than 0.6 of the taller word's height. A word with
+    no readable box gets a line of its own."""
+    out: dict[str, int] = {}
+    line = 0
+    previous: tuple[float, float] | None = None  # middle and height of the word before
+    for word_id, box in boxes:
+        ys = list(box[1::2])
+        height = (max(ys) - min(ys)) if len(ys) >= 2 else 0.0
+        if height <= 0:
+            line += 2
+            out[word_id] = line
+            line += 2
+            previous = None
+            continue
+        middle = (max(ys) + min(ys)) / 2
+        if previous is not None and abs(middle - previous[0]) > 0.6 * max(height, previous[1]):
+            line += 1
+        out[word_id] = line
+        previous = (middle, height)
+    return out
 
 
 class UnknownEntry(Exception):
