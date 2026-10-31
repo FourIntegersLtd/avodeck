@@ -27,6 +27,7 @@ from tests.http.test_setup_questions_routes import (  # noqa: F401
     SUPPLEMENTARY,
     add_letter,
     app,
+    confirm_each,
     crypto,
     model,
     read_letter,
@@ -71,7 +72,8 @@ async def test_oral_instructions_keep_a_confirmed_set_locked(
     client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
 ) -> None:
     client = await client_for(world["expert"])
-    await read_letter(client, world, worker_db)
+    got = await read_letter(client, world, worker_db)
+    await confirm_each(client, world, got)
     assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
     assert (await client.put(url(world, "oral-instructions"), json=ORAL)).status_code == 200
 
@@ -84,7 +86,8 @@ async def test_an_oral_instruction_does_not_hide_the_lock_from_the_next_letter(
     client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
 ) -> None:
     client = await client_for(world["expert"])
-    await read_letter(client, world, worker_db)
+    got = await read_letter(client, world, worker_db)
+    await confirm_each(client, world, got)
     assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
     assert (await client.put(url(world, "oral-instructions"), json=ORAL)).status_code == 200
 
@@ -101,7 +104,8 @@ async def test_a_letter_without_its_file_reopens_the_set_and_says_so(
     client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
 ) -> None:
     client = await client_for(world["expert"])
-    await read_letter(client, world, worker_db)
+    got = await read_letter(client, world, worker_db)
+    await confirm_each(client, world, got)
     assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
     added = await client.post(url(world, "instructions"), json={"kind": "supplementary"})
     assert added.status_code == 201 and added.json()["reopens_questions"] is True

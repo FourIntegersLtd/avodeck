@@ -322,6 +322,8 @@ A joint expert is one with two or more current instructing parties; no separate 
 | Field | In plain words |
 |---|---|
 | instruction_version_id | Which set of instructions asked it |
+| source_instruction_version_id | The instruction version this question was extracted from (immutable; stays fixed even when a new letter re-points instruction_version_id) |
+| source | Who found this question: `letter` (AI extraction) or `expert` (the doctor added it) |
 | number | Its number in the letter |
 | text_verbatim | The exact words of the question |
 | short_title | A label of at most 40 characters for tabs and lists: the model's label, or the first clause of the question when it gave none. A label only; never replaces the question |

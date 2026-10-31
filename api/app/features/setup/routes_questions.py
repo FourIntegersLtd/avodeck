@@ -12,6 +12,7 @@ instructing parties are drafted for every current one (S4).
 
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from typing import Annotated, Any, Literal
@@ -26,11 +27,13 @@ from app.core.auth.access import CaseAccess, require_case_access
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
+from app.core.pdf import render_page, split_pages
 from app.features.setup.common import CODE, invalid, not_found
+from app.features.setup.jobs import read_document
 from app.features.setup.letter import short_title
 from app.features.setup.notes import NoteDraft, NoteItem, NoteTopic, draft
 from app.features.setup.router import router
-from app.features.setup.routes_case import ViewContent, _pack, conflict
+from app.features.setup.routes_case import Crypto, ViewContent, _pack, conflict
 
 Confirm = Annotated[CaseAccess, Depends(require_case_access("question.confirm"))]
 Draft = Annotated[CaseAccess, Depends(require_case_access("request.draft"))]
@@ -40,6 +43,10 @@ Upload = Annotated[CaseAccess, Depends(require_case_access("case.upload"))]
 class QuestionOut(BaseModel):
     id: uuid.UUID
     instruction_version_id: uuid.UUID | None
+    source_instruction_version_id: uuid.UUID | None = Field(
+        default=None, description="The instruction version this question was extracted from (immutable)."
+    )
+    source: str = Field(default="letter", description="Who found this question: 'letter' or 'expert'.")
     number: int
     text_verbatim: str
     confirmed_text: str | None
@@ -48,6 +55,7 @@ class QuestionOut(BaseModel):
     )
     source_word_ids: list[str]
     para_ref: str | None
+    page: int | None = Field(default=None, description="The first page in source_word_ids (e.g. p2w14 → 2).")
     kind: str
     outside_expertise: bool
     outside_expertise_source: Literal["pack", "expert"] | None = Field(
@@ -109,19 +117,39 @@ def _para_key(ref: str) -> list[tuple[int, int, str]]:
 
 
 _Q = (
-    "select id, instruction_version_id, number, text_verbatim, confirmed_text, short_title, source_word_ids, para_ref,"
+    "select id, instruction_version_id, source_instruction_version_id, source,"
+    " number, text_verbatim, confirmed_text, short_title, source_word_ids, para_ref,"
     " kind,"
     " outside_expertise, outside_expertise_source, answer_parts, status, version from app.questions"
 )
 _A = (
-    "select id, instruction_version_id, number, text_verbatim, confirmed_text, source_word_ids, para_ref, status,"
+    "select id, instruction_version_id, source_instruction_version_id,"
+    " number, text_verbatim, confirmed_text, source_word_ids, para_ref, status,"
     " version from app.assumptions"
 )
 
 
+_PAGE_RE = re.compile(r"^p(\d+)w")
+
+
+def _page(word_ids: list[str]) -> int | None:
+    """The first page number from source_word_ids (e.g. 'p2w14' → 2)."""
+    if word_ids:
+        m = _PAGE_RE.match(word_ids[0])
+        if m:
+            return int(m.group(1))
+    return None
+
+
 def _question(row: dict[str, Any]) -> QuestionOut:
     """A stored question; one read before short titles existed gets its first clause."""
-    return QuestionOut(**{**row, "short_title": short_title(row["text_verbatim"], row["short_title"])})
+    return QuestionOut(
+        **{
+            **row,
+            "short_title": short_title(row["text_verbatim"], row["short_title"]),
+            "page": _page(row.get("source_word_ids") or []),
+        }
+    )
 
 
 async def _latest(conn: DbConn, case_id: uuid.UUID) -> dict[str, Any] | None:
@@ -170,8 +198,8 @@ async def list_questions(
         LetterItem(id=i, kind=k, para_ref=ref, text_verbatim=text, outside_expertise=out)  # type: ignore[arg-type]
         for ref, i, k, text, out in sorted(cited, key=lambda c: _para_key(str(c[0])))
     ]
-    done = sum(q.status == "confirmed" for q in questions)
-    confirmed_count = done + sum(a.status == "confirmed" for a in assumptions)
+    done = sum(q.status in ("confirmed", "edited") for q in questions)
+    confirmed_count = done + sum(a.status in ("confirmed", "edited") for a in assumptions)
     total = len(questions) + len(assumptions)
     locked = bool(latest and latest["locked"])
     unread = bool(latest and latest["unread"])
@@ -336,6 +364,62 @@ async def update_assumption(
     return out
 
 
+class AddQuestion(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str = Field(min_length=1, max_length=3000)
+    para_ref: str | None = Field(default=None, max_length=20, pattern=r"^\d{1,3}(\([a-z]{1,4}\)|\(\d{1,2}\))?$")
+    kind: str = Field(pattern=CODE)
+
+
+@router.post("/cases/{case_id}/questions", status_code=201, response_model=QuestionOut)
+async def add_question(
+    case_id: uuid.UUID,
+    body: AddQuestion,
+    access: Confirm,
+    request: Request,
+    response: Response,
+    conn: DbConn,
+) -> QuestionOut:
+    """A question the model missed, added by the expert; it still needs confirming."""
+    latest = await _latest(conn, case_id)
+    if latest is None:
+        raise not_found()
+    await _refuse_if_locked(conn, case_id)
+    pack = await _pack(request, conn, case_id)
+    if body.kind not in {q["key"] for q in pack.question_types()}:
+        raise invalid("kind")
+    outside = body.kind in set(pack.outside_expertise_question_types())
+    parts = pack.outside_expertise_parts() or None
+    version_id = latest["id"]
+    cur = await conn.execute(
+        "insert into app.questions (case_id, instruction_version_id, source_instruction_version_id,"
+        " number, text_verbatim, source_word_ids, source, para_ref, kind, outside_expertise,"
+        " answer_parts, outside_expertise_source, short_title)"
+        " values (%s, %s, %s, (select coalesce(max(number), 0) + 1 from app.questions where case_id = %s),"
+        " %s, '{}'::text[], 'expert', %s, %s, %s, %s, %s, %s) returning id",
+        (
+            case_id,
+            version_id,
+            version_id,
+            case_id,
+            body.text,
+            body.para_ref,
+            body.kind,
+            outside,
+            parts if outside else None,
+            "expert" if outside else None,
+            short_title(body.text),
+        ),
+    )
+    row = await cur.fetchone()
+    assert row is not None
+    new_id = row[0]
+    await audit.record(conn, action="question.added", target=f"question:{new_id}", case_id=case_id)
+    out = _question(await _row(conn, _Q, new_id, case_id))
+    response.headers["etag"] = etag(out.version)
+    return out
+
+
 class Confirmed(BaseModel):
     instruction_version_id: uuid.UUID
     locked: bool
@@ -354,18 +438,29 @@ async def confirm_all(case_id: uuid.UUID, access: Confirm, conn: DbConn) -> Conf
         if latest["failed"]:
             raise ApiError("letter_not_read", "The letter could not be read. Ask for it to be read again.", 409)
         raise conflict("The letter is still being read.")
+    # Count questions and assumptions, and refuse if any are still unreviewed.
     counts = []
     for table in ("questions", "assumptions"):
-        await conn.execute(
-            f"update app.{table} set status = 'confirmed' where case_id = %s and status = 'suggested'",  # noqa: S608
-            (case_id,),
-        )
         cur = await conn.execute(f"select count(*) from app.{table} where case_id = %s", (case_id,))  # noqa: S608
         found = await cur.fetchone()
         counts.append(int(found[0]) if found else 0)
+        cur = await conn.execute(
+            f"select count(*) from app.{table} where case_id = %s and status = 'suggested'",  # noqa: S608
+            (case_id,),
+        )
+        suggested = await cur.fetchone()
+        if suggested and int(suggested[0]) > 0:
+            raise ApiError(
+                "questions_not_reviewed",
+                f"{int(suggested[0])} {table} still need reviewing.",
+                409,
+            )
     if counts[0] == 0:
         raise conflict("There are no questions to confirm.")
-    await conn.execute("update app.instruction_versions set locked_at = now() where id = %s", (latest["id"],))
+    await conn.execute(
+        "update app.instruction_versions set locked_at = now(), locked_by = app.current_person_id() where id = %s",
+        (latest["id"],),
+    )
     await audit.record(conn, action="questions.locked", target=f"instruction_version:{latest['id']}", case_id=case_id)
     return Confirmed(instruction_version_id=latest["id"], locked=True, questions=counts[0], assumptions=counts[1])
 
@@ -423,3 +518,55 @@ async def draft_note(case_id: uuid.UUID, body: NoteRequest, access: Draft, conn:
                 for r in await cur.fetchall()
             ]
     return await draft(conn, case_id, body.topic, items)
+
+
+class LetterPages(BaseModel):
+    page_count: int = Field(description="Pages in the letter of instruction.")
+
+
+async def _letter_pages(
+    request: Request, conn: DbConn, crypto: Crypto, case_id: uuid.UUID, version_id: uuid.UUID
+) -> list[bytes]:
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "select v.id, d.storage_path from app.instruction_versions v"
+            " join app.documents d on d.id = v.document_id where v.id = %s and v.case_id = %s",
+            (version_id, case_id),
+        )
+        row = await cur.fetchone()
+    storage = request.app.state.storage
+    if row is None or not row["storage_path"]:
+        raise not_found()
+    if storage is None:
+        raise ApiError("unavailable", "Saving is not ready.", 503)
+    document = await read_document(conn, storage, crypto, case_id, row["storage_path"])
+    return await asyncio.to_thread(split_pages, document)
+
+
+@router.get("/cases/{case_id}/instructions/{version_id}/pages", response_model=LetterPages)
+async def letter_page_count(
+    case_id: uuid.UUID, version_id: uuid.UUID, access: ViewContent, request: Request, conn: DbConn, crypto: Crypto
+) -> LetterPages:
+    pages = await _letter_pages(request, conn, crypto, case_id, version_id)
+    return LetterPages(page_count=len(pages))
+
+
+@router.get(
+    "/cases/{case_id}/instructions/{version_id}/pages/{page_number}",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "The page as a PNG picture."}},
+)
+async def letter_page_image(
+    case_id: uuid.UUID,
+    version_id: uuid.UUID,
+    page_number: int,
+    access: ViewContent,
+    request: Request,
+    conn: DbConn,
+    crypto: Crypto,
+) -> Response:
+    pages = await _letter_pages(request, conn, crypto, case_id, version_id)
+    if page_number < 1 or page_number > len(pages):
+        raise not_found()
+    png = await asyncio.to_thread(render_page, pages[page_number - 1])
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, no-store"})

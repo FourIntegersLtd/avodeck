@@ -211,6 +211,10 @@ async def test_the_letter_gives_four_questions_and_one_assumption_in_its_own_wor
     assert {q["status"] for q in got["questions"] + got["assumptions"]} == {"suggested"}
     assert all(q["instruction_version_id"] == added["id"] for q in got["questions"])
     assert all(q["source_word_ids"] for q in got["questions"])
+    # Fix 2: each question remembers which letter it came from
+    assert all(q["source_instruction_version_id"] == added["id"] for q in got["questions"])
+    assert all(q["source"] == "letter" for q in got["questions"])
+    assert all(isinstance(q["page"], int) and q["page"] >= 1 for q in got["questions"])
     assert "setup.questions.warning.outside_expertise" in got["warnings"]
 
 
@@ -252,6 +256,29 @@ async def test_without_a_model_the_job_pauses(
             await run_job(worker_db, world, added["job_id"])
     finally:
         configure(None)
+
+
+# --- helpers for confirming each item individually ------------------------------------------------
+
+
+async def confirm_each(client: Any, world: dict[str, uuid.UUID], got: dict[str, Any]) -> None:
+    """Confirm or edit every question and assumption so the set can be locked."""
+    for q in got["questions"]:
+        if q["status"] == "suggested":
+            r = await client.patch(
+                url(world, f"questions/{q['id']}"),
+                json={"confirm": True},
+                headers={"if-match": f'"{q["version"]}"'},
+            )
+            assert r.status_code == 200, r.text
+    for a in got["assumptions"]:
+        if a["status"] == "suggested":
+            r = await client.patch(
+                url(world, f"assumptions/{a['id']}"),
+                json={"confirm": True},
+                headers={"if-match": f'"{a["version"]}"'},
+            )
+            assert r.status_code == 200, r.text
 
 
 # --- editing and confirming -----------------------------------------------------------------------
@@ -304,6 +331,76 @@ async def test_an_edit_keeps_the_exact_words_and_only_the_named_expert_edits(
     assert kept.json()["text_verbatim"] == a["text_verbatim"]
 
 
+async def test_an_edited_question_counts_as_reviewed_and_the_set_can_still_lock(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    """D3: editing a question's wording should not block locking the set."""
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+
+    # Edit the first question's wording
+    q = got["questions"][0]
+    edited = await client.patch(
+        url(world, f"questions/{q['id']}"),
+        json={"text": "My own wording."},
+        headers={"if-match": f'"{q["version"]}"'},
+    )
+    assert edited.status_code == 200 and edited.json()["status"] == "edited"
+
+    # confirmed_count must include the edited question
+    listing = (await client.get(url(world, "questions"))).json()
+    assert listing["confirmed_count"] >= 1  # the edited one counts
+
+    # Confirm the rest individually
+    for item in listing["questions"][1:]:
+        if item["status"] == "suggested":
+            r = await client.patch(
+                url(world, f"questions/{item['id']}"),
+                json={"confirm": True},
+                headers={"if-match": f'"{item["version"]}"'},
+            )
+            assert r.status_code == 200
+    for a in listing["assumptions"]:
+        if a["status"] == "suggested":
+            r = await client.patch(
+                url(world, f"assumptions/{a['id']}"),
+                json={"confirm": True},
+                headers={"if-match": f'"{a["version"]}"'},
+            )
+            assert r.status_code == 200
+
+    # Now confirm-all (lock) should succeed
+    locked = await client.post(url(world, "questions/confirm-all"))
+    assert locked.status_code == 200, locked.text
+
+
+async def test_confirm_all_refuses_while_any_item_is_still_suggested(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    """D15: the server must not silently bulk-confirm unreviewed items."""
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+
+    # Confirm all but one question
+    for q in got["questions"][:-1]:
+        await client.patch(
+            url(world, f"questions/{q['id']}"),
+            json={"confirm": True},
+            headers={"if-match": f'"{q["version"]}"'},
+        )
+    for a in got["assumptions"]:
+        await client.patch(
+            url(world, f"assumptions/{a['id']}"),
+            json={"confirm": True},
+            headers={"if-match": f'"{a["version"]}"'},
+        )
+
+    # One question is still suggested → confirm-all must refuse
+    refused = await client.post(url(world, "questions/confirm-all"))
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "questions_not_reviewed"
+
+
 async def test_confirm_all_locks_the_set_and_opens_the_gate(
     client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
 ) -> None:
@@ -314,6 +411,9 @@ async def test_confirm_all_locks_the_set_and_opens_the_gate(
     assert gate.status_code == 409 and gate.json()["error"]["code"] == "questions_not_confirmed"
     assistant = await client_for(world["assistant"])
     assert (await assistant.post(url(world, "questions/confirm-all"))).status_code == 403
+
+    # Confirm each item individually first (the server no longer bulk-confirms)
+    await confirm_each(client, world, got)
 
     locked = await client.post(url(world, "questions/confirm-all"))
     assert locked.status_code == 200, locked.status_code
@@ -340,6 +440,7 @@ async def test_a_supplementary_letter_reopens_the_set_and_keeps_the_questions(
 ) -> None:
     client = await client_for(world["expert"])
     first = await read_letter(client, world, worker_db)
+    await confirm_each(client, world, first)
     assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
 
     added = await add_letter(client, world, SUPPLEMENTARY, "supplementary")
@@ -354,6 +455,10 @@ async def test_a_supplementary_letter_reopens_the_set_and_keeps_the_questions(
     assert (new["number"], new["text_verbatim"], new["para_ref"]) == (5, SECOND["new_question"], SECOND["para_ref"])
     assert {q["status"] for q in got["questions"]} == {"suggested"}
     assert {q["instruction_version_id"] for q in got["questions"]} == {added["id"]}
+    # Fix 2: old questions keep their source letter even after re-pointing
+    old_qs = got["questions"][:4]
+    assert all(q["source_instruction_version_id"] == first["instruction_version_id"] for q in old_qs)
+    assert got["questions"][4]["source_instruction_version_id"] == added["id"]
     gate = await client.get(url(world, "probe-questions-locked"))
     assert gate.status_code == 409
 
@@ -470,3 +575,79 @@ async def test_only_people_on_the_case_see_its_files(
     client_for: ClientFor, world: dict[str, uuid.UUID], model: RecordedBedrock
 ) -> None:
     assert (await (await client_for(world["outsider"])).get(url(world, "files"))).status_code == 404
+
+
+# --- the letter's own pages on screen 06 ---------------------------------------------------------------
+
+
+async def test_the_letter_pages_are_counted_and_drawn_for_the_case_and_hidden_from_outsiders(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    await read_letter(client, world, worker_db)
+    version = (await client.get(url(world, "questions"))).json()["questions"][0]["instruction_version_id"]
+    base = url(world, f"instructions/{version}/pages")
+    count = await client.get(base)
+    assert count.status_code == 200, count.text
+    assert count.json()["page_count"] >= 1
+    first = await client.get(f"{base}/1")
+    assert first.status_code == 200
+    assert first.headers["content-type"] == "image/png"
+    assert first.content.startswith(b"\x89PNG")
+    assert (await client.get(f"{base}/999")).status_code == 404
+    assert (await client.get(f"{base}/0")).status_code == 404
+    outsider = await client_for(world["outsider"])
+    assert (await outsider.get(base)).status_code == 404
+    assert (await outsider.get(f"{base}/1")).status_code == 404
+
+
+# --- adding a question the model missed -----------------------------------------------------------------
+
+
+async def test_expert_adds_a_question_they_found_in_the_letter(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+    kind = got["questions"][0]["kind"]
+    body = {"text": "Did the practice review the results in time?", "para_ref": "5(a)", "kind": kind}
+    added = await client.post(url(world, "questions"), json=body)
+    assert added.status_code == 201, added.text
+    out = added.json()
+    assert out["source"] == "expert" and out["source_word_ids"] == [] and out["status"] == "suggested"
+    assert out["text_verbatim"] == body["text"] and out["para_ref"] == "5(a)" and out["kind"] == kind
+    assert out["number"] == max(q["number"] for q in got["questions"]) + 1
+    listed = (await client.get(url(world, "questions"))).json()["questions"]
+    assert out["id"] in {q["id"] for q in listed}
+
+
+async def test_added_question_is_refused_when_set_is_locked(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+    await confirm_each(client, world, got)
+    assert (await client.post(url(world, "questions/confirm-all"))).status_code == 200
+    body = {"text": "A late question.", "kind": got["questions"][0]["kind"]}
+    assert (await client.post(url(world, "questions"), json=body)).status_code == 409
+
+
+async def test_assistant_cannot_add_a_question(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    got = await read_letter(client, world, worker_db)
+    body = {"text": "Not mine to add.", "kind": got["questions"][0]["kind"]}
+    assistant = await client_for(world["assistant"])
+    assert (await assistant.post(url(world, "questions"), json=body)).status_code == 403
+    outsider = await client_for(world["outsider"])
+    assert (await outsider.post(url(world, "questions"), json=body)).status_code == 404
+
+
+async def test_added_question_invalid_kind_is_rejected(
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, model: RecordedBedrock
+) -> None:
+    client = await client_for(world["expert"])
+    await read_letter(client, world, worker_db)
+    added = await client.post(url(world, "questions"), json={"text": "Why?", "kind": "not_a_real_kind"})
+    assert added.status_code == 422
