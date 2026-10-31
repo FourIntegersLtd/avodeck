@@ -2,7 +2,7 @@
 // API's error envelope (web/AGENTS.md, architecture 5.1).
 import { afterEach, expect, test, vi } from "vitest";
 import { apiError, http, HttpResponse, json, server } from "../../test/api";
-import { api, ApiError, idempotencyKey, ifMatch, onSignedOut, unwrap, websocketUrl } from ".";
+import { api, ApiError, apiOrigin, idempotencyKey, ifMatch, onSignedOut, unwrap, websocketUrl } from ".";
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -68,4 +68,13 @@ test("idempotencyKey gives a fresh key for each action, and ifMatch carries the 
 
 test("websocketUrl points at the API origin over ws(s)", () => {
   expect(websocketUrl("/v1/cases/c1/dictation?context=opinion")).toBe(`ws://${window.location.host}/v1/cases/c1/dictation?context=opinion`);
+});
+
+test("a build with its own API origin calls that origin, over wss for a socket", () => {
+  // Production serves the API on api.avodeck.com and the page on avodeck.com (ADR 0031): nothing in
+  // the browser may fall back to the page's origin, or every call would hit a dead path.
+  vi.stubEnv("VITE_API_ORIGIN", "https://api.avodeck.com/");
+  expect(apiOrigin()).toBe("https://api.avodeck.com");
+  expect(websocketUrl("/v1/cases/c1/dictation")).toBe("wss://api.avodeck.com/v1/cases/c1/dictation");
+  vi.unstubAllEnvs();
 });

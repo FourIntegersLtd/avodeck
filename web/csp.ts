@@ -7,12 +7,16 @@ export function contentSecurityPolicy(apiOrigin = ""): string {
   const api = apiOrigin.replace(/\/+$/, "");
   const connect = ["'self'"];
   if (api) connect.push(api, api.replace(/^http/, "ws"));
+  // The signature picture (SignSend) and any page image come straight from FastAPI, so once the API is
+  // on its own origin (ADR 0031) img-src has to name it too. Nothing else may be added here.
+  const img = ["'self'", "data:", "blob:"]; // blob: is an object URL the page made from bytes FastAPI streamed
+  if (api) img.push(api);
   const directives: Array<[string, string[]]> = [
     ["default-src", ["'self'"]],
     ["connect-src", connect],
     ["script-src", ["'self'"]],
     ["style-src", ["'self'"]],
-    ["img-src", ["'self'", "data:", "blob:"]], // blob: is an object URL the page made from bytes FastAPI streamed
+    ["img-src", img],
     ["font-src", ["'self'"]],
     ["media-src", ["'self'", "blob:"]],
     ["object-src", ["'none'"]],

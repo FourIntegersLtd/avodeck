@@ -113,3 +113,31 @@ async def test_a_stream_ends_after_its_time_limit_so_the_browser_reconnects(
     resp = await asyncio.wait_for((await client_for(team["expert"])).get(f"/v1/jobs/{team['job']}/events"), 10)
     assert resp.status_code == 200
     assert events(resp)[-1]["status"] == "running"
+
+
+async def test_stream_limit_and_heartbeat_sit_under_the_edges_cutoffs(
+    api_db: Database, auth_env: dict[str, str]
+) -> None:
+    """The browser reaches this stream on the API origin (ADR 0031), so the binding limit is Railway's
+    edge: it closes a request with no data after 5 minutes. The heartbeat keeps the stream fed well
+    inside that, and inside the shorter cutoff reported for a silent request, and the stream still ends
+    itself first so the browser reconnects on a clean end rather than on an edge error."""
+    from app.core.routes.jobs import EDGE_IDLE_SECONDS, EDGE_SILENT_SECONDS, HEARTBEAT_SECONDS, JOB_STREAM_SECONDS
+
+    assert JOB_STREAM_SECONDS < EDGE_IDLE_SECONDS
+    assert HEARTBEAT_SECONDS < EDGE_SILENT_SECONDS < EDGE_IDLE_SECONDS
+    app = build_app(api_db, auth_env)
+    assert app.state.job_stream_seconds == JOB_STREAM_SECONDS
+    assert app.state.job_heartbeat_seconds == HEARTBEAT_SECONDS
+
+
+async def test_a_quiet_stream_sends_a_heartbeat_so_the_edge_keeps_it_open(
+    app: FastAPI, client_for: ClientFor, team: dict[str, uuid.UUID], admin: psycopg.Connection
+) -> None:
+    app.state.job_stream_seconds = 0.3
+    app.state.job_heartbeat_seconds = 0.05
+    admin.execute("update app.jobs set status = 'running' where id = %s", (team["job"],))
+    resp = await asyncio.wait_for((await client_for(team["expert"])).get(f"/v1/jobs/{team['job']}/events"), 10)
+    assert resp.status_code == 200
+    assert ": keepalive" in resp.text, "a quiet stream must still send something"
+    assert events(resp)[-1]["status"] == "running", "a heartbeat is a comment, not an event"

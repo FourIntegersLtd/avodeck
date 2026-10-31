@@ -20,7 +20,7 @@ from app.core import audit
 from app.core.auth.access import CaseAccess, require_case_access
 from app.core.auth.step_up import require_step_up
 from app.core.http import DbConn, router
-from tests.support.auth import CSRF_HEADER, cookie_header
+from tests.support.auth import APP_ORIGIN, CSRF_HEADER, cookie_header
 from tests.support.seed import Seed, SeededSession
 
 pytestmark = pytest.mark.anyio
@@ -55,7 +55,9 @@ async def post(app: FastAPI) -> AsyncIterator[Post]:
     from app.main import mount
 
     mount(app, probe_router())
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://test", headers={"origin": APP_ORIGIN}
+    ) as client:
 
         async def call(session: SeededSession, path: str, key: str) -> httpx.Response:
             headers = {"cookie": cookie_header(session), CSRF_HEADER: session.csrf, "idempotency-key": key}

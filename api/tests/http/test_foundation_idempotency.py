@@ -19,7 +19,7 @@ from pydantic import BaseModel
 from app.core import audit
 from app.core.errors import ApiError
 from app.core.http import DbConn, router
-from tests.support.auth import CSRF_HEADER, cookie_header
+from tests.support.auth import APP_ORIGIN, CSRF_HEADER, cookie_header
 from tests.support.seed import Seed
 
 pytestmark = pytest.mark.anyio
@@ -51,7 +51,9 @@ async def post(app: FastAPI, seed: Seed) -> AsyncIterator[Callable[..., Any]]:
     from app.main import mount
 
     mount(app, probe_router())
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test") as client:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app), base_url="https://test", headers={"origin": APP_ORIGIN}
+    ) as client:
 
         async def call(person: uuid.UUID, key: str | None, body: dict[str, Any]) -> httpx.Response:
             session = seed.session(person)

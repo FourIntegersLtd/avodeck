@@ -18,7 +18,11 @@ pytestmark = pytest.mark.anyio
 
 
 def a_client() -> httpx.AsyncClient:
-    auth = SimpleNamespace(settings=SimpleNamespace(app_origin="https://zz.invalid"))
+    auth = SimpleNamespace(
+        settings=SimpleNamespace(
+            app_origin="https://zz.invalid", app_origins=("https://zz.invalid",), cookie_domain=None
+        )
+    )
     app = create_app(database=SimpleNamespace(), region="zz", auth=auth)  # type: ignore[arg-type]
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test")
 

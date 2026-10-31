@@ -158,7 +158,7 @@ async def _start_session(
         await conn.execute("select app.ensure_person(%s, %s, %s)", (tokens.email, None, request.app.state.region))
         session_id, new = await sessions.open_session(conn, tokens, sessions.device_label(request))
         await audit.record(conn, action=action, target=f"session:{session_id}")
-    sessions.set_cookies(response, new)
+    sessions.set_cookies(response, new, request.app.state.cookie_domain)
 
 
 # --- models -------------------------------------------------------------------------------------
@@ -319,7 +319,7 @@ async def verify(body: Code, request: Request, response: Response, session: Curr
     )
     codes = None if session.mfa_enrolled else await issue_recovery_codes(conn, session.person_id)
     await audit.record(conn, action="auth.mfa_verified", target=f"session:{session.id}")
-    sessions.set_cookies(response, new)
+    sessions.set_cookies(response, new, request.app.state.cookie_domain)
     return Verified(status="signed_in", recovery_codes=codes)
 
 
@@ -386,7 +386,7 @@ async def sign_out(request: Request, session: CurrentSession, conn: DbConn) -> R
     if session.auth_access_token:
         await _auth(request).sign_out(session.auth_access_token)
     response = Response(status_code=204)
-    sessions.clear_cookies(response)
+    sessions.clear_cookies(response, request.app.state.cookie_domain)
     return response
 
 

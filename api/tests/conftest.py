@@ -22,7 +22,7 @@ import httpx
 import psycopg
 import pytest
 
-from tests.support.auth import CSRF_HEADER, AuthAdmin, add_csrf, cookie_header
+from tests.support.auth import APP_ORIGIN, CSRF_HEADER, AuthAdmin, add_csrf, cookie_header
 from tests.support.db import ClientFor
 from tests.support.local_supabase import local_db_port, test_dsns
 from tests.support.seed import Seed, SeededSession
@@ -33,7 +33,6 @@ if TYPE_CHECKING:
     from app.core.db import Database
 
 REPO = Path(__file__).resolve().parents[2]
-APP_ORIGIN = "https://app.test"
 
 # Test apps load the launch packs and the fixture packs (`packs/_fixtures/`); a real cell loads only its own.
 os.environ.setdefault("PACKS_DIR", os.pathsep.join(str(REPO / p) for p in ("packs", "packs/_fixtures")))
@@ -145,6 +144,9 @@ async def browser(app: FastAPI) -> AsyncIterator[Callable[[], Awaitable[httpx.As
             client = httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app),
                 base_url="https://test",
+                # A browser names its origin on every request, and the API refuses a change without one
+                # now that it has an origin of its own (ADR 0031).
+                headers={"origin": APP_ORIGIN},
                 event_hooks={"request": [add_csrf]},
             )
             return await stack.enter_async_context(client)
@@ -162,6 +164,7 @@ async def client_with(app: FastAPI) -> AsyncIterator[Callable[..., Awaitable[htt
                 headers["cookie"] = cookie_header(session)
                 if csrf:
                     headers[CSRF_HEADER] = session.csrf
+            headers.setdefault("origin", APP_ORIGIN)  # as a browser does (ADR 0031); pass origin= to change it
             client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://test", headers=headers)
             return await stack.enter_async_context(client)
 

@@ -65,7 +65,11 @@ def module(package: str, member: str) -> Any:
 
 
 def an_app(package: str) -> Any:
-    auth = SimpleNamespace(settings=SimpleNamespace(app_origin="https://zz.invalid"))
+    auth = SimpleNamespace(
+        settings=SimpleNamespace(
+            app_origin="https://zz.invalid", app_origins=("https://zz.invalid",), cookie_domain=None
+        )
+    )
     return create_app(
         database=SimpleNamespace(name="zz-db"),  # type: ignore[arg-type]
         region="zz",

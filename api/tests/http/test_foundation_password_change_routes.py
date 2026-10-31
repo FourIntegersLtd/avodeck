@@ -21,7 +21,7 @@ import httpx
 import psycopg
 import pytest
 
-from tests.support.auth import PASSWORD, AuthAdmin, new_email, sign_in_with_mfa
+from tests.support.auth import APP_ORIGIN, PASSWORD, AuthAdmin, new_email, sign_in_with_mfa
 
 pytestmark = pytest.mark.anyio
 
@@ -99,7 +99,9 @@ async def test_the_new_password_must_be_long_and_different(
 async def test_it_needs_the_csrf_token(browser: Browser, auth_admin: AuthAdmin) -> None:
     web = await browser()
     await sign_in_with_mfa(web, auth_admin)
-    bare = httpx.AsyncClient(transport=web._transport, base_url="https://test", cookies=web.cookies)
+    bare = httpx.AsyncClient(
+        transport=web._transport, base_url="https://test", cookies=web.cookies, headers={"origin": APP_ORIGIN}
+    )
     async with bare:
         resp = await bare.post(URL, json={"current_password": PASSWORD, "new_password": NEW})
     assert (resp.status_code, resp.json()["error"]["code"]) == (403, "csrf_required")

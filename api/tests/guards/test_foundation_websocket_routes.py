@@ -53,7 +53,7 @@ async def test_every_websocket_route_refuses_no_session_and_no_access_before_acc
     owner, outsider = seed.person(), seed.person()
     case = seed.case(seed.org(kind="personal", members={owner: "owner"}), owner)
     seed.org(kind="personal", members={outsider: "owner"})
-    app.state.app_origin = ORIGIN
+    app.state.app_origins = (ORIGIN,)
     for route in websocket_routes():
         path = _fill(route.path, case) + "?context=guard"
         async with ws_connect(app, path, [("origin", ORIGIN)]) as ws:

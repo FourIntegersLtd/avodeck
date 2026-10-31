@@ -20,7 +20,7 @@ from app.core.db import Database
 from app.core.errors import ApiError
 from app.core.http import DbConn, router
 from app.main import mount
-from tests.support.auth import CSRF_HEADER, cookie_header
+from tests.support.auth import APP_ORIGIN, CSRF_HEADER, cookie_header
 from tests.support.contracts import add_report_version
 from tests.support.files import build_app
 from tests.support.seed import Seed
@@ -64,7 +64,7 @@ async def _client(app: FastAPI, seed: Seed, person: uuid.UUID) -> httpx.AsyncCli
     return httpx.AsyncClient(
         transport=httpx.ASGITransport(app=app),
         base_url="https://test",
-        headers={"cookie": cookie_header(session), CSRF_HEADER: session.csrf},
+        headers={"cookie": cookie_header(session), CSRF_HEADER: session.csrf, "origin": APP_ORIGIN},
     )
 
 

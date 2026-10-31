@@ -85,7 +85,7 @@ async def end_all_sessions(request: Request, session: CurrentSession, conn: DbCo
         auth: SupabaseAuth = request.app.state.auth
         await auth.sign_out(session.auth_access_token, scope="global")
     response = Response(status_code=204)
-    sessions.clear_cookies(response)
+    sessions.clear_cookies(response, request.app.state.cookie_domain)
     return response
 
 

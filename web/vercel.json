@@ -28,15 +28,11 @@
   ],
   "rewrites": [
     {
-      "source": "/v1/:path*",
-      "destination": "https://api.avodeck.com/v1/:path*"
-    },
-    {
       "source": "/privacy",
       "destination": "/privacy.html"
     },
     {
-      "source": "/((?!v1/|assets/).*)",
+      "source": "/((?!assets/).*)",
       "destination": "/app.html"
     }
   ],
