@@ -15,21 +15,53 @@ if TYPE_CHECKING:
     from fastapi import FastAPI
 
     from app.core.db import Database
-    from app.core.storage import SupabaseStorage
+    from app.core.storage import CaseFileStorage
 
 MB = 1024 * 1024
 CHUNK = 8 * MB
 STORAGE_BUCKET = "case-files-test"
+STORAGE_REGION = "eu-west-2"
+
+_moto: Any = None
 
 
-def storage_env(auth_env: dict[str, str]) -> dict[str, str]:
-    return {**auth_env, "STORAGE_BUCKET": STORAGE_BUCKET}
+def moto_endpoint() -> str:
+    """URL of a local S3 stand-in (moto), started once per test process on a free port, real HTTP."""
+    global _moto
+    if _moto is None:
+        import atexit
+        import socket
+
+        from moto.server import ThreadedMotoServer
+
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+        _moto = ThreadedMotoServer(ip_address="127.0.0.1", port=port, verbose=False)
+        _moto.start()
+        atexit.register(_moto.stop)
+    host, port = _moto.get_host_and_port()
+    return f"http://{host}:{port}"
 
 
-async def local_storage(auth_env: dict[str, str]) -> SupabaseStorage:
-    from app.core.storage import SupabaseStorage, storage_settings
+def storage_env(auth_env: dict[str, str] | None = None, **overrides: str) -> dict[str, str]:
+    """Settings for the adapter against the local S3 stand-in. `auth_env` is accepted so callers need not change."""
+    return {
+        **(auth_env or {}),
+        "STORAGE_BUCKET": STORAGE_BUCKET,
+        "AWS_REGION": STORAGE_REGION,
+        "AWS_ALLOWED_REGIONS": STORAGE_REGION,
+        "AWS_ACCESS_KEY_ID": "test-access-key",
+        "AWS_SECRET_ACCESS_KEY": "test-secret-key",
+        "S3_ENDPOINT_URL": moto_endpoint(),
+        **overrides,
+    }
 
-    storage = SupabaseStorage(storage_settings(storage_env(auth_env)))
+
+async def local_storage(auth_env: dict[str, str] | None = None, **kwargs: Any) -> CaseFileStorage:
+    from app.core.storage import CaseFileStorage, storage_settings
+
+    storage = CaseFileStorage(storage_settings(storage_env(auth_env)), **kwargs)
     await storage.ensure_bucket()
     return storage
 
