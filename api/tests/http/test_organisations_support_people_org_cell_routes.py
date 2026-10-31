@@ -53,7 +53,8 @@ async def test_a_person_shows_their_mfa_codes_email_change_custodian_and_closure
             (k, uuid.uuid4().hex, datetime.now().astimezone() if used else None),
         )
     admin.execute(
-        "insert into app.mfa_attempts (person_id, failures, window_started_at) values (%s, 5, now() - interval '5 minutes')",
+        "insert into app.mfa_attempts (person_id, failures, window_started_at)"
+        " values (%s, 5, now() - interval '5 minutes')",
         (k,),
     )
     admin.execute(
@@ -111,7 +112,8 @@ async def test_an_old_lockout_a_finished_email_change_and_a_closed_account(
 ) -> None:
     v = world["viewer"]
     admin.execute(
-        "insert into app.mfa_attempts (person_id, failures, window_started_at) values (%s, 7, now() - interval '20 minutes')",
+        "insert into app.mfa_attempts (person_id, failures, window_started_at)"
+        " values (%s, 7, now() - interval '20 minutes')",
         (v,),
     )
     admin.execute(
@@ -157,7 +159,8 @@ async def test_an_organisation_shows_members_invites_owners_open_cases_and_reass
     world.team_case(status="deleted")
     world.solo_case()  # another organisation's case
     admin.execute(
-        "insert into app.audit_log (case_id, person_id, action, target) values (%s, %s, 'case.named_expert_changed', %s)",
+        "insert into app.audit_log (case_id, person_id, action, target)"
+        " values (%s, %s, 'case.named_expert_changed', %s)",
         (moved, world["owner"], f"case:{moved}"),
     )
 
@@ -207,7 +210,9 @@ async def test_the_cell_status_counts_waiting_and_paused_work_and_the_worker_hea
     admin.execute("update app.jobs set status = 'running' where id = %s", (paused,))
     admin.execute("update app.jobs set status = 'paused', error_code = 'cost_guard' where id = %s", (paused,))
     admin.execute("delete from procrastinate.procrastinate_workers")
-    admin.execute("insert into procrastinate.procrastinate_workers (last_heartbeat) values (now() - interval '30 seconds')")
+    admin.execute(
+        "insert into procrastinate.procrastinate_workers (last_heartbeat) values (now() - interval '30 seconds')"
+    )
     app.state.speech = object()
     app.state.crypto = object()
 
@@ -218,9 +223,13 @@ async def test_the_cell_status_counts_waiting_and_paused_work_and_the_worker_hea
     assert (after["speech_ok"], after["key_service_ok"]) == (True, True)
 
 
-async def test_no_worker_heartbeat_answers_none(client_for: ClientFor, staff: uuid.UUID, admin: psycopg.Connection) -> None:
+async def test_no_worker_heartbeat_answers_none(
+    client_for: ClientFor, staff: uuid.UUID, admin: psycopg.Connection
+) -> None:
     admin.execute("delete from procrastinate.procrastinate_workers")
-    assert (await (await client_for(staff)).get("/v1/support/cell/status")).json()["worker_heartbeat_age_seconds"] is None
+    assert (await (await client_for(staff)).get("/v1/support/cell/status")).json()[
+        "worker_heartbeat_age_seconds"
+    ] is None
 
 
 @pytest.mark.parametrize("who", ["dr_k", "owner", "outsider", "former"])

@@ -232,7 +232,9 @@ async def support_case_diagnostics(conn: AsyncConnection, case_id: uuid.UUID) ->
     return dict(found) if found is not None else None
 
 
-async def support_person(conn: AsyncConnection, email: str, max_failures: int, window: timedelta) -> list[dict[str, Any]]:
+async def support_person(
+    conn: AsyncConnection, email: str, max_failures: int, window: timedelta
+) -> list[dict[str, Any]]:
     found = await value(conn, "select app.support_person(%s, %s, %s)", (email, max_failures, window))
     return list(found or [])
 
@@ -263,7 +265,8 @@ async def custody_in_force(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
     await conn.execute("select pg_advisory_xact_lock(hashtextextended('custody:' || %s::text, 0))", (case_id,))
     return bool(
         await value(
-            conn, "select exists (select 1 from app.custody_transfers where case_id = %s and revoked_at is null)",
+            conn,
+            "select exists (select 1 from app.custody_transfers where case_id = %s and revoked_at is null)",
             (case_id,),
         )  # fmt: skip
     )
