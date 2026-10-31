@@ -32,7 +32,7 @@ from app.core.email import deletion_certificate_mail
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.notifications import notify
 from app.core.packs import PackLibrary, default_library
-from app.core.storage import StorageError, SupabaseStorage, case_prefix, storage_settings
+from app.core.storage import StorageError, CaseFileStorage, case_prefix, storage_settings
 from app.features.close.schemas import EXPORT_KINDS
 from app.features.close.service import DEFAULT_POLICY, delete_after, export_path, selection_path
 
@@ -71,13 +71,13 @@ class _Services:
     """Storage and the case keys for the jobs, made from the cell config on first use."""
 
     def __init__(self) -> None:
-        self.storage: SupabaseStorage | None = None
+        self.storage: CaseFileStorage | None = None
         self.crypto: CaseCrypto | None = None
         self.packs: PackLibrary | None = None
 
-    def get_storage(self) -> SupabaseStorage:
+    def get_storage(self) -> CaseFileStorage:
         if self.storage is None:
-            self.storage = SupabaseStorage(storage_settings())
+            self.storage = CaseFileStorage(storage_settings())
         return self.storage
 
     def get_crypto(self) -> CaseCrypto:
@@ -142,7 +142,7 @@ async def _tell_paused(ctx: JobContext, conn: AsyncConnection, case: dict[str, A
         )
 
 
-async def _start(ctx: JobContext, storage: SupabaseStorage) -> bool:
+async def _start(ctx: JobContext, storage: CaseFileStorage) -> bool:
     """Writes the certificate row (deletion has started). False if the case is not to be deleted now."""
     async with ctx.transaction() as conn:
         case = await _one(
@@ -378,7 +378,7 @@ async def export_case(ctx: JobContext) -> None:
 
 
 async def _chosen_kinds(
-    conn: AsyncConnection, ctx: JobContext, storage: SupabaseStorage, crypto: CaseCrypto
+    conn: AsyncConnection, ctx: JobContext, storage: CaseFileStorage, crypto: CaseCrypto
 ) -> frozenset[str]:
     """The kinds the requester ticked (read once, then the note is removed); every kind if none."""
     path = selection_path(ctx.case_id, ctx.job_id)

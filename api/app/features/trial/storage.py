@@ -14,7 +14,7 @@ from typing import Protocol
 from psycopg import AsyncConnection
 
 from app.core.crypto import CaseCrypto
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 
 
 class Vault(Protocol):
@@ -22,7 +22,7 @@ class Vault(Protocol):
 
     def case_crypto(self) -> CaseCrypto: ...
 
-    def files(self) -> SupabaseStorage: ...
+    def files(self) -> CaseFileStorage: ...
 
 
 @dataclass(frozen=True)
@@ -30,12 +30,12 @@ class Sealer:
     """The crypto and storage a route was given, in the shape the helpers take."""
 
     crypto: CaseCrypto
-    storage: SupabaseStorage
+    storage: CaseFileStorage
 
     def case_crypto(self) -> CaseCrypto:
         return self.crypto
 
-    def files(self) -> SupabaseStorage:
+    def files(self) -> CaseFileStorage:
         return self.storage
 
 

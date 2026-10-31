@@ -41,7 +41,7 @@ from app.core.crypto import CaseCrypto, StoredFileChanged
 from app.core.errors import CONFLICT_SQLSTATE, ApiError
 from app.core.http import CurrentScope, DbConn, router
 from app.core.jobs import registry
-from app.core.storage import SupabaseStorage, upload_prefix
+from app.core.storage import CaseFileStorage, upload_prefix
 from app.core.uploads import FINALIZE_UPLOAD
 
 CHUNK_SIZE = 8 * 1024 * 1024
@@ -97,8 +97,8 @@ class UploadedDocument(BaseModel):
     size: int
 
 
-def _storage(request: Request) -> SupabaseStorage:
-    storage: SupabaseStorage | None = request.app.state.storage
+def _storage(request: Request) -> CaseFileStorage:
+    storage: CaseFileStorage | None = request.app.state.storage
     if storage is None:
         raise ApiError("unavailable", "File storage is not ready.", 503)
     return storage
@@ -111,7 +111,7 @@ def _crypto(request: Request) -> CaseCrypto:
     return crypto
 
 
-Storage = Annotated[SupabaseStorage, Depends(_storage)]
+Storage = Annotated[CaseFileStorage, Depends(_storage)]
 Crypto = Annotated[CaseCrypto, Depends(_crypto)]
 
 

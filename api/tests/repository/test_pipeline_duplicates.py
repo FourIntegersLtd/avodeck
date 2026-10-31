@@ -21,7 +21,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import paths
 from tests.repository.test_pipeline_support import (
     Harness,
@@ -54,7 +54,7 @@ OTHER_DATE = [LETTER[0].replace("03/04/2024", "05/04/2024"), *LETTER[1:]]
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -83,7 +83,7 @@ async def subset(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     recordings = rekeyed_store(tmp_path / "recordings", subset_document(), subset_page_bytes())
     case = expected("case.json")
@@ -174,7 +174,7 @@ async def test_only_a_page_with_the_same_words_values_and_dates_is_a_copy(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     pack = default_library().combine(*combo.codes)
     expert = seed.person()

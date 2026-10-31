@@ -19,7 +19,7 @@ from app.core.ai.ocr import OcrFailed, OcrModel, OcrResult
 from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
 from app.core.pdf import split_pages
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import Harness, recorded_book, subset_document, subset_entries
 from tests.repository.test_pipeline_words import _open, recordings, storage  # noqa: F401
 from tests.support.packs import LAUNCH
@@ -59,7 +59,7 @@ async def opened(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,  # noqa: F811
+    storage: CaseFileStorage,  # noqa: F811
 ) -> AsyncIterator[Harness]:
     ctx = await _open(
         LAUNCH,

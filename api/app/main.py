@@ -37,7 +37,7 @@ from app.core.routes.support import support_router
 from app.core.routes.today import today_router
 from app.core.routes.uploads import uploads_router
 from app.core.speech import SpeechClient
-from app.core.storage import SupabaseStorage, storage_settings
+from app.core.storage import CaseFileStorage, storage_settings
 from app.features.pipeline import pipeline_router
 from app.features.reader.log import ReaderPageReadLog
 from app.features.report.routes_colleague import colleague_router
@@ -62,7 +62,7 @@ def create_app(
     auth: SupabaseAuth | None = None,
     mailer: Mailer | None = None,
     packs: PackLibrary | None = None,
-    storage: SupabaseStorage | None = None,
+    storage: CaseFileStorage | None = None,
     crypto: CaseCrypto | None = None,
     speech: SpeechClient | None = None,
     needs_you: NeedsYouRegistry | None = None,
@@ -98,10 +98,10 @@ def create_app(
             owned = Database(database_settings().url)
             await owned.open()
             app.state.database = owned
-        owned_storage: SupabaseStorage | None = None
+        owned_storage: CaseFileStorage | None = None
         if app.state.storage is None:
             try:
-                owned_storage = SupabaseStorage(storage_settings())
+                owned_storage = CaseFileStorage(storage_settings())
             except ConfigError:
                 owned_storage = None
             app.state.storage = owned_storage

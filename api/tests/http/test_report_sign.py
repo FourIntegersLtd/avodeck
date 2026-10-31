@@ -39,7 +39,7 @@ from app.core.contracts import events
 from app.core.db import Database
 from app.core.jobs import JobContext
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.report.checks import declaration_version
 from app.features.report.jobs import build_report, final_check
 from app.features.report.services import ReportServices, configure
@@ -84,19 +84,19 @@ def reads() -> Reads:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     yield store
     await store.aclose()
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage) -> FastAPI:
     return app_for(api_db, auth_env, combo, reads, storage)
 
 
 @pytest.fixture(autouse=True)
-def services(reads: Reads, storage: SupabaseStorage) -> Iterator[None]:
+def services(reads: Reads, storage: CaseFileStorage) -> Iterator[None]:
     configure(ReportServices(crypto=CRYPTO, storage=storage, reads=reads, kit=AiKit(cell(), Answering())))
     yield
     configure(None)
@@ -148,7 +148,7 @@ async def ready(
     aconn: psycopg.AsyncConnection,
     world: World,
     reads: Reads,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     steps: dict[str, Callable[[], Any]],
 ) -> World:
     """A case whose latest draft passed a current final check, with the signature image on file."""
@@ -203,7 +203,7 @@ async def test_signing_without_a_passing_current_final_check_is_refused(
     aconn: psycopg.AsyncConnection,
     world: World,
     reads: Reads,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     steps: dict[str, Callable[[], Any]],
 ) -> None:
     client = await client_for(world.expert)
@@ -338,7 +338,7 @@ async def test_a_locked_version_refuses_a_download_whose_file_no_longer_matches_
     client_for: ClientFor,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     ready: World,
 ) -> None:
     client = await client_for(ready.expert)
@@ -522,7 +522,7 @@ async def test_once_served_or_withdrawn_a_new_build_check_or_sign_goes_through_t
 async def test_two_signs_at_once_give_one_signed_version_whose_downloads_verify(
     client_for: ClientFor,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     ready: World,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

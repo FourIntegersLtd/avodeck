@@ -18,7 +18,7 @@ from psycopg import AsyncConnection
 
 from app.core.config import ConfigError
 from app.core.jobs import registry
-from app.core.storage import SupabaseStorage, case_prefix, storage_settings, upload_prefix
+from app.core.storage import CaseFileStorage, case_prefix, storage_settings, upload_prefix
 
 UPLOAD_SWEEP = "expire_uploads"
 _log = logging.getLogger(__name__)
@@ -35,13 +35,13 @@ class ReconcileResult:
     failed: int = 0
 
 
-async def expire_uploads(conn: AsyncConnection, run_date: date, storage: SupabaseStorage | None) -> list[uuid.UUID]:
+async def expire_uploads(conn: AsyncConnection, run_date: date, storage: CaseFileStorage | None) -> list[uuid.UUID]:
     """Expire what was due by the end of `run_date`, clean terminal rows; returns affected upload ids."""
     return [upload_id for _, upload_id in await _expire_uploads(conn, run_date, storage)]
 
 
 async def _expire_uploads(
-    conn: AsyncConnection, run_date: date, storage: SupabaseStorage | None
+    conn: AsyncConnection, run_date: date, storage: CaseFileStorage | None
 ) -> list[tuple[uuid.UUID, uuid.UUID]]:
     """As `expire_uploads`, as (case id, upload id) pairs."""
     cur = await conn.execute(
@@ -74,7 +74,7 @@ async def _expire_uploads(
 
 
 async def reconcile_upload_objects(
-    conn: AsyncConnection, storage: SupabaseStorage, case_id: uuid.UUID
+    conn: AsyncConnection, storage: CaseFileStorage, case_id: uuid.UUID
 ) -> ReconcileResult:
     """Delete a case's orphaned upload folders; leave everything not certainly orphaned.
 
@@ -153,7 +153,7 @@ async def reconcile_upload_objects(
 @registry.schedule(UPLOAD_SWEEP)
 async def sweep_uploads(conn: AsyncConnection, run_date: date) -> None:
     try:
-        storage: SupabaseStorage | None = SupabaseStorage(storage_settings())
+        storage: CaseFileStorage | None = CaseFileStorage(storage_settings())
     except ConfigError:
         storage = None  # no Storage in this cell: nothing was stored, only the rows expire
     try:

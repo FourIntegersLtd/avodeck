@@ -23,7 +23,7 @@ from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn
 from app.core.jobs import registry
 from app.core.packs import PackLibrary
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.reader import transcript, transcript_jobs
 from app.features.reader.router import router
 from app.features.reader.schemas import JobOut, RetryOut, SeenIn, SeenOut, TranscriptEntryOut, TranscriptList
@@ -127,7 +127,7 @@ async def transcript_download(
         raise _not_found()
     if job[0] != "done":
         raise ApiError("conflict", "The file is not ready yet.", 409)
-    storage: SupabaseStorage | None = request.app.state.storage
+    storage: CaseFileStorage | None = request.app.state.storage
     crypto: CaseCrypto | None = request.app.state.crypto
     if storage is None or crypto is None:
         raise ApiError("unavailable", "File storage is not ready.", 503)

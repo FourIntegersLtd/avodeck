@@ -29,7 +29,7 @@ import anyio.to_thread
 from psycopg import AsyncConnection
 
 from app.core.crypto import CaseCrypto, CiphertextInvalid
-from app.core.storage import StorageNotFound, SupabaseStorage, upload_prefix
+from app.core.storage import StorageNotFound, CaseFileStorage, upload_prefix
 
 _log = logging.getLogger(__name__)
 MAX_FILE_SIZE = 500 * 1024 * 1024  # the upload limit; the routes import it from here
@@ -57,7 +57,7 @@ class StoredFileCorrupt(Exception):
 class StoredDocument:
     """A document stored as encrypted chunks under a prefix in Supabase Storage."""
 
-    storage: SupabaseStorage
+    storage: CaseFileStorage
     crypto: CaseCrypto
     case_id: uuid.UUID
     prefix: str
@@ -65,7 +65,7 @@ class StoredDocument:
 
     @classmethod
     def for_upload(
-        cls, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, upload_id: uuid.UUID, chunk_count: int
+        cls, storage: CaseFileStorage, crypto: CaseCrypto, case_id: uuid.UUID, upload_id: uuid.UUID, chunk_count: int
     ) -> StoredDocument:
         """Build from an upload row: paths are `{prefix}/00001` … `{prefix}/{chunk_count:05d}`."""
         prefix = upload_prefix(case_id, upload_id)
@@ -74,7 +74,7 @@ class StoredDocument:
 
     @classmethod
     async def for_prefix(
-        cls, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str
+        cls, storage: CaseFileStorage, crypto: CaseCrypto, case_id: uuid.UUID, prefix: str
     ) -> StoredDocument:
         """Build from a Storage prefix, listing all objects (paginated)."""
         paths = sorted(await storage.list_recursive(prefix))

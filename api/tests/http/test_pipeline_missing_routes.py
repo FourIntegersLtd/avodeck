@@ -24,7 +24,7 @@ import pytest
 from app.core.db import Database
 from app.core.http import etag
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import Harness, harness, text_pdf
 from tests.support.ai import ScriptedBedrock, response
 from tests.support.auth import CSRF_HEADER, cookie_header
@@ -41,7 +41,7 @@ LETTER = [
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -56,7 +56,7 @@ async def bundle(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     """One typed letter mentioning a report the model finds on no page."""
     pack = default_library().combine(*LAUNCH.codes)

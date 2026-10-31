@@ -21,7 +21,7 @@ from fastapi import FastAPI
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.jobs import JobContext
-from app.core.storage import StorageError, SupabaseStorage
+from app.core.storage import StorageError, CaseFileStorage
 from app.features.reader import repo, transcript_jobs
 from tests.support.db import scope_for
 from tests.support.files import build_app, local_storage
@@ -44,7 +44,7 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -58,13 +58,13 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture(autouse=True)
-def services(monkeypatch: pytest.MonkeyPatch, storage: SupabaseStorage, crypto: CaseCrypto) -> None:
+def services(monkeypatch: pytest.MonkeyPatch, storage: CaseFileStorage, crypto: CaseCrypto) -> None:
     monkeypatch.setattr(transcript_jobs.services, "storage", storage)
     monkeypatch.setattr(transcript_jobs.services, "crypto", crypto)
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -154,7 +154,7 @@ async def test_the_copy_is_downloaded_once_and_audited(
 
 
 async def test_a_job_nobody_asked_for_builds_nothing(
-    worker_db: Database, seed: Seed, storage: SupabaseStorage, world: dict[str, Any]
+    worker_db: Database, seed: Seed, storage: CaseFileStorage, world: dict[str, Any]
 ) -> None:
     job = seed.job(world["case"], kind="export_transcript")
     await transcript_jobs.export_transcript(JobContext(worker_db, job, world["case"], "export_transcript", 1))
@@ -168,7 +168,7 @@ async def test_the_stored_copy_is_sealed(
     worker_db: Database,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     world: dict[str, Any],
 ) -> None:
@@ -251,7 +251,7 @@ async def test_a_storage_fault_is_not_reported_as_already_downloaded(
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
     crypto: CaseCrypto,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     world: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -278,7 +278,7 @@ async def test_the_copy_is_handed_over_once_even_if_removing_it_fails(
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
     crypto: CaseCrypto,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     world: dict[str, Any],
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

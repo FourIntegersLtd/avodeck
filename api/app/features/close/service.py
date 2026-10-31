@@ -29,7 +29,7 @@ from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError, conflict
 from app.core.jobs import registry
 from app.core.packs import PackLibrary
-from app.core.storage import StorageError, SupabaseStorage, case_prefix
+from app.core.storage import StorageError, CaseFileStorage, case_prefix
 from app.features.close import repo
 from app.features.close.schemas import (
     EXPORT_KINDS,
@@ -239,7 +239,7 @@ async def request_export(
     conn: AsyncConnection,
     case_id: uuid.UUID,
     kinds: Sequence[str] | None = None,
-    storage: SupabaseStorage | None = None,
+    storage: CaseFileStorage | None = None,
     crypto: CaseCrypto | None = None,
 ) -> uuid.UUID:
     await _locked_case(conn, case_id)  # refused once deletion has started
@@ -274,7 +274,7 @@ async def check_export_done(conn: AsyncConnection, case_id: uuid.UUID, job_id: u
 
 async def download_export(
     conn: AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     access: CaseAccess,
     job_id: uuid.UUID,

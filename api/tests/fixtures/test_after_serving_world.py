@@ -32,7 +32,7 @@ from app.core.contracts.document_words import word_purpose
 from app.core.db import Database
 from app.core.email import OutboxMailer
 from app.core.packs import MergedPack, default_library
-from app.core.storage import SupabaseStorage, case_prefix
+from app.core.storage import CaseFileStorage, case_prefix
 from tests.fixtures.report.world import CRYPTO, Reads, app_for
 from tests.support.ai import CELL_ENV, cell
 from tests.support.contracts import add_fact, add_question
@@ -216,7 +216,7 @@ def served_state(admin: psycopg.Connection, version: uuid.UUID) -> tuple[Any, ..
 
 
 async def store_document(
-    storage: SupabaseStorage, admin: psycopg.Connection, aconn: AsyncConnection, case: uuid.UUID, text: str, kind: str
+    storage: CaseFileStorage, admin: psycopg.Connection, aconn: AsyncConnection, case: uuid.UUID, text: str, kind: str
 ) -> uuid.UUID:
     """A document the expert uploaded, stored as core stores uploads: sealed parts under its storage path."""
     document = uuid.uuid4()
@@ -301,7 +301,7 @@ class Scripted:
 
 
 def app_with(
-    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage
+    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage
 ) -> FastAPI:
     """The API as slice F's tests build it, with slice G's start-up hook run (tests do not run the lifespan)."""
     from app.features.after_serving import on_startup
@@ -326,14 +326,14 @@ def reads() -> Reads:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     yield store
     await store.aclose()
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage) -> FastAPI:
     return app_with(api_db, auth_env, combo, reads, storage)
 
 
@@ -354,7 +354,7 @@ def mailer() -> OutboxMailer:
 
 @pytest.fixture(autouse=True)
 def services(
-    reads: Reads, storage: SupabaseStorage, model: Scripted, ocr: TextOcr, mailer: OutboxMailer
+    reads: Reads, storage: CaseFileStorage, model: Scripted, ocr: TextOcr, mailer: OutboxMailer
 ) -> Iterator[None]:
     from app.features.after_serving.services import AfterServingServices, configure
 

@@ -18,7 +18,7 @@ from fastapi import FastAPI
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.housekeeping import expire_uploads
-from app.core.storage import SupabaseStorage, upload_prefix
+from app.core.storage import CaseFileStorage, upload_prefix
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -29,7 +29,7 @@ FILE = SyntheticFile(10 * MB, seed=31)
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -38,7 +38,7 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=CaseCrypto(LocalKeyProvider.generate()))
 
 
@@ -91,7 +91,7 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 async def test_the_sweep_logs_upload_expired_and_upload_cleaned_with_counts_and_ids_only(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     team: dict[str, uuid.UUID],
     caplog: pytest.LogCaptureFixture,

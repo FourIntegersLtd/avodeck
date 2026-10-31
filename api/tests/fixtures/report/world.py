@@ -25,7 +25,7 @@ from app.core.contracts import opinions
 from app.core.crypto import CaseCrypto, LocalKeyProvider, SecretBox
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.contracts import add_fact, add_question
 from tests.support.packs import Combo
 from tests.support.seed import Seed
@@ -143,7 +143,7 @@ def template_headings(data: bytes) -> tuple[list[dict[str, Any]], list[str]]:
 
 
 async def save_template(
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     expert: uuid.UUID,
     mapping: dict[str, int],
@@ -196,7 +196,7 @@ def template_mapping(combo: Combo) -> tuple[dict[str, int], list[str]]:
 
 
 def app_for(
-    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage
+    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage
 ) -> FastAPI:
     """The API with storage, case encryption, the real pack library and the stand-in read log."""
     from app.core.auth.supabase import SupabaseAuth
@@ -321,7 +321,7 @@ def signature_png() -> bytes:
     return out.getvalue()
 
 
-async def store_signature(storage: SupabaseStorage, admin: psycopg.Connection, w: World) -> bytes:
+async def store_signature(storage: CaseFileStorage, admin: psycopg.Connection, w: World) -> bytes:
     """Seal the expert's signature image as slice C stores it (cell box, subject person:signature)."""
     import hashlib
 

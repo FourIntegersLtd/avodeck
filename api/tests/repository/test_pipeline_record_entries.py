@@ -26,7 +26,7 @@ from app.core.contracts.case_tables import CASE_TABLES, PURGE_ORDER
 from app.core.db import Database
 from app.core.packs import default_library
 from app.core.pdf import embedded_words, split_pages
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import extract
 from tests.repository.test_pipeline_extract import _open
 from tests.repository.test_pipeline_support import t07b_requests, text_pdf
@@ -40,7 +40,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -224,7 +224,7 @@ async def opened(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     combo: Combo = LAUNCH,
 ) -> Any:
     return await _open(
@@ -269,7 +269,7 @@ async def test_extraction_stores_the_entries_that_pass_provenance_and_counts_the
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     pack = default_library().combine(*LAUNCH.codes)
     document = text_pdf([["Seen on 12/03/2024", "by the nurse", "blood pressure fine"]])
@@ -304,7 +304,7 @@ async def test_the_entries_job_reads_entries_only_for_a_case_with_none_and_only_
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     pack = default_library().combine(*LAUNCH.codes)
     document = text_pdf([["Seen on 12/03/2024", "by the nurse", "blood pressure fine"]])
@@ -413,7 +413,7 @@ async def test_a_failed_answer_leaves_the_page_unread_and_for_a_person(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     document = text_pdf([["Seen on 12/03/2024", "by the nurse", "blood pressure fine"]])
     bedrock = ScriptedBedrock([response({"unexpected": "shape"})])  # never valid
@@ -441,7 +441,7 @@ async def test_the_entries_job_asks_a_failing_page_twice_then_leaves_it_for_a_pe
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     document = text_pdf([["Seen on 12/03/2024", "by the nurse", "blood pressure fine"]])
     bedrock = ScriptedBedrock([response({"unexpected": "shape"})])

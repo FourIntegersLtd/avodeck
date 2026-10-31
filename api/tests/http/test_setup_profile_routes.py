@@ -28,7 +28,7 @@ from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.http import etag
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.db import ClientFor
 from tests.support.files import local_storage
 from tests.support.packs import FIXTURE, LAUNCH
@@ -41,7 +41,7 @@ DOCX = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -55,7 +55,7 @@ def cell_region() -> str:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, cell_region: str) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, cell_region: str) -> FastAPI:
     from app.core.auth.supabase import SupabaseAuth
     from app.core.config import auth_settings
     from app.core.email import OutboxMailer
@@ -223,7 +223,7 @@ async def upload_template(client: httpx.AsyncClient, data: bytes) -> httpx.Respo
 
 
 async def test_the_template_is_stored_unchanged_and_its_headings_listed(
-    client_for: ClientFor, expert: uuid.UUID, storage: SupabaseStorage
+    client_for: ClientFor, expert: uuid.UUID, storage: CaseFileStorage
 ) -> None:
     data = (FIXTURES / "template.docx").read_bytes()
     client = await client_for(expert)
@@ -371,7 +371,7 @@ def signature_image(fmt: str, background: tuple[int, ...]) -> bytes:
     ids=["drawn", "photo"],
 )
 async def test_a_signature_is_stored_with_its_background_removed(
-    client_for: ClientFor, expert: uuid.UUID, storage: SupabaseStorage, method: str, data: bytes, content_type: str
+    client_for: ClientFor, expert: uuid.UUID, storage: CaseFileStorage, method: str, data: bytes, content_type: str
 ) -> None:
     client = await client_for(expert)
     resp = await client.post(

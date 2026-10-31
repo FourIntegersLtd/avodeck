@@ -24,7 +24,7 @@ from app.core.contracts.document_words import word_purpose
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.contracts import add_fact
 from tests.support.packs import Combo
 from tests.support.seed import Seed
@@ -249,7 +249,7 @@ async def serve_report(
 
 
 def app_for(
-    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage
+    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage
 ) -> FastAPI:
     """The API with storage, case encryption, the real pack library and the stand-in read log."""
     from app.core.auth.supabase import SupabaseAuth
