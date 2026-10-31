@@ -1,0 +1,40 @@
+# Applying migrations is part of landing on main, not a step someone has to remember.
+#
+# On 2026-10-31 the cell's database was found 17 migrations behind the deployed code, which broke the
+# support console (`app.support_person()` did not exist, UndefinedFunction). Nothing had gone wrong in
+# a deploy: migrations were simply never applied after a merge.
+name: Deploy migrations
+
+on:
+  push:
+    branches: [main]
+    paths: ["supabase/migrations/**", ".github/workflows/deploy-migrations.yml"]
+  workflow_dispatch:
+
+# One at a time: two merges landing together would race for the remote migration history table.
+concurrency:
+  group: deploy-migrations
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with: { version: 2.121.0 }  # pinned: "latest" asks the GitHub API and hits its rate limit
+
+      - name: What is missing from the cell's database
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          test -n "$DB_URL" || { echo "SUPABASE_DB_URL is not set in this repository's secrets"; exit 1; }
+          supabase db push --db-url "$DB_URL" --include-all --skip-vault --dry-run
+
+      - name: Apply them
+        env:
+          DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        # --include-all: slices own separate number ranges (foundation 0000-0099, A 0100-0199, ...), so a
+        # lower-numbered migration merging after a higher-numbered one is normal here, not a mistake.
+        # --skip-vault: this workflow applies schema only; it never writes vault secrets.
+        run: supabase db push --db-url "$DB_URL" --include-all --skip-vault
