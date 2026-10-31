@@ -15,12 +15,8 @@ alter table app.questions
 update app.questions set source_instruction_version_id = instruction_version_id
   where source_instruction_version_id is null;
 
--- Same for assumptions (they also need the source version for page links).
-alter table app.assumptions
-  add column source_instruction_version_id uuid references app.instruction_versions (id);
-
-update app.assumptions set source_instruction_version_id = instruction_version_id
-  where source_instruction_version_id is null;
+-- `assumptions` is slice C's table and is created later (0330), so its matching column arrives in
+-- 0398, in that slice's range: an alter here cannot run on a fresh database.
 
 -- Update the questions guard to refuse changes to the new columns.
 create or replace function app.questions_guard() returns trigger
