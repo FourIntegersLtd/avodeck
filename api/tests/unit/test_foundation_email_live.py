@@ -320,7 +320,8 @@ def test_the_footer_names_avodeck_and_claims_no_company_details() -> None:
 
 def test_the_brand_ink_and_muted_colours_replace_eventtzs() -> None:
     html = invite_html()
-    assert "#0F3D2C" in html and "#16201B" in html and "#5F6964" in html
+    assert "#0F3D2C" in html and "#16201B" in html and "#5F6964" in html and "#1E6B4E" in html
+    assert "background: #0F3D2C" not in html, "the button is the app's green, not the dark brand"
     for theirs in ("#3e1964", "#1d1d1f", "#6e6e73", "#8a8199"):
         assert theirs not in html
 
