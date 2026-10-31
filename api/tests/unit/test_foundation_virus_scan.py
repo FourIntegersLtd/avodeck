@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator
 import pytest
 
 from app.core.config import ConfigError
-from app.core.scan import RecordedScanner, ScanResult, VirusScanner, scanner_from_env
+from app.core.scan import ClamdScanner, RecordedScanner, ScanResult, VirusScanner, scanner_from_env
 
 pytestmark = pytest.mark.anyio
 
@@ -41,8 +41,9 @@ async def test_an_empty_file_is_clean() -> None:
 
 
 def test_the_cell_config_chooses_the_scanner() -> None:
+    """Unset means auto-detect: clamd when the cell gives it a host, the stand-in otherwise."""
     assert isinstance(scanner_from_env({"VIRUS_SCANNER": "recorded"}), RecordedScanner)
-    with pytest.raises(ConfigError):
-        scanner_from_env({})
+    assert isinstance(scanner_from_env({}), RecordedScanner)
+    assert isinstance(scanner_from_env({"CLAMD_HOST": "clamd.internal"}), ClamdScanner)
     with pytest.raises(ConfigError):
         scanner_from_env({"VIRUS_SCANNER": "elsewhere"})

@@ -65,8 +65,8 @@ def test_empty_text_still_gives_a_unit_vector() -> None:
 
 
 def test_the_cell_config_chooses_the_embedder() -> None:
+    """Unset means auto-detect: the stand-in when no model files are where MODELS_DIR points."""
     assert isinstance(embedder_from_env({"EMBEDDER": "recorded"}), RecordedEmbedder)
-    with pytest.raises(ConfigError):
-        embedder_from_env({})
+    assert isinstance(embedder_from_env({"MODELS_DIR": "/nowhere-at-all"}), RecordedEmbedder)
     with pytest.raises(ConfigError):
         embedder_from_env({"EMBEDDER": "somewhere-else"})
