@@ -60,15 +60,27 @@ async def entries_for_case(
 
 
 async def entries_ready(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
+    """Every page the entries job reads (extracted, not set aside) has been read or is left for a person."""
     cur = await conn.execute(
-        "select count(*) filter (where extracted_at is not null),"
-        " count(*) filter (where extracted_at is not null and entries_extracted_at is null)"
-        " from app.page_analysis where case_id = %s",
+        "select count(*), count(*) filter (where a.entries_extracted_at is null and not a.needs_human)"
+        " from app.page_analysis a join app.pages p on p.id = a.page_id"
+        " where a.case_id = %s and a.extracted_at is not null and not p.quarantined",
         (case_id,),
     )
     row = await cur.fetchone()
     assert row is not None
     return bool(row[0] > 0 and row[1] == 0)
+
+
+async def entries_unread_pages(conn: AsyncConnection, case_id: uuid.UUID) -> list[int]:
+    """Page numbers whose entries could not be read (the model failed); a person reads them, they are not empty."""
+    cur = await conn.execute(
+        "select p.bundle_page_no from app.page_analysis a join app.pages p on p.id = a.page_id"
+        " where a.case_id = %s and a.extracted_at is not null and not p.quarantined"
+        " and a.entries_extracted_at is null and a.needs_human order by p.bundle_page_no",
+        (case_id,),
+    )
+    return [r[0] for r in await cur.fetchall()]
 
 
 async def entries_status(conn: AsyncConnection, case_id: uuid.UUID) -> EntriesStatus:

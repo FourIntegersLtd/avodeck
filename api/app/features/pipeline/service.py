@@ -567,7 +567,10 @@ async def _extract(ctx: JobContext, services: PipelineServices) -> int:
             max((y for w in stored for y in w.polygon[1::2]), default=1.0) or 1.0,
         )
         evidence = extract.sort_evidence(output, ordered, struck, pack)
+        entries: list[Any] | None
         entries, entries_rejected = _entries_of(output, ordered, struck, pack)
+        if stored and output is None:
+            entries = None  # no usable answer: not "no entries"; the page is left for a person
         facts = []
         lines = dates.line_numbers([(w.word_id, w.polygon) for w in stored])
         anchor = dates.bundle_anchor(
@@ -903,12 +906,16 @@ async def extract_entries(ctx: JobContext) -> None:
     async def one(page_id: uuid.UUID) -> None:
         nonlocal done
         loaded = await _load_page(ctx, services, pack, who, page_id)
+        # The kit asks twice itself before refusing, so a None here is the settled "no usable answer".
         output = await _ask(ctx, services, task, pack, who, loaded.text, loaded.subject) if loaded.stored else None
         entries, rejected = _entries_of(output, loaded.ordered, loaded.struck, pack)
         async with ctx.transaction() as conn:
-            await repo.store_entries(
-                conn, ctx.case_id, page_id, entries, rejected=rejected, version=task.prompt_version
-            )
+            if loaded.stored and output is None:
+                await repo.leave_entries_for_person(conn, page_id)
+            else:
+                await repo.store_entries(
+                    conn, ctx.case_id, page_id, entries, rejected=rejected, version=task.prompt_version
+                )
         done += 1
         if done % 25 == 0:
             await ctx.progress(min(95, 95 * done // len(waiting)), step="entries")

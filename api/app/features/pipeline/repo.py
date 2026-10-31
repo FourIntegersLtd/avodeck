@@ -528,10 +528,19 @@ async def pages_to_read_entries(conn: AsyncConnection, case_id: uuid.UUID) -> li
     cur = await conn.execute(
         "select p.id from app.pages p join app.page_analysis a on a.page_id = p.id"
         " where p.case_id = %s and a.extracted_at is not null and a.entries_extracted_at is null"
-        " and not p.quarantined order by p.bundle_page_no",
+        " and not a.needs_human and not p.quarantined order by p.bundle_page_no",
         (case_id,),
     )
     return [r[0] for r in await cur.fetchall()]
+
+
+async def leave_entries_for_person(conn: AsyncConnection, page_id: uuid.UUID) -> None:
+    """The entries could not be read after the retry: not marked read, flagged `needs_human`."""
+    await conn.execute(
+        "update app.page_analysis set needs_human = true, reason = coalesce(reason, 'invalid_output'),"
+        " updated_at = now() where page_id = %s",
+        (page_id,),
+    )
 
 
 async def has_entries(conn: AsyncConnection, case_id: uuid.UUID) -> bool:
@@ -600,7 +609,8 @@ async def store_extraction(
             Jsonb(availability_evidence or []),
         ),
     )
-    await _put_entries(conn, case_id, page_id, entries or [], entries_rejected, prompt_version)
+    if entries is not None:  # None: the model gave no usable answer; the page stays unread, for a person
+        await _put_entries(conn, case_id, page_id, entries, entries_rejected, prompt_version)
 
 
 # Copies set aside (increment 5) -----------------------------------------------------------------
