@@ -63,6 +63,8 @@
   "errors.upload_failed": "We couldn't save this file. Nothing was kept. Please add it again.",
   "errors.upload_part_failed": "Part of this file didn't arrive properly. Please add it again.",
   "errors.chunks_missing": "Some of this file hasn't arrived yet. Please add it again.",
+  "errors.size_mismatch": "This file arrived a different size from the one you chose, so we haven't kept it. Please add it again.",
+  "errors.chunk_unreadable": "We couldn't read part of this file once it arrived, so we haven't kept it. Please add it again.",
   "errors.sha256_mismatch": "This file changed or was damaged on the way. Please add it again.",
   "errors.file_hash_mismatch": "This file didn't check out after it was added, so we haven't kept it. Please add it again from the start.",
   "errors.not_checked": "Check this first, then try again.",

@@ -124,12 +124,14 @@ const withKey = (k: string) => ({ "Idempotency-Key": k });
 interface UploadView {
   status: string;
   received?: number[];
+  missing?: number[];
   document_id?: string | null;
   failure?: string | null;
 }
 
 /** Reasons the server may give for a failed upload that the screens have their own words for. */
-const KNOWN_FAILURES = new Set(["file_hash_mismatch", "sha256_mismatch", "chunks_missing", "file_sha_missing", "chunk_corrupted", "file_too_large"]);
+// These are the only values the database allows in `uploads.failure` (migration 0124).
+const KNOWN_FAILURES = new Set(["sha256_mismatch", "size_mismatch", "chunk_unreadable"]);
 
 /** An upload the server has given up on, as an error with a code the screens have words for. */
 function failedWith(code: string): ApiError {
@@ -141,7 +143,13 @@ export async function uploadInParts(caseId: string, file: File, kind: string, ap
   const { signal, onProgress } = options;
   // One pending record for this upload: each key is made before its request goes out and kept for its retries.
   const pending = { startKey: key(), completeKey: key(), cancelKey: key(), uploadId: null as string | null, closed: false };
-  const report = (phase: UploadPhase, fraction: number) => onProgress?.({ phase, fraction: phase === "done" ? 1 : Math.min(fraction, 0.99) });
+  // After the server reopens an upload the bar holds where it was instead of going back.
+  let floor = 0;
+  let last = 0;
+  const report = (phase: UploadPhase, fraction: number) => {
+    last = phase === "done" ? 1 : Math.min(Math.max(fraction, phase === "failed" ? 0 : floor), 0.99);
+    onProgress?.({ phase, fraction: last });
+  };
   const gone = () => {
     if (signal?.aborted) throw abortError();
   };
@@ -155,7 +163,7 @@ export async function uploadInParts(caseId: string, file: File, kind: string, ap
         return;
       } catch (err) {
         if (!mayPass(err)) return;
-        await timing.sleep(timing.random() * backoffCeiling(attempt)).catch(() => undefined);
+        if (attempt < 2) await timing.sleep(timing.random() * backoffCeiling(attempt)).catch(() => undefined);
       }
     }
   };
@@ -177,17 +185,22 @@ export async function uploadInParts(caseId: string, file: File, kind: string, ap
     );
     pending.uploadId = started.upload_id;
     const ranges = chunkRanges(file.size, started.chunk_size);
+    // A part count the file cannot have is the server's mistake: stop with a real code (and cancel).
+    if (started.chunk_count > ranges.length) throw failedWith("upload_failed");
     const total = Math.max(file.size, 1);
     const sent = new Set<number>();
     const bytesSent = () => [...sent].reduce((sum, n) => sum + (ranges[n - 1]![1] - ranges[n - 1]![0]), 0);
 
     const sendParts = async (numbers: number[]) => {
+      gone();
       const queue = [...numbers];
       const stop = new AbortController();
+      if (signal?.aborted) stop.abort();
       const stopAll = () => stop.abort();
       signal?.addEventListener("abort", stopAll, { once: true });
       const lane = async () => {
         for (let n = queue.shift(); n !== undefined; n = queue.shift()) {
+          if (stop.signal.aborted) throw abortError();
           const [start, end] = ranges[n - 1]!;
           await withRetries(
             async () => {
@@ -225,6 +238,7 @@ export async function uploadInParts(caseId: string, file: File, kind: string, ap
     for (let round = 0; ; round += 1) {
       gone();
       report("finalizing", 0.99);
+      gone(); // a cancel made while that was reported must stop here, before the finish is asked for
       // Each time we ask to finish is its own operation, so it has its own key; retries of it share one.
       const completeKey = round === 0 ? pending.completeKey : key();
       const answer: { document_id?: string | null } = await withRetries(
@@ -232,11 +246,15 @@ export async function uploadInParts(caseId: string, file: File, kind: string, ap
         signal,
       );
       if (answer.document_id) return finished(answer.document_id);
-      const reopened = await pollUntilSettled(started.upload_id);
+      // The finish was accepted: the server cannot cancel it now, so a failure from here sends no cancel.
+      pending.closed = true;
+      const reopened = await pollUntilSettled(started.upload_id, started.chunk_count);
       if (typeof reopened === "string") return finished(reopened);
       if (round >= REOPENS) throw failedWith("upload_failed");
-      report("resuming", 0.5);
-      const missing = all.filter((n) => !reopened.has(n));
+      pending.closed = false; // open again: a cancel is allowed
+      floor = last;
+      report("resuming", last);
+      const missing = reopened;
       missing.forEach((n) => sent.delete(n));
       await sendParts(missing);
       missing.forEach((n) => sent.add(n));
@@ -253,26 +271,39 @@ export async function uploadInParts(caseId: string, file: File, kind: string, ap
     return documentId;
   }
 
-  /** Looks at the upload until it settles: the document's id, or (it was reopened) the parts the server holds. */
-  async function pollUntilSettled(uploadId: string): Promise<string | Set<number>> {
+  /** Looks at the upload until it settles: the document's id, or (it was reopened) the numbers of the parts it lacks. */
+  async function pollUntilSettled(uploadId: string, chunkCount: number): Promise<string | number[]> {
+    let firstLook: number | null = null;
     for (let looks = 0; ; looks += 1) {
       await timing.sleep(pollDelay(looks), signal);
+      firstLook ??= timing.now();
       const up: UploadView = await withRetries(() => unwrap(api.GET("/v1/uploads/{upload_id}", { params: { path: { upload_id: uploadId } } })), signal);
-      if (up.status === "complete" && up.document_id) return up.document_id;
-      if (up.status === "open") return new Set(up.received ?? []);
-      if (up.status === "failed") {
+      if (up.status === "complete") {
+        if (up.document_id) return up.document_id;
+        throw failedWith("upload_failed"); // complete, yet no document to hand back
+      }
+      if (up.status === "open") {
+        // Only a reopen if the server names parts it lacks. Open with none missing is the moment before the
+        // row flips to finalizing, or an upload past its time that the nightly sweep has not closed yet.
+        const lacks = Array.isArray(up.missing)
+          ? up.missing
+          : Array.isArray(up.received)
+            ? Array.from({ length: chunkCount }, (_, i) => i + 1).filter((n) => !up.received!.includes(n))
+            : []; // received left out: unknown, not none
+        const missing = lacks.filter((n) => Number.isInteger(n) && n >= 1 && n <= chunkCount);
+        if (missing.length > 0) return missing;
+      } else if (up.status === "failed") {
         pending.closed = true;
         throw failedWith(up.failure && KNOWN_FAILURES.has(up.failure) ? up.failure : "upload_failed");
-      }
-      if (up.status === "cancelled") {
+      } else if (up.status === "cancelled") {
         pending.closed = true;
         throw failedWith("upload_closed");
-      }
-      if (up.status === "expired") {
+      } else if (up.status === "expired") {
         pending.closed = true;
         throw failedWith("upload_expired");
       }
-      // finalizing (or anything new): keep looking.
+      // finalizing, open with nothing missing, or anything new: keep looking, but not for ever.
+      if (timing.now() - firstLook >= GIVE_UP_MS) throw failedWith("upload_failed");
     }
   }
 }
