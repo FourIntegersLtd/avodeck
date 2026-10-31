@@ -382,7 +382,9 @@ async def test_a_page_job_still_pending_refuses_because_the_picture_may_be_redra
     await make_page(aconn, storage, crypto, world["case"], ["Seen", "today"])
     client = await client_for(world["expert"])
     job = await _asked(client, world)
-    admin.execute("insert into app.jobs (case_id, kind, status) values (%s, 'process_pages', 'queued')", (world["case"],))
+    admin.execute(
+        "insert into app.jobs (case_id, kind, status) values (%s, 'process_pages', 'queued')", (world["case"],)
+    )
     await run(worker_db, admin, world, job)
     assert (await client.get(url(world))).json()["reason"] == "page_changed"
     assert model.requests == []

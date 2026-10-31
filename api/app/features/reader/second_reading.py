@@ -10,7 +10,9 @@ lines are stored sealed, shown beside the page and never merged into the expert'
 from __future__ import annotations
 
 import json
+import logging
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +31,9 @@ from app.core.packs import PackLibrary, default_library
 from app.core.storage import StorageError, SupabaseStorage, storage_settings
 
 KIND = "second_reading"
+log = logging.getLogger(__name__)
+# Jobs that read, turn or redraw page pictures (slice A kinds, named here because a slice may not import another)
+PAGE_JOBS = ("scan_document", "process_bundle", "process_pages", "reprocess_case")
 _PROMPT = (Path(__file__).parent / "prompts" / "t10.txt").read_text()
 _VERSION, _SYSTEM = _PROMPT.split("\n", 1)
 
@@ -113,8 +118,9 @@ class _Refused(Exception):
 
 async def _stored_words(
     conn: AsyncConnection, crypto: CaseCrypto, case_id: uuid.UUID, page_id: uuid.UUID
-) -> tuple[list[OcrWord], bool]:
-    """The page's words with the expert's corrections in place, and whether any is the expert's own typing."""
+) -> tuple[list[OcrWord], bool, list[list[str]]]:
+    """The page's words with the expert's corrections in place, whether any is the expert's own typing, and the
+    word ids of each correction that spans several words (their reading sits on the first)."""
     cur = await conn.execute(
         "select word_id, text, polygon, confidence, source from app.ocr_words where page_id = %s order by n",
         (page_id,),
@@ -128,7 +134,8 @@ async def _stored_words(
     corrections = (await current_corrections(conn, crypto, case_id, [page_id])).get(page_id, [])
     texts = apply_corrections(texts, corrections)
     words = [OcrWord(w, texts[w], tuple(float(v) for v in poly), float(conf)) for w, _, poly, conf, _ in rows]
-    return words, any(source == "expert" for *_, source in rows)
+    runs = [list(ids) for ids, _ in corrections if len(ids) > 1]
+    return words, any(source == "expert" for *_, source in rows), runs
 
 
 async def _fresh_words(
@@ -156,11 +163,35 @@ async def _fresh_words(
     return mask.turned_words(page.words, page.width, page.height, rotation), size
 
 
-async def _read_one(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID) -> list[dict[str, Any]]:
+async def _unchanged(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, asked_at: int | None) -> None:
+    """Refuse when the page is not as it was when the expert asked: turned since, or a page job may redraw it."""
+    cur = await conn.execute("select rotation from app.pages where id = %s", (page_id,))
+    row = await cur.fetchone()
+    if row is None or asked_at is None or row[0] != asked_at:
+        raise _Refused("page_changed")
+    cur = await conn.execute(
+        "select 1 from app.jobs where case_id = %s and kind = any(%s) and status in ('queued', 'running', 'paused')",
+        (case_id, list(PAGE_JOBS)),
+    )
+    if await cur.fetchone() is not None:
+        raise _Refused("page_changed")
+
+
+def _found(words: list[OcrWord], pack: Any, identity: Any) -> set[str]:
+    """The identifiers `pii.spans` finds in these words, as normalised strings (never logged)."""
+    plain = " ".join(" ".join(w.text.split()) for w in words)
+    spans = pii.spans(plain, pack=pack, names=identity.names, dates_of_birth=identity.dates_of_birth)
+    return {" ".join(plain[s.start : s.end].lower().split()) for s in spans}
+
+
+async def _read_one(
+    conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUID, asked_at: int | None
+) -> list[dict[str, Any]]:
     storage, crypto, library = services.get_storage(), services.get_crypto(), services.get_packs()
     kit = services.get_kit()
     if kit is None:
         raise ProcessingPaused("model_unavailable")
+    await _unchanged(conn, case_id, page_id, asked_at)
     cur = await conn.execute(
         "select p.image_path, p.rotation, a.width, a.height, c.jurisdiction, c.case_type, c.specialty"
         " from app.pages p join app.cases c on c.id = p.case_id"
@@ -174,9 +205,14 @@ async def _read_one(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUI
     pack = library.for_case({"jurisdiction": jurisdiction, "case_type": case_type, "specialty": specialty})
     identity = await identity_for(conn, crypto, case_id)
 
-    words, typed = await _stored_words(conn, crypto, case_id, page_id)
+    words, typed, runs = await _stored_words(conn, crypto, case_id, page_id)
     if typed or not words:
+        stored = words
         words, size = await _fresh_words(conn, storage, crypto, case_id, page_id, rotation)
+        runs = []  # the fresh reading has its own word ids
+        # an identifier in the expert's own text that the fresh reading did not find has no box to paint
+        if _found(stored, pack, identity) - _found(words, pack, identity):
+            raise _Refused("identifier_unmatched")
     elif width and height:
         size = (float(width), float(height))
     else:
@@ -186,7 +222,8 @@ async def _read_one(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUI
     spans = pii.spans(plain, pack=pack, names=identity.names, dates_of_birth=identity.dates_of_birth)
     try:
         picture = await crypto.decrypt(conn, case_id, await storage.get(image_path), purpose=image_path)
-        masked = mask.mask_page(picture, words, size, spans)
+        await _unchanged(conn, case_id, page_id, asked_at)
+        masked = mask.mask_page(picture, words, size, spans, runs=runs, names=identity.names)
     except StorageError:
         raise _Refused("unreadable_picture") from None
     except mask.MaskUnsafe as unsafe:
@@ -197,32 +234,52 @@ async def _read_one(conn: AsyncConnection, case_id: uuid.UUID, page_id: uuid.UUI
     return [{"text": ln["text"], "confidence": ln["confidence"]} for ln in out["lines"]]
 
 
+async def _finish(
+    conn: AsyncConnection,
+    page_id: uuid.UUID,
+    requested_at: datetime,
+    status: str,
+    reason: str | None,
+    sealed: bytes | None,
+) -> None:
+    """Records the outcome only for the request the job read: a newer request (a later `requested_at`) stays."""
+    await conn.execute(
+        "update app.second_readings set status = %s, reason = %s, lines = %s, finished_at = now()"
+        " where page_id = %s and requested_at = %s and status = 'queued'",
+        (status, reason, sealed, page_id, requested_at),
+    )
+
+
 async def second_reading(ctx: JobContext) -> None:
     """Reads every page of the case that is waiting. A busy model leaves the page waiting (the job pauses)."""
     crypto = services.get_crypto()
     async with ctx.transaction() as conn:
         cur = await conn.execute(
-            "select page_id from app.second_readings where case_id = %s and status = 'queued' order by requested_at",
+            "select page_id, requested_at, page_rotation from app.second_readings"
+            " where case_id = %s and status = 'queued' order by requested_at",
             (ctx.case_id,),
         )
-        waiting = [r[0] for r in await cur.fetchall()]
-    for page_id in waiting:
-        async with ctx.transaction() as conn:
-            status, reason, sealed = "done", None, None
-            try:
-                lines = await _read_one(conn, ctx.case_id, page_id)
-                sealed = await crypto.encrypt(
-                    conn, ctx.case_id, json.dumps(lines).encode(), purpose=lines_purpose(page_id)
-                )
-            except _Refused as refused:
-                status, reason = "refused", refused.reason
-            except InvalidOutput:
-                status, reason = "failed", "invalid_output"
-            await conn.execute(
-                "update app.second_readings set status = %s, reason = %s, lines = %s, finished_at = now()"
-                " where page_id = %s and status = 'queued'",
-                (status, reason, sealed, page_id),
-            )
+        waiting = await cur.fetchall()
+    for page_id, requested_at, asked_at in waiting:
+        try:
+            async with ctx.transaction() as conn:
+                status, reason, sealed = "done", None, None
+                try:
+                    lines = await _read_one(conn, ctx.case_id, page_id, asked_at)
+                    sealed = await crypto.encrypt(
+                        conn, ctx.case_id, json.dumps(lines).encode(), purpose=lines_purpose(page_id)
+                    )
+                except _Refused as refused:
+                    status, reason = "refused", refused.reason
+                except InvalidOutput:
+                    status, reason = "failed", "invalid_output"
+                await _finish(conn, page_id, requested_at, status, reason, sealed)
+        except ProcessingPaused:
+            raise
+        except Exception as error:  # nothing leaves the row waiting for ever; the type only, never the message
+            log.warning("second_reading failed: %s", type(error).__name__)
+            async with ctx.transaction() as conn:
+                await _finish(conn, page_id, requested_at, "failed", "unexpected_error", None)
 
 
 def register(reg: JobRegistry) -> None:

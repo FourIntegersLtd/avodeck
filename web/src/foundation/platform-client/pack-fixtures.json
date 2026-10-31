@@ -934,6 +934,7 @@
             "date": "Date",
             "from": "From",
             "received_on": "Received on",
+            "specialty": "Author's specialty",
             "to": "To"
           },
           "fields": {
@@ -942,6 +943,7 @@
             "date": "date",
             "from": "string",
             "received_on": "date",
+            "specialty": "string",
             "to": "string"
           },
           "key": "letter",

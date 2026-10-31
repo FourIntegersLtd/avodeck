@@ -50,10 +50,11 @@ async def ask_second_reading(
     if not page["has_transcription"] and not on_request:
         raise conflict()
     await conn.execute(
-        "insert into app.second_readings (case_id, page_id, requested_by) values (%s, %s, %s)"
+        "insert into app.second_readings (case_id, page_id, requested_by, page_rotation) values (%s, %s, %s, %s)"
         " on conflict (page_id) do update set status = 'queued', reason = null, lines = null,"
-        " requested_by = excluded.requested_by, requested_at = now(), finished_at = null",
-        (case_id, page["id"], scope.person_id),
+        " requested_by = excluded.requested_by, page_rotation = excluded.page_rotation,"
+        " requested_at = clock_timestamp(), finished_at = null",
+        (case_id, page["id"], scope.person_id, page["rotation"]),
     )
     await audit.record(conn, action="page.second_reading_requested", target=f"page:{page['id']}", case_id=case_id)
     return JobOut(job_id=await registry.enqueue(conn, case_id, second_reading.KIND))

@@ -85,7 +85,7 @@ Writing (screens 14 and 15) requires a locked question set (409 otherwise). A se
 
 ## Second reading (`second_readings.status`)
 
-queued → done / refused / failed (the `second_reading` job, T-10, ADR 0030). A new request by the named expert or assistant puts any status back to queued (the old lines are cleared). `refused` means the picture could not be masked safely and nothing was sent; the reason is a code. A busy model leaves the row queued and the job pauses.
+queued → done / refused / failed (the `second_reading` job, T-10, ADR 0030). A new request by the named expert or assistant puts any status back to queued (the old lines are cleared). `refused` means the picture could not be masked safely and nothing was sent; the reason is a code (`low_confidence`, `doubtful_word`, `identifier_unmatched`, `page_changed` and others). `failed` carries `invalid_output` or `unexpected_error`. A job writes only for the request it read. A busy model leaves the row queued and the job pauses.
 
 ## Prefill suggestion (`prefill_suggestions.status`)
 

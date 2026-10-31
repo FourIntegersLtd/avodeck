@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import logging
 import uuid
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -116,6 +117,8 @@ class AiKit:
         """Like `run`, with a page picture whose identifiers `mask.mask_page` painted out. Raw bytes are refused."""
         if not isinstance(masked, MaskedImage):
             raise TypeError("run_image takes a MaskedImage made by mask.mask_page")
+        if hashlib.sha256(masked.data).hexdigest() != masked.sha256:
+            raise TypeError("the picture is not the one that was masked")
         check_endpoint(self.settings, self.bedrock.endpoint)
         model_id = model_for(self.settings, task.model)
         if case_id is not None:
