@@ -113,3 +113,11 @@ async def test_a_stream_ends_after_its_time_limit_so_the_browser_reconnects(
     resp = await asyncio.wait_for((await client_for(team["expert"])).get(f"/v1/jobs/{team['job']}/events"), 10)
     assert resp.status_code == 200
     assert events(resp)[-1]["status"] == "running"
+
+
+async def test_stream_limit_is_under_the_proxy_timeout(api_db: Database, auth_env: dict[str, str]) -> None:
+    """Vercel cuts a proxied request at 120 s as an error; the stream must end itself first, cleanly."""
+    from app.core.routes.jobs import JOB_STREAM_SECONDS, PROXY_TIMEOUT_SECONDS
+
+    assert JOB_STREAM_SECONDS < PROXY_TIMEOUT_SECONDS
+    assert build_app(api_db, auth_env).state.job_stream_seconds == JOB_STREAM_SECONDS
