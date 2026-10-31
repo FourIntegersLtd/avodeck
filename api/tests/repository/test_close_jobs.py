@@ -44,7 +44,7 @@ from app.core.db import Database
 from app.core.email import OutboxMailer
 from app.core.jobs import JobContext, JobRegistry
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage, case_prefix
+from app.core.storage import CaseFileStorage, case_prefix
 from app.features.close import jobs as close_jobs
 from tests.support.case_rows import CaseWorld, fill_every_case_table
 from tests.support.contracts import add_fact, add_report_version, add_sent_invoice
@@ -75,7 +75,7 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -89,13 +89,13 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture(autouse=True)
-def services(monkeypatch: pytest.MonkeyPatch, storage: SupabaseStorage, crypto: CaseCrypto) -> None:
+def services(monkeypatch: pytest.MonkeyPatch, storage: CaseFileStorage, crypto: CaseCrypto) -> None:
     monkeypatch.setattr(close_jobs.services, "storage", storage)
     monkeypatch.setattr(close_jobs.services, "crypto", crypto)
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -141,7 +141,7 @@ def make_due(admin: psycopg.Connection, case: uuid.UUID, *, days_ago: int = 1) -
 
 
 async def put_encrypted(
-    storage: SupabaseStorage, crypto: CaseCrypto, worker_db: Database, case: uuid.UUID, path: str, data: bytes
+    storage: CaseFileStorage, crypto: CaseCrypto, worker_db: Database, case: uuid.UUID, path: str, data: bytes
 ) -> None:
     async with worker_db.job(case) as conn:
         await storage.put(path, await crypto.encrypt(conn, case, data, purpose=path))
@@ -150,7 +150,7 @@ async def put_encrypted(
 async def add_files(
     admin: psycopg.Connection,
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     case: uuid.UUID,
@@ -217,7 +217,7 @@ async def test_deletion_removes_every_case_row_every_file_and_the_key_and_writes
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -262,7 +262,7 @@ async def test_deletion_removes_quarantined_and_superseded_pages_and_their_objec
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -291,7 +291,7 @@ async def test_a_backup_copy_of_the_files_cannot_be_decrypted_once_the_case_key_
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -319,7 +319,7 @@ async def test_an_interrupted_deletion_resumes_and_writes_exactly_one_certificat
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -461,7 +461,7 @@ def finish(admin: psycopg.Connection, job: uuid.UUID) -> None:
 
 
 async def served_report(
-    admin: psycopg.Connection, storage: SupabaseStorage, crypto: CaseCrypto, worker_db: Database, case: uuid.UUID
+    admin: psycopg.Connection, storage: CaseFileStorage, crypto: CaseCrypto, worker_db: Database, case: uuid.UUID
 ) -> bytes:
     pdf = b"%PDF-zz synthetic report"
     path = f"{case_prefix(case)}/reports/v1.pdf"
@@ -547,7 +547,7 @@ async def test_the_named_expert_downloads_the_full_record_of_work_once(
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -594,7 +594,7 @@ async def test_an_organisation_admin_gets_the_administrative_copy_without_page_i
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -622,7 +622,7 @@ async def test_the_named_experts_export_builds_only_the_full_copy(
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -645,7 +645,7 @@ async def test_another_admin_cannot_download_an_admins_export(
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -664,7 +664,7 @@ async def test_another_admin_cannot_download_an_admins_export(
 
 
 async def test_an_export_nobody_asked_for_builds_nothing(
-    run: Run, seed: Seed, storage: SupabaseStorage, world: dict[str, Any]
+    run: Run, seed: Seed, storage: CaseFileStorage, world: dict[str, Any]
 ) -> None:
     case = world["case"]
     job = seed.job(case, kind="export_case")
@@ -673,7 +673,7 @@ async def test_an_export_nobody_asked_for_builds_nothing(
 
 
 async def test_an_export_is_stored_encrypted(
-    run: Run, storage: SupabaseStorage, admin: psycopg.Connection, crypto: CaseCrypto, worker_db: Database,
+    run: Run, storage: CaseFileStorage, admin: psycopg.Connection, crypto: CaseCrypto, worker_db: Database,
     world: dict[str, Any],
 ) -> None:  # fmt: skip
     case = world["case"]
@@ -831,7 +831,7 @@ async def test_an_export_writes_nothing_once_deletion_has_started(
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -847,7 +847,7 @@ async def test_a_deletion_that_starts_during_an_export_still_removes_the_export(
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -886,7 +886,7 @@ async def test_the_download_is_streamed(
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -906,7 +906,7 @@ async def test_the_download_is_streamed(
 
 
 async def test_the_daily_run_removes_exports_not_downloaded_in_time(
-    worker_db: Database, admin: psycopg.Connection, seed: Seed, storage: SupabaseStorage, world: dict[str, Any]
+    worker_db: Database, admin: psycopg.Connection, seed: Seed, storage: CaseFileStorage, world: dict[str, Any]
 ) -> None:
     registry = isolated_registry()
     name = daily(registry)
@@ -1001,7 +1001,7 @@ async def test_only_the_chosen_kinds_go_in_the_zip(
     run: Run,
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],
@@ -1035,7 +1035,7 @@ async def test_only_the_chosen_kinds_go_in_the_zip(
 async def test_the_file_list_counts_what_each_kind_holds(
     seed: Seed,
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_db: Database,
     world: dict[str, Any],

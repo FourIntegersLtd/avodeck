@@ -21,7 +21,7 @@ import pytest
 from app.core.ai.recordings import FixtureStore
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import (
     Harness,
     date_score,
@@ -46,7 +46,7 @@ READ_AS = {"DMY": dt.date(2024, 4, 3), "MDY": dt.date(2024, 3, 4)}  # 03/04/2024
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -64,7 +64,7 @@ async def _open(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     names: list[str] | None = None,
     dates_of_birth: list[dt.date] | None = None,
 ) -> Any:
@@ -94,7 +94,7 @@ async def subset(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     recordings = rekeyed_store(tmp_path / "recordings", subset_document(), subset_page_bytes())
     case = expected("case.json")
@@ -207,7 +207,7 @@ async def test_the_same_printed_date_reads_in_each_pack_date_order(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     from app.features.pipeline import dates
 
@@ -315,7 +315,7 @@ async def test_a_two_digit_year_is_given_its_century_at_ingest(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     from app.features.pipeline import dates
 
@@ -349,7 +349,7 @@ async def test_a_result_mid_line_is_dated_from_its_line_at_ingest(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     answer = _answer_with(LAUNCH, [("Hb 112", None, ["p1w4", "p1w5"]), ("later", None, ["p1w6"])])
     opened = await _open(

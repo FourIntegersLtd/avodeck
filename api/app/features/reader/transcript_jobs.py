@@ -19,7 +19,7 @@ from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ApiError
 from app.core.jobs import JobContext, JobRegistry, registry
 from app.core.packs import PackLibrary, default_library
-from app.core.storage import StorageError, SupabaseStorage, case_prefix, storage_settings
+from app.core.storage import StorageError, CaseFileStorage, case_prefix, storage_settings
 from app.features.reader import repo, transcript
 from app.features.reader.transcript_words import label_text, show_date, word
 
@@ -32,13 +32,13 @@ class _Services:
     """Storage, the case keys and the packs for the job, made from the cell config on first use."""
 
     def __init__(self) -> None:
-        self.storage: SupabaseStorage | None = None
+        self.storage: CaseFileStorage | None = None
         self.crypto: CaseCrypto | None = None
         self.packs: PackLibrary | None = None
 
-    def get_storage(self) -> SupabaseStorage:
+    def get_storage(self) -> CaseFileStorage:
         if self.storage is None:
-            self.storage = SupabaseStorage(storage_settings())
+            self.storage = CaseFileStorage(storage_settings())
         return self.storage
 
     def get_crypto(self) -> CaseCrypto:
@@ -118,7 +118,7 @@ def _missing(error: StorageError) -> bool:
 
 
 async def take(
-    conn: AsyncConnection, storage: SupabaseStorage, crypto: CaseCrypto, case_id: uuid.UUID, job_id: uuid.UUID
+    conn: AsyncConnection, storage: CaseFileStorage, crypto: CaseCrypto, case_id: uuid.UUID, job_id: uuid.UUID
 ) -> bytes:
     """The Word file, once. That it was taken is the audit row, so a copy that could not be removed is never
     handed over twice; the caller removes the stored copy after the transaction commits (`remove`)."""
@@ -141,7 +141,7 @@ async def take(
     return data
 
 
-async def remove(storage: SupabaseStorage, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
+async def remove(storage: CaseFileStorage, case_id: uuid.UUID, job_id: uuid.UUID) -> None:
     """Removes the stored copy once the download is recorded. A failure leaves it for the daily sweep."""
     try:
         await storage.delete([transcript_path(case_id, job_id)])

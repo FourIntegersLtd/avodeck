@@ -24,7 +24,7 @@ from app.core.ai.recordings import FixtureStore
 from app.core.contracts.pipeline import process_pages
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline import paths
 from tests.repository.test_pipeline_support import Harness, empty_answer, harness
 from tests.support.ai import ScriptedBedrock
@@ -74,7 +74,7 @@ class Angled:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store

@@ -23,7 +23,7 @@ from app.core.contracts.events import DocumentUploaded, events
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
 from app.core.errors import ApiError
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -34,7 +34,7 @@ FILE_SHA = SyntheticFile(1 * MB, seed=23).sha256()
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -48,7 +48,7 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -100,7 +100,7 @@ async def test_registering_publishes_the_event_once_on_the_jobs_connection(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     seen: list[tuple[DocumentUploaded, int | None]],
@@ -120,7 +120,7 @@ async def test_an_upload_of_later_records_says_so_in_the_event(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     seen: list[tuple[DocumentUploaded, int | None]],
@@ -138,7 +138,7 @@ async def test_a_failing_subscriber_fails_the_job_and_nothing_is_registered(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:

@@ -18,7 +18,7 @@ from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.core.http import router as make_router
 from app.core.packs import PackLibrary
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.close import jobs as _jobs  # noqa: F401  (registers export_case and delete_case)
 from app.features.close import repo, service
 from app.features.close.certificate import certificate_pdf
@@ -43,8 +43,8 @@ def _packs(request: Request) -> PackLibrary:
     return library
 
 
-def _storage(request: Request) -> SupabaseStorage:
-    storage: SupabaseStorage | None = request.app.state.storage
+def _storage(request: Request) -> CaseFileStorage:
+    storage: CaseFileStorage | None = request.app.state.storage
     if storage is None:
         raise ApiError("unavailable", "File storage is not ready.", 503)
     return storage

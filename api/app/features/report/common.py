@@ -15,7 +15,7 @@ from app.core.crypto import CaseCrypto
 from app.core.errors import ApiError
 from app.core.http import DbConn
 from app.core.packs import MergedPack, PackLibrary
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 
 View = Annotated[CaseAccess, Depends(require_case_access("case.view_content"))]
 Build = Annotated[CaseAccess, Depends(require_case_access("report.build"))]
@@ -65,8 +65,8 @@ def _crypto(request: Request) -> CaseCrypto:
     return crypto
 
 
-def _storage(request: Request) -> SupabaseStorage:
-    storage: SupabaseStorage | None = request.app.state.storage
+def _storage(request: Request) -> CaseFileStorage:
+    storage: CaseFileStorage | None = request.app.state.storage
     if storage is None:
         raise ApiError("unavailable", "Files are not ready.", 503)
     return storage
@@ -78,7 +78,7 @@ def _reads(request: Request) -> PageReadLog | None:
 
 
 Crypto = Annotated[CaseCrypto, Depends(_crypto)]
-Storage = Annotated[SupabaseStorage, Depends(_storage)]
+Storage = Annotated[CaseFileStorage, Depends(_storage)]
 Reads = Annotated[PageReadLog | None, Depends(_reads)]
 
 

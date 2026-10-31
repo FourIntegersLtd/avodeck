@@ -20,13 +20,13 @@ from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.email import OutboxMailer
 from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
-from app.core.storage import SupabaseStorage, storage_settings
+from app.core.storage import CaseFileStorage, storage_settings
 
 
 @dataclass
 class ReportServices:
     crypto: CaseCrypto | None = None
-    storage: SupabaseStorage | None = None
+    storage: CaseFileStorage | None = None
     reads: PageReadLog | None = None
     kit: AiKit | None = None
     packs: PackLibrary = field(default_factory=default_library)
@@ -37,7 +37,7 @@ class ReportServices:
             raise ProcessingPaused("storage_unavailable")
         return self.crypto
 
-    def files(self) -> SupabaseStorage:
+    def files(self) -> CaseFileStorage:
         if self.storage is None:
             raise ProcessingPaused("storage_unavailable")
         return self.storage
@@ -58,7 +58,7 @@ def from_env() -> ReportServices:
     except ConfigError:
         crypto = None
     try:
-        storage: SupabaseStorage | None = SupabaseStorage(storage_settings())
+        storage: CaseFileStorage | None = CaseFileStorage(storage_settings())
     except ConfigError:
         storage = None
     kit: AiKit | None = live_or_recorded().kit

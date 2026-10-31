@@ -16,7 +16,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.housekeeping import UPLOAD_SWEEP, expire_uploads
-from app.core.storage import SupabaseStorage, upload_prefix
+from app.core.storage import CaseFileStorage, upload_prefix
 from tests.support.files import local_storage
 from tests.support.jobs import isolated_registry, open_worker
 from tests.support.seed import Seed
@@ -35,7 +35,7 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -62,7 +62,7 @@ def case_and_expert(seed: Seed) -> tuple[uuid.UUID, uuid.UUID, uuid.UUID]:
 
 async def test_unfinished_uploads_past_expiry_are_expired_their_chunks_removed_and_audited(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     case_and_expert: tuple[uuid.UUID, uuid.UUID, uuid.UUID],
 ) -> None:
@@ -191,7 +191,7 @@ async def test_a_finalizing_upload_with_a_running_job_is_never_expired(
 @pytest.mark.parametrize("status", ["cancelled", "failed"])
 async def test_cancelled_and_failed_uploads_are_returned_for_cleanup_until_cleaned(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     case_and_expert: tuple[uuid.UUID, uuid.UUID, uuid.UUID],
     status: str,
@@ -213,7 +213,7 @@ async def test_cancelled_and_failed_uploads_are_returned_for_cleanup_until_clean
 
 async def test_cleaned_at_is_not_set_while_storage_still_holds_the_parts(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     case_and_expert: tuple[uuid.UUID, uuid.UUID, uuid.UUID],
     monkeypatch: pytest.MonkeyPatch,
@@ -250,7 +250,7 @@ async def test_an_upload_with_a_document_is_never_returned_or_marked_cleaned(
 
 async def test_a_database_error_on_one_row_does_not_abort_the_sweeps_transaction(
     worker_db: Database,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     case_and_expert: tuple[uuid.UUID, uuid.UUID, uuid.UUID],
 ) -> None:

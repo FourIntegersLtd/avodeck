@@ -17,14 +17,14 @@ from app.core.config import ConfigError
 from app.core.crypto import CaseCrypto, key_provider_from_env
 from app.core.errors import ProcessingPaused
 from app.core.packs import PackLibrary, default_library
-from app.core.storage import SupabaseStorage, storage_settings
+from app.core.storage import CaseFileStorage, storage_settings
 
 
 @dataclass
 class SetupServices:
     kit: AiKit | None
     ocr: OcrClient | None
-    storage: SupabaseStorage | None
+    storage: CaseFileStorage | None
     crypto: CaseCrypto | None
     packs: PackLibrary
 
@@ -33,7 +33,7 @@ class SetupServices:
             raise ProcessingPaused("model_unavailable")
         return self.kit, self.ocr
 
-    def files(self) -> tuple[SupabaseStorage, CaseCrypto]:
+    def files(self) -> tuple[CaseFileStorage, CaseCrypto]:
         if self.storage is None or self.crypto is None:
             raise ProcessingPaused("storage_unavailable")
         return self.storage, self.crypto
@@ -53,7 +53,7 @@ def from_env() -> SetupServices:
     kit: AiKit | None = ai.kit
     ocr: OcrClient | None = ai.ocr
     try:
-        storage: SupabaseStorage | None = SupabaseStorage(storage_settings())
+        storage: CaseFileStorage | None = CaseFileStorage(storage_settings())
     except ConfigError:
         storage = None
     try:

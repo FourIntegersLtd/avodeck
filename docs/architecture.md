@@ -39,7 +39,8 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 | API | FastAPI on Railway (no servers to manage; ADR 0021) | Amsterdam, no data at rest | Yes |
 | Worker | Same codebase, App Platform worker component; Postgres job queue | London | Yes |
 | Scheduled jobs | App Platform scheduled component (deadlines, deletion) | London | Yes |
-| Database, auth, files | Supabase: Postgres + pgvector, Auth (called only by FastAPI), private Storage | London | Yes |
+| Database, auth | Supabase: Postgres + pgvector, Auth (called only by FastAPI) | London | Yes |
+| Case files | AWS S3, private bucket, SSE-S3 + per-case envelope encryption (ADR 0032) | London (eu-west-2) | Yes |
 | LLM | Claude Sonnet 5 / Opus 5.5 via AWS Bedrock, in-region model IDs only | London | Yes, identifiers stripped |
 | OCR | Azure AI Document Intelligence (Layout, Read) | UK South | Yes |
 | Dictation | Azure Speech (language and phrase list from the case's packs; en-GB at launch), relayed through FastAPI over WebSocket | UK South | Yes |
@@ -49,7 +50,7 @@ Avodeck is a records-review engine for expert witnesses. A bundle of records goe
 ### 2.2 How a request flows
 
 - **Browser → FastAPI only.** Login, uploads (8 MB chunks), page images, downloads, dictation (WebSocket) and progress (server-sent events) all go through FastAPI. No Supabase, Azure or AWS keys or URLs in the frontend. Exceptions: the signature pad and the offline witness-box search.
-- **FastAPI → Postgres** as restricted roles (`app_api`, `app_worker`), never the service role. Each request or job sets who is acting (`SET LOCAL app.person_id` / `app.job_case_id`), so row-level security really repeats the access check (ADR 0013). Tables live in a schema not exposed to Supabase's Data API. The service-role key is used only for Supabase Auth admin calls and Storage.
+- **FastAPI → Postgres** as restricted roles (`app_api`, `app_worker`), never the service role. Each request or job sets who is acting (`SET LOCAL app.person_id` / `app.job_case_id`), so row-level security really repeats the access check (ADR 0013). Tables live in a schema not exposed to Supabase's Data API. The service-role key is used only for Supabase Auth admin calls (Storage moved to S3, ADR 0032).
 - **Long work** (OCR, extraction, report building, matching, export, deletion) is queued; the API returns `202` + `job_id`; the worker processes it page by page, idempotently.
 - **AI calls** go only through the AI kit (`api/app/core/ai/`), which strips identifiers, enforces the cell's model allow-list, validates structured output, checks provenance and logs metadata (never content).
 
@@ -432,7 +433,7 @@ The machinery behind everything: keys, jobs, notifications, logs.
 - **Concurrency:** every editable resource returns an `ETag`; updates must send `If-Match` and get 412 `stale` if someone else changed it first.
 - **Idempotency:** create, send, serve, sign and pay-style requests accept an `Idempotency-Key` header; a repeat within 24 hours returns the first result.
 - **Long work:** returns `202 Accepted` + `{job_id}`. Progress comes from `GET /jobs/{job_id}` or a server-sent events stream `GET /jobs/{job_id}/events` (status, step, pct, eta_seconds, step_done and step_total as whole numbers: "page 40 of 900"). No patient text in job rows.
-- **Files:** all go through FastAPI. Uploads are sent in 8 MB chunks (`PUT /uploads/{upload_id}/chunks/{n}`) and streamed to Supabase Storage, so large bundles never sit in memory. Page images, thumbnails and downloads are streamed back by FastAPI after the ownership check, with `Cache-Control: private, no-store`.
+- **Files:** all go through FastAPI. Uploads are sent in 8 MB chunks (`PUT /uploads/{upload_id}/chunks/{n}`) and streamed to S3, so large bundles never sit in memory. Page images, thumbnails and downloads are streamed back by FastAPI after the ownership check, with `Cache-Control: private, no-store`. No signed or public object URLs (rule 4, ADR 0032).
 - **AI task IDs** (T-xx) refer to section 6.
 - **Errors:** `{error: {code, message}}`. 409 for state conflicts (e.g. editing a locked report; `already_confirmed` and `questions_locked` for questions), 423 for blind-read gating.
 
@@ -491,7 +492,7 @@ All handled by FastAPI, which calls Supabase Auth server-side. The browser never
 | GET | `/cases/{case_id}/steps/progress` | One entry per pack workflow step: `done`, `total`, `percent` (null when the step has nothing to count). A step names its counts in `meters` in `workflow.yaml` (`pages_read`, `questions_confirmed`, `facts_decided`, `questions_with_opinion`, `report_stages`); read-only | Shows on each step pill in the case header |
 | PATCH | `/cases/{case_id}` | Update case details | |
 | POST | `/cases/{case_id}/uploads` | Start an upload `{kind, filename, size, sha256, append?}` → `upload_id`; `append` marks later records | 422 `file_empty` on size 0; the filename refuses control characters; 429 `too_many_uploads` above 20 open or finalizing uploads per person. `Idempotency-Key`: the same key replays |
-| PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk with `X-Chunk-SHA256` (required); FastAPI streams it to Supabase Storage | Resumable: missing chunks can be re-sent. `Content-Length` is checked before the body is read and the stream is capped (413 `chunk_too_large`). 422 `chunk_sha_missing`, 422 `chunk_corrupted` (nothing stored), 409 `upload_busy` (another part or a complete holds the lock; retry), 409 `upload_closed` |
+| PUT | `/uploads/{upload_id}/chunks/{n}` | Send an 8 MB chunk with `X-Chunk-SHA256` (required); FastAPI streams it to S3 | Resumable: missing chunks can be re-sent. `Content-Length` is checked before the body is read and the stream is capped (413 `chunk_too_large`). 422 `chunk_sha_missing`, 422 `chunk_corrupted` (nothing stored), 409 `upload_busy` (another part or a complete holds the lock; retry), 409 `upload_closed` |
 | GET | `/uploads/{upload_id}` | The upload's `status`, which chunks have arrived and which are missing, `failure`, `expires_at`, `sha256`, `filename` and `kind` | How the browser follows a 202 and how it resumes; access is re-checked here |
 | POST | `/uploads/{upload_id}/cancel` | Give up an open upload | `case.upload`. 200 `{status:"cancelled"}` while `open`; 409 `upload_closed` once finalizing or later. The parts are removed by the daily sweep |
 | POST | `/uploads/{upload_id}/complete` | Claim the upload and queue the check that registers the document | Body `{sha256}` (the whole file, required: 422 `file_sha_missing`; 422 `file_hash_mismatch` before any Storage read when it differs from the hash given at start). 409 `chunks_missing` lists the missing chunks. Otherwise **202 `{status:"finalizing"}`**: the upload moves to `finalizing` and a `finalize_upload` worker job re-reads, decrypts and hashes every part, then in one transaction inserts the document, moves the upload to `complete` and publishes `DocumentUploaded(case_id, document_id, appended)`; slice A's subscriber queues the virus scan (`scan_document`) and processing, and if it fails nothing is registered. The browser polls `GET /uploads/{upload_id}`: `complete` carries the document, `open` carries the parts to resend (F44), `failed` carries `failure`. A repeat complete returns the same 202 or, once finished, the same document (200); one carrying a different hash is 409 `file_hash_mismatch`. 409 `upload_closed` on a terminal upload |
@@ -1036,7 +1037,7 @@ Later, once confirmed as London in-region: Claude Haiku 5.5 can replace M3 for s
 ## 7. Bundle pipeline (worker)
 
 **Batch pipeline per case:**
-1. **Ingest:** Supabase Storage upload → ClamAV → pikepdf/qpdf split and repair → pypdfium2 render (150–200 dpi) → hashes (FastAPI worker on DigitalOcean App Platform). Never PyMuPDF (AGPL).
+1. **Ingest:** S3 upload → ClamAV → pikepdf/qpdf split and repair → pypdfium2 render (150–200 dpi) → hashes (FastAPI worker on DigitalOcean App Platform). Never PyMuPDF (AGPL).
 2. **Text layer or OCR:** for each page, check for a usable embedded text layer (born-digital hospital letters, discharge summaries, results). If present, read words and their boxes directly with pypdfium2, give them `word_ids` in `ocr_words` like any OCR output, and skip Azure; set `pages.text_source = 'embedded'`. Treat the layer as unusable (send to OCR) if it is empty, mostly non-dictionary characters, or covers only part of a page that also contains an image of text (scans with a stamped header). Everything else goes to Azure DI Layout (UK South), bounded concurrency, `text_source = 'ocr'`. Embedded-text pages get confidence 1.0 and are never sent to screen 10 for unreadable text. Docling and other local layout models are not used (see decision 0009).
 3. **Triage:** confidence + OCR/VLM disagreement → screen 10; Claude vision fallback with identifier boxes masked.
 4. **PII stripping:** Presidio + case dictionary (dates kept).

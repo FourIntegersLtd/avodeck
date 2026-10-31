@@ -26,7 +26,7 @@ from docx import Document
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_quarantine import answer, summary
 from tests.repository.test_pipeline_support import Harness, harness, page_words
 from tests.support.ai import ScriptedBedrock
@@ -85,7 +85,7 @@ def zipped(files: dict[str, bytes]) -> bytes:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -101,7 +101,7 @@ async def h(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> AsyncIterator[Harness]:
     combo: Combo = request.param
     expert = seed.person()

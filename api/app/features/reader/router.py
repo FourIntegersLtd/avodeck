@@ -27,7 +27,7 @@ from app.core.errors import ApiError
 from app.core.http import CurrentScope, DbConn, IfMatch, etag, stale
 from app.core.http import router as make_router
 from app.core.packs import PackLibrary
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.reader import fields as fact_fields
 from app.features.reader import repo, timeline_date, today  # noqa: F401 (registers the Today providers)
 from app.features.reader import search as bundle_search
@@ -189,7 +189,7 @@ async def page_image(
     scope: CurrentScope,
     size: Literal["page", "small"] = "page",
 ) -> Response:
-    storage: SupabaseStorage | None = getattr(request.app.state, "storage", None)
+    storage: CaseFileStorage | None = getattr(request.app.state, "storage", None)
     crypto: CaseCrypto | None = getattr(request.app.state, "crypto", None)
     if storage is None or crypto is None:
         raise ApiError("unavailable", "File storage is not ready.", 503)

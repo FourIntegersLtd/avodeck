@@ -13,16 +13,16 @@ from collections.abc import AsyncIterator
 
 import pytest
 
-from app.core.storage import SupabaseStorage, case_prefix, storage_settings, upload_prefix
+from app.core.storage import CaseFileStorage, case_prefix, storage_settings, upload_prefix
 from tests.support.files import local_storage, storage_env
 
 pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def small_pages(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def small_pages(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     await (await local_storage(auth_env)).aclose()  # makes sure the test bucket exists
-    store = SupabaseStorage(storage_settings(storage_env(auth_env)), list_page_size=2, delete_batch_size=2)
+    store = CaseFileStorage(storage_settings(storage_env(auth_env)), list_page_size=2, delete_batch_size=2)
     try:
         yield store
     finally:
@@ -35,7 +35,7 @@ def test_a_cases_files_all_live_under_its_prefix() -> None:
     assert upload_prefix(case, upload).startswith(case_prefix(case) + "/")
 
 
-async def test_list_recursive_finds_every_object_below_a_prefix(small_pages: SupabaseStorage) -> None:
+async def test_list_recursive_finds_every_object_below_a_prefix(small_pages: CaseFileStorage) -> None:
     case, other = uuid.uuid4(), uuid.uuid4()
     prefix = case_prefix(case)
     paths = sorted(
@@ -54,3 +54,20 @@ async def test_list_recursive_finds_every_object_below_a_prefix(small_pages: Sup
     assert await small_pages.list_recursive(prefix) == []
     assert await small_pages.list_recursive(case_prefix(other)) == [f"{case_prefix(other)}/a.bin"]
     await small_pages.delete([f"{case_prefix(other)}/a.bin"])
+
+
+async def test_deleting_a_case_prefix_leaves_nothing_behind(small_pages: CaseFileStorage) -> None:
+    """What `close/jobs.py` does when it removes a case: list everything below the prefix, delete it all."""
+    case, other = uuid.uuid4(), uuid.uuid4()
+    prefix = case_prefix(case)
+    keys = [f"{prefix}/pages/{n}.png" for n in range(5)] + [upload_prefix(case, uuid.uuid4()) + "/1.part"]
+    for key in keys:
+        await small_pages.put(key, b"x")
+    await small_pages.put(f"{case_prefix(other)}/keep.bin", b"x")
+
+    await small_pages.delete(await small_pages.list_recursive(case_prefix(case)))
+
+    assert await small_pages.list_recursive(prefix) == []
+    assert await small_pages.list(prefix) == []
+    assert await small_pages.list_recursive(case_prefix(other)) == [f"{case_prefix(other)}/keep.bin"]
+    await small_pages.delete([f"{case_prefix(other)}/keep.bin"])

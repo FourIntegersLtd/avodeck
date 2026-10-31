@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from app.core.ai.bedrock import ModelRequest, ModelResponse
 from app.core.ai.kit import AiKit
 from app.core.db import Database
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.trial.ports import RecordedChanges
 from app.features.trial.services import TrialServices, configure
 from tests.fixtures.trial.world import CRYPTO, Reads, World, app_for, build, serve_report
@@ -118,7 +118,7 @@ def reads() -> Reads:
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -142,7 +142,7 @@ async def worker_db(worker_dsn: str) -> AsyncIterator[Database]:
 
 @pytest.fixture
 def app(
-    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: SupabaseStorage
+    api_db: Database, auth_env: dict[str, str], combo: Combo, reads: Reads, storage: CaseFileStorage
 ) -> Iterator[FastAPI]:
     """The API; slice I's jobs get the same encryption, storage and read log (no model unless `model`)."""
     from app.features.trial import services
@@ -168,7 +168,7 @@ def changes() -> RecordedChanges:
 
 
 @pytest.fixture
-def model(reads: Reads, storage: SupabaseStorage, changes: RecordedChanges) -> Iterator[Callable[..., Scripted]]:
+def model(reads: Reads, storage: CaseFileStorage, changes: RecordedChanges) -> Iterator[Callable[..., Scripted]]:
     def use(**overrides: Answer) -> Scripted:
         scripted = Scripted({**ANSWERS, **overrides})
         configure(

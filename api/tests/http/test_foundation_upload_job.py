@@ -22,7 +22,7 @@ from fastapi import FastAPI
 from app.core.contracts.events import DocumentUploaded, events
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.storage import StorageError, SupabaseStorage, upload_prefix
+from app.core.storage import StorageError, CaseFileStorage, upload_prefix
 from tests.support.db import ClientFor
 from tests.support.files import MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -32,7 +32,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -46,7 +46,7 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -72,7 +72,7 @@ async def test_a_missing_object_sends_the_upload_back_to_open_and_a_resend_compl
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -99,7 +99,7 @@ async def test_a_storage_error_is_raised_for_a_retry_and_changes_nothing(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -130,7 +130,7 @@ async def test_a_crash_after_the_first_chunk_then_a_retry_makes_one_document(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     monkeypatch: pytest.MonkeyPatch,
@@ -161,7 +161,7 @@ async def test_an_unreadable_object_fails_the_upload_audits_it_and_leaves_the_pa
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     caplog: pytest.LogCaptureFixture,
@@ -187,7 +187,7 @@ async def test_a_byte_count_that_differs_from_the_declared_size_fails_the_upload
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -204,7 +204,7 @@ async def test_the_uploaded_event_is_published_exactly_once(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -235,7 +235,7 @@ async def test_a_failed_job_lets_the_next_complete_claim_the_upload_again(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -320,7 +320,7 @@ async def test_a_download_whose_object_is_gone_is_a_404_before_any_bytes_stream(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -338,7 +338,7 @@ async def test_a_reopen_is_audited_without_a_person_and_names_only_the_upload(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:
@@ -376,7 +376,7 @@ async def test_streaming_holds_no_connection_so_a_one_connection_pool_still_fini
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:

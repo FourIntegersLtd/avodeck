@@ -26,7 +26,7 @@ from app.core.crypto import SecretBox
 from app.core.errors import ApiError, ProcessingPaused
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.packs import MergedPack
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.setup import ai_tasks, services
 from app.features.setup.common import cell, invalid, library, not_found, registry_keys
 from app.features.setup.router import router
@@ -46,8 +46,8 @@ def _box(request: Request) -> SecretBox:
     return SecretBox(crypto.provider)
 
 
-def _storage(request: Request) -> SupabaseStorage:
-    storage: SupabaseStorage = request.app.state.storage
+def _storage(request: Request) -> CaseFileStorage:
+    storage: CaseFileStorage = request.app.state.storage
     return storage
 
 

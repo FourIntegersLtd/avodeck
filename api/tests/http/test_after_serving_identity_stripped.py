@@ -12,7 +12,7 @@ import pytest
 from psycopg import AsyncConnection
 
 from app.core.db import Database
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.fixtures.test_after_serving_world import (  # noqa: F401
     CRYPTO,
     Scripted,
@@ -45,7 +45,7 @@ def combo() -> Combo:
 
 async def test_t20_never_carries_the_subject(
     client_for: ClientFor,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     admin: psycopg.Connection,
     aconn: AsyncConnection,
     worker_db: Database,

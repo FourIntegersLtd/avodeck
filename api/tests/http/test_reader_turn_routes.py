@@ -26,7 +26,7 @@ from PIL import Image
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.pipeline.paths import page_image_path
 from tests.fixtures.stub_facts import PAGE_HEIGHT, PAGE_WIDTH, load_stub_facts
 from tests.support.files import build_app, local_storage
@@ -38,7 +38,7 @@ CRYPTO = CaseCrypto(LocalKeyProvider.generate())
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -47,7 +47,7 @@ async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=CRYPTO)
 
 
@@ -208,7 +208,7 @@ async def test_the_small_picture_for_the_page_strip_is_small_and_never_cached(
     client_for: Any,
     admin: psycopg.Connection,
     aconn: psycopg.AsyncConnection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     world: dict[str, Any],
 ) -> None:
     path = page_image_path(world["case"], world["page_id"])

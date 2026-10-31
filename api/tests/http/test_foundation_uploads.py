@@ -19,7 +19,7 @@ from fastapi import FastAPI
 
 from app.core.crypto import CaseCrypto, LocalKeyProvider
 from app.core.db import Database
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.support.db import ClientFor
 from tests.support.files import CHUNK, MB, SyntheticFile, build_app, local_storage
 from tests.support.seed import Seed
@@ -29,7 +29,7 @@ pytestmark = pytest.mark.anyio
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -43,7 +43,7 @@ def crypto() -> CaseCrypto:
 
 
 @pytest.fixture
-def app(api_db: Database, auth_env: dict[str, str], storage: SupabaseStorage, crypto: CaseCrypto) -> FastAPI:
+def app(api_db: Database, auth_env: dict[str, str], storage: CaseFileStorage, crypto: CaseCrypto) -> FastAPI:
     return build_app(api_db, auth_env, storage=storage, crypto=crypto)
 
 
@@ -87,7 +87,7 @@ def no_storage_link(resp: httpx.Response, auth_env: dict[str, str]) -> None:
 async def test_a_300_mb_pdf_uploads_in_8_mb_chunks_resumes_after_a_dropped_chunk_and_matches_its_sha256(
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
     admin: psycopg.Connection,
@@ -173,7 +173,7 @@ async def test_completing_records_an_audit_row_and_a_second_complete_returns_the
     client_for: ClientFor,
     team: dict[str, uuid.UUID],
     admin: psycopg.Connection,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
     crypto: CaseCrypto,
     worker_dsn: str,
 ) -> None:

@@ -18,7 +18,7 @@ import pytest
 
 from app.core.db import Database
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from tests.repository.test_pipeline_support import harness, text_pdf
 from tests.support.ai import ScriptedBedrock, response
 from tests.support.files import local_storage
@@ -32,7 +32,7 @@ PRINTED = {"DMY": "22/05/2024", "MDY": "05/22/2024"}  # 22 May 2024 under each d
 
 
 @pytest.fixture
-async def storage(auth_env: dict[str, str]) -> AsyncIterator[SupabaseStorage]:
+async def storage(auth_env: dict[str, str]) -> AsyncIterator[CaseFileStorage]:
     store = await local_storage(auth_env)
     try:
         yield store
@@ -70,7 +70,7 @@ async def test_evidence_is_checked_and_its_date_read_in_the_packs_date_order(
     worker_dsn: str,
     auth_env: dict[str, str],
     seed: Seed,
-    storage: SupabaseStorage,
+    storage: CaseFileStorage,
 ) -> None:
     order = default_library().combine(*combo.codes).date_order
     evidence: list[dict[str, Any]] = [

@@ -23,7 +23,7 @@ from app.core.db import Database
 from app.core.errors import ProcessingPaused
 from app.core.jobs import JobContext
 from app.core.packs import default_library
-from app.core.storage import SupabaseStorage
+from app.core.storage import CaseFileStorage
 from app.features.setup.services import SetupServices, configure
 from tests.http.test_setup_questions_routes import (  # noqa: F401
     IDENTIFIERS,
@@ -142,7 +142,7 @@ async def test_the_expert_accepts_or_dismisses_each_suggestion(
 
 
 async def test_without_a_model_the_prefill_job_pauses(
-    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, storage: SupabaseStorage
+    client_for: ClientFor, world: dict[str, uuid.UUID], worker_db: Database, storage: CaseFileStorage
 ) -> None:
     configure(SetupServices(kit=None, ocr=None, storage=storage, crypto=None, packs=default_library()))
     try:
