@@ -12,6 +12,7 @@ instructing parties are drafted for every current one (S4).
 
 from __future__ import annotations
 
+import asyncio
 import re
 import uuid
 from typing import Annotated, Any, Literal
@@ -26,11 +27,13 @@ from app.core.auth.access import CaseAccess, require_case_access
 from app.core.errors import ApiError
 from app.core.http import DbConn, IfMatch, etag, stale
 from app.core.jobs import registry
+from app.core.pdf import render_page, split_pages
 from app.features.setup.common import CODE, invalid, not_found
+from app.features.setup.jobs import read_document
 from app.features.setup.letter import short_title
 from app.features.setup.notes import NoteDraft, NoteItem, NoteTopic, draft
 from app.features.setup.router import router
-from app.features.setup.routes_case import ViewContent, _pack, conflict
+from app.features.setup.routes_case import Crypto, ViewContent, _pack, conflict
 
 Confirm = Annotated[CaseAccess, Depends(require_case_access("question.confirm"))]
 Draft = Annotated[CaseAccess, Depends(require_case_access("request.draft"))]
@@ -140,11 +143,13 @@ def _page(word_ids: list[str]) -> int | None:
 
 def _question(row: dict[str, Any]) -> QuestionOut:
     """A stored question; one read before short titles existed gets its first clause."""
-    return QuestionOut(**{
-        **row,
-        "short_title": short_title(row["text_verbatim"], row["short_title"]),
-        "page": _page(row.get("source_word_ids") or []),
-    })
+    return QuestionOut(
+        **{
+            **row,
+            "short_title": short_title(row["text_verbatim"], row["short_title"]),
+            "page": _page(row.get("source_word_ids") or []),
+        }
+    )
 
 
 async def _latest(conn: DbConn, case_id: uuid.UUID) -> dict[str, Any] | None:
@@ -457,3 +462,55 @@ async def draft_note(case_id: uuid.UUID, body: NoteRequest, access: Draft, conn:
                 for r in await cur.fetchall()
             ]
     return await draft(conn, case_id, body.topic, items)
+
+
+class LetterPages(BaseModel):
+    page_count: int = Field(description="Pages in the letter of instruction.")
+
+
+async def _letter_pages(
+    request: Request, conn: DbConn, crypto: Crypto, case_id: uuid.UUID, version_id: uuid.UUID
+) -> list[bytes]:
+    async with conn.cursor(row_factory=dict_row) as cur:
+        await cur.execute(
+            "select v.id, d.storage_path from app.instruction_versions v"
+            " join app.documents d on d.id = v.document_id where v.id = %s and v.case_id = %s",
+            (version_id, case_id),
+        )
+        row = await cur.fetchone()
+    storage = request.app.state.storage
+    if row is None or not row["storage_path"]:
+        raise not_found()
+    if storage is None:
+        raise ApiError("unavailable", "Saving is not ready.", 503)
+    document = await read_document(conn, storage, crypto, case_id, row["storage_path"])
+    return await asyncio.to_thread(split_pages, document)
+
+
+@router.get("/cases/{case_id}/instructions/{version_id}/pages", response_model=LetterPages)
+async def letter_page_count(
+    case_id: uuid.UUID, version_id: uuid.UUID, access: ViewContent, request: Request, conn: DbConn, crypto: Crypto
+) -> LetterPages:
+    pages = await _letter_pages(request, conn, crypto, case_id, version_id)
+    return LetterPages(page_count=len(pages))
+
+
+@router.get(
+    "/cases/{case_id}/instructions/{version_id}/pages/{page_number}",
+    response_class=Response,
+    responses={200: {"content": {"image/png": {}}, "description": "The page as a PNG picture."}},
+)
+async def letter_page_image(
+    case_id: uuid.UUID,
+    version_id: uuid.UUID,
+    page_number: int,
+    access: ViewContent,
+    request: Request,
+    conn: DbConn,
+    crypto: Crypto,
+) -> Response:
+    pages = await _letter_pages(request, conn, crypto, case_id, version_id)
+    if page_number < 1 or page_number > len(pages):
+        raise not_found()
+    png = await asyncio.to_thread(render_page, pages[page_number - 1])
+    return Response(content=png, media_type="image/png", headers={"Cache-Control": "private, no-store"})
