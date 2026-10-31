@@ -1391,6 +1391,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/cases/{case_id}/instructions/{version_id}/pages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Letter Page Count */
+        get: operations["letter_page_count_v1_cases__case_id__instructions__version_id__pages_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/cases/{case_id}/instructions/{version_id}/pages/{page_number}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Letter Page Image */
+        get: operations["letter_page_image_v1_cases__case_id__instructions__version_id__pages__page_number__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/cases/{case_id}/invoices": {
         parameters: {
             query?: never;
@@ -2436,7 +2470,11 @@ export interface paths {
         /** List Questions */
         get: operations["list_questions_v1_cases__case_id__questions_get"];
         put?: never;
-        post?: never;
+        /**
+         * Add Question
+         * @description A question the model missed, added by the expert; it still needs confirming.
+         */
+        post: operations["add_question_v1_cases__case_id__questions_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4940,6 +4978,15 @@ export interface components {
         Acknowledged: {
             /** Acknowledged */
             acknowledged: string;
+        };
+        /** AddQuestion */
+        AddQuestion: {
+            /** Kind */
+            kind: string;
+            /** Para Ref */
+            para_ref?: string | null;
+            /** Text */
+            text: string;
         };
         /** Addition */
         Addition: {
@@ -7991,6 +8038,14 @@ export interface components {
             /** Text Verbatim */
             text_verbatim: string;
         };
+        /** LetterPages */
+        LetterPages: {
+            /**
+             * Page Count
+             * @description Pages in the letter of instruction.
+             */
+            page_count: number;
+        };
         /** LinkDecision */
         LinkDecision: {
             /**
@@ -10116,6 +10171,11 @@ export interface components {
              * @description Who says the question is outside the expert's expertise.
              */
             outside_expertise_source?: ("pack" | "expert") | null;
+            /**
+             * Page
+             * @description The first page in source_word_ids (e.g. p2w14 → 2).
+             */
+            page?: number | null;
             /** Para Ref */
             para_ref: string | null;
             /**
@@ -10123,6 +10183,17 @@ export interface components {
              * @description A label of at most 40 characters for tabs and lists (the model's, else its first clause).
              */
             short_title: string;
+            /**
+             * Source
+             * @description Who found this question: 'letter' or 'expert'.
+             * @default letter
+             */
+            source: string;
+            /**
+             * Source Instruction Version Id
+             * @description The instruction version this question was extracted from (immutable).
+             */
+            source_instruction_version_id?: string | null;
             /** Source Word Ids */
             source_word_ids: string[];
             /** Status */
@@ -16480,6 +16551,89 @@ export interface operations {
             };
         };
     };
+    letter_page_count_v1_cases__case_id__instructions__version_id__pages_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LetterPages"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    letter_page_image_v1_cases__case_id__instructions__version_id__pages__page_number__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+                version_id: string;
+                page_number: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The page as a PNG picture. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
     list_invoices_v1_cases__case_id__invoices_get: {
         parameters: {
             query?: never;
@@ -19392,6 +19546,50 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Questions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+            /** @description Error: the `code` says which (architecture 5.1) */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiError"];
+                };
+            };
+        };
+    };
+    add_question_v1_cases__case_id__questions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddQuestion"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionOut"];
                 };
             };
             /** @description Validation Error */
