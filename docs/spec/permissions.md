@@ -27,7 +27,7 @@ A person's rights on a case are the **union** of their case role and the adminis
 | `page.read` (counts towards citing) | ✓ | own reads only | own reads only | own reads only | — | — | — | — |
 | `page.quarantine`, `page.replace` (also splits a two-page scan), `page.rotate` | ✓ | — | — | ✓ (suggest only; named expert confirms quarantine) | — | — | — | — |
 | `page.review_duplicate` (set a page aside as a copy, or bring it back) | ✓ | — | — | ✓ | — | — | — | — |
-| `page.transcribe` (type out a page we couldn't read, ask for a second reading (audited as `page.second_reading_requested`; the model sees the picture only with identifiers painted out, ADR 0030), mark relevance or ask for a clearer copy) | ✓ | — | — | ✓ | — | — | — | — |
+| `page.transcribe` (type out a page we couldn't read, ask for a second reading (audited as page.second_reading_requested; the model sees the picture only with identifiers painted out, ADR 0030), mark relevance or ask for a clearer copy) | ✓ | — | — | ✓ | — | — | — | — |
 | `fact.verify` (also flag a fact for points against, move it to a clearer copy) | ✓ | — | — | — | — | — | — | — |
 | `link.suggest` (ask for suggested links between entries and the questions) | ✓ | ✓ | ✓ | ✓ | — | — | — | — |
 | `link.decide` (accept or reject a suggested link), `finding.decide` (keep or dismiss a thing to look at; run the checks again), `availability.override` (correct when an entry reached the clinician), `consultation.note` (private notes on one consultation) | ✓ | — | — | — | — | — | — | — |
